@@ -19,6 +19,7 @@ from app.schemas.wcc import (
     WCCRateItem
 )
 from app.models.wcc import WCCTransaction
+from app.core.pagination import PaginationParams, paginate_query
 
 from typing import Any
 
@@ -243,8 +244,7 @@ async def wcc_recharge_webhook(
 
 @router.get("/sessions", response_model=WCCSessionHistoryResponse)
 def get_wcc_sessions(
-    page: int = 1,
-    limit: int = 10,
+    pagination: PaginationParams = Depends(),
     workspace_id: str | None = None,
     x_workspace_id: str | None = Header(None),
     db: Session = Depends(get_db),
@@ -254,19 +254,17 @@ def get_wcc_sessions(
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id
         )
-        if page < 1:
-            page = 1
-        if limit < 1 or limit > 100:
-            limit = 10
             
         query = db.query(WCCTransaction).filter(WCCTransaction.workspace_id == resolved_ws_id)
         total_count = query.count()
-        transactions = (
-            query.order_by(WCCTransaction.created_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
-            .all()
-        )
+        query = query.order_by(
+    WCCTransaction.created_at.desc()
+)
+
+        transactions = paginate_query(
+        query,
+        pagination
+        ).all()
         
         sessions = [
             WCCSessionItem(
@@ -284,8 +282,8 @@ def get_wcc_sessions(
         return WCCSessionHistoryResponse(
             sessions=sessions,
             total_count=total_count,
-            page=page,
-            limit=limit
+            page=pagination.page,   
+            limit=pagination.limit
         )
     except Exception as e:
         logger.error(f"Error fetching WCC sessions: {str(e)}")

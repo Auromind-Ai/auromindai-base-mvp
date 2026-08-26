@@ -196,7 +196,7 @@ function PhonePreview({ form, actionMode }) {
 
                 {/* Name + status */}
                 <div style={{ flex: 1, minWidth: 0, paddingRight: '4px' }}>
-                  <div style={{ color: '#FFFFFF', fontSize: '13px', fontWeight: '600', lineHeight: '1.2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Auromind</div>
+                  <div style={{ color: '#FFFFFF', fontSize: '13px', fontWeight: '600', lineHeight: '1.2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Orbion Agents</div>
                   <div style={{ color: '#8E8E93', fontSize: '10px' }}>Business account</div>
                 </div>
 
@@ -691,7 +691,7 @@ export default function CreateTemplatePage() {
                         }`}
                     >
                       <Icon d={icons.sparkle} size={14} />
-                      ✨ Generate ($10 WCC)
+                      ✨ Generate (10 WCC)
                     </button>
                   </div>
                   {generatedTemplates.length > 0 && (

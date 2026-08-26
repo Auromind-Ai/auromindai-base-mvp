@@ -92,7 +92,7 @@ function getGreeting() {
 const GET_STARTED_CARDS = [
     {
         icon: BrainCircuit,
-        label: "What is new in aura AI?",
+        label: "What is new in Orbion Agents?",
         description: "Discover the latest updates and features.",
         gradient: "from-purple-600 to-indigo-600",
         cardBg: "linear-gradient(180deg, rgba(7,0,18,0.92) 0%, rgba(7,0,18,0.96) 72%, rgba(101,75,204,0.28) 100%)",
@@ -1360,7 +1360,7 @@ export default function AuromindAIPage() {
                                                                     <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-600/20">
                                                                         <Wand2 size={12} className="text-white" />
                                                                     </div>
-                                                                    <span className="text-[11px] font-semibold text-gray-500">Orbionagents</span>
+                                                                    <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Orbion Agents</span>
                                                                     {msg.isStreaming && (
                                                                         <span className="flex gap-1 h-3 items-center ml-2">
                                                                             <span className="w-1 h-1 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.3s]" />

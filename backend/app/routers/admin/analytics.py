@@ -13,7 +13,6 @@ from app.routers.admin.system import get_queue_depth, get_cache_hit_rate
 
 router = APIRouter()
 
-
 @router.get("/analytics")
 async def get_analytics(db: Session = Depends(get_db)) -> Dict[str, Any]:
     

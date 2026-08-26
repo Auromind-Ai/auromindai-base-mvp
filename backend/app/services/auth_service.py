@@ -381,10 +381,8 @@ class AuthService:
         if auth_type == "signup" and user:
             raise ValueError("Email already registered. Please log in.")
 
-        otp = str(random.randint(100000, 999999))
-        import logging
-        logging.getLogger("auromind").info(f"🔑 [AUTH OTP] OTP for {email}: {otp}")
-
+        otp = str(random.randint(100000, 999999))       
+       
         # Store in Redis if available
         try:
             import redis

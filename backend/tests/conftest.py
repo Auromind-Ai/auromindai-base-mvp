@@ -16,22 +16,29 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_temp_db():
-    # Setup: delete test_temp.db before running tests to start clean
-    temp_db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "test_temp.db"))
+    temp_db_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "test_temp.db")
+    )
+
+    # Remove old test database
     if os.path.exists(temp_db_path):
         try:
             os.remove(temp_db_path)
         except Exception:
             pass
-            
-    # Re-create tables so they are fresh for the tests
+
+    # Create fresh database
     from app.database import engine, Base
     import app.models
+
+    engine.dispose()
     Base.metadata.create_all(bind=engine)
-            
+
     yield
-    
-    # Teardown: delete test_temp.db after tests complete
+
+    # Cleanup after tests
+    engine.dispose()
+
     if os.path.exists(temp_db_path):
         try:
             os.remove(temp_db_path)

@@ -1,10 +1,17 @@
 
+"""add gmail lead import and deduplication
+
+Revision ID: c7d8e9f0a1b2
+Revises: z2a3b4c5d6e7
+Create Date: 2026-08-25 14:44:47.000000
+
+"""
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
 # revision identifiers, used by Alembic.
-revision = 'a1b2c3d4e5f6'
+revision = 'c7d8e9f0a1b2'
 down_revision = 'z2a3b4c5d6e7'
 branch_labels = None
 depends_on = None

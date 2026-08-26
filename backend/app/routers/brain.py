@@ -21,6 +21,7 @@ from app.schemas.brain import *
 from app.services.billing.billing_service import BillingService
 from app.services.billing.feature_billing_service import FeatureBillingService
 from app.services.ai.execution_service import AIFeatureRegistry,AIExecutionService
+from app.core.pagination import SkipLimitParams, paginate_query
 from app.services.billing.entitlement_service import EntitlementService
 
 
@@ -746,21 +747,24 @@ async def crawl_website(
 @router.get("/entries", response_model=ListEntriesResponse)
 async def list_entries(
     workspace_id: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 50,
+    pagination: SkipLimitParams = Depends(),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
+    current_user=Depends(get_current_user)
+):      
     workspace_id = verify_workspace_access(current_user, db, workspace_id)
 
     try:
-        logger.info(f"[LIST ENTRIES] user={current_user.id} workspace={workspace_id} skip={skip} limit={limit}")
-        entries = db.query(BrainEntry).filter(
-            BrainEntry.workspace_id == workspace_id
+        logger.info(f"[LIST ENTRIES] user={current_user.id} workspace={workspace_id} skip={pagination.skip} limit={pagination.limit}")
+        query = db.query(BrainEntry).filter(
+        BrainEntry.workspace_id == workspace_id
         ).order_by(
-            BrainEntry.created_at.desc()
-        ).offset(skip).limit(limit).all()
+        BrainEntry.created_at.desc()
+        )
 
+        entries = paginate_query(
+        query,
+        pagination
+        ).all()
         rag = get_rag_service()
         stats = rag.vector_store.get_collection_stats(
             db=db,

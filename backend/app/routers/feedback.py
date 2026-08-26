@@ -1,7 +1,8 @@
 import logging
-
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from app.models.user_feedback import UserFeedback
 from app.core.security import verify_workspace_access
 from app.database import get_db
 from app.models.feedback import Feedback
@@ -12,6 +13,12 @@ from app.services.agentic_rag.reinforcement import ReinforcementEngine
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+class FeedbackCreate(BaseModel):
+    workspace_id: str
+    user_id: str
+    category: str
+    rating: int
+    message: str
 
 @router.post("/feedback")
 def submit_feedback(
@@ -87,3 +94,33 @@ def submit_feedback(
         "total_feedback": total_feedback,
         "learning_triggered": learning_triggered,
     }
+
+@router.post("/user-feedback")
+async def create_feedback(
+    payload: FeedbackCreate,
+    db: Session = Depends(get_db),
+):
+    try:
+        feedback = UserFeedback(
+            workspace_id=payload.workspace_id,
+            user_id=payload.user_id,
+            category=payload.category,
+            rating=payload.rating,
+            message=payload.message,
+        )
+
+        db.add(feedback)
+        db.commit()
+        db.refresh(feedback)
+
+        return {
+            "id": str(feedback.id),
+            "message": "Feedback submitted successfully",
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error saving feedback: {str(e)}",
+        )

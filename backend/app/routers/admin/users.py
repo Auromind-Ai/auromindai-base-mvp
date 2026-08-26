@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from app.database import get_db
 from app.models.user import User
-
+from app.models.user_feedback import UserFeedback
 router = APIRouter()
 
 

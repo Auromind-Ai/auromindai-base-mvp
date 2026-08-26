@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 
 from app.database import get_db
+from app.core.pagination import SkipLimitParams
 from app.routers.auth import get_current_user, CurrentUser
 from app.models.notification import Notification
 from app.schemas.notification import NotificationResponse, NotificationListResponse
@@ -12,23 +13,29 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 @router.get("", response_model=NotificationListResponse)
 def get_notifications(
-    skip: int = 0,
-    limit: int = 50,
+    pagination: SkipLimitParams = Depends(),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Retrieve paginated notifications for the current user, ordered by newest first."""
     query = db.query(Notification).filter(Notification.user_id == current_user.id)
     
-    # Calculate unread count (without pagination limits)
     unread_count = query.filter(Notification.is_read == False).count()
     
-    # Get paginated items sorted newest first
-    items = query.order_by(Notification.created_at.desc()).offset(skip).limit(limit).all()
+    items = query.order_by(
+        Notification.created_at.desc()
+    ).offset(
+        pagination.skip
+    ).limit(
+        pagination.limit
+    ).all()
+
+    return {
+        "items": items,
+        "unread_count": unread_count
+    }
+
     
-    return NotificationListResponse(items=items, unread_count=unread_count)
-
-
 @router.patch("/{id}/read", response_model=NotificationResponse)
 def mark_as_read(
     id: UUID,

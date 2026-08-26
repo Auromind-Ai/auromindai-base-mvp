@@ -37,6 +37,9 @@ from app.services.billing.webhook_service import WebhookService
 from app.services.platform_settings_service import PlatformSetting, get_setting, update_settings
 from app.services.wcc_service import WCCService
 from app.services.billing.gateway.base import GatewayPayment, GatewayWebhookEvent, PaymentGateway, GatewaySubscription
+from app.models.platform_setting import PlatformSetting
+from app.services.platform_settings_service import clear_settings_cache
+
 
 # Create clean testing app
 app = FastAPI()
@@ -232,6 +235,7 @@ def uat_db():
 
     # Seed Plan models
     pro_plan = db.query(Plan).filter(Plan.name == "pro").first()
+
     if not pro_plan:
         pro_plan = Plan(
             id=uuid.uuid4(),
@@ -248,6 +252,7 @@ def uat_db():
             features={"allow_ai_topup": True, "allow_wcc_recharge": True}
         )
         db.add(pro_plan)
+
         db.flush()
     else:
         pro_plan.price = 1000.0
@@ -434,6 +439,30 @@ def test_2_subscription_renewal_invoice_locking(seeded_user_and_workspace, uat_d
     from app.models.subscription import Subscription
     sub_id = f"sub_ren_{uuid.uuid4().hex[:8]}"
     pro_plan = uat_db.query(Plan).filter(Plan.name == "pro").first()
+    from app.models.platform_setting import PlatformSetting
+
+    setting = (
+    uat_db.query(PlatformSetting)
+    .filter(PlatformSetting.key == "pro_plan_price")
+    .first()
+)
+
+    if setting:
+        setting.value = "1000"
+        setting.value_type = "float"
+    else:
+            uat_db.add(
+        PlatformSetting(
+            key="pro_plan_price",
+            value="1000",
+            value_type="float",
+        )
+    )
+
+    uat_db.commit()
+    clear_settings_cache()
+    uat_db.refresh(setting) if setting else None
+    print("TEST SETTING:", setting.value)
     subscription = Subscription(
         id=uuid.uuid4(),
         workspace_id=workspace.id,

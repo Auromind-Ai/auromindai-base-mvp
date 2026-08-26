@@ -32,17 +32,37 @@ export const removeToken = () => {
 
 export const setUser = (user) => {
   memoryUser = user || null;
+
   if (isBrowser) {
     if (user) {
-      localStorage.setItem('auromind_logged_in', 'true');
+      localStorage.setItem("auromind_user", JSON.stringify(user));
+      localStorage.setItem("auromind_logged_in", "true");
     } else {
-      localStorage.removeItem('auromind_logged_in');
+      localStorage.removeItem("auromind_user");
+      localStorage.removeItem("auromind_logged_in");
     }
   }
 };
 
 export const getUser = () => {
-  return isBrowser ? memoryUser : null;
+  if (!isBrowser) return null;
+
+  if (memoryUser) {
+    return memoryUser;
+  }
+
+  const storedUser = localStorage.getItem("auromind_user");
+
+  if (storedUser) {
+    try {
+      memoryUser = JSON.parse(storedUser);
+      return memoryUser;
+    } catch {
+      localStorage.removeItem("auromind_user");
+    }
+  }
+
+  return null;
 };
 
 export const setWorkspace = (workspace) => {

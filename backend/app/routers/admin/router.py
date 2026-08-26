@@ -4,6 +4,8 @@ import logging
 from fastapi import APIRouter, Request, Response, HTTPException, status, Depends
 from app.schemas.admin import AdminAuthRequest
 from app.core.config import settings
+from app.routers.admin import admin_inquiries
+
 
 logger = logging.getLogger(__name__)
 from . import (
@@ -11,6 +13,7 @@ from . import (
     dashboard,
     workspaces,
     users,
+    feedback,
     tokens,
     conversations,
     logs,
@@ -32,7 +35,8 @@ from . import (
     notification_templates,
     plans,
     user_feedback,
-    email_logs
+    email_logs,
+    admin_inquiries,
 )
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -213,6 +217,7 @@ admin_deps = [Depends(require_platform_admin_session)]
 router.include_router(dashboard.router, dependencies=admin_deps)
 router.include_router(workspaces.router, dependencies=admin_deps)
 router.include_router(users.router, dependencies=admin_deps)
+router.include_router(feedback.router, dependencies=admin_deps)
 router.include_router(tokens.router, dependencies=admin_deps)
 router.include_router(conversations.router, dependencies=admin_deps)
 router.include_router(logs.router, dependencies=admin_deps)
@@ -236,3 +241,4 @@ router.include_router(notification_templates.router, dependencies=admin_deps)
 router.include_router(email_logs.router, dependencies=admin_deps)
 router.include_router(plans.router, dependencies=admin_deps)
 router.include_router(user_feedback.router, dependencies=admin_deps)
+router.include_router(admin_inquiries.router, dependencies=admin_deps)

@@ -1235,7 +1235,7 @@ export default function ChannelsPage() {
 
     const submitTwilio = async () => {
         const { sid, token, phone } = twilioForm;
-       
+        
         if (!sid.trim()) {
             showToast("⚠️ Twilio Account SID is required");
             return;

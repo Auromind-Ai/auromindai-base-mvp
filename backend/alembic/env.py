@@ -12,6 +12,7 @@ from app.models.billing import *
 from app.models.brain import *
 from app.models.conversation import *
 from app.models.feedback import *
+from app.models.user_feedback import *
 from app.models.flow_execution import *
 from app.models.followup import *
 from app.models.impersonation import *

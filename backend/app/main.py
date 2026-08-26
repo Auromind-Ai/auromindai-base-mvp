@@ -36,8 +36,9 @@ from app.routers.two_factor import router as two_factor_router
 from app.routers.account import router as account_router
 from app.routers.user_feedback import router as user_feedback_router
 from app.routers.calendar import router as calendar_router
+from app.routers.contact import router as contact_inquiry_router
 
-# Lifespan 
+#Lifespan 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Orbionagents Production System Starting...")
@@ -194,3 +195,5 @@ app.include_router(realtime_router)
 app.include_router(realtime_router, prefix="/api")
 app.include_router(calendar_router)
 app.include_router(calendar_router, prefix="/api")
+app.include_router(contact_inquiry_router)
+

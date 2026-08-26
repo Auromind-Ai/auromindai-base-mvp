@@ -29,7 +29,8 @@ import {
   Key,
   Settings,
   LayoutTemplate,
-  Bell
+  Bell,
+  PhoneCall
 } from "lucide-react"
 
 export default function AdminSidebar() {
@@ -55,6 +56,7 @@ export default function AdminSidebar() {
     { name: "Templates", href: "/admin/templates", icon: LayoutTemplate },
     { name: "Notifications & Schedules", href: "/admin/notification-templates", icon: Bell },
     { name: "Feedback", href: "/admin/feedback", icon: MessageSquare },
+    { name: "Contact Inquiries", href: "/admin/inquiries", icon: PhoneCall },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ]
 
@@ -168,29 +170,7 @@ export default function AdminSidebar() {
            </div>
         </div>
       </nav>
-
-      <style jsx global>{`
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.05);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.1);
-        }
-      `}</style>
+ 
     </div>
   )
 }
