@@ -1,5 +1,6 @@
 import json
 import uuid
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Any
 from decimal import Decimal
@@ -789,42 +790,94 @@ class TokenService:
             return existing
 
     @staticmethod
+    def _clean_title(text: str) -> str:
+        if not text:
+            return ""
+        # Remove leading markdown heading symbols (#, ##, etc.), asterisks, dashes, quotes
+        cleaned = re.sub(r'^[#*_\-\s"\']+', '', text).strip()
+        # If ends with file extensions like .txt, .pdf, .docx, .md, remove
+        cleaned = re.sub(r'\.(txt|md|pdf|docx|doc|xlsx|xls|csv|png|jpg|jpeg|webp)$', '', cleaned, flags=re.IGNORECASE).strip()
+        # Replace multiple spaces / underscores
+        cleaned = re.sub(r'[_\s]+', ' ', cleaned).strip()
+        return cleaned
+
+    @staticmethod
     def _format_ledger_description(raw_desc: str | None, status: str, entry_type: str) -> str:
         if not raw_desc:
-            return "AI Usage" if entry_type == "usage" else "System Process"
+            return "AI Assistant Usage" if entry_type == "usage" else "System Process"
 
         desc = str(raw_desc).strip()
         lower = desc.lower()
 
-        # 1. Knowledge Base & RAG errors / tasks
+        # 1. Knowledge Base & Document processing
         if "knowledge_base_processing_failed" in lower or ("knowledge" in lower and "failed" in lower):
-            return "Knowledge Base Processing (Refunded)" if status == "released" else "Knowledge Base Processing"
+            return "Knowledge Base Document (Refunded)" if status == "released" else "Knowledge Base Document Processing"
         
-        if lower.startswith("knowledge upload:"):
+        if lower.startswith("knowledge upload:") or lower.startswith("knowledge document processing:") or lower.startswith("knowledge base document:"):
             file_name = desc.split(":", 1)[1].strip() if ":" in desc else ""
-            return f"Knowledge Document Processing: {file_name}" if file_name else "Knowledge Document Processing"
+            clean_name = TokenService._clean_title(file_name)
+            return f"Knowledge Base Document: {clean_name}" if clean_name else "Knowledge Base Document Upload"
 
-        # 2. AI Provider Token / Missing Usage debug strings
+        if lower.startswith("sales knowledge upload:"):
+            file_name = desc.split(":", 1)[1].strip() if ":" in desc else ""
+            clean_name = TokenService._clean_title(file_name)
+            return f"Sales Knowledge Document: {clean_name}" if clean_name else "Sales Knowledge Document Upload"
+
+        if lower.startswith("support knowledge upload:"):
+            file_name = desc.split(":", 1)[1].strip() if ":" in desc else ""
+            clean_name = TokenService._clean_title(file_name)
+            return f"Support Knowledge Document: {clean_name}" if clean_name else "Support Knowledge Document Upload"
+
+        if lower.startswith("url ingestion:") or "url ingestion" in lower or lower.startswith("website knowledge sync:"):
+            url = desc.split(":", 1)[1].strip() if ":" in desc else ""
+            url_clean = re.sub(r'^https?://(www\.)?', '', url).rstrip('/')
+            return f"Website Knowledge Sync: {url_clean}" if url_clean else "Website Knowledge Sync"
+
+        if lower.startswith("text ingestion:") or lower.startswith("knowledge base note:"):
+            title = desc.split(":", 1)[1].strip() if ":" in desc else ""
+            clean_name = TokenService._clean_title(title)
+            return f"Knowledge Base Note: {clean_name}" if clean_name else "Knowledge Base Note"
+
+        # 2. Credit Packs & Purchases
+        if lower.startswith("purchased ai credit pack:") or lower.startswith("ai credit pack purchase:"):
+            pack_name = desc.split(":", 1)[1].strip() if ":" in desc else ""
+            pack_clean = pack_name.replace("_", " ").strip().title()
+            return f"AI Credit Pack Purchase: {pack_clean}" if pack_clean else "AI Credit Pack Purchase"
+
+        if "plan credits" in lower or "plan grant" in lower or "initial plan credits" in lower or "recreated initial plan credits" in lower:
+            return "Monthly Plan Credits"
+
+        # 3. AI Provider Token / Missing Usage debug strings
         if "provider usage missing" in lower or "total_tokens=0" in lower or "cannot bill without" in lower:
             return "AI Chat Response (Unbilled / Released)" if status == "released" else "AI Chat Response"
 
-        # 3. Stream cancelled errors
+        # 4. Stream cancelled errors
         if "stream cancelled" in lower or "cancellederror" in lower:
-            return "AI Stream Response (Cancelled)" if status == "released" else "AI Stream Response"
+            return "AI Chat Response (Cancelled)" if status == "released" else "AI Chat Response"
 
-        # 4. Stream reservations
-        if "stream execution reservation for chat" in lower or "stream execution" in lower:
-            return "AI Chat Response Generation"
+        # 5. Stream reservations & Chat response generation
+        if "stream execution reservation" in lower or "stream execution" in lower or "ai chat response generation" in lower or "ai response generation for chat" in lower or "chat message" in lower:
+            return "AI Chat Response"
 
-        # 5. WhatsApp & Templates
+        # 6. WhatsApp & Templates
         if "generate whatsapp template variations" in lower or "whatsapp template" in lower:
             return "WhatsApp AI Template Generation"
 
-        # 6. Sanitize any raw vendor names (groq, openai, anthropic, claude, gemini, etc.)
+        # 7. Lead scoring / Voice agent / other features
+        if "lead scoring" in lower or "lead score" in lower:
+            return "AI Lead Scoring"
+
+        if "voice call" in lower or "voice agent" in lower:
+            return "AI Voice Agent Call"
+
+        # 8. Sanitize any raw vendor names (groq, openai, anthropic, claude, gemini, etc.)
         desc_clean = re.sub(r"(?i)\b(?:groq|openai|anthropic|claude|gemini|deepseek)\b", "AI Provider", desc)
         desc_clean = desc_clean.replace("CancelledError", "Cancelled")
 
-        # 7. Convert snake_case strings to Title Case
+        # 9. Clean up markdown heading hashes or leading symbols
+        desc_clean = re.sub(r'^[#*_\-\s"\']+', '', desc_clean).strip()
+
+        # 10. Convert snake_case strings to Title Case
         if "_" in desc_clean and " " not in desc_clean:
             desc_clean = desc_clean.replace("_", " ").title()
 

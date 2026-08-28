@@ -65,7 +65,7 @@ const NotificationBell = () => {
   }, [isOpen]);
 
   // Close dropdown when clicking outside
-  useEffect(() => {
+ useEffect(() => {
     const handleClickOutside = (event) => {
       if (
         dropdownRef.current &&
@@ -75,12 +75,23 @@ const NotificationBell = () => {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    const handleScroll = (event) => {
+      // Notification list kulla scroll aana close aaga koodadhu, page scroll aana close aaganum
+      if (dropdownRef.current && dropdownRef.current.contains(event.target)) return;
+      setIsOpen(false);
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('scroll', handleScroll, true);
+    }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
     };
-  }, []);
+  }, [isOpen]);
+
 
   // Click notification
   const handleNotificationClick = async (item) => {
@@ -302,8 +313,7 @@ const NotificationBell = () => {
               transition={{
                 duration: 0.15,
               }}
-              className="fixed w-[calc(100vw-32px)] sm:w-80 md:w-96 max-w-96 bg-[#161618] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
-              style={panelStyle}
+              className="fixed inset-x-3 top-24 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-80 md:w-96 max-w-[420px] mx-auto sm:mx-0 bg-[#161618] border border-white/10 rounded-2xl shadow-2xl z-[999] overflow-hidden flex flex-col"
             >
               {/* Header */}
 

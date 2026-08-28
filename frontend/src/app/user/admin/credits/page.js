@@ -9,7 +9,8 @@ import {
   Calculator, History, Plus, Sparkles, CheckCircle2,
   AlertTriangle, ArrowRight, Coins, X, HelpCircle,
   Minus, PieChart, Receipt, Gauge, Download, FileText,
-  ArrowLeftRight, ChevronRight
+  ArrowLeftRight, ChevronRight, Gift, MessageSquare,
+  Calendar, Copy, Check
 } from 'lucide-react';
 import api from '@/lib/api';
 import HistoryModal from '@/components/common/HistoryModal';
@@ -89,7 +90,16 @@ export default function CreditsPage() {
     // UI state
     const [selectedPackIndex, setSelectedPackIndex] = useState(0);
     const [activityView, setActivityView] = useState('transactions'); // 'transactions' | 'billing'
+    const [copiedTxId, setCopiedTxId] = useState(null);
     const addFundsRef = useRef(null);
+
+    const handleCopyTxId = (id) => {
+        if (!id || id === 'N/A') return;
+        navigator.clipboard?.writeText(id);
+        setCopiedTxId(id);
+        triggerToast("Transaction ID copied to clipboard!");
+        setTimeout(() => setCopiedTxId(null), 2000);
+    };
 
     // Fetch WCC Balance
     const fetchWccBalance = async () => {
@@ -438,39 +448,92 @@ export default function CreditsPage() {
         });
     };
 
+    const cleanTitle = (text) => {
+        if (!text) return '';
+        // Remove leading markdown symbols (#, ##, *, -, quotes)
+        let cleaned = text.replace(/^[#*_\-\s"']+/g, '').trim();
+        // Remove common document extensions .txt, .pdf, .docx, .md, etc.
+        cleaned = cleaned.replace(/\.(txt|md|pdf|docx|doc|xlsx|xls|csv|png|jpg|jpeg|webp)$/i, '').trim();
+        // Replace multiple underscores/spaces
+        cleaned = cleaned.replace(/[_\s]+/g, ' ').trim();
+        return cleaned;
+    };
+
     const formatCreditDescription = (description, status, entryType) => {
         if (!description) {
             return entryType === 'usage' ? 'AI Assistant Usage' : 'Credit Adjustment';
         }
         const lower = description.toLowerCase().trim();
 
+        // 1. Knowledge Base & Document processing
         if (lower.includes('knowledge_base_processing_failed') || (lower.includes('knowledge') && lower.includes('failed'))) {
-            return status === 'released' ? 'Knowledge Base Processing (Refunded)' : 'Knowledge Base Document Processing';
+            return status === 'released' ? 'Knowledge Base Document (Refunded)' : 'Knowledge Base Document Processing';
         }
+        if (lower.startsWith('knowledge upload:') || lower.startsWith('knowledge document processing:') || lower.startsWith('knowledge base document:')) {
+            const file = description.split(':')[1]?.trim() || '';
+            const clean = cleanTitle(file);
+            return clean ? `Knowledge Base Document: ${clean}` : 'Knowledge Base Document Upload';
+        }
+        if (lower.startsWith('sales knowledge upload:')) {
+            const file = description.split(':')[1]?.trim() || '';
+            const clean = cleanTitle(file);
+            return clean ? `Sales Knowledge Document: ${clean}` : 'Sales Knowledge Document Upload';
+        }
+        if (lower.startsWith('support knowledge upload:')) {
+            const file = description.split(':')[1]?.trim() || '';
+            const clean = cleanTitle(file);
+            return clean ? `Support Knowledge Document: ${clean}` : 'Support Knowledge Document Upload';
+        }
+        if (lower.startsWith('url ingestion:') || lower.includes('url ingestion') || lower.startsWith('website knowledge sync:')) {
+            const url = description.split(':')[1]?.trim() || '';
+            const cleanUrl = url.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+            return cleanUrl ? `Website Knowledge Sync: ${cleanUrl}` : 'Website Knowledge Sync';
+        }
+        if (lower.startsWith('text ingestion:') || lower.startsWith('knowledge base note:')) {
+            const title = description.split(':')[1]?.trim() || '';
+            const clean = cleanTitle(title);
+            return clean ? `Knowledge Base Note: ${clean}` : 'Knowledge Base Note';
+        }
+
+        // 2. Purchased Credit Packs & Grants
+        if (lower.startsWith('purchased ai credit pack:') || lower.startsWith('ai credit pack purchase:')) {
+            const pack = description.split(':')[1]?.trim() || '';
+            const cleanPack = pack.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            return cleanPack ? `AI Credit Pack Purchase: ${cleanPack}` : 'AI Credit Pack Purchase';
+        }
+        if (lower.includes('plan credits') || lower.includes('plan grant') || lower.includes('initial plan credits') || lower.includes('recreated initial plan credits')) {
+            return 'Monthly Plan Credits';
+        }
+
+        // 3. AI Chat & Responses
         if (lower.includes('provider usage missing') || lower.includes('total_tokens=0') || lower.includes('cannot bill without')) {
-            return status === 'released' ? 'AI Chat Response (Unbilled / Released)' : 'AI Chat Response Execution';
+            return status === 'released' ? 'AI Chat Response (Unbilled / Released)' : 'AI Chat Response';
         }
         if (lower.includes('stream cancelled') || lower.includes('cancellederror')) {
-            return status === 'released' ? 'AI Stream Response (Cancelled by User)' : 'AI Stream Response (Cancelled)';
+            return status === 'released' ? 'AI Chat Response (Cancelled)' : 'AI Chat Response';
         }
-        if (lower.includes('stream execution reservation') || lower.includes('stream execution')) {
-            return 'AI Chat Response Generation';
+        if (lower.includes('stream execution reservation') || lower.includes('stream execution') || lower.includes('ai chat response generation') || lower.includes('ai response generation for chat') || lower.includes('chat message')) {
+            return 'AI Chat Response';
         }
-        if (lower.startsWith('knowledge upload:')) {
-            const file = description.split(':')[1]?.trim() || '';
-            return file ? `Knowledge Document Upload: ${file}` : 'Knowledge Document Upload';
-        }
+
+        // 4. WhatsApp & Templates
         if (lower.includes('generate whatsapp template') || lower.includes('whatsapp template')) {
             return 'WhatsApp AI Template Generation';
         }
-        if (lower.includes('ai response generation for chat') || lower.includes('chat message')) {
-            return 'AI Chat Response Generation';
+
+        // 5. Lead Scoring & Voice
+        if (lower.includes('lead scoring') || lower.includes('lead score')) {
+            return 'AI Lead Scoring';
+        }
+        if (lower.includes('voice call') || lower.includes('voice agent')) {
+            return 'AI Voice Agent Call';
         }
 
         // Clean up vendor names or stack traces if any leaked
         let cleaned = description
             .replace(/\b(?:groq|openai|anthropic|claude|gemini|deepseek)\b/gi, 'AI Provider')
             .replace(/CancelledError/gi, 'Cancelled')
+            .replace(/^[#*_\-\s"']+/g, '')
             .trim();
 
         if (cleaned.includes('_') && !cleaned.includes(' ')) {
@@ -512,41 +575,72 @@ export default function CreditsPage() {
 
     const avgDailyBurn = creditSummary?.burn_rate ?? null;
 
-    const distributionPalette = ['#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#38bdf8'];
+    const distributionPalette = ['#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#38bdf8', '#818cf8', '#2dd4bf'];
     const serverDist = creditSummary?.credit_distribution;
 
-    let distributionEntries = [];
+    const DEFAULT_DISTRIBUTION_CATEGORIES = [
+        { key: 'usage', label: 'Usage' },
+        { key: 'chat', label: 'AI Chat' },
+        { key: 'flow', label: 'Flow Generation' },
+        { key: 'template', label: 'Template Generation' },
+        { key: 'inbox', label: 'Inbox AI Assistant' },
+        { key: 'rag', label: 'Knowledge Base (RAG)' },
+    ];
+
+    const usageCategoryMap = new Map();
+
     if (Array.isArray(serverDist) && serverDist.length > 0) {
-        const totalDistUsed = serverDist.reduce((sum, item) => sum + Number(item.credits_used || 0), 0);
-        distributionEntries = serverDist
-            .sort((a, b) => Number(b.credits_used || 0) - Number(a.credits_used || 0))
-            .slice(0, 3)
-            .map((item, i) => ({
-                label: item.label || item.category || 'AI Processing',
-                value: Number(item.credits_used || 0),
-                pct: totalDistUsed > 0 ? (Number(item.credits_used || 0) / totalDistUsed) * 100 : 0,
-                color: distributionPalette[i % distributionPalette.length]
-            }));
-    } else {
-        const distributionMap = {};
-        creditHistory.filter(item => Number(item.credits_delta || 0) < 0 && (item.entry_type || '').toLowerCase() === 'usage').forEach(item => {
-            const rawKey = (item.feature_key || item.entry_type || 'other').replace('_', ' ');
-            const label = rawKey.charAt(0).toUpperCase() + rawKey.slice(1);
-            const amt = Math.abs(Number(item.credits_delta || 0));
-            distributionMap[label] = (distributionMap[label] || 0) + amt;
+        serverDist.forEach((item) => {
+            const rawKey = String(item.category || item.label || 'usage').toLowerCase().trim();
+            const label = item.label || item.category || 'Usage';
+            const value = Number(item.credits_used || 0);
+            usageCategoryMap.set(label.toLowerCase(), { key: rawKey, label, value });
         });
-        const distributionTotal = Object.values(distributionMap).reduce((a, b) => a + b, 0);
-        distributionEntries = Object.entries(distributionMap)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3)
-            .map(([label, value], i) => ({
-                label,
-                value,
-                pct: distributionTotal > 0 ? (value / distributionTotal) * 100 : 0,
-                color: distributionPalette[i % distributionPalette.length]
-            }));
+    } else if (Array.isArray(creditHistory)) {
+        creditHistory
+            .filter((item) => Number(item.credits_delta || 0) < 0 && (item.entry_type || '').toLowerCase() === 'usage')
+            .forEach((item) => {
+                const rawKey = (item.feature_key || item.entry_type || 'usage').toLowerCase().trim();
+                let label;
+                if (rawKey === 'chat' || rawKey === 'ai_chat') label = 'AI Chat';
+                else if (rawKey === 'flow' || rawKey === 'flow_generation') label = 'Flow Generation';
+                else if (rawKey === 'template' || rawKey === 'template_generation') label = 'Template Generation';
+                else if (rawKey === 'inbox' || rawKey === 'inbox_reply') label = 'Inbox AI Assistant';
+                else if (rawKey === 'rag' || rawKey === 'rag_query' || rawKey === 'knowledge') label = 'Knowledge Base (RAG)';
+                else if (rawKey === 'usage') label = 'Usage';
+                else {
+                    const formatted = (item.feature_key || item.entry_type || 'other').replace('_', ' ');
+                    label = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+                }
+                const amt = Math.abs(Number(item.credits_delta || 0));
+                const current = usageCategoryMap.get(label.toLowerCase())?.value || 0;
+                usageCategoryMap.set(label.toLowerCase(), { key: rawKey, label, value: current + amt });
+            });
     }
-    const distributionTotal = distributionEntries.reduce((sum, item) => sum + Number(item.value || 0), 0);
+
+    // Ensure all standard categories are shown even when balance/usage is 0
+    DEFAULT_DISTRIBUTION_CATEGORIES.forEach(({ key, label }) => {
+        const found = Array.from(usageCategoryMap.values()).some(
+            (entry) => entry.key === key || entry.label.toLowerCase() === label.toLowerCase()
+        );
+        if (!found) {
+            usageCategoryMap.set(label.toLowerCase(), { key, label, value: 0 });
+        }
+    });
+
+    const distributionTotal = Array.from(usageCategoryMap.values()).reduce((sum, item) => sum + Number(item.value || 0), 0);
+
+    const distributionEntries = Array.from(usageCategoryMap.values())
+        .sort((a, b) => {
+            if (b.value !== a.value) return b.value - a.value;
+            return a.label.localeCompare(b.label);
+        })
+        .map((entry, i) => ({
+            label: entry.label,
+            value: entry.value,
+            pct: distributionTotal > 0 ? (entry.value / distributionTotal) * 100 : 0,
+            color: distributionPalette[i % distributionPalette.length]
+        }));
 
     const rechargeAmountNumber = parseFloat(rechargeAmount) || 0;
     const marketingRate = (estimatorRates.marketing && estimatorRates.marketing > 0) ? estimatorRates.marketing : null;
@@ -621,66 +715,70 @@ export default function CreditsPage() {
                         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 items-stretch">
 
                             {/* Wallet Overview (spans 2 cols) */}
-                            <div className="lg:col-span-2 bg-[#0e0e14] rounded-2xl p-4 sm:p-7 border border-white/5 shadow-xl relative overflow-hidden">
-                                <p className="text-white/60 text-xs sm:text-[14px] font-normal sm:font-medium mb-3 sm:mb-4">Wallet Overview</p>
-                                <p className="text-zinc-400 text-[11px] sm:text-xs font-normal sm:font-medium mb-3 sm:mb-5">AI Workspace Credits available</p>
+                            <div className="lg:col-span-2 bg-[#0e0e14] rounded-2xl p-4 sm:p-5 border border-white/5 shadow-xl relative flex flex-col justify-between overflow-hidden">
+                                <div>
+                                    <p className="text-white/60 text-xs sm:text-[13px] font-normal sm:font-medium mb-0.5">Wallet Overview</p>
+                                    <p className="text-zinc-400 text-[11px] sm:text-xs font-normal mb-2 sm:mb-3">AI Workspace Credits available</p>
 
-                                {creditSummary?.purchased_credits_locked && (
-                                    <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-amber-300 text-xs font-medium">
-                                            <span>🔒</span>
-                                            <span>{creditSummary?.status_message || "Credits locked — Upgrade to Pro to use purchased credits"}</span>
+                                    {creditSummary?.purchased_credits_locked && (
+                                        <div className="mb-3 p-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl flex items-center justify-between">
+                                            <div className="flex items-center gap-2 text-amber-300 text-xs font-medium">
+                                                <span>🔒</span>
+                                                <span>{creditSummary?.status_message || "Credits locked — Upgrade to Pro to use purchased credits"}</span>
+                                            </div>
+                                            <a href="/user/admin/billing/payment" className="text-xs px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition whitespace-nowrap">
+                                                Upgrade
+                                            </a>
                                         </div>
-                                        <a href="/user/admin/billing/payment" className="text-xs px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition whitespace-nowrap">
-                                            Upgrade
-                                        </a>
-                                    </div>
-                                )}
+                                    )}
 
-                                <div className="text-2xl sm:text-4xl md:text-5xl font-semibold sm:font-bold tracking-tight text-white leading-none mb-5 sm:mb-7">
-                                    {creditSummaryLoading ? '...' : formatCredits(creditSummary?.credits_balance, 2)}
-                                </div>
+                                    <div className="text-2xl sm:text-3xl md:text-4xl font-semibold sm:font-bold tracking-tight text-white leading-none my-2 sm:my-3">
+                                        {creditSummaryLoading ? '...' : formatCredits(creditSummary?.credits_balance, 2)}
+                                    </div>
 
-                                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-6 sm:mb-8 text-xs sm:text-sm">
-                                    <div>
-                                        <span className="text-white/55 text-[11px] sm:text-xs font-normal mr-1.5">Used today</span>
-                                        <span className="font-normal sm:font-semibold text-white">{creditSummaryLoading ? '...' : getUsedToday()}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-white/55 text-[11px] sm:text-xs font-normal mr-1.5">Used this cycle</span>
-                                        <span className="font-normal sm:font-semibold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.cycle_used, 2)}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-white/55 text-xs mr-1.5">Runway</span>
-                                        <span className="font-semibold text-white">
-                                            {creditSummaryLoading ? '...' : (!creditSummary || creditSummary.days_remaining === -1 || creditSummary.days_remaining == null) ? '—' : `${Number(creditSummary.days_remaining).toFixed(2)} days`}
-                                        </span>
+                                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 mb-3 sm:mb-4 text-xs sm:text-sm">
+                                        <div>
+                                            <span className="text-white/55 text-[11px] sm:text-xs font-normal mr-1.5">Used today</span>
+                                            <span className="font-medium sm:font-semibold text-white">{creditSummaryLoading ? '...' : getUsedToday()}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-white/55 text-[11px] sm:text-xs font-normal mr-1.5">Used this cycle</span>
+                                            <span className="font-medium sm:font-semibold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.cycle_used, 2)}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-white/55 text-[11px] sm:text-xs font-normal mr-1.5">Runway</span>
+                                            <span className="font-semibold text-white">
+                                                {creditSummaryLoading ? '...' : (!creditSummary || creditSummary.days_remaining === -1 || creditSummary.days_remaining == null) ? '—' : `${Number(creditSummary.days_remaining).toFixed(2)} days`}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="mb-5 sm:mb-6">
-                                    <div className="flex items-center justify-between mb-2 sm:mb-3">
-                                        <span className="text-[11px] sm:text-xs font-normal sm:font-bold text-zinc-400">Credit Used</span>
-                                        <span className="text-[11px] sm:text-xs font-normal sm:font-bold text-purple-300">{cycleTotal > 0 ? `${usedPct.toFixed(2)} %` : '—'}</span>
+                                <div className="mt-auto">
+                                    <div className="mb-3 sm:mb-3.5">
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <span className="text-[11px] sm:text-xs font-normal sm:font-bold text-zinc-400">Credit Used</span>
+                                            <span className="text-[11px] sm:text-xs font-normal sm:font-bold text-purple-300">{cycleTotal > 0 ? `${usedPct.toFixed(2)} %` : '—'}</span>
+                                        </div>
+                                        <div className="h-2 w-full rounded-full bg-white/5 overflow-hidden">
+                                            <div
+                                                className="h-full rounded-full bg-gradient-to-r from-purple-500 to-purple-400 transition-all duration-500"
+                                                style={{ width: `${cycleTotal > 0 ? usedPct : 0}%` }}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="h-2 w-full rounded-full bg-white/5 overflow-hidden">
-                                        <div
-                                            className="h-full rounded-full bg-gradient-to-r from-purple-500 to-purple-400 transition-all duration-500"
-                                            style={{ width: `${cycleTotal > 0 ? usedPct : 0}%` }}
-                                        />
-                                    </div>
-                                </div>
 
-                                <button
-                                    onClick={handleRechargeWalletClick}
-                                    className="px-6 py-3 bg-[#814AC8] hover:bg-[#905ad6] text-white font-medium text-sm rounded-xl transition-all active:scale-95 shadow-lg shadow-purple-900/30 cursor-pointer"
-                                >
-                                    Recharge Wallet
-                                </button>
+                                    <button
+                                        onClick={handleRechargeWalletClick}
+                                        className="px-5 py-2.5 bg-[#814AC8] hover:bg-[#905ad6] text-white font-medium text-xs sm:text-sm rounded-xl transition-all active:scale-95 shadow-lg shadow-purple-900/30 cursor-pointer"
+                                    >
+                                        Recharge Wallet
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Recharge Packs (sidebar) */}
-                            <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-5 border border-white/5 shadow-xl flex flex-col justify-between self-start">
+                            <div className="lg:col-span-2 xl:col-span-1 bg-[#0e0e14] rounded-2xl p-4 sm:p-5 border border-white/5 shadow-xl flex flex-col justify-between">
                                 <div>
                                     <p className="text-white/60 text-xs sm:text-[13px] font-normal sm:font-medium mb-0.5">Recharge packs</p>
                                     <p className="text-white text-xs sm:text-sm font-semibold mb-3">Top up AI Credits</p>
@@ -758,13 +856,15 @@ export default function CreditsPage() {
                         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6" style={{ gridAutoRows: '1fr' }}>
 
                             {/* Credit Health */}
-                            <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-6 border border-white/5 shadow-xl flex flex-col overflow-hidden">
-                                <p className="text-white/60 text-xs sm:text-[13px] font-normal sm:font-medium mb-0.5">Credit Health</p>
-                                <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-3 sm:mb-4">Monthly Cycle</p>
+                            <div className="bg-[#0e0e14] rounded-2xl p-5 sm:p-7 border border-white/5 shadow-xl flex flex-col justify-between overflow-hidden">
+                                <div>
+                                    <p className="text-white/60 text-xs sm:text-[14px] font-normal mb-0.5">Credit Health</p>
+                                    <p className="text-white text-sm sm:text-base font-semibold sm:font-bold mb-4 sm:mb-6">Monthly Cycle</p>
+                                </div>
 
-                                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5">
-                                    <div className="relative w-24 h-24 sm:w-28 sm:h-28 shrink-0">
-                                        <svg viewBox="0 0 100 100" className="w-24 h-24 sm:w-28 sm:h-28 -rotate-90">
+                                <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-6 my-auto py-2 sm:py-3">
+                                    <div className="relative w-28 h-28 sm:w-32 sm:h-32 shrink-0">
+                                        <svg viewBox="0 0 100 100" className="w-28 h-28 sm:w-32 sm:h-32 -rotate-90">
                                             <defs>
                                                 <linearGradient id="healthGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                                                     <stop offset="0%" stopColor="#22d3ee" />
@@ -780,19 +880,19 @@ export default function CreditsPage() {
                                             />
                                         </svg>
                                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                            <span className="text-sm sm:text-lg font-bold text-white">{cycleTotal > 0 ? formatRemainingPercent(remainingPct, cycleUsed) : '—'}</span>
-                                            <span className="text-[9px] sm:text-[10px] text-zinc-500 font-medium mt-0.5">Remaining</span>
+                                            <span className="text-lg sm:text-xl font-bold text-white tracking-tight">{cycleTotal > 0 ? formatRemainingPercent(remainingPct, cycleUsed) : '—'}</span>
+                                            <span className="text-[10px] sm:text-xs text-zinc-400 font-medium mt-0.5">Remaining</span>
                                         </div>
                                     </div>
 
-                                    <div className="flex-1 w-full space-y-2 text-xs sm:text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-zinc-500 font-normal">Included Remaining</span>
-                                            <span className="font-medium sm:font-bold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.included_remaining ?? 0, 2)}</span>
+                                    <div className="flex-1 w-full space-y-3.5 sm:space-y-4 text-xs sm:text-sm">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-zinc-400 font-normal">Included Remaining</span>
+                                            <span className="font-semibold sm:font-bold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.included_remaining ?? 0, 2)}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-zinc-500 font-normal">Purchased Remaining</span>
-                                            <span className={`font-medium sm:font-bold ${creditSummary?.purchased_credits_locked ? 'text-amber-400 flex items-center gap-1.5' : 'text-white'}`}>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-zinc-400 font-normal">Purchased Remaining</span>
+                                            <span className={`font-semibold sm:font-bold ${creditSummary?.purchased_credits_locked ? 'text-amber-400 flex items-center gap-1.5' : 'text-white'}`}>
                                                 {creditSummaryLoading ? '...' : (
                                                     creditSummary?.purchased_credits_locked
                                                         ? <><span className="text-xs">🔒</span> {formatCredits(creditSummary?.purchased_remaining ?? 0, 2)}</>
@@ -800,36 +900,37 @@ export default function CreditsPage() {
                                                 )}
                                             </span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-zinc-500 font-normal">Used This Cycle</span>
-                                            <span className="font-medium sm:font-bold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.cycle_used ?? 0, 2)}</span>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-zinc-400 font-normal">Used This Cycle</span>
+                                            <span className="font-semibold sm:font-bold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.cycle_used ?? 0, 2)}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-zinc-500 font-normal">Avg. Daily Burn</span>
-                                            <span className="font-medium sm:font-bold text-white">{avgDailyBurn != null ? formatCredits(avgDailyBurn, 2) : '—'}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-zinc-500 font-normal">Cycle resets</span>
-                                            <span className="font-semibold text-emerald-400">{creditSummary?.cycle_reset_date ? formatBillingDate(creditSummary.cycle_reset_date) : '—'}</span>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-zinc-400 font-normal">Avg. Daily Burn</span>
+                                            <span className="font-semibold sm:font-bold text-white">{avgDailyBurn != null ? formatCredits(avgDailyBurn, 2) : '—'}</span>
                                         </div>
                                     </div>
+                                </div>
+
+                                <div className="mt-auto pt-4 sm:pt-5 border-t border-white/[0.08] flex items-center justify-between text-xs sm:text-sm">
+                                    <span className="text-zinc-400 font-normal">Cycle resets</span>
+                                    <span className="font-semibold text-emerald-400">{creditSummary?.cycle_reset_date ? formatBillingDate(creditSummary.cycle_reset_date) : '—'}</span>
                                 </div>
                             </div>
 
                             {/* Credit Distribution */}
-                            <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-7 border border-white/5 shadow-xl flex flex-col overflow-hidden">
+                            <div className="bg-[#0e0e14] rounded-2xl p-5 sm:p-7 border border-white/5 shadow-xl flex flex-col min-h-0 overflow-hidden">
                                 <p className="text-white/60 text-xs sm:text-[14px] font-normal sm:font-medium mb-1">Credit Distribution</p>
                                 <p className="text-white text-xs sm:text-base font-normal sm:font-medium mb-1">Where credits go <span className="text-zinc-500 text-[11px] sm:text-xs font-normal">- recent history</span></p>
-                                <p className="text-lg sm:text-2xl font-semibold sm:font-extrabold text-white mt-3 sm:mt-4 mb-1">
+                                <p className="text-lg sm:text-2xl font-semibold sm:font-extrabold text-white mt-2 sm:mt-3 mb-1">
                                     {distributionTotal > 0 ? formatCredits(distributionTotal, 2) : '0.00'}
                                     <span className="text-[11px] sm:text-xs font-normal text-zinc-500 ml-1.5">credits consumed</span>
                                 </p>
 
-                                <div className="space-y-3.5 sm:space-y-4.5 mt-4 sm:mt-6 flex-1 overflow-hidden">
+                                <div className="space-y-3 sm:space-y-3.5 mt-3 sm:mt-4 flex-1 min-h-0 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-white/10">
                                     {distributionEntries.length > 0 ? distributionEntries.map((entry) => (
                                         <div key={entry.label}>
-                                            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                                                <span className="text-[11px] sm:text-xs font-normal sm:font-semibold text-zinc-300 capitalize">{entry.label}</span>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[11px] sm:text-xs font-normal sm:font-semibold text-zinc-300">{entry.label}</span>
                                                 <span className="text-[10px] sm:text-[11px] font-normal sm:font-bold text-zinc-500">
                                                     {formatCredits(entry.value, 0)} credits <span className="text-zinc-400">{entry.pct.toFixed(0)}%</span>
                                                 </span>
@@ -842,7 +943,7 @@ export default function CreditsPage() {
                                             </div>
                                         </div>
                                     )) : (
-                                        <div className="flex items-center justify-center h-full py-8 text-zinc-500 text-xs">No usage recorded yet.</div>
+                                        <div className="flex items-center justify-center h-full py-6 text-zinc-500 text-xs">No usage recorded yet.</div>
                                     )}
                                 </div>
                             </div>
@@ -889,7 +990,7 @@ export default function CreditsPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex-1 divide-y divide-white/[0.04] overflow-y-auto max-h-[220px] pr-1 scrollbar-thin scrollbar-thumb-white/10">
+                                <div className="flex-1 min-h-0 divide-y divide-white/[0.04] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
                                     {activityView === 'transactions' ? (
                                         creditHistoryLoading ? (
                                             <div className="flex justify-center py-10">
@@ -943,13 +1044,15 @@ export default function CreditsPage() {
                                             });
                                             return billingEntries.length > 0 ? (
                                                 billingEntries.slice(0, TABLE_PREVIEW_LIMIT).map((item) => (
-                                                    <div key={item.id} className="px-5 sm:px-6 py-3.5 flex items-center justify-between gap-3">
+                                                    <div key={item.id} className="px-5 sm:px-6 py-3 flex items-center justify-between gap-3">
                                                         <div className="flex items-center gap-3 min-w-0">
                                                             <div className="w-9 h-9 rounded-full bg-[#181326] border border-purple-500/20 flex items-center justify-center shrink-0">
                                                                 <Receipt size={14} className="text-purple-400" />
                                                             </div>
                                                             <div className="min-w-0">
-                                                                <p className="text-xs font-semibold text-zinc-100 truncate">{item.description || 'Credit Addition'}</p>
+                                                                <p className="text-xs font-semibold text-zinc-100 truncate">
+                                                                    {formatCreditDescription(item.description, item.status, item.entry_type) || 'Credit Addition'}
+                                                                </p>
                                                                 <p className="text-[10px] text-zinc-400 mt-0.5">{formatBillingDate(item.created_at, true)}</p>
                                                             </div>
                                                         </div>
@@ -1244,23 +1347,24 @@ export default function CreditsPage() {
                         <div className="bg-[#0e0e14] rounded-2xl border border-white/5 overflow-hidden shadow-xl">
                             <div className="px-5 md:px-7 py-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <Plus size={16} className="text-zinc-400" />
+                                    <Clock size={16} className="text-purple-400" />
                                     <h3 className="font-bold text-sm text-white tracking-tight">Recharge History</h3>
                                 </div>
                                 {wccRecharges.length > 0 && (
                                     <button
                                         type="button"
                                         onClick={() => setIsWccRechargeHistoryModalOpen(true)}
-                                        className="text-xs font-semibold text-purple-400 hover:text-purple-300 cursor-pointer"
+                                        className="text-xs font-semibold text-purple-400 hover:text-purple-300 transition-colors cursor-pointer"
                                     >
-                                        View all recharges
+                                        <span className="sm:hidden">View all</span>
+                                        <span className="hidden sm:inline">View all recharges</span>
                                     </button>
                                 )}
                             </div>
 
                             {wccRechargesLoading ? (
-                                <div className="p-8 space-y-3">
-                                    {[1, 2, 3].map(i => <div key={i} className="h-10 w-full rounded-lg bg-white/5 animate-pulse" />)}
+                                <div className="p-6 md:p-8 space-y-3">
+                                    {[1, 2, 3].map(i => <div key={i} className="h-12 w-full rounded-xl bg-white/5 animate-pulse" />)}
                                 </div>
                             ) : wccRecharges.length === 0 ? (
                                 <div className="text-center py-12 px-6 flex flex-col items-center justify-center">
@@ -1276,42 +1380,221 @@ export default function CreditsPage() {
                                     </button>
                                 </div>
                             ) : (
-                                <div className="max-h-[280px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-white/10">
-                                    <table className="w-full text-left text-xs border-collapse">
-                                        <thead className="sticky top-0 bg-[#0e0e14] z-10 shadow-sm border-b border-white/5">
-                                            <tr className="bg-white/[0.02] text-zinc-500 font-semibold uppercase text-[10px]">
-                                                <th className="p-4 px-6">Date</th>
-                                                <th className="p-4 px-6">Amount</th>
-                                                <th className="p-4 px-6">Transaction ID</th>
-                                                <th className="p-4 px-6">Status</th>
-                                                <th className="p-4 px-6">Method</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-white/5 text-zinc-300">
+                                <>
+                                    {/* 1. Mobile View (< 640px): Stacked Cards */}
+                                    <div className="block sm:hidden p-3.5 space-y-3">
+                                        {wccRecharges.slice(0, TABLE_PREVIEW_LIMIT).map((r) => (
+                                            <div key={r.id || r.payment_id} className="bg-[#0e0c15] border border-white/[0.08] rounded-xl p-3.5 space-y-2.5 transition-all hover:border-white/15">
+                                                {/* Top Row: Icon + Date & Time + Status */}
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        <span className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                                                            <Calendar size={14} />
+                                                        </span>
+                                                        <span className="text-xs font-mono font-medium text-zinc-200 truncate">
+                                                            {formatBillingDate(r.date, true)}
+                                                        </span>
+                                                    </div>
+                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+                                                        r.status === 'success' || r.status === 'PAID'
+                                                            ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                                                            : r.status === 'failed'
+                                                            ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+                                                            : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+                                                    }`}>
+                                                        {r.status === 'success' || r.status === 'PAID' ? 'Success' : r.status}
+                                                    </span>
+                                                </div>
+
+                                                {/* Amount */}
+                                                <div>
+                                                    <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Amount</span>
+                                                    <span className="text-sm font-bold text-white tracking-tight">
+                                                        ₹{Number(r.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                </div>
+
+                                                {/* Transaction ID */}
+                                                <div>
+                                                    <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Transaction ID</span>
+                                                    <div className="flex items-center justify-between gap-2 p-1.5 px-2 rounded-lg bg-white/[0.02] border border-white/5">
+                                                        <span className="text-xs font-mono text-zinc-400 truncate flex-1" title={r.payment_id || r.gateway_order_id || 'N/A'}>
+                                                            {r.payment_id || r.gateway_order_id || 'N/A'}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleCopyTxId(r.payment_id || r.gateway_order_id)}
+                                                            className="p-1 text-zinc-500 hover:text-white rounded hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                                                            title="Copy Transaction ID"
+                                                        >
+                                                            {copiedTxId === (r.payment_id || r.gateway_order_id) ? (
+                                                                <Check size={13} className="text-emerald-400" />
+                                                            ) : (
+                                                                <Copy size={13} />
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Method */}
+                                                <div>
+                                                    <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Method</span>
+                                                    <span className="text-xs font-semibold text-white">
+                                                        {formatPaymentMethod(r.payment_method || r.method, r.provider).label}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* 2. Tablet View (640px – 1023px): 2-Column Card Grid */}
+                                    <div className="hidden sm:block lg:hidden p-4">
+                                        <div className="grid grid-cols-2 gap-3">
                                             {wccRecharges.slice(0, TABLE_PREVIEW_LIMIT).map((r) => (
-                                                <tr key={r.id || r.payment_id} className="hover:bg-white/[0.02]">
-                                                    <td className="p-4 px-6">{formatBillingDate(r.date, true)}</td>
-                                                    <td className="p-4 px-6 font-bold text-white">₹{r.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                                                    <td className="p-4 px-6 font-mono text-zinc-400 text-[11px]">{r.payment_id || 'N/A'}</td>
-                                                    <td className="p-4 px-6">
-                                                        <span className={`px-2.5 py-1 rounded-md text-[11px] font-semibold inline-block ${
+                                                <div key={r.id || r.payment_id} className="bg-[#0e0c15] border border-white/[0.08] rounded-xl p-3.5 space-y-2.5 transition-all hover:border-white/15">
+                                                    {/* Top Row: Icon + Date & Time + Status */}
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex items-center gap-2.5 min-w-0">
+                                                            <span className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                                                                <Calendar size={14} />
+                                                            </span>
+                                                            <span className="text-xs font-mono font-medium text-zinc-200 truncate">
+                                                                {formatBillingDate(r.date, true)}
+                                                            </span>
+                                                        </div>
+                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
                                                             r.status === 'success' || r.status === 'PAID'
                                                                 ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
                                                                 : r.status === 'failed'
                                                                 ? 'bg-red-500/10 border border-red-500/20 text-red-400'
                                                                 : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
                                                         }`}>
-                                                            {r.status === 'success' ? 'Success' : r.status}
+                                                            {r.status === 'success' || r.status === 'PAID' ? 'Success' : r.status}
                                                         </span>
-                                                    </td>
-                                                    <td className="p-4 px-6 font-medium text-zinc-200" title={formatPaymentMethod(r.payment_method || r.method, r.provider).tooltip}>
-                                                        {formatPaymentMethod(r.payment_method || r.method, r.provider).label}
-                                                    </td>
-                                                </tr>
+                                                    </div>
+
+                                                    {/* Amount */}
+                                                    <div>
+                                                        <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Amount</span>
+                                                        <span className="text-sm font-bold text-white tracking-tight">
+                                                            ₹{Number(r.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Transaction ID */}
+                                                    <div>
+                                                        <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Transaction ID</span>
+                                                        <div className="flex items-center justify-between gap-2 p-1.5 px-2 rounded-lg bg-white/[0.02] border border-white/5">
+                                                            <span className="text-xs font-mono text-zinc-400 truncate flex-1" title={r.payment_id || r.gateway_order_id || 'N/A'}>
+                                                                {r.payment_id || r.gateway_order_id || 'N/A'}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleCopyTxId(r.payment_id || r.gateway_order_id)}
+                                                                className="p-1 text-zinc-500 hover:text-white rounded hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                                                                title="Copy Transaction ID"
+                                                            >
+                                                                {copiedTxId === (r.payment_id || r.gateway_order_id) ? (
+                                                                    <Check size={13} className="text-emerald-400" />
+                                                                ) : (
+                                                                    <Copy size={13} />
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Method */}
+                                                    <div>
+                                                        <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Method</span>
+                                                        <span className="text-xs font-semibold text-white">
+                                                            {formatPaymentMethod(r.payment_method || r.method, r.provider).label}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 3. Laptop View (>= 1024px): Table Layout */}
+                                    <div className="hidden lg:block overflow-x-auto custom-scrollbar">
+                                        <table className="w-full text-left text-xs border-collapse">
+                                            <thead className="sticky top-0 bg-[#0e0e14] z-10 shadow-sm border-b border-white/5">
+                                                <tr className="bg-white/[0.02] text-zinc-500 font-semibold uppercase text-[10px] tracking-wider">
+                                                    <th className="p-4 px-6 whitespace-nowrap">Date</th>
+                                                    <th className="p-4 px-6 whitespace-nowrap">Amount</th>
+                                                    <th className="p-4 px-6 whitespace-nowrap">Transaction ID</th>
+                                                    <th className="p-4 px-6 whitespace-nowrap">Status</th>
+                                                    <th className="p-4 px-6 whitespace-nowrap">Method</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/5 text-zinc-300">
+                                                {wccRecharges.slice(0, TABLE_PREVIEW_LIMIT).map((r) => (
+                                                    <tr key={r.id || r.payment_id} className="hover:bg-white/[0.02] transition-colors">
+                                                        <td className="p-4 px-6">
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                                                                    <Calendar size={13} />
+                                                                </span>
+                                                                <span className="text-zinc-300 font-mono text-[11px] whitespace-nowrap">
+                                                                    {formatBillingDate(r.date, true)}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4 px-6 font-bold text-white font-mono text-xs whitespace-nowrap">
+                                                            ₹{Number(r.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="p-4 px-6">
+                                                            <div className="flex items-center gap-2 max-w-[280px]">
+                                                                <span className="font-mono text-zinc-400 text-[11px] truncate" title={r.payment_id || r.gateway_order_id || 'N/A'}>
+                                                                    {r.payment_id || r.gateway_order_id || 'N/A'}
+                                                                </span>
+                                                                {(r.payment_id || r.gateway_order_id) && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleCopyTxId(r.payment_id || r.gateway_order_id)}
+                                                                        className="p-1 text-zinc-500 hover:text-white rounded hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                                                                        title="Copy Transaction ID"
+                                                                    >
+                                                                        {copiedTxId === (r.payment_id || r.gateway_order_id) ? (
+                                                                            <Check size={12} className="text-emerald-400" />
+                                                                        ) : (
+                                                                            <Copy size={12} />
+                                                                        )}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4 px-6 whitespace-nowrap">
+                                                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold inline-block ${
+                                                                r.status === 'success' || r.status === 'PAID'
+                                                                    ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                                                                    : r.status === 'failed'
+                                                                    ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+                                                                    : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+                                                            }`}>
+                                                                {r.status === 'success' || r.status === 'PAID' ? 'Success' : r.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4 px-6 font-semibold text-white whitespace-nowrap" title={formatPaymentMethod(r.payment_method || r.method, r.provider).tooltip}>
+                                                            {formatPaymentMethod(r.payment_method || r.method, r.provider).label}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Footer: View all recharges button */}
+                                    <div className="p-3 border-t border-white/5 bg-white/[0.01] flex justify-center">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsWccRechargeHistoryModalOpen(true)}
+                                            className="text-xs font-semibold text-purple-400 hover:text-purple-300 transition-colors cursor-pointer py-1"
+                                        >
+                                            View all recharges
+                                        </button>
+                                    </div>
+                                </>
                             )}
                         </div>
                     </div>
@@ -1333,34 +1616,116 @@ export default function CreditsPage() {
                 fetchDataFn={({ page, limit, search, status, sort }) =>
                     api.getWccUserRechargeLogs(workspaceId, { page, limit, search, status, sort })
                 }
-                columns={[
-                    {
-                        key: "date",
-                        label: "Date & Time",
-                        render: (r) => <span className="text-zinc-300">{formatBillingDate(r.date, true)}</span>
-                    },
-                    {
-                        key: "amount",
-                        label: "Amount",
-                        render: (r) => <span className="font-bold text-emerald-400">₹{r.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                    },
-                    {
-                        key: "payment_id",
-                        label: "Payment / Order ID",
-                        render: (r) => <span className="font-mono text-zinc-400 text-[11px]">{r.payment_id || r.gateway_order_id || "N/A"}</span>
-                    },
-                    {
-                        key: "status",
-                        label: "Status",
-                        render: (r) => (
-                            <span className={`px-2.5 py-1 rounded-md text-[11px] font-semibold inline-block ${
-                                r.status === 'success'
+                renderMobileCard={(r) => (
+                    <div className="bg-[#12111c] border border-white/[0.08] rounded-xl p-3.5 space-y-2.5 transition-all hover:border-white/15">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <span className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                                    <Calendar size={14} />
+                                </span>
+                                <span className="text-xs font-mono font-medium text-zinc-200 truncate">
+                                    {formatBillingDate(r.date, true)}
+                                </span>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+                                r.status === 'success' || r.status === 'PAID'
                                     ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
                                     : r.status === 'failed'
                                     ? 'bg-red-500/10 border border-red-500/20 text-red-400'
                                     : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
                             }`}>
-                                {r.status === 'success' ? 'Success' : r.status}
+                                {r.status === 'success' || r.status === 'PAID' ? 'Success' : r.status}
+                            </span>
+                        </div>
+                        <div>
+                            <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Amount</span>
+                            <span className="text-sm font-bold text-white tracking-tight">
+                                ₹{Number(r.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </span>
+                        </div>
+                        <div>
+                            <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Transaction ID</span>
+                            <div className="flex items-center justify-between gap-2 p-1.5 px-2 rounded-lg bg-white/[0.02] border border-white/5">
+                                <span className="text-xs font-mono text-zinc-400 truncate flex-1">
+                                    {r.payment_id || r.gateway_order_id || 'N/A'}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => handleCopyTxId(r.payment_id || r.gateway_order_id)}
+                                    className="p-1 text-zinc-500 hover:text-white rounded hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                                >
+                                    {copiedTxId === (r.payment_id || r.gateway_order_id) ? (
+                                        <Check size={13} className="text-emerald-400" />
+                                    ) : (
+                                        <Copy size={13} />
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Method</span>
+                            <span className="text-xs font-semibold text-white">
+                                {formatPaymentMethod(r.payment_method || r.method, r.provider).label}
+                            </span>
+                        </div>
+                    </div>
+                )}
+                columns={[
+                    {
+                        key: "date",
+                        label: "Date & Time",
+                        render: (r) => (
+                            <div className="flex items-center gap-2.5">
+                                <span className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                                    <Calendar size={13} />
+                                </span>
+                                <span className="text-zinc-300 font-mono text-[11px] whitespace-nowrap">
+                                    {formatBillingDate(r.date, true)}
+                                </span>
+                            </div>
+                        )
+                    },
+                    {
+                        key: "amount",
+                        label: "Amount",
+                        render: (r) => <span className="font-bold text-white font-mono text-xs whitespace-nowrap">₹{Number(r.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    },
+                    {
+                        key: "payment_id",
+                        label: "Payment / Order ID",
+                        render: (r) => (
+                            <div className="flex items-center gap-2 max-w-[280px]">
+                                <span className="font-mono text-zinc-400 text-[11px] truncate">
+                                    {r.payment_id || r.gateway_order_id || "N/A"}
+                                </span>
+                                {(r.payment_id || r.gateway_order_id) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleCopyTxId(r.payment_id || r.gateway_order_id)}
+                                        className="p-1 text-zinc-500 hover:text-white rounded hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                                    >
+                                        {copiedTxId === (r.payment_id || r.gateway_order_id) ? (
+                                            <Check size={12} className="text-emerald-400" />
+                                        ) : (
+                                            <Copy size={12} />
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+                        )
+                    },
+                    {
+                        key: "status",
+                        label: "Status",
+                        render: (r) => (
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold inline-block whitespace-nowrap ${
+                                r.status === 'success' || r.status === 'PAID'
+                                    ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                                    : r.status === 'failed'
+                                    ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+                                    : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+                            }`}>
+                                {r.status === 'success' || r.status === 'PAID' ? 'Success' : r.status}
                             </span>
                         )
                     },
@@ -1370,7 +1735,7 @@ export default function CreditsPage() {
                         render: (r) => {
                             const m = formatPaymentMethod(r.payment_method || r.method, r.provider);
                             return (
-                                <span className="font-semibold text-white" title={m.tooltip}>
+                                <span className="font-semibold text-white whitespace-nowrap" title={m.tooltip}>
                                     {m.label}
                                 </span>
                             );
@@ -1380,53 +1745,122 @@ export default function CreditsPage() {
             />
 
             {/* Universal History Modal for AI Credit History */}
-            <HistoryModal
-                isOpen={isAiCreditHistoryModalOpen}
-                onClose={() => setIsAiCreditHistoryModalOpen(false)}
-                title="AI Workspace Credit History"
-                subtitle="Complete log of credit grants, topups, and feature usages"
-                fetchDataFn={async ({ page }) => {
-                    const res = await api.getCreditHistory(workspaceId, page);
-                    const data = res.data ?? res;
-                    const cleanEntries = (data.entries || []).filter(e => {
-                        const type = (e.entry_type || '').toLowerCase();
-                        const status = (e.status || '').toLowerCase();
-                        return type !== 'usage_reservation' && status === 'posted';
-                    });
-                    return {
-                        data: cleanEntries,
-                        pagination: {
-                            page,
-                            limit: 10,
-                            total: data.total || cleanEntries.length,
-                            pages: Math.ceil((data.total || cleanEntries.length) / 10) || 1
-                        }
-                    };
+<HistoryModal
+    isOpen={isAiCreditHistoryModalOpen}
+    onClose={() => setIsAiCreditHistoryModalOpen(false)}
+    title="AI Workspace Credit History"
+    subtitle="Complete log of credit grants, topups, and feature usages"
+    fetchDataFn={async ({ page, search, sort }) => {
+        const res = await api.getCreditHistory(workspaceId, page);
+        const data = res.data ?? res;
+
+        let entries = (data.entries || []).filter(e => {
+            const type = (e.entry_type || '').toLowerCase();
+            const status = (e.status || '').toLowerCase();
+
+            return type !== 'usage_reservation' && status === 'posted';
+        });
+
+        if (search) {
+            const s = search.toLowerCase();
+
+            entries = entries.filter(e =>
+                (e.description || '').toLowerCase().includes(s) ||
+                (e.entry_type || '').toLowerCase().includes(s) ||
+                String(e.credits_delta || '').includes(s)
+            );
+        }
+
+        if (sort === 'asc') {
+            entries = [...entries].reverse();
+        }
+
+        return {
+            data: entries,
+            pagination: {
+                page,
+                limit: 10,
+                total: data.total ?? entries.length,
+                pages: Math.ceil((data.total ?? entries.length) / 10) || 1
+            }
+        };
+    }}
+
+                renderMobileCard={(r) => {
+                    const meta = getCreditTypeMeta(r.entry_type, r.description);
+                    const val = Number(r.credits_delta ?? 0);
+                    const isNeg = val < 0;
+                    return (
+                        <div className="bg-[#12111c] border border-white/[0.08] rounded-xl p-3.5 space-y-2.5 transition-all hover:border-white/15">
+                            {/* Top: Icon + Date & Type + Delta */}
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <span className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${meta.bg}`}>
+                                        {meta.icon}
+                                    </span>
+                                    <div className="min-w-0">
+                                        <p className="text-zinc-200 text-xs font-medium m-0 truncate">
+                                            {formatBillingDate(r.created_at, true)}
+                                        </p>
+                                        <p className="text-[11px] text-zinc-500 font-mono m-0 mt-0.5 truncate">
+                                            {r.entry_type || meta.label}
+                                        </p>
+                                    </div>
+                                </div>
+                                <span className={`text-sm font-bold tracking-tight whitespace-nowrap ${isNeg ? 'text-[#ff4d6d]' : 'text-[#10b981]'}`}>
+                                    {isNeg ? '' : '+'}{formatCredits(r.credits_delta, 2)}
+                                </span>
+                            </div>
+
+                            {/* Bottom: Description */}
+                            <div className="pt-0.5">
+                                <p className="text-xs text-zinc-400 font-normal m-0 leading-relaxed break-words">
+                                    {formatCreditDescription(r.description, r.status, r.entry_type) || "System Process"}
+                                </p>
+                            </div>
+                        </div>
+                    );
                 }}
                 columns={[
                     {
                         key: "date",
                         label: "Date",
-                        render: (r) => formatBillingDate(r.created_at, true)
+                        render: (r) => {
+                            const meta = getCreditTypeMeta(r.entry_type, r.description);
+                            return (
+                                <div className="flex items-center gap-3">
+                                    <span className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${meta.bg}`}>
+                                        {meta.icon}
+                                    </span>
+                                    <span className="text-zinc-300 font-mono text-[11px] whitespace-nowrap">
+                                        {formatBillingDate(r.created_at, true)}
+                                    </span>
+                                </div>
+                            );
+                        }
                     },
-                    {
-                        key: "description",
-                        label: "Description",
-                        render: (r) => (
-                            <span className="font-medium text-white">
-                                {formatCreditDescription(r.description, r.status, r.entry_type)}
-                            </span>
-                        )
-                    },
-                    {
-                        key: "type",
-                        label: "Type",
-                        render: (r) => (
-                            <span className="text-zinc-300 font-medium text-xs">
-                                {formatCreditEntryType(r.entry_type)}
-                            </span>
-                        )
-                    },
+                   {
+    key: "description",
+    label: "Description",
+    render: (r) => (
+        <span className="font-medium text-white text-xs leading-relaxed break-words">
+            {formatCreditDescription(
+                r.description,
+                r.status,
+                r.entry_type
+            )}
+        </span>
+    )
+},
+{
+    key: "type",
+    label: "Type",
+    render: (r) => (
+        <span className="text-zinc-300 font-medium text-xs whitespace-nowrap">
+            {formatCreditEntryType(r.entry_type)}
+        </span>
+    )
+},
                     {
                         key: "delta",
                         label: "Credits Delta",
@@ -1434,7 +1868,7 @@ export default function CreditsPage() {
                             const val = Number(r.credits_delta ?? 0);
                             const isNeg = val < 0;
                             return (
-                                <span className={`font-bold ${isNeg ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                <span className={`font-bold whitespace-nowrap text-xs ${isNeg ? 'text-[#ff4d6d]' : 'text-[#10b981]'}`}>
                                     {isNeg ? '' : '+'}{formatCredits(r.credits_delta, 2)}
                                 </span>
                             );
@@ -1447,4 +1881,50 @@ export default function CreditsPage() {
             <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
         </div>
     );
+}
+
+function getCreditTypeMeta(entryType, description) {
+    const type = String(entryType || '').toLowerCase();
+    const desc = String(description || '').toLowerCase();
+
+    if (type.includes('purchase') || desc.includes('purchase') || desc.includes('credit pack')) {
+        return {
+            icon: <Gift size={15} />,
+            bg: 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400',
+            label: 'Credit Top-up'
+        };
+    }
+    if (type.includes('grant') || type.includes('topup') || desc.includes('renew') || desc.includes('grant')) {
+        return {
+            icon: <Gift size={15} />,
+            bg: 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400',
+            label: 'Plan Grant'
+        };
+    }
+    if (type.includes('expiration') || type.includes('expire') || desc.includes('expire')) {
+        return {
+            icon: <Clock size={15} />,
+            bg: 'bg-amber-500/10 border-amber-500/25 text-amber-400',
+            label: 'Credit Expiration'
+        };
+    }
+    if (type.includes('reservation') || desc.includes('provider')) {
+        return {
+            icon: <FileText size={15} />,
+            bg: 'bg-purple-500/10 border-purple-500/25 text-purple-400',
+            label: 'Usage Hold'
+        };
+    }
+    if (type.includes('usage') || desc.includes('agent') || desc.includes('message') || desc.includes('chat') || desc.includes('knowledge') || desc.includes('document')) {
+        return {
+            icon: <MessageSquare size={15} />,
+            bg: 'bg-sky-500/10 border-sky-500/25 text-sky-400',
+            label: 'AI Usage'
+        };
+    }
+    return {
+        icon: <FileText size={15} />,
+        bg: 'bg-purple-500/10 border-purple-500/25 text-purple-400',
+        label: formatCreditEntryType(entryType) || 'AI Usage'
+    };
 }

@@ -32,7 +32,7 @@ const cardVariants = {
   }),
 };
 
-/* ─ PricingCard Component matching Image 1 exact sizing & styling ─ */
+/* ─ PricingCard Component sizing & styling ─ */
 function PricingCard({ plan, index, billing }) {
   const isFeatured = plan.featured;
   const isEnterprise = plan.key === 'enterprise';
@@ -220,8 +220,7 @@ export default function PricingPage() {
   const compareRef = useRef(null);
 
   useEffect(() => {
-    api
-      .getPricing()
+    api.getPricing()
       .then(setSettings)
       .catch((err) => console.warn('Failed to load pricing details:', err?.message || err));
   }, []);
@@ -261,8 +260,7 @@ export default function PricingPage() {
               icon: iconMap[p.key] || '⚡',
               price: displayPrice,
               description: p.description,
-              features:
-                p.features && p.features.length > 0
+              features:p.features && p.features.length > 0
                   ? p.features
                   : [repliesCount, 'Basic workspace access', 'Meta API Included'],
               buttonText:
@@ -357,7 +355,7 @@ export default function PricingPage() {
           </p>
         </div>
 
-        {/* 3-Column Plan Grid matching Image 1 */}
+        {/* 3-Column Plan Grid */}
         <motion.div
           variants={containerVariants}
           initial="hidden"

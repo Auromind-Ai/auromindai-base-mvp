@@ -472,7 +472,7 @@ export default function BillingHistoryPage() {
   }, [billing])
 
   return (
-    <section className="min-h-screen bg-[#0d0d0f] text-white p-4 sm:p-6 md:p-8 font-sans">
+    <section className={`${poppins.className} min-h-screen bg-[#0d0d0f] text-white p-4 sm:p-6 md:p-8`}>
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-2.5 px-4 py-3.5 rounded-xl border border-white/10 bg-[#0d0d0d]/95 backdrop-blur-md shadow-2xl text-white text-sm font-semibold animate-in slide-in-from-bottom-5 duration-300">
@@ -482,7 +482,7 @@ export default function BillingHistoryPage() {
 
       {/* Page Header */}
       <div className="mb-7">
-        <h1 className="text-2xl sm:text-[28px] font-bold text-white tracking-tight">Billing & Invoices</h1>
+        <h1 className="text-2xl sm:text-[28px] font-semibold text-white tracking-tight">Billing & Invoices</h1>
         <p className="text-xs sm:text-[13px] text-zinc-400 mt-1.5 leading-relaxed">
           Manage your subscription plans, track monthly usage, view invoices, and monitor account activity.
         </p>
@@ -495,13 +495,13 @@ export default function BillingHistoryPage() {
       )}
 
       {/* Top Row: Current Plan + Plan Details + Billing Profile */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         {/* Current Plan Card */}
         <div className="bg-[#070012] border border-zinc-700/40 rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-xs text-zinc-400 mb-1.5 font-medium">Your current plan</p>
+                <p className="text-xs text-white/70 mb-1.5 font-medium">Your current plan</p>
                 {loading ? (
                   <div className="w-28 h-8 rounded-lg bg-white/10 animate-pulse my-1" />
                 ) : (
@@ -633,12 +633,12 @@ export default function BillingHistoryPage() {
         </div>
 
         {/* Billing Profile Card */}
-        <div className="bg-[#070012] border border-zinc-700/40 rounded-2xl p-4 sm:p-5 flex flex-col justify-between md:col-span-2 lg:col-span-1">
+        <div className="bg-[#070012] border border-zinc-700/40 rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start mb-3">
               <div>
                 <p className="text-[15px] font-bold text-white m-0">Billing Profile</p>
-                <p className="text-[10px] text-zinc-400 mt-1 leading-snug">
+                <p className="text-[10px] text-white/50 mt-1 leading-snug">
                   Invoicing & Tax Details
                 </p>
               </div>
@@ -647,17 +647,17 @@ export default function BillingHistoryPage() {
             <div className="space-y-1.5 text-xs text-zinc-300">
               <div className="flex justify-between py-1 border-b border-white/[0.04]">
                 <span className="text-zinc-400 font-medium">Business Name:</span>
-                <span className="text-white font-semibold text-right truncate max-w-[170px]">{profile.billing_name || "—"}</span>
+                <span className="text-white font-semibold text-right truncate max-w-[200px] sm:max-w-[320px] lg:max-w-[170px]">{profile.billing_name || "—"}</span>
               </div>
 
               <div className="flex justify-between py-1 border-b border-white/[0.04]">
                 <span className="text-zinc-400 font-medium">Contact:</span>
-                <span className="text-white font-medium text-right truncate max-w-[170px]">{profile.billing_contact_name || "—"}</span>
+                <span className="text-white font-medium text-right truncate max-w-[200px] sm:max-w-[320px] lg:max-w-[170px]">{profile.billing_contact_name || "—"}</span>
               </div>
 
               <div className="flex justify-between py-1 border-b border-white/[0.04]">
                 <span className="text-zinc-400 font-medium">Email:</span>
-                <span className="text-white font-medium text-right truncate max-w-[170px]">{profile.billing_email || "—"}</span>
+                <span className="text-white font-medium text-right truncate max-w-[200px] sm:max-w-[320px] lg:max-w-[170px]">{profile.billing_email || "—"}</span>
               </div>
 
               <div className="flex justify-between py-1 border-b border-white/[0.04]">
@@ -703,7 +703,7 @@ export default function BillingHistoryPage() {
             <div className="flex justify-between items-start mb-1">
               <div>
                 <p className="text-[15px] font-bold text-white m-0">Usage Summary</p>
-                <p className="text-xs text-zinc-400 mt-1">Current billing cycle usage</p>
+                <p className="text-xs text-white/60 mt-1">Current billing cycle usage</p>
               </div>
               <span className="bg-purple-500/15 border border-purple-500/20 text-purple-200 rounded-full px-3 py-1 text-[11px] font-medium">
                 This month
@@ -719,7 +719,7 @@ export default function BillingHistoryPage() {
 
         {/* Recent Account Activity */}
         <div className="bg-[#070012] border border-zinc-700/40 rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
-          <p className="text-[15px] font-bold text-white mb-4">Recent Account Activity</p>
+          <p className="text-[15px] font-semibold text-white mb-4">Recent Account Activity</p>
           {loading ? (
             <div className="flex flex-col gap-3">
               {[1, 2, 3, 4].map(i => <div key={i} className="w-full h-12 rounded-lg bg-white/10 animate-pulse" />)}
@@ -772,7 +772,136 @@ export default function BillingHistoryPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto rounded-xl border border-white/5 bg-[#070012] scrollbar-thin scrollbar-thumb-white/10">
+            {/* 1. Mobile View (< 640px): Card List */}
+            <div className="block sm:hidden space-y-3">
+              {payments.slice(0, TABLE_PREVIEW_LIMIT).map((payment) => {
+                const meta = getActivityMeta(payment)
+                return (
+                  <div
+                    key={payment.id || payment.payment_id || `${payment.amount}-${payment.date || "na"}`}
+                    onClick={(e) => {
+                      if (e.target.closest("button")) return
+                      setSelectedInvoice(payment)
+                    }}
+                    className="rounded-xl border border-white/[0.08] bg-[#0e0c15] p-4 transition-all hover:border-white/20 cursor-pointer"
+                  >
+                    {/* Top: Icon + Invoice Number & Status */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-7 h-7 rounded-lg bg-purple-500/15 border border-purple-500/25 flex items-center justify-center text-purple-400 shrink-0">
+                          <FileText size={14} />
+                        </span>
+                        <span className="font-mono text-white text-xs font-semibold truncate">
+                          {payment.invoice_number || "—"}
+                        </span>
+                      </div>
+                      <StatusPill status={payment.status} />
+                    </div>
+
+                    {/* Middle: Description & Date */}
+                    <div className="mt-3">
+                      <p className="text-xs text-zinc-300 font-medium m-0 truncate">
+                        {payment.description || meta.desc}
+                      </p>
+                      <p className="text-[11px] text-zinc-500 m-0 mt-1">
+                        {formatBillingDate(payment.date, true)}
+                      </p>
+                    </div>
+
+                    {/* Bottom: Total Amount & Download Button */}
+                    <div className="flex items-end justify-between pt-3 mt-3 border-t border-white/5">
+                      <div>
+                        <span className="text-[10px] text-zinc-400 block font-medium uppercase tracking-wider">Total</span>
+                        <span className="text-sm font-bold text-white tracking-tight">
+                          {formatBillingAmount(payment.amount)}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDownloadInvoice(payment)
+                        }}
+                        disabled={!payment.invoice_available}
+                        title={payment.invoice_available ? "Download Invoice" : "Invoice Not Available"}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-medium text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      >
+                        {downloadingId === payment.id ? (
+                          <RefreshCw size={13} className="text-zinc-400 animate-spin" />
+                        ) : (
+                          <Download size={13} className="text-zinc-400" />
+                        )}
+                        <span>PDF</span>
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* 2. Tablet View (640px – 1023px): Optimized Compact Card List */}
+            <div className="hidden sm:block lg:hidden space-y-2.5">
+              {payments.slice(0, TABLE_PREVIEW_LIMIT).map((payment) => {
+                const meta = getActivityMeta(payment)
+                return (
+                  <div
+                    key={payment.id || payment.payment_id || `${payment.amount}-${payment.date || "na"}`}
+                    onClick={(e) => {
+                      if (e.target.closest("button")) return
+                      setSelectedInvoice(payment)
+                    }}
+                    className="rounded-xl border border-white/[0.08] bg-[#0e0c15] p-3.5 sm:p-4 flex items-center justify-between gap-4 transition-colors hover:bg-white/[0.03] hover:border-white/20 cursor-pointer"
+                  >
+                    {/* Left: Icon + Details */}
+                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                      <span className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center text-purple-400 shrink-0">
+                        <FileText size={16} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2.5">
+                          <span className="font-mono text-white text-xs sm:text-[13px] font-semibold truncate">
+                            {payment.invoice_number || "—"}
+                          </span>
+                          <StatusPill status={payment.status} />
+                        </div>
+                        <p className="text-xs text-zinc-300 font-medium truncate mt-1 m-0">
+                          {payment.description || meta.desc}
+                        </p>
+                        <p className="text-[11px] text-zinc-500 mt-0.5 m-0">
+                          {formatBillingDate(payment.date, true)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Right: Amount + Download Icon */}
+                    <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+                      <span className="text-sm sm:text-base font-bold text-white tracking-tight whitespace-nowrap">
+                        {formatBillingAmount(payment.amount)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDownloadInvoice(payment)
+                        }}
+                        disabled={!payment.invoice_available}
+                        title={payment.invoice_available ? "Download Invoice" : "Invoice Not Available"}
+                        className="w-8 h-8 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 flex items-center justify-center text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      >
+                        {downloadingId === payment.id ? (
+                          <RefreshCw size={14} className="text-zinc-400 animate-spin" />
+                        ) : (
+                          <Download size={14} className="text-zinc-400" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* 3. Desktop View (>= 1024px): Full Table */}
+            <div className="hidden lg:block overflow-x-auto rounded-xl border border-white/5 bg-[#070012] scrollbar-thin scrollbar-thumb-white/10">
               <table className="w-full min-w-[700px] border-collapse text-[13px]">
                 <thead>
                   <tr className="bg-white/[0.04]">
@@ -809,7 +938,11 @@ export default function BillingHistoryPage() {
                         </td>
                         <td className="p-4">
                           <button
-                            onClick={() => handleDownloadInvoice(payment)}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDownloadInvoice(payment)
+                            }}
                             disabled={!payment.invoice_available}
                             title={payment.invoice_available ? "Download Invoice" : "Invoice Not Available"}
                             className="w-8 h-8 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"

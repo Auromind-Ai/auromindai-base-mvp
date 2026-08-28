@@ -1277,7 +1277,7 @@ function ChatArea({
                                                     borderBottomLeftRadius: '6px'
                                                 }
                                                 : {
-                                                    backgroundColor: '#1a7a45',
+                                                    backgroundColor: (lead?.channel?.toLowerCase() === 'twilio' || ch.id === 'twilio') ? '#CE272D' : (ch.id === 'instagram' ? '#ee2a7b' : '#1a7a45'),
                                                     borderBottomRightRadius: '6px'
                                                 }
                                         }

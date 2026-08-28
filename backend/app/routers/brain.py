@@ -506,16 +506,17 @@ async def ingest_url(
 @router.get("/ingest/status/{entry_id:uuid}", response_model=IngestionStatusResponse)
 async def get_ingestion_status(
     entry_id: uuid.UUID,
+    workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
    
     logger.info(f"[INGEST STATUS] user={current_user.id} entry_id={entry_id}")
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id)
   
     entry = db.query(BrainEntry).filter(
         BrainEntry.id == entry_id,
-        BrainEntry.workspace_id == workspace_id,
+        BrainEntry.workspace_id == to_uuid(workspace_id),
     ).first()
   
     if not entry:
@@ -712,9 +713,8 @@ async def list_entries(
         chunk_count = stats.get("chunk_count", 0)
         result_entries = []
         has_pending = False
-
         for entry in entries:
-            if entry.status == "pending":
+            if entry.status in ("pending", "processing"):
                 has_pending = True
 
             result_entries.append({

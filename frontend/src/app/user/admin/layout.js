@@ -91,6 +91,15 @@ function AdminLayoutContent({ children }) {
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     const workspace = workspaces.find(w => w.id === workspaceId) || null;
+    const currentWorkspaceName = (() => {
+        if (workspace?.name) {
+            if (workspace.name.endsWith("'s Workspace") || workspace.name.endsWith("’s Workspace")) {
+                return `${user?.full_name || user?.name || 'User'}'s Workspace`;
+            }
+            return workspace.name;
+        }
+        return `${user?.full_name || user?.name || 'User'}'s Workspace`;
+    })();
 
     // 1. Safe Client-side LocalStorage Read
     useEffect(() => {
@@ -291,8 +300,8 @@ function AdminLayoutContent({ children }) {
                         isCollapsed ? 'justify-center px-2 flex-col gap-2' : 'justify-between px-4'
                     }`}>
                         <div className="flex items-center gap-2.5 overflow-hidden">
-                            <div className="w-9 h-9 rounded-full shrink-0 overflow-hidden bg-orange-500 flex items-center justify-center text-xs text-white font-bold border-2 border-white/10">
-                                {user?.email?.charAt(0)?.toUpperCase()}
+                            <div className="w-9 h-9 rounded-full shrink-0 overflow-hidden bg-[#814AC8] flex items-center justify-center text-xs text-white font-bold border-2 border-white/10">
+                                {(user?.full_name || user?.name || user?.email || 'U').charAt(0).toUpperCase()}
                             </div>
                             {!isCollapsed && (
                                 <span className="font-semibold text-[15px] text-white truncate">
@@ -406,12 +415,12 @@ function AdminLayoutContent({ children }) {
                             {/* Workspace Brand */}
                             <div className="h-14 flex items-center px-4 border-b border-white/5">
                                 <div className="flex items-center gap-2.5 overflow-hidden">
-                                    <div className="w-5 h-5 rounded-[4px] bg-indigo-500 flex items-center justify-center flex-shrink-0 text-[10px] text-white font-bold">
-                                        {workspace?.name?.charAt(0) || 'A'}
+                                    <div className="w-5 h-5 rounded-[4px] bg-[#814AC8] flex items-center justify-center flex-shrink-0 text-[10px] text-white font-bold">
+                                        {(currentWorkspaceName || 'A').charAt(0).toUpperCase()}
                                     </div>
 
                                     <span className="font-medium text-sm truncate text-[#D4D4D4]">
-                                        {workspace?.name || 'Auromind'}
+                                        {currentWorkspaceName}
                                     </span>
                                 </div>
                             </div>
@@ -440,8 +449,8 @@ function AdminLayoutContent({ children }) {
                             {/* User Profile */}
                             <div className="p-3 border-t border-white/5 bg-[#141418]">
                                 <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors">
-                                    <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-xs text-white font-bold">
-                                        {user?.email?.charAt(0)?.toUpperCase()}
+                                    <div className="w-8 h-8 rounded-lg bg-[#814AC8] flex items-center justify-center text-xs text-white font-bold">
+                                        {(user?.full_name || user?.name || user?.email || 'U').charAt(0).toUpperCase()}
                                     </div>
 
                                     <div className="flex-1 min-w-0">
@@ -499,13 +508,13 @@ function AdminLayoutContent({ children }) {
                             </button>
 
                             <span className="font-semibold text-sm text-[#D4D4D4] tracking-tight">
-                                Auromind
+                                OrbionAgents
                             </span>
                         </div>
 
                         {/* Compact Profile Circle for Mobile Header */}
-                        <div className="w-7 h-7 rounded-lg bg-orange-600 flex items-center justify-center text-[10px] text-white font-bold border border-white/10">
-                            {user?.email?.charAt(0)?.toUpperCase()}
+                        <div className="w-7 h-7 rounded-lg bg-[#814AC8] flex items-center justify-center text-[10px] text-white font-bold border border-white/10">
+                            {(user?.full_name || user?.name || user?.email || 'U').charAt(0).toUpperCase()}
                         </div>
                     </div>
 

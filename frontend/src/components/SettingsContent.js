@@ -35,7 +35,7 @@ import {
   X
 } from 'lucide-react';
 
-// ─ Nav Config 
+// ─ Nav Config
 
 const NAV_SECTIONS = [
   {
@@ -55,7 +55,7 @@ const NAV_SECTIONS = [
   },
 ];
 
-// ─ Toggle Component 
+// ─ Toggle Component
 
 function Toggle({ checked, onChange, disabled }) {
   return (
@@ -96,7 +96,7 @@ function getTimezoneOffset(tz) {
     const parts = fmt.formatToParts(new Date());
     const offsetPart = parts.find((p) => p.type === 'timeZoneName');
     if (!offsetPart) return { label: tz, offset: 0 };
-    const raw = offsetPart.value; // e.g. "GMT+5:30" or "GMT-4" or "GMT"
+    const raw = offsetPart.value;
     if (raw === 'GMT' || raw === 'UTC') return { label: `(GMT+00:00) ${tz}`, offset: 0 };
     const match = raw.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
     if (!match) return { label: `(GMT) ${tz}`, offset: 0 };
@@ -115,7 +115,6 @@ function getTimezoneOffset(tz) {
   }
 }
 
-// Static fallback list for browsers without Intl.supportedValuesOf
 const FALLBACK_TIMEZONES = [
   'Africa/Cairo', 'Africa/Johannesburg', 'Africa/Lagos', 'Africa/Nairobi',
   'America/Anchorage', 'America/Argentina/Buenos_Aires', 'America/Bogota',
@@ -152,17 +151,15 @@ function buildTimezoneList() {
   return items;
 }
 
-// Build once at module level
 const TIMEZONE_OPTIONS = buildTimezoneList();
 
-// ─ Timezone Dropdown Component 
+// ─ Timezone Dropdown Component
 
 function TimezoneDropdown({ value, onChange, disabled }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropdownRef = useRef(null);
 
-  // Close on outside click
   useEffect(() => {
     function handleClick(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -223,7 +220,6 @@ function TimezoneDropdown({ value, onChange, disabled }) {
             flex flex-col overflow-hidden
           "
         >
-          {/* Search */}
           <div className="p-2 border-b border-white/10">
             <input
               type="text"
@@ -235,12 +231,11 @@ function TimezoneDropdown({ value, onChange, disabled }) {
                 w-full h-9 px-3 rounded-lg
                 bg-white/5 border border-white/10
                 text-sm text-white placeholder:text-zinc-500
-                focus:outline-none focus:border-violet-500
+                focus:outline-none focus-border-violet-500
                 transition-colors
               "
             />
           </div>
-          {/* Options */}
           <div className="overflow-y-auto flex-1 py-1 scrollbar-thin">
             {filtered.length === 0 ? (
               <p className="px-4 py-3 text-sm text-zinc-500 text-center">No timezones found</p>
@@ -283,7 +278,6 @@ function PreferencesSection() {
   const [timezone, setTimezone] = useState('');
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
-  //  Load saved preferences on mount ─
   useEffect(() => {
     let cancelled = false;
     async function loadPrefs() {
@@ -293,28 +287,22 @@ function PreferencesSection() {
         if (cancelled) return;
 
         if (prefs.timezone && !prefs.timezone_auto) {
-          // Saved manual timezone
           setTimezone(prefs.timezone);
           setAutoTimezone(false);
         } else if (prefs.timezone && prefs.timezone_auto) {
-          // Saved auto timezone — re-detect in case user moved
           const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
           setTimezone(detected);
           setAutoTimezone(true);
-          // Persist detected value if changed
           if (detected !== prefs.timezone) {
             api.updatePreferences({ timezone: detected, timezone_auto: true }).catch(() => {});
           }
         } else {
-          // First-time user: no timezone saved → default to auto-detect
           const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
           setTimezone(detected);
           setAutoTimezone(true);
-          // Save immediately so it's persisted for next load
           api.updatePreferences({ timezone: detected, timezone_auto: true }).catch(() => {});
         }
       } catch {
-        // API error (e.g. not logged in) — fallback to browser TZ
         const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
         setTimezone(detected);
         setAutoTimezone(true);
@@ -326,7 +314,6 @@ function PreferencesSection() {
     return () => { cancelled = true; };
   }, []);
 
-  //  Toggle handler ─
   const handleAutoTimezone = async (val) => {
     setAutoTimezone(val);
     try {
@@ -338,27 +325,21 @@ function PreferencesSection() {
       } else {
         await api.updatePreferences({ timezone_auto: false });
       }
-    } catch {
-      // Silently handle API errors
-    }
+    } catch {}
   };
 
-  //  Dropdown change handler ─
   const handleTimezoneChange = async (tz) => {
     setTimezone(tz);
     try {
       const { default: api } = await import('@/lib/api');
       await api.updatePreferences({ timezone: tz, timezone_auto: false });
-    } catch {
-      // Silently handle API errors
-    }
+    } catch {}
   };
 
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
     <div>
-      {/* Page header */}
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-regular tracking-tight text-white">
           My Account
@@ -368,10 +349,8 @@ function PreferencesSection() {
         </p>
       </div>
 
-      {/* Divider */}
       <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
 
-      {/* Appearance Card */}
       <section
         className="
           mb-6 rounded-2xl border border-[rgba(157,157,157,0.43)]
@@ -409,7 +388,6 @@ function PreferencesSection() {
         </div>
       </section>
 
-      {/* Language & Time */}
       <div className="mb-4">
         <h2 className="text-base font-semibold text-white tracking-tight">
           Language &amp; Time
@@ -424,8 +402,6 @@ function PreferencesSection() {
         "
       >
         <div className="mx-0 rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden">
-
-          {/* Language row — UNTOUCHED */}
           <div
             className="
               flex flex-col sm:flex-row sm:items-center justify-between
@@ -453,7 +429,6 @@ function PreferencesSection() {
             </button>
           </div>
 
-          {/* Time zone row — NOW A SEARCHABLE DROPDOWN */}
           <div
             className="
               flex flex-col sm:flex-row sm:items-center justify-between
@@ -478,7 +453,6 @@ function PreferencesSection() {
             )}
           </div>
 
-          {/* Auto timezone row */}
           <div
             className="
               flex flex-col sm:flex-row sm:items-center justify-between
@@ -499,7 +473,6 @@ function PreferencesSection() {
             </div>
           </div>
 
-          {/* Week starts on row — UNTOUCHED */}
           <div
             className="
               flex flex-col sm:flex-row sm:items-center justify-between
@@ -512,7 +485,6 @@ function PreferencesSection() {
                 Choose the first day of your work
               </p>
             </div>
-            {/* Day selector — wraps on mobile */}
             <div className="flex flex-wrap gap-1.5 shrink-0">
               {days.map((day) => (
                 <button
@@ -535,7 +507,6 @@ function PreferencesSection() {
               ))}
             </div>
           </div>
-
         </div>
       </section>
     </div>
@@ -589,7 +560,6 @@ function NotificationsSection() {
       await api.updatePreferences({ [key]: newValue });
     } catch (err) {
       console.error(`Failed to update notification preference ${key}:`, err);
-      // Revert
       setNotifs((prev) => ({ ...prev, [key]: !newValue }));
     }
   };
@@ -624,7 +594,6 @@ function NotificationsSection() {
 
   return (
     <div>
-      {/* Page header */}
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
           Notifications
@@ -634,10 +603,8 @@ function NotificationsSection() {
         </p>
       </div>
 
-      {/* Divider */}
       <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
 
-      {/* Notification Preferences card */}
       <section
         className="
           rounded-2xl border border-[rgba(157,157,157,0.43)]
@@ -678,7 +645,7 @@ function NotificationsSection() {
   );
 }
 
-// ─ Placeholder sections 
+// ─ Placeholder sections
 
 function PlaceholderSection({ title, desc }) {
   return (
@@ -697,7 +664,7 @@ function PlaceholderSection({ title, desc }) {
   );
 }
 
-// ─ People Section 
+// ─ People Section
 
 function PeopleSection() {
   const [search, setSearch] = useState('');
@@ -718,7 +685,6 @@ function PeopleSection() {
 
   return (
     <div>
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">People</h1>
         <p className="mt-1.5 text-sm text-zinc-400">
@@ -728,10 +694,7 @@ function PeopleSection() {
 
       <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
 
-      {/* Card */}
       <section className="rounded-2xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
-
-        {/* Search + Filter */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-[rgba(157,157,157,0.43)]">
           <div className="relative flex-1 max-w-xs">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -751,7 +714,6 @@ function PeopleSection() {
           </button>
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -769,7 +731,6 @@ function PeopleSection() {
                   key={idx}
                   className={`transition-colors hover:bg-white/[0.03] ${idx < filtered.length - 1 ? 'border-b border-[rgba(157,157,157,0.2)]' : ''}`}
                 >
-                  {/* Person */}
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-900 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-[0_0_10px_rgba(124,58,237,0.3)]">
@@ -781,21 +742,17 @@ function PeopleSection() {
                       </div>
                     </div>
                   </td>
-                  {/* Lead */}
                   <td className="px-5 py-3">
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${person.leadColor}`}>
                       {person.lead}
                     </span>
                   </td>
-                  {/* Status */}
                   <td className="px-5 py-3">
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${person.statusColor}`}>
                       {person.status}
                     </span>
                   </td>
-                  {/* Channel */}
                   <td className="px-5 py-3 text-white text-sm">{person.channel}</td>
-                  {/* Joined */}
                   <td className="px-5 py-3 text-zinc-400 text-sm whitespace-nowrap">{person.joined}</td>
                 </tr>
               ))}
@@ -807,7 +764,7 @@ function PeopleSection() {
   );
 }
 
-// ─ Security Section 
+// ─ Security Section
 
 function SecuritySection() {
   const { logout } = useAuth();
@@ -817,8 +774,8 @@ function SecuritySection() {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
-  const [viewingDetail, setViewingDetail] = useState('active_sessions'); // 'active_sessions', 'login_activity', 'blocked_devices'
-  const [activeView, setActiveView] = useState(null); // null | 'sessions' | 'login-activity' | 'blocked-devices'
+  const [viewingDetail, setViewingDetail] = useState('active_sessions');
+  const [activeView, setActiveView] = useState(null);
   const [expandedDevices, setExpandedDevices] = useState({});
 
   const fetchData = async () => {
@@ -844,7 +801,6 @@ function SecuritySection() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
   }, []);
 
@@ -863,8 +819,7 @@ function SecuritySection() {
       await api.revokeSession(sessionId);
       setSuccessMessage('Session successfully signed out.');
       setTimeout(() => setSuccessMessage(null), 4000);
-      
-      // Refresh
+     
       const sess = await api.getSessions();
       const summ = await api.getSecuritySummary();
       setSessions(sess);
@@ -905,7 +860,6 @@ function SecuritySection() {
       setSuccessMessage(`All sessions on "${deviceInfo}" have been signed out.`);
       setTimeout(() => setSuccessMessage(null), 4000);
 
-      // Refresh
       const sess = await api.getSessions();
       const summ = await api.getSecuritySummary();
       setSessions(sess);
@@ -930,7 +884,6 @@ function SecuritySection() {
       setSuccessMessage('Device has been blocked successfully.');
       setTimeout(() => setSuccessMessage(null), 4000);
 
-      // Refresh
       const sess = await api.getSessions();
       const summ = await api.getSecuritySummary();
       setSessions(sess);
@@ -950,7 +903,6 @@ function SecuritySection() {
       setSuccessMessage('Device unblocked successfully.');
       setTimeout(() => setSuccessMessage(null), 4000);
 
-      // Refresh
       const sess = await api.getSessions();
       const summ = await api.getSecuritySummary();
       setSessions(sess);
@@ -962,11 +914,9 @@ function SecuritySection() {
     }
   };
 
-  // Filter lists
   const activeSessions = sessions.filter(s => !s.is_blocked);
   const blockedSessions = sessions.filter(s => s.is_blocked);
 
-  // Group active sessions by device_info (Google-style Device Grouping)
   const deviceGroups = useMemo(() => {
     const groups = {};
     for (const session of activeSessions) {
@@ -1018,7 +968,6 @@ function SecuritySection() {
     return <Monitor size={20} />;
   };
 
-  // Security score color label helper
   const getScoreColor = (score) => {
     if (score >= 80) return 'text-emerald-400';
     if (score >= 50) return 'text-amber-400';
@@ -1027,7 +976,6 @@ function SecuritySection() {
 
   return (
     <div>
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">Security</h1>
@@ -1047,7 +995,6 @@ function SecuritySection() {
 
       <div className="mb-6 h-px w-full bg-[rgba(124,58,237,0.15)]" />
 
-      {/* Inline Messages */}
       {error && (
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-200">
           <ShieldAlert className="mt-0.5 shrink-0 text-rose-500" size={16} />
@@ -1061,7 +1008,6 @@ function SecuritySection() {
         </div>
       )}
 
-      {/* Animate Transitions between Grid and Detail view */}
       <AnimatePresence mode="wait">
         {activeView === null ? (
           <motion.div
@@ -1072,7 +1018,6 @@ function SecuritySection() {
             transition={{ duration: 0.2 }}
             className="rounded-2xl border border-white/[0.08] bg-[#070012] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]"
           >
-            {/* Row 1: Active Sessions */}
             <div
               onClick={() => {
                 setActiveView('sessions');
@@ -1086,14 +1031,13 @@ function SecuritySection() {
               </div>
               <p className="shrink-0 text-sm font-medium whitespace-nowrap text-zinc-300">
                 {loading ? '...' : (
-                  deviceGroups.length > 0 
+                  deviceGroups.length > 0
                     ? `${activeSessions.length} Active Session${activeSessions.length !== 1 ? 's' : ''} on ${deviceGroups.length} Device${deviceGroups.length !== 1 ? 's' : ''}`
                     : '0 Sessions Active'
                 )}
               </p>
             </div>
 
-            {/* Row 2: Recent Login Activity */}
             <div
               onClick={() => {
                 setActiveView('login-activity');
@@ -1110,7 +1054,6 @@ function SecuritySection() {
               </p>
             </div>
 
-            {/* Row 3: Blocked Devices */}
             <div
               onClick={() => {
                 setActiveView('blocked-devices');
@@ -1127,7 +1070,6 @@ function SecuritySection() {
               </p>
             </div>
 
-            {/* Row 4: Security Score */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4">
               <div className="flex-1">
                 <p className="text-[16px] font-medium text-white">Security Score</p>
@@ -1146,7 +1088,6 @@ function SecuritySection() {
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.2 }}
           >
-            {/* Back Navigation Bar */}
             <div className="flex items-center gap-3 mb-6">
               <button
                 onClick={() => setActiveView(null)}
@@ -1163,7 +1104,6 @@ function SecuritySection() {
               </span>
             </div>
 
-            {/* Detailed Tables */}
             <section className="rounded-2xl border border-white/[0.08] bg-white/[0.01] backdrop-blur-md overflow-hidden shadow-2xl">
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-white/50 text-sm gap-3">
@@ -1172,7 +1112,6 @@ function SecuritySection() {
                 </div>
               ) : (
                 <div>
-                  {/* Tab title/header inside table container */}
                   <div className="px-6 py-4 border-b border-white/[0.08] bg-white/[0.02] flex items-center justify-between">
                     <h2 className="text-base font-semibold text-white">
                       {viewingDetail === 'active_sessions' && 'Where You\'re Signed In'}
@@ -1186,7 +1125,6 @@ function SecuritySection() {
                     </span>
                   </div>
 
-                  {/* Google-Style Grouped Device List */}
                   {viewingDetail === 'active_sessions' && (
                     <div className="divide-y divide-white/[0.08]">
                       {deviceGroups.length === 0 ? (
@@ -1196,7 +1134,6 @@ function SecuritySection() {
                           const expanded = isDeviceExpanded(group.deviceName);
                           return (
                             <div key={group.deviceName} className="transition duration-200">
-                              {/* Device Header Row */}
                               <div
                                 onClick={() => toggleDeviceExpanded(group.deviceName)}
                                 className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 cursor-pointer hover:bg-white/[0.02] transition duration-150"
@@ -1235,9 +1172,7 @@ function SecuritySection() {
                                   </div>
                                 </div>
 
-                                {/* Device Actions */}
                                 <div className="flex items-center gap-2 self-start md:self-auto" onClick={(e) => e.stopPropagation()}>
-                                  {/* Sign out of device button (only if not current or if multiple sessions exist) */}
                                   <button
                                     disabled={actionLoading === `device_${group.deviceName}`}
                                     onClick={() => handleRevokeDevice(group.deviceName)}
@@ -1269,7 +1204,6 @@ function SecuritySection() {
                                 </div>
                               </div>
 
-                              {/* Nested Sessions Accordion */}
                               {expanded && (
                                 <div className="bg-black/30 border-t border-white/[0.04] px-6 py-3 space-y-2">
                                   <div className="text-[11px] font-medium uppercase tracking-wider text-white/35 pb-1">
@@ -1309,7 +1243,6 @@ function SecuritySection() {
                                           </div>
                                         </div>
 
-                                        {/* Individual Session Revoke */}
                                         <div className="self-end sm:self-center">
                                           {session.is_current ? (
                                             <span className="text-[11px] text-emerald-400/80 font-medium italic">Active Now</span>
@@ -1335,9 +1268,6 @@ function SecuritySection() {
                     </div>
                   )}
 
-                  {/* NOTE: No GET /api/user/login-activity endpoint exists in backend. 
-                      We fall back to using active sessions data from api.getSessions() sorted by creation date. 
-                      Consequently, this list will only contain current active sessions, and not revoked or expired ones. */}
                   {viewingDetail === 'login_activity' && (
                     <div className="p-5">
                       {activeSessions.length === 0 ? (
@@ -1346,7 +1276,6 @@ function SecuritySection() {
                         <div className="relative border-l border-white/10 pl-6 ml-3 space-y-6 py-2">
                           {activeSessions.map((session) => (
                             <div key={session.id} className="relative">
-                              {/* Dot */}
                               <span className="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-violet-500 border border-violet-400 shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
                               <div>
                                 <h4 className="text-sm font-semibold text-white">
@@ -1465,7 +1394,6 @@ function AboutSection() {
 
   return (
     <div>
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">About</h1>
         <p className="mt-1.5 text-[14px] text-white/65">
@@ -1475,7 +1403,6 @@ function AboutSection() {
 
       <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
 
-      {/* Card */}
       <section className="rounded-2xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
         <div className="rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden mx-0">
           {items.map((item, idx) => (
@@ -1498,7 +1425,7 @@ function AboutSection() {
   );
 }
 
-// ─ My Account Section 
+// ─ My Account Section ─
 
 function MyAccountSection({
   preferredName,
@@ -1512,84 +1439,83 @@ function MyAccountSection({
   handleChangeEmail,
   handleAddPassword,
   handleDeleteAccount,
-
   deletionScheduledAt,
   onCancelDeletion,
   cancelDelLoading,
 }) {
   return (
     <div className="pb-6">
-
-      {/*  Pending Deletion Banner  */}
-        {deletionScheduledAt && (
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-xl border border-red-500/30 bg-red-950/20">
-            <div className="flex items-start gap-3">
-              <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-red-300">Account scheduled for deletion</p>
-                <p className="mt-0.5 text-xs text-white/60">
-                  Your account will be permanently deleted on{' '}
-                  <span className="text-white/80 font-medium">
-                    {new Date(deletionScheduledAt).toLocaleDateString('en-US', {
-                      year: 'numeric', month: 'long', day: 'numeric',
-                    })}
-                  </span>
-                  . Log in and cancel before this date to restore your account.
-                </p>
-              </div>
+      {deletionScheduledAt && (
+        <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-3.5 sm:px-5 sm:py-4 rounded-xl border border-red-500/30 bg-red-950/20">
+          <div className="flex items-start gap-2.5 sm:gap-3">
+            <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs sm:text-sm font-semibold text-red-300">Account scheduled for deletion</p>
+              <p className="mt-0.5 text-[11px] sm:text-xs text-white/60">
+                Your account will be permanently deleted on{' '}
+                <span className="text-white/80 font-medium">
+                  {new Date(deletionScheduledAt).toLocaleDateString('en-US', {
+                    year: 'numeric', month: 'long', day: 'numeric',
+                  })}
+                </span>
+                . Log in and cancel before this date to restore your account.
+              </p>
             </div>
-            <button
-              type="button"
-              onClick={onCancelDeletion}
-              disabled={cancelDelLoading}
-              className="
-                shrink-0 h-9 px-4 rounded-xl text-xs font-semibold text-white
-                bg-red-600 hover:bg-red-500
-                disabled:opacity-50 disabled:cursor-not-allowed
-                transition-all active:scale-95
-                flex items-center gap-2
-              "
-            >
-              {cancelDelLoading
-                ? <Loader2 size={13} className="animate-spin" />
-                : 'Cancel Deletion'}
-            </button>
           </div>
-        )}
-      {/* Page header */}
-      <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+          <button
+            type="button"
+            onClick={onCancelDeletion}
+            disabled={cancelDelLoading}
+            className="
+              shrink-0 h-8 sm:h-9 px-3 sm:px-4 rounded-xl text-xs font-semibold text-white
+              bg-red-600 hover:bg-red-500
+              disabled:opacity-50 disabled:cursor-not-allowed
+              transition-all active:scale-95
+              flex items-center justify-center gap-2
+            "
+          >
+            {cancelDelLoading
+              ? <Loader2 size={13} className="animate-spin" />
+              : 'Cancel Deletion'}
+          </button>
+        </div>
+      )}
+
+      {/* Page header - Reduced size on mobile */}
+      <div className="mb-4 sm:mb-8">
+        <h1 className="text-xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white">
           My Account
         </h1>
-        <p className="mt-1.5 text-sm text-zinc-400">
+        <p className="mt-1 text-xs sm:text-sm text-zinc-400">
           Manage your account settings and security
         </p>
       </div>
 
       {/* Divider */}
-      <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
+      <div className="mb-4 sm:mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
 
       {/* Profile Card */}
       <section
         className="
-          mb-6 rounded-2xl border border-[rgba(157,157,157,0.43)]
-          bg-[#070012] p-4 sm:p-6
+          mb-4 sm:mb-6 rounded-2xl border border-[rgba(157,157,157,0.43)]
+          bg-[#070012] p-3.5 sm:p-6
           shadow-[0_4px_24px_rgba(0,0,0,0.3)]
         "
       >
-        <h2 className="mb-5 text-base font-semibold text-white tracking-tight">
+        <h2 className="mb-3 sm:mb-5 text-sm sm:text-base font-semibold text-white tracking-tight">
           Account
         </h2>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
-          {/* Avatar */}
+        {/* Profile Avatar & Input Container */}
+        <div className="flex flex-row items-center gap-3 sm:gap-5 w-full">
+          {/* Avatar (Smaller on mobile) */}
           <div
             className="
               flex items-center justify-center
-              w-[72px] h-[72px] md:w-[88px] md:h-[88px]
+              w-12 h-12 sm:w-[72px] sm:h-[72px] md:w-[88px] md:h-[88px]
               rounded-full shrink-0
               bg-gradient-to-br from-violet-500 to-purple-900
-              text-white text-2xl md:text-3xl font-bold
+              text-white text-lg sm:text-2xl md:text-3xl font-bold
               shadow-[0_0_24px_rgba(124,58,237,0.4)]
               select-none
             "
@@ -1598,15 +1524,15 @@ function MyAccountSection({
             {userInitial}
           </div>
 
-          {/* Name field */}
-          <div className="flex-1 w-full sm:max-w-sm">
+          {/* Name field (Compact single row on mobile) */}
+          <div className="flex-1 min-w-0">
             <label
               htmlFor="preferred-name"
-              className="mb-1.5 block text-xs font-medium text-zinc-400 uppercase tracking-widest"
+              className="mb-1 block text-[11px] sm:text-xs font-medium text-zinc-400 uppercase tracking-widest truncate"
             >
               Preferred name
             </label>
-            <div className="flex gap-2 w-full">
+            <div className="flex items-center gap-2 w-full">
               <input
                 id="preferred-name"
                 type="text"
@@ -1614,8 +1540,8 @@ function MyAccountSection({
                 onChange={handleNameChange}
                 onKeyDown={(e) => e.key === 'Enter' && handleNameSubmit()}
                 className="
-                  flex-1 min-w-0 h-[42px] rounded-xl px-3.5
-                  bg-[#0B021A] text-white text-sm
+                  flex-1 min-w-0 h-9 sm:h-[42px] rounded-xl px-3 sm:px-3.5
+                  bg-[#0B021A] text-white text-xs sm:text-sm
                   border border-[rgba(157,157,157,0.43)]
                   placeholder:text-zinc-600
                   focus:outline-none focus:border-violet-500
@@ -1628,12 +1554,11 @@ function MyAccountSection({
                 onClick={handleNameSubmit}
                 disabled={!preferredName || preferredName.trim() === ''}
                 className="
-                  px-4 h-[42px] rounded-xl text-sm font-medium text-white
+                  shrink-0 px-3.5 sm:px-5 h-9 sm:h-[42px] rounded-xl text-xs sm:text-sm font-medium text-white
                   bg-violet-600 hover:bg-violet-700 active:bg-violet-850
                   border border-violet-500/30
                   transition-all duration-200
                   disabled:opacity-50 disabled:cursor-not-allowed
-                  shrink-0
                 "
               >
                 Change
@@ -1651,24 +1576,23 @@ function MyAccountSection({
           shadow-[0_4px_24px_rgba(0,0,0,0.3)]
         "
       >
-        <div className="px-4 sm:px-6 pt-5 sm:pt-6 pb-4">
-          <h2 className="text-base font-semibold text-white tracking-tight">
+        <div className="px-3.5 sm:px-6 pt-4 sm:pt-6 pb-2.5 sm:pb-4">
+          <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">
             Account Security
           </h2>
         </div>
 
-        <div className="mx-4 sm:mx-6 mb-5 sm:mb-6 rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden">
-
+        <div className="mx-3.5 sm:mx-6 mb-3.5 sm:mb-6 rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden">
           {/* Email row */}
           <div
             className="
               flex flex-col sm:flex-row sm:items-center justify-between
-              gap-2 sm:gap-4 px-4 sm:px-5 py-4
+              gap-1 sm:gap-4 px-3.5 sm:px-5 py-3 sm:py-4
               border-b border-[rgba(157,157,157,0.43)]
             "
           >
             <div>
-              <p className="text-sm font-medium text-white">Email</p>
+              <p className="text-xs sm:text-sm font-medium text-white">Email</p>
               <p className="mt-0.5 text-xs text-white/65 break-all sm:break-normal">{userEmail}</p>
             </div>
           </div>
@@ -1677,15 +1601,15 @@ function MyAccountSection({
           <div
             className="
               flex items-center justify-between
-              gap-3 px-4 sm:px-5 py-4
+              gap-3 px-3.5 sm:px-5 py-3 sm:py-4
               border-b border-[rgba(157,157,157,0.43)]
             "
           >
             <div className="pr-2">
-              <p className="text-sm font-medium text-white">
+              <p className="text-xs sm:text-sm font-medium text-white">
                 Two-step verification
               </p>
-              <p className="mt-0.5 text-xs text-white/65">
+              <p className="mt-0.5 text-[11px] sm:text-xs text-white/65">
                 Add an additional layer of security to your account.
               </p>
             </div>
@@ -1702,15 +1626,15 @@ function MyAccountSection({
           <div
             className="
               flex flex-col sm:flex-row sm:items-center justify-between
-              gap-4 px-4 sm:px-5 py-4 sm:py-5
+              gap-3 sm:gap-4 px-3.5 sm:px-5 py-3.5 sm:py-5
               bg-red-950/10
             "
           >
             <div>
-              <p className="text-sm font-semibold text-[#B91C1C]">
+              <p className="text-xs sm:text-sm font-semibold text-[#B91C1C]">
                 Delete Account
               </p>
-              <p className="mt-0.5 text-xs text-white/65">
+              <p className="mt-0.5 text-[11px] sm:text-xs text-white/65">
                 Permanently delete your account and all associated data from our workspace.
               </p>
             </div>
@@ -1718,7 +1642,7 @@ function MyAccountSection({
               type="button"
               onClick={handleDeleteAccount}
               className="
-                shrink-0 h-10 px-4 rounded-xl text-sm font-medium
+                w-full sm:w-auto shrink-0 h-9 sm:h-10 px-4 rounded-xl text-xs sm:text-sm font-medium
                 text-[#B91C1C] bg-black/80 border border-red-500/30
                 hover:bg-red-500/20 active:scale-95
                 transition-all duration-200
@@ -1728,19 +1652,18 @@ function MyAccountSection({
               Delete my account
             </button>
           </div>
-
         </div>
       </section>
     </div>
   );
 }
 
-// ─ Main Component 
+// ─ Main Component
 
 export default function SettingsContent({ email, onClose }) {
   const router = useRouter();
   const { user, logout, refreshUser } = useAuth();
-  
+ 
   const [activeSection, setActiveSection] = useState('my-account');
   const [preferredName, setPreferredName] = useState('User');
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -1771,13 +1694,11 @@ export default function SettingsContent({ email, onClose }) {
   }, [activeSection]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (user?.full_name) setPreferredName(user.full_name);
   }, [user]);
 
   useEffect(() => {
     if (user?.two_factor_enabled !== undefined) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTwoFactorEnabled(user.two_factor_enabled);
     }
   }, [user]);
@@ -1794,7 +1715,6 @@ export default function SettingsContent({ email, onClose }) {
     try {
       await api.requestAccountDeletion();
       setShowDeleteModal(false);
-      // Cookie is cleared by backend; clear frontend state and redirect
       showToast('success', 'Account scheduled for deletion. You have been logged out.');
       setTimeout(() => {
         logout();
@@ -1865,6 +1785,7 @@ export default function SettingsContent({ email, onClose }) {
               userEmail={user?.email || ''}
               userInitial={userInitial}
               twoFactorEnabled={twoFactorEnabled}
+              twoFactorLoading={twoFactorLoading}
               handleTwoFactorToggle={handleTwoFactorToggle}
               handleChangeEmail={handleChangeEmail}
               handleAddPassword={handleAddPassword}
@@ -1891,8 +1812,6 @@ export default function SettingsContent({ email, onClose }) {
   return (
     <div className="h-full w-full font-sans text-white">
       <div className="w-full h-full flex flex-col">
-
-        {/*  Outer card wrapper  */}
         <div
           className="
             flex flex-col lg:flex-row gap-0
@@ -1903,12 +1822,7 @@ export default function SettingsContent({ email, onClose }) {
             shadow-[0_0_60px_rgba(124,58,237,0.08)]
           "
         >
-
-          {/* ════════════════════════════════════════
-              MOBILE/TABLET HEADER (<=1024px)
-              Contains ONLY sidebar toggle (Hamburger) on left and Close (X) action on right.
-              No page title is rendered inside the header.
-          ════════════════════════════════════════ */}
+          {/* MOBILE/TABLET HEADER */}
           <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-[rgba(157,157,157,0.43)] bg-[#070012] shrink-0">
             <button
               type="button"
@@ -1929,84 +1843,78 @@ export default function SettingsContent({ email, onClose }) {
             </button>
           </div>
 
-          {/* ════════════════════════════════════════
-              LEFT SIDEBAR
-          ════════════════════════════════════════ */}
-          
-            <aside
-              className={`
-                lg:w-[220px] lg:min-w-[220px] lg:shrink-0
-                lg:block
-                border-b lg:border-b-0 border-[rgba(157,157,157,0.43)]
-                bg-[#070012] p-3
-                ${sidebarOpen ? 'block' : 'hidden'}
-                lg:!block
-              `}
+          {/* LEFT SIDEBAR */}
+          <aside
+            className={`
+              lg:w-[220px] lg:min-w-[220px] lg:shrink-0
+              lg:block
+              border-b lg:border-b-0 border-[rgba(157,157,157,0.43)]
+              bg-[#070012] p-3
+              ${sidebarOpen ? 'block' : 'hidden'}
+              lg:!block
+            `}
+          >
+            <div
+              className="
+                rounded-2xl border border-[rgba(157,157,157,0.43)]
+                bg-[#070012] p-4
+                h-full min-h-full
+              "
             >
-              {/*  Sidebar Card Wrapper  */}
-              <div
-                className="
-                  rounded-2xl border border-[rgba(157,157,157,0.43)]
-                  bg-[#070012] p-4
-                  h-full min-h-full
-                "
-              >
-                {NAV_SECTIONS.map((section) => (
-                  <div key={section.title} className="mb-6 last:mb-0">
-                    <p className="mb-2 px-3 text-[14px] font-semibold text-white/90">
-                      {section.title}
-                    </p>
-                    <nav className="flex flex-col gap-0.5">
-                      {section.items.map((item) => {
-                        const isActive = activeSection === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => {
-                              setActiveSection(item.id);
-                              setSidebarOpen(false);
-                            }}
+              {NAV_SECTIONS.map((section) => (
+                <div key={section.title} className="mb-6 last:mb-0">
+                  <p className="mb-2 px-3 text-[14px] font-semibold text-white/90">
+                    {section.title}
+                  </p>
+                  <nav className="flex flex-col gap-0.5">
+                    {section.items.map((item) => {
+                      const isActive = activeSection === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            setActiveSection(item.id);
+                            setSidebarOpen(false);
+                          }}
+                          className={`
+                            group flex items-center gap-3 w-full rounded-xl px-3 py-2.5
+                            text-sm font-medium text-left
+                            transition-all duration-200
+                            focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500
+                            ${
+                              isActive
+                                ? 'bg-[rgba(124,58,237,0.18)] text-white'
+                                : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
+                            }
+                          `}
+                        >
+                          <span
                             className={`
-                              group flex items-center gap-3 w-full rounded-xl px-3 py-2.5
-                              text-sm font-medium text-left
-                              transition-all duration-200
-                              focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500
-                              ${
-                                isActive
-                                  ? 'bg-[rgba(124,58,237,0.18)] text-white'
-                                  : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
-                              }
+                              flex items-center justify-center w-5 h-5 shrink-0
+                              transition-colors duration-200
+                              ${isActive ? 'text-zinc-200' : 'text-zinc-500 group-hover:text-zinc-300'}
                             `}
                           >
-                            <span
-                              className={`
-                                flex items-center justify-center w-5 h-5 shrink-0
-                                transition-colors duration-200
-                                ${isActive ? 'text-zinc-200' : 'text-zinc-500 group-hover:text-zinc-300'}
-                              `}
-                            >
-                              {item.icon}
-                            </span>
-                            <span className="flex-1">{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </nav>
-                  </div>
-                ))}
-              </div>
-            </aside>
+                            {item.icon}
+                          </span>
+                          <span className="flex-1">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </nav>
+                </div>
+              ))}
+            </div>
+          </aside>
 
-          {/* ════════════════════════════════════════
-              RIGHT CONTENT AREA
-          ════════════════════════════════════════ */}
-          <main ref={mainContentRef} className={`flex-1 bg-[#070012] p-5 sm:p-6 md:p-8 lg:p-10 min-w-0 min-h-0 overflow-y-auto ${sidebarOpen ? 'hidden xl:block' : 'block'}`}>
+          {/* RIGHT CONTENT AREA */}
+          <main ref={mainContentRef} className={`flex-1 bg-[#070012] p-4 sm:p-6 md:p-8 lg:p-10 min-w-0 min-h-0 overflow-y-auto ${sidebarOpen ? 'hidden xl:block' : 'block'}`}>
             {renderContent()}
           </main>
         </div>
       </div>
 
-      {/*  Toast  */}
+      {/* Toast */}
       {settingsToast && (
           <div className={`
               fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl text-sm font-medium
@@ -2019,7 +1927,7 @@ export default function SettingsContent({ email, onClose }) {
           </div>
       )}
 
-      {/*  Setup Modal  */}
+      {/* Setup Modal */}
       {showSetupModal && setupData && (
           <TwoFactorSetupModal
               setupData={setupData}
@@ -2036,7 +1944,7 @@ export default function SettingsContent({ email, onClose }) {
           />
       )}
 
-      {/*  Disable Modal  */}
+      {/* Disable Modal */}
       {showDisableModal && (
           <TwoFactorDisableModal
               onSuccess={() => {

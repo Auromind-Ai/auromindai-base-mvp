@@ -254,7 +254,7 @@ function TwilioOnboardingModal({
                         onClick={() => setTwilioStep(null)}
                         onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; }}
                         onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.05] border border-white/[0.07] transition-all"
+                        className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.05] border border-white/[0.07] transition-all cursor-pointer"
                     >
                         <X size={13} className="text-white/50" />
                     </button>
@@ -345,7 +345,7 @@ function TwilioOnboardingModal({
                                     e.currentTarget.style.boxShadow = '0 0 20px rgba(242,47,70,0.28)';
                                     e.currentTarget.style.transform = 'translateY(0)';
                                 }}
-                                className="w-full py-2.5 rounded-xl text-white font-semibold text-xs sm:text-[13px] flex items-center justify-center gap-2 transition-all duration-200 bg-gradient-to-br from-[#F22F46] to-[#c0233a] shadow-[0_0_20px_rgba(242,47,70,0.28)]"
+                                className="w-full py-2.5 rounded-xl text-white font-semibold text-xs sm:text-[13px] flex items-center justify-center gap-2 transition-all duration-200 bg-gradient-to-br from-[#F22F46] to-[#c0233a] shadow-[0_0_20px_rgba(242,47,70,0.28)] cursor-pointer"
                             >
                                 I Have My Credentials <ChevronRight size={14} />
                             </button>
@@ -388,7 +388,7 @@ function TwilioOnboardingModal({
                                         <button
                                             type="button"
                                             onClick={() => setShowAuthToken(prev => !prev)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors cursor-pointer"
                                         >
                                             {showAuthToken ? <EyeOff size={15} /> : <Eye size={15} />}
                                         </button>
@@ -414,7 +414,7 @@ function TwilioOnboardingModal({
                                 <button
                                     onClick={() => setTwilioStep(1)}
                                     disabled={twilioSubmitting}
-                                    className="px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-[13px] text-white/50 border border-white/10 hover:text-white/90 hover:border-white/20 transition-all duration-200 disabled:opacity-30"
+                                    className="px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-[13px] text-white/50 border border-white/10 hover:text-white/90 hover:border-white/20 transition-all duration-200 disabled:opacity-30 cursor-pointer"
                                 >
                                     Back
                                 </button>
@@ -433,7 +433,7 @@ function TwilioOnboardingModal({
                                             e.currentTarget.style.transform = 'translateY(0)';
                                         }
                                     }}
-                                    className="flex-1 py-2.5 rounded-xl text-white font-semibold text-xs sm:text-[13px] flex items-center justify-center gap-2 transition-all duration-200 bg-gradient-to-br from-[#F22F46] to-[#c0233a] shadow-[0_0_20px_rgba(242,47,70,0.3)] disabled:opacity-50"
+                                    className="flex-1 py-2.5 rounded-xl text-white font-semibold text-xs sm:text-[13px] flex items-center justify-center gap-2 transition-all duration-200 bg-gradient-to-br from-[#F22F46] to-[#c0233a] shadow-[0_0_20px_rgba(242,47,70,0.3)] disabled:opacity-50 cursor-pointer"
                                 >
                                     {twilioSubmitting ? (
                                         <>
@@ -472,7 +472,7 @@ function TwilioOnboardingModal({
 
                             <button
                                 onClick={() => setTwilioStep(null)}
-                                className="px-8 sm:px-10 py-2.5 sm:py-3 rounded-xl text-white font-semibold text-xs sm:text-[14px] transition-all duration-200 bg-gradient-to-br from-green-600 to-green-700 shadow-[0_0_24px_rgba(34,197,94,0.3)] hover:shadow-[0_0_32px_rgba(34,197,94,0.5)] hover:-translate-y-0.5"
+                                className="px-8 sm:px-10 py-2.5 sm:py-3 rounded-xl text-white font-semibold text-xs sm:text-[14px] transition-all duration-200 bg-gradient-to-br from-green-600 to-green-700 shadow-[0_0_24px_rgba(34,197,94,0.3)] hover:shadow-[0_0_32px_rgba(34,197,94,0.5)] hover:-translate-y-0.5 cursor-pointer"
                             >
                                 Done
                             </button>
@@ -505,10 +505,8 @@ function ChannelDetailsModal({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md">
             <div className="relative w-full max-w-[480px] sm:max-w-[500px] max-h-[90vh] flex flex-col rounded-2xl overflow-hidden bg-gradient-to-br from-[#0e0a16] via-[#0d0d0d] to-[#070912] border border-white/10 shadow-[0_0_80px_rgba(124,77,255,0.15),0_24px_60px_rgba(0,0,0,0.6)]">
-                {/* Top accent glow line */}
                 <div className="h-px w-full shrink-0 bg-gradient-to-r from-transparent via-[#7C4DFF] to-transparent" />
 
-                {/* Header */}
                 <div className="flex items-center justify-between px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-white/[0.06] shrink-0">
                     <div className="flex items-center gap-3 min-w-0">
                         <div
@@ -535,19 +533,16 @@ function ChannelDetailsModal({
                             onClick={onClose}
                             onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; }}
                             onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.05] border border-white/[0.07] transition-all ml-1"
+                            className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.05] border border-white/[0.07] transition-all ml-1 cursor-pointer"
                         >
                             <X size={13} className="text-white/50" />
                         </button>
                     </div>
                 </div>
 
-                {/* Body */}
                 <div className="px-4 sm:px-6 py-4 sm:py-5 overflow-y-auto custom-scrollbar flex-1 space-y-3.5 sm:space-y-4">
-                    {/* Twilio Fields */}
                     {item.id === 'twilio' && (
                         <>
-                            {/* Account SID */}
                             <div>
                                 <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
                                     Account SID
@@ -561,7 +556,7 @@ function ChannelDetailsModal({
                                             type="button"
                                             onClick={() => handleCopyText(twilioForm.sid || info, 'twilio_sid')}
                                             title="Copy Account SID"
-                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
                                         >
                                             {copiedKey === 'twilio_sid' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                                         </button>
@@ -569,7 +564,6 @@ function ChannelDetailsModal({
                                 </div>
                             </div>
 
-                            {/* Auth Token */}
                             <div>
                                 <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
                                     Auth Token
@@ -586,7 +580,7 @@ function ChannelDetailsModal({
                                                 type="button"
                                                 onClick={() => toggleRevealSecret('twilio_token')}
                                                 title={detailsRevealedSecrets.twilio_token ? "Hide token" : "Reveal token"}
-                                                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                                                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                                             >
                                                 {detailsRevealedSecrets.twilio_token ? <EyeOff size={14} /> : <Eye size={14} />}
                                             </button>
@@ -596,7 +590,7 @@ function ChannelDetailsModal({
                                                 type="button"
                                                 onClick={() => handleCopyText(twilioForm.token, 'twilio_token')}
                                                 title="Copy Auth Token"
-                                                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                                                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                                             >
                                                 {copiedKey === 'twilio_token' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                                             </button>
@@ -605,7 +599,6 @@ function ChannelDetailsModal({
                                 </div>
                             </div>
 
-                            {/* Twilio WhatsApp / Phone */}
                             <div>
                                 <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
                                     WhatsApp Phone Number
@@ -619,7 +612,7 @@ function ChannelDetailsModal({
                                             type="button"
                                             onClick={() => handleCopyText(info || twilioForm.phone, 'twilio_phone')}
                                             title="Copy Phone Number"
-                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
                                         >
                                             {copiedKey === 'twilio_phone' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                                         </button>
@@ -629,7 +622,6 @@ function ChannelDetailsModal({
                         </>
                     )}
 
-                    {/* WhatsApp Business Fields */}
                     {item.id === 'whatsapp' && (
                         <>
                             <div>
@@ -645,7 +637,7 @@ function ChannelDetailsModal({
                                             type="button"
                                             onClick={() => handleCopyText(info, 'wa_phone')}
                                             title="Copy Phone Number"
-                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
                                         >
                                             {copiedKey === 'wa_phone' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                                         </button>
@@ -666,7 +658,7 @@ function ChannelDetailsModal({
                                             type="button"
                                             onClick={() => handleCopyText(whatsappPhoneId, 'wa_phone_id')}
                                             title="Copy Phone Number ID"
-                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
                                         >
                                             {copiedKey === 'wa_phone_id' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                                         </button>
@@ -687,7 +679,7 @@ function ChannelDetailsModal({
                                             type="button"
                                             onClick={() => handleCopyText(whatsappWabaId, 'wa_waba_id')}
                                             title="Copy WABA ID"
-                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
                                         >
                                             {copiedKey === 'wa_waba_id' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                                         </button>
@@ -706,7 +698,6 @@ function ChannelDetailsModal({
                         </>
                     )}
 
-                    {/* Instagram Fields */}
                     {item.id === 'instagram' && (
                         <>
                             <div>
@@ -722,7 +713,7 @@ function ChannelDetailsModal({
                                             type="button"
                                             onClick={() => handleCopyText(info, 'ig_user')}
                                             title="Copy Account"
-                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
                                         >
                                             {copiedKey === 'ig_user' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                                         </button>
@@ -741,7 +732,6 @@ function ChannelDetailsModal({
                         </>
                     )}
 
-                    {/* Gmail Fields */}
                     {item.id === 'gmail' && (
                         <>
                             <div>
@@ -757,7 +747,7 @@ function ChannelDetailsModal({
                                             type="button"
                                             onClick={() => handleCopyText(info, 'gmail_email')}
                                             title="Copy Email"
-                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
                                         >
                                             {copiedKey === 'gmail_email' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                                         </button>
@@ -776,7 +766,6 @@ function ChannelDetailsModal({
                         </>
                     )}
 
-                    {/* Google Calendar Fields */}
                     {item.id === 'google_calendar' && (
                         <>
                             <div>
@@ -792,7 +781,7 @@ function ChannelDetailsModal({
                                             type="button"
                                             onClick={() => handleCopyText(info, 'gcal_email')}
                                             title="Copy Calendar Account"
-                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
                                         >
                                             {copiedKey === 'gcal_email' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                                         </button>
@@ -811,13 +800,11 @@ function ChannelDetailsModal({
                         </>
                     )}
 
-                    {/* Security Notice */}
                     <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] text-[11px] text-white/45 leading-relaxed">
                         Credentials and tokens are encrypted and managed securely for your workspace.
                     </div>
                 </div>
 
-                {/* Footer with Disconnect and Done */}
                 <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-t border-white/[0.07] bg-black/40 flex items-center justify-between gap-3 shrink-0">
                     <button
                         type="button"
@@ -826,7 +813,7 @@ function ChannelDetailsModal({
                             onClose();
                             onDisconnect(channelId);
                         }}
-                        className="px-3.5 py-2 rounded-xl text-xs font-medium text-rose-400/90 border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 hover:border-rose-500/40 hover:text-rose-300 transition-all duration-200"
+                        className="px-3.5 py-2 rounded-xl text-xs font-medium text-rose-400/90 border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 hover:border-rose-500/40 hover:text-rose-300 transition-all duration-200 cursor-pointer"
                     >
                         Disconnect Channel
                     </button>
@@ -834,7 +821,7 @@ function ChannelDetailsModal({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-5 py-2 rounded-xl text-xs sm:text-[13px] font-semibold text-white bg-white/10 hover:bg-white/15 border border-white/10 transition-all duration-200"
+                        className="px-5 py-2 rounded-xl text-xs sm:text-[13px] font-semibold text-white bg-white/10 hover:bg-white/15 border border-white/10 transition-all duration-200 cursor-pointer"
                     >
                         Done
                     </button>
@@ -975,31 +962,6 @@ export default function ChannelsPage() {
         if (!workspace?.id) return;
         loadIntegrationStatus();
     }, [workspace?.id, loadIntegrationStatus]);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        const params = new URLSearchParams(window.location.search);
-        const status = params.get('status');
-        const integration = params.get('integration');
-
-        if (status) {
-            const displayName = (integration === 'calendar' || integration === 'google_calendar')
-                ? 'Google Calendar'
-                : (integration === 'gmail' || integration === 'google_gmail')
-                ? 'Gmail'
-                : (integration || 'Integration');
-
-            if (status === 'success') {
-                showToast(`✓ ${displayName} connected successfully!`);
-                loadIntegrationStatus();
-            } else if (status === 'error') {
-                showToast(`✕ Failed to connect ${displayName}. Please check your credentials.`);
-            }
-
-            const newUrl = window.location.pathname;
-            window.history.replaceState({}, document.title, newUrl);
-        }
-    }, [loadIntegrationStatus]);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState('default');
@@ -1235,7 +1197,7 @@ export default function ChannelsPage() {
 
     const submitTwilio = async () => {
         const { sid, token, phone } = twilioForm;
-        
+       
         if (!sid.trim()) {
             showToast("⚠️ Twilio Account SID is required");
             return;
@@ -1311,8 +1273,8 @@ export default function ChannelsPage() {
                     </p>
                 </div>
 
-                {/* Toolbar */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6 sm:mb-8 lg:mb-10">
+                {/* Toolbar - Responsive on iPad and Mobile */}
+                <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 mb-6 sm:mb-8 lg:mb-10">
                     <div className="relative flex-1 min-w-0 sm:min-w-[200px] lg:min-w-[260px]">
                         <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#555]" />
                         <input
@@ -1329,7 +1291,7 @@ export default function ChannelsPage() {
                         <div className="relative" ref={sortRef}>
                             <button
                                 onClick={() => setOpenDropdown(prev => prev === 'sort' ? null : 'sort')}
-                                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-[13px] transition-all whitespace-nowrap border ${
+                                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-[13px] transition-all whitespace-nowrap border cursor-pointer ${
                                     sortBy !== 'default'
                                         ? 'bg-[#7C4DFF]/15 border-[#7C4DFF]/40 text-[#7C4DFF] font-semibold'
                                         : 'bg-[#070012] border-[#1f1f1f] text-[#aaa] hover:border-[#333] hover:text-white'
@@ -1339,11 +1301,11 @@ export default function ChannelsPage() {
                                 <ChevronDown size={13} className={`shrink-0 transition-transform ${openDropdown === 'sort' ? 'rotate-180 text-white' : 'text-[#555]'}`} />
                             </button>
                             {openDropdown === 'sort' && (
-                                <div className="absolute top-full mt-1.5 right-0 min-w-[160px] rounded-xl py-1.5 z-[100] bg-[#120C24] border border-white/10 shadow-2xl backdrop-blur-xl">
+                                <div className="absolute top-full mt-1.5 left-0 min-w-[160px] rounded-xl py-1.5 z-[100] bg-[#120C24] border border-white/10 shadow-2xl backdrop-blur-xl">
                                     {SORT_OPTIONS.map(opt => (
                                         <button key={opt.value}
                                             onClick={() => { setSortBy(opt.value); setOpenDropdown(null); }}
-                                            className={`w-full text-left px-4 py-2 text-xs sm:text-[13px] font-medium transition-colors flex items-center justify-between ${
+                                            className={`w-full text-left px-4 py-2 text-xs sm:text-[13px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
                                                 sortBy === opt.value ? 'text-[#7C4DFF] bg-[#7C4DFF]/10 font-bold' : 'text-[#aaa] hover:text-white hover:bg-white/5'
                                             }`}>
                                             <span>{opt.label}</span>
@@ -1358,7 +1320,7 @@ export default function ChannelsPage() {
                         <div className="relative" ref={typeRef}>
                             <button
                                 onClick={() => setOpenDropdown(prev => prev === 'type' ? null : 'type')}
-                                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-[13px] transition-all whitespace-nowrap border ${
+                                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-[13px] transition-all whitespace-nowrap border cursor-pointer ${
                                     typeFilter !== 'all'
                                         ? 'bg-[#7C4DFF]/15 border-[#7C4DFF]/40 text-[#7C4DFF] font-semibold'
                                         : 'bg-[#070012] border-[#1f1f1f] text-[#aaa] hover:border-[#333] hover:text-white'
@@ -1368,11 +1330,11 @@ export default function ChannelsPage() {
                                 <ChevronDown size={13} className={`shrink-0 transition-transform ${openDropdown === 'type' ? 'rotate-180 text-white' : 'text-[#555]'}`} />
                             </button>
                             {openDropdown === 'type' && (
-                                <div className="absolute top-full mt-1.5 right-0 min-w-[160px] rounded-xl py-1.5 z-[100] bg-[#120C24] border border-white/10 shadow-2xl backdrop-blur-xl">
+                                <div className="absolute top-full mt-1.5 left-0 min-w-[160px] rounded-xl py-1.5 z-[100] bg-[#120C24] border border-white/10 shadow-2xl backdrop-blur-xl">
                                     {TYPE_OPTIONS.map(opt => (
                                         <button key={opt.value}
                                             onClick={() => { setTypeFilter(opt.value); setOpenDropdown(null); }}
-                                            className={`w-full text-left px-4 py-2 text-xs sm:text-[13px] font-medium transition-colors flex items-center justify-between ${
+                                            className={`w-full text-left px-4 py-2 text-xs sm:text-[13px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
                                                 typeFilter === opt.value ? 'text-[#7C4DFF] bg-[#7C4DFF]/10 font-bold' : 'text-[#aaa] hover:text-white hover:bg-white/5'
                                             }`}>
                                             <span>{opt.label}</span>
@@ -1383,11 +1345,11 @@ export default function ChannelsPage() {
                             )}
                         </div>
 
-                        {/* Category Dropdown */}
+                        {/* Category Dropdown - Positioned inside view with right-0 */}
                         <div className="relative" ref={categoryRef}>
                             <button
                                 onClick={() => setOpenDropdown(prev => prev === 'category' ? null : 'category')}
-                                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-[13px] transition-all whitespace-nowrap border ${
+                                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-[13px] transition-all whitespace-nowrap border cursor-pointer ${
                                     categoryFilter !== 'all'
                                         ? 'bg-[#7C4DFF]/15 border-[#7C4DFF]/40 text-[#7C4DFF] font-semibold'
                                         : 'bg-[#070012] border-[#1f1f1f] text-[#aaa] hover:border-[#333] hover:text-white'
@@ -1397,11 +1359,11 @@ export default function ChannelsPage() {
                                 <ChevronDown size={13} className={`shrink-0 transition-transform ${openDropdown === 'category' ? 'rotate-180 text-white' : 'text-[#555]'}`} />
                             </button>
                             {openDropdown === 'category' && (
-                                <div className="absolute top-full mt-1.5 right-0 min-w-[160px] rounded-xl py-1.5 z-[100] bg-[#120C24] border border-white/10 shadow-2xl backdrop-blur-xl">
+                                <div className="absolute top-full mt-1.5 right-0 min-w-[170px] rounded-xl py-1.5 z-[100] bg-[#120C24] border border-white/10 shadow-2xl backdrop-blur-xl">
                                     {CATEGORY_OPTIONS.map(opt => (
                                         <button key={opt.value}
                                             onClick={() => { setCategoryFilter(opt.value); setOpenDropdown(null); }}
-                                            className={`w-full text-left px-4 py-2 text-xs sm:text-[13px] font-medium transition-colors flex items-center justify-between ${
+                                            className={`w-full text-left px-4 py-2 text-xs sm:text-[13px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
                                                 categoryFilter === opt.value ? 'text-[#7C4DFF] bg-[#7C4DFF]/10 font-bold' : 'text-[#aaa] hover:text-white hover:bg-white/5'
                                             }`}>
                                             <span>{opt.label}</span>
@@ -1421,7 +1383,7 @@ export default function ChannelsPage() {
                                     setCategoryFilter('all');
                                     setSearchQuery('');
                                 }}
-                                className="text-xs text-rose-400 hover:text-rose-300 font-medium px-2 py-1.5 transition-colors underline underline-offset-2"
+                                className="text-xs text-rose-400 hover:text-rose-300 font-medium px-2 py-1.5 transition-colors underline underline-offset-2 cursor-pointer"
                             >
                                 Clear filters
                             </button>
@@ -1443,7 +1405,6 @@ export default function ChannelsPage() {
                             const isConnected = statuses[item.id];
                             const isConnecting = connecting === item.id;
                             const Icon = item.icon;
-                            const info = connectedInfo[item.id];
 
                             return (
                                 <div
@@ -1541,7 +1502,7 @@ export default function ChannelsPage() {
                                                     <button
                                                         type="button"
                                                         onClick={() => setDisconnectModal(item.id)}
-                                                        className="group/disc relative flex items-center gap-1 px-4 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all duration-200 border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-red-500/15 hover:border-red-500/50 hover:text-red-400 hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95"
+                                                        className="group/disc relative flex items-center gap-1 px-4 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all duration-200 border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-red-500/15 hover:border-red-500/50 hover:text-red-400 hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 cursor-pointer"
                                                     >
                                                         <span className="group-hover/disc:hidden flex items-center gap-1">
                                                             <Check size={13} className="transition-transform duration-200 transform group-hover/disc:scale-110" />
@@ -1557,7 +1518,7 @@ export default function ChannelsPage() {
                                                         <button
                                                             type="button"
                                                             onClick={() => setSelectedChannelDetails(item)}
-                                                            className="group/settings w-9 h-9 rounded-full border border-white/15 bg-black/60 text-white/65 flex items-center justify-center transition-all duration-200 hover:text-white hover:border-white/30 hover:shadow-[0_0_15px_rgba(124,77,255,0.2)] active:scale-95"
+                                                            className="group/settings w-9 h-9 rounded-full border border-white/15 bg-black/60 text-white/65 flex items-center justify-center transition-all duration-200 hover:text-white hover:border-white/30 hover:shadow-[0_0_15px_rgba(124,77,255,0.2)] active:scale-95 cursor-pointer"
                                                         >
                                                             <Settings size={15} className="transition-transform duration-300 ease-out group-hover/settings:rotate-45" />
                                                         </button>
@@ -1581,25 +1542,7 @@ export default function ChannelsPage() {
                                                     onMouseLeave={(e) => {
                                                         e.currentTarget.style.boxShadow = 'none';
                                                     }}
-                                                    className={`
-                                                        group/btn
-                                                        relative overflow-hidden
-                                                        flex items-center gap-1.5
-                                                        px-4 py-1.5
-                                                        rounded-full
-                                                        text-xs sm:text-[13px]
-                                                        font-medium
-                                                        transition-all duration-300
-                                                        hover:-translate-y-0.5
-                                                        hover:scale-[1.04]
-                                                        active:scale-95
-                                                        active:translate-y-0
-                                                        ${item.connectBtnClass}
-                                                        disabled:opacity-40
-                                                        disabled:cursor-not-allowed
-                                                        disabled:transform-none
-                                                        disabled:shadow-none
-                                                    `}
+                                                    className={`group/btn relative overflow-hidden flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.04] active:scale-95 active:translate-y-0 ${item.connectBtnClass} disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none shrink-0 cursor-pointer`}
                                                 >
                                                     <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
                                                     {isConnecting ? (
@@ -1639,7 +1582,6 @@ export default function ChannelsPage() {
                                 const isConnected = statuses[item.id];
                                 const isConnecting = connecting === item.id;
                                 const Icon = item.icon;
-                                const info = connectedInfo[item.id];
 
                                 return (
                                     <div
@@ -1703,7 +1645,7 @@ export default function ChannelsPage() {
                                                         <button
                                                             type="button"
                                                             onClick={() => setDisconnectModal(item.id)}
-                                                            className="group/disc relative flex items-center gap-1 px-4 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all duration-200 border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-red-500/15 hover:border-red-500/50 hover:text-red-400 hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95"
+                                                            className="group/disc relative flex items-center gap-1 px-4 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all duration-200 border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-red-500/15 hover:border-red-500/50 hover:text-red-400 hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 cursor-pointer"
                                                         >
                                                             <span className="group-hover/disc:hidden flex items-center gap-1">
                                                                 <Check size={13} className="transition-transform duration-200 transform group-hover/disc:scale-110" />
@@ -1719,7 +1661,7 @@ export default function ChannelsPage() {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setSelectedChannelDetails(item)}
-                                                                className="group/settings w-9 h-9 rounded-full border border-white/15 bg-black/60 text-white/65 flex items-center justify-center transition-all duration-200 hover:text-white hover:border-white/30 hover:shadow-[0_0_15px_rgba(124,77,255,0.2)] active:scale-95"
+                                                                className="group/settings w-9 h-9 rounded-full border border-white/15 bg-black/60 text-white/65 flex items-center justify-center transition-all duration-200 hover:text-white hover:border-white/30 hover:shadow-[0_0_15px_rgba(124,77,255,0.2)] active:scale-95 cursor-pointer"
                                                             >
                                                                 <Settings size={15} className="transition-transform duration-300 ease-out group-hover/settings:rotate-45" />
                                                             </button>
@@ -1743,7 +1685,7 @@ export default function ChannelsPage() {
                                                         onMouseLeave={(e) => {
                                                             e.currentTarget.style.boxShadow = 'none';
                                                         }}
-                                                        className={`group/btn relative overflow-hidden flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.04] active:scale-95 active:translate-y-0 ${item.connectBtnClass} disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none shrink-0`}
+                                                        className={`group/btn relative overflow-hidden flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.04] active:scale-95 active:translate-y-0 ${item.connectBtnClass} disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none shrink-0 cursor-pointer`}
                                                     >
                                                         <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
                                                         {isConnecting ? (
@@ -1843,7 +1785,7 @@ export default function ChannelsPage() {
                                     type="button"
                                     onClick={() => setDisconnectModal(null)}
                                     disabled={disconnecting}
-                                    className="flex-1 h-10 rounded-xl bg-white/[0.08] border border-white/[0.06] text-white/90 text-sm font-semibold transition-all duration-200 hover:bg-white/[0.12] disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex-1 h-10 rounded-xl bg-white/[0.08] border border-white/[0.06] text-white/90 text-sm font-semibold transition-all duration-200 hover:bg-white/[0.12] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                 >
                                     Cancel
                                 </button>
@@ -1852,7 +1794,7 @@ export default function ChannelsPage() {
                                     type="button"
                                     onClick={confirmDisconnectIntegration}
                                     disabled={disconnecting}
-                                    className="flex-1 h-10 rounded-xl bg-rose-500 text-white text-sm font-semibold shadow-[0_0_18px_rgba(244,63,94,0.25)] transition-all duration-200 hover:bg-rose-400 hover:shadow-[0_0_24px_rgba(244,63,94,0.35)] disabled:opacity-60 disabled:cursor-not-allowed"
+                                    className="flex-1 h-10 rounded-xl bg-rose-500 text-white text-sm font-semibold shadow-[0_0_18px_rgba(244,63,94,0.25)] transition-all duration-200 hover:bg-rose-400 hover:shadow-[0_0_24px_rgba(244,63,94,0.35)] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                                 >
                                     {disconnecting ? "Disconnecting..." : "Disconnect"}
                                 </button>

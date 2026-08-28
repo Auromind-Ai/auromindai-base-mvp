@@ -14,7 +14,7 @@ logger = logging.getLogger("security_audit")
 # Fallback default limits
 DEFAULT_LIMITS = {
     "/upload": 10,
-    "/brain": 30,
+    "/brain": 120,
     "/chat": 60,
     "/automation": 60,
     "/lead-scoring": 60,

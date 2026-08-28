@@ -259,7 +259,7 @@ export default function HeroShowcaseSection() {
                     {/* Get Started Free Button */}
                     <NeatCTAButton
                       href="/signup"
-                      className="group relative overflow-hidden h-[36px] w-[145px] rounded-[8px] bg-[#814AC8] text-[14px] font-semibold text-white shadow-[0_0_32px_rgba(109,40,255,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(109,40,255,0.65)] md:h-[42px] md:w-[165px]"
+                      className="group relative overflow-hidden h-[36px] w-[145px] rounded-[8px] bg-[#814AC8] text-[14px] font-semibold text-white shadow-[0_0_32px_rgba(109,40,255,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(109,40,255,0.65)] md:h-[42px] md:w-[165px] cursor-pointer"
                     >
                       <span className="flex items-center justify-center gap-2 w-full h-full">
                         
@@ -297,7 +297,7 @@ export default function HeroShowcaseSection() {
                     {/* Book a Demo Button */}
                     <NeatCTAButton
                       href="/resources/demo-videos"
-                      className="group relative overflow-hidden flex items-center justify-center gap-2 h-[36px] w-[145px] rounded-[8px] border border-white/10 bg-white/5 text-[14px] font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10 md:h-[42px] md:w-[165px]"
+                      className="group relative overflow-hidden flex items-center justify-center gap-2 h-[36px] w-[145px] rounded-[8px] border border-white/10 bg-white/5 text-[14px] font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10 md:h-[42px] md:w-[165px] cursor-pointer"
                     >
                       {/* Play icon - static */}
                       <svg
@@ -402,7 +402,7 @@ export default function HeroShowcaseSection() {
                     className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#9c75ff] to-[#6730e6]"
                   />
                 )}
-                <div className="flex items-start gap-3 sm:gap-3.5">
+                <div className="flex items-start gap-3 sm:gap-3.5 cursor-pointer">
                   <div className="mt-0.5 flex-shrink-0 text-white">
                     <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 stroke-[1.5]" />
                   </div>
@@ -431,7 +431,7 @@ export default function HeroShowcaseSection() {
               {/* Tab 02: AI Agents */}
               <button
                 onClick={() => setActiveTab("agents")}
-                className={`relative text-left p-4 sm:p-5 transition-all duration-300 md:border-r border-b md:border-b-0 border-[#191a1e] flex flex-col justify-center ${
+                className={`relative text-left p-4 sm:p-5 transition-all duration-300 md:border-r border-b md:border-b-0 border-[#191a1e] flex flex-col justify-center cursor-pointer ${
                   activeTab === "agents"
                     ? "bg-gradient-to-br from-[#6730e6]/35 to-[#221253]/15 border-r-white/[0.1]"
                     : "bg-transparent hover:bg-white/[0.02]"
@@ -472,7 +472,7 @@ export default function HeroShowcaseSection() {
               {/* Tab 03: Automations */}
               <button
                 onClick={() => setActiveTab("automations")}
-                className={`relative text-left p-4 sm:p-5 transition-all duration-300 flex flex-col justify-center ${
+                className={`relative text-left p-4 sm:p-5 transition-all duration-300 flex flex-col justify-center cursor-pointer ${
                   activeTab === "automations"
                     ? "bg-gradient-to-br from-[#6730e6]/35 to-[#221253]/15"
                     : "bg-transparent hover:bg-white/[0.02]"

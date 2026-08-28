@@ -129,8 +129,8 @@ export default function CreditRingDropdown({ user, size = 36 }) {
           />
         </svg>
         {currentUser ? (
-          <div className="rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold" style={{ width: effectiveSize - 10, height: effectiveSize - 10, fontSize: effectiveSize * 0.35 }}>
-            {currentUser.email?.charAt(0).toUpperCase()}
+          <div className="rounded-full bg-[#814AC8] flex items-center justify-center text-white font-bold" style={{ width: effectiveSize - 10, height: effectiveSize - 10, fontSize: effectiveSize * 0.35 }}>
+            {(currentUser.full_name || currentUser.name || currentUser.email || 'U').charAt(0).toUpperCase()}
           </div>
         ) : (
           <div className="w-full h-full rounded-full bg-white/5 flex items-center justify-center text-[#D4D4D4]">
@@ -205,7 +205,9 @@ export default function CreditRingDropdown({ user, size = 36 }) {
           <div className="p-4 border-t border-white/5 bg-[#12121c]/40 flex items-center justify-between group cursor-pointer" onClick={() => { setIsOpen(false); router.push('/user/admin/credits'); }}>
             <div>
               <div className="font-bold text-xs text-[#E5E5E5] flex items-center gap-1">
-                {workspace?.name || 'My Workspace'}
+                {workspace?.name && !workspace.name.endsWith("'s Workspace") && !workspace.name.endsWith("’s Workspace")
+                  ? workspace.name
+                  : `${currentUser?.full_name || currentUser?.name || 'User'}'s Workspace`}
               </div>
               <div className="text-zinc-500 text-[10px] mt-0.5 font-bold uppercase tracking-wider">Manage Credits & Wallet</div>
             </div>

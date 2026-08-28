@@ -463,11 +463,11 @@ function ChatSkeleton() {
 function LeadsPanel({ leads, selected, onSelect, show, loading, totalCount, hasMore, onLoadMore, leadsDetails = {} }) {
     return (
         <div className={`
-            w-full lg:w-[380px] flex-shrink-0
+            w-full xl:w-[380px] flex-shrink-0
             flex flex-col
             bg-[#0D0D17] border-r border-white/[0.06]
             overflow-hidden
-            ${show ? 'flex' : 'hidden lg:flex'}
+            ${show ? 'flex' : 'hidden xl:flex'}
         `}>
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
@@ -639,14 +639,6 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onToggleFavorite
             <div className={`flex items-center justify-between px-3 sm:px-5 md:px-6 py-2.5 sm:py-3.5 bg-[#0A0A10] border-b border-white/[0.08] flex-shrink-0 relative z-10 transition-all ${theme.headerBorder}`}>
                 {/* Left Side: Avatar & Lead Info */}
                 <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 flex-1 pr-2">
-                    {onBack && !isMobileView && (
-                        <button
-                            onClick={onBack}
-                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 shrink-0 transition"
-                        >
-                            ←
-                        </button>
-                    )}
                     <div className="shrink-0">
                         <ChannelAvatar
                             channel={chKey}
@@ -1198,11 +1190,8 @@ export default function LeadsPage() {
    
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
-    const [view, setView] = useState('leads'); // 'leads' | 'chat'
-    const [tabletRightView, setTabletRightView] = useState('chat'); // 'chat' | 'overview'
-    const [ipadRightView, setIpadRightView] = useState('chat'); // 'chat' | 'overview'
+    const [activeView, setActiveView] = useState('leads'); // 'leads' | 'chat' | 'overview'
     const [desktopDrawerOpen, setDesktopDrawerOpen] = useState(false);
-    const [activeMobileView, setActiveMobileView] = useState('leads'); // 'leads' | 'chat' | 'overview'
     const [showAddLeadModal, setShowAddLeadModal] = useState(false);
 
 
@@ -1439,6 +1428,9 @@ export default function LeadsPage() {
                     const targetLead = normalizedItems.find(l => l.id === urlLeadId) || normalizedItems[0];
                     setSelectedLeadId(targetLead.id);
                     fetchSelectedLeadData(targetLead.id);
+                    if (urlLeadId) {
+                        setActiveView('chat');
+                    }
                 }
             } catch (err) {
                 console.error('Failed to initialize CRM:', err);
@@ -1487,7 +1479,7 @@ export default function LeadsPage() {
 
         setTotalCount(prev => prev + 1);
         setSelectedLeadId(newLead.id);
-        setView('chat');
+        setActiveView('chat');
 
         // Fetch details of new lead
         fetchSelectedLeadData(newLead.id);
@@ -1568,28 +1560,28 @@ export default function LeadsPage() {
         <div className={`${poppins.className} h-screen flex bg-[#07010F] text-white overflow-hidden`} style={{ fontFamily: "'Poppins', sans-serif" }}>
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* Header */}
-                <header className="h-[56px] flex items-center justify-between px-6 border-b border-white/[0.06] bg-[#0D0D17] flex-shrink-0">
-                    <div className="flex items-center gap-4">
-                        <span className="text-lg font-bold text-white">Leads & CRM</span>
+                <header className="h-12 sm:h-14 flex items-center justify-between px-3 sm:px-4 md:px-6 border-b border-white/[0.06] bg-[#0D0D17] flex-shrink-0 gap-2 sm:gap-4">
+                    <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                        <span className="text-sm sm:text-base md:text-lg font-bold text-white whitespace-nowrap">Leads & CRM</span>
                     </div>
 
-                    <div className="relative hidden sm:block">
-                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
+                    <div className="relative flex-1 max-w-[170px] sm:max-w-[240px] md:max-w-[280px] lg:max-w-[320px]">
+                        <Search size={13} className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                         <input
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            placeholder="Search leads, conversations..."
-                            className="h-9 pl-9 pr-4 w-64 lg:w-80 rounded-xl bg-[#111119] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 outline-none focus:border-[#7C4DFF]/30 transition-all"
+                            placeholder="Search leads..."
+                            className="h-8 sm:h-9 pl-7 sm:pl-8 pr-3 w-full rounded-lg sm:rounded-xl bg-[#111119] border border-white/[0.06] text-xs sm:text-sm text-white placeholder:text-zinc-500 outline-none focus:border-[#7C4DFF]/40 transition-all"
                         />
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                         <button
                             onClick={() => setShowAddLeadModal(true)}
-                            className="flex items-center gap-2 px-3 h-9 rounded-xl bg-gradient-to-r from-[#7C4DFF] to-[#6A3DE8] text-sm text-white font-semibold shadow-lg shadow-[#7C4DFF]/20 hover:opacity-90 transition-all"
+                            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-r from-[#7C4DFF] to-[#6A3DE8] text-xs sm:text-sm text-white font-semibold shadow-md sm:shadow-lg shadow-[#7C4DFF]/20 hover:opacity-90 transition-all shrink-0 whitespace-nowrap"
                         >
-                            <Plus size={14} />
-                            <span className="hidden sm:inline">New Lead</span>
+                            <Plus size={13} className="shrink-0" />
+                            <span className="whitespace-nowrap">New Lead</span>
                         </button>
                     </div>
                 </header>
@@ -1665,153 +1657,73 @@ export default function LeadsPage() {
                         </AnimatePresence>
                     </div>
 
-                    {/* 2. IPAD PRO LAYOUT (lg: 1024px - 1279px) */}
-                    <div className="hidden lg:flex xl:hidden flex-1 w-full overflow-hidden">
-                        <LeadsPanel
-                            leads={filteredLeads}
-                            selected={selectedLead}
-                            onSelect={l => { handleSelectLead(l.id); setIpadRightView('chat'); }}
-                            show={true}
-                            loading={loading}
-                            totalCount={totalCount}
-                            hasMore={hasMore}
-                            onLoadMore={() => fetchLeadsList(offset + LIMIT, true)}
-                            leadsDetails={leadsDetails}
-                        />
-                        <div className="flex-1 flex flex-col overflow-hidden border-l border-white/[0.06]">
-                            {ipadRightView === 'chat' ? (
-                                detailsLoading[selectedLeadId] && !leadsDetails[selectedLeadId] ? (
-                                    <ChatSkeleton />
-                                ) : (
-                                    <ChatSection
-                                        lead={selectedLead}
-                                        leadDetail={leadsDetails[selectedLeadId]}
-                                        onBack={null}
-                                        onOpenInInbox={handleOpenInInbox}
-                                        onToggleFavorite={handleToggleFavorite}
-                                        onToggleOverview={() => setIpadRightView('overview')}
-                                        isIpadView={true}
-                                    />
-                                )
-                            ) : (
-                                <RightPanel
-                                    lead={selectedLead}
-                                    details={leadsDetails[selectedLeadId]}
-                                    history={historyLogs[selectedLeadId]}
-                                    loadingHistory={historyLoading === selectedLeadId}
-                                    onBackToChat={() => setIpadRightView('chat')}
-                                    isIpadView={true}
-                                />
-                            )}
-                        </div>
-                    </div>
-
-                    {/* 2. TABLET LAYOUT (md: 768px - 1024px) */}
-                    <div className="hidden md:flex lg:hidden flex-1 w-full overflow-hidden">
-                        <LeadsPanel
-                            leads={filteredLeads}
-                            selected={selectedLead}
-                            onSelect={l => { handleSelectLead(l.id); setTabletRightView('chat'); }}
-                            show={true}
-                            loading={loading}
-                            totalCount={totalCount}
-                            hasMore={hasMore}
-                            onLoadMore={() => fetchLeadsList(offset + LIMIT, true)}
-                            leadsDetails={leadsDetails}
-                        />
-                        <div className="flex-1 flex flex-col overflow-hidden border-l border-white/[0.06]">
-                            {tabletRightView === 'chat' ? (
-                                detailsLoading[selectedLeadId] && !leadsDetails[selectedLeadId] ? (
-                                    <ChatSkeleton />
-                                ) : (
-                                    <ChatSection
-                                        lead={selectedLead}
-                                        leadDetail={leadsDetails[selectedLeadId]}
-                                        onBack={null}
-                                        onOpenInInbox={handleOpenInInbox}
-                                        onToggleFavorite={handleToggleFavorite}
-                                        onToggleOverview={() => setTabletRightView('overview')}
-                                        isTabletView={true}
-                                    />
-                                )
-                            ) : (
-                                <RightPanel
-                                    lead={selectedLead}
-                                    details={leadsDetails[selectedLeadId]}
-                                    history={historyLogs[selectedLeadId]}
-                                    loadingHistory={historyLoading === selectedLeadId}
-                                    onBackToChat={() => setTabletRightView('chat')}
-                                    isTabletView={true}
-                                />
-                            )}
-                        </div>
-                    </div>
-
-                    {/* 3. MOBILE LAYOUT (< 768px) */}
-                    <div className="flex md:hidden flex-1 flex-col w-full overflow-hidden">
+                    {/* 2. RESPONSIVE TABLET & MOBILE LAYOUT (< 1280px / xl) */}
+                    <div className="flex xl:hidden flex-1 flex-col w-full overflow-hidden">
                         <div className="flex-1 flex overflow-hidden">
-                            {activeMobileView === 'leads' && (
+                            {activeView === 'leads' && (
                                 <LeadsPanel
                                     leads={filteredLeads}
                                     selected={selectedLead}
-                                    onSelect={l => { handleSelectLead(l.id); setActiveMobileView('chat'); setTabletRightView('chat'); }}
+                                    onSelect={l => {
+                                        handleSelectLead(l.id);
+                                        setActiveView('chat');
+                                    }}
                                     show={true}
                                     loading={loading}
                                     totalCount={totalCount}
                                     hasMore={hasMore}
                                     onLoadMore={() => fetchLeadsList(offset + LIMIT, true)}
                                     leadsDetails={leadsDetails}
-                                    isMobile={true}
                                 />
                             )}
 
-                            {activeMobileView === 'chat' && (
+                            {activeView === 'chat' && (
                                 detailsLoading[selectedLeadId] && !leadsDetails[selectedLeadId] ? (
                                     <ChatSkeleton />
                                 ) : (
                                     <ChatSection
                                         lead={selectedLead}
                                         leadDetail={leadsDetails[selectedLeadId]}
-                                        onBack={() => setActiveMobileView('leads')}
+                                        onBack={() => setActiveView('leads')}
                                         onOpenInInbox={handleOpenInInbox}
                                         onToggleFavorite={handleToggleFavorite}
-                                        onToggleOverview={() => setActiveMobileView('overview')}
-                                        isMobileView={true}
+                                        onToggleOverview={() => setActiveView('overview')}
+                                        isTabletView={true}
                                     />
                                 )
                             )}
 
-                            {activeMobileView === 'overview' && (
+                            {activeView === 'overview' && (
                                 <RightPanel
                                     lead={selectedLead}
                                     details={leadsDetails[selectedLeadId]}
                                     history={historyLogs[selectedLeadId]}
                                     loadingHistory={historyLoading === selectedLeadId}
-                                    onBackToChat={() => setActiveMobileView('chat')}
-                                    isMobileView={true}
+                                    onBackToChat={() => setActiveView('chat')}
+                                    isTabletView={true}
                                 />
                             )}
                         </div>
 
-                        {/* Mobile Bottom Navigation Bar */}
-                        <nav className="flex items-center justify-around bg-[#0D0D17] border-t border-white/[0.06] px-4 py-2 flex-shrink-0 z-30">
+                        {/* Tablet & Mobile Bottom Navigation Bar */}
+                        <nav className="flex items-center justify-around bg-[#0D0D17] border-t border-white/[0.06] px-4 py-2.5 flex-shrink-0 z-30">
                             <button
-                                onClick={() => setActiveMobileView('leads')}
-                                className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${activeMobileView === 'leads' ? 'text-[#7C4DFF]' : 'text-zinc-500 hover:text-zinc-300'}`}
+                                onClick={() => setActiveView('leads')}
+                                className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-all px-4 py-1 rounded-xl ${activeView === 'leads' ? 'text-[#7C4DFF] bg-[#7C4DFF]/10' : 'text-zinc-500 hover:text-zinc-300'}`}
                             >
                                 <Users size={18} />
                                 <span>Leads</span>
                             </button>
                             <button
-                                onClick={() => setActiveMobileView('chat')}
-                                className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${activeMobileView === 'chat' ? 'text-[#7C4DFF]' : 'text-[#5b5b75] hover:text-zinc-300'}`}
+                                onClick={() => setActiveView('chat')}
+                                className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-all px-4 py-1 rounded-xl ${activeView === 'chat' ? 'text-[#7C4DFF] bg-[#7C4DFF]/10' : 'text-zinc-500 hover:text-zinc-300'}`}
                             >
                                 <MessageSquare size={18} />
-                                <span>Conversations</span>
+                                <span>Conversation</span>
                             </button>
                             <button
-                                onClick={() => setActiveMobileView('overview')}
-                                className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${activeMobileView === 'overview' ? 'text-[#7C4DFF]' : 'text-zinc-500 hover:text-zinc-300'}`}
+                                onClick={() => setActiveView('overview')}
+                                className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-all px-4 py-1 rounded-xl ${activeView === 'overview' ? 'text-[#7C4DFF] bg-[#7C4DFF]/10' : 'text-zinc-500 hover:text-zinc-300'}`}
                             >
                                 <FileText size={18} />
                                 <span>Overview</span>

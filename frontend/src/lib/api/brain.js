@@ -64,6 +64,7 @@ export async function getBrainStats(workspace_id) {
   return client.get(`/brain/stats?workspace_id=${workspace_id}`);
 }
 
-export async function getIngestStatus(entryId) {
-  return client.get(`/brain/ingest/status/${entryId}`);
+export async function getIngestStatus(entryId, workspace_id = null) {
+  const url = workspace_id ? `/brain/ingest/status/${entryId}?workspace_id=${workspace_id}` : `/brain/ingest/status/${entryId}`;
+  return client.get(url);
 }

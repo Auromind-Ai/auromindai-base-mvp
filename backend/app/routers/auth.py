@@ -609,10 +609,19 @@ async def update_current_user_info(
     db: Session = Depends(get_db)
 ):
     from app.models.user import User
+    from app.models.workspace import Workspace
     user_db = db.query(User).filter(User.id == current_user.id).first()
     if not user_db:
         raise HTTPException(status_code=404, detail="User not found")
+    old_name = user_db.full_name
     user_db.full_name = request.full_name
+    if current_user.workspace_id:
+        try:
+            ws = db.query(Workspace).filter(Workspace.id == current_user.workspace_id).first()
+            if ws and (ws.name.endswith("'s Workspace") or ws.name.endswith("’s Workspace") or (old_name and ws.name == f"{old_name}'s Workspace")):
+                ws.name = f"{request.full_name}'s Workspace"
+        except Exception as ws_err:
+            logger.warning(f"Failed to update workspace name dynamically: {ws_err}")
     db.commit()
     db.refresh(user_db)
     role_val = user_db.platform_role.value if hasattr(user_db.platform_role, "value") else str(user_db.platform_role)

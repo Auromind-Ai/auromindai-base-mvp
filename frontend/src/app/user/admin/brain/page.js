@@ -20,6 +20,7 @@ export default function BrainPage() {
     const [urlInput, setUrlInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [currentEntryId, setCurrentEntryId] = useState(null);
+    const [currentCrawlEntryId, setCurrentCrawlEntryId] = useState(null);
     const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, entryId: null });
     const fileInputRef = useRef(null);
 
@@ -57,6 +58,21 @@ export default function BrainPage() {
     useEffect(() => {
         fetchData();
     }, [workspaceId]);
+
+    // Auto-poll if any entry is pending or processing
+    useEffect(() => {
+        const hasActiveTasks = entries.some(
+            item => item.status === 'pending' || item.status === 'processing'
+        );
+
+        if (!hasActiveTasks || !workspaceId) return;
+
+        const pollInterval = setInterval(() => {
+            fetchData(true);
+        }, 6000);
+
+        return () => clearInterval(pollInterval);
+    }, [entries, workspaceId]);
 
     // Close open menus / dropdowns on outside click
     useEffect(() => {
@@ -113,9 +129,14 @@ export default function BrainPage() {
         try {
             setCrawling(true);
             setError(null);
-            setSuccess('Crawling website... This may take a few minutes.');
             const result = await api.crawlWebsite(urlInput.trim(), workspaceId, 50);
-            setSuccess(`🎉 Indexed ${result.pages_crawled} pages (${result.chunks_created} chunks) from your website!`);
+            
+            if (result?.status === 'processing' || result?.status === 'pending') {
+                setCurrentCrawlEntryId(result.entry_id);
+                setSuccess("Website crawl started. Processing in background...");
+            } else {
+                setSuccess(`🎉 Indexed ${result?.pages_crawled || 0} pages (${result?.chunks_created || 0} chunks) from your website!`);
+            }
             setUrlInput('');
             await fetchData(true);
         } catch (err) {
@@ -196,10 +217,10 @@ export default function BrainPage() {
         const s = (status || 'indexed').toLowerCase();
         let label = status || 'Indexed';
         let color = 'text-white/60';
-        if (s === 'completed' || s === 'indexed') { label = 'completed'; color = 'text-emerald-400'; }
+        if (s === 'completed' || s === 'indexed') { label = 'Completed'; color = 'text-emerald-400'; }
         else if (s === 'failed') { label = 'Failed'; color = 'text-rose-400'; }
         else if (s === 'syncing') { label = 'Syncing'; color = 'text-amber-400'; }
-        else if (s === 'processing') { label = 'Processing'; color = 'text-amber-400'; }
+        else if (s === 'processing' || s === 'pending') { label = 'Processing'; color = 'text-amber-400'; }
         else if (s === 'unknown') { label = 'Unknown'; color = 'text-white/40'; }
         
         if (label && label.length > 0) {
@@ -356,15 +377,18 @@ export default function BrainPage() {
 
                     <div className="relative">
                         {currentEntryId && (
-                        <div className="mb-4 flex justify-center">
-                          <FileProgress 
-                          entryId={currentEntryId} 
-                          onDone={async () => {
-                              setCurrentEntryId(null);
-                              await fetchData(true);
-                          }}
-                          />
-                         </div>
+                            <div className="mb-4 flex justify-center">
+                                <FileProgress 
+                                    entryId={currentEntryId} 
+                                    processingText="Processing file..."
+                                    successText="File processed successfully!"
+                                    failedText="File processing failed"
+                                    onDone={async () => {
+                                        setCurrentEntryId(null);
+                                        await fetchData(true);
+                                    }}
+                                />
+                            </div>
                         )}
                         <input
                             type="file"
@@ -401,6 +425,20 @@ export default function BrainPage() {
                 <div className="relative rounded-xl p-3 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center group overflow-hidden bg-[#070012]">
 
                     <div className="relative">
+                        {currentCrawlEntryId && (
+                            <div className="mb-4 flex justify-center">
+                                <FileProgress 
+                                    entryId={currentCrawlEntryId} 
+                                    processingText="Crawling & indexing website..."
+                                    successText="Website indexed successfully!"
+                                    failedText="Website crawl failed"
+                                    onDone={async () => {
+                                        setCurrentCrawlEntryId(null);
+                                        await fetchData(true);
+                                    }}
+                                />
+                            </div>
+                        )}
                         <div className="w-9 h-9 md:w-12 md:h-12 rounded-full bg-white/5 flex items-center justify-center text-white mx-auto mb-2 md:mb-3 group-hover:scale-110 transition-transform">
                             {(syncing || crawling) ? <Loader2 size={20} className="animate-spin" /> : <Globe size={32} strokeWidth={1.5} className="md:w-[46px] md:h-[46px]" />}
                         </div>
@@ -585,8 +623,11 @@ export default function BrainPage() {
                                                 </div>
                                             </div>
                                             <span className="text-xs font-medium text-white/60 uppercase truncate">{item.content_type || 'File'}</span>
-                                            <span className="text-xs font-medium text-white/60">
-                                                {status.label}
+                                            <span className="text-xs font-medium flex items-center gap-1.5">
+                                                {(status.label === 'Processing' || status.label === 'Syncing') && (
+                                                    <Loader2 size={12} className="animate-spin text-amber-400 shrink-0" />
+                                                )}
+                                                <span className={status.color}>{status.label}</span>
                                             </span>
                                             <span className="text-xs text-white/50">{formatDate(item.created_at)}</span>
                                             <div className="relative flex justify-end">
@@ -625,7 +666,12 @@ export default function BrainPage() {
                                             <div className="flex items-center gap-1.5 pl-12 flex-wrap">
                                                 <span className="text-[10px] font-semibold text-[#814AC8] bg-[#814AC8]/10 border border-[#814AC8]/20 px-2 py-0.5 rounded-md uppercase tracking-wide">{item.content_type || 'File'}</span>
                                                 <span className="text-white/20 text-[10px]">·</span>
-                                                <span className={`text-[10px] font-medium ${status.color}`}>{status.label}</span>
+                                                <span className={`text-[10px] font-medium flex items-center gap-1 ${status.color}`}>
+                                                    {(status.label === 'Processing' || status.label === 'Syncing') && (
+                                                        <Loader2 size={10} className="animate-spin text-amber-400 shrink-0" />
+                                                    )}
+                                                    {status.label}
+                                                </span>
                                                 <span className="text-white/20 text-[10px]">·</span>
                                                 <span className="text-[10px] text-white/40">{formatDate(item.created_at)}</span>
                                             </div>
@@ -659,8 +705,11 @@ export default function BrainPage() {
                                     <div className="font-medium text-[#D4D4D4] text-sm truncate mb-1">{item.title}</div>
                                     <div className="text-[10px] text-white/40 mb-3">{item.word_count || 0} words</div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs font-medium text-white/60">
-                                            {status.label}
+                                        <span className="text-xs font-medium flex items-center gap-1.5">
+                                            {(status.label === 'Processing' || status.label === 'Syncing') && (
+                                                <Loader2 size={12} className="animate-spin text-amber-400 shrink-0" />
+                                            )}
+                                            <span className={status.color}>{status.label}</span>
                                         </span>
                                         <span className="text-[10px] text-white/40">{formatDate(item.created_at)}</span>
                                     </div>
