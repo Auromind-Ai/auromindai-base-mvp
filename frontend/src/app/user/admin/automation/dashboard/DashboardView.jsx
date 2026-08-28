@@ -168,7 +168,7 @@ export default function DashboardView({
   const currentUser = getUser();
 
   return (
-    <div className="min-h-screen bg-[#0d0d12] text-zinc-200 p-4 sm:p-6 md:p-8 font-sans overflow-y-auto select-text text-left relative">
+    <div className="min-h-screen bg-[#0d0d12] text-zinc-200 p-4 sm:p-5 md:p-6 lg:p-8 font-sans overflow-y-auto select-text text-left relative">
       {/* Background ambient glows */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-5%] left-[-5%] w-[45%] h-[45%] bg-indigo-500/5 blur-[220px] rounded-full" />
@@ -266,7 +266,7 @@ export default function DashboardView({
           
           <button
             onClick={handleCreateFlowClick}
-            className="flex items-center justify-center gap-2 h-11 px-6 bg-[#814AC8] hover:bg-[#723bb3] active:scale-[0.98] transition-all text-white text-xs font-bold rounded-xl shadow-lg shadow-purple-650/20 w-full sm:w-auto"
+            className="flex items-center justify-center gap-2 h-11 px-6 bg-[#814AC8] hover:bg-[#723bb3] active:scale-[0.98] transition-all text-white text-xs font-bold rounded-xl shadow-lg shadow-purple-650/20 w-full sm:w-auto cursor-pointer"
           >
             <Plus size={16} />
             <span>Create Flow</span>
@@ -280,91 +280,190 @@ export default function DashboardView({
           </button>
         </div>
 
-        {/* Table Container */}
-        <div className="bg-[#13131a]/40 border border-white/5 rounded-2xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-white/5 bg-[#171722]/30 text-[10px] font-extrabold uppercase tracking-wider text-white/40">
-                  <th className="px-6 py-4">Flow Name</th>
-                  <th className="px-6 py-4">Created By</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.02] text-xs font-medium text-white/70">
-                {filteredAutomations.length === 0 ? (
-                  <tr>
-                    <td colSpan="4" className="px-6 py-16 text-center text-white/30 italic font-normal">
-                      No flows found. Click &quot;Create Flow&quot; to build your first automation.
-                    </td>
+        {/* 1. Mobile View (< 640px): Card List */}
+        <div className="block sm:hidden space-y-3">
+          {filteredAutomations.length === 0 ? (
+            <div className="border border-dashed border-white/10 rounded-2xl py-12 px-4 text-center text-xs text-white/40 italic">
+              No flows found. Click &quot;Create Flow&quot; to build your first automation.
+            </div>
+          ) : (
+            <>
+              {filteredAutomations.map((flow) => (
+                <div
+                  key={flow.id}
+                  className="bg-[#13131a]/60 border border-white/[0.08] rounded-2xl p-4 transition-all hover:border-white/20"
+                >
+                  {/* Top: Flow Name & Status Toggle */}
+                  <div className="flex items-center justify-between gap-3">
+                    <span
+                      onClick={() => handleSelectAutomation(flow)}
+                      className="font-bold text-white text-sm hover:text-purple-400 cursor-pointer transition-colors truncate"
+                    >
+                      {flow.name}
+                    </span>
+                    <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={flow.status === 'Active'}
+                        onChange={() => handleToggleStatus(flow)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#814AC8]" />
+                    </label>
+                  </div>
+
+                  {/* Middle: Created by */}
+                  <div className="mt-3">
+                    <span className="text-[11px] text-zinc-500 block font-medium">Created by</span>
+                    <span className="text-xs text-zinc-400 font-mono mt-0.5 block truncate">
+                      {currentUser?.email || 'zixcommerce'}
+                    </span>
+                  </div>
+
+                  {/* Bottom: Actions */}
+                  <div className="mt-3 pt-3 border-t border-white/5">
+                    <span className="text-[11px] text-zinc-500 block font-medium mb-1.5">Actions</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handlePreviewFlow && handlePreviewFlow(flow)}
+                        title="Preview Flow"
+                        className="p-2 text-[#814AC8] opacity-80 hover:opacity-100 hover:text-purple-300 transition-all rounded-lg hover:bg-purple-500/10 cursor-pointer"
+                        aria-label="Preview Flow"
+                      >
+                        <Play size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleDuplicateFlow(flow)}
+                        title="Duplicate Flow"
+                        className="p-2 text-zinc-400 opacity-80 hover:opacity-100 hover:text-white transition-all rounded-lg hover:bg-white/5 cursor-pointer"
+                        aria-label="Duplicate Flow"
+                      >
+                        <Layers size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleSelectAutomation(flow)}
+                        title="Edit Flow"
+                        className="p-2 text-zinc-400 opacity-80 hover:opacity-100 hover:text-purple-400 transition-all rounded-lg hover:bg-white/5 cursor-pointer"
+                        aria-label="Edit Flow"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteFlow(flow.id)}
+                        title="Delete Flow"
+                        className="p-2 text-[#ef4444] opacity-80 hover:opacity-100 hover:text-red-400 transition-all rounded-lg hover:bg-red-500/10 cursor-pointer"
+                        aria-label="Delete Flow"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <div className="text-xs text-zinc-500 font-medium pt-1 px-0.5">
+                {filteredAutomations.length} {filteredAutomations.length === 1 ? 'flow' : 'flows'}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* 2. Tablet & Desktop View (>= 640px): Full Table */}
+        <div className="hidden sm:block space-y-3">
+          <div className="bg-[#13131a]/40 border border-white/5 rounded-2xl shadow-sm overflow-hidden">
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-white/5 bg-[#171722]/30 text-[10px] font-extrabold uppercase tracking-wider text-white/40">
+                    <th className="px-3.5 sm:px-4 lg:px-6 py-3.5 lg:py-4 whitespace-nowrap">Flow Name</th>
+                    <th className="px-2.5 sm:px-3 lg:px-6 py-3.5 lg:py-4 whitespace-nowrap">Created By</th>
+                    <th className="px-2 sm:px-3 lg:px-6 py-3.5 lg:py-4 text-center whitespace-nowrap">Status</th>
+                    <th className="px-3.5 sm:px-4 lg:px-6 py-3.5 lg:py-4 text-right whitespace-nowrap">Actions</th>
                   </tr>
-                ) : (
-                  filteredAutomations.map((flow) => (
-                    <tr key={flow.id} className="hover:bg-white/[0.01] transition-colors group">
-                      <td className="px-6 py-4">
-                        <span 
-                          onClick={() => handleSelectAutomation(flow)}
-                          className="font-bold text-white hover:text-purple-450 cursor-pointer transition-colors"
-                        >
-                          {flow.name}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-white/40 font-mono text-[11px]">
-                        {currentUser?.email || 'zixcommerce'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <label className="relative inline-flex items-center cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={flow.status === 'Active'}
-                            onChange={() => handleToggleStatus(flow)}
-                            className="sr-only peer"
-                          />
-                          <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#814AC8]" />
-                        </label>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => handlePreviewFlow && handlePreviewFlow(flow)}
-                            title="Preview Flow"
-                            className="p-2 text-[#814AC8] opacity-70 hover:opacity-100 hover:text-purple-300 transition-all duration-300 rounded-lg hover:bg-purple-500/10"
-                            aria-label="Preview Flow"
-                          >
-                            <Play size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleDuplicateFlow(flow)}
-                            title="Duplicate Flow"
-                            className="p-2 text-zinc-400 opacity-60 hover:opacity-100 hover:text-white transition-all duration-300 rounded-lg hover:bg-white/5"
-                          >
-                            <Layers size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleSelectAutomation(flow)}
-                            title="Edit Flow"
-                            className="p-2 text-zinc-400 opacity-60 hover:opacity-100 hover:text-purple-400 transition-all duration-300 rounded-lg hover:bg-white/5"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteFlow(flow.id)}
-                            title="Delete Flow"
-                            className="p-2 text-[#ef4444] opacity-60 hover:opacity-100 hover:text-red-400 transition-all duration-300 rounded-lg hover:bg-red-550/5"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
+                </thead>
+                <tbody className="divide-y divide-white/[0.02] text-xs font-medium text-white/70">
+                  {filteredAutomations.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="px-6 py-16 text-center text-white/30 italic font-normal">
+                        No flows found. Click &quot;Create Flow&quot; to build your first automation.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    filteredAutomations.map((flow) => (
+                      <tr key={flow.id} className="hover:bg-white/[0.01] transition-colors group">
+                        <td className="px-3.5 sm:px-4 lg:px-6 py-3 sm:py-3.5 lg:py-4">
+                          <span 
+                            onClick={() => handleSelectAutomation(flow)}
+                            className="font-bold text-white hover:text-purple-400 cursor-pointer transition-colors text-xs sm:text-[13px] line-clamp-1 break-words max-w-[110px] sm:max-w-[150px] lg:max-w-none"
+                            title={flow.name}
+                          >
+                            {flow.name}
+                          </span>
+                        </td>
+                        <td className="px-2.5 sm:px-3 lg:px-6 py-3 sm:py-3.5 lg:py-4 text-white/40 font-mono text-[11px]">
+                          <span className="truncate block max-w-[110px] sm:max-w-[140px] lg:max-w-none" title={currentUser?.email || 'zixcommerce'}>
+                            {currentUser?.email || 'zixcommerce'}
+                          </span>
+                        </td>
+                        <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-3.5 lg:py-4 text-center">
+                          <label className="relative inline-flex items-center cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={flow.status === 'Active'}
+                              onChange={() => handleToggleStatus(flow)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-8 h-4.5 sm:w-9 sm:h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-3.5 after:w-3.5 sm:after:h-4 sm:after:w-4 after:transition-all peer-checked:bg-[#814AC8]" />
+                          </label>
+                        </td>
+                        <td className="px-3.5 sm:px-4 lg:px-6 py-3 sm:py-3.5 lg:py-4 text-right">
+                          <div className="flex items-center justify-end gap-1 sm:gap-1.5">
+                            <button
+                              onClick={() => handlePreviewFlow && handlePreviewFlow(flow)}
+                              title="Preview Flow"
+                              className="p-1.5 sm:p-2 text-[#814AC8] opacity-70 hover:opacity-100 hover:text-purple-300 transition-all duration-300 rounded-lg hover:bg-purple-500/10 cursor-pointer shrink-0"
+                              aria-label="Preview Flow"
+                            >
+                              <Play size={13} className="sm:w-3.5 sm:h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDuplicateFlow(flow)}
+                              title="Duplicate Flow"
+                              className="p-1.5 sm:p-2 text-zinc-400 opacity-60 hover:opacity-100 hover:text-white transition-all duration-300 rounded-lg hover:bg-white/5 cursor-pointer shrink-0"
+                              aria-label="Duplicate Flow"
+                            >
+                              <Layers size={13} className="sm:w-3.5 sm:h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleSelectAutomation(flow)}
+                              title="Edit Flow"
+                              className="p-1.5 sm:p-2 text-zinc-400 opacity-60 hover:opacity-100 hover:text-purple-400 transition-all duration-300 rounded-lg hover:bg-white/5 cursor-pointer shrink-0"
+                              aria-label="Edit Flow"
+                            >
+                              <Pencil size={13} className="sm:w-3.5 sm:h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteFlow(flow.id)}
+                              title="Delete Flow"
+                              className="p-1.5 sm:p-2 text-[#ef4444] opacity-60 hover:opacity-100 hover:text-red-400 transition-all duration-300 rounded-lg hover:bg-red-500/10 cursor-pointer shrink-0"
+                              aria-label="Delete Flow"
+                            >
+                              <Trash2 size={13} className="sm:w-3.5 sm:h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="text-xs text-zinc-500 font-medium px-1">
+            Showing {filteredAutomations.length} {filteredAutomations.length === 1 ? 'flow' : 'flows'}
           </div>
         </div>
-        
       </div>
 
       {/* ─── INFO / PURCHASE MODAL ─── */}
@@ -549,7 +648,7 @@ export default function DashboardView({
                   <div>
                     <h4 className="text-xs font-bold text-white">Flow Limit Reached</h4>
                     <p className="text-xs text-white/70 mt-0.5">
-                      You've reached your Flow limit. Purchase additional Flow Packs to continue creating automations.
+                      You&apos;ve reached your Flow limit. Purchase additional Flow Packs to continue creating automations.
                     </p>
                   </div>
                 </div>

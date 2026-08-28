@@ -1,13 +1,14 @@
-import { useState, useMemo } from 'react';
+'use client';
+
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search,
-    ChevronsLeft,
     Edit2,
     Trash2,
-    Pin,
     Plus,
-    X
+    X,
+    Check
 } from 'lucide-react';
 
 export default function ChatSidebar({
@@ -25,6 +26,61 @@ export default function ChatSidebar({
     const [searchQuery, setSearchQuery] = useState("");
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [sessionToDelete, setSessionToDelete] = useState(null);
+    const [leftOffset, setLeftOffset] = useState(64);
+    const sidebarRef = useRef(null);
+
+    useEffect(() => {
+        const updateOffset = () => {
+            const allAsides = document.querySelectorAll('nav, aside');
+            let mainNav = null;
+            allAsides.forEach(el => {
+                if (el !== sidebarRef.current && !sidebarRef.current?.contains(el)) {
+                    mainNav = el;
+                }
+            });
+
+            if (mainNav && window.innerWidth >= 768) {
+                const rect = mainNav.getBoundingClientRect();
+                setLeftOffset(rect.width || 64);
+            } else if (window.innerWidth < 768) {
+                setLeftOffset(0);
+            }
+        };
+
+        updateOffset();
+        window.addEventListener('resize', updateOffset);
+        const observer = new MutationObserver(updateOffset);
+        observer.observe(document.body, { attributes: true, subtree: true });
+
+        return () => {
+            window.removeEventListener('resize', updateOffset);
+            observer.disconnect();
+        };
+    }, []);
+
+    useEffect(() => {
+        function handleClickOutside(e) {
+            if (!sidebarRef.current || !isOpen) return;
+            const drawerRect = sidebarRef.current.getBoundingClientRect();
+            if (sidebarRef.current.contains(e.target)) return;
+            if (e.clientX < drawerRect.left) return;
+            if (e.clientX > drawerRect.right) {
+                toggleSidebar?.();
+            }
+        }
+
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen, toggleSidebar]);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setEditingId(null);
+            setEditTitle("");
+        }
+    }, [isOpen]);
 
     const handleEditClick = (session, e) => {
         e.stopPropagation();
@@ -48,9 +104,7 @@ export default function ChatSidebar({
 
     const confirmDelete = async () => {
         if (!sessionToDelete) return;
-
         await onDeleteSession(sessionToDelete);
-
         setShowDeleteModal(false);
         setSessionToDelete(null);
     };
@@ -61,13 +115,13 @@ export default function ChatSidebar({
     };
 
     const filteredSessions = useMemo(() => {
+        if (!sessions) return [];
         if (!searchQuery.trim()) return sessions;
         return sessions.filter(s =>
             s.title?.toLowerCase().includes(searchQuery.toLowerCase())
         );
     }, [sessions, searchQuery]);
 
-    // Split into Pinned and Recent
     const { pinnedSessions, recentSessions } = useMemo(() => {
         return {
             pinnedSessions: filteredSessions.filter(s => s.pinned),
@@ -90,20 +144,21 @@ export default function ChatSidebar({
             <AnimatePresence mode="wait">
                 {isOpen && (
                     <motion.div
+                        ref={sidebarRef}
                         initial={{ x: '-100%' }}
                         animate={{ x: 0 }}
                         exit={{ x: '-100%' }}
                         transition={{ type: "tween", ease: "easeOut", duration: 0.25 }}
-                        className="fixed inset-y-0 left-0 md:left-[320px] z-50 w-full md:w-[340px] flex flex-col shadow-2xl will-change-transform bg-[#0f0f13]"
+                        style={{ left: `${leftOffset}px` }}
+                        className="fixed inset-y-0 z-50 w-full md:w-[340px] flex flex-col shadow-2xl will-change-transform bg-[#0f0f13]"
                     >
                         <div className="flex flex-col h-full">
-
-                            {/* Header: Chat history + close/new */}
+                            {/* Header */}
                             <div className="px-5 pt-5 pb-4 flex items-center justify-between flex-shrink-0">
                                 <div className="flex items-center gap-3">
                                     <button
                                         onClick={toggleSidebar}
-                                        className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-white/[0.15] text-gray-400 hover:text-white hover:border-white/30 transition-all bg-transparent"
+                                        className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-white/[0.15] text-gray-400 hover:text-white hover:border-white/30 transition-all bg-transparent cursor-pointer"
                                         title="Close"
                                     >
                                         <X size={16} />
@@ -114,7 +169,7 @@ export default function ChatSidebar({
                                 </div>
                                 <button
                                     onClick={onCreateSession}
-                                    className="w-28 h-9 flex items-center gap-2 justify-center rounded-lg border border-white/[0.15] text-gray-400 hover:text-white hover:border-white/30 transition-all bg-transparent"
+                                    className="w-28 h-9 flex items-center gap-2 justify-center rounded-lg border border-white/[0.15] text-gray-400 hover:text-white hover:border-white/30 transition-all bg-transparent cursor-pointer"
                                     title="New Chat"
                                 >
                                     <span className="text-[12px] font-medium">New Chat</span>
@@ -124,9 +179,7 @@ export default function ChatSidebar({
 
                             {/* Search */}
                             <div className="px-4 pb-4 flex-shrink-0">
-                                <div
-                                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.09]"
-                                >
+                                <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.09]">
                                     <Search size={14} className="flex-shrink-0 text-gray-500" />
                                     <input
                                         type="text"
@@ -142,7 +195,6 @@ export default function ChatSidebar({
 
                             {/* Scrollable content */}
                             <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-5 [scrollbar-width:none]">
-
                                 {/* PINNED section */}
                                 {pinnedSessions.length > 0 && (
                                     <div>
@@ -177,10 +229,7 @@ export default function ChatSidebar({
                                         <p className="text-[13px] font-medium mb-3 text-[#e2dad7]">
                                             Recent
                                         </p>
-                                        {/* All recent cards in ONE container with dividers */}
-                                        <div
-                                            className="rounded-xl overflow-hidden border border-white/[0.09] bg-white/[0.025]"
-                                        >
+                                        <div className="rounded-xl overflow-hidden border border-white/[0.09] bg-white/[0.025]">
                                             {recentSessions.map((session, idx) => (
                                                 <div key={session.id}>
                                                     {idx !== 0 && (
@@ -213,75 +262,68 @@ export default function ChatSidebar({
                                     </div>
                                 )}
                             </div>
-
-
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Overlay */}
+            {/* Right Side Blur Backdrop Overlay */}
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-y-0 left-0 md:left-[320px] right-0 z-40 pointer-events-auto bg-black/50 backdrop-blur-sm"
+                        style={{ left: `calc(${leftOffset}px + 340px)` }}
+                        className="fixed inset-y-0 right-0 z-40 bg-black/50 backdrop-blur-sm cursor-pointer"
                         onClick={toggleSidebar}
                     />
                 )}
             </AnimatePresence>
 
+            {/* Delete Modal */}
             <AnimatePresence>
                 {showDeleteModal && (
                     <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
                     >
-                    <motion.div
-                        initial={{ scale: 0.95, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.95, opacity: 0 }}
-                        className="w-full max-w-md rounded-2xl bg-[#0f0f13] border border-white/10 p-6 shadow-2xl"
-                    >
-                        <h3 className="text-lg font-semibold text-white">
-                        Delete Chat
-                        </h3>
-
-                        <p className="mt-2 text-sm text-gray-400">
-                        Are you sure you want to delete this conversation?
-                        This action cannot be undone.
-                        </p>
-
-                        <div className="mt-6 flex justify-end gap-3">
-                        <button
-                            onClick={cancelDelete}
-                            className="px-4 py-2 rounded-lg border border-white/10 text-gray-300 hover:bg-white/5"
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="w-full max-w-md rounded-2xl bg-[#0f0f13] border border-white/10 p-6 shadow-2xl"
                         >
-                            Cancel
-                        </button>
-
-                        <button
-                            onClick={confirmDelete}
-                            className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white"
-                        >
-                            Delete
-                        </button>
-                        </div>
-                    </motion.div>
+                            <h3 className="text-lg font-semibold text-white">
+                                Delete Chat
+                            </h3>
+                            <p className="mt-2 text-sm text-gray-400">
+                                Are you sure you want to delete this conversation? This action cannot be undone.
+                            </p>
+                            <div className="mt-6 flex justify-end gap-3">
+                                <button
+                                    onClick={cancelDelete}
+                                    className="px-4 py-2 rounded-lg border border-white/10 text-gray-300 hover:bg-white/5 cursor-pointer text-sm"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmDelete}
+                                    className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white cursor-pointer text-sm font-semibold"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </motion.div>
                     </motion.div>
                 )}
-                </AnimatePresence>
+            </AnimatePresence>
         </>
     );
 }
 
-/* ─
-   Reusable Session Card
-─ */
 function SessionCard({
     session,
     isActive,
@@ -316,37 +358,50 @@ function SessionCard({
             <div className="px-4 py-3">
                 <div className="flex items-center justify-between gap-2">
                     {isEditing ? (
-                        <div className="flex items-center gap-1 w-full" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1.5 w-full" onClick={e => e.stopPropagation()}>
                             <input
                                 type="text"
                                 value={editTitle}
                                 onChange={(e) => setEditTitle(e.target.value)}
-                                className="flex-1 text-[13px] px-2 py-0.5 rounded outline-none bg-white/10 border border-white/20 text-gray-200"
+                                className="flex-1 text-[13px] px-2 py-1 rounded-md outline-none bg-white/10 border border-purple-500/40 text-gray-100 focus:border-purple-400"
                                 autoFocus
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') onSave(e);
                                     if (e.key === 'Escape') onCancelEdit();
                                 }}
                             />
+                            <button
+                                onClick={onSave}
+                                className="p-1 rounded bg-purple-600/30 text-purple-300 hover:bg-purple-600 hover:text-white transition-colors cursor-pointer"
+                                title="Save"
+                            >
+                                <Check size={13} />
+                            </button>
+                            <button
+                                onClick={onCancelEdit}
+                                className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                                title="Cancel"
+                            >
+                                <X size={13} />
+                            </button>
                         </div>
                     ) : (
                         <>
                             <p className="text-[14px] font-medium truncate flex-1 leading-snug text-white">
                                 {session.title || 'New Chat'}
                             </p>
-                            <div className="flex-shrink-0 flex items-center justify-end min-h-[22px]">
-                                {/* Timestamp: visible by default, disappears on hover */}
-                                <span className="text-[11px] text-gray-500 group-hover/card:hidden">
+                            <div className="flex-shrink-0 flex items-center gap-2 justify-end min-h-[22px]">
+                                <span className="text-[11px] text-gray-500 lg:group-hover/card:hidden">
                                     {formatTime()}
                                 </span>
-                                {/* Edit & Delete buttons: hidden by default, shown on hover */}
-                                <div className="hidden group-hover/card:flex items-center gap-1" onClick={e => e.stopPropagation()}>
+
+                                <div className="flex lg:hidden lg:group-hover/card:flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             onEdit(e);
                                         }}
-                                        className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                                        className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors active:scale-95 cursor-pointer"
                                         title="Edit"
                                     >
                                         <Edit2 size={13} />
@@ -356,7 +411,7 @@ function SessionCard({
                                             e.stopPropagation();
                                             onDelete(e);
                                         }}
-                                        className="p-1 rounded hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
+                                        className="p-1.5 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors active:scale-95 cursor-pointer"
                                         title="Delete"
                                     >
                                         <Trash2 size={13} />

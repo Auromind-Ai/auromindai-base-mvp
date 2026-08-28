@@ -460,7 +460,6 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
   const minVal = 0;
   const maxVal = chartMax;
   
-  // Calculate dynamic yLabels based on maxVal
   const step = chartMax / 4;
   const yLabels = [0, step, step * 2, step * 3, chartMax];
 
@@ -874,28 +873,27 @@ function RecentActivityCard({ activities = [] }) {
         )}
       </AnimatePresence>
       <ViewAllModal
-          isOpen={showModal}
-          onClose={() => setShowModal(false)}
-          title="All Recent Activity"
-        >
-          {activities.length === 0 ? (
-            <p className="text-sm text-zinc-500 text-center py-8">No activity found</p>
-          ) : (
-            <div className="space-y-1">
-              {activities.map((a, i) => (
-                <div key={i} className="flex items-center gap-3 py-3 border-b border-white/[0.06] last:border-0">
-                  <span className="w-[9px] h-[9px] rounded-full border-2 border-purple-400/50 flex-shrink-0" />
-                  <span className="flex-1 text-sm text-white/75">{a.label}</span>
-                  <span className="text-[11px] text-zinc-500 whitespace-nowrap">{a.time}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </ViewAllModal>
-
-      </section>
-    );
-  }
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="All Recent Activity"
+      >
+        {activities.length === 0 ? (
+          <p className="text-sm text-zinc-500 text-center py-8">No activity found</p>
+        ) : (
+          <div className="space-y-1">
+            {activities.map((a, i) => (
+              <div key={i} className="flex items-center gap-3 py-3 border-b border-white/[0.06] last:border-0">
+                <span className="w-[9px] h-[9px] rounded-full border-2 border-purple-400/50 flex-shrink-0" />
+                <span className="flex-1 text-sm text-white/75">{a.label}</span>
+                <span className="text-[11px] text-zinc-500 whitespace-nowrap">{a.time}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </ViewAllModal>
+    </section>
+  );
+}
 
 // Quick Actions Card
 const QUICK_ACTIONS = [
@@ -982,7 +980,6 @@ function QuickActionsCard({ onAddLeadClick }) {
                 background: action.bgBase,
               }}
             >
-              {/* Icon — sits above the glow layer (z-10) */}
               <div
                 className={`relative z-10 w-9 h-9 rounded-xl bg-gradient-to-br ${action.iconGradient} flex items-center justify-center mb-2.5 flex-shrink-0`}
                 style={{ boxShadow: action.iconShadow }}
@@ -1021,8 +1018,8 @@ function AIInsightsCard({ insights = [] }) {
       <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-white/10">
         <h2 className="text-[15px] font-semibold text-white/90">AI Insights</h2>
         <button 
-        onClick={() => setShowModal(true)}
-        className="text-[11px] text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-2.5 py-0.5 rounded-full border border-purple-500/20 font-medium">
+          onClick={() => setShowModal(true)}
+          className="text-[11px] text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-2.5 py-0.5 rounded-full border border-purple-500/20 font-medium">
           View all
         </button>
       </div>
@@ -1047,35 +1044,34 @@ function AIInsightsCard({ insights = [] }) {
         })}
       </div>
       <ViewAllModal
-          isOpen={showModal}
-          onClose={() => setShowModal(false)}
-          title="All AI Insights"
-        >
-          {insights.length === 0 ? (
-            <p className="text-sm text-zinc-500 text-center py-8">No insights found</p>
-          ) : (
-            <div className="space-y-3">
-              {insights.map((item, i) => {
-                const Icon = iconMap[item.icon_type] || Sparkles;
-                return (
-                  <div key={i} className="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/[0.015]">
-                    <div className={`w-10 h-10 rounded-xl ${item.icon_bg} flex items-center justify-center flex-shrink-0`}>
-                      <Icon size={18} className={item.icon_color} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white/85">{item.title}</p>
-                      <p className="text-xs text-white/60 mt-0.5">{item.subtitle}</p>
-                    </div>
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="All AI Insights"
+      >
+        {insights.length === 0 ? (
+          <p className="text-sm text-zinc-500 text-center py-8">No insights found</p>
+        ) : (
+          <div className="space-y-3">
+            {insights.map((item, i) => {
+              const Icon = iconMap[item.icon_type] || Sparkles;
+              return (
+                <div key={i} className="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/[0.015]">
+                  <div className={`w-10 h-10 rounded-xl ${item.icon_bg} flex items-center justify-center flex-shrink-0`}>
+                    <Icon size={18} className={item.icon_color} />
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </ViewAllModal>
-
-      </section>
-    );
-  }
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white/85">{item.title}</p>
+                    <p className="text-xs text-white/60 mt-0.5">{item.subtitle}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </ViewAllModal>
+    </section>
+  );
+}
 
 const calculateDatesForPeriod = (selectedPeriod) => {
   const now = new Date();
@@ -1147,8 +1143,6 @@ const formatDisplayRange = (startDateStr, endDateStr) => {
 function PeriodPicker({ period, dateRange, onPeriodChange }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
-  const buttonRef = useRef(null);
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0, left: 0 });
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1156,20 +1150,18 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
         setIsOpen(false);
       }
     };
+    const handleScroll = (event) => {
+      if (dropdownRef.current && dropdownRef.current.contains(event.target)) return;
+      setIsOpen(false);
+    };
+
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
-      // Compute fixed position from button rect
-      if (buttonRef.current) {
-        const rect = buttonRef.current.getBoundingClientRect();
-        setDropdownPos({
-          top: rect.bottom + 8,
-          left: rect.left,
-          right: window.innerWidth - rect.right,
-        });
-      }
+      window.addEventListener('scroll', handleScroll, true);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
     };
   }, [isOpen]);
 
@@ -1187,39 +1179,26 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
     last_month: 'Last Month',
   };
 
-  // On mobile, use left/right insets for full-width; on sm+ anchor to button's right edge
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
-  let dropdownStyle = {};
-  if (isMobile) {
-    const dropdownWidth = 200;
-    const calculatedLeft = Math.max(12, Math.min(dropdownPos.left, (typeof window !== 'undefined' ? window.innerWidth : 375) - dropdownWidth - 12));
-    dropdownStyle = { top: dropdownPos.top, left: calculatedLeft };
-  } else {
-    dropdownStyle = { top: dropdownPos.top, right: dropdownPos.right };
-  }
-
   return (
     <div className="relative shrink-0 flex-shrink-0" ref={dropdownRef}>
       <button
-        ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1 sm:gap-2 h-8 sm:h-[42px] px-2 sm:px-3 bg-white/5 border border-white/15 rounded-lg sm:rounded-2xl text-[10px] sm:text-xs text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none shrink-0 flex-shrink-0"
+        className="flex items-center gap-1 sm:gap-2 h-8 sm:h-[42px] px-2 sm:px-3 bg-white/5 border border-white/15 rounded-lg sm:rounded-2xl text-[10px] sm:text-xs text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none shrink-0"
       >
-        <Calendar size={12} className="text-purple-400 shrink-0 flex-shrink-0" />
+        <Calendar size={12} className="text-purple-400 shrink-0" />
         <span className="hidden xs:inline font-medium whitespace-nowrap">{formatDisplayRange(dateRange.startDate, dateRange.endDate)}</span>
         <span className="xs:hidden font-medium whitespace-nowrap">{labels[period]}</span>
-        <ChevronDown size={12} className={`text-white/60 shrink-0 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown size={12} className={`text-white/60 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.95 }}
+            initial={{ opacity: 0, y: 6, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.95 }}
+            exit={{ opacity: 0, y: 6, scale: 0.95 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed w-52 sm:w-60 rounded-xl bg-[#141424] border border-white/15 p-1.5 shadow-2xl z-[100] backdrop-blur-2xl flex flex-col gap-1"
-            style={dropdownStyle}
+            className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-52 sm:w-60 rounded-xl bg-[#141424] border border-white/15 p-1.5 shadow-2xl z-[999] backdrop-blur-2xl flex flex-col gap-1"
           >
             {options.map((opt) => {
               const optDates = calculateDatesForPeriod(opt.value);
@@ -1252,9 +1231,6 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
     </div>
   );
 }
-
-
-
 
 // Main Dashboard 
 export default function DashboardPage() {
@@ -1322,15 +1298,15 @@ export default function DashboardPage() {
       <div className="max-w-[1600px] mx-auto space-y-5">
 
         {/* HEADER */}
-        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 sm:gap-4">
           <div>
             <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-white/90">Dashboard</h1>
             <p className="text-xs text-white/70 mt-0.5">Good morning! Here are your key actions for today.</p>
           </div>
-          <div className="flex items-center flex-nowrap w-full sm:w-auto justify-between sm:justify-end gap-1 sm:gap-3 overflow-x-auto no-scrollbar py-0.5">
+          <div className="flex items-center flex-wrap sm:flex-nowrap gap-2 sm:gap-3 py-0.5 justify-start xl:justify-end">
             <WhatsAppStatusIndicator />
             <PeriodPicker period={period} dateRange={dateRange} onPeriodChange={handlePeriodChange} />
-            <div className="flex items-center gap-1 sm:gap-3 shrink-0 flex-shrink-0 ml-auto sm:ml-0">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0 flex-shrink-0">
               <NotificationBell />
               <div className="relative z-50 shrink-0 flex-shrink-0">
                 <CreditRingDropdown user={user} size={36} />

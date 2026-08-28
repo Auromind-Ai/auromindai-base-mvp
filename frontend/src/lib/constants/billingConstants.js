@@ -1,4 +1,4 @@
-export const TABLE_PREVIEW_LIMIT = 3;
+export const TABLE_PREVIEW_LIMIT = 4;
 export const MODAL_PAGE_SIZE = 10;
 
 export const TRANSACTION_TYPES = {

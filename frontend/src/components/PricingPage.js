@@ -96,7 +96,7 @@ function PricingCard({ plan, currentPlan, onUpgrade, index, isAnnual }) {
 
   const getCTA = (planKey) => {
     if (currentPlan === planKey) return 'Current Plan';
-    if (planKey === 'solo')       return 'Upgrade to Solo Smart';
+    if (planKey === 'solo')      return 'Upgrade to Solo Smart';
     if (planKey === 'pro')        return 'Upgrade to Pro';
     if (planKey === 'enterprise') return "Let's Talk";
     return 'Choose this plan';
@@ -123,7 +123,7 @@ function PricingCard({ plan, currentPlan, onUpgrade, index, isAnnual }) {
     <motion.div
       custom={index}
       variants={cardVariants}
-      className={`relative overflow-hidden rounded-[32px] border w-full sm:w-[350px] lg:w-[380px] xl:w-[400px] p-7 md:p-8 backdrop-blur-2xl transition-all duration-300 flex flex-col justify-between shrink-0 ${cardBg}`}
+      className={`relative overflow-hidden rounded-[32px] border w-full sm:w-[350px] lg:w-[360px] xl:w-[380px] p-7 md:p-8 backdrop-blur-2xl transition-all duration-300 flex flex-col justify-between shrink-0 ${cardBg}`}
     >
       {/* Featured glow */}
       {isFeatured && (
@@ -268,11 +268,11 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
           : `₹${Number(rawPrice).toLocaleString('en-IN')}`;
 
         return {
-          key:         plan.key,
-          icon:        iconMap[plan.key] || '🚀',
-          name:        plan.name || plan.label,
-          price:       displayPrice,
-          usage:       `${Math.round((plan.tokens || 1000000) / TOKENS_PER_CREDIT)} credits / month`,
+          key:        plan.key,
+          icon:       iconMap[plan.key] || '🚀',
+          name:       plan.name || plan.label,
+          price:      displayPrice,
+          usage:      `${Math.round((plan.tokens || 1000000) / TOKENS_PER_CREDIT)} credits / month`,
           description: plan.description,
           featured:    plan.featured || plan.is_featured || plan.key === 'pro',
           features:    plan.features || [],
@@ -280,11 +280,11 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
       })
     : [
     {
-      key:         'free',
-      icon:        '🚀',
-      name:        settings.free_plan_name  || 'Free',
-      price:       settings.free_plan_price === 0 ? 'Free' : `₹${settings.free_plan_price}`,
-      usage:       `${Math.round((settings.token_limit_per_plan?.free || 0) / TOKENS_PER_CREDIT)} credits / month`,
+      key:        'free',
+      icon:       '🚀',
+      name:       settings.free_plan_name  || 'Free',
+      price:      settings.free_plan_price === 0 ? 'Free' : `₹${settings.free_plan_price}`,
+      usage:      `${Math.round((settings.token_limit_per_plan?.free || 0) / TOKENS_PER_CREDIT)} credits / month`,
       description: settings.free_plan_desc  || 'Try Auromind for free and see the ROI yourself.',
       features:    settings.free_plan_features || [
         `${Math.round((settings.token_limit_per_plan?.free || 0) / TOKENS_PER_CREDIT)} monthly AI credits`,
@@ -294,13 +294,13 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
       ],
     },
     {
-      key:         'solo',
-      icon:        '⚡',
-      name:        settings.solo_plan_name  || 'Solo Smart',
+      key:        'solo',
+      icon:       '⚡',
+      name:       settings.solo_plan_name  || 'Solo Smart',
       price: isAnnual
         ? `₹${Number(settings.solo_yearly_plan_price || 9990).toLocaleString('en-IN')}`
         : `₹${Number(settings.solo_plan_price || 999).toLocaleString('en-IN')}`,
-      usage:       `${Math.round((settings.token_limit_per_plan?.solo || 0) / TOKENS_PER_CREDIT)} credits / month`,
+      usage:      `${Math.round((settings.token_limit_per_plan?.solo || 0) / TOKENS_PER_CREDIT)} credits / month`,
       description: settings.solo_plan_desc  || 'RAG & custom knowledge base on a budget for solopreneurs.',
       features:    settings.solo_plan_features || [
         `${Math.round((settings.token_limit_per_plan?.solo || 0) / TOKENS_PER_CREDIT)} monthly AI credits`,
@@ -310,13 +310,13 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
       ],
     },
     {
-      key:         'pro',
-      icon:        '🔥',
-      name:        settings.pro_plan_name  || 'Pro',
+      key:        'pro',
+      icon:       '🔥',
+      name:       settings.pro_plan_name  || 'Pro',
       price: isAnnual
         ? `₹${Number(settings.pro_yearly_plan_price || 59990).toLocaleString('en-IN')}`
         : `₹${Number(settings.pro_plan_price || 5999).toLocaleString('en-IN')}`,
-      usage:       `${Math.round((settings.token_limit_per_plan?.pro || 0) / TOKENS_PER_CREDIT)} credits / month`,
+      usage:      `${Math.round((settings.token_limit_per_plan?.pro || 0) / TOKENS_PER_CREDIT)} credits / month`,
       description: settings.pro_plan_desc  || 'Advanced features for growing teams and scalable workflows.',
       featured:    true,
       features:    settings.pro_plan_features || [
@@ -328,11 +328,11 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
       ],
     },
     {
-      key:         'enterprise',
-      icon:        '👑',
-      name:        settings.enterprise_plan_name  || 'Enterprise',
-      price:       "Let's Talk",
-      usage:       'Custom credits and seats',
+      key:        'enterprise',
+      icon:       '👑',
+      name:       settings.enterprise_plan_name  || 'Enterprise',
+      price:      "Let's Talk",
+      usage:      'Custom credits and seats',
       description: settings.enterprise_plan_desc  || 'Tailored capacity, security, and support for larger organizations.',
       features:    settings.enterprise_plan_features || [
         'Custom usage limits',
@@ -370,7 +370,7 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, amount: 0.1 }}
-          className="w-full flex flex-wrap justify-center items-stretch gap-6 lg:gap-8"
+          className="w-full flex flex-wrap min-[1350px]:flex-nowrap justify-center items-stretch gap-6 lg:gap-8"
         >
           {plans.map((plan, index) => (
             <PricingCard
