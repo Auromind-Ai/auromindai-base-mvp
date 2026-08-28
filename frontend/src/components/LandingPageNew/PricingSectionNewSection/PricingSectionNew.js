@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronsDown } from 'lucide-react';
 
 import api from '@/lib/api';
+import PricingComparisonTable from './PricingComparisonTable';
 
 const TOKENS_PER_CREDIT = 1000;
 
@@ -445,6 +446,8 @@ export default function PricingSectionNew() {
           ))}
         </motion.div>
 
+        {/* Feature Comparison Table */}
+        <PricingComparisonTable onSelectPlan={handlePlanClick} />
       </div>
     </section>
   );
