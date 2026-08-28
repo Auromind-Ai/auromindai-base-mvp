@@ -86,6 +86,7 @@ function LoginContent() {
     const [showCanvas, setShowCanvas] = useState(false);
     const [resendSuccess, setResendSuccess] = useState('');
     const [resendLoading, setResendLoading] = useState(false);
+    const tokenHandledRef = useRef(false);
 
     useEffect(() => {
         initTurnstileWidget();
@@ -107,13 +108,19 @@ function LoginContent() {
 
     useEffect(() => {
         const token = searchParams.get('token');
-        if (token) {
+        if (token && !tokenHandledRef.current) {
+            tokenHandledRef.current = true;
             setToken(token);
             refreshUser().then(() => {
-                router.push(redirectPath || '/user/admin/dashboard');
+                router.replace(redirectPath || '/user/admin/dashboard');
+            }).catch(() => {
+                // If refresh fails, keep tokenHandledRef true so we don't loop
             });
-        } else if (!authLoading && user) {
-            router.push(redirectPath || '/user/admin/dashboard');
+            return;
+        }
+        
+        if (!token && !authLoading && user) {
+            router.replace(redirectPath || '/user/admin/dashboard');
         }
     }, [user, authLoading, router, redirectPath, searchParams, refreshUser]);
 

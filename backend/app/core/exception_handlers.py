@@ -84,9 +84,16 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         )
         if not field and err.get("loc"):
             field = str(err["loc"][-1])
+        
+        msg_val = str(err.get("msg", "Invalid value")).strip()
+        # Clean Pydantic's internal "Value error, " / "Assertion failed, " prefixes
+        for prefix in ("Value error, ", "Value error,", "Assertion failed, ", "Assertion failed,"):
+            if msg_val.startswith(prefix):
+                msg_val = msg_val[len(prefix):].strip()
+
         raw_errors.append({
             "field": field or "non_field_error",
-            "message": err.get("msg", "Invalid value"),
+            "message": msg_val,
             "type": err.get("type", "value_error"),
         })
 
@@ -98,7 +105,17 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     msg = "Request validation failed. Please check the supplied fields."
     if formatted_errors:
         first_err = formatted_errors[0]
-        msg = f"Validation error on '{first_err['field']}': {first_err['message']}"
+        field_name = first_err.get("field", "")
+        err_message = first_err.get("message", "Invalid value")
+        
+        # Clean and user-friendly error message presentation
+        if any(keyword in err_message.lower() for keyword in ("invalid", "expected", "required", "please", "format", "must", "cannot")):
+            msg = err_message
+        elif field_name and field_name != "non_field_error":
+            clean_field = field_name.replace("_", " ").title()
+            msg = f"{clean_field}: {err_message}"
+        else:
+            msg = err_message
 
     return build_error_response(
         status_code=HTTP_422_UNPROCESSABLE,

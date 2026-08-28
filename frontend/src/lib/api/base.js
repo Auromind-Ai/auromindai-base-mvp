@@ -198,12 +198,17 @@ export class APIClient {
         let errorMessage = 'Request failed';
         if (data && data.detail) {
           if (Array.isArray(data.detail)) {
-            errorMessage = data.detail.map(err => `${err.loc ? err.loc[err.loc.length - 1] : err.field || 'field'}: ${err.msg || err.message || 'Invalid value'}`).join(', ');
+            errorMessage = data.detail.map(err => {
+              let msg = err.msg || err.message || 'Invalid value';
+              msg = msg.replace(/^Value error,\s*/i, '').replace(/^Assertion failed,\s*/i, '');
+              const f = err.loc ? err.loc[err.loc.length - 1] : err.field;
+              return f ? `${String(f).replace(/_/g, ' ')}: ${msg}` : msg;
+            }).join(', ');
           } else if (typeof data.detail === 'string') {
             errorMessage = data.detail;
           } else if (typeof data.detail === 'object') {
             if (Array.isArray(data.detail.errors)) {
-              errorMessage = data.detail.errors.join(', ');
+              errorMessage = data.detail.errors.map(e => (e.message || e.msg || JSON.stringify(e)).replace(/^Value error,\s*/i, '')).join(', ');
             } else {
               errorMessage = data.detail.message || data.detail.detail || JSON.stringify(data.detail);
             }
@@ -212,6 +217,15 @@ export class APIClient {
           errorMessage = data.message || data.error.message;
         } else {
           errorMessage = `HTTP error ${response.status}`;
+        }
+
+        // Clean residual technical error prefixes for a clean user-facing message
+        if (typeof errorMessage === 'string') {
+          errorMessage = errorMessage
+            .replace(/^Validation error on '[^']+':\s*/i, '')
+            .replace(/^Value error,\s*/i, '')
+            .replace(/^Assertion failed,\s*/i, '')
+            .trim();
         }
 
         errorMessage = sanitizeErrorMessage(errorMessage, response.status);

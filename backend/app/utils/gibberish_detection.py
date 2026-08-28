@@ -68,7 +68,7 @@ def is_gibberish_or_unwanted(text: str) -> dict:
             "score": 1.0
         }
 
-    vowels = set("aeiouy")
+    vowels = set("aeiou")
 
     # Multi-word sentence protection:
     # If the user typed a multi-word phrase with at least 2 words, check if the sentence contains recognizable structure.
@@ -76,7 +76,7 @@ def is_gibberish_or_unwanted(text: str) -> dict:
         valid_words = 0
         for w in clean_words:
             # Words with vowels, or short common acronyms (<= 5 chars like tnpl, ipl, api, sql, bcci, jwt, etc.)
-            has_vowel = any(c in vowels for c in w)
+            has_vowel = any(c in vowels or c == 'y' for c in w)
             is_short_acronym = len(w) <= 5
             if has_vowel or is_short_acronym:
                 valid_words += 1
@@ -99,7 +99,7 @@ def is_gibberish_or_unwanted(text: str) -> dict:
                 "score": 1.0
             }
 
-        # 2. Check for long runs of consecutive consonants within a single token (>= 6 consonants and no vowels)
+        # 2. Check for long runs of consecutive consonants within a single token (>= 6 consonants)
         consec_consonants = 0
         max_consec = 0
         for char in w:
@@ -119,9 +119,9 @@ def is_gibberish_or_unwanted(text: str) -> dict:
                 "score": min(1.0, max_consec / 8.0)
             }
 
-        # 3. Check for extremely low vowel ratio in longer non-acronym words (length >= 7 and vowel ratio < 0.12)
+        # 3. Check for extremely low vowel ratio in longer non-acronym words (length >= 7 and vowel ratio < 0.15)
         vowel_ratio = vowel_count / len(w)
-        if len(w) >= 7 and vowel_ratio < 0.12:
+        if len(w) >= 7 and vowel_ratio < 0.15:
             return {
                 "is_unwanted": True,
                 "reason": "low_vowel_ratio",
@@ -148,7 +148,8 @@ def is_gibberish_or_unwanted(text: str) -> dict:
                     if len(movements) >= 2:
                         signs = [1 if m > 0 else -1 for m in movements]
                         reversals = sum(1 for i in range(len(signs)-1) if signs[i] != signs[i+1])
-                        if reversals >= 2:
+                        # Valid common words like 'dressed', 'sweater' have reversals with normal vowel presence
+                        if reversals >= 2 and vowel_ratio >= 0.20:
                             continue
                 
                 return {

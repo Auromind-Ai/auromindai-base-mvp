@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 import urllib.parse
@@ -5,6 +6,8 @@ from app.database import get_db
 from app.services.integration_service import IntegrationService
 from app.core.security import verify_workspace_access
 from app.routers.auth import get_current_user, _get_redis_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 

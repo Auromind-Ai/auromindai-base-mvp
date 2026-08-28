@@ -181,16 +181,24 @@ class NotificationRuleEngine:
                 logger.error(f"Failed to commit EmailDeliveryLogs: {e}")
                 return []
 
-        # 9. Immediate Delivery Dispatch (Non-blocking background dispatch via Celery worker)
+        # 9. Immediate Delivery Dispatch (Non-blocking background dispatch via Celery worker in production, synchronous in testing)
         if dispatch_immediately:
+            import os
             for log in created_logs:
                 if not log.scheduled_for or log.scheduled_for <= datetime.now(timezone.utc):
-                    try:
-                        from app.workers.notification_scheduler_worker import dispatch_single_email_log_task
-                        dispatch_single_email_log_task.delay(str(log.id))
-                    except Exception as async_exc:
-                        logger.debug(f"[NotificationRuleEngine] Async Celery dispatch fallback for log {log.id}: {async_exc}")
+                    if os.getenv("ENVIRONMENT") == "testing":
                         cls.dispatch_single_log(db, log.id)
+                    else:
+                        try:
+                            from app.workers.notification_scheduler_worker import dispatch_single_email_log_task
+                            dispatch_single_email_log_task.delay(str(log.id))
+                        except Exception as async_exc:
+                            logger.debug(f"[NotificationRuleEngine] Async Celery dispatch fallback for log {log.id}: {async_exc}")
+                            cls.dispatch_single_log(db, log.id)
+                    try:
+                        db.refresh(log)
+                    except Exception:
+                        pass
 
         return created_logs
 

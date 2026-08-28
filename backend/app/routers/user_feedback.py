@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user_feedback import UserFeedback
 from app.schemas.feedback import UserFeedbackCreate
+from app.core.security import verify_workspace_access
 from app.routers.auth import CurrentUser, get_current_user
 
 router = APIRouter()
@@ -16,6 +17,8 @@ def submit_user_feedback(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
+    verified_workspace_id = verify_workspace_access(current_user, db, payload.workspace_id)
+
     if not payload.message or not payload.message.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -29,9 +32,10 @@ def submit_user_feedback(
         )
 
     try:
+        from app.core.security import to_uuid
         fb = UserFeedback(
-            workspace_id=payload.workspace_id,
-            user_id=payload.user_id or str(current_user.id),
+            workspace_id=to_uuid(verified_workspace_id),
+            user_id=str(current_user.id),
             category=payload.category,
             rating=payload.rating,
             message=payload.message.strip(),

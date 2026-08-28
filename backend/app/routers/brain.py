@@ -16,7 +16,7 @@ import tempfile
 from app.services.agentic_rag.rag_service import get_rag_service
 from app.utils.website_scraper import Webscrapper
 from app.core.exceptions import BillingError, WorkspaceAccessError
-from app.core.security import verify_workspace_access
+from app.core.security import verify_workspace_access, to_uuid
 from app.schemas.brain import *
 from app.services.billing.billing_service import BillingService
 from app.services.billing.feature_billing_service import FeatureBillingService
@@ -767,8 +767,8 @@ async def delete_entry(
     try:
         logger.warning(f"[DELETE ENTRY] user={current_user.id} workspace={workspace_id} entry_id={entry_id}")
         entry = db.query(BrainEntry).filter(
-            BrainEntry.id == str(entry_id),
-            BrainEntry.workspace_id == workspace_id
+            BrainEntry.id == to_uuid(entry_id),
+            BrainEntry.workspace_id == to_uuid(workspace_id)
         ).first()
 
         if not entry:

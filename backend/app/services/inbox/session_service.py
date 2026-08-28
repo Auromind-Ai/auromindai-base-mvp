@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.models.conversation import ChatSession, ChatMessage
+from app.core.security import to_uuid
 
 
 class SessionService:
@@ -19,8 +20,8 @@ class SessionService:
         return (
             db.query(ChatSession)
             .filter(
-                ChatSession.workspace_id == workspace_id,
-                ChatSession.user_id == user_id,
+                ChatSession.workspace_id == to_uuid(workspace_id),
+                ChatSession.user_id == to_uuid(user_id),
             )
             .order_by(ChatSession.updated_at.desc())
             .offset(skip)
@@ -37,8 +38,8 @@ class SessionService:
     ) -> ChatSession:
         session = ChatSession(
             id=uuid.uuid4(),          # ← UUID object, not str
-            workspace_id=workspace_id,
-            user_id=user_id,
+            workspace_id=to_uuid(workspace_id),
+            user_id=to_uuid(user_id),
             title=title,
         )
         db.add(session)
@@ -56,9 +57,9 @@ class SessionService:
         session = (
             db.query(ChatSession)
             .filter(
-                ChatSession.id == session_id,
-                ChatSession.user_id == user_id,
-                ChatSession.workspace_id == workspace_id,
+                ChatSession.id == to_uuid(session_id),
+                ChatSession.user_id == to_uuid(user_id),
+                ChatSession.workspace_id == to_uuid(workspace_id),
             )
             .first()
         )

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import api from '@/lib/api';
 import { setUser, setWorkspace, removeToken, setToken } from '@/lib/auth';
 
@@ -22,74 +22,93 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [csrfToken, setCsrfTokenState] = useState(null);
   const csrfTokenRef = useRef(null);
-  const fetchingRef = useRef(false);
+  const workspaceIdRef = useRef(workspaceId);
+  const inFlightRefreshRef = useRef(null);
+
+  useEffect(() => {
+    workspaceIdRef.current = workspaceId;
+  }, [workspaceId]);
 
   useEffect(() => {
     api.setCSRFTokenGetter(() => csrfTokenRef.current);
   }, []);
 
-  const refreshUser = async (signal) => {
-    setLoading(true);
-    try {
-      const userData = await api.getCurrentUser({ signal });
-      const profile = userData?.user || userData;
-      const csrf = userData?.csrf_token || profile?.csrf_token;
-      
-      if (csrf) {
-        setCsrfTokenState(csrf);
-        csrfTokenRef.current = csrf;
-      }
-      
-      if (!profile || !profile.email) {
-        throw new Error("No user profile returned");
-      }
-      
-      setUserState(profile);
-      setUser(profile);
-      
-      // Fetch workspaces list
-      const wsData = await api.getWorkspaces({ signal });
-      const wsList = wsData?.workspaces || [];
-      setWorkspacesState(wsList);
-      
-      // Determine active workspace_id
-      let activeWs = null;
-
-      if (workspaceId) {
-        activeWs = wsList.find(w => w.id === workspaceId);
-      }
-      if (!activeWs && profile.workspace_id) {
-        activeWs = wsList.find(w => w.id === profile.workspace_id);
-      }
-      if (!activeWs && wsList.length > 0) {
-        activeWs = wsList[0];
-      }
-
-      let actId = null;
-      if (activeWs) {
-        actId = activeWs.id;
-        setWorkspaceIdState(activeWs.id);
-        setWorkspace(activeWs);
-      }
-
-    } catch (err) {
-      // StrictMode cleanup — ignore AbortError gracefully, do NOT set unauthenticated
-      if (err.name === 'AbortError') return;
-      
-      const isAuthError = err?.status === 401 || err?.status === 403;
-      if (isAuthError) {
-        setUserState(null);
-        setWorkspacesState([]);
-        setWorkspaceIdState(null);
-        setUser(null);
-        setWorkspace(null);
-      } else {
-        console.warn('Auth check failed (non-auth error):', err?.message || err);
-      }
-    } finally {
-      setLoading(false);
+  const refreshUser = useCallback(async (signal) => {
+    // Deduplicate concurrent in-flight refresh calls
+    if (inFlightRefreshRef.current) {
+      return inFlightRefreshRef.current;
     }
-  };
+
+    const fetchPromise = (async () => {
+      setLoading(true);
+      try {
+        const userData = await api.getCurrentUser({ signal });
+        const profile = userData?.user || userData;
+        const csrf = userData?.csrf_token || profile?.csrf_token;
+        
+        if (csrf) {
+          setCsrfTokenState(csrf);
+          csrfTokenRef.current = csrf;
+        }
+        
+        if (!profile || !profile.email) {
+          throw new Error("No user profile returned");
+        }
+        
+        setUserState(profile);
+        setUser(profile);
+        
+        // Fetch workspaces list
+        const wsData = await api.getWorkspaces({ signal });
+        const wsList = wsData?.workspaces || [];
+        setWorkspacesState(wsList);
+        
+        // Determine active workspace_id
+        let activeWs = null;
+        const currentWsId = workspaceIdRef.current;
+
+        if (currentWsId) {
+          activeWs = wsList.find(w => w.id === currentWsId);
+        }
+        if (!activeWs && profile.workspace_id) {
+          activeWs = wsList.find(w => w.id === profile.workspace_id);
+        }
+        if (!activeWs && wsList.length > 0) {
+          activeWs = wsList[0];
+        }
+
+        if (activeWs) {
+          setWorkspaceIdState(activeWs.id);
+          workspaceIdRef.current = activeWs.id;
+          setWorkspace(activeWs);
+        }
+
+        return profile;
+      } catch (err) {
+        // StrictMode cleanup — ignore AbortError gracefully, do NOT set unauthenticated
+        if (err.name === 'AbortError') return null;
+        
+        const isAuthError = err?.status === 401 || err?.status === 403;
+        if (isAuthError) {
+          setUserState(null);
+          setWorkspacesState([]);
+          setWorkspaceIdState(null);
+          workspaceIdRef.current = null;
+          setUser(null);
+          setWorkspace(null);
+        } else {
+          console.warn('Auth check failed (non-auth error):', err?.message || err);
+        }
+        throw err;
+      } finally {
+        setLoading(false);
+        inFlightRefreshRef.current = null;
+      }
+    })();
+
+    inFlightRefreshRef.current = fetchPromise;
+    return fetchPromise;
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -130,9 +149,9 @@ export function AuthProvider({ children }) {
 
     checkAuth();
     return () => controller.abort(); // cleanup on unmount
-  }, []);
+  }, [refreshUser]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await api.logout();
     } catch (err) {
@@ -142,6 +161,7 @@ export function AuthProvider({ children }) {
       localStorage.removeItem('auromind_logged_in');
       setUserState(null);
       setWorkspaceIdState(null);
+      workspaceIdRef.current = null;
       setWorkspacesState([]);
       setCsrfTokenState(null);
       csrfTokenRef.current = null;
@@ -149,31 +169,38 @@ export function AuthProvider({ children }) {
       setWorkspace(null);
       window.location.replace('/login');
     }
-  };
+  }, []);
 
-  const setWorkspaceId = (id) => {
+  const setWorkspaceId = useCallback((id) => {
     setWorkspaceIdState(id);
-    const matchedWs = workspaces.find(w => w.id === id);
-    if (matchedWs) {
-      setWorkspace(matchedWs);
-    }
-  };
+    workspaceIdRef.current = id;
+    setWorkspacesState((currentWorkspaces) => {
+      const matchedWs = currentWorkspaces.find(w => w.id === id);
+      if (matchedWs) {
+        setWorkspace(matchedWs);
+      }
+      return currentWorkspaces;
+    });
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    user,
+    workspaceId,
+    workspaces,
+    loading,
+    csrfToken,
+    setUser: setUserState,
+    setWorkspaceId,
+    logout,
+    refreshUser
+  }), [user, workspaceId, workspaces, loading, csrfToken, setWorkspaceId, logout, refreshUser]);
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      workspaceId,
-      workspaces,
-      loading,
-      csrfToken,
-      setUser: setUserState,
-      setWorkspaceId,
-      logout,
-      refreshUser
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export const useAuth = () => useContext(AuthContext);
+

@@ -61,7 +61,7 @@ class UpdateBillingProfileRequest(BaseModel):
             v_clean = v.strip().upper()
             gstin_regex = r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$"
             if not re.match(gstin_regex, v_clean):
-                raise ValueError("Invalid GSTIN format. Expected format: 22AAAAA0000A1Z5")
+                raise ValueError("Invalid GSTIN format. Please enter a valid 15-digit GSTIN (e.g., 33ABCDE1234F1Z5).")
             return v_clean
         return None
 
@@ -72,6 +72,57 @@ class UpdateBillingProfileRequest(BaseModel):
             v_clean = v.strip()
             if not re.match(r"^[^@]+@[^@]+\.[^@]+$", v_clean):
                 raise ValueError("Invalid email format for billing email.")
+            return v_clean
+        return None
+
+    @field_validator("billing_phone")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            v_clean = v.strip()
+            digits = re.sub(r"\D", "", v_clean)
+            if len(digits) < 10 or len(digits) > 15:
+                raise ValueError("Invalid phone number. Please enter a valid 10 to 15 digit phone number (e.g., +91 9876543210).")
+            return v_clean
+        return None
+
+    @field_validator("billing_city")
+    @classmethod
+    def validate_city(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            v_clean = v.strip()
+            if len(v_clean) < 2:
+                raise ValueError("City must be at least 2 characters long.")
+            return v_clean
+        return None
+
+    @field_validator("billing_state")
+    @classmethod
+    def validate_state(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            v_clean = v.strip()
+            if len(v_clean) < 2:
+                raise ValueError("State must be at least 2 characters long.")
+            return v_clean
+        return None
+
+    @field_validator("billing_country")
+    @classmethod
+    def validate_country(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            v_clean = v.strip().upper()
+            if len(v_clean) < 2:
+                raise ValueError("Country must be at least 2 characters (e.g., IN or India).")
+            return v_clean
+        return None
+
+    @field_validator("billing_postal_code")
+    @classmethod
+    def validate_postal_code(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            v_clean = v.strip()
+            if len(v_clean) < 3 or len(v_clean) > 10:
+                raise ValueError("Postal code must be between 3 and 10 characters.")
             return v_clean
         return None
 

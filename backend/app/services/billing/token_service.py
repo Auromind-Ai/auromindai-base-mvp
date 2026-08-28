@@ -788,14 +788,59 @@ class TokenService:
                 )
             return existing
 
+    @staticmethod
+    def _format_ledger_description(raw_desc: str | None, status: str, entry_type: str) -> str:
+        if not raw_desc:
+            return "AI Usage" if entry_type == "usage" else "System Process"
+
+        desc = str(raw_desc).strip()
+        lower = desc.lower()
+
+        # 1. Knowledge Base & RAG errors / tasks
+        if "knowledge_base_processing_failed" in lower or ("knowledge" in lower and "failed" in lower):
+            return "Knowledge Base Processing (Refunded)" if status == "released" else "Knowledge Base Processing"
+        
+        if lower.startswith("knowledge upload:"):
+            file_name = desc.split(":", 1)[1].strip() if ":" in desc else ""
+            return f"Knowledge Document Processing: {file_name}" if file_name else "Knowledge Document Processing"
+
+        # 2. AI Provider Token / Missing Usage debug strings
+        if "provider usage missing" in lower or "total_tokens=0" in lower or "cannot bill without" in lower:
+            return "AI Chat Response (Unbilled / Released)" if status == "released" else "AI Chat Response"
+
+        # 3. Stream cancelled errors
+        if "stream cancelled" in lower or "cancellederror" in lower:
+            return "AI Stream Response (Cancelled)" if status == "released" else "AI Stream Response"
+
+        # 4. Stream reservations
+        if "stream execution reservation for chat" in lower or "stream execution" in lower:
+            return "AI Chat Response Generation"
+
+        # 5. WhatsApp & Templates
+        if "generate whatsapp template variations" in lower or "whatsapp template" in lower:
+            return "WhatsApp AI Template Generation"
+
+        # 6. Sanitize any raw vendor names (groq, openai, anthropic, claude, gemini, etc.)
+        desc_clean = re.sub(r"(?i)\b(?:groq|openai|anthropic|claude|gemini|deepseek)\b", "AI Provider", desc)
+        desc_clean = desc_clean.replace("CancelledError", "Cancelled")
+
+        # 7. Convert snake_case strings to Title Case
+        if "_" in desc_clean and " " not in desc_clean:
+            desc_clean = desc_clean.replace("_", " ").title()
+
+        return desc_clean
+
     def get_transaction_history(self, db: Session, workspace_id: str | uuid.UUID, page: int = 1, limit: int = 20):
         ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
         offset = (page - 1) * limit
+        
+        # Only return finalized/posted transactions to the user (exclude temporary reservation holds/releases)
         total = (
             db.query(func.count(TokenLedger.id))
             .filter(
                 TokenLedger.workspace_id == ws_id,
-                TokenLedger.status.in_(["posted", "released"]),
+                TokenLedger.status == "posted",
+                TokenLedger.entry_type != "usage_reservation",
             )
             .scalar() or 0
         )
@@ -803,7 +848,8 @@ class TokenService:
             db.query(TokenLedger)
             .filter(
                 TokenLedger.workspace_id == ws_id,
-                TokenLedger.status.in_(["posted", "released"]),
+                TokenLedger.status == "posted",
+                TokenLedger.entry_type != "usage_reservation",
             )
             .order_by(TokenLedger.created_at.desc())
             .offset(offset)
@@ -821,7 +867,8 @@ class TokenService:
                     "status": e.status,
                     "tokens_delta": int(float(e.credits_delta) * 1000),
                     "credits_delta": float(e.credits_delta),
-                    "description": e.description,
+                    "description": self._format_ledger_description(e.description, e.status, e.entry_type),
+                    "raw_description": e.description,
                     "created_at": e.created_at.isoformat() if e.created_at else None,
                 }
                 for e in entries

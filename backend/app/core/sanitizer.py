@@ -169,6 +169,11 @@ def sanitize_validation_errors(errors: list | dict | None) -> list:
         raw_msg = str(err.get("message") or err.get("msg") or "Invalid value")
         err_type = str(err.get("type") or "value_error")
 
+        # Strip Pydantic prefixes if present
+        for prefix in ("Value error, ", "Value error,", "Assertion failed, ", "Assertion failed,"):
+            if raw_msg.startswith(prefix):
+                raw_msg = raw_msg[len(prefix):].strip()
+
         # Sanitize vendor-specific field names in user display
         field_display = raw_field
         for vendor in ("razorpay_", "meta_", "twilio_", "fb_", "ig_"):

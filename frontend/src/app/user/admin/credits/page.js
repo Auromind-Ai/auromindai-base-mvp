@@ -438,6 +438,58 @@ export default function CreditsPage() {
         });
     };
 
+    const formatCreditDescription = (description, status, entryType) => {
+        if (!description) {
+            return entryType === 'usage' ? 'AI Assistant Usage' : 'Credit Adjustment';
+        }
+        const lower = description.toLowerCase().trim();
+
+        if (lower.includes('knowledge_base_processing_failed') || (lower.includes('knowledge') && lower.includes('failed'))) {
+            return status === 'released' ? 'Knowledge Base Processing (Refunded)' : 'Knowledge Base Document Processing';
+        }
+        if (lower.includes('provider usage missing') || lower.includes('total_tokens=0') || lower.includes('cannot bill without')) {
+            return status === 'released' ? 'AI Chat Response (Unbilled / Released)' : 'AI Chat Response Execution';
+        }
+        if (lower.includes('stream cancelled') || lower.includes('cancellederror')) {
+            return status === 'released' ? 'AI Stream Response (Cancelled by User)' : 'AI Stream Response (Cancelled)';
+        }
+        if (lower.includes('stream execution reservation') || lower.includes('stream execution')) {
+            return 'AI Chat Response Generation';
+        }
+        if (lower.startsWith('knowledge upload:')) {
+            const file = description.split(':')[1]?.trim() || '';
+            return file ? `Knowledge Document Upload: ${file}` : 'Knowledge Document Upload';
+        }
+        if (lower.includes('generate whatsapp template') || lower.includes('whatsapp template')) {
+            return 'WhatsApp AI Template Generation';
+        }
+        if (lower.includes('ai response generation for chat') || lower.includes('chat message')) {
+            return 'AI Chat Response Generation';
+        }
+
+        // Clean up vendor names or stack traces if any leaked
+        let cleaned = description
+            .replace(/\b(?:groq|openai|anthropic|claude|gemini|deepseek)\b/gi, 'AI Provider')
+            .replace(/CancelledError/gi, 'Cancelled')
+            .trim();
+
+        if (cleaned.includes('_') && !cleaned.includes(' ')) {
+            cleaned = cleaned.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        return cleaned;
+    };
+
+    const formatCreditEntryType = (entryType) => {
+        if (!entryType) return 'AI Usage';
+        const lower = entryType.toLowerCase();
+        if (lower === 'usage') return 'AI Usage';
+        if (lower === 'grant' || lower === 'plan_grant' || lower === 'token_grant' || lower === 'plan_credits') return 'Plan Grant';
+        if (lower === 'topup' || lower === 'credit_topup' || lower === 'purchase') return 'Credit Top-up';
+        if (lower === 'refund') return 'Refund';
+        return entryType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    };
+
     const getUsedToday = () => {
         if (!creditSummary?.daily_usage?.length) return '0.00';
         const todayStr = new Date().toISOString().split('T')[0];
@@ -843,30 +895,41 @@ export default function CreditsPage() {
                                             <div className="flex justify-center py-10">
                                                 <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-purple-500" />
                                             </div>
-                                        ) : creditHistory.length > 0 ? (
-                                            creditHistory.slice(0, TABLE_PREVIEW_LIMIT).map((item) => {
-                                                const value = Number(item.credits_delta ?? 0);
-                                                const isDeduction = value < 0;
-                                                return (
-                                                    <div key={item.id} className="px-5 sm:px-6 py-3 flex items-center justify-between gap-3">
-                                                        <div className="flex items-center gap-3 min-w-0">
-                                                            <div className="w-9 h-9 rounded-full bg-[#181326] border border-purple-500/20 flex items-center justify-center shrink-0">
-                                                                <Zap size={14} className="text-purple-400" />
+                                        ) : (() => {
+                                            const finalTransactions = creditHistory.filter(item => {
+                                                const type = (item.entry_type || '').toLowerCase();
+                                                const status = (item.status || '').toLowerCase();
+                                                return type !== 'usage_reservation' && status === 'posted';
+                                            });
+                                            return finalTransactions.length > 0 ? (
+                                                finalTransactions.slice(0, TABLE_PREVIEW_LIMIT).map((item) => {
+                                                    const value = Number(item.credits_delta ?? 0);
+                                                    const isDeduction = value < 0;
+                                                    return (
+                                                        <div key={item.id} className="px-5 sm:px-6 py-3 flex items-center justify-between gap-3">
+                                                            <div className="flex items-center gap-3 min-w-0">
+                                                                <div className="w-9 h-9 rounded-full bg-[#181326] border border-purple-500/20 flex items-center justify-center shrink-0">
+                                                                    <Zap size={14} className="text-purple-400" />
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="text-xs font-semibold text-zinc-100 truncate">
+                                                                        {formatCreditDescription(item.description, item.status, item.entry_type)}
+                                                                    </p>
+                                                                    <p className="text-[10px] text-zinc-400 mt-0.5">
+                                                                        {formatBillingDate(item.created_at, true)}
+                                                                    </p>
+                                                                </div>
                                                             </div>
-                                                            <div className="min-w-0">
-                                                                <p className="text-xs font-semibold text-zinc-100 truncate">{item.description || 'System Process'}</p>
-                                                                <p className="text-[10px] text-zinc-400 mt-0.5">{formatBillingDate(item.created_at, true)}</p>
-                                                            </div>
+                                                            <span className={`text-xs font-semibold shrink-0 ${isDeduction ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                                {isDeduction ? '' : '+'}{formatCredits(item.credits_delta, 2)}
+                                                            </span>
                                                         </div>
-                                                        <span className={`text-xs font-semibold shrink-0 ${isDeduction ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                                            {isDeduction ? '' : '+'}{formatCredits(item.credits_delta, 2)}
-                                                        </span>
-                                                    </div>
-                                                );
-                                            })
-                                        ) : (
-                                            <div className="text-center py-10 text-zinc-500 text-xs font-normal">No AI usage yet.</div>
-                                        )
+                                                    );
+                                                })
+                                            ) : (
+                                                <div className="text-center py-10 text-zinc-500 text-xs font-normal">No AI usage yet.</div>
+                                            );
+                                        })()
                                     ) : (
                                         creditHistoryLoading ? (
                                             <div className="flex justify-center py-10">
@@ -1325,13 +1388,18 @@ export default function CreditsPage() {
                 fetchDataFn={async ({ page }) => {
                     const res = await api.getCreditHistory(workspaceId, page);
                     const data = res.data ?? res;
+                    const cleanEntries = (data.entries || []).filter(e => {
+                        const type = (e.entry_type || '').toLowerCase();
+                        const status = (e.status || '').toLowerCase();
+                        return type !== 'usage_reservation' && status === 'posted';
+                    });
                     return {
-                        data: data.entries || [],
+                        data: cleanEntries,
                         pagination: {
                             page,
                             limit: 10,
-                            total: data.total || (data.entries || []).length,
-                            pages: Math.ceil((data.total || (data.entries || []).length) / 10) || 1
+                            total: data.total || cleanEntries.length,
+                            pages: Math.ceil((data.total || cleanEntries.length) / 10) || 1
                         }
                     };
                 }}
@@ -1344,12 +1412,20 @@ export default function CreditsPage() {
                     {
                         key: "description",
                         label: "Description",
-                        render: (r) => <span className="font-medium text-white">{r.description || "System Process"}</span>
+                        render: (r) => (
+                            <span className="font-medium text-white">
+                                {formatCreditDescription(r.description, r.status, r.entry_type)}
+                            </span>
+                        )
                     },
                     {
                         key: "type",
                         label: "Type",
-                        render: (r) => <span className="text-zinc-400 capitalize">{r.entry_type || "usage"}</span>
+                        render: (r) => (
+                            <span className="text-zinc-300 font-medium text-xs">
+                                {formatCreditEntryType(r.entry_type)}
+                            </span>
+                        )
                     },
                     {
                         key: "delta",

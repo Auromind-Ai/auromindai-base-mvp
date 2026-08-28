@@ -13,7 +13,7 @@ from app.core.event_bus import emit_event
 from app.database import get_db
 from app.models.ai_action import Lead
 from app.routers.auth import get_current_user
-from app.core.security import verify_workspace_access
+from app.core.security import verify_workspace_access, to_uuid
 from app.routers.inbox_chennal.conversations import create_media_token
 from app.services.crm import lead_scoring_service
 from app.utils.intent_detection import detect_intent_signals, detect_intent_signals_async
@@ -73,7 +73,7 @@ async def recalculate_lead(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = verify_workspace_access(current_user, db, workspace_id)
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
 
     lead = (
         db.query(Lead)
@@ -135,7 +135,7 @@ async def update_lead_labels(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = verify_workspace_access(current_user, db, workspace_id)
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
 
     lead = (
         db.query(Lead)
@@ -245,7 +245,7 @@ async def message_intent(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = verify_workspace_access(current_user, db, workspace_id)
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
 
     lead = (
         db.query(Lead)
@@ -338,7 +338,7 @@ async def node_progress(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = verify_workspace_access(current_user, db, workspace_id)
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
 
     lead = (
         db.query(Lead)
@@ -402,7 +402,7 @@ async def bulk_recalculate(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = verify_workspace_access(current_user, db, workspace_id)
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
 
     results = await lead_scoring_service.recalculate_workspace_scores_async(wid, db)
 
@@ -429,7 +429,7 @@ async def lead_score_history(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = verify_workspace_access(current_user, db, workspace_id)
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
 
     # Verify lead belongs to workspace
     lead = (
@@ -477,7 +477,7 @@ async def list_leads_with_scores(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = verify_workspace_access(current_user, db, workspace_id)
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
 
     result = lead_scoring_service.get_workspace_lead_scores(
         workspace_id=wid,
@@ -598,7 +598,7 @@ async def lead_detail(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = verify_workspace_access(current_user, db, workspace_id)
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
 
     lead = (
         db.query(Lead)
@@ -626,7 +626,7 @@ async def toggle_lead_favorite(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = verify_workspace_access(current_user, db, workspace_id)
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
 
     lead = (
         db.query(Lead)
@@ -674,7 +674,7 @@ async def convert_lead(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = verify_workspace_access(current_user, db, workspace_id)
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
 
     lead = (
         db.query(Lead)
@@ -766,7 +766,7 @@ async def assign_lead(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = verify_workspace_access(current_user, db, workspace_id)
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
     lead = db.query(Lead).filter(Lead.id == lead_id, Lead.workspace_id == wid).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
@@ -823,7 +823,7 @@ async def create_manual_lead(
     current_user=Depends(get_current_user),
 ):
     import re
-    wid = verify_workspace_access(current_user, db, workspace_id)
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
 
 
     ent_check = EntitlementService.check_entitlement(db, wid, "lead")

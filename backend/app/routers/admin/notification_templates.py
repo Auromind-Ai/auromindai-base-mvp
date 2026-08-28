@@ -473,8 +473,9 @@ def seed_default_notification_templates(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    """Alembic migrations manage notification templates."""
-    return {"status": "success", "message": "Notification templates are managed via Alembic migrations"}
+   
+    count = NotificationTemplateService.seed_default_templates(db)
+    return {"status": "success", "message": f"Successfully seeded {count} notification templates and rules into database"}
 
 
 

@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -9,6 +10,8 @@ from typing import Optional
 from google.auth.transport.requests import Request
 from app.core.security import verify_workspace_access
 from app.schemas.email import (GmailSyncLeadsRequest,      GmailSyncLeadsResponse,)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 
@@ -65,10 +68,19 @@ def get_gmail_service(
                 integration.token_expiry = creds.expiry
                 db.commit()
             else:
-                raise HTTPException(status_code=401, detail="No refresh token available")
+                raise HTTPException(
+                    status_code=401,
+                    detail="Gmail account disconnected. Please reconnect your Gmail account."
+                )
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Gmail re-auth required: {str(e)}")
+        logger.warning(f"Gmail token refresh failed for workspace integration id={getattr(integration, 'id', 'unknown')}: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail="Your Gmail session has expired. Please reconnect your Gmail account from Settings."
+        )
 
     return build("gmail", "v1", credentials=creds)
 

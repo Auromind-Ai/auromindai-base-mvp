@@ -332,6 +332,87 @@ export default function BillingHistoryPage() {
 
   const handleSaveProfile = async (e) => {
     e.preventDefault()
+
+    // 1. Business Name Validation
+    if (!formProfile.billing_name?.trim() || formProfile.billing_name.trim().length < 2) {
+      triggerToast("❌ Business Name is required (minimum 2 characters).")
+      return
+    }
+
+    // 2. Email Validation (if provided)
+    if (formProfile.billing_email?.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(formProfile.billing_email.trim())) {
+        triggerToast("❌ Please enter a valid billing email address.")
+        return
+      }
+    }
+
+    // 3. Phone Number Validation (if provided)
+    if (formProfile.billing_phone?.trim()) {
+      const phoneVal = formProfile.billing_phone.trim()
+      const digits = phoneVal.replace(/\D/g, "")
+      if (digits.length < 10 || digits.length > 15) {
+        triggerToast("❌ Please enter a valid 10-15 digit phone number (e.g. +91 9876543210).")
+        return
+      }
+    }
+
+    // 4. Address Validation
+    if (!formProfile.billing_address?.trim() || formProfile.billing_address.trim().length < 3) {
+      triggerToast("❌ Address is required (minimum 3 characters).")
+      return
+    }
+
+    // 5. City Validation
+    if (!formProfile.billing_city?.trim() || formProfile.billing_city.trim().length < 2) {
+      triggerToast("❌ City is required (minimum 2 characters).")
+      return
+    }
+    if (/[0-9!@#$%^&*()_+={}\[\]:;\"'<>,.?/\\|`~]/.test(formProfile.billing_city.trim())) {
+      triggerToast("❌ City name should contain only letters and spaces.")
+      return
+    }
+
+    // 6. State Validation
+    if (!formProfile.billing_state?.trim() || formProfile.billing_state.trim().length < 2) {
+      triggerToast("❌ State is required (minimum 2 characters).")
+      return
+    }
+
+    // 7. Country Validation
+    if (!formProfile.billing_country?.trim() || formProfile.billing_country.trim().length < 2) {
+      triggerToast("❌ Country is required (e.g., IN or India).")
+      return
+    }
+    if (/[0-9!@#$%^&*()_+={}\[\]:;\"'<>,.?/\\|`~]/.test(formProfile.billing_country.trim())) {
+      triggerToast("❌ Country should contain only letters.")
+      return
+    }
+
+    // 8. Postal Code Validation (if provided)
+    if (formProfile.billing_postal_code?.trim()) {
+      const zip = formProfile.billing_postal_code.trim()
+      if (zip.length < 3 || zip.length > 10 || !/^[A-Za-z0-9\s-]+$/.test(zip)) {
+        triggerToast("❌ Postal code must be between 3 and 10 characters.")
+        return
+      }
+    }
+
+    // 9. GSTIN Validation (if GST registered)
+    if (formProfile.has_gst_registration) {
+      if (!formProfile.billing_gstin?.trim()) {
+        triggerToast("❌ GSTIN is required when GST registration is checked.")
+        return
+      }
+      const gstinVal = formProfile.billing_gstin.trim().toUpperCase()
+      const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/
+      if (!gstinRegex.test(gstinVal)) {
+        triggerToast("❌ Invalid GSTIN format. Please enter a valid 15-digit GSTIN (e.g., 33ABCDE1234F1Z5).")
+        return
+      }
+    }
+
     try {
       setProfileLoading(true)
       const res = await api.updateWorkspaceBillingProfile(workspaceId, formProfile)
@@ -340,7 +421,13 @@ export default function BillingHistoryPage() {
       setShowUnsavedConfirm(false)
       triggerToast("✅ Billing profile updated successfully!")
     } catch (err) {
-      triggerToast(`❌ Error: ${err.message || "Failed to update profile"}`)
+      let errMsg = err?.message || "Failed to update profile"
+      errMsg = errMsg
+        .replace(/^Error:\s*/i, "")
+        .replace(/^Validation error on '[^']+':\s*/i, "")
+        .replace(/^Value error,\s*/i, "")
+        .trim()
+      triggerToast(`❌ ${errMsg}`)
     } finally {
       setProfileLoading(false)
     }
@@ -993,9 +1080,10 @@ export default function BillingHistoryPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[11px] text-zinc-300 font-semibold mb-1">City</label>
+                  <label className="block text-[11px] text-zinc-300 font-semibold mb-1">City *</label>
                   <input
                     type="text"
+                    required
                     value={formProfile.billing_city || ""}
                     onChange={(e) => setFormProfile({ ...formProfile, billing_city: e.target.value })}
                     placeholder="Chennai"
@@ -1014,12 +1102,13 @@ export default function BillingHistoryPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-zinc-300 font-semibold mb-1">Country</label>
+                  <label className="block text-[11px] text-zinc-300 font-semibold mb-1">Country *</label>
                   <input
                     type="text"
                     required
-                    value={formProfile.billing_country || "IN"}
+                    value={formProfile.billing_country ?? ""}
                     onChange={(e) => setFormProfile({ ...formProfile, billing_country: e.target.value })}
+                    placeholder="IN"
                     className="w-full bg-[#070012] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition uppercase"
                   />
                 </div>

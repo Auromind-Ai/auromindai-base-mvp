@@ -29,7 +29,8 @@ def test_csrf_middleware_blocks_mutating_request_without_token():
     client.cookies.set("auth_token", jwt_token)
     res = client.post("/protected/action")
     assert res.status_code == 403
-    assert res.text == "CSRF validation failed"
+    assert res.json()["success"] is False
+    assert res.json()["error_code"] == "FORBIDDEN"
 
 def test_csrf_middleware_allows_valid_csrf_token():
     token_data = {"csrf_token": "valid_secret_csrf_123"}
