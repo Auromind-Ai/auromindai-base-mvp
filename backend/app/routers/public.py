@@ -4,6 +4,7 @@ from typing import Dict, Any
 from app.database import get_db
 from app.services.platform_settings_service import get_all_settings, get_setting
 from app.models.plan import Plan
+from app.services.platform_settings_service import get_setting
     
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -64,12 +65,19 @@ async def get_pricing(db: Session = Depends(get_db)) -> Dict[str, Any]:
             "currency": plan.currency or "INR",
         })
 
-    # Find specific prices for backward compatibility
     plan_map = {p["key"]: p for p in plans_list}
+
     
+    gst_rate = float(get_setting(db, "gst_rate", 18.0))
+    gst_enabled = bool(get_setting(db, "gst_enabled", True))
+    supplier_state = get_setting(db, "supplier_state", "Tamil Nadu")
+
     return {
         "plans": plans_list,
         "token_limit_per_plan": token_limits,
+        "gst_rate": gst_rate,
+        "gst_enabled": gst_enabled,
+        "supplier_state": supplier_state,
         
         # Backward compatibility for legacy flat keys
         "free_plan_price":              plan_map.get("free", {}).get("monthly_price", 0.0),

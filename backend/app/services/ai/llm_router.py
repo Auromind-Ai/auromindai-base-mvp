@@ -45,18 +45,15 @@ class LLMRouter:
         err_msg = str(provider_err).lower()
         # 1. Authentication / Invalid key errors
         if "invalid api key" in err_msg or "invalid_api_key" in err_msg or "401" in err_msg or "unauthenticated" in err_msg or "authentication" in err_msg:
-            return AIProviderError(f"{provider.capitalize()} API key is invalid or expired. Please update it in Admin Settings.", status_code=503)
+            return AIProviderError("AI service authentication is temporarily unavailable. Please contact support or update API keys in Admin Settings.", status_code=503)
         # 2. Rate limit / Quota errors
         if "429" in err_msg or "rate limit" in err_msg or "tokens per minute" in err_msg or "tpm" in err_msg:
-            return AIProviderError(f"AI Provider '{provider}' rate limit reached. Please try again shortly.", status_code=429)
+            return AIProviderError("AI assistant is currently experiencing high demand. Please try again in a few moments.", status_code=429)
         # 3. Model not found
         if "model_not_found" in err_msg or "does not exist" in err_msg or "model not found" in err_msg:
-            return AIProviderError(f"Model '{model_name}' is not recognized or not available on provider '{provider}'.", status_code=400)
+            return AIProviderError("The requested AI model is currently unavailable. Please select another model or try again.", status_code=400)
         # 4. Clean user-friendly message
-        clean_detail = str(provider_err).splitlines()[-1] if str(provider_err).strip() else "Service unavailable"
-        if len(clean_detail) > 120:
-            clean_detail = clean_detail[:120] + "..."
-        return AIProviderError(f"AI service ({provider}) is temporarily unavailable: {clean_detail}", status_code=503)
+        return AIProviderError("AI service is temporarily unavailable. Please try again in a few moments.", status_code=503)
 
     def _get_api_key(self, env_name: str, db_key: str) -> str:
         key = config_service.get(db_key)

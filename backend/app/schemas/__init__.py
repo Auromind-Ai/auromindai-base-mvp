@@ -1,31 +1,32 @@
 from .auth import EmailLoginRequest, UserResponse, WorkspaceResponse, SendOTPRequest, VerifyOTPRequest
 from .automation import FlowPromptRequest, FlowSaveRequest, FlowResponseModel, StatusResponse, DeleteFlowResponse, ApproveResponse, GenerateFlowResponse
 from .brain import IngestTextRequest, IngestURLRequest, SearchRequest, QueryRequest, BrainEntryResponse, SearchResultItem, SearchResponse, SourceItem, QueryResponse, BrainStatsResponse, IngestionStatusResponse, ListEntriesResponse, CrawlWebsiteRequest, IngestResponse, CrawlResponse
-from .chat import ChatSessionCreate, ChatSessionResponse, ChatMessageResponse, UpdateSessionRequest, ChatStreamRequest, ChatQueryRequest
+from .chat import ChatSessionCreate, ChatSessionResponse, ChatMessageResponse, UpdateSessionRequest, ChatStreamRequest, ChatQueryRequest, StopChatRequest
 from .dashboard import MetricResponse, AttentionItemResponse, AIInsightResponse, FlowStatResponse, ScheduleItemResponse
-from .email import EmailItem, InboxResponse, SendReplyResponse
+from .email import EmailItem, InboxResponse, SendReplyResponse, SendEmailReplyRequest
 from .feedback import FeedbackRequest
 from .template import TemplateCreate, TemplateListResponse, TemplateRead, TemplateSendRequest, TemplateStatusResponse, GenerateRequest
 from .upload import UploadResponse
 from .admin import ModelConfigCreate, ModelConfigUpdate, AdminAuthRequest
-from .webhook import SendReply, AISuggest, TwilioConnectRequest
+from .webhook import SendReply, AISuggest, TwilioConnectRequest, MetaWhatsAppConnectRequest, InstagramConnectRequest
 from .preferences import PreferencesUpdate
 from .security import SessionResponse, SecuritySummaryResponse
-from pydantic import BaseModel
+
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
 from app.models import ChannelType, SenderType, ConversationStatus
 
 class MessageBase(BaseModel):
-    content: Optional[str] = None
+    content: Optional[str] = Field(None, max_length=50000)
     sender_type: SenderType = SenderType.USER
-    media_url: Optional[str] = None
-    media_type: Optional[str] = None
-    mime_type: Optional[str] = None
+    media_url: Optional[str] = Field(None, max_length=2048)
+    media_type: Optional[str] = Field(None, max_length=50)
+    mime_type: Optional[str] = Field(None, max_length=100)
 
 class MessageCreate(MessageBase):
-    conversation_id: str
+    conversation_id: str = Field(..., min_length=1, max_length=128)
 
 class Message(MessageBase):
     id: UUID | str
@@ -40,9 +41,9 @@ class Message(MessageBase):
         from_attributes = True
 
 class ConversationBase(BaseModel):
-    contact_name: str | None = None
+    contact_name: Optional[str] = Field(None, max_length=255)
     channel: ChannelType
-    external_id: str | None = None
+    external_id: Optional[str] = Field(None, max_length=255)
 
 class ConversationCreate(ConversationBase):
     pass
@@ -60,15 +61,16 @@ class Conversation(ConversationBase):
 
 class FollowupBase(BaseModel):
     scheduled_at: datetime
-    message_content: Optional[str] = None
-    status: Optional[str] = "pending"
+    message_content: Optional[str] = Field(None, max_length=10000)
+    status: Optional[str] = Field(default="pending", max_length=50)
 
 class FollowupCreate(FollowupBase):
-    conversation_id: str
+    conversation_id: str = Field(..., min_length=1, max_length=128)
 
 class FollowupUpdate(BaseModel):
-    status: Optional[str] = None
-    message_content: Optional[str] = None
+    status: Optional[str] = Field(None, max_length=50)
+    message_content: Optional[str] = Field(None, max_length=10000)
+
 
 class Followup(FollowupBase):
     id: str
@@ -96,6 +98,12 @@ from .billing import (
     LegacyUpgradePlanRequest,
     PlanPurchaseRequest,
     PlanVerifyRequest,
+    RetryPaymentOpRequest,
+    ReplayWebhookOpRequest,
+    ManualVerifyPaymentOpRequest,
+    RetryRechargeOpRequest,
+    RetryCreditPurchaseOpRequest,
+    RepairBillingOpRequest,
 )
 from .plan_entitlement import PlanEntitlementBase, PlanEntitlementCreate, PlanEntitlementUpdate, PlanEntitlementResponse, EntitlementCheckRequest, EntitlementCheckResponse
 from .feature_billing_rule import FeatureBillingRuleBase, FeatureBillingRuleCreate, FeatureBillingRuleUpdate, FeatureBillingRuleResponse

@@ -771,6 +771,11 @@ async def assign_lead(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
 
+    if body.assigned_to:
+        target_user = db.query(User).filter(User.id == body.assigned_to).first()
+        if not target_user:
+            raise HTTPException(status_code=400, detail="Assigned user does not exist")
+
     old_assigned = lead.assigned_to
     lead.assigned_to = body.assigned_to
     db.commit()
@@ -778,6 +783,7 @@ async def assign_lead(
 
     # Emit lead.assigned event if new agent assigned
     if body.assigned_to and body.assigned_to != old_assigned:
+
         try:
             from app.core.event_bus import emit_event
             assigner_name = current_user.full_name or current_user.email.split("@")[0].title() if hasattr(current_user, "email") else "Team Admin"

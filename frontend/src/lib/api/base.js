@@ -1,16 +1,83 @@
-console.log("API INFRASTRUCTURE VERSION: 2.1.0");
-
 // Timeout constants
 const DEFAULT_TIMEOUT_MS = 60_000;   // 60s for regular API calls
 const ADMIN_TIMEOUT_MS   = 45_000;   // 45s for admin panel calls
 const STREAM_TIMEOUT_MS  = 120_000;  // 2min for streaming endpoints
 
+const isDev = typeof process !== 'undefined' && process.env.NODE_ENV !== 'production';
 
 function getCSRFToken() {
   if (typeof window === 'undefined') return null;
   const match = document.cookie.match(/(?:^|; )admin_csrf_token=([^;]*)/);
   if (match) return decodeURIComponent(match[1]);
   return window.sessionStorage?.getItem('admin_csrf_token');
+}
+
+/**
+ * Sanitizes any error message to guarantee 100% white-label and information leakage protection.
+ */
+export function sanitizeErrorMessage(msg, status = 500) {
+  if (!msg || typeof msg !== 'string') return 'An unexpected error occurred. Please try again.';
+  const lower = msg.toLowerCase().trim();
+  if (!lower) return 'An unexpected error occurred. Please try again.';
+
+  // List of technical internals, vendor names, stack traces, and database terms that must never be exposed
+  const technicalPatterns = [
+    // Stack traces & Python errors
+    'traceback', 'psycopg', 'sqlalchemy', 'operationalerror', 'integrityerror', 'syntaxerror',
+    'attributeerror', 'keyerror', 'typeerror', 'valueerror', 'nameerror', 'indexerror',
+    'unicodedecodeerror', 'unicodeencodeerror', 'zerodivisionerror', 'exception:',
+    
+    // Database & queries
+    'postgres', 'sqlite', 'alembic', 'select ', 'insert into', 'update ', 'delete from',
+    'duplicate key', 'unique constraint', 'foreign key constraint', 'violates',
+    'column does not exist', 'table does not exist',
+    
+    // Codecs & encoding
+    'codec', 'latin-1', 'latin1', 'ordinal not in range',
+    
+    // Network & socket errors
+    'connection refused', 'econnrefused', 'econnreset', 'etimedout', 'err_network',
+    'failed to fetch', 'networkerror', 'load failed', 'cors', 'internal server error',
+    
+    // Credentials & tokens
+    'password', 'secret', 'token', 'api_key', 'apikey', 'private_key', 'bearer ',
+    
+    // Third-party vendors
+    'razorpay', 'payu', 'paypal', 'stripe',
+    'meta', 'facebook', 'whatsapp', 'waba', 'instagram', 'twilio',
+    'sendgrid', 'smtp', 'gmail',
+    'openai', 'groq', 'anthropic', 'claude', 'gemini', 'deepseek',
+    'redis', 'celery', 'aws', 's3', 'boto'
+  ];
+
+  const hasLeak = technicalPatterns.some(pat => lower.includes(pat));
+
+  if (hasLeak) {
+    if (status === 408 || lower.includes('timeout') || lower.includes('timed out')) {
+      return 'The request took too long to complete. Please check your connection and try again.';
+    }
+    if (lower.includes('fetch') || lower.includes('network') || lower.includes('connection') || lower.includes('econn') || lower.includes('socket')) {
+      return 'Unable to connect to the server. Please check your internet connection and try again.';
+    }
+    if (lower.includes('payment') || lower.includes('razorpay') || lower.includes('payu') || lower.includes('stripe') || lower.includes('purchase') || lower.includes('recharge') || lower.includes('order') || lower.includes('subscription')) {
+      return 'Payment service is currently unavailable. Please verify your details or try again later.';
+    }
+    if (lower.includes('openai') || lower.includes('groq') || lower.includes('anthropic') || lower.includes('claude') || lower.includes('gemini') || lower.includes('deepseek') || lower.includes('model') || lower.includes('ai assistant')) {
+      return 'The AI assistant is temporarily busy. Please try again in a few moments.';
+    }
+    if (lower.includes('whatsapp') || lower.includes('meta') || lower.includes('instagram') || lower.includes('twilio') || lower.includes('template') || lower.includes('sms')) {
+      return 'Messaging channel service is currently unavailable. Please try again later.';
+    }
+    if (lower.includes('sql') || lower.includes('psycopg') || lower.includes('constraint') || lower.includes('duplicate')) {
+      return 'A data processing error occurred. Please verify your input and try again.';
+    }
+    if (status === 401 || status === 403 || lower.includes('auth') || lower.includes('unauthorized') || lower.includes('permission')) {
+      return 'Authentication failed or session expired. Please sign in again.';
+    }
+    return 'An unexpected error occurred. Please try again later or contact support.';
+  }
+
+  return msg;
 }
 
 export class APIClient {
@@ -29,7 +96,6 @@ export class APIClient {
     this.csrfTokenGetter = fn;
   }
 
-  // Hook registers for future extension points
   addRequestHook(hook) {
     this.requestHooks.push(hook);
   }
@@ -89,7 +155,7 @@ export class APIClient {
       try {
         hook(url, config);
       } catch (err) {
-        console.error("API Client request hook error:", err);
+        if (isDev) console.error("API Client request hook error:", err);
       }
     }
 
@@ -105,7 +171,9 @@ export class APIClient {
     config.signal = optSignal || controller?.signal;
 
     try {
-      console.log(`[API Request] ${config.method || 'GET'}: ${url}${isRetryAttempt ? ' (Retry)' : ''}`);
+      if (isDev) {
+        console.log(`[API Request] ${config.method || 'GET'}: ${url}${isRetryAttempt ? ' (Retry)' : ''}`);
+      }
       const response = await fetch(url, config);
       if (timeoutId) clearTimeout(timeoutId);
 
@@ -114,7 +182,7 @@ export class APIClient {
         try {
           hook(response);
         } catch (err) {
-          console.error("API Client response hook error:", err);
+          if (isDev) console.error("API Client response hook error:", err);
         }
       }
 
@@ -130,14 +198,14 @@ export class APIClient {
         let errorMessage = 'Request failed';
         if (data && data.detail) {
           if (Array.isArray(data.detail)) {
-            errorMessage = data.detail.map(err => `${err.loc[err.loc.length - 1]}: ${err.msg}`).join(', ');
+            errorMessage = data.detail.map(err => `${err.loc ? err.loc[err.loc.length - 1] : err.field || 'field'}: ${err.msg || err.message || 'Invalid value'}`).join(', ');
           } else if (typeof data.detail === 'string') {
             errorMessage = data.detail;
           } else if (typeof data.detail === 'object') {
             if (Array.isArray(data.detail.errors)) {
               errorMessage = data.detail.errors.join(', ');
             } else {
-              errorMessage = JSON.stringify(data.detail);
+              errorMessage = data.detail.message || data.detail.detail || JSON.stringify(data.detail);
             }
           }
         } else if (data && (data.message || data.error?.message)) {
@@ -146,14 +214,18 @@ export class APIClient {
           errorMessage = `HTTP error ${response.status}`;
         }
 
+        errorMessage = sanitizeErrorMessage(errorMessage, response.status);
+
         const errorObj = new Error(errorMessage);
         errorObj.status = response.status;
         errorObj.data = data;
 
-        if (response.status >= 400 && response.status < 500) {
-          console.warn(`[API Client Error] ${response.status}:`, errorMessage);
-        } else {
-          console.warn(`[API Server Error] ${response.status}:`, errorMessage);
+        if (isDev) {
+          if (response.status >= 400 && response.status < 500) {
+            console.warn(`[API Client Error] ${response.status}:`, errorMessage);
+          } else {
+            console.warn(`[API Server Error] ${response.status}:`, errorMessage);
+          }
         }
 
         if (url.includes('/admin') && !url.includes('/admin/auth') && (response.status === 401 || response.status === 403 || response.status === 404)) {
@@ -177,18 +249,14 @@ export class APIClient {
       if (timeoutId) clearTimeout(timeoutId);
 
       if (isTimeout || error?.name === 'TimeoutError' || (error?.name === 'AbortError' && isTimeout)) {
-        const timeoutError = new Error('Request timeout. Please try again.');
+        const timeoutError = new Error('The request took too long to respond. Please check your connection and try again.');
         timeoutError.name = 'TimeoutError';
         timeoutError.status = 408;
         throw timeoutError;
       }
 
       if (error.name === 'AbortError') {
-        const timeoutErr = new Error(
-          isAdminEndpoint
-            ? 'Admin API timed out. The server may be restarting — please retry.'
-            : 'Request timed out. Please check your connection and retry.'
-        );
+        const timeoutErr = new Error('The request took too long to respond. Please check your connection and try again.');
         timeoutErr.status = 408;
         timeoutErr.isTimeout = true;
         throw timeoutErr;
@@ -203,14 +271,14 @@ export class APIClient {
         const canRetry = isIdempotent && !isOTPOrSensitive;
 
         if (canRetry) {
-          console.warn(`Fetch failed (likely cold-start). Retrying in 800ms... URL: ${url}`);
+          if (isDev) console.warn(`Fetch failed (likely cold-start). Retrying in 800ms... URL: ${url}`);
           await new Promise(resolve => setTimeout(resolve, 800));
           return this.requestRaw(endpoint, options, true);
         }
       }
 
       if (isFetchNetworkError) {
-        const networkErr = new Error('Network error — check your connection or try again.');
+        const networkErr = new Error('Unable to connect to the server. Please check your internet connection and try again.');
         networkErr.status = 0;
         networkErr.isNetworkError = true;
         throw networkErr;

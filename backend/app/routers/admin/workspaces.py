@@ -96,8 +96,8 @@ async def update_workspace_plan(
         old_plan = db.query(Plan).filter(Plan.id == old_sub.plan_id).first()
         if old_plan and plan:
             order = {"free": 0, "pro": 1, "enterprise": 2}
-            old_val = order.get(old_plan.name.lower(), 0)
-            new_val = order.get(plan.name.lower(), 0)
+            old_val = old_plan.display_order if old_plan.display_order is not None else order.get(old_plan.name.lower(), 0)
+            new_val = plan.display_order if plan.display_order is not None else order.get(plan.name.lower(), 0)
             if new_val < old_val:
                 is_upgrade = False
 

@@ -15,8 +15,24 @@ logger = logging.getLogger("security_audit")
 DEFAULT_LIMITS = {
     "/upload": 10,
     "/brain": 30,
-    "/billing": 180,
+    "/chat": 60,
+    "/automation": 60,
+    "/lead-scoring": 60,
+    "/templates": 60,
+    "/messages": 60,
+    "/email": 60,
+    "/gmail": 60,
+    "/integrations": 30,
+    "/calendar": 60,
+    "/billing": 60,
+    "/wallet/wcc": 60,
+    "/flow-packs": 60,
     "/auth/send-otp": 5,
+    "/2fa": 15,
+    "/user": 60,
+    "/users": 60,
+    "/notifications": 60,
+    "/conversations": 60,
     "global": 300,
 }
 
@@ -203,7 +219,13 @@ class RateLimitMiddleware:
                     )
                     response = JSONResponse(
                         status_code=413,
-                        content={"detail": f"File payload exceeds maximum limit of {max_upload_mb} MB."},
+                        content={
+                            "success": False,
+                            "message": f"File payload exceeds maximum limit of {max_upload_mb} MB.",
+                            "error_code": "PAYLOAD_TOO_LARGE",
+                            "errors": [{"field": "file", "message": f"Payload size exceeds {max_upload_mb} MB limit", "type": "payload_too_large"}],
+                            "detail": f"File payload exceeds maximum limit of {max_upload_mb} MB."
+                        },
                     )
                     await response(scope, receive, send)
                     return
@@ -242,6 +264,10 @@ class RateLimitMiddleware:
                         response = JSONResponse(
                             status_code=429,
                             content={
+                                "success": False,
+                                "message": f"Too many concurrent AI requests. Maximum {max_concurrent} active requests allowed simultaneously.",
+                                "error_code": "RATE_LIMIT_EXCEEDED",
+                                "errors": [{"field": "concurrency", "message": f"Maximum {max_concurrent} active concurrent requests allowed.", "type": "concurrency_limit_exceeded"}],
                                 "detail": f"Too many concurrent AI requests. Maximum {max_concurrent} active requests allowed simultaneously."
                             },
                             headers={"Retry-After": "10"},
@@ -264,6 +290,10 @@ class RateLimitMiddleware:
                     response = JSONResponse(
                         status_code=429,
                         content={
+                            "success": False,
+                            "message": f"Rate limit exceeded. Maximum {limit} requests per minute allowed.",
+                            "error_code": "RATE_LIMIT_EXCEEDED",
+                            "errors": [{"field": "rate_limit", "message": f"Exceeded {limit} requests per minute limit.", "type": "rate_limit_exceeded"}],
                             "detail": f"Rate limit exceeded. Maximum {limit} requests per minute allowed."
                         },
                         headers={"Retry-After": "60"},
@@ -274,6 +304,36 @@ class RateLimitMiddleware:
                     return
             except Exception as e:
                 logger.warning(f"Rate limiting check failed: {e}")
+        else:
+            # In-memory sliding-window fallback for local/test/offline environments
+            now = time.time()
+            mem_key = f"rate_limit:{bucket}:{ip}"
+            with _store_lock:
+                timestamps = _in_memory_store[mem_key]
+                window_start = now - 60.0
+                while timestamps and timestamps[0] <= window_start:
+                    timestamps.popleft()
+
+                if len(timestamps) >= limit:
+                    log_security_event(
+                        "rate_limit_exceeded_in_memory",
+                        request,
+                        {"bucket": bucket, "count": len(timestamps), "limit": limit},
+                    )
+                    response = JSONResponse(
+                        status_code=429,
+                        content={
+                            "success": False,
+                            "message": f"Rate limit exceeded. Maximum {limit} requests per minute allowed.",
+                            "error_code": "RATE_LIMIT_EXCEEDED",
+                            "errors": [{"field": "rate_limit", "message": f"Exceeded {limit} requests per minute limit.", "type": "rate_limit_exceeded"}],
+                            "detail": f"Rate limit exceeded. Maximum {limit} requests per minute allowed."
+                        },
+                        headers={"Retry-After": "60"},
+                    )
+                    await response(scope, receive, send)
+                    return
+                timestamps.append(now)
 
         # Execute application logic with concurrency cleanup wrapper
         try:
@@ -284,3 +344,4 @@ class RateLimitMiddleware:
                     r_client.decr(concurrency_key)
                 except Exception:
                     pass
+

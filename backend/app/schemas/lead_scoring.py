@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 
@@ -243,9 +243,17 @@ class LeadDetailResponse(BaseModel):
 
 
 class ConvertLeadRequest(BaseModel):
-    amount: float
-    product: str
-    notes: Optional[str] = None
+    amount: float = Field(..., ge=0, description="Conversion monetary amount")
+    product: str = Field(..., min_length=1, max_length=255)
+    notes: Optional[str] = Field(None, max_length=5000)
+
+    @field_validator("product")
+    @classmethod
+    def validate_product(cls, v: str) -> str:
+        v_str = v.strip()
+        if not v_str:
+            raise ValueError("Product name cannot be empty.")
+        return v_str
 
 
 class ConvertLeadResponse(BaseModel):
@@ -264,12 +272,29 @@ class ConvertLeadResponse(BaseModel):
 
 class ManualLeadCreateRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
-    phone: str = Field(..., description="Indian mobile format")
-    source: str = Field(default="manual")
-    status: str = Field(default="new")
-    budget_min: Optional[float] = Field(default=None)
-    budget_max: Optional[float] = Field(default=None)
-    note: Optional[str] = Field(default=None)
+    phone: str = Field(..., min_length=10, max_length=20, pattern=r"^(?:\+?\d{1,3}[- ]?)?\d{10,14}$", description="Valid phone number")
+    source: str = Field(default="manual", max_length=100)
+    status: str = Field(default="new", max_length=50)
+    budget_min: Optional[float] = Field(default=None, ge=0)
+    budget_max: Optional[float] = Field(default=None, ge=0)
+    note: Optional[str] = Field(default=None, max_length=5000)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v_str = v.strip()
+        if len(v_str) < 2:
+            raise ValueError("Lead name must be at least 2 characters long.")
+        return v_str
+
+    @field_validator("budget_max")
+    @classmethod
+    def validate_budget_range(cls, v: Optional[float], info) -> Optional[float]:
+        if v is not None:
+            min_val = info.data.get("budget_min")
+            if min_val is not None and v < min_val:
+                raise ValueError("Maximum budget cannot be less than minimum budget.")
+        return v
 
 
 class ManualLeadCreateResponse(BaseModel):
@@ -286,7 +311,17 @@ class ManualLeadCreateResponse(BaseModel):
 
 
 class UpdateLeadLabelsRequest(BaseModel):
-    labels: list[str] = Field(..., description="List of labels to set on the lead (Interested, High Priority, Premium Lead, Follow Up)")
+    labels: list[str] = Field(..., max_length=20, description="List of labels to set on the lead")
+
+    @field_validator("labels")
+    @classmethod
+    def validate_labels(cls, v: list[str]) -> list[str]:
+        cleaned = []
+        for label in v:
+            lbl_str = label.strip()
+            if lbl_str and len(lbl_str) <= 50:
+                cleaned.append(lbl_str)
+        return cleaned
 
 
 class UpdateLeadLabelsResponse(BaseModel):
@@ -303,3 +338,4 @@ class UpdateLeadLabelsResponse(BaseModel):
 
 class AssignLeadRequest(BaseModel):
     assigned_to: Optional[UUID] = None
+

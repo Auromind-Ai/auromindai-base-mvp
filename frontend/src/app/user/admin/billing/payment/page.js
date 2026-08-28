@@ -252,6 +252,7 @@ function BillingContent() {
 
   const [currentPlan, setCurrentPlan] = useState("free")
   const [settings, setSettings] = useState(null)
+  const [billing, setBilling] = useState(null)
   const [plans, setPlans] = useState([])
 
   // Modal State
@@ -278,15 +279,16 @@ function BillingContent() {
 
     const loadData = async () => {
       try {
-        const [billing, settingsData] = await Promise.all([
+        const [billingData, settingsData] = await Promise.all([
           api.getBillingStatus(workspaceId),
           api.getPricing(),
         ])
 
-        setCurrentPlan(billing?.current_plan || "free")
+        setBilling(billingData)
+        setCurrentPlan(billingData?.current_plan || "free")
         setSettings(settingsData)
-        if (billing?.plans) {
-          setPlans(billing.plans)
+        if (billingData?.plans) {
+          setPlans(billingData.plans)
         }
       } catch (error) {
         console.error(LOG_PREFIX, "Load error:", error)
@@ -304,29 +306,39 @@ function BillingContent() {
       return
     }
 
-    if (!workspaceId || !["solo", "pro"].includes(planKey)) return
+    if (!workspaceId) return
 
-    const isPro = planKey === "pro"
-    const basePrice = isPro ? 199 : 999
+    const matchedPlan = plans?.find(p => (p.key || p.name || p.id || "").toLowerCase() === planKey.toLowerCase())
+    const planName = matchedPlan?.label || matchedPlan?.name || (settings?.[`${planKey}_plan_name`]) || `${planKey.toUpperCase()} Plan`
+    const basePrice = billingCycle === "yearly" 
+      ? Number(matchedPlan?.yearly_price ?? matchedPlan?.yearlyPrice ?? settings?.[`${planKey}_yearly_plan_price`] ?? (Number(matchedPlan?.amount || 0) * 10))
+      : Number(matchedPlan?.monthly_price ?? matchedPlan?.monthlyPrice ?? matchedPlan?.amount ?? settings?.[`${planKey}_plan_price`] ?? 0)
+
+    let planFeatures = matchedPlan?.features
+    if (!planFeatures && settings) {
+      planFeatures = settings[`${planKey}_plan_features`]
+    }
+    if (typeof planFeatures === "string") {
+      try { planFeatures = JSON.parse(planFeatures) } catch (e) { planFeatures = [planFeatures] }
+    }
+    if (!Array.isArray(planFeatures)) {
+      planFeatures = []
+    }
+
+    // Dynamic GST Rate from Admin Platform Settings
+    const gstRate = settings?.gst_rate !== undefined 
+      ? Number(settings.gst_rate) 
+      : (billing?.gst_rate !== undefined ? Number(billing.gst_rate) : 0)
 
     setSelectedPlanDetails({
-      title: isPro ? "Pro Plan Subscription" : "Solo Smart Subscription",
-      subtitle: "Workspace Plan Upgrade",
+      title: planName.includes("Plan") || planName.includes("Subscription") ? `${planName}` : `${planName} Plan Subscription`,
+      subtitle: `Workspace Plan Upgrade • ${billingCycle === "yearly" ? "Annual" : "Monthly"} Billing`,
       planKey,
       billingCycle,
       baseAmount: basePrice,
-      currency: "INR",
-      features: isPro ? [
-        "250,000 AI Credits / month",
-        "500 WhatsApp WCC Wallet Credits",
-        "Unlimited Agent Automation Flows",
-        "5 Team Member Seats",
-        "24/7 Priority Support"
-      ] : [
-        "15,000 AI Credits / month",
-        "Custom Knowledge Base",
-        "1 Gmail Integration"
-      ]
+      currency: matchedPlan?.currency || "INR",
+      features: planFeatures,
+      gstRate: gstRate
     })
 
     setIsSummaryModalOpen(true)
@@ -340,8 +352,6 @@ function BillingContent() {
     const { planKey, billingCycle } = selectedPlanDetails
 
     try {
-      // NOTE: renamed from api.createBillingSubscription — confirm this
-      // still returns the same checkout/order shape the code below expects.
       const checkout = await api.initiatePlanPurchase(
         workspaceId,
         planKey,
@@ -368,22 +378,17 @@ function BillingContent() {
             razorpay_signature: response.razorpay_signature,
           }
           try {
-            // NOTE: renamed from api.verifyBillingPayment
             const result = await api.verifyPlanPayment(payload)
 
             if (!result || (result.status !== "ACTIVE" && result.status !== "already_verified")) {
               throw new Error("Payment not activated")
             }
 
-            const isPro = planKey === "pro"
-            const basePrice = isPro ? 199 : 999
-            const cgst = Number((basePrice * 0.09).toFixed(2))
-            const sgst = Number((basePrice * 0.09).toFixed(2))
-            const calculatedTotal = (basePrice + cgst + sgst).toFixed(2)
-            const totalPaid = checkout?.amount ? (checkout.amount / 100).toFixed(2) : calculatedTotal
+            const totalPaid = checkout?.amount ? (checkout.amount / 100).toFixed(2) : String(selectedPlanDetails?.baseAmount || "")
+            const planTitle = checkout?.plan_label ? `${checkout.plan_label} Plan Subscription` : (selectedPlanDetails?.title || "Plan Subscription")
 
             setSuccessDetails({
-              planTitle: checkout?.plan_label ? `${checkout.plan_label} Plan Subscription` : (isPro ? "Pro Plan Subscription" : "Solo Smart Subscription"),
+              planTitle,
               amountPaid: totalPaid,
               billingCycle: billingCycle === "yearly" ? "Yearly" : "Monthly",
               nextBillingDate: new Date(Date.now() + (billingCycle === "yearly" ? 365 : 30) * 24 * 60 * 60 * 1000).toLocaleDateString("en-GB", {

@@ -188,7 +188,7 @@ def purchase_plan(
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
         logger.error(f"[PLAN PURCHASE ERROR] {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to initialize plan purchase. Please try again.")
 
 
 @router.post("/plan/verify")
@@ -203,7 +203,17 @@ def verify_plan(
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id, payload
         )
-        logger.info(f"[PLAN VERIFY] user={current_user.email} workspace={resolved_ws_id} order={payload.razorpay_order_id}")
+        order_id = payload.razorpay_order_id or payload.order_id
+        payment_id = payload.razorpay_payment_id or payload.payment_id
+        signature = payload.razorpay_signature or payload.signature
+
+        if not order_id or not payment_id or not signature:
+            raise HTTPException(
+                status_code=400,
+                detail="razorpay_order_id, razorpay_payment_id, and razorpay_signature are required",
+            )
+
+        logger.info(f"[PLAN VERIFY] user={current_user.email} workspace={resolved_ws_id} order={order_id}")
 
         service = get_billing_service()
         return service.verify_plan_payment(
@@ -212,9 +222,9 @@ def verify_plan(
             user_id=str(current_user.id),
             plan_key=payload.plan,
             billing_cycle=payload.billing_cycle or "monthly",
-            order_id=payload.razorpay_order_id,
-            payment_id=payload.razorpay_payment_id,
-            signature=payload.razorpay_signature,
+            order_id=order_id,
+            payment_id=payment_id,
+            signature=signature,
             provider=payload.provider,
         )
 
@@ -223,7 +233,7 @@ def verify_plan(
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
         logger.error(f"[PLAN VERIFY ERROR] {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Plan purchase verification failed. Please try again.")
 
 
 @router.post("/report-failure")
@@ -290,7 +300,11 @@ def report_payment_failure(
                     "workspace_id": str(resolved_ws_id),
                     "user_id": str(current_user.id),
                     "plan": payload.plan,
+                    "plan_key": payload.plan,
+                    "billing_cycle": getattr(payload, "billing_cycle", None) or "monthly",
+                    "plan_label": getattr(payload, "plan_label", None),
                     "pack_id": payload.pack_id,
+                    "type": "plan_purchase" if payload.plan else ("credit_pack_purchase" if payload.pack_id else None),
                 }
             },
             "subscription": {
@@ -299,6 +313,7 @@ def report_payment_failure(
                     "workspace_id": str(resolved_ws_id),
                     "user_id": str(current_user.id),
                     "plan": payload.plan,
+                    "billing_cycle": getattr(payload, "billing_cycle", None) or "monthly",
                 }
             } if payload.subscription_id else None
         }
@@ -574,11 +589,14 @@ def purchase_credit_pack(
             provider=payload.provider,
         )
     except ValueError as exc:
-        logger.error(f"[CREDITS PURCHASE ERROR] {str(exc)}")
-        raise HTTPException(status_code=400, detail=str(exc))
+        logger.error(f"[CREDITS PURCHASE ERROR] {str(exc)}", exc_info=True)
+        err_msg = str(exc)
+        if any(tech in err_msg.lower() for tech in ["codec", "latin", "ordinal", "razorpay", "gateway", "client"]):
+            raise HTTPException(status_code=503, detail="Payment gateway is currently unavailable. Please try again later or contact support.")
+        raise HTTPException(status_code=400, detail=err_msg)
     except Exception as e:
-        logger.error(f"[CREDITS PURCHASE ERROR] {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"[CREDITS PURCHASE ERROR] {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to initialize credit purchase. Please try again.")
 
 
 @router.post("/credits/verify")
@@ -608,7 +626,7 @@ def verify_credit_pack(
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
         logger.error(f"[CREDITS VERIFY ERROR] {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Credit pack purchase verification failed. Please try again.")
 
 
 @router.get("/credits/daily-usage")
@@ -675,7 +693,7 @@ def get_workspace_entitlements(
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
         logger.error(f"[GET ENTITLEMENTS ERROR] {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to retrieve workspace entitlements. Please try again.")
 
 
 @router.get("/feature-rules", response_model=list[FeatureBillingRuleResponse])
@@ -694,7 +712,7 @@ def list_active_rules(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to retrieve billing rules. Please try again.")
 
 
 @router.get("/entitlements/check")
@@ -726,7 +744,7 @@ def check_workspace_entitlement(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Entitlement verification check failed. Please try again.")
 
 
 @router.post("/entitlements/check", response_model=EntitlementCheckResponse)
@@ -750,7 +768,7 @@ def check_workspace_entitlement_post(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Entitlement verification check failed. Please try again.")
 
 
 @router.get("/invoices", response_model=UnifiedBillingResponse)

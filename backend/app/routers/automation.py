@@ -9,7 +9,7 @@ from app.models.automation import AutomationFlow
 from app.models.brain import MCPDecision
 from uuid import UUID
 import uuid
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.security import verify_workspace_access
@@ -24,17 +24,17 @@ engine = AutomationEngine()
 @router.post("/approve", response_model=ApproveResponse)
 async def approve_action(
     decision_id: UUID,
+    workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-   
-    workspace_id = verify_workspace_access(current_user, db)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
     decision = db.query(MCPDecision).filter(
         MCPDecision.message_id == str(decision_id),
-        MCPDecision.workspace_id == workspace_id,
+        MCPDecision.workspace_id == str(verified_workspace_id),
     ).first()
     if not decision:
-        raise HTTPException(status_code=404, detail="Decision not found")
+        raise HTTPException(status_code=404, detail="Decision not found in this workspace")
     
     engine.approve_and_execute(db, str(decision_id))
     return {"status": "approved"}
@@ -42,17 +42,17 @@ async def approve_action(
 @router.post("/generate-flow", response_model=GenerateFlowResponse)
 async def generate_flow(
     request: FlowPromptRequest,
+    workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-   
-    workspace_id = verify_workspace_access(current_user, db)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
     
     try:
         flow = await agentic_wiring_service.generate_flow(
             prompt=request.prompt,
             db=db,
-            workspace_id=workspace_id,
+            workspace_id=str(verified_workspace_id),
             user_id=current_user.id
         )
         return flow
@@ -66,17 +66,15 @@ async def generate_flow(
 
 @router.get("/flows", response_model=List[FlowResponseModel])
 async def get_flows(
+    workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-
-    workspace_id = verify_workspace_access(current_user, db)
-    if isinstance(workspace_id, str):
-        workspace_id = uuid.UUID(workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    ws_uuid = uuid.UUID(verified_workspace_id) if isinstance(verified_workspace_id, str) else verified_workspace_id
     
-    # Query flows filtered by workspace_id (security boundary)
     flows = db.query(AutomationFlow).filter(
-        AutomationFlow.workspace_id == workspace_id
+        AutomationFlow.workspace_id == ws_uuid
     ).all()
     
     return flows
@@ -84,13 +82,12 @@ async def get_flows(
 @router.post("/flows", response_model=FlowResponseModel)
 async def save_flow(
     request: FlowSaveRequest,
+    workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    
-    workspace_id = verify_workspace_access(current_user, db)
-    if isinstance(workspace_id, str):
-        workspace_id = uuid.UUID(workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    ws_uuid = uuid.UUID(verified_workspace_id) if isinstance(verified_workspace_id, str) else verified_workspace_id
     
     # Validate flow structure
     validation = FlowValidationService.validate_flow(request.nodes, request.edges)
@@ -98,10 +95,12 @@ async def save_flow(
         raise HTTPException(
             status_code=400,
             detail={
+                "message": "Invalid flow structure",
                 "errors": validation["errors"],
                 "warnings": validation["warnings"],
             },
         )
+
 
     if request.id:
         # Update existing flow
@@ -172,24 +171,23 @@ async def save_flow(
 
 @router.get("/flows/{flow_id}", response_model=FlowResponseModel)
 async def get_flow(
-    flow_id:  UUID,
+    flow_id: UUID,
+    workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    
-    workspace_id = verify_workspace_access(current_user, db)
-    if isinstance(workspace_id, str):
-        workspace_id = uuid.UUID(workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    ws_uuid = uuid.UUID(verified_workspace_id) if isinstance(verified_workspace_id, str) else verified_workspace_id
     
     # Query flow with workspace boundary check
     flow = db.query(AutomationFlow).filter(
         AutomationFlow.id == flow_id,
-        AutomationFlow.workspace_id == workspace_id 
+        AutomationFlow.workspace_id == ws_uuid 
     ).first()
     
     if not flow:
         raise HTTPException(
-            status_code=403,
+            status_code=404,
             detail="Flow not found or you do not have permission to access it"
         )
     
@@ -198,23 +196,22 @@ async def get_flow(
 @router.delete("/flows/{flow_id}", response_model=DeleteFlowResponse)
 async def delete_flow(
     flow_id: UUID,
+    workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    
-    workspace_id = verify_workspace_access(current_user, db)
-    if isinstance(workspace_id, str):
-        workspace_id = uuid.UUID(workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    ws_uuid = uuid.UUID(verified_workspace_id) if isinstance(verified_workspace_id, str) else verified_workspace_id
     
     # Query flow with workspace boundary check
     flow = db.query(AutomationFlow).filter(
         AutomationFlow.id == flow_id,
-        AutomationFlow.workspace_id == workspace_id  
+        AutomationFlow.workspace_id == ws_uuid  
     ).first()
     
     if not flow:
         raise HTTPException(
-            status_code=403,
+            status_code=404,
             detail="Flow not found or you do not have permission to delete it"
         )
     
@@ -227,16 +224,16 @@ async def delete_flow(
 async def update_flow_status(
     flow_id: UUID,
     request: FlowStatusUpdateRequest,
+    workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    workspace_id = verify_workspace_access(current_user, db)
-    if isinstance(workspace_id, str):
-        workspace_id = uuid.UUID(workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    ws_uuid = uuid.UUID(verified_workspace_id) if isinstance(verified_workspace_id, str) else verified_workspace_id
 
     flow = db.query(AutomationFlow).filter(
         AutomationFlow.id == flow_id,
-        AutomationFlow.workspace_id == workspace_id
+        AutomationFlow.workspace_id == ws_uuid
     ).first()
 
     if not flow:
@@ -246,16 +243,16 @@ async def update_flow_status(
         )
 
     if request.status and request.status.lower() == "active" and (not flow.status or flow.status.lower() != "active"):
-        ent_check = EntitlementService.check_entitlement(db, workspace_id, "automation")
+        ent_check = EntitlementService.check_entitlement(db, ws_uuid, "automation")
         if not ent_check["allowed"]:
             EntitlementService.raise_entitlement_exceeded(
-                db, workspace_id, "automation", ent_check["limit"], 50
+                db, ws_uuid, "automation", ent_check["limit"], 50
             )
 
     flow.status = request.status
     db.commit()
     db.refresh(flow)
 
-    EntitlementService.check_flow_quota_warnings(db, workspace_id)
+    EntitlementService.check_flow_quota_warnings(db, ws_uuid)
 
     return flow

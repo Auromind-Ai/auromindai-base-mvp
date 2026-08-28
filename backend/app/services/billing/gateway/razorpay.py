@@ -28,7 +28,17 @@ class RazorpayGateway(PaymentGateway):
         webhook_secret = config_service.get("razorpay_webhook_secret")
 
         if not key or not secret:
-            raise ValueError("Razorpay is not configured")
+            raise ValueError("Payment gateway is not configured.")
+
+        # Clean keys and strip quotes
+        key = str(key).strip().strip('"').strip("'")
+        secret = str(secret).strip().strip('"').strip("'")
+
+        try:
+            key.encode('ascii')
+            secret.encode('ascii')
+        except UnicodeEncodeError:
+            raise ValueError("Payment gateway configuration is invalid. Please verify API keys in Admin Settings.")
 
         client = razorpay.Client(auth=(key, secret))
         return cls(
@@ -165,13 +175,21 @@ class RazorpayGateway(PaymentGateway):
                     plan_id = new_plan_id
                     subscription_data = self.client.subscription.create(payload)
                 except Exception as retry_err:
-                    raise ValueError(f"Invalid subscription request and auto-creation failed: {str(retry_err)}")
+                    import logging
+                    logging.getLogger(__name__).error(f"Failed to auto-create dynamic plan: {retry_err}")
+                    raise ValueError("Failed to create subscription plan. Please contact support.")
             else:
-                raise ValueError(f"Invalid subscription request: {str(e)}")
+                import logging
+                logging.getLogger(__name__).error(f"Subscription creation error: {e}")
+                raise ValueError("Failed to initialize subscription with payment gateway. Please try again.")
         except (razorpay_errors.GatewayError, razorpay_errors.ServerError) as e:
-            raise ValueError(f"Razorpay gateway error: {str(e)}")
+            import logging
+            logging.getLogger(__name__).error(f"Razorpay gateway error: {e}")
+            raise ValueError("Payment gateway is temporarily unavailable. Please try again later.")
         except Exception as e:
-            raise ValueError(f"Unexpected payment gateway error: {str(e)}")
+            import logging
+            logging.getLogger(__name__).error(f"Unexpected gateway error: {e}")
+            raise ValueError("Payment gateway is temporarily unavailable. Please try again later.")
 
         return {
             "provider": self.provider,

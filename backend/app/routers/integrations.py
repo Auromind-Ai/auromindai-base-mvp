@@ -9,6 +9,8 @@ from app.routers.auth import get_current_user, _get_redis_client
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
 
+ALLOWED_GOOGLE_INTEGRATIONS = {"google_calendar", "google_gmail", "calendar", "gmail"}
+
 @router.get("/google/auth/{integration_type}")
 async def google_oauth_init(
     request: Request,
@@ -17,7 +19,12 @@ async def google_oauth_init(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    
+    if integration_type.lower() not in ALLOWED_GOOGLE_INTEGRATIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid integration type '{integration_type}'. Allowed types: {', '.join(sorted(ALLOWED_GOOGLE_INTEGRATIONS))}"
+        )
+
     workspace_id = verify_workspace_access(current_user, db, workspace_id)
 
     # Capture dynamic frontend URL from referer / origin
@@ -52,7 +59,8 @@ async def google_oauth_init(
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Google oauth error: {e}")
+        raise HTTPException(status_code=500, detail="Google authentication failed. Please try again.")
 
 @router.get("/google/callback")
 async def google_oauth_callback(
@@ -106,7 +114,6 @@ async def get_integration_status(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    
     workspace_id = verify_workspace_access(current_user, db, workspace_id)
     return IntegrationService.get_integration_status(db, workspace_id)
 
@@ -139,8 +146,7 @@ async def disconnect_integration(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    
     workspace_id = verify_workspace_access(current_user, db, workspace_id)
     IntegrationService.disconnect_integration(db, workspace_id, integration_type)
-    
     return {"status": "success", "message": f"Disconnected {integration_type}"}
+

@@ -1,8 +1,8 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from app.schemas.chat import ChatSessionCreate, ChatSessionResponse, ChatMessageResponse, UpdateSessionRequest, ChatStreamRequest, ChatQueryRequest
+from app.schemas.chat import (ChatSessionCreate,ChatSessionResponse,ChatMessageResponse,UpdateSessionRequest,ChatStreamRequest,ChatQueryRequest,StopChatRequest)
 from uuid import UUID
 import logging
 from app.database import get_db
@@ -20,14 +20,15 @@ logger = logging.getLogger(__name__)
 
 @router.get("/sessions", response_model=List[ChatSessionResponse])
 def get_sessions(
-    skip: int = 0,
-    limit: int = 50,
+    workspace_id: str | None = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db)
-    logger.info(f"[GET SESSIONS] user={current_user.id} workspace={workspace_id}")
-    return SessionService.get_sessions(db, str(current_user.id), str(workspace_id), skip, limit)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    logger.info(f"[GET SESSIONS] user={current_user.id} workspace={verified_workspace_id}")
+    return SessionService.get_sessions(db, str(current_user.id), str(verified_workspace_id), skip, limit)
 
 
 @router.post("/sessions", response_model=ChatSessionResponse)
@@ -36,9 +37,10 @@ def create_session(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db)
-    logger.info(f"[CREATE SESSION] user={current_user.id} workspace={workspace_id}")
-    return SessionService.create_session(db, str(current_user.id), str(workspace_id), request.title)
+    verified_workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
+    logger.info(f"[CREATE SESSION] user={current_user.id} workspace={verified_workspace_id}")
+    return SessionService.create_session(db, str(current_user.id), str(verified_workspace_id), request.title)
+
 
 
 @router.get("/sessions/{session_id}/messages", response_model=List[ChatMessageResponse])
@@ -121,7 +123,7 @@ async def chat_query(
 ):
     verify_chat_rate_limit(req, current_user)
     try:
-        workspace_id = verify_workspace_access(current_user, db)
+        workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
         return await service.handle_chat_query(
             db=db,
             message=request.message,
@@ -132,7 +134,7 @@ async def chat_query(
         raise
     except Exception as e:
         logger.error(f"[CHAT QUERY] error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Chat query failed. Please try again.")
 
 
 @router.post("/stream")
@@ -144,7 +146,6 @@ async def stream_chat(
     service: ChatService = Depends(get_chat_service),
 ):
     verify_chat_rate_limit(req, current_user)
-    logger.info(f" RAW MODEL FROM REQUEST: {request.model}")
     workspace_id = verify_workspace_access(current_user, db)
     logger.info(f"[STREAM CHAT] user={current_user.id} workspace={workspace_id} session={request.session_id}")
     try:
@@ -162,7 +163,7 @@ async def stream_chat(
         raise HTTPException(status_code=402, detail=str(e))
     except Exception as e:
         logger.error(f"[STREAM CHAT] preflight error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to initialize chat stream.")
 
     try:
         return StreamingResponse(
@@ -193,19 +194,19 @@ async def stream_chat(
                 AIExecutionService.cleanup_reservation(db, preflight["reservation_id"], f"router_error:{type(e).__name__}")
             except Exception as release_err:
                 logger.error(f"Failed to defensively release reservation in router: {release_err}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Stream processing failed.")
 
 @router.post("/stop")
 async def stop_chat_stream(
-    request: dict,
+    request: StopChatRequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
     service: ChatService = Depends(get_chat_service),
 ):
     verify_workspace_access(current_user, db)
-    session_id = request.get("session_id")
-    await service.stop_generation(session_id=session_id, user_id=str(current_user.id))
+    await service.stop_generation(session_id=request.session_id, user_id=str(current_user.id))
     return {"message": "Stop signal sent"}
+
 
 
 @router.get("/models")

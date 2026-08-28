@@ -157,7 +157,7 @@ class NotificationTemplateService:
 
         # Convert line breaks to HTML paragraphs
         formatted_paragraphs = "".join(
-            f'<p style="margin: 0 0 16px 0; line-height: 1.6; color: #334155; font-size: 15px;">{line.strip()}</p>'
+            f'<p style="margin: 0 0 16px 0; line-height: 1.6; color: #334155; font-size: 15px;">{line.strip().replace(chr(10), "<br/>")}</p>'
             for line in rendered_msg.split("\n\n") if line.strip()
         )
         if not formatted_paragraphs:

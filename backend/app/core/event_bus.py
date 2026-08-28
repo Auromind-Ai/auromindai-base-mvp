@@ -33,8 +33,7 @@ class EventBus:
 
         try:
             # 1. Dynamic Payload Auto-Discovery: Record payload schema in registry
-            try:
-               
+            try: 
                 EventRegistryService.record_payload(event_name=event_name, payload=data, db=db)
             except Exception as reg_exc:
                 logger.debug(f"[EventBus] Schema auto-discovery warning for '{event_name}': {reg_exc}")

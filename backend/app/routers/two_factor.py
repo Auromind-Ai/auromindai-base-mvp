@@ -1,4 +1,3 @@
-"""All /2fa/* endpoints — setup, verify-setup, verify-login, disable, status."""
 
 import uuid
 from typing import Optional
@@ -53,17 +52,20 @@ def _get_cookie_kwargs(request: Request = None) -> dict:
     )
 
 
+from pydantic import BaseModel, Field
+
 # ─ Request models 
 
 class VerifySetupRequest(BaseModel):
-    code: str
+    code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$", description="6-digit TOTP verification code")
 
 class VerifyLoginRequest(BaseModel):
-    pending_token: Optional[str] = None
-    code: str
+    pending_token: Optional[str] = Field(None, max_length=1000)
+    code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$", description="6-digit TOTP verification code")
 
 class DisableRequest(BaseModel):
-    code: str
+    code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$", description="6-digit TOTP verification code")
+
 
 
 # ─ GET /2fa/status ─

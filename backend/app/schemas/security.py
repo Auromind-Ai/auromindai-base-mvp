@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 
 class SessionResponse(BaseModel):
@@ -23,5 +23,6 @@ class SecuritySummaryResponse(BaseModel):
     security_score_label: str
 
 class RevokeDeviceRequest(BaseModel):
-    device_info: str
+    device_info: str = Field(..., min_length=1, max_length=500)
+
 

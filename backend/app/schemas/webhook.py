@@ -1,15 +1,26 @@
 import re
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 class SendReply(BaseModel):
-    conversation_id: str
-    message: str
-    phone: str | None = None
+    conversation_id: str = Field(..., min_length=1, max_length=128)
+    message: str = Field(..., min_length=1, max_length=10000)
+    phone: str | None = Field(None, max_length=50)
     metadata: dict | None = None
 
 class AISuggest(BaseModel):
-    conversation_id: str
-    message: str
+    conversation_id: str = Field(..., min_length=1, max_length=128)
+    message: str = Field(..., min_length=1, max_length=10000)
+
+class MetaWhatsAppConnectRequest(BaseModel):
+    workspace_id: str | None = None
+    code: str | None = Field(None, max_length=2000)
+    fb_access_token: str | None = Field(None, max_length=2000)
+    waba_id: str | None = Field(None, max_length=100)
+    phone_number_id: str | None = Field(None, max_length=100)
+
+class InstagramConnectRequest(BaseModel):
+    workspace_id: str | None = None
+    code: str = Field(..., min_length=1, max_length=2000)
 
 
 class TwilioConnectRequest(BaseModel):
@@ -18,6 +29,7 @@ class TwilioConnectRequest(BaseModel):
     phone: str
     workspace_id: str
     messaging_service_sid: str | None = None
+
 
     @field_validator("sid")
     @classmethod

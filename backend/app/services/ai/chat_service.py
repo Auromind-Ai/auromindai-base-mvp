@@ -155,7 +155,10 @@ class ChatService:
                 yield chunk
         except Exception as e:
             logger.error(f"RAG streaming error: {e}", exc_info=True)
-            raise RAGError(f"Failed to stream from knowledge base: {str(e)}")
+            err_str = str(e).lower()
+            if "rate limit" in err_str or "429" in err_str or "demand" in err_str:
+                raise RAGError("AI assistant is currently experiencing high demand. Please try again in a few moments.")
+            raise RAGError("Failed to stream answer from knowledge base. Please try again in a few moments.")
 
     async def handle_chat_query(
         self,
@@ -578,7 +581,12 @@ class ChatService:
             except Exception as e:
                 logger.error(f"[ChatService] Generation error: {e}")
                 final_status = "FAILED"
-                await queue.put({"error": str(e)})
+                err_str = str(e).lower()
+                if "rate limit" in err_str or "429" in err_str or "groq" in err_str or "openai" in err_str or "tpm" in err_str:
+                    clean_msg = "AI assistant is currently experiencing high demand. Please try again in a few moments."
+                else:
+                    clean_msg = "AI service is temporarily unavailable. Please try again in a few moments."
+                await queue.put({"error": clean_msg})
             finally:
                 # Always signal end of stream
                 await queue.put(None)

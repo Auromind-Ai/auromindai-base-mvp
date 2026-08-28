@@ -23,6 +23,7 @@ from app.models.workspace import Workspace
 from app.services.billing.billing_service import BillingService
 from app.services.billing.gst_service import GSTService
 from app.services.billing.invoice_service import InvoiceService
+
 from datetime import datetime, timezone
 from app.core.event_bus import emit_event
 
@@ -486,6 +487,15 @@ class WebhookService:
             pack = db.query(CreditPack).filter(CreditPack.pack_id == pack_id).first() if pack_id else None
             description = f"AI Credit Pack ({pack.name})" if pack else "AI Credit Pack Purchase"
 
+        # Check Plan Purchase
+        if notes.get("plan") or notes.get("plan_key") or notes.get("type") == "plan_purchase":
+            payment_type = "subscription"
+            plan_key = notes.get("plan") or notes.get("plan_key")
+            plan = db.query(Plan).filter(Plan.name == plan_key).first() if plan_key else None
+            cycle = str(notes.get("billing_cycle") or "monthly")
+            plan_label = notes.get("plan_label") or (plan.display_name if plan and plan.display_name else (f"{plan_key.title()} Plan" if plan_key else "Plan Subscription"))
+            description = f"{plan_label} ({cycle.capitalize()})" if cycle else plan_label
+
         # Fallback customer lookup
         if not target_ws_id and payment_payload.get("customer_id"):
             ws_by_cust = db.query(Workspace).filter(Workspace.provider_customer_id == payment_payload.get("customer_id")).first()
@@ -552,6 +562,47 @@ class WebhookService:
         failure_reason = payment_payload.get("error_description") or payment_payload.get("error_reason") or "Payment transaction declined"
         raw_method = payment_payload.get("method")
 
+        # Calculate GST for the payment so tax columns are correctly populated
+        workspace = db.query(Workspace).filter(Workspace.id == target_ws_id).first() if target_ws_id else None
+        gst_calcs = None
+        if workspace and amount > 0:
+           
+            try:
+                gst_calcs = GSTService.calculate_gst(
+                    amount=Decimal(str(round(amount, 2))),
+                    customer_state=workspace.billing_state,
+                    customer_country=workspace.billing_country or "IN",
+                    product_type=payment_type,
+                    db=db,
+                    tax_inclusive=True
+                )
+            except Exception as e:
+                logger.warning(f"[PAYMENT FAILED GST CALC ERROR] {e}")
+
+        gst_kwargs = {}
+        if gst_calcs:
+            gst_kwargs = {
+                "subtotal": gst_calcs["subtotal"],
+                "gst_rate": gst_calcs["gst_rate"],
+                "gst_amount": gst_calcs["gst_amount"],
+                "cgst": gst_calcs["cgst"],
+                "sgst": gst_calcs["sgst"],
+                "igst": gst_calcs["igst"],
+                "taxable_amount": gst_calcs["taxable_amount"],
+                "total_amount": gst_calcs["total_amount"],
+                "place_of_supply": gst_calcs["place_of_supply"],
+                "customer_state": gst_calcs["customer_state"],
+                "customer_country": gst_calcs["customer_country"],
+                "customer_gstin": workspace.billing_gstin if workspace else None,
+            }
+        else:
+            gst_kwargs = {
+                "total_amount": Decimal(str(round(amount, 2))),
+                "gst_amount": Decimal("0.00"),
+                "subtotal": Decimal(str(round(amount, 2))),
+                "taxable_amount": Decimal(str(round(amount, 2))),
+            }
+
         # 4. Record or update Payment in DB (with Idempotency Guard)
         payment = self.payment_service._get_payment_by_payment_id(db, provider, provider_payment_id)
         already_failed = payment is not None and payment.status == PaymentStatus.failed
@@ -572,6 +623,7 @@ class WebhookService:
                 provider_order_id=provider_order_id or provider_subscription_id,
                 failure_reason=failure_reason,
                 idempotency_key=f"{provider}:failed:{provider_payment_id}",
+                **gst_kwargs
             )
             db.add(payment)
         elif payment:
@@ -579,8 +631,15 @@ class WebhookService:
             payment.failure_reason = failure_reason
             if raw_method:
                 payment.payment_method = str(raw_method)
+            if description:
+                payment.description = description
+            if payment_type:
+                payment.payment_type = payment_type
             if target_ws_id and not payment.workspace_id:
                 payment.workspace_id = target_ws_id
+            for k, v in gst_kwargs.items():
+                if getattr(payment, k, None) is None:
+                    setattr(payment, k, v)
         db.flush()
 
         # Check if email notification was already staged/sent for this payment failure
@@ -657,10 +716,14 @@ class WebhookService:
             return str(notes["plan_key"]).lower()
 
         provider_plan_id = subscription_payload.get("plan_id")
-        for key in ("free", "pro", "enterprise"):
-            plan_config = self.plan_service._get_plan_config(db, key)
-            if provider_plan_id and provider_plan_id == plan_config.provider_plan_ids.get(provider):
-                return key
+        if provider_plan_id:
+            for p in db.query(Plan).all():
+                try:
+                    plan_config = self.plan_service._get_plan_config(db, p.name)
+                    if provider_plan_id == plan_config.provider_plan_ids.get(provider):
+                        return p.name
+                except Exception:
+                    continue
 
         subscription = self.subscription_service._get_subscription_by_provider_id(db, provider, subscription_payload.get("id"))
         return self._plan_key_from_subscription(db, subscription)

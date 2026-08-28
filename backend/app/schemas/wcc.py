@@ -36,8 +36,8 @@ class WCCRateItem(BaseModel):
 
 
 class WCCEstimateRequest(BaseModel):
-    audience_size: int = Field(..., gt=0)
-    category: str
+    audience_size: int = Field(..., gt=0, le=1000000, description="Audience size between 1 and 1,000,000")
+    category: str = Field(..., min_length=1, max_length=50, pattern=r"^(?i)(marketing|utility|authentication|service)$")
     workspace_id: Optional[str] = None
 
 
@@ -48,7 +48,7 @@ class WCCEstimateResponse(BaseModel):
 
 
 class WCCRechargeInitiateRequest(BaseModel):
-    amount: Decimal = Field(..., ge=Decimal("100.00"))
+    amount: Decimal = Field(..., ge=Decimal("100.00"), le=Decimal("500000.00"), description="Recharge amount between ₹100 and ₹500,000")
     workspace_id: Optional[str] = None
 
 
@@ -58,6 +58,7 @@ class WCCRechargeInitiateResponse(BaseModel):
     currency: str
     public_key: str
     recharge_log_id: str
+
 
 
 class WCCRechargeVerifyRequest(BaseModel):

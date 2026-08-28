@@ -25,20 +25,37 @@ def verify_workspace_access(
     target_workspace_id: uuid.UUID | str = None
 ) -> str:
     user_id = to_uuid(current_user.id)
-    ws_id = to_uuid(target_workspace_id) if target_workspace_id else None
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user credentials or user ID."
+        )
 
-    if ws_id:
-        membership = db.query(WorkspaceMember).filter(
-            WorkspaceMember.user_id == user_id,
-            WorkspaceMember.workspace_id == ws_id
-        ).first()
-        check_id = str(ws_id)
-    else:
-        membership = db.query(WorkspaceMember).filter(
-            WorkspaceMember.user_id == user_id
-        ).first()
-        if membership:
-            check_id = str(membership.workspace_id)
+    # Check if target_workspace_id was explicitly provided
+    if target_workspace_id is not None:
+        s_target = str(target_workspace_id).strip()
+        if s_target.lower() not in ("null", "undefined", "none", ""):
+            ws_id = to_uuid(s_target)
+            if not ws_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid workspace ID format: '{s_target}'"
+                )
+            membership = db.query(WorkspaceMember).filter(
+                WorkspaceMember.user_id == user_id,
+                WorkspaceMember.workspace_id == ws_id
+            ).first()
+            if not membership:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied or workspace not found."
+                )
+            return str(membership.workspace_id)
+
+    # Fallback to default user workspace
+    membership = db.query(WorkspaceMember).filter(
+        WorkspaceMember.user_id == user_id
+    ).first()
     
     if not membership:
         raise HTTPException(
@@ -46,4 +63,4 @@ def verify_workspace_access(
             detail="Access denied or workspace not found."
         )
     
-    return to_uuid(check_id) or check_id
+    return str(membership.workspace_id)

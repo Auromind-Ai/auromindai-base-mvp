@@ -23,6 +23,16 @@ class InboxResponse(BaseModel):
 class SendReplyResponse(BaseModel):
     status: str
 
+class SendEmailReplyRequest(BaseModel):
+    thread_id: str = Field(..., min_length=1, max_length=255)
+    reply_text: str = Field(..., min_length=1, max_length=50000)
+    to_email: str = Field(..., min_length=3, max_length=255)
+    message_id: Optional[str] = Field(None, max_length=255)
+    subject: Optional[str] = Field(None, max_length=255)
+    workspace_id: Optional[str] = None
+
+
+
 class GmailSyncLeadsRequest(BaseModel):
     max_messages: int = Field(default=20, ge=1, le=50, description="Max messages to inspect in this sync batch")
     query: Optional[str] = Field(default=None, description="Optional search filter criteria (appended to restricted primary filter)")

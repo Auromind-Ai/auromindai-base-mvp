@@ -1,4 +1,6 @@
-from fastapi import Request, Response, status
+from fastapi import Request, status
+from fastapi.responses import JSONResponse
+from app.core.logger import logger as log
 import secrets
 from jose import JWTError, jwt
 from app.core.config import settings
@@ -46,10 +48,6 @@ async def csrf_protection_middleware(request: Request, call_next):
             # If the auth_token cookie is not present in the request, skip CSRF validation.
             # (No cookie to protect against CSRF hijack, request will be verified by auth headers or fail at endpoint dependencies)
             if not token:
-                return Response(
-                content="CSRF validation failed",
-                status_code=status.HTTP_403_FORBIDDEN
-        )
                 return await call_next(request)
 
             header_token = request.headers.get("x-csrf-token")
@@ -61,8 +59,7 @@ async def csrf_protection_middleware(request: Request, call_next):
             except JWTError:
                 pass
             
-            import logging
-            log = logging.getLogger("app")
+         
             
             if not expected_token or not header_token or not secrets.compare_digest(expected_token, header_token):
                 if not expected_token:
@@ -71,9 +68,15 @@ async def csrf_protection_middleware(request: Request, call_next):
                     log.warning(f"🛡️ CSRF Blocked: Missing X-CSRF-Token in request headers. Path: {path}")
                 else:
                     log.warning(f"🛡️ CSRF Blocked: Token mismatch. JWT: {expected_token[:6]}... vs Header: {header_token[:6]}... Path: {path}")
-                return Response(
-                    content="CSRF validation failed", 
-                    status_code=status.HTTP_403_FORBIDDEN
+                return JSONResponse(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content={
+                        "success": False,
+                        "message": "Session expired or security check failed. Please refresh and try again.",
+                        "error_code": "FORBIDDEN",
+                        "errors": [],
+                        "detail": "Session expired or security check failed. Please refresh and try again.",
+                    },
                 )
 
     return await call_next(request)

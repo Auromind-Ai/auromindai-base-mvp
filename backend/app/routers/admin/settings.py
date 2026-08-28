@@ -127,19 +127,9 @@ async def update_platform_settings(
         t_audit = time.perf_counter()
         logger.warning(f"TIMING: Audit log setup took {t_audit - t_update:.3f}s")
 
-        # Synchronize plans table
-        from app.services.billing.plan_service import PlanService
-        plan_service = PlanService()
-        for plan_key in ["free", "pro", "enterprise"]:
-            config = plan_service._get_plan_config(db, plan_key)
-            plan_service._get_or_create_plan(db, config)
-
-        t_plans = time.perf_counter()
-        logger.warning(f"TIMING: Sync plans took {t_plans - t_audit:.3f}s")
-
         db.commit()
         t_commit = time.perf_counter()
-        logger.warning(f"TIMING: db.commit took {t_commit - t_plans:.3f}s")
+        logger.warning(f"TIMING: db.commit took {t_commit - t_audit:.3f}s")
 
         return _sanitize_response(result)
     except ValueError as ve:

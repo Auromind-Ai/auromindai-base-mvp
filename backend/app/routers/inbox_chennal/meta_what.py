@@ -7,30 +7,34 @@ from app.database import get_db
 from app.routers.auth import CurrentUser, get_current_user
 from app.services.inbox.channel_connection_service import ChannelConnectionService
 from app.services.inbox.webhook_service import WebhookService
+from app.schemas.webhook import MetaWhatsAppConnectRequest
+from app.services.config_service import config_service
 
 from app.core.logger import logger
 router = APIRouter()
 
 
+
+
 @router.post("/whatsapp/connect")
 async def connect_whatsapp(
-    data: dict,
+    data: MetaWhatsAppConnectRequest,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db, data.get("workspace_id"))
-    data["workspace_id"] = workspace_id
-    if not data.get("code") and not data.get("fb_access_token"):
+    workspace_id = verify_workspace_access(current_user, db, data.workspace_id)
+    payload_dict = data.model_dump()
+    payload_dict["workspace_id"] = workspace_id
+    if not payload_dict.get("code") and not payload_dict.get("fb_access_token"):
         raise HTTPException(status_code=400, detail="Missing required credentials: code or fb_access_token is required")
     try:
-        return ChannelConnectionService.connect_meta_whatsapp(db, data)
-    except HTTPException as e:
-        logger.exception("WhatsApp connect failed")
-        logger.error(f"WhatsApp connect error: {e.detail}")
+        return ChannelConnectionService.connect_meta_whatsapp(db, payload_dict)
+    except HTTPException:
         raise
     except Exception as exc:
         logger.error("WhatsApp connect error: %s", exc)
-        raise HTTPException(status_code=500, detail=f"WhatsApp connection failed: {str(exc)}")
+        raise HTTPException(status_code=500, detail="WhatsApp connection operation failed. Please verify credentials.")
+
 
 
 from fastapi.responses import PlainTextResponse
@@ -56,16 +60,27 @@ async def receive_whatsapp(request: Request, db: Session = Depends(get_db)):
     logger.debug("=== INCOMING META WHATSAPP WEBHOOK POST REQUEST ===")
     logger.info("=== INCOMING META WHATSAPP WEBHOOK ===")
     try:
-        data = await request.json()
+    
+        raw_body = await request.body()
+        sig_header = request.headers.get("x-hub-signature-256")
+        app_secret = config_service.get("meta_app_secret")
+        if app_secret and not WebhookService.verify_meta_signature(raw_body, sig_header, app_secret):
+            logger.warning("[META WEBHOOK] Signature verification failed")
+            raise HTTPException(status_code=403, detail="Webhook signature verification failed")
+
+        data = json.loads(raw_body.decode("utf-8") or "{}")
         logger.debug(f"Raw Payload: {json.dumps(data)}")
         logger.info(f"Raw Webhook Payload: {data}")
         res = await WebhookService.handle_meta_whatsapp_webhook(data, db)
         logger.debug(f"Result from WebhookService: {res}")
         return res
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error(f"Webhook processing error: {exc}")
         logger.exception(f"Webhook processing error traceback: {exc}")
         return {"status": "error"}
+
 
 
 

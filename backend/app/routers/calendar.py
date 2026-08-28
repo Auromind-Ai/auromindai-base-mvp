@@ -13,22 +13,24 @@ from app.services.email_automation.calender_executor import CalendarExecutor
 router = APIRouter(prefix="/calendar", tags=["calendar"])
 
 
+from pydantic import BaseModel, EmailStr, Field
+
 class BookAppointmentRequest(BaseModel):
-    meeting_date: str
-    meeting_time: str
-    timezone: Optional[str] = "Asia/Kolkata"
-    name: Optional[str] = "Valued Client"
+    meeting_date: str = Field(..., min_length=4, max_length=20, description="Meeting date (YYYY-MM-DD or readable)")
+    meeting_time: str = Field(..., min_length=3, max_length=20, description="Meeting time (HH:MM or AM/PM format)")
+    timezone: Optional[str] = Field("Asia/Kolkata", max_length=100)
+    name: Optional[str] = Field("Valued Client", max_length=255)
     email: Optional[EmailStr] = None
-    phone: Optional[str] = None
-    location: Optional[str] = "Google Meet / Online"
-    notes: Optional[str] = "Product Demo & AI Discovery"
-    duration_minutes: Optional[int] = 30
+    phone: Optional[str] = Field(None, max_length=50)
+    location: Optional[str] = Field("Google Meet / Online", max_length=500)
+    notes: Optional[str] = Field("Product Demo & AI Discovery", max_length=2000)
+    duration_minutes: Optional[int] = Field(30, ge=10, le=240)
 
 
 class RescheduleAppointmentRequest(BaseModel):
-    new_date: str
-    new_time: str
-    new_timezone: Optional[str] = None
+    new_date: str = Field(..., min_length=4, max_length=20, description="New date (YYYY-MM-DD)")
+    new_time: str = Field(..., min_length=3, max_length=20, description="New time (HH:MM)")
+    new_timezone: Optional[str] = Field(None, max_length=100)
 
 
 @router.get("/status")

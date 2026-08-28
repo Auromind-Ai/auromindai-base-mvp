@@ -1,9 +1,9 @@
 
 
+import logging
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import Any
 
 from app.database import get_db
 from app.routers.auth import get_current_user
@@ -17,13 +17,11 @@ from app.schemas.dashboard import (
     InsightItemResponse,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["dashboard"])
 
 
-
-
 # Full overview bundle (recommended — single network round-trip)
-
 
 @router.get("/overview", response_model=DashboardOverviewResponse)
 async def get_dashboard_overview(
@@ -33,21 +31,27 @@ async def get_dashboard_overview(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-   
     wid = verify_workspace_access(current_user, db, workspace_id)
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Start date cannot be after end date."
+        )
+
     try:
         data = await dashboard_service.get_full_overview(wid, db, start_date=start_date, end_date=end_date)
         return data
+    except HTTPException:
+        raise
     except Exception as exc:
+        logger.error(f"Dashboard overview failed for workspace {wid}: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Dashboard overview failed: {str(exc)}",
+            detail="Failed to load dashboard overview. Please try again later.",
         )
 
 
-
 # Individual endpoints (for targeted refreshes / future micro-frontend use)
-
 
 @router.get("/metrics", response_model=list[MetricResponse])
 async def get_metrics(
@@ -58,10 +62,13 @@ async def get_metrics(
     wid = verify_workspace_access(current_user, db, workspace_id)
     try:
         return await dashboard_service.get_overview_metrics(wid, db)
+    except HTTPException:
+        raise
     except Exception as exc:
+        logger.error(f"Metrics fetch failed for workspace {wid}: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Metrics fetch failed: {str(exc)}",
+            detail="Failed to fetch overview metrics.",
         )
 
 
@@ -74,10 +81,13 @@ async def get_revenue(
     wid = verify_workspace_access(current_user, db, workspace_id)
     try:
         return await dashboard_service.get_revenue_chart(wid, db)
+    except HTTPException:
+        raise
     except Exception as exc:
+        logger.error(f"Revenue chart fetch failed for workspace {wid}: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Revenue chart fetch failed: {str(exc)}",
+            detail="Failed to fetch revenue chart data.",
         )
 
 
@@ -90,10 +100,13 @@ async def get_activities(
     wid = verify_workspace_access(current_user, db, workspace_id)
     try:
         return await dashboard_service.get_recent_activities(wid, db)
+    except HTTPException:
+        raise
     except Exception as exc:
+        logger.error(f"Activities fetch failed for workspace {wid}: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Activities fetch failed: {str(exc)}",
+            detail="Failed to fetch recent activities.",
         )
 
 
@@ -106,8 +119,12 @@ async def get_insights(
     wid = verify_workspace_access(current_user, db, workspace_id)
     try:
         return await dashboard_service.get_ai_insights(wid, db)
+    except HTTPException:
+        raise
     except Exception as exc:
+        logger.error(f"AI insights fetch failed for workspace {wid}: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Insights fetch failed: {str(exc)}",
+            detail="Failed to fetch AI insights.",
         )
+

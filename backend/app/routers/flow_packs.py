@@ -19,17 +19,20 @@ router = APIRouter(prefix="/flow-packs", tags=["flow-packs"])
 admin_router = APIRouter(prefix="/admin/flow-packs", tags=["admin-flow-packs"])
 logger = logging.getLogger(__name__)
 
+from pydantic import BaseModel, Field
+
 class FlowPackPurchaseRequest(BaseModel):
-    pack_id: str
+    pack_id: str = Field(..., min_length=1, max_length=100)
     workspace_id: str | None = None
-    provider: str = "razorpay"
+    provider: str = Field(default="razorpay", max_length=50)
 
 class FlowPackVerifyRequest(BaseModel):
-    razorpay_order_id: str
-    razorpay_payment_id: str
-    razorpay_signature: str
+    razorpay_order_id: str = Field(..., min_length=1, max_length=255)
+    razorpay_payment_id: str = Field(..., min_length=1, max_length=255)
+    razorpay_signature: str = Field(..., min_length=1, max_length=512)
     workspace_id: str | None = None
-    provider: str = "razorpay"
+    provider: str = Field(default="razorpay", max_length=50)
+
 
 # Pydantic schemas for Admin CRUD
 class FlowPackCreateRequest(BaseModel):
@@ -139,7 +142,7 @@ def initiate_purchase(
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
         logger.error(f"[FLOW PACK INITIATE ERROR] {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Flow pack purchase initialization failed. Please try again.")
 
 @router.post("/purchase/verify")
 def verify_purchase(
@@ -168,7 +171,7 @@ def verify_purchase(
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
         logger.error(f"[FLOW PACK VERIFY ERROR] {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Flow pack purchase verification failed. Please try again.")
 
 @router.get("/quota")
 def get_quota(

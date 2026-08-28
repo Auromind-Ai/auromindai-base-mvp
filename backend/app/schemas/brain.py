@@ -1,39 +1,80 @@
-from pydantic import BaseModel, UUID4, Field
+from pydantic import BaseModel, UUID4, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
+from app.utils.ssrf_protection import is_safe_url
 
 class IngestTextRequest(BaseModel):
-    title: str
-    content: str
+    title: str = Field(..., min_length=1, max_length=255)
+    content: str = Field(..., min_length=20, max_length=500000)
     workspace_id: Optional[str] = None
-    region: Optional[str] = None
-    language: Optional[str] = None
-    cultural_context: Optional[str] = None
-    collection: Optional[str] = None
+    region: Optional[str] = Field(None, max_length=100)
+    language: Optional[str] = Field(None, max_length=50)
+    cultural_context: Optional[str] = Field(None, max_length=100)
+    collection: Optional[str] = Field("general", max_length=50)
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v: str) -> str:
+        v_str = v.strip()
+        if not v_str:
+            raise ValueError("Document title cannot be empty.")
+        return v_str
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, v: str) -> str:
+        v_str = v.strip()
+        if len(v_str) < 20:
+            raise ValueError("Content too short (minimum 20 characters required).")
+        return v_str
 
 class IngestURLRequest(BaseModel):
-    url: str
+    url: str = Field(..., min_length=4, max_length=2048)
     workspace_id: Optional[str] = None
-    region: Optional[str] = None
-    language: Optional[str] = None
-    cultural_context: Optional[str] = None
-    collection: Optional[str] = None
+    region: Optional[str] = Field(None, max_length=100)
+    language: Optional[str] = Field(None, max_length=50)
+    cultural_context: Optional[str] = Field(None, max_length=100)
+    collection: Optional[str] = Field("general", max_length=50)
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        v_str = v.strip()
+        if not v_str.startswith(("http://", "https://")):
+            v_str = "https://" + v_str
+        if not is_safe_url(v_str):
+            raise ValueError("Invalid or restricted URL. Private network addresses and localhost are forbidden.")
+        return v_str
 
 class SearchRequest(BaseModel):
-    query: str = Field(..., max_length=96000, description="Search query limited to max 96000 characters")
+    query: str = Field(..., min_length=1, max_length=96000, description="Search query limited to max 96000 characters")
     workspace_id: Optional[str] = None
-    top_k: int = 5
+    top_k: int = Field(default=5, ge=1, le=50)
     entry_ids: Optional[List[str]] = None
-    collection: Optional[str] = None
+    collection: Optional[str] = Field(None, max_length=50)
+
+    @field_validator("query")
+    @classmethod
+    def validate_query(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Search query cannot be empty.")
+        return v
 
 class QueryRequest(BaseModel):
-    question: str = Field(..., max_length=96000, description="Question prompt limited to max 96000 characters")
+    question: str = Field(..., min_length=1, max_length=96000, description="Question prompt limited to max 96000 characters")
     workspace_id: Optional[str] = None
-    top_k: int = 5
+    top_k: int = Field(default=5, ge=1, le=50)
     include_sources: bool = True
     entry_ids: Optional[List[str]] = None
-    collection: Optional[str] = None
+    collection: Optional[str] = Field(None, max_length=50)
+
+    @field_validator("question")
+    @classmethod
+    def validate_question(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Question prompt cannot be empty.")
+        return v
 
 class BrainEntryResponse(BaseModel):
     id: UUID4
@@ -91,13 +132,23 @@ class ListEntriesResponse(BaseModel):
     status: str
 
 class CrawlWebsiteRequest(BaseModel):
-    url: str
+    url: str = Field(..., min_length=4, max_length=2048)
     workspace_id: Optional[str] = None
-    max_pages: int = 50
-    region: Optional[str] = None
-    language: Optional[str] = None
-    cultural_context: Optional[str] = None
-    collection: Optional[str] = None
+    max_pages: int = Field(default=50, ge=1, le=100)
+    region: Optional[str] = Field(None, max_length=100)
+    language: Optional[str] = Field(None, max_length=50)
+    cultural_context: Optional[str] = Field(None, max_length=100)
+    collection: Optional[str] = Field("general", max_length=50)
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        v_str = v.strip()
+        if not v_str.startswith(("http://", "https://")):
+            v_str = "https://" + v_str
+        if not is_safe_url(v_str):
+            raise ValueError("Invalid or restricted website URL. Private network addresses and localhost are forbidden.")
+        return v_str
 
 class IngestResponse(BaseModel):
     status: str
@@ -116,3 +167,4 @@ class CrawlResponse(BaseModel):
     chunks_created: int
     message: str
     entry_id: Optional[str] = None
+

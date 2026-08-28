@@ -82,7 +82,6 @@ async def sync_gmail_leads(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    
     ws_uuid = verify_workspace_access(current_user, db, workspace_id)
     payload = body or GmailSyncLeadsRequest()
 
@@ -101,8 +100,10 @@ async def sync_gmail_leads(
         raise HTTPException(status_code=404, detail=str(val_err))
     except PermissionError as perm_err:
         raise HTTPException(status_code=403, detail=str(perm_err))
+    except HTTPException:
+        raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Lead sync failed: {str(exc)}")
+        raise HTTPException(status_code=500, detail="Gmail lead synchronization failed. Please try again later.")
 
 @router.get("/import-logs")
 async def get_gmail_import_logs(
@@ -112,25 +113,23 @@ async def get_gmail_import_logs(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """
-    Fetch historical Gmail message import logs for this workspace.
-    """
     ws_uuid = verify_workspace_access(current_user, db, workspace_id)
     from app.models.integration import GmailImportLog
 
     bounded_limit = max(1, min(limit, 100))
+    bounded_offset = max(0, offset)
     query = (
         db.query(GmailImportLog)
         .filter(GmailImportLog.workspace_id == ws_uuid)
         .order_by(GmailImportLog.processed_at.desc())
     )
     total = query.count()
-    logs = query.offset(offset).limit(bounded_limit).all()
+    logs = query.offset(bounded_offset).limit(bounded_limit).all()
 
     return {
         "total": total,
         "limit": bounded_limit,
-        "offset": offset,
+        "offset": bounded_offset,
         "logs": [
             {
                 "id": str(log.id),
@@ -144,6 +143,7 @@ async def get_gmail_import_logs(
             for log in logs
         ]
     }
+
 
 # @router.get("/messages")
 # async def get_messages(

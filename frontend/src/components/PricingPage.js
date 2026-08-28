@@ -11,6 +11,8 @@ const PLAN_ORDER = {
   solo: 1,
   pro: 2,
   enterprise: 3,
+  custom: 3,
+  letstalk: 3,
 };
 
 const TOKENS_PER_CREDIT = 1000;
@@ -35,12 +37,12 @@ const cardVariants = {
 /* ─ PricingCard with Grand Spacing, Gradient Fade & Smooth Line Scroll ─ */
 
 function PricingCard({ plan, currentPlan, onUpgrade, index, isAnnual }) {
+  const isEnterprise = plan.key === 'enterprise' || plan.key === 'custom' || plan.key === 'letstalk' || (plan.name || '').toLowerCase().includes('enterprise') || (plan.label || '').toLowerCase().includes('enterprise');
   const isCurrent    = currentPlan === plan.key;
-  const isEnterprise = plan.key === 'enterprise';
 
   const currentRank            = PLAN_ORDER[currentPlan] ?? 0;
   const planRank              = PLAN_ORDER[plan.key]    ?? 0;
-  const shouldShowActionButton = planRank >= currentRank;
+  const shouldShowActionButton = isEnterprise || planRank >= currentRank;
 
   const scrollContainerRef = useRef(null);
   const [canScrollDown, setCanScrollDown] = useState(false);
@@ -98,12 +100,12 @@ function PricingCard({ plan, currentPlan, onUpgrade, index, isAnnual }) {
     if (currentPlan === planKey) return 'Current Plan';
     if (planKey === 'solo')       return 'Upgrade to Solo Smart';
     if (planKey === 'pro')        return 'Upgrade to Pro';
-    if (planKey === 'enterprise') return "Let's Talk";
+    if (planKey === 'enterprise' || planKey === 'custom' || isEnterprise) return "Let's Talk";
     return 'Choose this plan';
   };
 
   const isFeatured = plan.featured;
-  const showPerPeriod = !['Free', 'Custom', "Let's Talk"].includes(plan.price);
+  const showPerPeriod = !['Free', 'Custom', "Let's Talk", "Let's Start"].includes(plan.price) && !isEnterprise;
 
   const cardBg = isCurrent
     ? 'border-[#814AC8]/60 bg-[radial-gradient(circle_at_top,rgba(129,74,200,0.25),rgba(10,10,12,1)_70%)] shadow-[0_0_50px_rgba(129,74,200,0.30)] ring-1 ring-[#814AC8]/40'
@@ -256,20 +258,23 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
     solo: '⚡',
     pro: '🔥',
     enterprise: '👑',
+    custom: '👑',
+    letstalk: '👑',
   };
 
   const plans = dbPlans && dbPlans.length > 0
     ? dbPlans.map(plan => {
+        const isPlanEnterprise = plan.key === 'enterprise' || plan.key === 'custom' || plan.key === 'letstalk' || (plan.name || '').toLowerCase().includes('enterprise') || (plan.label || '').toLowerCase().includes('enterprise');
         const rawPrice = isAnnual ? (plan.yearly_price ?? plan.amount * 10) : (plan.monthly_price ?? plan.amount);
         const displayPrice = (plan.key === 'free' || rawPrice === 0)
           ? 'Free'
-          : (plan.key === 'enterprise' || rawPrice === 0)
+          : (isPlanEnterprise || rawPrice === 0)
           ? "Let's Talk"
           : `₹${Number(rawPrice).toLocaleString('en-IN')}`;
 
         return {
           key:         plan.key,
-          icon:        iconMap[plan.key] || '🚀',
+          icon:        iconMap[plan.key] || (isPlanEnterprise ? '👑' : '🚀'),
           name:        plan.name || plan.label,
           price:       displayPrice,
           usage:       `${Math.round((plan.tokens || 1000000) / TOKENS_PER_CREDIT)} credits / month`,

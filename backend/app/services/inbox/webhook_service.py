@@ -113,6 +113,31 @@ class WebhookService:
         if mode == "subscribe" and token == verify_token:
             return challenge
         return None
+
+    @staticmethod
+    def verify_meta_signature(raw_body: bytes, signature_header: str | None, app_secret: str | None) -> bool:
+        if not app_secret:
+            return True
+        if not signature_header or not signature_header.startswith("sha256="):
+            return False
+        expected_sig = signature_header.split("sha256=", 1)[1].strip()
+        import hmac, hashlib
+        computed_sig = hmac.new(app_secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected_sig, computed_sig)
+
+    @staticmethod
+    def verify_twilio_signature(url: str, params: dict, signature_header: str | None, auth_token: str | None) -> bool:
+        if not auth_token:
+            return True
+        if not signature_header:
+            return False
+        try:
+            from twilio.request_validator import RequestValidator
+            validator = RequestValidator(auth_token)
+            return validator.validate(url, params, signature_header)
+        except Exception:
+            return False
+
         
     @staticmethod
     async def handle_twilio_webhook(form_data, db: Session):

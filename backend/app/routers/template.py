@@ -8,7 +8,9 @@ import os
 import re
 from dotenv import load_dotenv
 from groq import Groq
+from app.core.security import to_uuid
 
+from app.services.wcc_service import WCCService
 from app.database import get_db
 from app.models.templates import Template
 from app.models.workspace import Workspace
@@ -18,22 +20,15 @@ from app.core.security import verify_workspace_access
 
 router = APIRouter()
 
-class TemplateCreate(BaseModel):
-    name: str
-    type: str
-    message: str
-    workspace_id: str | None = None
-    category: str
-    language: str
-    header: str | None = None
-    footer: str | None = None
-    cta: str | None = None
-    cta_btn_title: str | None = None
+from app.schemas.template import (
+    TemplateCreate,
+    GenerateRequest,
+    TemplateSendRequest,
+    TemplateRead,
+    TemplateListResponse,
+    TemplateStatusResponse,
+)
 
-class GenerateRequest(BaseModel):
-    prompt: str
-    language: str | None = None
-    tone: str | None = None
 
 
 def map_language(lang):
@@ -259,7 +254,7 @@ Return JSON only.
         raise e
     except Exception as e:
         logger.error(f"Template generation failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="AI template generation failed. Please try again.")
 
 @router.post("/templates/create")
 def create_template(
@@ -296,7 +291,7 @@ def create_template(
     if not workspace.meta_waba_id or not system_token:
         raise HTTPException(
             400,
-            "Meta WhatsApp Business API credentials are not configured."
+            "WhatsApp channel is not connected or configured. Please connect your WhatsApp channel in Channel Settings or contact support."
         )
 
     new_template = Template(
@@ -329,12 +324,12 @@ def create_template(
     try:
         meta_response = submit_to_meta(meta_payload, workspace)
     except Exception as e:
-        logger.error(f"Failed to submit template to Meta: {e}")
+        logger.error(f"Failed to submit template: {e}")
         new_template.status = "rejected"
         db.commit()
         raise HTTPException(
             status_code=503,
-            detail=f"Failed to submit template to Meta due to a connection timeout. Please check your template list or try again in a moment."
+            detail="Failed to submit template due to a connection timeout. Please check your template list or try again in a moment."
         )
 
     if meta_response.get("error"):
@@ -350,7 +345,6 @@ def create_template(
                 headers = {
                     "Authorization": f"Bearer {workspace.meta_access_token}"
                 }
-                # Use a generous 20-second timeout for retrieval
                 import requests
                 get_res = requests.get(url, headers=headers, timeout=20)
                 if get_res.status_code == 200:
@@ -370,15 +364,15 @@ def create_template(
                         logger.info(f"Successfully recovered template from Meta: ID={meta_template_id}, Status={new_template.status}")
                         return {"status": "submitted"}
             except Exception as get_exc:
-                logger.error(f"Failed to recover template from Meta: {get_exc}")
+                logger.error(f"Failed to recover template: {get_exc}")
         
         # Default error handling if not recovered
         logger.error(f"META ERROR: {meta_response}")
         new_template.status = "rejected"
         db.commit()
 
-        error_msg = error_info.get("message", "Unknown error from Meta")
-        raise HTTPException(400, f"Template rejected by Meta: {error_msg}")
+        error_msg = error_info.get("message", "Template submission was rejected. Please review your template content.")
+        raise HTTPException(400, f"Template rejected: {error_msg}")
     
     else:
         logger.info(f"META SUCCESS: {meta_response}")
@@ -570,26 +564,42 @@ def check_template_status(
 
 @router.post("/messages/send")
 def send_message(
-    data: dict, 
+    data: TemplateSendRequest, 
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db, data.get("workspace_id"))
-    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    workspace_id = verify_workspace_access(current_user, db, data.workspace_id)
+  
+
+    ws_uuid = to_uuid(workspace_id)
+    workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
+
     if not workspace:
         raise HTTPException(404, "Workspace not found")
+
+    wallet = WCCService.get_balance(db, ws_uuid)
+    if wallet and float(wallet.balance or 0.0) <= 0:
+        raise HTTPException(
+            status_code=402,
+            detail="Insufficient WCC wallet balance to send WhatsApp template message. Please recharge your wallet."
+        )
+
+
+    if not workspace.meta_phone_number_id:
+        raise HTTPException(400, "WhatsApp phone number is not configured for this workspace. Please configure it in Channel Settings.")
         
     url = f"https://graph.facebook.com/v19.0/{workspace.meta_phone_number_id}/messages"
 
+
     # Query template language from database
     template = db.query(Template).filter(
-        Template.name == data["template_name"],
+        Template.name == data.template_name,
         Template.workspace_id == workspace_id
     ).first()
     lang_code = template.language if template else "en_US"
 
     components = []
-    variables = data.get("variables", [])
+    variables = data.variables or []
     if variables:
         components = [
             {
@@ -600,14 +610,15 @@ def send_message(
 
     payload = {
         "messaging_product": "whatsapp",
-        "to": data["phone"],
+        "to": data.phone,
         "type": "template",
         "template": {
-            "name": data["template_name"],
+            "name": data.template_name,
             "language": {"code": lang_code},
             "components": components,
         },
     }
+
 
     from app.services.config_service import config_service
 
@@ -616,7 +627,7 @@ def send_message(
     if not system_token:
         raise HTTPException(
             503,
-            "Meta System User Token is not configured."
+            "WhatsApp messaging service is temporarily unavailable. Please try again later."
         )
 
     headers = {
@@ -651,7 +662,7 @@ def submit_template(
     if not workspace.meta_waba_id or not system_token:
         raise HTTPException(
             400,
-            "Meta WhatsApp Business API credentials are not configured."
+            "WhatsApp channel is not connected or configured. Please connect your WhatsApp channel in Channel Settings or contact support."
         )
 
     # Auto-correct variables format
@@ -682,9 +693,9 @@ def submit_template(
         template.status = "rejected"
         db.commit()
         error_msg = meta_response.get("error", {}).get(
-            "message", "Unknown error from Meta"
+            "message", "Template submission was rejected. Please review your template content."
         )
-        raise HTTPException(400, f"Template rejected by Meta: {error_msg}")
+        raise HTTPException(400, f"Template rejected: {error_msg}")
     
     else:
         logger.info(f"META SUBMIT SUCCESS: {meta_response}")

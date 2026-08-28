@@ -184,30 +184,42 @@ function UnreadBadge({ count, channel }) {
 }
 
 function formatActiveTime(dateInput) {
-    if (!dateInput) return 'Inactive';
+    if (!dateInput) return 'Offline';
     const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
-    if (isNaN(d.getTime())) return 'Inactive';
+    if (isNaN(d.getTime())) return 'Offline';
 
     const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+
+    // If active within 2 minutes: Online
+    if (diffMs < 2 * 60 * 1000 && diffMs >= 0) {
+        return 'Online';
+    }
+
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
 
     if (d.toDateString() === now.toDateString()) {
-        const mins = Math.floor((now.getTime() - d.getTime()) / 60000);
-        if (mins < 1) return 'Active now';
+        const mins = Math.floor(diffMs / 60000);
+        if (mins < 1) return 'Active just now';
         if (mins < 60) return `Active ${mins}m ago`;
         const hrs = Math.floor(mins / 60);
         return `Active ${hrs}h ago`;
     }
-    if (d.toDateString() === yesterday.toDateString()) return 'Active yesterday';
+    if (d.toDateString() === yesterday.toDateString()) {
+        return 'Active yesterday';
+    }
 
     const today = new Date(now); today.setHours(0, 0, 0, 0);
     const msgDay = new Date(d); msgDay.setHours(0, 0, 0, 0);
     const diffDays = Math.round((today - msgDay) / (1000 * 60 * 60 * 24));
 
-    if (diffDays < 7) return `Active ${diffDays} days ago`;
+    if (diffDays >= 1 && diffDays <= 7) {
+        return `Active ${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    }
 
-    return `Active ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+    // Beyond 7 days: Formatted date e.g. "Active Aug 17, 2026"
+    return `Active ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 }
 
 function getLastUserActivity(lead, messages) {
@@ -215,13 +227,27 @@ function getLastUserActivity(lead, messages) {
         for (let i = messages.length - 1; i >= 0; i--) {
             const m = messages[i];
             const senderType = m.sender_type?.toLowerCase();
-            if (senderType === 'user') {
+            if (senderType === 'user' || senderType === 'customer' || senderType === 'lead') {
                 const ts = m.timestamp || m.created_at;
                 if (ts) {
                     const d = new Date(ts);
                     if (!isNaN(d.getTime())) return d;
                 }
             }
+        }
+        // Fallback to most recent message timestamp if no explicit user message is flagged
+        const latestMsg = messages[messages.length - 1];
+        const latestTs = latestMsg?.timestamp || latestMsg?.created_at;
+        if (latestTs) {
+            const d = new Date(latestTs);
+            if (!isNaN(d.getTime())) return d;
+        }
+    }
+    if (lead) {
+        const leadTs = lead.last_contact_time || lead.last_interaction || lead.last_message_at || lead.updated_at || lead.created_at;
+        if (leadTs) {
+            const d = new Date(leadTs);
+            if (!isNaN(d.getTime())) return d;
         }
     }
     return null;
@@ -1084,9 +1110,13 @@ function ChatArea({
                             {ch.id !== 'whatsapp' && <ChevronRight size={14} className="text-[#555]" />}
                         </div>
                         <p className="text-[12px] text-[#666]">
-                            {ch.id === 'whatsapp' ? (
-                                <span className="text-emerald-400">● Online</span>
-                            ) : formatActiveTime(lastUserActivity)}
+                            {(() => {
+                                const activeText = formatActiveTime(lastUserActivity);
+                                if (activeText === 'Online') {
+                                    return <span className="text-emerald-400 font-medium">● Online</span>;
+                                }
+                                return <span>{activeText}</span>;
+                            })()}
                         </p>
                         {ch.id === 'whatsapp' && (
                             <div className="flex items-center gap-2 mt-1.5 flex-wrap">

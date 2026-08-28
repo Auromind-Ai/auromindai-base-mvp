@@ -97,45 +97,64 @@ MIME_EXTENSION_MAP = {
 }
 
 
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+
 @router.post("/upload", response_model=UploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
+    workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
+    if not file.filename or not file.filename.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Filename cannot be empty."
+        )
+
+    clean_filename = os.path.basename(file.filename.strip())
+
     file_content = await file.read()
+    if len(file_content) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty."
+        )
+
     if len(file_content) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail="File too large. Maximum size is 50MB."
         )
 
-   
     real_mime = _validate_mime(file_content, file.content_type)
     file_type = get_file_type(real_mime)
 
-    workspace_id = verify_workspace_access(current_user, db)
-    if isinstance(workspace_id, str):
-        workspace_id = uuid.UUID(workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    ws_uuid = uuid.UUID(verified_workspace_id) if isinstance(verified_workspace_id, str) else verified_workspace_id
 
     file_extension = MIME_EXTENSION_MAP.get(real_mime, "")
     unique_filename = f"{uuid.uuid4()}{file_extension}"
-    relative_path = f"{workspace_id}/{file_type}/{unique_filename}"
+    relative_path = f"{ws_uuid}/{file_type}/{unique_filename}"
 
     storage = get_storage()
     try:
         public_url = await storage.save_file(relative_path, file_content, real_mime)
     except Exception as exc:
+        logger.error(f"File upload storage failure: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"File upload failed: {str(exc)}"
+            detail="File upload storage operation failed. Please try again."
         )
 
     db_file = MediaFile(
-        workspace_id=workspace_id,
+        workspace_id=ws_uuid,
         file_path=relative_path,
         file_type=file_type,
-        original_filename=file.filename,
+        original_filename=clean_filename,
         file_size=len(file_content),
         mime_type=real_mime
     )
@@ -146,6 +165,8 @@ async def upload_file(
     return UploadResponse(
         id=str(db_file.id),
         url=public_url,
+        filename=clean_filename,
+        file_size=len(file_content),
         file_type=file_type,
-        filename=file.filename
+        mime_type=real_mime
     )

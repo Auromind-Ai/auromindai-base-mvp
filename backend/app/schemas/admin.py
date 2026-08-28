@@ -75,4 +75,5 @@ class ModelConfigUpdate(BaseModel):
 
 
 class AdminAuthRequest(BaseModel):
-    password: str
+    password: str = Field(..., min_length=1, max_length=255)
+

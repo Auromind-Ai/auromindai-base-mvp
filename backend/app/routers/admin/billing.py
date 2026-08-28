@@ -37,28 +37,69 @@ from app.core.admin_security import verify_admin_workspace
 import logging
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter()
 
+from pydantic import BaseModel, Field, field_validator, validator
+from app.schemas.billing import (
+    RetryPaymentOpRequest,
+    ReplayWebhookOpRequest,
+    ManualVerifyPaymentOpRequest,
+    RetryRechargeOpRequest,
+    RetryCreditPurchaseOpRequest,
+    RepairBillingOpRequest,
+)
 
 class WorkspaceSearchRequest(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=255, description="Search query string")
+
+    @field_validator("query")
+    @classmethod
+    def validate_query(cls, v: str) -> str:
+        v_str = v.strip()
+        if not v_str:
+            raise ValueError("Search query cannot be empty or whitespace only.")
+        return v_str
 
 
 class AdjustCreditsRequest(BaseModel):
-    credits: float
-    reason: str
+    credits: float = Field(..., description="Credits to adjust (positive or negative float)")
+    reason: str = Field(..., min_length=1, max_length=500, description="Reason for adjustment")
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, v: str) -> str:
+        v_str = v.strip()
+        if not v_str:
+            raise ValueError("Reason cannot be empty or whitespace only.")
+        return v_str
 
 
 class AdjustWalletRequest(BaseModel):
-    amount: Decimal
-    reason: str
+    amount: Decimal = Field(..., description="Amount to adjust in WCC wallet")
+    reason: str = Field(..., min_length=1, max_length=500, description="Reason for adjustment")
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, v: str) -> str:
+        v_str = v.strip()
+        if not v_str:
+            raise ValueError("Reason cannot be empty or whitespace only.")
+        return v_str
 
 
 class OverrideSubscriptionRequest(BaseModel):
-    plan_name: str
-    status: str
-    reason: str
+    plan_name: str = Field(..., min_length=1, max_length=50, description="Plan identifier")
+    status: str = Field(..., min_length=1, max_length=50, pattern=r"^(?i)(active|expired|pending|cancelled)$")
+    reason: str = Field(..., min_length=1, max_length=500, description="Reason for subscription override")
+
+    @field_validator("plan_name", "reason")
+    @classmethod
+    def validate_non_empty(cls, v: str) -> str:
+        v_str = v.strip()
+        if not v_str:
+            raise ValueError("Field cannot be empty or whitespace only.")
+        return v_str
+
 
 
 def get_admin_identity(request: Request) -> str:
@@ -1128,12 +1169,12 @@ async def get_gateway_health(db: Session = Depends(get_db)):
 
 @router.post("/billing/operations/retry-payment")
 async def retry_payment_op(
-    payload: dict,
+    payload: RetryPaymentOpRequest,
     db: Session = Depends(get_db),
     admin_user: str = Depends(get_admin_identity),
     request: Request = None
 ):
-    payment_id = payload.get("target_id")
+    payment_id = payload.target_id
     payment = db.query(Payment).filter(Payment.id == payment_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment record not found")
@@ -1149,7 +1190,7 @@ async def retry_payment_op(
         workspace_id=payment.workspace_id,
         old_value={"status": old_status},
         new_value={"status": "pending"},
-        reason=payload.get("reason"),
+        reason=payload.reason,
         request=request
     )
     return {"message": "Payment retry initiated"}
@@ -1157,12 +1198,12 @@ async def retry_payment_op(
 
 @router.post("/billing/operations/replay-webhook")
 async def replay_webhook_op(
-    payload: dict,
+    payload: ReplayWebhookOpRequest,
     db: Session = Depends(get_db),
     admin_user: str = Depends(get_admin_identity),
     request: Request = None
 ):
-    event_id = payload.get("target_id")
+    event_id = payload.target_id
     event = db.query(WebhookEvent).filter(WebhookEvent.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Webhook event not found")
@@ -1178,10 +1219,11 @@ async def replay_webhook_op(
         workspace_id=None,
         old_value={"processed": True},
         new_value={"processed": False},
-        reason=payload.get("reason"),
+        reason=payload.reason,
         request=request
     )
     return {"message": "Webhook replay initiated"}
+
 
 
 @router.post("/billing/operations/recalculate-balances")
@@ -1484,15 +1526,12 @@ async def recalculate_wallet_op(
 
 @router.post("/billing/operations/verify-payment-manually")
 async def verify_payment_manually_op(
-    payload: dict,
+    payload: ManualVerifyPaymentOpRequest,
     db: Session = Depends(get_db),
     admin_user: str = Depends(get_admin_identity),
     request: Request = None
 ):
-    payment_id = payload.get("payment_id")
-    if not payment_id:
-        raise HTTPException(status_code=400, detail="payment_id is required")
-        
+    payment_id = payload.payment_id
     payment = db.query(Payment).filter(Payment.id == payment_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment record not found")
@@ -1512,7 +1551,7 @@ async def verify_payment_manually_op(
         workspace_id=payment.workspace_id,
         old_value={"status": old_status},
         new_value={"status": "paid"},
-        reason=payload.get("reason", "Manual Admin Verification"),
+        reason=payload.reason,
         request=request
     )
     return {"message": "Payment verified manually and subscription renewed successfully"}
@@ -1520,15 +1559,12 @@ async def verify_payment_manually_op(
 
 @router.post("/billing/operations/retry-recharge")
 async def retry_recharge_op(
-    payload: dict,
+    payload: RetryRechargeOpRequest,
     db: Session = Depends(get_db),
     admin_user: str = Depends(get_admin_identity),
     request: Request = None
 ):
-    recharge_log_id = payload.get("recharge_log_id")
-    if not recharge_log_id:
-        raise HTTPException(status_code=400, detail="recharge_log_id is required")
-        
+    recharge_log_id = payload.recharge_log_id
     recharge = db.query(WCCRechargeLog).filter(WCCRechargeLog.id == recharge_log_id).first()
     if not recharge:
         raise HTTPException(status_code=404, detail="Recharge log not found")
@@ -1555,7 +1591,7 @@ async def retry_recharge_op(
         workspace_id=recharge.workspace_id,
         old_value={"balance": old_bal, "status": "pending"},
         new_value={"balance": new_bal, "status": "success"},
-        reason=payload.get("reason", "Manual Retry Recharge Override"),
+        reason=payload.reason,
         request=request
     )
     return {"message": "Recharge retried successfully and credited to wallet", "new_balance": new_bal}
@@ -1563,15 +1599,12 @@ async def retry_recharge_op(
 
 @router.post("/billing/operations/retry-credit-purchase")
 async def retry_credit_purchase_op(
-    payload: dict,
+    payload: RetryCreditPurchaseOpRequest,
     db: Session = Depends(get_db),
     admin_user: str = Depends(get_admin_identity),
     request: Request = None
 ):
-    payment_id = payload.get("payment_id")
-    if not payment_id:
-        raise HTTPException(status_code=400, detail="payment_id is required")
-        
+    payment_id = payload.payment_id
     payment = db.query(Payment).filter(Payment.id == payment_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment record not found")
@@ -1618,10 +1651,11 @@ async def retry_credit_purchase_op(
         workspace_id=payment.workspace_id,
         old_value={"status": old_status},
         new_value={"status": "paid", "balance": new_bal},
-        reason=payload.get("reason", "Manual Credit Purchase Verify"),
+        reason=payload.reason,
         request=request
     )
     return {"message": "Credit purchase verified manually and credits granted", "new_balance": new_bal}
+
 
 
 @router.get("/billing/diagnostics")
@@ -1784,14 +1818,15 @@ async def get_billing_diagnostics(db: Session = Depends(get_db)):
 
 @router.post("/billing/diagnostics/repair")
 async def repair_billing_op(
-    payload: dict,
+    payload: RepairBillingOpRequest,
     db: Session = Depends(get_db),
     admin_user: str = Depends(get_admin_identity),
     request: Request = None
 ):
-    issue_type = payload.get("issue_type")
-    workspace_id_str = payload.get("workspace_id")
-    metadata = payload.get("metadata") or {}
+    issue_type = payload.issue_type
+    workspace_id_str = payload.workspace_id
+    metadata = payload.metadata or {}
+
     
     workspace_id = None
     if workspace_id_str:
@@ -2186,12 +2221,12 @@ async def get_credit_packs_admin(db: Session = Depends(get_db)):
 
 
 class CreditPackCreateRequest(BaseModel):
-    pack_id: str
-    name: str
-    amount: float
-    credits: int
-    currency: str = "INR"
-    is_active: bool = True
+    pack_id: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-z0-9_\-]+$", description="Unique alphanumeric identifier for credit pack")
+    name: str = Field(..., min_length=1, max_length=255, description="Display name of the credit pack")
+    amount: float = Field(..., ge=0, description="Purchase price amount")
+    credits: int = Field(..., gt=0, description="Number of credits granted")
+    currency: str = Field("INR", max_length=10)
+    is_active: bool = Field(True)
 
 
 @router.post("/billing/credit-packs")
@@ -2231,11 +2266,12 @@ async def create_credit_pack_admin(
 
 
 class CreditPackUpdateRequest(BaseModel):
-    name: Optional[str] = None
-    amount: Optional[float] = None
-    credits: Optional[int] = None
-    currency: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    amount: Optional[float] = Field(None, ge=0)
+    credits: Optional[int] = Field(None, gt=0)
+    currency: Optional[str] = Field(None, max_length=10)
     is_active: Optional[bool] = None
+
 
 
 @router.put("/billing/credit-packs/{id}")

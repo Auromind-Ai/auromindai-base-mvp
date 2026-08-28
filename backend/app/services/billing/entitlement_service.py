@@ -789,7 +789,39 @@ class EntitlementService:
         if custom_message:
             msg = custom_message
         else:
-            msg = f"You have reached your {plan_name} plan limit of {current_limit} {resource_label}. Upgrade to Pro for {upgrade_price} to add up to {pro_limit} {resource_label}."
+            current_order = plan.display_order if plan and plan.display_order is not None else 0
+            next_plan = (
+                db.query(Plan)
+                .filter(Plan.is_active == True, Plan.display_order > current_order)
+                .order_by(Plan.display_order.asc())
+                .first()
+            )
+
+            if next_plan:
+                next_ent = db.query(PlanEntitlement).filter(PlanEntitlement.plan_id == next_plan.id).first()
+                next_limit_val = None
+                if next_ent:
+                    field_map = {
+                        "knowledge_base": next_ent.knowledge_base_limit,
+                        "kb": next_ent.knowledge_base_limit,
+                        "lead": next_ent.lead_limit,
+                        "automation": next_ent.automation_limit,
+                        "gmail": next_ent.gmail_limit,
+                        "flow": next_ent.flow,
+                        "storage": next_ent.storage_limit_mb,
+                        "meeting": next_ent.meeting_limit,
+                    }
+                    next_limit_val = field_map.get(resource.lower())
+
+                next_plan_name = next_plan.display_name or next_plan.name.title()
+                next_price_display = f"₹{int(next_plan.price)}/month" if next_plan.price else "next tier"
+
+                if next_limit_val and next_limit_val > current_limit:
+                    msg = f"You have reached your {plan_name} plan limit of {current_limit} {resource_label}. Upgrade to {next_plan_name} for {next_price_display} to add up to {next_limit_val} {resource_label}, or contact us for custom add-ons."
+                else:
+                    msg = f"You have reached your {plan_name} plan limit of {current_limit} {resource_label}. Upgrade to {next_plan_name} for {next_price_display} to increase your limit, or contact us for custom add-ons."
+            else:
+                msg = f"You have reached your {plan_name} plan limit of {current_limit} {resource_label}. Please contact our support team or purchase custom add-on credits to increase your limit."
 
         raise HTTPException(
             status_code=403,

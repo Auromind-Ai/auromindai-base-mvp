@@ -55,6 +55,10 @@ class UUIDValidationMiddleware:
                 response = JSONResponse(
                     status_code=422,
                     content={
+                        "success": False,
+                        "message": f"Invalid UUID format for parameter '{param_name}': {param_value}",
+                        "error_code": "VALIDATION_ERROR",
+                        "errors": [{"field": param_name, "message": "Malformed UUID format", "type": "value_error.uuid"}],
                         "detail": f"Invalid UUID format for parameter '{param_name}': {param_value}"
                     },
                 )
@@ -68,6 +72,10 @@ class UUIDValidationMiddleware:
                 response = JSONResponse(
                     status_code=422,
                     content={
+                        "success": False,
+                        "message": f"Invalid UUID format in path: {segment}",
+                        "error_code": "VALIDATION_ERROR",
+                        "errors": [{"field": "path", "message": f"Malformed UUID format: {segment}", "type": "value_error.uuid"}],
                         "detail": f"Invalid UUID format in path: {segment}"
                     },
                 )
@@ -82,7 +90,13 @@ class UUIDValidationMiddleware:
                 logger.warning("UUID ValueError caught by middleware: %s", exc)
                 response = JSONResponse(
                     status_code=422,
-                    content={"detail": f"Invalid UUID: {exc}"},
+                    content={
+                        "success": False,
+                        "message": f"Invalid UUID: {exc}",
+                        "error_code": "VALIDATION_ERROR",
+                        "errors": [{"field": "uuid", "message": str(exc), "type": "value_error.uuid"}],
+                        "detail": f"Invalid UUID: {exc}"
+                    },
                 )
                 await response(scope, receive, send)
                 return

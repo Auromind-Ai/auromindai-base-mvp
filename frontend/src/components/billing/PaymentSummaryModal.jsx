@@ -26,21 +26,18 @@ export default function PaymentSummaryModal({
   if (!isOpen || !itemDetails) return null;
 
   const {
-    title = "Pro Plan Subscription",
-    subtitle = "Workspace Plan Upgrade • Monthly Billing",
+    title = "Plan Subscription",
+    subtitle = "Workspace Plan Upgrade",
     billingCycle = "monthly",
-    baseAmount = 199,
-    features = [
-      "250,000 AI Credits / month",
-      "500 WhatsApp WCC Wallet Credits",
-      "Unlimited Agent Automation Flows",
-      "5 Team Member Seats",
-      "24/7 Priority Support",
-    ],
+    baseAmount = 0,
+    features = [],
+    gstRate = 0,
   } = itemDetails;
 
-  const cgstAmount = Number((baseAmount * 0.09).toFixed(2));
-  const sgstAmount = Number((baseAmount * 0.09).toFixed(2));
+  const currentGstRate = Number(gstRate) || 0;
+  const halfGstRate = (currentGstRate / 2) / 100;
+  const cgstAmount = Number((baseAmount * halfGstRate).toFixed(2));
+  const sgstAmount = Number((baseAmount * halfGstRate).toFixed(2));
   const totalGst = Number((cgstAmount + sgstAmount).toFixed(2));
   const totalPayable = Number((baseAmount + totalGst).toFixed(2));
 
@@ -136,12 +133,12 @@ export default function PaymentSummaryModal({
               </div>
 
               <div className="flex justify-between items-center text-xs text-white/50">
-                <span>CGST (9%)</span>
+                <span>CGST ({(currentGstRate / 2).toFixed(0)}%)</span>
                 <span className="text-white/70">₹{cgstAmount.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between items-center text-xs text-white/50">
-                <span>SGST (9%)</span>
+                <span>SGST ({(currentGstRate / 2).toFixed(0)}%)</span>
                 <span className="text-white/70">₹{sgstAmount.toFixed(2)}</span>
               </div>
 
@@ -149,7 +146,9 @@ export default function PaymentSummaryModal({
               <div className="pt-3 border-t border-white/10 flex justify-between items-center">
                 <div>
                   <p className="text-xs sm:text-sm font-bold text-white">Total Payable</p>
-                  <p className="text-[11px] text-white/40">Includes 18% GST</p>
+                  <p className="text-[11px] text-white/40">
+                    {currentGstRate > 0 ? `Includes ${currentGstRate}% GST` : "GST (0%)"}
+                  </p>
                 </div>
                 <div className="text-right">
                   <span className="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-purple-300 to-indigo-300 tracking-tight">

@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
-
 logger = logging.getLogger("app")
 from app.core.enums import PaymentStatus, SubscriptionStatus
 from app.models.billing import Payment
@@ -29,6 +28,8 @@ from .token_service import TokenService
 from .usage_service import UsageService
 from .subscription_service import SubscriptionService
 from .payment_service import PaymentService
+from app.services.platform_settings_service import get_setting
+
 from .plan_service import PlanService
 from app.utils.money import to_paise, verify_paise_amount
 
@@ -447,7 +448,11 @@ class BillingService:
         }
 
         # Create Razorpay order
-        order_data = gateway.client.order.create(order_payload)
+        try:
+            order_data = gateway.client.order.create(order_payload)
+        except Exception as gw_err:
+            logger.error(f"[GATEWAY ORDER CREATE ERROR] Failed to create credit pack order: {gw_err}", exc_info=True)
+            raise ValueError("Payment gateway is temporarily unavailable. Please try again in a few moments or contact support.")
 
         return {
             "provider": gateway.provider,
@@ -998,13 +1003,27 @@ class BillingService:
         for p in db_payments:
             linked_inv = payment_to_invoice.get(p.id)
             p_type = getattr(p, "payment_type", None) or ("subscription" if p.subscription_id else "ai_credit_recharge")
-            p_desc = getattr(p, "description", None) or ("Pro Plan Subscription" if p_type == "subscription" else "AI Credit Recharge")
+            p_desc = getattr(p, "description", None)
+            if not p_desc or p_desc == "Payment":
+                if p_type == "subscription":
+                    current_ws_plan = getattr(workspace, "plan_type", None)
+                    plan_obj = db.query(Plan).filter(Plan.name == current_ws_plan).first() if current_ws_plan else None
+                    plan_display = plan_obj.display_name if plan_obj and plan_obj.display_name else (f"{current_ws_plan.title()} Plan" if current_ws_plan else "Plan Subscription")
+                    p_desc = plan_display
+                else:
+                    p_desc = p_type.replace("_", " ").title() if p_type else "Payment"
             
             gst_amount = float(p.gst_amount) if p.gst_amount is not None else 0.0
-            total_amount = float(p.total_amount) if p.total_amount is not None else (float(p.amount) / 100.0 if p.amount else 0.0)
+            total_amount = float(p.total_amount) if p.total_amount is not None else (float(p.amount) if p.amount else 0.0)
             if linked_inv:
                 gst_amount = float(linked_inv.gst_amount or 0.0)
                 total_amount = float(linked_inv.total_amount or 0.0)
+            elif gst_amount == 0.0 and total_amount > 0 and (getattr(p.status, "value", str(p.status)).lower() == "failed" or p.status == PaymentStatus.failed):
+               
+                gst_rate = float(p.gst_rate if p.gst_rate is not None else get_setting(db, "gst_rate", 18.0))
+                rate_frac = gst_rate / 100.0
+                taxable = round(total_amount / (1.0 + rate_frac), 2)
+                gst_amount = round(total_amount - taxable, 2)
 
             all_items.append({
                 "id": str(p.id),
@@ -1166,7 +1185,10 @@ class BillingService:
                 "payment_method": sub_payment.payment_method if sub_payment else None,
             },
             "payments": recent_items,
-            "plans": [self.plan_service._serialize_plan(db, p.name) for p in db.query(Plan).filter(Plan.is_active == True).order_by(Plan.display_order.asc(), Plan.created_at.asc()).all()] or [self.plan_service._serialize_plan(db, key) for key in ("free", "solo", "pro", "enterprise")],
+            "plans": [self.plan_service._serialize_plan(db, p.name) for p in db.query(Plan).filter(Plan.is_active == True).order_by(Plan.display_order.asc(), Plan.created_at.asc()).all()],
+            "gst_rate": float(get_setting(db, "gst_rate", 18.0)),
+            "gst_enabled": bool(get_setting(db, "gst_enabled", True)),
+            "supplier_state": get_setting(db, "supplier_state", "Tamil Nadu"),
         }
     def check_token_limit(self, db: Session, workspace_id: str) -> TokenLimitStatus:
         import uuid
@@ -1528,10 +1550,14 @@ class BillingService:
             return str(notes["plan_key"]).lower()
 
         provider_plan_id = subscription_payload.get("plan_id")
-        for key in ("free", "pro", "enterprise"):
-            plan_config = self.plan_service._get_plan_config(db, key)
-            if provider_plan_id and provider_plan_id == plan_config.provider_plan_ids.get(provider):
-                return key
+        if provider_plan_id:
+            for p in db.query(Plan).all():
+                try:
+                    plan_config = self.plan_service._get_plan_config(db, p.name)
+                    if provider_plan_id == plan_config.provider_plan_ids.get(provider):
+                        return p.name
+                except Exception:
+                    continue
 
         subscription = self.subscription_service._get_subscription_by_provider_id(db, provider, subscription_payload.get("id"))
         return self._plan_key_from_subscription(db, subscription)

@@ -419,7 +419,7 @@ export async function openRazorpayCheckout({
   await loadRazorpayScript();
 
   if (!window.Razorpay) {
-    throw new Error("Razorpay SDK is unavailable.");
+    throw new Error("Payment service is currently unavailable. Please try again later or contact support.");
   }
 
   const resolvedWsId = workspaceId || orderData?.workspace_id || prefill?.workspace_id || (typeof window !== 'undefined' ? (localStorage.getItem('activeWorkspaceId') || localStorage.getItem('last_active_workspace_id')) : null);
@@ -453,6 +453,8 @@ export async function openRazorpayCheckout({
           order_id: metadata.order_id || orderData?.gateway_order_id,
           subscription_id: orderData?.subscription_id,
           plan: orderData?.plan_key || orderData?.plan,
+          billing_cycle: orderData?.billing_cycle || 'monthly',
+          plan_label: orderData?.plan_label,
           pack_id: orderData?.pack_id,
           amount: orderData?.amount,
           currency: orderData?.currency || 'INR',
@@ -464,14 +466,14 @@ export async function openRazorpayCheckout({
           error_step: errorObj.step
         });
       } catch (e) {
-        console.error('[Razorpay UX] Failed to report checkout failure:', e);
+        // Silently handle failure reporting error
       }
 
       if (typeof onfailure === 'function') {
         try {
           onfailure(response);
         } catch (e) {
-          console.error('[Razorpay UX] Error in onfailure callback:', e);
+          // Silently handle onfailure callback error
         }
       }
     });
