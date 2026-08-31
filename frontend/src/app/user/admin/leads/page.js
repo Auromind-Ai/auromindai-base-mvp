@@ -122,6 +122,8 @@ const getChannelKey = (source) => {
     if (src.includes('twilio') || src.includes('sms')) return 'Twilio';
     if (src.includes('web')) return 'Web';
     if (src.includes('email') || src.includes('mail')) return 'Email';
+    if (src.includes('manual')) return 'Manual';
+    if (src.includes('web')) return 'Web';
     return 'Web';
 };
 
