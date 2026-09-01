@@ -374,16 +374,7 @@ export default function PricingPage() {
         </motion.div>
 
         {/* Detailed Plan Comparison Section */}
-        <div ref={compareRef} className="mt-20">
-          <div className="mx-auto max-w-4xl text-center mb-12">
-            <h2 className="font-['Poppins'] text-[24px] font-medium text-white tracking-[-0.03em] leading-[1.2em] sm:text-[40px]">
-              Detailed Feature Comparison
-            </h2>
-            <p className="mt-3 text-sm md:text-base text-white/60">
-              Compare features and limit allocations across all available tiers to find your match.
-            </p>
-          </div>
-
+        <div ref={compareRef} className="mt-12 md:mt-20">
           <PricingComparisonTable />
         </div>
       </div>

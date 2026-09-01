@@ -88,8 +88,20 @@ export function AuthProvider({ children }) {
         // StrictMode cleanup — ignore AbortError gracefully, do NOT set unauthenticated
         if (err.name === 'AbortError') return null;
         
-        const isAuthError = err?.status === 401 || err?.status === 403;
-        if (isAuthError) {
+        const isDeactivated = err?.message?.toLowerCase()?.includes('deactivat') || (err?.status === 403 && String(err?.data?.detail || '').toLowerCase().includes('deactivat'));
+        if (isDeactivated) {
+          removeToken();
+          localStorage.removeItem('auromind_logged_in');
+          setUserState(null);
+          setWorkspacesState([]);
+          setWorkspaceIdState(null);
+          workspaceIdRef.current = null;
+          setUser(null);
+          setWorkspace(null);
+          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+            window.location.replace('/login?deactivated=true');
+          }
+        } else if (isAuthError) {
           setUserState(null);
           setWorkspacesState([]);
           setWorkspaceIdState(null);
@@ -135,7 +147,10 @@ export function AuthProvider({ children }) {
       const isLogged = typeof window !== 'undefined' && localStorage.getItem('auromind_logged_in') === 'true';
       const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
 
-      if (isMarketingPage(pathname) && !isLogged) {
+      const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup');
+      const hasTokenInUrl = typeof window !== 'undefined' && Boolean(new URLSearchParams(window.location.search).get('token'));
+
+      if ((isAuthPage && !hasTokenInUrl) || (isMarketingPage(pathname) && !isLogged)) {
         setLoading(false);
         return;
       }
@@ -159,6 +174,9 @@ export function AuthProvider({ children }) {
     } finally {
       removeToken();
       localStorage.removeItem('auromind_logged_in');
+      localStorage.removeItem('auromind_user');
+      localStorage.removeItem('user');
+      localStorage.removeItem('workspace');
       setUserState(null);
       setWorkspaceIdState(null);
       workspaceIdRef.current = null;
@@ -167,7 +185,9 @@ export function AuthProvider({ children }) {
       csrfTokenRef.current = null;
       setUser(null);
       setWorkspace(null);
-      window.location.replace('/login');
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.replace('/login');
+      }
     }
   }, []);
 

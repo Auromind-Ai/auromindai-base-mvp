@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Settings, X, Timer, Plus, Play, Upload, AlertCircle, Trash2, Bot, CheckCircle2
@@ -44,6 +45,14 @@ export default function NodeInspector({
   handleSalesDrop,
   setDeleteStepModal
 }) {
+  const openTimeRef = useRef(0);
+
+  useEffect(() => {
+    if (activeNodeId) {
+      openTimeRef.current = Date.now();
+    }
+  }, [activeNodeId]);
+
   return (
     <AnimatePresence>
       {activeNode && (
@@ -53,7 +62,10 @@ export default function NodeInspector({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setActiveNodeId(null)}
+            onClick={() => {
+              if (Date.now() - openTimeRef.current < 450) return;
+              setActiveNodeId(null);
+            }}
             className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[180] md:hidden"
           />
 
@@ -62,10 +74,10 @@ export default function NodeInspector({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 300, opacity: 0 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-x-0 bottom-0 max-h-[85vh] w-full z-[190] bg-[#15161C] border-t border-x border-[#22252D] rounded-t-[24px] shadow-[0_-10px_40px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden text-left md:absolute md:right-3 md:top-51 md:bottom-0 md:max-h-[85vh] md:w-[360px] md:rounded-[20px] md:border md:shadow-2xl md:inset-x-auto"
+            className="fixed inset-x-0 bottom-0 max-h-[85vh] w-full z-[190] bg-[#15161C] border-t border-x border-[#22252D] rounded-t-[24px] shadow-[0_-10px_40px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden text-left landscape:max-md:fixed landscape:max-md:inset-y-0 landscape:max-md:right-0 landscape:max-md:left-auto landscape:max-md:w-[340px] landscape:max-md:max-h-full landscape:max-md:rounded-l-2xl landscape:max-md:rounded-r-none landscape:max-md:border-l landscape:max-md:border-t-0 landscape:max-md:border-r-0 md:absolute md:right-3 md:top-51 md:bottom-0 md:max-h-[85vh] md:w-[360px] md:rounded-[20px] md:border md:shadow-2xl md:inset-x-auto"
           >
-            {/* Drag Handle for Mobile Bottom Sheet */}
-            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto my-2 shrink-0 md:hidden" />
+            {/* Drag Handle for Mobile Portrait Bottom Sheet */}
+            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto my-2 shrink-0 portrait:max-md:block landscape:hidden md:hidden" />
 
             <div className="px-5 py-2.5 border-b border-white/5 flex items-center justify-between bg-[#13131a]">
             <div className="flex items-center gap-3">

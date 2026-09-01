@@ -129,7 +129,7 @@ export default function BrainPage() {
         try {
             setCrawling(true);
             setError(null);
-            const result = await api.crawlWebsite(urlInput.trim(), workspaceId, 50);
+            const result = await api.crawlWebsite(urlInput.trim(), workspaceId, 30);
             
             if (result?.status === 'processing' || result?.status === 'pending') {
                 setCurrentCrawlEntryId(result.entry_id);
@@ -493,7 +493,7 @@ export default function BrainPage() {
                                 </button>
                             </div>
                             <p className="text-[10px] text-white/60">
-                                &quot;Entire Website&quot; crawls all pages (blogs, products, FAQs, etc.)
+                                &quot;Entire Website&quot; crawls up to 30 pages (blogs, products, FAQs, etc.)
                             </p>
                         </div>
                     </div>
@@ -532,7 +532,7 @@ export default function BrainPage() {
 
                         <div className="flex items-center gap-2 shrink-0">
                             {/* Filters */}
-                            <div className="relative">
+                            {/* <div className="relative">
                                 <button
                                     onClick={(e) => { e.stopPropagation(); setShowFilters(v => !v); }}
                                     className="flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3.5 py-2 md:py-2.5 bg-[#0d0d14] border border-white/10 rounded-xl text-xs font-medium text-[#D4D4D4] hover:border-[#814AC8]/40 transition-all"
@@ -560,7 +560,7 @@ export default function BrainPage() {
                                         ))}
                                     </div>
                                 )}
-                            </div>
+                            </div> */}
 
                             {/* View toggle */}
                             <div className="flex items-center bg-[#0d0d14] border border-white/10 rounded-xl p-1">

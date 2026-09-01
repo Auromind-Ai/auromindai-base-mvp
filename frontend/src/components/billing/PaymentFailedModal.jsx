@@ -26,7 +26,7 @@ export default function PaymentFailedModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6">
+      <div className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
         {/* Ambient Dark Backdrop with Glass Blur */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -42,9 +42,11 @@ export default function PaymentFailedModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.92, y: 16 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-[460px] rounded-[24px] border border-red-500/20 bg-[#0d0d12] p-6 sm:p-7 shadow-[0_35px_100px_rgba(239,68,68,0.2)] text-white z-10 flex flex-col items-center overflow-hidden"
+          className="relative w-full max-w-[460px] max-h-[92dvh] overflow-y-auto rounded-[22px] sm:rounded-[24px] border border-red-500/20 bg-[#0d0d12] p-5 sm:p-7 shadow-[0_35px_100px_rgba(239,68,68,0.2)] text-white z-10 flex flex-col items-center my-auto"
           style={{
             fontFamily: "var(--font-poppins), Inter, system-ui, -apple-system, sans-serif",
+            scrollbarWidth: "thin",
+            scrollbarColor: "rgba(255,255,255,0.2) transparent",
           }}
         >
           {/* Close Button */}

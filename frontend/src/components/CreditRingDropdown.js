@@ -142,16 +142,16 @@ export default function CreditRingDropdown({ user, size = 36 }) {
       {/* ElevenLabs-style Dropdown */}
       {isOpen && (
         <div
-          className="fixed w-auto sm:w-80 bg-[#0c0c12] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden text-[13px] text-[#EDEDED] font-sans"
+          className="fixed w-auto sm:w-80 p-[1px] rounded-2xl bg-gradient-to-b from-purple-500/70 via-purple-500/20 to-teal-500/30 shadow-[0_0_30px_rgba(139,92,246,0.2),0_20px_50px_rgba(0,0,0,0.85)] z-50 text-[13px] text-[#EDEDED] font-sans"
           style={panelStyle}
         >
-          
-          {/* Section 1: AI Model Messages Balance */}
+          <div className="w-full h-full bg-[#0c0c12] rounded-[15px] overflow-hidden">
+            {/* Section 1: AI Model Messages Balance */}
           <div className="p-5 bg-gradient-to-b from-purple-950/20 to-transparent">
             <div className="flex items-center justify-between mb-3.5">
               <div className="flex items-center gap-2 text-purple-400">
                 <Sparkles size={14} />
-                <span className="font-bold text-xs uppercase tracking-wider">AI Models Usage</span>
+                <span className="font-semibold text-xs tracking-wider">AI Models Usage</span>
               </div>
               <span className="text-[10px] text-zinc-500 font-bold bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
                 {formatPercentLeft(percentRemaining, used)} Left
@@ -180,7 +180,7 @@ export default function CreditRingDropdown({ user, size = 36 }) {
             <div className="flex items-center justify-between mb-3.5">
               <div className="flex items-center gap-2 text-emerald-400">
                 <Wallet size={14} />
-                <span className="font-bold text-xs uppercase tracking-wider">WhatsApp Wallet</span>
+                <span className="font-regular text-xs tracking-wider">WhatsApp Wallet</span>
               </div>
               <button 
                 onClick={() => { setIsOpen(false); router.push('/user/admin/credits?tab=wcc'); }}
@@ -204,18 +204,19 @@ export default function CreditRingDropdown({ user, size = 36 }) {
           {/* Workspace Footer */}
           <div className="p-4 border-t border-white/5 bg-[#12121c]/40 flex items-center justify-between group cursor-pointer" onClick={() => { setIsOpen(false); router.push('/user/admin/credits'); }}>
             <div>
-              <div className="font-bold text-xs text-[#E5E5E5] flex items-center gap-1">
+              <div className="font-semibold text-xs text-white flex items-center gap-1">
                 {workspace?.name && !workspace.name.endsWith("'s Workspace") && !workspace.name.endsWith("’s Workspace")
                   ? workspace.name
                   : `${currentUser?.full_name || currentUser?.name || 'User'}'s Workspace`}
               </div>
-              <div className="text-zinc-500 text-[10px] mt-0.5 font-bold uppercase tracking-wider">Manage Credits & Wallet</div>
+              <div className="text-white/70 text-[10px] mt-0.5 font-medium tracking-wider">Manage Credits & Wallet</div>
             </div>
             <div className="w-7 h-7 rounded-lg bg-[#1a1a24] flex items-center justify-center text-zinc-400 group-hover:text-white border border-white/5 transition-colors">
               <ArrowRightLeft size={13} />
             </div>
-          </div>
+             </div>
         </div>
+      </div>
       )}
     </div>
   );

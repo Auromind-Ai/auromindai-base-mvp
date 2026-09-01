@@ -620,6 +620,7 @@ class BillingService:
             "provider": gateway.provider,
             "gateway_order_id": order_data["id"],
             "plan": plan_config.key,
+            "plan_key": plan_config.key,
             "billing_cycle": billing_cycle,
             "plan_label": plan_config.label,
             "amount": amount_paise,

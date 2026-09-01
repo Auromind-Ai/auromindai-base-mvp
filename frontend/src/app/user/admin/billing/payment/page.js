@@ -363,8 +363,12 @@ function BillingContent() {
       setIsProcessingPayment(false)
 
       await api.openRazorpayCheckout({
-        orderData: checkout,
-        name: "Auromind AI",
+        workspaceId,
+        orderData: {
+          ...checkout,
+          workspace_id: workspaceId,
+        },
+        name: "Orbion Agents",
         description: `${checkout.plan_label || "Pro"} Subscription Upgrade`,
         prefill: checkout.prefill,
         handler: async (response) => {

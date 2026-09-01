@@ -13,11 +13,11 @@ const DEFAULT_METRICS = [
 ];
 
 const DEFAULT_REVENUE = {
-  months: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+  months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
   current_year: new Date().getFullYear(),
   prior_year: new Date().getFullYear() - 1,
-  current_data: [0, 0, 0, 0, 0],
-  prior_data:   [0, 0, 0, 0, 0],
+  current_data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  prior_data:   [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 };
 
 const DEFAULT_ACTIVITIES = [];

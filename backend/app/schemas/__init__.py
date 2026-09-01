@@ -53,6 +53,7 @@ class Conversation(ConversationBase):
     status: ConversationStatus
     created_at: datetime
     last_message_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
     message_count: int = 0
     messages: List[Message] = []
 

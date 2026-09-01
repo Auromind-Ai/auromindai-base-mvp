@@ -195,7 +195,7 @@ class LLMRouter:
         try:
             api_key_env = config.get("api_key_env", "OPENAI_API_KEY")
             api_key = self._get_api_key(api_key_env, "openai_api_key")
-            client = AsyncOpenAI(api_key=api_key, max_retries=0)
+            client = AsyncOpenAI(api_key=api_key, max_retries=0, timeout=30.0)
 
             messages = []
             if system_prompt:
@@ -258,7 +258,7 @@ class LLMRouter:
         try:
             api_key_env = config.get("api_key_env", "ANTHROPIC_API_KEY")
             api_key = self._get_api_key(api_key_env, "anthropic_api_key")
-            client = AsyncAnthropic(api_key=api_key)
+            client = AsyncAnthropic(api_key=api_key, timeout=30.0)
 
             system_str = system_prompt or ""
             if structured_output:
@@ -305,7 +305,7 @@ class LLMRouter:
         try:
             api_key_env = config.get("api_key_env", "GROQ_API_KEY")
             api_key = self._get_api_key(api_key_env, "groq_api_key")
-            client = AsyncGroq(api_key=api_key, max_retries=0)
+            client = AsyncGroq(api_key=api_key, max_retries=0, timeout=30.0)
 
             if system_prompt:
                 messages = [

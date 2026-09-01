@@ -376,7 +376,7 @@ function WhatsAppAudioMessage({ url, isMe, timestamp }) {
     );
 }
 
-function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterChange, onLeadSelect, unreadCounts = {}, lastMessageMap = {} }) {
+function ConversationSidebar({ ch, conversations = [], lead, activeFilter, onFilterChange, onLeadSelect, filterCounts = {}, unreadCounts = {}, lastMessageMap = {} }) {
     const [searchQuery, setSearchQuery] = useState('');
     const containerRef = useRef(null);
     const isInstagram = ch.id === 'instagram';
@@ -404,7 +404,18 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
         return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
     }
 
-    let filtered = conversations.filter(l => {
+    // Ensure unique conversations by ID
+    const uniqueConversations = useMemo(() => {
+        const map = new Map();
+        (conversations || []).forEach(item => {
+            if (item && item.id && !map.has(item.id)) {
+                map.set(item.id, item);
+            }
+        });
+        return Array.from(map.values());
+    }, [conversations]);
+
+    let filtered = uniqueConversations.filter(l => {
         const name = getDisplayName(l, ch.id).toLowerCase();
         const phone = (l.phone || '').toLowerCase();
         return name.includes(searchQuery.toLowerCase()) || phone.includes(searchQuery.toLowerCase());
@@ -453,22 +464,31 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
                 </div>
 
                 <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-                    {STATUS_FILTERS.map((f, i) => (
-                        <button
-                            key={f}
-                            onClick={() => onFilterChange(i)}
-                            className="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all border"
-                            style={activeFilter === i
-                                ? { backgroundColor: `${ch.color}20`, color: ch.color, borderColor: `${ch.color}40` }
-                                : { backgroundColor: 'transparent', color: '#666', borderColor: 'rgba(255,255,255,0.07)' }
-                            }
-                        >
-                            {f}
-                            {f === 'All' && conversations.length > 0 && (
-                                <span className="ml-1 text-[10px] opacity-60">{conversations.length}</span>
-                            )}
-                        </button>
-                    ))}
+                    {STATUS_FILTERS.map((f, i) => {
+                        const filterKey = f.toLowerCase();
+                        const isCurrentActive = activeFilter === i;
+
+                        const count = isCurrentActive
+                            ? uniqueConversations.length
+                            : (filterCounts[filterKey] !== undefined ? filterCounts[filterKey] : 0);
+
+                        return (
+                            <button
+                                key={f}
+                                onClick={() => onFilterChange(i)}
+                                className="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all border flex items-center gap-1.5 cursor-pointer"
+                                style={isCurrentActive
+                                    ? { backgroundColor: `${ch.color}20`, color: ch.color, borderColor: `${ch.color}40` }
+                                    : { backgroundColor: 'transparent', color: '#666', borderColor: 'rgba(255,255,255,0.07)' }
+                                }
+                            >
+                                <span>{f}</span>
+                                <span className="text-[11px] opacity-75 font-normal">
+                                    {count}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
@@ -479,10 +499,18 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
                             <Inbox size={20} className="text-[#444]" />
                         </div>
                         <p className="text-center text-[#555] text-[13px] font-medium">
-                            {activeFilter === 0 ? 'No open conversations' : 'No conversations found'}
+                            {STATUS_FILTERS[activeFilter] === 'Open'
+                                ? 'No open conversations'
+                                : STATUS_FILTERS[activeFilter] === 'Converted'
+                                ? 'No converted conversations'
+                                : STATUS_FILTERS[activeFilter] === 'Closed'
+                                ? 'No closed conversations (>24h)'
+                                : STATUS_FILTERS[activeFilter] === 'Unread'
+                                ? 'No unread conversations'
+                                : 'No conversations found'}
                         </p>
                         <p className="text-center text-[#3a3a3a] text-[11px]">
-                            {activeFilter === 0 ? 'All caught up! ✨' : 'Try a different filter'}
+                            {STATUS_FILTERS[activeFilter] === 'Open' ? 'All caught up! ✨' : 'Try a different filter'}
                         </p>
                     </div>
                 )}
@@ -1611,7 +1639,14 @@ function InboxContent() {
     useEffect(() => {
         channelRef.current = ch;
     }, [ch]);
-    const [activeFilter, setActiveFilter] = useState(3);
+    const [activeFilter, setActiveFilter] = useState(0);
+    const activeFilterRef = useRef(activeFilter);
+    useEffect(() => {
+        activeFilterRef.current = activeFilter;
+    }, [activeFilter]);
+    const reqIdRef = useRef(0);
+    const [filterCounts, setFilterCounts] = useState({ all: 0, open: 0, unread: 0, converted: 0, closed: 0 });
+
     const [conversations, setConversations] = useState([]);
     const [messages, setMessages] = useState([]);
     const [lead, setLead] = useState(null);
@@ -1823,24 +1858,49 @@ function InboxContent() {
         return { 0: 'OPEN', 1: 'CONVERTED', 2: 'CLOSED', 3: 'ALL' }[filterIdx] || 'OPEN';
     }, []);
 
-    const fetchConversations = useCallback(async ({ selectFirst = false, statusOverride = null } = {}) => {
+    const fetchConversations = useCallback(async ({ selectFirst = false, statusOverride = null, filterIdx = null, reqId = null } = {}) => {
         if (!workspace?.id) return;
-        const statusParam = statusOverride || getStatusParam(activeFilter);
+        const targetFilterIdx = filterIdx !== null ? filterIdx : activeFilterRef.current;
+        const statusParam = statusOverride || getStatusParam(targetFilterIdx);
         const currentChannel = ch.id;
+
         try {
-            const data = await api.get(`/api/conversations?workspace_id=${workspace.id}&channel=${ch.id}&status=${statusParam}`);
-            if (!Array.isArray(data)) { console.warn("Conversations API non-array:", data); return; }
-           
-            if (channelRef.current.id !== currentChannel) {
+            const [data, counts] = await Promise.all([
+                api.get(`/api/conversations?workspace_id=${workspace.id}&channel=${currentChannel}&status=${statusParam}`),
+                api.get(`/api/conversations/counts?workspace_id=${workspace.id}&channel=${currentChannel}`).catch(() => null)
+            ]);
+
+            if (!Array.isArray(data)) {
+                console.warn("Conversations API non-array:", data);
                 return;
             }
 
-            setConversations(data);
+            // Drop response if channel or filter changed while request was in-flight
+            if (channelRef.current.id !== currentChannel) return;
+            if (activeFilterRef.current !== targetFilterIdx && !statusOverride) return;
+            if (reqId !== null && reqId !== reqIdRef.current) return;
+
+            // Deduplicate conversations strictly by ID
+            const uniqueData = Array.from(
+                new Map(data.map(item => [item.id, item])).values()
+            );
+
+            setConversations(uniqueData);
+
+            if (counts && typeof counts === 'object') {
+                setFilterCounts({
+                    all: counts.all ?? 0,
+                    open: counts.open ?? 0,
+                    unread: counts.unread ?? 0,
+                    converted: counts.converted ?? 0,
+                    closed: counts.closed ?? 0,
+                });
+            }
 
             // Populate unreadCounts from backend for conversations not currently open
             setUnreadCounts(prev => {
                 const next = { ...prev };
-                data.forEach(c => {
+                uniqueData.forEach(c => {
                     if (leadRef.current?.id === c.id) {
                         next[c.id] = 0;
                     } else if (c.unread_count !== undefined) {
@@ -1853,7 +1913,7 @@ function InboxContent() {
             // Populate lastMessageMap directly from conversation data
             setLastMessageMap(prev => {
                 const next = { ...prev };
-                data.forEach(c => {
+                uniqueData.forEach(c => {
                     const text = c.last_message || c.last_message_text || c.preview;
                     if (text) {
                         next[c.id] = text;
@@ -1862,8 +1922,10 @@ function InboxContent() {
                 return next;
             });
 
-            if (data.length === 0) {
-                setLead(null); setResolvedLeadId(null); setMessages([]);
+            if (uniqueData.length === 0) {
+                setLead(null);
+                setResolvedLeadId(null);
+                setMessages([]);
                 return;
             }
 
@@ -1874,27 +1936,51 @@ function InboxContent() {
             }
 
             let nextLead = null;
-            if (urlConvId && data.some(item => item.id === urlConvId)) {
-                nextLead = data.find(item => item.id === urlConvId);
+            if (urlConvId && uniqueData.some(item => item.id === urlConvId)) {
+                nextLead = uniqueData.find(item => item.id === urlConvId);
                 if (typeof window !== 'undefined') {
                     const newParams = new URLSearchParams(searchParams.toString());
-                    newParams.delete('conversationId'); newParams.delete('conversation');
+                    newParams.delete('conversationId');
+                    newParams.delete('conversation');
                     router.replace(`${pathname}${newParams.toString() ? '?' + newParams.toString() : ''}`, { scroll: false });
                 }
             } else {
                 const currentLeadId = leadRef.current?.id;
-                nextLead = selectFirst ? data[0] : (data.find(item => item.id === currentLeadId) || data[0]);
+                nextLead = selectFirst ? uniqueData[0] : (uniqueData.find(item => item.id === currentLeadId) || uniqueData[0]);
             }
 
             setLead(nextLead);
             leadRef.current = nextLead;
             if (nextLead) {
                 setUnreadCounts(prev => ({ ...prev, [nextLead.id]: 0 }));
+                fetchMessages(nextLead.id);
+                fetchLeadIdForConversation(nextLead.id).then(id => setResolvedLeadId(id));
             }
-            fetchMessages(nextLead.id);
-            if (nextLead) fetchLeadIdForConversation(nextLead.id).then(id => setResolvedLeadId(id));
-        } catch (e) { console.error('Conversation fetch error:', e); }
-    }, [workspace?.id, ch.id, activeFilter, fetchMessages, fetchLeadIdForConversation, getStatusParam, pathname, router, searchParams]);
+        } catch (e) {
+            console.error('Conversation fetch error:', e);
+        }
+    }, [workspace?.id, ch.id, getStatusParam, pathname, router, searchParams, fetchMessages, fetchLeadIdForConversation]);
+
+    const handleFilterChange = useCallback((newFilterIdx) => {
+        if (activeFilterRef.current === newFilterIdx) return;
+        setActiveFilter(newFilterIdx);
+        activeFilterRef.current = newFilterIdx;
+        reqIdRef.current += 1;
+        const currentReqId = reqIdRef.current;
+
+        // Flush old conversation results immediately
+        setConversations([]);
+        setLead(null);
+        setResolvedLeadId(null);
+        setMessages([]);
+        leadRef.current = null;
+
+        fetchConversations({
+            filterIdx: newFilterIdx,
+            selectFirst: true,
+            reqId: currentReqId,
+        });
+    }, [fetchConversations]);
 
     useEffect(() => {
         if (!workspace?.id || !urlConversationId) {
@@ -1909,8 +1995,10 @@ function InboxContent() {
                 const targetChannel = CHANNELS.find(c => c.id === data.channel);
                 if (targetChannel) {
                     setCh(targetChannel);
-                    setActiveFilter(3);
-                    fetchConversations({ selectFirst: true, statusOverride: 'ALL' });
+                    setActiveFilter(0);
+                    activeFilterRef.current = 0;
+                    reqIdRef.current += 1;
+                    fetchConversations({ selectFirst: true, statusOverride: 'ALL', reqId: reqIdRef.current });
                 }
             }
         }).catch(e => console.error('Failed to look up conversation:', e));
@@ -1918,25 +2006,26 @@ function InboxContent() {
 
     useEffect(() => {
         setDesktopDrawerOpen(false);
-        const timer = setTimeout(() => {
-            setLead(null); setResolvedLeadId(null);
-            leadRef.current = null; setMessages([]); setConversations([]);
-            fetchConversations({ selectFirst: true });
-        }, 0);
-        return () => clearTimeout(timer);
+        reqIdRef.current += 1;
+        const currentReqId = reqIdRef.current;
+        setLead(null);
+        setResolvedLeadId(null);
+        leadRef.current = null;
+        setMessages([]);
+        setConversations([]);
+        fetchConversations({ selectFirst: true, reqId: currentReqId });
     }, [ch.id, fetchConversations]);
 
     useEffect(() => {
         if (!workspace?.id) return;
         const interval = setInterval(() => {
-        fetchConversations();
-        if (leadRef.current?.id) {
-        fetchMessages(leadRef.current.id);
-        }
-
+            fetchConversations();
+            if (leadRef.current?.id) {
+                fetchMessages(leadRef.current.id);
+            }
         }, 4000);
         return () => clearInterval(interval);
-    }, [workspace?.id, lead?.id, fetchConversations, fetchMessages]);
+    }, [workspace?.id, fetchConversations, fetchMessages]);
 
     useEffect(() => {
         if (!lead?.id) return;
@@ -2210,7 +2299,8 @@ function InboxContent() {
                     <PanelCard className="flex-1">
                         <ConversationSidebar
                             ch={ch} conversations={conversations} lead={lead}
-                            activeFilter={activeFilter} onFilterChange={setActiveFilter}
+                            activeFilter={activeFilter} onFilterChange={handleFilterChange}
+                            filterCounts={filterCounts}
                             unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
                             onLeadSelect={(l) => {
                                 setLead(l);
@@ -2284,7 +2374,8 @@ function InboxContent() {
                         <PanelCard className="flex-1">
                             <ConversationSidebar
                                 ch={ch} conversations={conversations} lead={lead}
-                                activeFilter={activeFilter} onFilterChange={setActiveFilter}
+                                activeFilter={activeFilter} onFilterChange={handleFilterChange}
+                                filterCounts={filterCounts}
                                 unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
                                 onLeadSelect={(l) => {
                                     setLead(l);
@@ -2331,7 +2422,8 @@ function InboxContent() {
                     <PanelCard style={{ width: 260, minWidth: 240 }}>
                         <ConversationSidebar
                             ch={ch} conversations={conversations} lead={lead}
-                            activeFilter={activeFilter} onFilterChange={setActiveFilter}
+                            activeFilter={activeFilter} onFilterChange={handleFilterChange}
+                            filterCounts={filterCounts}
                             unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
                             onLeadSelect={(l) => {
                                 handleLeadSelectTablet(l);
@@ -2371,7 +2463,8 @@ function InboxContent() {
                                 className="absolute inset-0" style={{ backgroundColor: CARD_BG }}>
                                 <ConversationSidebar
                                     ch={ch} conversations={conversations} lead={lead}
-                                    activeFilter={activeFilter} onFilterChange={setActiveFilter}
+                                    activeFilter={activeFilter} onFilterChange={handleFilterChange}
+                                    filterCounts={filterCounts}
                                     unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
                                     onLeadSelect={(l) => {
                                         handleLeadSelectMobile(l);

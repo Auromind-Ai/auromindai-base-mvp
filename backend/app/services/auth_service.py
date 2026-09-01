@@ -167,7 +167,7 @@ class AuthService:
         # NEW BLOCK
         is_new_user = False
         if user and not user.is_active:
-            raise ValueError("This account no longer exists.")
+            raise ValueError("Your account is deactivated due to some reason. Please call or contact the support team.")
 
         # If user doesn't exist → auto create
         if not user:
@@ -266,64 +266,96 @@ class AuthService:
 
         workspace_id = str(workspaces[0][0].id) if workspaces else None
 
-        # Check if login is from a new device / unrecognized IP
-        prior_session = None
+        # Check if an active session already exists for this device
+        existing_session = None
         if not is_new_user:
-            prior_session = db.query(UserSession).filter(
+            existing_session = db.query(UserSession).filter(
                 UserSession.user_id == user.id,
-                (UserSession.ip_address == (ip_address or "Unknown IP")) | 
-                (UserSession.device_info == (device_info or "Unknown Device"))
-            ).first()
+                UserSession.device_info == (device_info or "Unknown Device"),
+                UserSession.revoked_at.is_(None),
+                UserSession.is_blocked == False
+            ).order_by(UserSession.last_activity_at.desc()).first()
 
-        is_new_device = (prior_session is None) and (not is_new_user)
+        now_dt = datetime.now(timezone.utc)
 
-        # Create session
-        session_id = str(uuid.uuid4())
-        user_session = UserSession(
-            id=session_id,
-            user_id=user.id,
-            device_info=device_info or "Unknown Device",
-            ip_address=ip_address or "Unknown IP",
-            location=None,
-        )
-        db.add(user_session)
-        db.commit()
+        if existing_session:
+            # Update existing device session timestamp rather than creating duplicate entries
+            existing_session.ip_address = ip_address or existing_session.ip_address
+            existing_session.last_activity_at = now_dt
+            existing_session.created_at = now_dt
+            session_id = existing_session.id
+            db.commit()
 
-        # Send dynamic Security Notification only for NEW UNRECOGNIZED device logins using EventBus
-        if not is_new_user and is_new_device:
-            device_name = parse_user_agent(device_info) if device_info else "Unknown Device/Browser"
-            login_time_str = datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC")
-            dedup_key = f"new_dev:{user.id}:{session_id}"
-            ws_id = uuid.UUID(workspace_id) if workspace_id else None
+            # Clean up any older duplicate active sessions for the same device
+            db.query(UserSession).filter(
+                UserSession.user_id == user.id,
+                UserSession.device_info == (device_info or "Unknown Device"),
+                UserSession.id != session_id,
+                UserSession.revoked_at.is_(None),
+                UserSession.is_blocked == False
+            ).update({"revoked_at": now_dt}, synchronize_session=False)
+            db.commit()
+        else:
+            # Check if login is from a new device / unrecognized IP
+            prior_session = None
+            if not is_new_user:
+                prior_session = db.query(UserSession).filter(
+                    UserSession.user_id == user.id,
+                    (UserSession.ip_address == (ip_address or "Unknown IP")) | 
+                    (UserSession.device_info == (device_info or "Unknown Device"))
+                ).first()
 
-            ws_name = workspaces[0][0].name if workspaces else "Auromind"
-            try:
-                from app.core.event_bus import emit_event
-                emit_event(
-                    event_name="security.new_device_login",
-                    payload={
-                        "user_name": user.full_name or user.email.split("@")[0].title(),
-                        "email": user.email,
-                        "workspace_name": ws_name,
-                        "ip_address": ip_address or "Unknown IP",
-                        "device_info": device_info or "Unknown Device",
-                        "device": device_name,
-                        "browser": device_name,
-                        "location": user_session.location or "Unknown Location",
-                        "login_time": login_time_str,
-                        "action_route": "/settings/security",
-                        "action_label": "Review Security",
-                        "user_id": str(user.id),
-                        "workspace_id": str(ws_id) if ws_id else None
-                    },
-                    workspace_id=ws_id,
-                    actor_id=user.id,
-                    idempotency_key=dedup_key,
-                    db=db
-                )
-            except Exception as notif_exc:
-                import logging
-                logging.getLogger("app").error(f"Failed to emit security.new_device_login event: {notif_exc}")
+            is_new_device = (prior_session is None) and (not is_new_user)
+
+            # Create session
+            session_id = str(uuid.uuid4())
+            user_session = UserSession(
+                id=session_id,
+                user_id=user.id,
+                device_info=device_info or "Unknown Device",
+                ip_address=ip_address or "Unknown IP",
+                location=None,
+                created_at=now_dt,
+                last_activity_at=now_dt,
+            )
+            db.add(user_session)
+            db.commit()
+
+            # Send dynamic Security Notification only for NEW UNRECOGNIZED device logins using EventBus
+            if not is_new_user and is_new_device:
+                device_name = parse_user_agent(device_info) if device_info else "Unknown Device/Browser"
+                login_time_str = datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC")
+                dedup_key = f"new_dev:{user.id}:{session_id}"
+                ws_id = uuid.UUID(workspace_id) if workspace_id else None
+
+                ws_name = workspaces[0][0].name if workspaces else "Auromind"
+                try:
+                    from app.core.event_bus import emit_event
+                    emit_event(
+                        event_name="security.new_device_login",
+                        payload={
+                            "user_name": user.full_name or user.email.split("@")[0].title(),
+                            "email": user.email,
+                            "workspace_name": ws_name,
+                            "ip_address": ip_address or "Unknown IP",
+                            "device_info": device_info or "Unknown Device",
+                            "device": device_name,
+                            "browser": device_name,
+                            "location": user_session.location or "Unknown Location",
+                            "login_time": login_time_str,
+                            "action_route": "/settings/security",
+                            "action_label": "Review Security",
+                            "user_id": str(user.id),
+                            "workspace_id": str(ws_id) if ws_id else None
+                        },
+                        workspace_id=ws_id,
+                        actor_id=user.id,
+                        idempotency_key=dedup_key,
+                        db=db
+                    )
+                except Exception as notif_exc:
+                    import logging
+                    logging.getLogger("app").error(f"Failed to emit security.new_device_login event: {notif_exc}")
 
 
 
@@ -378,6 +410,8 @@ class AuthService:
        
         if auth_type == "login" and not user:
             raise ValueError("Your email is not registered. Please sign up first.")
+        if auth_type == "login" and user and not user.is_active:
+            raise ValueError("Your account is deactivated due to some reason. Please call or contact the support team.")
         if auth_type == "signup" and user:
             raise ValueError("Email already registered. Please log in.")
 
@@ -531,6 +565,8 @@ class AuthService:
        
         if auth_type == "login" and not user:
             raise ValueError("Your email is not registered. Please sign up first.")
+        if auth_type == "login" and user and not user.is_active:
+            raise ValueError("Your account is deactivated due to some reason. Please call or contact the support team.")
         if auth_type == "signup" and user:
             raise ValueError("Email already registered. Please log in.")
            

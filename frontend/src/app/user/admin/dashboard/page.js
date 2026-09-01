@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import AnimatedCounter from "../AnimatedCounter";
 import { getUser, restoreAdminToken } from '@/lib/auth';
@@ -22,6 +23,7 @@ import {
   Flame,
   Bot,
   Bell,
+  X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Poppins } from 'next/font/google';
@@ -152,45 +154,50 @@ function BentoMetricCard({ metric, i, rgb }) {
 }
 
 function ViewAllModal({ isOpen, onClose, title, children }) {
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
     if (isOpen) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = '';
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
-  return (
+  if (!mounted || typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <>
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 pointer-events-auto">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-[99999]"
           />
 
-          {/* Modal */}
+          {/* Modal Dialog */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ duration: 0.2, ease: [0.34, 1.2, 0.64, 1] }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[201]
-                       w-[90vw] max-w-lg bg-[#0e0e1a] border border-purple-300/30
-                       rounded-2xl shadow-2xl flex flex-col"
-            style={{ maxHeight: '80vh' }}
+            className="relative z-[100000] w-full max-w-lg bg-[#0c0c16] border border-purple-400/30
+                       rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_30px_rgba(168,85,247,0.15)]
+                       flex flex-col overflow-hidden max-h-[85vh]"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 flex-shrink-0">
-              <h2 className="text-[17px] font-semibold text-white/90">{title}</h2>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/[0.02] flex-shrink-0">
+              <h2 className="text-[17px] font-semibold text-white/95">{title}</h2>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10
-                           flex items-center justify-center text-white/50 hover:text-white transition-colors"
+                aria-label="Close"
+                className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10
+                           flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 
@@ -198,10 +205,21 @@ function ViewAllModal({ isOpen, onClose, title, children }) {
             <div className="overflow-y-auto flex-1 px-6 py-4 custom-scrollbar">
               {children}
             </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end px-6 py-3.5 border-t border-white/10 flex-shrink-0 bg-white/[0.02]">
+              <button
+                onClick={onClose}
+                className="px-5 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-xs font-semibold text-purple-300 hover:text-white transition-all border border-purple-500/30 cursor-pointer shadow-sm"
+              >
+                Close
+              </button>
+            </div>
           </motion.div>
-        </>
+        </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
 
@@ -442,12 +460,36 @@ const calculateChartMax = (highestValue) => {
 };
 
 // Monthly Revenue Line Chart
-function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], currentData = [], priorData = [], currentYear, priorYear }) {
+function MonthlyRevenueChart({
+  months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  currentData = [],
+  priorData = [],
+  currentYear = new Date().getFullYear(),
+  priorYear = new Date().getFullYear() - 1,
+  rangeView = 'jan_jun'
+}) {
   const [tooltip, setTooltip] = useState(null);
   const [activeIdx, setActiveIdx] = useState(null);
 
-  const data2026 = currentData.length ? currentData : Array(months.length).fill(0);
-  const data2025 = priorData.length ? priorData : Array(months.length).fill(0);
+  const fullMonths = months && months.length === 12
+    ? months
+    : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const full2026 = currentData && currentData.length === 12
+    ? currentData
+    : [...(currentData || []), ...Array(Math.max(0, 12 - (currentData || []).length)).fill(0)];
+  const full2025 = priorData && priorData.length === 12
+    ? priorData
+    : [...(priorData || []), ...Array(Math.max(0, 12 - (priorData || []).length)).fill(0)];
+
+  let displayMonths = fullMonths.slice(0, 6); // Jan - Jun
+  let data2026 = full2026.slice(0, 6);
+  let data2025 = full2025.slice(0, 6);
+
+  if (rangeView === 'jul_dec') {
+    displayMonths = fullMonths.slice(6, 12); // Jul - Dec
+    data2026 = full2026.slice(6, 12);
+    data2025 = full2025.slice(6, 12);
+  }
 
   const W = 520, H = 160;
   const padL = 54, padR = 24, padT = 16, padB = 28;
@@ -463,7 +505,7 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
   const step = chartMax / 4;
   const yLabels = [0, step, step * 2, step * 3, chartMax];
 
-  const xOf = (i) => padL + (i / Math.max(months.length - 1, 1)) * chartW;
+  const xOf = (i) => padL + (i / Math.max(displayMonths.length - 1, 1)) * chartW;
   const yOf = (v) => padT + chartH - ((v - minVal) / Math.max(maxVal - minVal, 1)) * chartH;
 
   const catmullRomPath = (data) => {
@@ -557,7 +599,7 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
         />
       ))}
 
-      {months.map((m, i) => (
+      {displayMonths.map((m, i) => (
         <line key={`vgrid-${m}`}
           x1={xOf(i).toFixed(1)} y1={padT}
           x2={xOf(i).toFixed(1)} y2={padT + chartH}
@@ -591,7 +633,7 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
         );
       })}
 
-      {months.map((m, i) => (
+      {displayMonths.map((m, i) => (
         <text
           key={m}
           x={xOf(i)} y={padT + chartH + 18}
@@ -719,7 +761,7 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
               fill="rgb(255,255,255)"
               fontFamily="inherit"
             >
-              {months[activeIdx]}
+              {displayMonths[activeIdx]}
             </text>
 
             <line
@@ -1024,7 +1066,7 @@ function AIInsightsCard({ insights = [] }) {
         </button>
       </div>
       <div className="flex-1 px-4 py-3 space-y-2">
-        {insights.map((item, i) => {
+        {insights.slice(0, 3).map((item, i) => {
           const Icon = iconMap[item.icon_type] || Sparkles;
           return (
             <div
@@ -1140,8 +1182,179 @@ const formatDisplayRange = (startDateStr, endDateStr) => {
   return `${fmt(start)} – ${fmt(end)}`;
 };
 
-function PeriodPicker({ period, dateRange, onPeriodChange }) {
+function CustomDateModal({ isOpen, onClose, startDate, endDate, onApply }) {
+  const [start, setStart] = useState(startDate || '');
+  const [end, setEnd] = useState(endDate || '');
+  const [error, setError] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (isOpen) {
+      setStart(startDate || '');
+      setEnd(endDate || '');
+      setError('');
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen, startDate, endDate]);
+
+  if (!mounted || typeof document === 'undefined' || !isOpen) return null;
+
+  const handlePreset = (days) => {
+    const now = new Date();
+    const endD = new Date(now);
+    const startD = new Date(now);
+    startD.setDate(now.getDate() - (days - 1));
+    const fmt = (d) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+    setStart(fmt(startD));
+    setEnd(fmt(endD));
+    setError('');
+  };
+
+  const handleApply = (e) => {
+    e.preventDefault();
+    if (!start || !end) {
+      setError('Please select both start and end dates.');
+      return;
+    }
+    if (start > end) {
+      setError('Start date cannot be after end date.');
+      return;
+    }
+    onApply(start, end);
+    onClose();
+  };
+
+  return createPortal(
+    <AnimatePresence>
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 pointer-events-auto">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="fixed inset-0 bg-black/80 backdrop-blur-md z-[99999]"
+        />
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 15 }}
+          transition={{ duration: 0.2, ease: [0.34, 1.2, 0.64, 1] }}
+          className="relative z-[100000] w-full max-w-md bg-[#0c0c16] border border-purple-400/30
+                     rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_30px_rgba(168,85,247,0.15)]
+                     flex flex-col overflow-hidden"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/[0.02]">
+            <div className="flex items-center gap-2.5">
+              <Calendar size={18} className="text-purple-400" />
+              <h2 className="text-[16px] font-semibold text-white/95">Select Custom Date Range</h2>
+            </div>
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10
+                         flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Quick Presets */}
+          <div className="px-6 pt-4 pb-2">
+            <p className="text-[11px] font-medium text-white/60 mb-2 uppercase tracking-wider">Quick Presets</p>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => handlePreset(7)}
+                className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-purple-600/20 hover:border-purple-500/40 text-xs font-medium text-white/80 hover:text-white border border-white/10 transition-all cursor-pointer text-center"
+              >
+                Last 7 Days
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePreset(14)}
+                className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-purple-600/20 hover:border-purple-500/40 text-xs font-medium text-white/80 hover:text-white border border-white/10 transition-all cursor-pointer text-center"
+              >
+                Last 14 Days
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePreset(30)}
+                className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-purple-600/20 hover:border-purple-500/40 text-xs font-medium text-white/80 hover:text-white border border-white/10 transition-all cursor-pointer text-center"
+              >
+                Last 30 Days
+              </button>
+            </div>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleApply} className="px-6 py-4 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label className="block text-xs font-medium text-white/80 mb-1.5">Start Date</label>
+                <input
+                  type="date"
+                  value={start}
+                  onChange={(e) => { setStart(e.target.value); setError(''); }}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/15 rounded-xl text-xs text-white focus:outline-none focus:border-purple-500 transition-colors [color-scheme:dark]"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-white/80 mb-1.5">End Date</label>
+                <input
+                  type="date"
+                  value={end}
+                  onChange={(e) => { setEnd(e.target.value); setError(''); }}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/15 rounded-xl text-xs text-white focus:outline-none focus:border-purple-500 transition-colors [color-scheme:dark]"
+                  required
+                />
+              </div>
+            </div>
+
+            {error && (
+              <p className="text-xs text-rose-400 font-medium bg-rose-500/10 border border-rose-500/20 px-3 py-2 rounded-lg">
+                {error}
+              </p>
+            )}
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-white/70 hover:text-white transition-all border border-white/10 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-semibold text-white transition-all shadow-lg shadow-purple-600/30 cursor-pointer"
+              >
+                Apply Range
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </div>
+    </AnimatePresence>,
+    document.body
+  );
+}
+
+function PeriodPicker({ period, dateRange, onPeriodChange, onCustomDateChange }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showCustomModal, setShowCustomModal] = useState(false);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -1177,58 +1390,105 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
     last_week: 'Last Week',
     current_month: 'Current Month',
     last_month: 'Last Month',
+    custom: 'Custom Range',
   };
 
   return (
-    <div className="relative shrink-0 flex-shrink-0" ref={dropdownRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1 sm:gap-2 h-8 sm:h-[42px] px-2 sm:px-3 bg-white/5 border border-white/15 rounded-lg sm:rounded-2xl text-[10px] sm:text-xs text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none shrink-0"
-      >
-        <Calendar size={12} className="text-purple-400 shrink-0" />
-        <span className="hidden xs:inline font-medium whitespace-nowrap">{formatDisplayRange(dateRange.startDate, dateRange.endDate)}</span>
-        <span className="xs:hidden font-medium whitespace-nowrap">{labels[period]}</span>
-        <ChevronDown size={12} className={`text-white/60 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
+    <>
+      <div className="relative shrink-0 flex-shrink-0" ref={dropdownRef}>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex items-center gap-1 sm:gap-2 h-8 sm:h-[42px] px-2 sm:px-3 bg-white/5 hover:bg-white/10 border border-white/15 rounded-lg sm:rounded-2xl text-[10px] sm:text-xs text-white/90 hover:text-white cursor-pointer transition-colors shadow-sm select-none shrink-0"
+        >
+          <Calendar size={12} className="text-purple-400 shrink-0" />
+          <span className="hidden xs:inline font-medium whitespace-nowrap">{formatDisplayRange(dateRange.startDate, dateRange.endDate)}</span>
+          <span className="xs:hidden font-medium whitespace-nowrap">{labels[period] || 'Custom'}</span>
+          {period === 'custom' && (
+            <span className="px-1.5 py-0.5 rounded text-[9px] bg-purple-500/20 text-purple-300 font-semibold border border-purple-500/30">
+              Custom
+            </span>
+          )}
+          <ChevronDown size={12} className={`text-white/60 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 6, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 6, scale: 0.95 }}
-            transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-52 sm:w-60 rounded-xl bg-[#141424] border border-white/15 p-1.5 shadow-2xl z-[999] backdrop-blur-2xl flex flex-col gap-1"
-          >
-            {options.map((opt) => {
-              const optDates = calculateDatesForPeriod(opt.value);
-              const isSelected = period === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => {
-                    onPeriodChange(opt.value);
-                    setIsOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-2.5 rounded-lg transition-colors flex flex-col ${
-                    isSelected
-                      ? 'bg-purple-600/30 border border-purple-500/40 text-white'
-                      : 'text-white/90 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  <span className={`text-xs ${isSelected ? 'font-bold text-white' : 'font-semibold text-white/90'}`}>
-                    {opt.label}
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 6, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 6, scale: 0.95 }}
+              transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-56 sm:w-64 rounded-xl bg-[#141424] border border-white/15 p-1.5 shadow-2xl z-[999] backdrop-blur-2xl flex flex-col gap-1"
+            >
+              {options.map((opt) => {
+                const optDates = calculateDatesForPeriod(opt.value);
+                const isSelected = period === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      onPeriodChange(opt.value);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-lg transition-colors flex flex-col cursor-pointer ${
+                      isSelected
+                        ? 'bg-purple-600/30 border border-purple-500/40 text-white'
+                        : 'text-white/90 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <span className={`text-xs ${isSelected ? 'font-bold text-white' : 'font-semibold text-white/90'}`}>
+                      {opt.label}
+                    </span>
+                    <span className={`text-[11px] mt-0.5 ${isSelected ? 'text-purple-200 font-medium' : 'text-white/60'}`}>
+                      {formatDisplayRange(optDates.startDate, optDates.endDate)}
+                    </span>
+                  </button>
+                );
+              })}
+
+              <div className="my-1 border-t border-white/10" />
+
+              {/* Custom Date Range Option */}
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setShowCustomModal(true);
+                }}
+                className={`w-full text-left px-3.5 py-2.5 rounded-lg transition-colors flex items-center justify-between cursor-pointer ${
+                  period === 'custom'
+                    ? 'bg-purple-600/30 border border-purple-500/40 text-white'
+                    : 'text-white/90 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <div className="flex flex-col">
+                  <span className={`text-xs flex items-center gap-1.5 ${period === 'custom' ? 'font-bold text-white' : 'font-semibold text-white/90'}`}>
+                    <Calendar size={12} className="text-purple-400" />
+                    Custom Date Range…
                   </span>
-                  <span className={`text-[11px] mt-0.5 ${isSelected ? 'text-purple-200 font-medium' : 'text-white/60'}`}>
-                    {formatDisplayRange(optDates.startDate, optDates.endDate)}
-                  </span>
-                </button>
-              );
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+                  {period === 'custom' && (
+                    <span className="text-[11px] mt-0.5 text-purple-200 font-medium">
+                      {formatDisplayRange(dateRange.startDate, dateRange.endDate)}
+                    </span>
+                  )}
+                </div>
+                <ArrowRight size={13} className="text-purple-400 flex-shrink-0" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Custom Date Modal */}
+      <CustomDateModal
+        isOpen={showCustomModal}
+        onClose={() => setShowCustomModal(false)}
+        startDate={dateRange.startDate}
+        endDate={dateRange.endDate}
+        onApply={(start, end) => {
+          onCustomDateChange(start, end);
+        }}
+      />
+    </>
   );
 }
 
@@ -1241,10 +1501,16 @@ export default function DashboardPage() {
 
   const [period, setPeriod] = useState('current_week');
   const [dateRange, setDateRange] = useState(() => calculateDatesForPeriod('current_week'));
+  const [revenueRangeView, setRevenueRangeView] = useState('jan_jun');
 
   const handlePeriodChange = (newPeriod) => {
     setPeriod(newPeriod);
     setDateRange(calculateDatesForPeriod(newPeriod));
+  };
+
+  const handleCustomDateChange = (startDate, endDate) => {
+    setPeriod('custom');
+    setDateRange({ startDate, endDate });
   };
 
   const { metrics, revenue, activities, insights, loading, error, refetch } = useDashboard({
@@ -1254,8 +1520,8 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1303,10 +1569,15 @@ export default function DashboardPage() {
             <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-white/90">Dashboard</h1>
             <p className="text-xs text-white/70 mt-0.5">Good morning! Here are your key actions for today.</p>
           </div>
-          <div className="flex items-center flex-wrap sm:flex-nowrap gap-2 sm:gap-3 py-0.5 justify-start xl:justify-end">
+          <div className="flex items-center flex-nowrap gap-1.5 sm:gap-3 py-0.5 justify-start xl:justify-end">
             <WhatsAppStatusIndicator />
-            <PeriodPicker period={period} dateRange={dateRange} onPeriodChange={handlePeriodChange} />
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0 flex-shrink-0">
+            <PeriodPicker
+              period={period}
+              dateRange={dateRange}
+              onPeriodChange={handlePeriodChange}
+              onCustomDateChange={handleCustomDateChange}
+            />
+            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 flex-shrink-0">
               <NotificationBell />
               <div className="relative z-50 shrink-0 flex-shrink-0">
                 <CreditRingDropdown user={user} size={36} />
@@ -1323,22 +1594,53 @@ export default function DashboardPage() {
         {/* ROW 1: Monthly Revenue + Recent Activity */}
         <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5 overflow-visible ${cardStateClass}`}>
           {/* Monthly Revenue — 2/3 */}
-          <section className="lg:col-span-2 rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden">
-            <div className="px-5 pt-4 pb-1">
-              <h2 className="text-[15px] font-semibold text-white/90">Monthly Revenue</h2>
-              <p className="text-[12px] text-white/70 mt-0.5">This year vs last year (INR)</p>
+          <section className="lg:col-span-2 rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden flex flex-col justify-between">
+            {/* Header: Title on Left, 2 Toggle buttons on Right */}
+            <div className="px-5 pt-4 pb-1 flex items-center justify-between">
+              <div>
+                <h2 className="text-[15px] font-semibold text-white/90">Monthly Revenue</h2>
+                <p className="text-[12px] text-white/70 mt-0.5">This year vs last year (INR)</p>
+              </div>
+
+              {/* 2 Range Filter Buttons */}
+              <div className="flex items-center bg-white/5 border border-white/10 p-0.5 rounded-lg shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setRevenueRangeView('jan_jun')}
+                  className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all cursor-pointer ${
+                    revenueRangeView === 'jan_jun'
+                      ? 'bg-purple-600 text-white shadow-sm font-semibold'
+                      : 'text-white/60 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  Jan – Jun
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRevenueRangeView('jul_dec')}
+                  className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all cursor-pointer ${
+                    revenueRangeView === 'jul_dec'
+                      ? 'bg-purple-600 text-white shadow-sm font-semibold'
+                      : 'text-white/60 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  Jul – Dec
+                </button>
+              </div>
             </div>
-            {/* Legend */}
-            <div className="flex items-center justify-center gap-5 px-5 pt-1.5 pb-1">
+
+            {/* Dynamic Year Legend in its Original CENTER place */}
+            <div className="flex items-center justify-center gap-5 px-5 pt-1 pb-1">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#39ff7e', boxShadow: '0 0 8px #39ff7e' }} />
-                <span className="text-[11px] text-white/60">{revenue.current_year || new Date().getFullYear()}</span>
+                <span className="text-[11px] text-white/70 font-medium">{revenue.current_year || new Date().getFullYear()}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#b794f4', boxShadow: '0 0 8px #b794f4' }} />
-                <span className="text-[11px] text-white/60">{revenue.prior_year || new Date().getFullYear() - 1}</span>
+                <span className="text-[11px] text-white/70 font-medium">{revenue.prior_year || new Date().getFullYear() - 1}</span>
               </div>
             </div>
+
             <div className="px-3 pb-3">
               <MonthlyRevenueChart 
                 months={revenue.months} 
@@ -1346,6 +1648,7 @@ export default function DashboardPage() {
                 priorData={revenue.prior_data}
                 currentYear={revenue.current_year}
                 priorYear={revenue.prior_year}
+                rangeView={revenueRangeView}
               />
             </div>
           </section>

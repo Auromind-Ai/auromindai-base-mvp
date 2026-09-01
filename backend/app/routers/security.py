@@ -41,8 +41,14 @@ async def get_sessions(
     ).order_by(UserSession.last_activity_at.desc()).all()
 
     result = []
+    seen_active_devices = set()
     for s in sessions:
         is_current = (current_user.session_id == s.id)
+        if not s.is_blocked:
+            if s.device_info in seen_active_devices and not is_current:
+                continue
+            seen_active_devices.add(s.device_info)
+
         result.append(SessionResponse(
             id=s.id,
             device_info=s.device_info,
@@ -154,16 +160,17 @@ async def get_security_summary(
         UserSession.is_blocked == True
     ).count()
 
-    # Get last session created for activity
+    # Get last session for activity
     last_session = db.query(UserSession).filter(
         UserSession.user_id == current_user.id,
         UserSession.revoked_at.is_(None)
-    ).order_by(UserSession.created_at.desc()).first()
+    ).order_by(UserSession.last_activity_at.desc()).first()
 
     last_login_activity = "No recent activity"
     if last_session:
         # Calculate time diff
-        diff = datetime.now(timezone.utc) - last_session.created_at
+        ref_time = last_session.last_activity_at or last_session.created_at
+        diff = datetime.now(timezone.utc) - ref_time
         seconds = diff.total_seconds()
         if seconds < 60:
             last_login_activity = "Just now"
@@ -249,6 +256,47 @@ async def revoke_device_sessions(
         logger.error(f"Failed to emit device revocation event: {notif_exc}")
 
     return {"status": "success", "message": f"All sessions for '{request.device_info}' have been signed out."}
+
+
+@router.post("/sessions/revoke-others")
+async def revoke_other_sessions(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    now = datetime.now(timezone.utc)
+    query = db.query(UserSession).filter(
+        UserSession.user_id == current_user.id,
+        UserSession.revoked_at.is_(None)
+    )
+    if current_user.session_id:
+        query = query.filter(UserSession.id != current_user.session_id)
+
+    other_sessions = query.all()
+    if not other_sessions:
+        return {"status": "success", "message": "No other active sessions found."}
+
+    for s in other_sessions:
+        s.revoked_at = now
+    db.commit()
+
+    try:
+        emit_event(
+            event_name="security.session_revoked",
+            payload={
+                "user_name": current_user.full_name or current_user.email,
+                "email": current_user.email,
+                "ip_address": "Multiple Devices",
+                "device_info": "All Other Devices",
+                "user_id": str(current_user.id)
+            },
+            actor_id=current_user.id,
+            idempotency_key=f"signout_others:{current_user.id}:{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}",
+            db=db
+        )
+    except Exception as notif_exc:
+        logger.error(f"Failed to emit bulk revocation event: {notif_exc}")
+
+    return {"status": "success", "message": f"Successfully signed out of {len(other_sessions)} other device session(s)."}
 
 
 @router.post("/sessions/{session_id}/unblock")

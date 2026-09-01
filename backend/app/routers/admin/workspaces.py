@@ -26,7 +26,7 @@ async def get_workspaces(db: Session = Depends(get_db)):
             Plan.name.label("plan_name"),                         
             func.count(WorkspaceMember.id).label("member_count")
         )
-        .join(User, Workspace.created_by == User.id)
+        .outerjoin(User, Workspace.created_by == User.id)
         .outerjoin(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
         .outerjoin(
             Subscription,
@@ -51,12 +51,12 @@ async def get_workspaces(db: Session = Depends(get_db)):
             "id": str(ws.id),
             "name": ws.name,
             "workspace_name": ws.name,
-            "owner_name": ws.full_name,
-            "owner_email": ws.email,
-            "plan_type": ws.plan_name.lower() if ws.plan_name else "free",  # 
+            "owner_name": ws.full_name or "N/A",
+            "owner_email": ws.email or "N/A",
+            "plan_type": ws.plan_name.lower() if ws.plan_name else "free",
             "member_count": ws.member_count or 0,
             "created_at": ws.created_at.isoformat() if ws.created_at else None,
-            "is_active": ws.is_active
+            "is_active": bool(ws.is_active) if ws.is_active is not None else True
         }
         for ws in results
     ]
@@ -185,16 +185,31 @@ async def toggle_workspace_status(
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
-    owner = db.get(User, ws.created_by)
+    owner = None
+    if ws.created_by:
+        owner = db.get(User, ws.created_by)
+    if not owner:
+        member = db.query(WorkspaceMember).filter(
+            WorkspaceMember.workspace_id == ws.id
+        ).first()
+        if member:
+            owner = db.get(User, member.user_id)
 
     if not owner:
-        raise HTTPException(status_code=404, detail="Owner not found")
+        raise HTTPException(status_code=400, detail="Cannot toggle status: No user/owner associated with this workspace")
 
     owner.is_active = not owner.is_active
+
+    if not owner.is_active:
+        from app.models.user_session import UserSession
+        db.query(UserSession).filter(
+            UserSession.user_id == owner.id,
+            UserSession.revoked_at.is_(None)
+        ).update({"revoked_at": datetime.now(timezone.utc)}, synchronize_session=False)
 
     db.commit()
 
     return {
-        "message": "Workspace status updated",
+        "message": f"Workspace {'deactivated' if not owner.is_active else 'activated'} successfully",
         "is_active": owner.is_active
     }

@@ -24,13 +24,15 @@ const poppins = Poppins({
 /* ─
    Config
 ─ */
-const TABS = ['All', 'Draft', 'Pending', 'Approved', 'Rejected'];
+const TABS = ['All', 'Draft', 'Pending', 'Approved', 'Rejected', 'Action Required'];
 
 const STATUS = {
-  draft:    { label: 'Draft',    color: '#94a3b8', bg: 'rgba(1, 5, 12, 0.12)',   ring: 'rgba(148,163,184,0.25)' },
-  pending:  { label: 'Pending',  color: '#fbbf24', bg: 'rgba(19, 14, 1, 0.12)',   ring: 'rgba(251,191,36,0.25)'  },
-  approved: { label: 'Approved', color: '#34c091', bg: 'rgba(1, 14, 9, 0.12)',   ring: 'rgba(18, 245, 162, 0.25)'  },
-  rejected: { label: 'Rejected', color: '#f87171', bg: 'rgba(7, 0, 0, 0.12)',   ring: 'rgba(248,113,113,0.25)' },
+  draft:           { label: 'Draft',           color: '#94a3b8', bg: 'rgba(1, 5, 12, 0.12)',   ring: 'rgba(148,163,184,0.25)' },
+  pending:         { label: 'Pending',         color: '#fbbf24', bg: 'rgba(19, 14, 1, 0.12)',   ring: 'rgba(251,191,36,0.25)'  },
+  approved:        { label: 'Approved',        color: '#34c091', bg: 'rgba(1, 14, 9, 0.12)',   ring: 'rgba(18, 245, 162, 0.25)'  },
+  rejected:        { label: 'Rejected',        color: '#f87171', bg: 'rgba(7, 0, 0, 0.12)',   ring: 'rgba(248,113,113,0.25)' },
+  action_required: { label: 'Action Required', color: '#C49FE0', bg: 'rgba(167,139,250,0.12)', ring: 'rgba(196,159,224,0.25)' },
+  action:          { label: 'Action Required', color: '#C49FE0', bg: 'rgba(167,139,250,0.12)', ring: 'rgba(196,159,224,0.25)' },
 };
 
 const STAT_CFG = [
@@ -224,7 +226,7 @@ function StatCard({ cfg, count, onClick, isActive }) {
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       className={`rounded-2xl p-4 transition-all duration-200 relative overflow-hidden flex items-center gap-3.5 min-h-[96px] w-full min-w-0 border ${
-        onClick ? 'cursor-pointer' : 'default'
+        onClick ? 'cursor-pointer' : 'cursor-default'
       } ${
         hov ? '-translate-y-1' : 'translate-y-0'
       }`}
@@ -581,9 +583,19 @@ export default function TemplatesPage() {
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [checkingConnection, setCheckingConnection] = useState(false);
 
-  const countFor = tab =>
-    tab === 'All' ? templates.length
-    : templates.filter(t => t.status === tab.toLowerCase()).length;
+  const countFor = tab => {
+    if (tab === 'All') return templates.length;
+    if (tab === 'Action Required' || tab === 'action') {
+      return templates.filter(t =>
+        t.status === 'action_required' ||
+        t.status === 'action' ||
+        t.status === 'paused' ||
+        t.status === 'flagged' ||
+        t.status === 'disabled'
+      ).length;
+    }
+    return templates.filter(t => t.status === tab.toLowerCase()).length;
+  };
 
   useEffect(() => { fetchTemplates(); }, []);
 
@@ -600,7 +612,17 @@ export default function TemplatesPage() {
     } else {
       let d = [...templates];
       if (activeTab && activeTab !== 'All') {
-        d = d.filter(t => t.status === activeTab.toLowerCase());
+        if (activeTab === 'Action Required' || activeTab === 'action') {
+          d = d.filter(t =>
+            t.status === 'action_required' ||
+            t.status === 'action' ||
+            t.status === 'paused' ||
+            t.status === 'flagged' ||
+            t.status === 'disabled'
+          );
+        } else {
+          d = d.filter(t => t.status === activeTab.toLowerCase());
+        }
       }
       if (search) {
         d = d.filter(t =>
@@ -636,7 +658,11 @@ export default function TemplatesPage() {
     try {
       await api.post(`/templates/submit/${tpl.id}`);
       fetchTemplates();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      alert(err.message || err?.data?.detail || 'Failed to submit template');
+      fetchTemplates();
+    }
   };
 
   const handleNewTemplateClick = async () => {
@@ -683,22 +709,29 @@ export default function TemplatesPage() {
         {!loading && (
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3 mb-6 w-full shrink-0">
             {STAT_CFG.map(cfg => {
-              const count = cfg.key === 'total' ? templates.length
-                : cfg.key === 'action' ? 0
+              const count = cfg.key === 'total'
+                ? templates.length
+                : cfg.key === 'action'
+                ? countFor('Action Required')
                 : templates.filter(t => t.status === cfg.key).length;
-              const tabName = cfg.key.charAt(0).toUpperCase() + cfg.key.slice(1);
-              const isClickable = cfg.key !== 'total' && cfg.key !== 'action';
+
+              const tabName = cfg.key === 'total'
+                ? 'All'
+                : cfg.key === 'action'
+                ? 'Action Required'
+                : cfg.key.charAt(0).toUpperCase() + cfg.key.slice(1);
+
               return (
                 <StatCard
                   key={cfg.key}
                   cfg={cfg}
                   count={count}
-                  onClick={isClickable ? () => {
+                  onClick={() => {
                     setViewSource('user');
                     setActiveTab(tabName);
                     setActiveCategory(null);
-                  } : undefined}
-                  isActive={isClickable && viewSource === 'user' && activeTab === tabName}
+                  }}
+                  isActive={viewSource === 'user' && activeTab === tabName}
                 />
               );
             })}
@@ -745,8 +778,8 @@ export default function TemplatesPage() {
             </div>
           </div>
 
-          {/* Status Tabs — Auto 5-column grid on mobile (No scroll, perfectly fitted) */}
-          <div className="grid grid-cols-5 sm:flex sm:flex-row items-center gap-1 sm:gap-2 bg-[#070012] border border-[#1e1e3f] rounded-xl sm:rounded-2xl p-1 sm:px-3 sm:py-2.5 w-full max-w-full lg:w-auto shrink-0">
+          {/* Status Tabs */}
+          <div className="grid grid-cols-3 sm:flex sm:flex-row items-center gap-1 sm:gap-2 bg-[#070012] border border-[#1e1e3f] rounded-xl sm:rounded-2xl p-1 sm:px-3 sm:py-2.5 w-full max-w-full lg:w-auto shrink-0">
             {TABS.map(tab => {
               const active = viewSource === 'user' && activeTab === tab;
               const cnt = countFor(tab);
@@ -758,7 +791,7 @@ export default function TemplatesPage() {
                     setActiveTab(tab);
                     setActiveCategory(null);
                   }}
-                  className={`flex items-center justify-center gap-1 px-1 sm:px-3 py-1.5 rounded-lg border-none text-[10px] sm:text-xs cursor-pointer whitespace-nowrap transition-all w-full sm:w-auto ${
+                  className={`flex items-center justify-center gap-1 px-1.5 sm:px-3 py-1.5 rounded-lg border-none text-[10px] sm:text-xs cursor-pointer whitespace-nowrap transition-all w-full sm:w-auto ${
                     active
                       ? 'bg-[#814AC8] text-white font-bold shadow-[0_2px_14px_rgba(129,74,200,0.4)]'
                       : 'bg-white/5 text-white/70 font-medium hover:bg-white/10'

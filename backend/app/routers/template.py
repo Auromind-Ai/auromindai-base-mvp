@@ -8,7 +8,6 @@ import os
 import re
 from dotenv import load_dotenv
 from groq import Groq
-from app.core.security import to_uuid
 
 from app.services.wcc_service import WCCService
 from app.database import get_db
@@ -16,8 +15,8 @@ from app.models.templates import Template
 from app.models.workspace import Workspace
 from app.services.template import submit_to_meta
 from app.routers.auth import get_current_user, CurrentUser
-from app.core.security import verify_workspace_access
-
+from app.core.security import verify_workspace_access,to_uuid
+from app.core.exceptions import BillingError, WorkspaceAccessError, AIProviderError
 router = APIRouter()
 
 from app.schemas.template import (
@@ -252,8 +251,10 @@ Return JSON only.
         raise e
     except HTTPException as e:
         raise e
+    except AIProviderError as e:
+        raise HTTPException(status_code=getattr(e, "status_code", 503), detail=str(e))
     except Exception as e:
-        logger.error(f"Template generation failed: {e}")
+        logger.error(f"Template generation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="AI template generation failed. Please try again.")
 
 @router.post("/templates/create")
@@ -294,24 +295,6 @@ def create_template(
             "WhatsApp channel is not connected or configured. Please connect your WhatsApp channel in Channel Settings or contact support."
         )
 
-    new_template = Template(
-        name=data.name,
-        type=data.type,
-        content=data.message,
-        header=data.header,
-        footer=data.footer,
-        cta=data.cta,
-        cta_btn_title=data.cta_btn_title,
-        status="pending",
-        workspace_id=workspace_id,
-        category=data.category,
-        language=data.language,
-        user_id=current_user.id,
-    )
-    db.add(new_template)
-    db.commit()
-    db.refresh(new_template)
-
     # PASS WORKSPACE
     validate_category(data)
     components = build_components(data)
@@ -325,8 +308,7 @@ def create_template(
         meta_response = submit_to_meta(meta_payload, workspace)
     except Exception as e:
         logger.error(f"Failed to submit template: {e}")
-        new_template.status = "rejected"
-        db.commit()
+        db.rollback()
         raise HTTPException(
             status_code=503,
             detail="Failed to submit template due to a connection timeout. Please check your template list or try again in a moment."
@@ -358,28 +340,57 @@ def create_template(
                     if matched_template:
                         meta_template_id = matched_template.get("id")
                         meta_status = matched_template.get("status", "").lower()
-                        new_template.meta_template_id = meta_template_id
-                        new_template.status = meta_status if meta_status in ["approved", "pending", "rejected"] else "pending"
+                        new_template = Template(
+                            name=data.name,
+                            type=data.type,
+                            content=data.message,
+                            header=data.header,
+                            footer=data.footer,
+                            cta=data.cta,
+                            cta_btn_title=data.cta_btn_title,
+                            status=meta_status if meta_status in ["approved", "pending", "rejected"] else "pending",
+                            workspace_id=workspace_id,
+                            category=data.category,
+                            language=data.language,
+                            user_id=current_user.id,
+                            meta_template_id=meta_template_id,
+                        )
+                        db.add(new_template)
                         db.commit()
+                        db.refresh(new_template)
                         logger.info(f"Successfully recovered template from Meta: ID={meta_template_id}, Status={new_template.status}")
                         return {"status": "submitted"}
             except Exception as get_exc:
                 logger.error(f"Failed to recover template: {get_exc}")
         
-        # Default error handling if not recovered
+        # Default error handling if not recovered: rollback to prevent dirty database state
         logger.error(f"META ERROR: {meta_response}")
-        new_template.status = "rejected"
-        db.commit()
+        db.rollback()
 
         error_msg = error_info.get("message", "Template submission was rejected. Please review your template content.")
         raise HTTPException(400, f"Template rejected: {error_msg}")
     
     else:
         logger.info(f"META SUCCESS: {meta_response}")
-        new_template.meta_template_id = meta_response.get("id")
-        new_template.status = "pending"
+        new_template = Template(
+            name=data.name,
+            type=data.type,
+            content=data.message,
+            header=data.header,
+            footer=data.footer,
+            cta=data.cta,
+            cta_btn_title=data.cta_btn_title,
+            status="pending",
+            workspace_id=workspace_id,
+            category=data.category,
+            language=data.language,
+            user_id=current_user.id,
+            meta_template_id=meta_response.get("id"),
+        )
+        db.add(new_template)
+        db.commit()
+        db.refresh(new_template)
 
-    db.commit()
     return {"status": "submitted"}
 
 
@@ -687,7 +698,15 @@ def submit_template(
         "components": components,
     }
 
-    meta_response = submit_to_meta(meta_payload, workspace)
+    try:
+        meta_response = submit_to_meta(meta_payload, workspace)
+    except Exception as e:
+        logger.error(f"Failed to submit template: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Failed to submit template due to a connection timeout. Please check your template list or try again in a moment."
+        )
+
     if meta_response.get("error"):
         logger.error(f"META SUBMIT ERROR: {meta_response}")
         template.status = "rejected"

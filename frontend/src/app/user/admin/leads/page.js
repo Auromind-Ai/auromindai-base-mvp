@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Poppins } from 'next/font/google';
 import {
@@ -25,11 +25,12 @@ const poppins = Poppins({
 // ─ DATA META ─
 
 const CHANNEL_META = {
-    Whatsapp: { icon: Phone,     gradient: 'from-[#25D366] to-[#128C7E]', dot: 'bg-emerald-400', label: 'Whatsapp',  textColor: 'text-emerald-400', scoreColor: 'text-emerald-400' },
+    Whatsapp: { icon: Phone,      gradient: 'from-[#25D366] to-[#128C7E]', dot: 'bg-emerald-400', label: 'Whatsapp',  textColor: 'text-emerald-400', scoreColor: 'text-emerald-400' },
     Instagram: { icon: Instagram, gradient: 'from-[#F58529] via-[#DD2A7B] to-[#8134AF]', dot: 'bg-pink-400',    label: 'Instagram', textColor: 'text-pink-400',    scoreColor: 'text-pink-400'    },
-    Web:       { icon: Globe,     gradient: 'from-[#3B82F6] to-[#1D4ED8]', dot: 'bg-sky-400',   label: 'Web',       textColor: 'text-sky-400',     scoreColor: 'text-sky-400'     },
-    Email:     { icon: Mail,      gradient: 'from-[#F97316] to-[#EA580C]', dot: 'bg-orange-400', label: 'Email',     textColor: 'text-orange-400',  scoreColor: 'text-amber-400'   },
-    Twilio:    { icon: Zap,       gradient: 'from-[#F22F46] to-[#CE272D]', dot: 'bg-red-500',    label: 'Twilio',    textColor: 'text-red-500',     scoreColor: 'text-red-500'     },
+    Web:       { icon: Globe,      gradient: 'from-[#3B82F6] to-[#1D4ED8]', dot: 'bg-sky-400',   label: 'Web',        textColor: 'text-sky-400',     scoreColor: 'text-sky-400'     },
+    Email:     { icon: Mail,       gradient: 'from-[#F97316] to-[#EA580C]', dot: 'bg-orange-400', label: 'Email',      textColor: 'text-orange-400',  scoreColor: 'text-amber-400'   },
+    Twilio:    { icon: Zap,        gradient: 'from-[#F22F46] to-[#CE272D]', dot: 'bg-red-500',    label: 'Twilio',     textColor: 'text-red-500',     scoreColor: 'text-red-500'     },
+    Manual:    { icon: User,       gradient: 'from-[#6366F1] to-[#4F46E5]', dot: 'bg-indigo-400', label: 'Manual',     textColor: 'text-indigo-400',  scoreColor: 'text-indigo-400'  },
 };
 
 const TIER_BADGES = {
@@ -37,8 +38,6 @@ const TIER_BADGES = {
     warm: { text: '🟡 Warm', bg: 'bg-amber-500/10', textCls: 'text-amber-400', border: 'border-amber-500/20' },
     cold: { text: '❄️ Cold', bg: 'bg-zinc-500/10', textCls: 'text-zinc-400', border: 'border-zinc-500/20' }
 };
-
-// AGENT_LABEL_BADGES, TAG_META, and TAG_PILL_META replaced by shared labelStyles configuration.
 
 const ANALYTICS_ICONS = {
     'Intent':          Zap,
@@ -107,10 +106,33 @@ const CHANNEL_THEME = {
         timelineIconBg: 'bg-sky-500/10 border-sky-500/20',
         timelineIconText: 'text-sky-400',
         headerBorder: 'border-b border-sky-500/10 shadow-lg shadow-sky-500/[0.02]',
+    },
+    Manual: {
+        bubbleGradient: 'from-[#6366F1] to-[#4F46E5]',
+        scoreColor: 'text-indigo-400',
+        scoreBg: 'bg-indigo-400/10 border-indigo-400/20 text-indigo-400',
+        accentBorder: 'border-indigo-500/20',
+        accentGlow: 'shadow-indigo-500/5',
+        buttonColor: 'bg-indigo-500/15 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/25',
+        cardBorder: 'border-indigo-500/20 shadow-lg shadow-indigo-500/5',
+        timelineIconBg: 'bg-indigo-500/10 border-indigo-500/20',
+        timelineIconText: 'text-indigo-400',
+        headerBorder: 'border-b border-indigo-500/10 shadow-lg shadow-indigo-500/[0.02]',
     }
 };
 
 const getTheme = (channel) => CHANNEL_THEME[channel] || CHANNEL_THEME.Web;
+
+// ─ 6 FILTER OPTIONS CONFIG ─
+
+const FILTER_OPTIONS = [
+    { id: 'all', label: 'All Leads', icon: Users },
+    { id: 'whatsapp', label: 'WhatsApp', icon: Phone },
+    { id: 'instagram', label: 'Instagram', icon: Instagram },
+    { id: 'twilio', label: 'Twilio', icon: Zap },
+    { id: 'manual', label: 'Manual', icon: User },
+    { id: 'favorites', label: 'Favorites', icon: Star },
+];
 
 // ─ HELPERS & MAPPERS ─
 
@@ -120,8 +142,9 @@ const getChannelKey = (source) => {
     if (src.includes('whatsapp')) return 'Whatsapp';
     if (src.includes('instagram')) return 'Instagram';
     if (src.includes('twilio') || src.includes('sms')) return 'Twilio';
-    if (src.includes('web')) return 'Web';
     if (src.includes('email') || src.includes('mail')) return 'Email';
+    if (src.includes('manual')) return 'Manual';
+    if (src.includes('web')) return 'Web';
     return 'Web';
 };
 
@@ -262,6 +285,7 @@ const resolveLeadChannel = (lead, detail = null) => {
     if (rawVal.includes('instagram')) return 'Instagram';
     if (rawVal.includes('twilio') || rawVal.includes('sms')) return 'Twilio';
     if (rawVal.includes('email') || rawVal.includes('mail')) return 'Email';
+    if (rawVal.includes('manual')) return 'Manual';
     return 'Web';
 };
 
@@ -458,9 +482,37 @@ function ChatSkeleton() {
     );
 }
 
-// ─ LEADS PANEL
+// ─ LEADS PANEL ─
 
-function LeadsPanel({ leads, selected, onSelect, show, loading, totalCount, hasMore, onLoadMore, leadsDetails = {} }) {
+function LeadsPanel({ 
+    leads, 
+    selected, 
+    onSelect, 
+    show, 
+    loading, 
+    totalCount, 
+    hasMore, 
+    onLoadMore, 
+    leadsDetails = {},
+    selectedFilter,
+    onFilterChange
+}) {
+    const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    // Close filter dropdown on click outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsFilterDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const activeFilterObj = FILTER_OPTIONS.find(f => f.id === selectedFilter) || FILTER_OPTIONS[0];
+
     return (
         <div className={`
             w-full xl:w-[380px] flex-shrink-0
@@ -469,15 +521,67 @@ function LeadsPanel({ leads, selected, onSelect, show, loading, totalCount, hasM
             overflow-hidden
             ${show ? 'flex' : 'hidden xl:flex'}
         `}>
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-white">All Leads</span>
-                    <span className="text-xs text-zinc-500 font-medium">{totalCount}</span>
-                </div>
-                <button className="text-zinc-500 hover:text-zinc-300">
-                    <ChevronDown size={16} />
+            {/* Functional Category Filter Header */}
+            <div className="relative px-5 py-4 border-b border-white/[0.06] select-none" ref={dropdownRef}>
+                <button
+                    onClick={() => setIsFilterDropdownOpen(prev => !prev)}
+                    className="flex items-center justify-between w-full text-left group cursor-pointer"
+                >
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-white group-hover:text-zinc-200 transition-colors">
+                            {activeFilterObj.label}
+                        </span>
+                        <span className="text-xs text-zinc-500 font-medium px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">
+                            {leads.length}
+                        </span>
+                    </div>
+                    <div className="text-zinc-500 group-hover:text-zinc-300 transition-colors p-1">
+                        <ChevronDown 
+                            size={16} 
+                            className={`transition-transform duration-200 ${isFilterDropdownOpen ? 'rotate-180 text-white' : ''}`} 
+                        />
+                    </div>
                 </button>
+
+                {/* Dropdown Menu Modal */}
+                <AnimatePresence>
+                    {isFilterDropdownOpen && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                            transition={{ duration: 0.15, ease: 'easeOut' }}
+                            className="absolute left-4 right-4 top-[54px] z-50 bg-[#11111A] border border-white/[0.1] rounded-2xl shadow-2xl p-1.5 backdrop-blur-xl"
+                        >
+                            {FILTER_OPTIONS.map((option) => {
+                                const isSelected = selectedFilter === option.id;
+                                const Icon = option.icon;
+                                return (
+                                    <button
+                                        key={option.id}
+                                        onClick={() => {
+                                            onFilterChange(option.id);
+                                            setIsFilterDropdownOpen(false);
+                                        }}
+                                        className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                                            isSelected
+                                                ? 'bg-[#7C4DFF]/15 text-[#9E7BFF] border border-[#7C4DFF]/30 shadow-sm'
+                                                : 'text-zinc-400 hover:text-white hover:bg-white/[0.05] border border-transparent'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2.5">
+                                            <Icon size={14} className={isSelected ? 'text-[#9E7BFF]' : 'text-zinc-500'} />
+                                            <span>{option.label}</span>
+                                        </div>
+                                        {isSelected && (
+                                            <Check size={14} className="text-[#9E7BFF]" />
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             {/* List */}
@@ -553,7 +657,7 @@ function LeadsPanel({ leads, selected, onSelect, show, loading, totalCount, hasM
             </div>
 
             {/* Footer / Pagination */}
-            {hasMore && (
+            {hasMore && selectedFilter === 'all' && (
                 <div className="p-4 border-t border-white/[0.06]">
                     <button
                         onClick={onLoadMore}
@@ -654,9 +758,9 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onToggleFavorite
                                 <h2 className="text-xs sm:text-sm md:text-base font-bold text-white truncate leading-snug">{lead.name}</h2>
                                 <CheckCircle2 size={13} className="text-emerald-400 fill-emerald-400/20 shrink-0" />
                             </div>
-                           
+                            
                             <span className="text-zinc-600 font-light text-xs hidden xs:inline select-none">|</span>
-                           
+                            
                             <div className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.08] shrink-0">
                                 <div className={`w-1.5 h-1.5 rounded-full ${lead.online ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'}`} />
                                 <span className={`text-[9px] sm:text-[10px] font-semibold ${lead.online ? 'text-emerald-400' : 'text-zinc-400'}`}>
@@ -1139,13 +1243,6 @@ function RightPanel({ lead, details, history, loadingHistory, onBackToChat, isTa
                                 <div className="h-2 bg-white/5 rounded w-1/4" />
                             </div>
                         </div>
-                        <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-full bg-white/5 flex-shrink-0" />
-                            <div className="flex-1 space-y-2">
-                                <div className="h-3 bg-white/5 rounded w-2/3" />
-                                <div className="h-2 bg-white/5 rounded w-1/3" />
-                            </div>
-                        </div>
                     </div>
                 ) : (
                     <div className="space-y-5">
@@ -1187,13 +1284,14 @@ export default function LeadsPage() {
     const [selectedLeadId, setSelectedLeadId] = useState(null);
     const [leadsDetails, setLeadsDetails] = useState({});
     const [historyLogs, setHistoryLogs] = useState({});
-   
+    
+    // Filter & Search states
+    const [selectedFilter, setSelectedFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [activeView, setActiveView] = useState('leads'); // 'leads' | 'chat' | 'overview'
     const [desktopDrawerOpen, setDesktopDrawerOpen] = useState(false);
     const [showAddLeadModal, setShowAddLeadModal] = useState(false);
-
 
     const [loading, setLoading] = useState(false);
     const [detailsLoading, setDetailsLoading] = useState({});
@@ -1314,7 +1412,8 @@ export default function LeadsPage() {
                             lead_tier: normalizedDetail.lead_tier,
                             profile_image: normalizedDetail.profile_image,
                             avatar_url: normalizedDetail.avatar_url,
-                            contact_photo: normalizedDetail.contact_photo
+                            contact_photo: normalizedDetail.contact_photo,
+                            is_favorite: normalizedDetail.is_favorite
                         };
                     }
                     return l;
@@ -1424,7 +1523,6 @@ export default function LeadsPage() {
                 setOffset(0);
 
                 if (normalizedItems.length > 0) {
-                    // Reopen saved URL lead or fallback to first lead in list
                     const targetLead = normalizedItems.find(l => l.id === urlLeadId) || normalizedItems[0];
                     setSelectedLeadId(targetLead.id);
                     fetchSelectedLeadData(targetLead.id);
@@ -1480,18 +1578,13 @@ export default function LeadsPage() {
         setTotalCount(prev => prev + 1);
         setSelectedLeadId(newLead.id);
         setActiveView('chat');
-
-        // Fetch details of new lead
         fetchSelectedLeadData(newLead.id);
     };
-
-
 
     const handleToggleFavorite = async (leadId) => {
         const workspaceId = getWorkspaceIdFromToken();
         if (!workspaceId) return;
 
-        // Optimistically toggle is_favorite
         const originalLead = leads.find(l => l.id === leadId);
         const originalDetail = leadsDetails[leadId];
         const nextFavorite = !(originalDetail?.is_favorite || originalLead?.is_favorite);
@@ -1551,8 +1644,35 @@ export default function LeadsPage() {
         }
     };
 
-    // Server-side search results
-    const filteredLeads = leads;
+    // Filter leads dynamically across the 6 categories
+    const displayedLeads = useMemo(() => {
+        return leads.filter((lead) => {
+            const detail = leadsDetails[lead.id];
+            const rawSource = (
+                detail?.source ||
+                lead?.source ||
+                ''
+            ).toString().toLowerCase();
+
+            const resolvedChannel = resolveLeadChannel(lead, detail);
+            
+            switch (selectedFilter) {
+                case 'whatsapp':
+                    return resolvedChannel === 'Whatsapp';
+                case 'instagram':
+                    return resolvedChannel === 'Instagram';
+                case 'twilio':
+                    return resolvedChannel === 'Twilio';
+                case 'manual':
+                    return rawSource === 'manual' || rawSource === '' || lead.source === 'manual';
+                case 'favorites':
+                    return Boolean(detail?.is_favorite ?? lead.is_favorite);
+                case 'all':
+                default:
+                    return true;
+            }
+        });
+    }, [leads, selectedFilter, leadsDetails]);
 
     const selectedLead = leads.find(l => l.id === selectedLeadId);
 
@@ -1591,7 +1711,7 @@ export default function LeadsPage() {
                     {/* 1. DESKTOP LAYOUT (xl: 1260px+) */}
                     <div className="hidden xl:flex flex-1 w-full overflow-hidden relative">
                         <LeadsPanel
-                            leads={filteredLeads}
+                            leads={displayedLeads}
                             selected={selectedLead}
                             onSelect={l => handleSelectLead(l.id)}
                             show={true}
@@ -1600,6 +1720,8 @@ export default function LeadsPage() {
                             hasMore={hasMore}
                             onLoadMore={() => fetchLeadsList(offset + LIMIT, true)}
                             leadsDetails={leadsDetails}
+                            selectedFilter={selectedFilter}
+                            onFilterChange={setSelectedFilter}
                         />
                         <div className="flex-1 flex overflow-hidden">
                             {detailsLoading[selectedLeadId] && !leadsDetails[selectedLeadId] ? (
@@ -1624,7 +1746,7 @@ export default function LeadsPage() {
                             </div>
                         </div>
 
-                        {/* Slide-over Drawer for Lead Overview (ONLY on 1260px – 1600px) */}
+                        {/* Slide-over Drawer for Lead Overview */}
                         <AnimatePresence>
                             {desktopDrawerOpen && (
                                 <>
@@ -1662,7 +1784,7 @@ export default function LeadsPage() {
                         <div className="flex-1 flex overflow-hidden">
                             {activeView === 'leads' && (
                                 <LeadsPanel
-                                    leads={filteredLeads}
+                                    leads={displayedLeads}
                                     selected={selectedLead}
                                     onSelect={l => {
                                         handleSelectLead(l.id);
@@ -1674,6 +1796,8 @@ export default function LeadsPage() {
                                     hasMore={hasMore}
                                     onLoadMore={() => fetchLeadsList(offset + LIMIT, true)}
                                     leadsDetails={leadsDetails}
+                                    selectedFilter={selectedFilter}
+                                    onFilterChange={setSelectedFilter}
                                 />
                             )}
 

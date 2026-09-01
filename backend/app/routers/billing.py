@@ -807,15 +807,40 @@ def get_user_invoices(
             )
 
         if type:
-            if type == "subscription":
-                invoice_query = invoice_query.filter(Invoice.product_type == "subscription")
-            elif type == "ai_credit_recharge":
-                invoice_query = invoice_query.filter(Invoice.product_type == "ai_credits")
-            elif type == "flow_packs":
-                invoice_query = invoice_query.filter(Invoice.product_type == "flow_packs")
-            elif type == "wallet_recharge":
-                invoice_query = invoice_query.filter(Invoice.product_type == "wcc_recharge")
-            elif type == "credit_note":
+            if type in ["subscription", "plan_upgrade"]:
+                invoice_query = invoice_query.filter(
+                    or_(
+                        Invoice.product_type.in_(["subscription", "plan_upgrade"]),
+                        Invoice.product_type.ilike("%subscription%"),
+                        Invoice.product_type.ilike("%upgrade%"),
+                        Invoice.product_type.ilike("%plan%")
+                    )
+                )
+            elif type in ["ai_credit_recharge", "ai_credits"]:
+                invoice_query = invoice_query.filter(
+                    or_(
+                        Invoice.product_type.in_(["ai_credit_recharge", "ai_credits"]),
+                        Invoice.product_type.ilike("%ai%credit%"),
+                        Invoice.product_type.ilike("%credit_recharge%"),
+                        Invoice.product_type.ilike("%topup%")
+                    )
+                )
+            elif type in ["flow_packs", "flow_purchase", "flow_pack"]:
+                invoice_query = invoice_query.filter(
+                    or_(
+                        Invoice.product_type.in_(["flow_packs", "flow_purchase", "flow_pack"]),
+                        Invoice.product_type.ilike("%flow%")
+                    )
+                )
+            elif type in ["wallet_recharge", "wcc_recharge"]:
+                invoice_query = invoice_query.filter(
+                    or_(
+                        Invoice.product_type.in_(["wcc_recharge", "wallet_recharge"]),
+                        Invoice.product_type.ilike("%wcc%"),
+                        Invoice.product_type.ilike("%wallet%")
+                    )
+                )
+            elif type in ["credit_note", "refund"]:
                 invoice_query = invoice_query.filter(Invoice.invoice_type == "credit_note")
 
         if sort == "asc":
@@ -830,9 +855,14 @@ def get_user_invoices(
 
         desc_mapping = {
             "subscription": "Auromind SaaS Platform Subscription",
+            "plan_upgrade": "Auromind SaaS Platform Subscription",
             "ai_credits": "AI Token Credit Pack Recharge",
+            "ai_credit_recharge": "AI Token Credit Pack Recharge",
             "flow_packs": "AI Automation Flow Pack",
-            "wcc_recharge": "WhatsApp Conversation Cloud Wallet Recharge"
+            "flow_purchase": "AI Automation Flow Pack",
+            "flow_pack": "AI Automation Flow Pack",
+            "wcc_recharge": "WhatsApp Conversation Cloud Wallet Recharge",
+            "wallet_recharge": "WhatsApp Conversation Cloud Wallet Recharge"
         }
 
         for inv in invoices:

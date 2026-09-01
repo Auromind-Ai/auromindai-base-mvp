@@ -140,6 +140,21 @@ def get_conversations(
         channel=channel,
         status=status,
     )
+
+
+@router.get("/conversations/counts")
+def get_conversation_counts(
+    workspace_id: str | None = None,
+    channel: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    return ConversationService.get_conversation_counts(
+        db,
+        workspace_id=verified_workspace_id,
+        channel=channel,
+    )
 @router.get("/conversations/{conversation_id}")
 def get_conversation_by_id(
     conversation_id: str,
@@ -323,7 +338,7 @@ def close_conversation(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    from datetime import datetime
+    from datetime import datetime, timezone
     from app.models.ai_action import Lead
     from app.models.lead_scoring import LeadScoreHistory
  
@@ -335,9 +350,10 @@ def close_conversation(
         workspace_id=workspace_id,
         conversation_id=conversation_id,
     )
-    # Update status to CLOSED
+    # Update status to CLOSED and record closed_at timestamp
     from app.models.conversation import ConversationStatus
     conversation.status = ConversationStatus.CLOSED
+    conversation.closed_at = datetime.now(timezone.utc)
     
     # Clear human takeover state when closing conversation
     from app.models.ai_action import ConversationState

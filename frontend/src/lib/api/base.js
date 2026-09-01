@@ -20,6 +20,10 @@ export function sanitizeErrorMessage(msg, status = 500) {
   const lower = msg.toLowerCase().trim();
   if (!lower) return 'An unexpected error occurred. Please try again.';
 
+  if (lower.includes('deactivat')) {
+    return 'Your account is deactivated due to some reason. Please call or contact the support team.';
+  }
+
   // List of technical internals, vendor names, stack traces, and database terms that must never be exposed
   const technicalPatterns = [
     // Stack traces & Python errors
@@ -242,15 +246,33 @@ export class APIClient {
           }
         }
 
-        if (url.includes('/admin') && !url.includes('/admin/auth') && (response.status === 401 || response.status === 403 || response.status === 404)) {
+        const isDeactivated = (errorMessage && errorMessage.toLowerCase().includes('deactivat')) || 
+                              (data?.detail && typeof data.detail === 'string' && data.detail.toLowerCase().includes('deactivat'));
+
+        if (isDeactivated && !url.includes('/auth/login') && !url.includes('/auth/verify-otp') && !url.includes('/auth/send-otp') && !url.includes('/auth/google')) {
           if (typeof window !== 'undefined') {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auromind_logged_in');
+            localStorage.removeItem('auromind_user');
+            localStorage.removeItem('user');
+            localStorage.removeItem('workspace');
+            sessionStorage.removeItem('admin_session_token');
+            if (!window.location.pathname.startsWith('/login')) {
+              window.location.replace('/login?deactivated=true');
+            }
+          }
+        } else if (url.includes('/admin') && !url.includes('/admin/auth') && (response.status === 401 || response.status === 403 || response.status === 404)) {
+          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/admin')) {
             window.location.href = '/admin';
           }
         } else if (response.status === 401 && !url.includes('/auth/login') && !url.includes('/auth/verify-otp') && !url.includes('/auth/send-otp') && !url.includes('/auth/google')) {
           if (typeof window !== 'undefined' && localStorage.getItem('auromind_logged_in') === 'true') {
             localStorage.removeItem('auth_token');
             localStorage.removeItem('auromind_logged_in');
-            window.location.replace('/login');
+            localStorage.removeItem('auromind_user');
+            if (!window.location.pathname.startsWith('/login')) {
+              window.location.replace('/login');
+            }
           }
         }
 
