@@ -313,7 +313,7 @@ export default function ManageChatsSection() {
                         </svg>
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-[11px] md:text-xs font-semibold text-white/90 leading-tight">Auromind</span>
+                        <span className="text-[11px] md:text-xs font-semibold text-white/90 leading-tight">OrbionAgents</span>
                         <span className="text-[11px] md:text-[13px] text-white/60 leading-snug truncate">{msg}</span>
                       </div>
                     </div>

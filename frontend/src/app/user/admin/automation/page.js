@@ -1,13 +1,13 @@
 'use client';
 
 import { Poppins } from 'next/font/google';
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Plus, Filter, Zap, MessageSquare, Users,
   CheckCircle2, Play, Save, MoreHorizontal, Sparkles,
   ChevronDown, ArrowDown, Shield, Bot, Send,
-  Tag, Bell, Wand2, X, Split, Activity, MousePointer2, Trash2,
+  Tag, Bell, Wand2, X, Split, Activity, MousePointer2, Trash2, RotateCw,
   Menu, ChevronLeft, Layers, Terminal, Cpu, Globe, Maximize,
   Settings, Database, Cloud, AlertCircle, Eye, EyeOff, Monitor,
   ZoomIn, ZoomOut, Upload, Timer, HelpCircle, FileText, Pencil,
@@ -37,8 +37,22 @@ import {
   normalizeButtons,
   createDefaultButton,
   getHandleIdForButton,
-  isConditionNode
+  isConditionNode,
+  isButtonMessageNode
 } from './helpers';
+
+const getNodeDefaultHeight = (node) => {
+  if (!node) return 228;
+  if (isConditionNode(node)) return 300;
+  if (isButtonMessageNode(node)) {
+    const btnCount = (node.config?.buttons || []).length;
+    return 180 + btnCount * 48;
+  }
+  if (node.type === 'trigger') {
+    return (node.config?.keywords || []).length > 0 ? 247 : 205;
+  }
+  return 228;
+};
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -86,10 +100,14 @@ export default function AutomationCanvas() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState('');
 
-  // ─ MOBILE RESPONSIVE STATES ─
+  // ─ MOBILE & TOUCH RESPONSIVE STATES ─
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [tabletMenuOpen, setTabletMenuOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState('canvas');
+  const [draggingNodeId, setDraggingNodeId] = useState(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [isPortrait, setIsPortrait] = useState(false);
+  const [showLandscapePrompt, setShowLandscapePrompt] = useState(true);
 
   // ─ MODAL & TOAST STATE ─
   const [toasts, setToasts] = useState([]);
@@ -104,6 +122,71 @@ export default function AutomationCanvas() {
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
   }, []);
+
+  // ─ CAPABILITY DETECTION & ORIENTATION MANAGEMENT ─
+  useEffect(() => {
+    const checkCapabilities = () => {
+      if (typeof window === 'undefined') return;
+      const hasTouch = window.matchMedia('(pointer: coarse)').matches || 
+                       window.matchMedia('(hover: none)').matches || 
+                       Boolean('ontouchstart' in window || navigator.maxTouchPoints > 0);
+      const portrait = window.matchMedia('(orientation: portrait)').matches || 
+                       (window.innerHeight > window.innerWidth && hasTouch);
+      setIsTouchDevice(hasTouch);
+      setIsPortrait(portrait);
+    };
+
+    checkCapabilities();
+
+    const mqlPointer = window.matchMedia?.('(pointer: coarse)');
+    const mqlOrientation = window.matchMedia?.('(orientation: portrait)');
+
+    const handleMediaChange = () => checkCapabilities();
+    const handleResize = () => checkCapabilities();
+
+    if (mqlPointer?.addEventListener) {
+      mqlPointer.addEventListener('change', handleMediaChange);
+      mqlOrientation?.addEventListener('change', handleMediaChange);
+    } else {
+      window.addEventListener('orientationchange', handleMediaChange);
+    }
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      if (mqlPointer?.removeEventListener) {
+        mqlPointer.removeEventListener('change', handleMediaChange);
+        mqlOrientation?.removeEventListener('change', handleMediaChange);
+      } else {
+        window.removeEventListener('orientationchange', handleMediaChange);
+      }
+      window.removeEventListener('resize', handleResize);
+      // Safe exit path: unlock screen orientation when navigating away from Automation
+      try {
+        if (screen.orientation?.unlock) {
+          screen.orientation.unlock();
+        } else if (screen.unlockOrientation) {
+          screen.unlockOrientation();
+        }
+      } catch (e) {}
+    };
+  }, []);
+
+  const handleRequestLandscape = useCallback(async () => {
+    try {
+      if (screen.orientation?.lock) {
+        await screen.orientation.lock('landscape');
+        showToast('Switched to landscape mode!', 'success');
+      } else if (screen.lockOrientation) {
+        screen.lockOrientation('landscape');
+        showToast('Switched to landscape mode!', 'success');
+      } else {
+        showToast('Please rotate your device horizontally for landscape mode', 'info');
+      }
+    } catch (err) {
+      console.log('Orientation lock not supported by device/browser:', err);
+      showToast('Please rotate your device horizontally for landscape mode', 'info');
+    }
+  }, [showToast]);
 
   const handlePreviewFlow = async (flow) => {
     if (!flow || !flow.id) return;
@@ -135,6 +218,7 @@ export default function AutomationCanvas() {
   const wiringRef = useRef(null);
   const wireMoveListenerRef = useRef(null);
   const wireUpListenerRef = useRef(null);
+  const wireCancelListenerRef = useRef(null);
 
   useEffect(() => () => {
     if (wireMoveListenerRef.current) {
@@ -142,6 +226,9 @@ export default function AutomationCanvas() {
     }
     if (wireUpListenerRef.current) {
       window.removeEventListener('pointerup', wireUpListenerRef.current);
+    }
+    if (wireCancelListenerRef.current) {
+      window.removeEventListener('pointercancel', wireCancelListenerRef.current);
     }
     wiringRef.current = null;
   }, []);
@@ -175,38 +262,68 @@ export default function AutomationCanvas() {
   const buttonOffsetsRef = useRef({});
 
   const [edgeTick, setEdgeTick] = useState(0);
-  useLayoutEffect(() => {
-    const id = requestAnimationFrame(() => setEdgeTick(t => t + 1));
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      setEdgeTick(t => t + 1);
+    });
     return () => cancelAnimationFrame(id);
-  }, [nodes, edges, zoom]);
+  }, [nodes.length, edges.length]);
 
   const getEdgePoints = useCallback((sourceNode, targetNode, sourceHandle) => {
-    if (!gridRef.current) return null;
-    const gridEl = gridRef.current;
-    const sourceEl = gridEl.querySelector(`[data-node-id="${sourceNode.id}"]`);
-    const targetEl = gridEl.querySelector(`[data-node-id="${targetNode.id}"]`);
-    if (!sourceEl || !targetEl) return null;
+    if (!sourceNode || !targetNode) return null;
 
-    const gridRect = gridEl.getBoundingClientRect();
-    const sourceRect = sourceEl.getBoundingClientRect();
-    const targetRect = targetEl.getBoundingClientRect();
+    const sourceHeight = nodeHeightsRef.current[sourceNode.id] || getNodeDefaultHeight(sourceNode);
+    const targetHeight = nodeHeightsRef.current[targetNode.id] || getNodeDefaultHeight(targetNode);
 
-    let sx = (sourceRect.right - gridRect.left) / zoom;
-    let sy = (sourceRect.top + sourceRect.height / 2 - gridRect.top) / zoom;
+    const sx = (sourceNode.position?.x || 0) + 208;
+    let sy = (sourceNode.position?.y || 0) + sourceHeight / 2;
 
     if (sourceHandle) {
-      const btnEl = sourceEl.querySelector(`[data-button-id="${sourceHandle}"]`) || sourceEl.querySelector(`[data-branch-id="${sourceHandle}"]`);
-      if (btnEl) {
-        const btnRect = btnEl.getBoundingClientRect();
-        sy = (btnRect.top + btnRect.height / 2 - gridRect.top) / zoom;
+      const nodeOffsets = buttonOffsetsRef.current[sourceNode.id];
+      const offset = nodeOffsets?.[sourceHandle]
+        ?? nodeOffsets?.[`branch-${sourceHandle}`]
+        ?? (typeof sourceHandle === 'string' ? nodeOffsets?.[sourceHandle.replace('branch-', '')] : undefined);
+
+      if (typeof offset === 'number') {
+        sy = (sourceNode.position?.y || 0) + offset;
+      } else if (gridRef.current) {
+        const sourceEl = gridRef.current.querySelector(`[data-node-id="${sourceNode.id}"]`);
+        if (sourceEl) {
+          const btnEl =
+            sourceEl.querySelector(`[data-button-id="${sourceHandle}"]`) ||
+            sourceEl.querySelector(`[data-branch-id="${sourceHandle}"]`) ||
+            (typeof sourceHandle === 'string' ? sourceEl.querySelector(`[data-branch-id="${sourceHandle.replace('branch-', '')}"]`) : null);
+          if (btnEl) {
+            const calculatedOffset = btnEl.offsetTop + btnEl.offsetHeight / 2;
+            if (!buttonOffsetsRef.current[sourceNode.id]) buttonOffsetsRef.current[sourceNode.id] = {};
+            buttonOffsetsRef.current[sourceNode.id][sourceHandle] = calculatedOffset;
+            sy = (sourceNode.position?.y || 0) + calculatedOffset;
+          }
+        }
+      }
+
+      // Initial frame algebraic fallback before DOM ref measurement:
+      if (typeof offset !== 'number') {
+        if (sourceHandle === 'true' || sourceHandle === 'branch-true') {
+          sy = (sourceNode.position?.y || 0) + 168;
+        } else if (sourceHandle === 'false' || sourceHandle === 'branch-false') {
+          sy = (sourceNode.position?.y || 0) + 214;
+        } else if (sourceNode.config?.buttons) {
+          const btnIndex = (sourceNode.config.buttons || []).findIndex(
+            (b, idx) => b.id === sourceHandle || b.value === sourceHandle || getHandleIdForButton(b, idx) === sourceHandle
+          );
+          if (btnIndex >= 0) {
+            sy = (sourceNode.position?.y || 0) + 145 + btnIndex * 48;
+          }
+        }
       }
     }
 
-    const tx = (targetRect.left - gridRect.left) / zoom;
-    const ty = (targetRect.top + targetRect.height / 2 - gridRect.top) / zoom;
+    const tx = (targetNode.position?.x || 0);
+    const ty = (targetNode.position?.y || 0) + targetHeight / 2;
 
     return { sx, sy, tx, ty };
-  }, [zoom, edgeTick, nodes]);
+  }, [edgeTick]);
 
   const fetchFlowQuota = useCallback(async () => {
     const wsId = getWorkspaceIdFromToken();
@@ -489,41 +606,451 @@ export default function AutomationCanvas() {
   const zoomRef = useRef(zoom);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
-  // ─ NODE DRAG (native pointer events — no Framer conflict) ─
+  // ─ DETERMINISTIC GESTURE STATE MACHINE ─
+  // States: 'IDLE' | 'PENDING_LONG_PRESS' | 'MOUSE_NODE_DOWN' | 'NODE_DRAGGING' | 'CANVAS_PANNING' | 'PINCH_ZOOMING' | 'CANCELLED'
+  const gestureStateRef = useRef('IDLE');
+  const activePointersRef = useRef(new Map());
+  const longPressTimerRef = useRef(null);
+  const lastTapTimeRef = useRef(0);
+  const wasDraggingRef = useRef(false);
+
+  const nodeSessionRef = useRef({
+    nodeId: null,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    startNodeX: 0,
+    startNodeY: 0,
+    startTime: 0,
+    maxDist: 0,
+  });
+
+  const panSessionRef = useRef({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    startOffsetX: 0,
+    startOffsetY: 0,
+  });
+
+  const pinchSessionRef = useRef({
+    initialDist: 0,
+    initialZoom: 1,
+    initialOffsetX: 0,
+    initialOffsetY: 0,
+    initialCenter: { x: 0, y: 0 },
+  });
+
+  const dragRafIdRef = useRef(null);
+  const pendingDragPosRef = useRef(null);
+  const pendingPanPosRef = useRef(null);
+
+  const applyPendingDrag = useCallback(() => {
+    dragRafIdRef.current = null;
+    if (pendingDragPosRef.current) {
+      const { nodeId, newX, newY } = pendingDragPosRef.current;
+      pendingDragPosRef.current = null;
+      setNodes(prev => prev.map(n =>
+        n.id !== nodeId ? n : {
+          ...n,
+          position: { x: newX, y: newY },
+        }
+      ));
+    }
+    if (pendingPanPosRef.current) {
+      const { newOffsetX, newOffsetY } = pendingPanPosRef.current;
+      pendingPanPosRef.current = null;
+      setCanvasOffset({ x: newOffsetX, y: newOffsetY });
+    }
+  }, []);
+
+  const cleanupAllGestures = useCallback(() => {
+    if (dragRafIdRef.current) {
+      cancelAnimationFrame(dragRafIdRef.current);
+      dragRafIdRef.current = null;
+    }
+    pendingDragPosRef.current = null;
+    pendingPanPosRef.current = null;
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    activePointersRef.current.clear();
+    gestureStateRef.current = 'IDLE';
+    setDraggingNodeId(null);
+  }, []);
+
+  const initPinchMode = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setDraggingNodeId(null);
+
+    const pointers = Array.from(activePointersRef.current.values());
+    if (pointers.length < 2) return;
+
+    const [p1, p2] = pointers;
+    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    const midX = (p1.x + p2.x) / 2;
+    const midY = (p1.y + p2.y) / 2;
+
+    gestureStateRef.current = 'PINCH_ZOOMING';
+    pinchSessionRef.current = {
+      initialDist: Math.max(dist, 10),
+      initialZoom: zoomRef.current || 1,
+      initialOffsetX: canvasOffsetRef.current.x,
+      initialOffsetY: canvasOffsetRef.current.y,
+      initialCenter: { x: midX, y: midY },
+    };
+  }, []);
+
   const handleNodePointerDown = useCallback((e, nodeId) => {
     if (e.target.closest?.('[data-no-drag]')) return;
+    wasDraggingRef.current = false;
     e.stopPropagation();
-    e.preventDefault();
 
-    setActiveNodeId(nodeId);
+    const pointerType = e.pointerType || 'mouse';
+    const isTouch = pointerType === 'touch' || pointerType === 'pen';
 
-    const startClientX = e.clientX;
-    const startClientY = e.clientY;
-
-    let startX = 0;
-    let startY = 0;
-    setNodes(prev => {
-      const n = prev.find(n => n.id === nodeId);
-      if (n) { startX = n.position.x; startY = n.position.y; }
-      return prev;
+    activePointersRef.current.set(e.pointerId, {
+      id: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      type: pointerType,
+      targetType: 'node',
+      targetId: nodeId,
     });
 
-    const onMove = (moveEvent) => {
-      const dx = (moveEvent.clientX - startClientX) / zoomRef.current;
-      const dy = (moveEvent.clientY - startClientY) / zoomRef.current;
-      setNodes(current => current.map(n =>
-        n.id !== nodeId ? n : { ...n, position: { x: startX + dx, y: startY + dy } }
-      ));
+    if (activePointersRef.current.size >= 2) {
+      initPinchMode();
+      return;
+    }
+
+    const node = nodesRef.current.find(n => n.id === nodeId);
+    const startNodeX = node ? node.position.x : 0;
+    const startNodeY = node ? node.position.y : 0;
+
+    nodeSessionRef.current = {
+      nodeId,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startNodeX,
+      startNodeY,
+      startTime: Date.now(),
+      maxDist: 0,
     };
 
-    const onUp = () => {
+    if (isTouch) {
+      gestureStateRef.current = 'PENDING_LONG_PRESS';
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+
+      longPressTimerRef.current = setTimeout(() => {
+        if (gestureStateRef.current !== 'PENDING_LONG_PRESS') return;
+        if (activePointersRef.current.size !== 1) return;
+
+        gestureStateRef.current = 'NODE_DRAGGING';
+        setDraggingNodeId(nodeId);
+
+        try {
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate(40);
+          }
+        } catch (err) {}
+      }, 450);
+    } else {
+      gestureStateRef.current = 'MOUSE_NODE_DOWN';
+    }
+  }, [initPinchMode]);
+
+  const handleCanvasPointerDown = useCallback((e) => {
+    if (e.target.closest?.('[data-node-id]')) return;
+    if (e.target.closest?.('[data-steps-panel]')) return;
+
+    const pointerType = e.pointerType || 'mouse';
+
+    activePointersRef.current.set(e.pointerId, {
+      id: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      type: pointerType,
+      targetType: 'canvas',
+      targetId: null,
+    });
+
+    if (activePointersRef.current.size >= 2) {
+      initPinchMode();
+      return;
+    }
+
+    gestureStateRef.current = 'CANVAS_PANNING';
+    panSessionRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startOffsetX: canvasOffsetRef.current.x,
+      startOffsetY: canvasOffsetRef.current.y,
+    };
+  }, [initPinchMode]);
+
+  const handleGlobalPointerMove = useCallback((e) => {
+    if (!activePointersRef.current.has(e.pointerId)) return;
+
+    const ptr = activePointersRef.current.get(e.pointerId);
+    activePointersRef.current.set(e.pointerId, {
+      ...ptr,
+      x: e.clientX,
+      y: e.clientY,
+    });
+
+    const state = gestureStateRef.current;
+
+    // PINCH ZOOMING
+    if (state === 'PINCH_ZOOMING' && activePointersRef.current.size >= 2) {
+      const [p1, p2] = Array.from(activePointersRef.current.values());
+      const currentDist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      const currentMidX = (p1.x + p2.x) / 2;
+      const currentMidY = (p1.y + p2.y) / 2;
+
+      const { initialDist, initialZoom, initialOffsetX, initialOffsetY, initialCenter } = pinchSessionRef.current;
+
+      if (initialDist > 0 && canvasRef.current) {
+        const scaleFactor = currentDist / initialDist;
+        const newZoom = Math.min(Math.max(initialZoom * scaleFactor, 0.4), 2.0);
+
+        const rect = canvasRef.current.getBoundingClientRect();
+        const initMidCanvasX = initialCenter.x - rect.left;
+        const initMidCanvasY = initialCenter.y - rect.top;
+        const curMidCanvasX = currentMidX - rect.left;
+        const curMidCanvasY = currentMidY - rect.top;
+
+        const worldX = (initMidCanvasX / initialZoom) - initialOffsetX;
+        const worldY = (initMidCanvasY / initialZoom) - initialOffsetY;
+
+        const newOffsetX = (curMidCanvasX / newZoom) - worldX;
+        const newOffsetY = (curMidCanvasY / newZoom) - worldY;
+
+        setZoom(newZoom);
+        setCanvasOffset({ x: newOffsetX, y: newOffsetY });
+      }
+      return;
+    }
+
+    // PENDING LONG PRESS (Mobile touch on node, waiting 450ms)
+    if (state === 'PENDING_LONG_PRESS') {
+      const { startX, startY } = nodeSessionRef.current;
+      const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
+      nodeSessionRef.current.maxDist = Math.max(nodeSessionRef.current.maxDist || 0, dist);
+
+      if (dist > 18) {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+        gestureStateRef.current = 'CANCELLED';
+      }
+      return;
+    }
+
+    // CANCELLED (Finger moved before 450ms)
+    if (state === 'CANCELLED') {
+      const { startX, startY } = nodeSessionRef.current;
+      if (startX && startY) {
+        const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
+        nodeSessionRef.current.maxDist = Math.max(nodeSessionRef.current.maxDist || 0, dist);
+      }
+      return;
+    }
+
+    // NODE DRAGGING (active touch drag or active mouse drag)
+    if (state === 'NODE_DRAGGING') {
+      wasDraggingRef.current = true;
+      const { nodeId, startX, startY, startNodeX, startNodeY } = nodeSessionRef.current;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const currentZoom = zoomRef.current || 1;
+
+      pendingDragPosRef.current = {
+        nodeId,
+        newX: startNodeX + dx / currentZoom,
+        newY: startNodeY + dy / currentZoom,
+      };
+
+      if (!dragRafIdRef.current) {
+        dragRafIdRef.current = requestAnimationFrame(applyPendingDrag);
+      }
+      return;
+    }
+
+    // MOUSE NODE DOWN (Desktop mouse on node)
+    if (state === 'MOUSE_NODE_DOWN') {
+      const { nodeId, startX, startY, startNodeX, startNodeY } = nodeSessionRef.current;
+      const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
+      nodeSessionRef.current.maxDist = Math.max(nodeSessionRef.current.maxDist || 0, dist);
+
+      if (dist > 4) {
+        wasDraggingRef.current = true;
+        gestureStateRef.current = 'NODE_DRAGGING';
+        setDraggingNodeId(nodeId);
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        const currentZoom = zoomRef.current || 1;
+
+        pendingDragPosRef.current = {
+          nodeId,
+          newX: startNodeX + dx / currentZoom,
+          newY: startNodeY + dy / currentZoom,
+        };
+
+        if (!dragRafIdRef.current) {
+          dragRafIdRef.current = requestAnimationFrame(applyPendingDrag);
+        }
+      }
+      return;
+    }
+
+    // CANVAS PANNING (1 finger or mouse on empty canvas)
+    if (state === 'CANVAS_PANNING') {
+      const { startX, startY, startOffsetX, startOffsetY } = panSessionRef.current;
+      const currentZoom = zoomRef.current || 1;
+      const dx = (e.clientX - startX) / currentZoom;
+      const dy = (e.clientY - startY) / currentZoom;
+
+      pendingPanPosRef.current = {
+        newOffsetX: startOffsetX + dx,
+        newOffsetY: startOffsetY + dy,
+      };
+
+      if (!dragRafIdRef.current) {
+        dragRafIdRef.current = requestAnimationFrame(applyPendingDrag);
+      }
+      return;
+    }
+  }, [applyPendingDrag]);
+
+  const handleGlobalPointerUp = useCallback((e) => {
+    activePointersRef.current.delete(e.pointerId);
+
+    if (dragRafIdRef.current) {
+      cancelAnimationFrame(dragRafIdRef.current);
+      applyPendingDrag();
+    }
+
+    const state = gestureStateRef.current;
+
+    if (activePointersRef.current.size >= 2) {
+      initPinchMode();
+      return;
+    }
+
+    if (state === 'PINCH_ZOOMING') {
+      gestureStateRef.current = 'IDLE';
+      return;
+    }
+
+    const now = Date.now();
+    const nodeSession = nodeSessionRef.current;
+    const elapsed = nodeSession?.startTime ? (now - nodeSession.startTime) : Infinity;
+    const maxDist = nodeSession?.maxDist || 0;
+
+    // Check if this was a quick tap on a node:
+    // Released quickly (< 400ms) with small movement (<= 18px):
+    const isQuickTap = (state === 'PENDING_LONG_PRESS' || state === 'CANCELLED' || state === 'MOUSE_NODE_DOWN') &&
+                       elapsed < 400 && maxDist <= 18 && Boolean(nodeSession?.nodeId);
+
+    if (isQuickTap) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      lastTapTimeRef.current = now;
+      setActiveNodeId(nodeSession.nodeId);
+      gestureStateRef.current = 'IDLE';
+      return;
+    }
+
+    if (state === 'PENDING_LONG_PRESS') {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      if (nodeSession?.nodeId) {
+        lastTapTimeRef.current = now;
+        setActiveNodeId(nodeSession.nodeId);
+      }
+      gestureStateRef.current = 'IDLE';
+      return;
+    }
+
+    if (state === 'MOUSE_NODE_DOWN') {
+      if (nodeSession?.nodeId && maxDist <= 4) {
+        lastTapTimeRef.current = now;
+        setActiveNodeId(nodeSession.nodeId);
+      }
+      gestureStateRef.current = 'IDLE';
+      return;
+    }
+
+    if (state === 'NODE_DRAGGING') {
+      setDraggingNodeId(null);
+      gestureStateRef.current = 'IDLE';
+      setTimeout(() => { wasDraggingRef.current = false; }, 300);
+      return;
+    }
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setDraggingNodeId(null);
+    gestureStateRef.current = 'IDLE';
+  }, [initPinchMode, applyPendingDrag]);
+
+  const handleNodeClick = useCallback((e, nodeId) => {
+    if (e.target.closest?.('[data-no-drag]')) return;
+    if (wasDraggingRef.current || draggingNodeId) return;
+    e.stopPropagation();
+    lastTapTimeRef.current = Date.now();
+    setActiveNodeId(nodeId);
+  }, [draggingNodeId]);
+
+  const handleCanvasClick = useCallback((e) => {
+    if (e.target.closest?.('[data-steps-panel]')) return;
+    if (e.target.closest?.('[data-node-id]')) return;
+    if (Date.now() - lastTapTimeRef.current < 450) return;
+    setActiveNodeId(null);
+    setStepsOpen(false);
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e) => handleGlobalPointerMove(e);
+    const onUp = (e) => handleGlobalPointerUp(e);
+    const onCancel = (e) => {
+      activePointersRef.current.delete(e.pointerId);
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      setDraggingNodeId(null);
+      if (activePointersRef.current.size === 0) {
+        gestureStateRef.current = 'IDLE';
+      }
+    };
+
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
+
+    return () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      cleanupAllGestures();
     };
-
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  }, []);
+  }, [handleGlobalPointerMove, handleGlobalPointerUp, cleanupAllGestures]);
 
   const handleFitView = useCallback(() => {
     if (!nodes.length || !canvasRef.current) {
@@ -801,32 +1328,8 @@ export default function AutomationCanvas() {
     }));
   };
 
-  const isPanningRef = useRef(false);
-  const panStartRef = useRef({ x: 0, y: 0 });
-  const panOffsetStartRef = useRef({ x: 0, y: 0 });
-
-  const handleCanvasPointerDown = useCallback((e) => {
-    if (e.target.closest?.('[data-node-id]')) return;
-    if (e.target.closest?.('[data-steps-panel]')) return;
-    isPanningRef.current = true;
-    panStartRef.current = { x: e.clientX, y: e.clientY };
-    panOffsetStartRef.current = { x: canvasOffset.x, y: canvasOffset.y };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }, [canvasOffset]);
-
-  const handleCanvasPointerMove = useCallback((e) => {
-    if (!isPanningRef.current) return;
-    const dx = (e.clientX - panStartRef.current.x) / zoom;
-    const dy = (e.clientY - panStartRef.current.y) / zoom;
-    setCanvasOffset({
-      x: panOffsetStartRef.current.x + dx,
-      y: panOffsetStartRef.current.y + dy,
-    });
-  }, [zoom]);
-
-  const handleCanvasPointerUp = useCallback(() => {
-    isPanningRef.current = false;
-  }, []);
+  const handleCanvasPointerMove = handleGlobalPointerMove;
+  const handleCanvasPointerUp = handleGlobalPointerUp;
 
   const handleDeleteEdge = (edgeId) => {
     const edge = edges.find(e => e.id === edgeId);
@@ -1049,11 +1552,31 @@ export default function AutomationCanvas() {
     setWiringPreview(nextWire);
     setActiveNodeId(sourceId);
 
+    const cleanupWiring = () => {
+      wiringRef.current = null;
+      setWiringPreview(null);
+      if (wireMoveListenerRef.current) {
+        window.removeEventListener('pointermove', wireMoveListenerRef.current);
+        wireMoveListenerRef.current = null;
+      }
+      if (wireUpListenerRef.current) {
+        window.removeEventListener('pointerup', wireUpListenerRef.current);
+        wireUpListenerRef.current = null;
+      }
+      if (wireCancelListenerRef.current) {
+        window.removeEventListener('pointercancel', wireCancelListenerRef.current);
+        wireCancelListenerRef.current = null;
+      }
+    };
+
     if (wireMoveListenerRef.current) {
       window.removeEventListener('pointermove', wireMoveListenerRef.current);
     }
     if (wireUpListenerRef.current) {
       window.removeEventListener('pointerup', wireUpListenerRef.current);
+    }
+    if (wireCancelListenerRef.current) {
+      window.removeEventListener('pointercancel', wireCancelListenerRef.current);
     }
 
     const handleWireMove = (moveEvent) => {
@@ -1069,12 +1592,7 @@ export default function AutomationCanvas() {
       if (!wiringRef.current) return;
 
       const wire = wiringRef.current;
-      wiringRef.current = null;
-      setWiringPreview(null);
-      window.removeEventListener('pointermove', handleWireMove);
-      window.removeEventListener('pointerup', handleWireUp);
-      wireMoveListenerRef.current = null;
-      wireUpListenerRef.current = null;
+      cleanupWiring();
 
       const dropTarget = document.elementFromPoint(upEvent.clientX, upEvent.clientY)?.closest?.('[data-node-id]');
       const targetId = dropTarget?.getAttribute('data-node-id');
@@ -1093,10 +1611,16 @@ export default function AutomationCanvas() {
       );
     };
 
+    const handleWireCancel = () => {
+      cleanupWiring();
+    };
+
     wireMoveListenerRef.current = handleWireMove;
     wireUpListenerRef.current = handleWireUp;
+    wireCancelListenerRef.current = handleWireCancel;
     window.addEventListener('pointermove', handleWireMove);
     window.addEventListener('pointerup', handleWireUp);
+    window.addEventListener('pointercancel', handleWireCancel);
   }, [connectPortToNode, createNodeFromPort, getCanvasPointFromClient, getPortAnchorPoint, showToast]);
 
   const addKeywordToTrigger = (nodeId) => {
@@ -1113,6 +1637,16 @@ export default function AutomationCanvas() {
   const removeKeywordFromTrigger = (nodeId, keyword) => {
     updateNodeConfig(nodeId, (config) => ({ ...config, keywords: (config.keywords || []).filter(k => k !== keyword) }));
   };
+
+  const activeNode = useMemo(() => nodes.find(n => n.id === activeNodeId), [nodes, activeNodeId]);
+
+  const nodeStructureKey = useMemo(() => {
+    return nodes.map(n => `${n.id}:${n.type}:${n.config?.type || ''}:${(n.config?.buttons || []).length}:${(n.config?.branches || []).length}`).join('|');
+  }, [nodes]);
+
+  const flowValidation = useMemo(() => {
+    return validateFlowGraph(nodes, edges);
+  }, [nodeStructureKey, edges, nodes]);
 
   if (!isMounted) return null;
 
@@ -1150,9 +1684,6 @@ export default function AutomationCanvas() {
     );
   }
 
-  const activeNode = nodes.find(n => n.id === activeNodeId);
-  const flowValidation = validateFlowGraph(nodes, edges);
-
   return (
     <div className={`${poppins.className} ${zenMode ? 'fixed inset-0 z-[200]' : 'relative w-full h-screen'} bg-[#0d0d12] text-zinc-200 overflow-hidden select-none border-t border-white/5`} style={{ fontFamily: "'Poppins', sans-serif" }}>
 
@@ -1161,10 +1692,156 @@ export default function AutomationCanvas() {
         <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-violet-600/5 blur-[200px] rounded-full" />
       </div>
 
+      {/* LANDSCAPE PROMPT BANNER FOR MOBILE/TABLET TOUCH IN PORTRAIT */}
+      <AnimatePresence>
+        {showLandscapePrompt && isTouchDevice && isPortrait && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.25 }}
+            className="fixed top-16 md:top-20 inset-x-3 sm:inset-x-auto sm:right-4 z-[140] max-w-md mx-auto bg-[#141520]/95 border border-violet-500/35 rounded-2xl p-3.5 shadow-[0_10px_35px_rgba(0,0,0,0.6)] backdrop-blur-xl flex items-center gap-3"
+          >
+            <div className="w-9 h-9 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-300 shrink-0">
+              <RotateCw size={16} className="text-violet-400 animate-spin-slow" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-white leading-tight">Switch to Landscape Mode</p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={handleRequestLandscape}
+                className="px-3 py-1.5 rounded-xl bg-[#814AC8] hover:bg-violet-500 text-white text-xs font-semibold shadow-md transition-all whitespace-nowrap active:scale-95 cursor-pointer"
+              >
+                Use Landscape
+              </button>
+              <button
+                onClick={() => setShowLandscapePrompt(false)}
+                className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+                aria-label="Dismiss Landscape Suggestion"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* DESKTOP HEADER (>1024px) */}
-      <header className="hidden lg:flex absolute top-5 left-0 right-0 h-[82px] z-[100] items-center justify-center px-4 bg-[#13131a] border-b border-white/5 shadow-xl">
-        <div className="flex items-center justify-between px-4 py-2.5 my-2 rounded-2xl border border-white/15 bg-white/[0.03] w-[1479px] mx-auto gap-0">
-          {/* LEFT: Flows button + title */}
+      {!zenMode ? (
+        <header className="hidden lg:flex absolute top-5 left-0 right-0 h-[82px] z-[100] items-center justify-center px-4 bg-[#13131a] border-b border-white/5 shadow-xl">
+          <div className="flex items-center justify-between px-4 py-2.5 my-2 rounded-2xl border border-white/15 bg-white/[0.03] w-[1479px] mx-auto gap-0">
+            {/* LEFT: Flows button + title */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setSelectedItem(null);
+                  setCurrentView('dashboard');
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-semibold transition-all mr-2"
+              >
+                <ChevronLeft size={14} />
+                <span>Flows</span>
+              </button>
+              <div className="w-9 h-9 rounded-xl bg-[#814AC8] flex items-center justify-center shadow-lg shadow-violet-500/20">
+                <Sparkles size={16} className="text-white" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[14px] font-semiBold text-white tracking-widest leading-none mb-2">Agentic Orchestrator</span>
+                {isEditingName ? (
+                  <input
+                    type="text"
+                    value={tempName}
+                    onChange={(e) => setTempName(e.target.value)}
+                    onBlur={() => {
+                      if (tempName.trim()) {
+                        const updatedName = tempName.trim();
+                        setSelectedItem(prev => ({ ...prev, name: updatedName }));
+                        setAutomations(prev => prev.map(a => a.id === selectedItem?.id ? { ...a, name: updatedName } : a));
+                      }
+                      setIsEditingName(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        if (tempName.trim()) {
+                          const updatedName = tempName.trim();
+                          setSelectedItem(prev => ({ ...prev, name: updatedName }));
+                          setAutomations(prev => prev.map(a => a.id === selectedItem?.id ? { ...a, name: updatedName } : a));
+                        }
+                        setIsEditingName(false);
+                      } else if (e.key === 'Escape') {
+                        setIsEditingName(false);
+                      }
+                    }}
+                    className="bg-black/35 border border-white/10 rounded px-2 py-0.5 text-[12px] font-medium text-white outline-none focus:border-purple-500/50 w-48 font-sans"
+                    autoFocus
+                  />
+                ) : (
+                  <div className="flex items-center gap-1.5 group/name">
+                    <span className="text-[12px] font-medium text-white/75 leading-none">{selectedItem?.name || "Untitled Wire"}</span>
+                    <button
+                      onClick={() => {
+                        setTempName(selectedItem?.name || "Untitled Wire");
+                        setIsEditingName(true);
+                      }}
+                      className="p-1 opacity-0 group-hover/name:opacity-100 hover:text-white transition-opacity text-white/40"
+                      title="Rename Flow"
+                    >
+                      <Pencil size={11} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="w-px h-8 bg-white/10 mx-2" />
+
+            {/* RIGHT: actions */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e1e2a] border border-white/10 hover:border-white/20 text-xs font-medium text-zinc-300 mr-2"
+              >
+                <Layers size={13} /> Flows List
+              </button>
+              <button
+                onClick={() => setZenMode(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-full border transition-all text-xs font-medium bg-[#1e1e2a] border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-200"
+              >
+                <Eye size={13} />
+                Zen mode
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isSaving || !selectedItem || !flowValidation.isValid}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e1e2a] border border-white/10 hover:border-white/20 disabled:opacity-40 transition text-xs font-medium text-zinc-300"
+              >
+                <Save size={13} /> {isSaving ? 'Syncing...' : 'Sync Wire'}
+              </button>
+              <button
+                onClick={handleCreateNew}
+                className="flex items-center gap-2 px-5 py-2 rounded-full bg-[#814AC8] hover:bg-violet-500 transition text-xs font-semibold text-white shadow-lg shadow-violet-600/30"
+              >
+                <Plus size={15} /> New Wire
+              </button>
+            </div>
+          </div>
+        </header>
+      ) : (
+        <div className="hidden lg:flex absolute top-5 right-6 z-[100] items-center">
+          <button
+            onClick={() => setZenMode(false)}
+            className="flex items-center gap-2 px-4 py-2 rounded-full border border-indigo-500/40 bg-indigo-500/20 text-indigo-300 transition-all text-xs font-medium shadow-lg hover:bg-indigo-500/30 cursor-pointer"
+          >
+            <EyeOff size={13} />
+            Exit Zen
+          </button>
+        </div>
+      )}
+
+      {/* TABLET HEADER (768px - 1024px) */}
+      {!zenMode ? (
+        <header className="hidden md:flex lg:hidden absolute top-0 left-0 right-0 h-16 z-[100] items-center justify-between px-4 bg-[#13131a] border-b border-white/10 shadow-xl">
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
@@ -1176,253 +1853,180 @@ export default function AutomationCanvas() {
               <ChevronLeft size={14} />
               <span>Flows</span>
             </button>
-            <div className="w-9 h-9 rounded-xl bg-[#814AC8] flex items-center justify-center shadow-lg shadow-violet-500/20">
-              <Sparkles size={16} className="text-white" />
+            <div className="w-8 h-8 rounded-xl bg-[#814AC8] flex items-center justify-center shadow-md">
+              <Sparkles size={14} className="text-white" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[14px] font-semiBold text-white tracking-widest leading-none mb-2">Agentic Orchestrator</span>
-              {isEditingName ? (
-                <input
-                  type="text"
-                  value={tempName}
-                  onChange={(e) => setTempName(e.target.value)}
-                  onBlur={() => {
-                    if (tempName.trim()) {
-                      const updatedName = tempName.trim();
-                      setSelectedItem(prev => ({ ...prev, name: updatedName }));
-                      setAutomations(prev => prev.map(a => a.id === selectedItem?.id ? { ...a, name: updatedName } : a));
-                    }
-                    setIsEditingName(false);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      if (tempName.trim()) {
-                        const updatedName = tempName.trim();
-                        setSelectedItem(prev => ({ ...prev, name: updatedName }));
-                        setAutomations(prev => prev.map(a => a.id === selectedItem?.id ? { ...a, name: updatedName } : a));
-                      }
-                      setIsEditingName(false);
-                    } else if (e.key === 'Escape') {
-                      setIsEditingName(false);
-                    }
-                  }}
-                  className="bg-black/35 border border-white/10 rounded px-2 py-0.5 text-[12px] font-medium text-white outline-none focus:border-purple-500/50 w-48 font-sans"
-                  autoFocus
-                />
-              ) : (
-                <div className="flex items-center gap-1.5 group/name">
-                  <span className="text-[12px] font-medium text-white/75 leading-none">{selectedItem?.name || "Untitled Wire"}</span>
+              <span className="text-xs font-bold text-white tracking-wider">Agentic Orchestrator</span>
+              <span className="text-[11px] font-medium text-white/60 truncate max-w-[140px]">{selectedItem?.name || "Untitled Wire"}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1e1e2a] border border-white/10 text-xs text-zinc-300"
+            >
+              <Layers size={13} /> Flows List
+            </button>
+            <button
+              onClick={handleCreateNew}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#814AC8] text-xs font-semibold text-white"
+            >
+              <Plus size={14} /> New Wire
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => setTabletMenuOpen(!tabletMenuOpen)}
+                className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300"
+              >
+                <MoreHorizontal size={18} />
+              </button>
+              {tabletMenuOpen && (
+                <div className="absolute right-0 top-10 w-44 bg-[#161622] border border-white/15 rounded-xl shadow-2xl p-1.5 z-[150] space-y-1">
                   <button
-                    onClick={() => {
-                      setTempName(selectedItem?.name || "Untitled Wire");
-                      setIsEditingName(true);
-                    }}
-                    className="p-1 opacity-0 group-hover/name:opacity-100 hover:text-white transition-opacity text-white/40"
-                    title="Rename Flow"
+                    onClick={() => { setZenMode(true); setTabletMenuOpen(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 rounded-lg text-left"
                   >
-                    <Pencil size={11} />
+                    <Eye size={14} /> Zen mode
+                  </button>
+                  <button
+                    onClick={() => { handleSave(); setTabletMenuOpen(false); }}
+                    disabled={isSaving || !selectedItem || !flowValidation.isValid}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 rounded-lg text-left disabled:opacity-40"
+                  >
+                    <Save size={14} /> Sync Wire
                   </button>
                 </div>
               )}
             </div>
           </div>
-
-          <div className="w-px h-8 bg-white/10 mx-2" />
-
-          {/* RIGHT: actions */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e1e2a] border border-white/10 hover:border-white/20 text-xs font-medium text-zinc-300 mr-2"
-            >
-              <Layers size={13} /> Flows List
-            </button>
-            <button
-              onClick={() => setZenMode(!zenMode)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all text-xs font-medium ${zenMode ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' : 'bg-[#1e1e2a] border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-200'}`}
-            >
-              {zenMode ? <EyeOff size={13} /> : <Eye size={13} />}
-              {zenMode ? 'Exit Zen' : 'Zen mode'}
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={isSaving || !selectedItem || !flowValidation.isValid}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e1e2a] border border-white/10 hover:border-white/20 disabled:opacity-40 transition text-xs font-medium text-zinc-300"
-            >
-              <Save size={13} /> {isSaving ? 'Syncing...' : 'Sync Wire'}
-            </button>
-            <button
-              onClick={handleCreateNew}
-              className="flex items-center gap-2 px-5 py-2 rounded-full bg-[#814AC8] hover:bg-violet-500 transition text-xs font-semibold text-white shadow-lg shadow-violet-600/30"
-            >
-              <Plus size={15} /> New Wire
-            </button>
-          </div>
+        </header>
+      ) : (
+        <div className="hidden md:flex lg:hidden absolute top-4 right-4 z-[100] items-center">
+          <button
+            onClick={() => setZenMode(false)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-medium transition-all shadow-lg hover:bg-indigo-500/30 cursor-pointer"
+          >
+            <EyeOff size={13} /> Exit Zen
+          </button>
         </div>
-      </header>
+      )}
 
-      {/* TABLET HEADER (768px - 1024px) */}
-      <header className="hidden md:flex lg:hidden absolute top-0 left-0 right-0 h-16 z-[100] items-center justify-between px-4 bg-[#13131a] border-b border-white/10 shadow-xl">
-        <div className="flex items-center gap-2">
+      {/* MOBILE HEADER (<768px) */}
+      {!zenMode ? (
+        <header className="flex md:hidden items-center justify-between px-4 py-2.5 bg-[#0E0F15] border-b border-white/10 relative z-[100] h-14">
+          {/* Left: Flows button */}
           <button
             onClick={() => {
               setSelectedItem(null);
               setCurrentView('dashboard');
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-semibold transition-all mr-2"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-semibold transition-all"
           >
             <ChevronLeft size={14} />
             <span>Flows</span>
           </button>
-          <div className="w-8 h-8 rounded-xl bg-[#814AC8] flex items-center justify-center shadow-md">
-            <Sparkles size={14} className="text-white" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-white tracking-wider">Agentic Orchestrator</span>
-            <span className="text-[11px] font-medium text-white/60 truncate max-w-[140px]">{selectedItem?.name || "Untitled Wire"}</span>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-2">
+          {/* Center: Agentic Orchestrator + Wire Name */}
+          <div className="flex flex-col items-center text-center">
+            <div className="flex items-center gap-1.5">
+              <div className="w-5 h-5 rounded-lg bg-[#814AC8] flex items-center justify-center">
+                <Sparkles size={11} className="text-white" />
+              </div>
+              <span className="text-xs font-bold text-white tracking-wider">Agentic Orchestrator</span>
+            </div>
+            <span className="text-[11px] font-medium text-white/60 truncate max-w-[150px] mt-0.5">
+              {selectedItem?.name || "Untitled Wire"}
+            </span>
+          </div>
+
+          {/* Right: Three-dot Menu (⋮) */}
           <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1e1e2a] border border-white/10 text-xs text-zinc-300"
+            onClick={() => setMoreMenuOpen(true)}
+            className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300 hover:text-white"
+            aria-label="More Options"
           >
-            <Layers size={13} /> Flows List
+            <MoreHorizontal size={18} />
           </button>
+        </header>
+      ) : (
+        <div className="flex md:hidden items-center justify-end px-4 py-3 absolute top-0 right-0 z-[100]">
           <button
-            onClick={handleCreateNew}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#814AC8] text-xs font-semibold text-white"
+            onClick={() => setZenMode(false)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-medium transition-all shadow-lg cursor-pointer"
           >
-            <Plus size={14} /> New Wire
+            <EyeOff size={13} />
+            <span>Exit Zen</span>
           </button>
-          <div className="relative">
-            <button
-              onClick={() => setTabletMenuOpen(!tabletMenuOpen)}
-              className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300"
-            >
-              <MoreHorizontal size={18} />
-            </button>
-            {tabletMenuOpen && (
-              <div className="absolute right-0 top-10 w-44 bg-[#161622] border border-white/15 rounded-xl shadow-2xl p-1.5 z-[150] space-y-1">
-                <button
-                  onClick={() => { setZenMode(!zenMode); setTabletMenuOpen(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 rounded-lg text-left"
-                >
-                  {zenMode ? <EyeOff size={14} /> : <Eye size={14} />}
-                  {zenMode ? 'Exit Zen' : 'Zen mode'}
-                </button>
-                <button
-                  onClick={() => { handleSave(); setTabletMenuOpen(false); }}
-                  disabled={isSaving || !selectedItem || !flowValidation.isValid}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 rounded-lg text-left disabled:opacity-40"
-                >
-                  <Save size={14} /> Sync Wire
-                </button>
+        </div>
+      )}
+
+      {/* DESKTOP/TABLET FLOW HEALTH BAR */}
+      {!zenMode && (
+        <div className="hidden md:block absolute top-20 lg:top-26 left-0 right-0 z-[95]">
+          <div className="bg-[#13131a] border-b border-white/5 px-6 py-3">
+            <div className="flex items-center gap-4">
+              <span className="text-[14px] font-Regular text-white tracking-widest">Flow Health</span>
+              <span className="text-[12px] text-white/80">
+                Execution preview reaches {flowValidation.reachableNodeIds.size} of {nodes.length} node{nodes.length === 1 ? '' : 's'}.
+              </span>
+              <div className="ml-auto flex items-center gap-2 text-xs font-medium select-none">
+                <span className={`w-2 h-2 rounded-full ${flowValidation.isValid ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                <span className={flowValidation.isValid ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
+                  {flowValidation.isValid ? 'Ready to save' : 'Validation required'}
+                </span>
+              </div>
+            </div>
+            {flowValidation.errors.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {flowValidation.errors.map((item, index) => (
+                  <div key={`error-${index}`} className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-[11px] text-rose-300">{item}</div>
+                ))}
+              </div>
+            )}
+            {flowValidation.warnings.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {flowValidation.warnings.map((item, index) => (
+                  <div key={`warning-${index}`} className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-300">{item}</div>
+                ))}
               </div>
             )}
           </div>
         </div>
-      </header>
+      )}
 
-      {/* MOBILE HEADER (<768px) */}
-      <header className="flex md:hidden items-center justify-between px-4 py-2.5 bg-[#0E0F15] border-b border-white/10 relative z-[100] h-14">
-        {/* Left: Flows button */}
-        <button
-          onClick={() => {
-            setSelectedItem(null);
-            setCurrentView('dashboard');
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-semibold transition-all"
-        >
-          <ChevronLeft size={14} />
-          <span>Flows</span>
-        </button>
-
-        {/* Center: Agentic Orchestrator + Wire Name */}
-        <div className="flex flex-col items-center text-center">
-          <div className="flex items-center gap-1.5">
-            <div className="w-5 h-5 rounded-lg bg-[#814AC8] flex items-center justify-center">
-              <Sparkles size={11} className="text-white" />
-            </div>
-            <span className="text-xs font-bold text-white tracking-wider">Agentic Orchestrator</span>
-          </div>
-          <span className="text-[11px] font-medium text-white/60 truncate max-w-[150px] mt-0.5">
-            {selectedItem?.name || "Untitled Wire"}
-          </span>
-        </div>
-
-        {/* Right: Three-dot Menu (⋮) */}
-        <button
-          onClick={() => setMoreMenuOpen(true)}
-          className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300 hover:text-white"
-          aria-label="More Options"
-        >
-          <MoreHorizontal size={18} />
-        </button>
-      </header>
-
-      {/* DESKTOP/TABLET FLOW HEALTH BAR */}
-      <div className="hidden md:block absolute top-20 lg:top-26 left-0 right-0 z-[95]">
-        <div className="bg-[#13131a] border-b border-white/5 px-6 py-3">
-          <div className="flex items-center gap-4">
-            <span className="text-[14px] font-Regular text-white tracking-widest">Flow Health</span>
-            <span className="text-[12px] text-white/80">
-              Execution preview reaches {flowValidation.reachableNodeIds.size} of {nodes.length} node{nodes.length === 1 ? '' : 's'}.
-            </span>
-            <div className="ml-auto flex items-center gap-2 text-xs font-medium select-none">
+      {/* MOBILE FLOW HEALTH CARD (<768px) */}
+      {!zenMode && (
+        <div className="block md:hidden relative z-[95] bg-[#13131a] border-b border-white/10 px-4 py-2.5">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span className="text-xs font-bold text-white tracking-wider">Flow Health</span>
+            <div className="flex items-center gap-1.5 text-[11px] font-medium">
               <span className={`w-2 h-2 rounded-full ${flowValidation.isValid ? 'bg-emerald-400' : 'bg-amber-400'}`} />
               <span className={flowValidation.isValid ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
                 {flowValidation.isValid ? 'Ready to save' : 'Validation required'}
               </span>
             </div>
           </div>
+          <p className="text-[11px] text-white/70">
+            Execution preview reaches {flowValidation.reachableNodeIds.size} of {nodes.length} node{nodes.length === 1 ? '' : 's'}.
+          </p>
           {flowValidation.errors.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
+            <div className="flex flex-wrap gap-1.5 mt-2">
               {flowValidation.errors.map((item, index) => (
-                <div key={`error-${index}`} className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-[11px] text-rose-300">{item}</div>
+                <div key={`mob-err-${index}`} className="rounded-md border border-rose-500/20 bg-rose-500/10 px-2 py-1 text-[10px] text-rose-300">{item}</div>
               ))}
             </div>
           )}
           {flowValidation.warnings.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
+            <div className="flex flex-wrap gap-1.5 mt-2">
               {flowValidation.warnings.map((item, index) => (
-                <div key={`warning-${index}`} className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-300">{item}</div>
+                <div key={`mob-warn-${index}`} className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-300">{item}</div>
               ))}
             </div>
           )}
         </div>
-      </div>
-
-      {/* MOBILE FLOW HEALTH CARD (<768px) */}
-      <div className="block md:hidden relative z-[95] bg-[#13131a] border-b border-white/10 px-4 py-2.5">
-        <div className="flex items-center justify-between gap-2 mb-1">
-          <span className="text-xs font-bold text-white tracking-wider">Flow Health</span>
-          <div className="flex items-center gap-1.5 text-[11px] font-medium">
-            <span className={`w-2 h-2 rounded-full ${flowValidation.isValid ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-            <span className={flowValidation.isValid ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
-              {flowValidation.isValid ? 'Ready to save' : 'Validation required'}
-            </span>
-          </div>
-        </div>
-        <p className="text-[11px] text-white/70">
-          Execution preview reaches {flowValidation.reachableNodeIds.size} of {nodes.length} node{nodes.length === 1 ? '' : 's'}.
-        </p>
-        {flowValidation.errors.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {flowValidation.errors.map((item, index) => (
-              <div key={`mob-err-${index}`} className="rounded-md border border-rose-500/20 bg-rose-500/10 px-2 py-1 text-[10px] text-rose-300">{item}</div>
-            ))}
-          </div>
-        )}
-        {flowValidation.warnings.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {flowValidation.warnings.map((item, index) => (
-              <div key={`mob-warn-${index}`} className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-300">{item}</div>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* ZOOM CONTROLS */}
       <div className="absolute right-4 bottom-36 md:bottom-32 z-50 flex flex-col gap-1.5 bg-[#13131a]/95 border border-white/8 rounded-xl p-2 shadow-lg">
@@ -1494,6 +2098,7 @@ export default function AutomationCanvas() {
         nodes={nodes}
         activeNodeId={activeNodeId}
         setActiveNodeId={setActiveNodeId}
+        draggingNodeId={draggingNodeId}
         flowValidation={flowValidation}
         setPreviewNode={setPreviewNode}
         stepsOpen={stepsOpen}
@@ -1501,13 +2106,16 @@ export default function AutomationCanvas() {
         getEdgePoints={getEdgePoints}
         wiringPreview={wiringPreview}
         handleNodePointerDown={handleNodePointerDown}
+        handleNodeClick={handleNodeClick}
         handlePortPointerDown={handlePortPointerDown}
         handleCanvasPointerDown={handleCanvasPointerDown}
         handleCanvasPointerMove={handleCanvasPointerMove}
         handleCanvasPointerUp={handleCanvasPointerUp}
+        handleCanvasClick={handleCanvasClick}
         handleWheel={handleWheel}
         nodeHeightsRef={nodeHeightsRef}
         buttonOffsetsRef={buttonOffsetsRef}
+        zenMode={zenMode}
       />
 
       {/* STEPS TEMPLATE SIDEBAR */}
@@ -1531,18 +2139,20 @@ export default function AutomationCanvas() {
       />
 
       {/* AI MAGIC BAR */}
-      <AiMagicBar
-        aiInput={aiInput}
-        setAiInput={setAiInput}
-        isGenerating={isGenerating}
-        setIsGenerating={setIsGenerating}
-        error={error}
-        setError={setError}
-        setNodes={setNodes}
-        setEdges={setEdges}
-        setCanvasOffset={setCanvasOffset}
-        setActiveNodeId={setActiveNodeId}
-      />
+      {!zenMode && (
+        <AiMagicBar
+          aiInput={aiInput}
+          setAiInput={setAiInput}
+          isGenerating={isGenerating}
+          setIsGenerating={setIsGenerating}
+          error={error}
+          setError={setError}
+          setNodes={setNodes}
+          setEdges={setEdges}
+          setCanvasOffset={setCanvasOffset}
+          setActiveNodeId={setActiveNodeId}
+        />
+      )}
 
       {/* FLOW MODALS */}
       <FlowModals
@@ -1644,8 +2254,8 @@ export default function AutomationCanvas() {
         )}
       </AnimatePresence>
 
-      {/* FIXED BOTTOM NAVIGATION BAR (<768px) */}
-      <nav className="flex md:hidden fixed bottom-0 inset-x-0 z-[160] bg-[#0E0F15]/95 backdrop-blur-2xl border-t border-white/10 px-6 pt-2.5 pb-[calc(10px+env(safe-area-inset-bottom,0px))] items-center justify-around">
+      {/* FIXED BOTTOM NAVIGATION BAR (<768px in portrait) */}
+      <nav className="flex md:hidden landscape:hidden fixed bottom-0 inset-x-0 z-[160] bg-[#0E0F15]/95 backdrop-blur-2xl border-t border-white/10 px-6 pt-2.5 pb-[calc(10px+env(safe-area-inset-bottom,0px))] items-center justify-around">
         <button
           onClick={() => {
             setMobileTab('canvas');

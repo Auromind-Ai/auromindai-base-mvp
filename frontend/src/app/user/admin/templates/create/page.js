@@ -636,7 +636,7 @@ export default function CreateTemplatePage() {
             </svg>
           </button>
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-tight">New Templates Message</h1>
+            <h1 className="text-2xl lg:text-3xl font-semibold text-white tracking-tight">New Templates Message</h1>
             <p className="text-white/60 text-sm mt-0.5">Create, manage and approve WhatsApp Business templates.</p>
           </div>
         </div>
