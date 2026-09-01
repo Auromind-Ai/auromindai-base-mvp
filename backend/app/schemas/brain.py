@@ -134,7 +134,7 @@ class ListEntriesResponse(BaseModel):
 class CrawlWebsiteRequest(BaseModel):
     url: str = Field(..., min_length=4, max_length=2048)
     workspace_id: Optional[str] = None
-    max_pages: int = Field(default=50, ge=1, le=100)
+    max_pages: int = Field(default=30, ge=1, le=30)
     region: Optional[str] = Field(None, max_length=100)
     language: Optional[str] = Field(None, max_length=50)
     cultural_context: Optional[str] = Field(None, max_length=100)

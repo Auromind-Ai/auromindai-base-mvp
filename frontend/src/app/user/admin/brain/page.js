@@ -129,7 +129,7 @@ export default function BrainPage() {
         try {
             setCrawling(true);
             setError(null);
-            const result = await api.crawlWebsite(urlInput.trim(), workspaceId, 50);
+            const result = await api.crawlWebsite(urlInput.trim(), workspaceId, 30);
             
             if (result?.status === 'processing' || result?.status === 'pending') {
                 setCurrentCrawlEntryId(result.entry_id);
@@ -493,7 +493,7 @@ export default function BrainPage() {
                                 </button>
                             </div>
                             <p className="text-[10px] text-white/60">
-                                &quot;Entire Website&quot; crawls all pages (blogs, products, FAQs, etc.)
+                                &quot;Entire Website&quot; crawls up to 30 pages (blogs, products, FAQs, etc.)
                             </p>
                         </div>
                     </div>

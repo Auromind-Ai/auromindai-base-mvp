@@ -642,9 +642,18 @@ class WebhookService:
                     setattr(payment, k, v)
         db.flush()
 
-        # Check if email notification was already staged/sent for this payment failure
+        # Check if email notification was already staged/sent for this payment failure/cancellation
+        is_cancelled = (
+            payment_payload.get("error_code") == "PAYMENT_CANCELLED_BY_USER"
+            or payment_payload.get("error_reason") in ["user_dismissed_checkout", "payment_cancelled_by_user"]
+            or "cancelled by user" in str(failure_reason).lower()
+            or "checkout window dismissed" in str(failure_reason).lower()
+            or "closed or cancelled" in str(failure_reason).lower()
+        )
+
         from app.models.email_delivery_log import EmailDeliveryLog
-        event_idemp_key = f"payment_failed:{provider_payment_id or (payment.id if payment else uuid.uuid4().hex)}"
+        event_prefix = "payment_cancelled" if is_cancelled else "payment_failed"
+        event_idemp_key = f"{event_prefix}:{provider_payment_id or (payment.id if payment else (provider_order_id or uuid.uuid4().hex))}"
         existing_log = db.query(EmailDeliveryLog).filter(
             EmailDeliveryLog.idempotency_key.like(f"{event_idemp_key}%")
         ).first()
@@ -675,33 +684,63 @@ class WebhookService:
 
         # 6. Single Canonical Event Emission via EventBus
         try:
-            impact_date = (datetime.now(timezone.utc) + timedelta(days=3)).strftime("%B %d, %Y")
-            cutoff_date = (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%B %d, %Y")
             formatted_amount = f"₹{amount:,.2f} {currency}" if currency == "INR" else f"{amount:,.2f} {currency}"
 
-            emit_event(
-                event_name="payment.failed",
-                payload={
-                    "amount": formatted_amount,
-                    "error_message": failure_reason,
-                    "service_impact_date": impact_date,
-                    "service_cutoff_date": cutoff_date,
-                    "action_route": "/billing",
-                    "action_label": "Update Payment Method",
-                    "workspace_id": str(target_ws_id) if target_ws_id else None,
-                    "workspace_name": ws_name,
-                    "user_name": user_name,
-                    "email": user_email,
-                    "is_critical": True
-                },
-                workspace_id=target_ws_id,
-                actor_id=user_id,
-                idempotency_key=event_idemp_key,
-                db=db
-            )
+            if is_cancelled:
+                # Plan label resolution
+                plan_name = description or "Subscription Plan"
+                if notes.get("plan_label"):
+                    plan_name = notes["plan_label"]
+                elif notes.get("plan") or notes.get("plan_key"):
+                    pk = str(notes.get("plan") or notes.get("plan_key"))
+                    plan_name = f"{pk.title()} Plan"
+
+                emit_event(
+                    event_name="payment.cancelled",
+                    payload={
+                        "amount": formatted_amount,
+                        "plan_name": plan_name,
+                        "error_message": failure_reason,
+                        "action_route": "/user/admin/billing/payment",
+                        "action_label": "Resume Checkout",
+                        "workspace_id": str(target_ws_id) if target_ws_id else None,
+                        "workspace_name": ws_name,
+                        "user_name": user_name,
+                        "email": user_email,
+                        "is_critical": False
+                    },
+                    workspace_id=target_ws_id,
+                    actor_id=user_id,
+                    idempotency_key=event_idemp_key,
+                    db=db
+                )
+            else:
+                impact_date = (datetime.now(timezone.utc) + timedelta(days=3)).strftime("%B %d, %Y")
+                cutoff_date = (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%B %d, %Y")
+
+                emit_event(
+                    event_name="payment.failed",
+                    payload={
+                        "amount": formatted_amount,
+                        "error_message": failure_reason,
+                        "service_impact_date": impact_date,
+                        "service_cutoff_date": cutoff_date,
+                        "action_route": "/billing",
+                        "action_label": "Update Payment Method",
+                        "workspace_id": str(target_ws_id) if target_ws_id else None,
+                        "workspace_name": ws_name,
+                        "user_name": user_name,
+                        "email": user_email,
+                        "is_critical": True
+                    },
+                    workspace_id=target_ws_id,
+                    actor_id=user_id,
+                    idempotency_key=event_idemp_key,
+                    db=db
+                )
         except Exception as notif_exc:
             import logging
-            logging.getLogger("auromind").error(f"Failed to emit payment.failed event: {notif_exc}")
+            logging.getLogger("auromind").error(f"Failed to emit payment notification event: {notif_exc}")
 
     
 

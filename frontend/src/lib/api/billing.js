@@ -422,7 +422,41 @@ export async function openRazorpayCheckout({
     throw new Error("Payment service is currently unavailable. Please try again later or contact support.");
   }
 
-  const resolvedWsId = workspaceId || orderData?.workspace_id || prefill?.workspace_id || (typeof window !== 'undefined' ? (localStorage.getItem('activeWorkspaceId') || localStorage.getItem('last_active_workspace_id')) : null);
+  let isFailureReported = false;
+
+  const handleDismiss = async () => {
+    if (!isFailureReported) {
+      isFailureReported = true;
+      try {
+        await reportPaymentFailure({
+          workspace_id: resolvedWsId,
+          payment_id: null,
+          order_id: orderData?.gateway_order_id || orderData?.order_id,
+          subscription_id: orderData?.subscription_id,
+          plan: orderData?.plan_key || orderData?.plan,
+          billing_cycle: orderData?.billing_cycle || 'monthly',
+          plan_label: orderData?.plan_label,
+          pack_id: orderData?.pack_id,
+          amount: orderData?.amount,
+          currency: orderData?.currency || 'INR',
+          provider: orderData?.provider || 'razorpay',
+          error_code: 'PAYMENT_CANCELLED_BY_USER',
+          error_reason: 'user_dismissed_checkout',
+          error_description: 'User closed or cancelled the Razorpay checkout window',
+        });
+      } catch (e) {
+        console.error('[Billing] Error reporting checkout cancellation:', e);
+      }
+    }
+
+    if (typeof ondismiss === 'function') {
+      try {
+        ondismiss();
+      } catch (e) {
+        console.error('[Billing] Error in ondismiss callback:', e);
+      }
+    }
+  };
 
   const options = {
     key: orderData.public_key,
@@ -435,7 +469,7 @@ export async function openRazorpayCheckout({
     prefill,
     handler,
     modal: {
-      ondismiss
+      ondismiss: handleDismiss
     }
   };
 
@@ -443,6 +477,7 @@ export async function openRazorpayCheckout({
 
   if (typeof razorpay.on === 'function') {
     razorpay.on('payment.failed', async function (response) {
+      isFailureReported = true;
       const errorObj = response?.error || {};
       const metadata = errorObj?.metadata || {};
 

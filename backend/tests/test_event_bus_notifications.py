@@ -725,3 +725,62 @@ def test_admin_notification_rules_and_schedules_endpoints(db_session):
     assert "report.weekly_performance" in schedule_events
 
 
+def test_payment_cancelled_event_notification(db_session):
+    # 1. Setup workspace and owner
+    owner = User(
+        id=uuid.uuid4(),
+        email="cancelled_user@auromind.ai",
+        full_name="Arun Kumar",
+        is_active=True,
+        preferences={"billingAlerts": True}
+    )
+    db_session.add(owner)
+    db_session.commit()
+
+    ws = Workspace(
+        id=uuid.uuid4(),
+        name="Auromind AI Test",
+        created_by=owner.id,
+        billing_email="cancelled_user@auromind.ai"
+    )
+    db_session.add(ws)
+    db_session.commit()
+
+    member = WorkspaceMember(workspace_id=ws.id, user_id=owner.id, role="founder")
+    db_session.add(member)
+    db_session.commit()
+
+    # 2. Emit payment.cancelled event
+    logs = EventBus.emit(
+        event_name="payment.cancelled",
+        payload={
+            "amount": "₹234.82 INR",
+            "plan_name": "Starter Plan",
+            "error_message": "Checkout window dismissed by user",
+            "action_route": "/user/admin/billing/payment",
+            "action_label": "Resume Checkout",
+            "workspace_id": str(ws.id),
+            "workspace_name": ws.name,
+            "user_name": owner.full_name,
+            "email": owner.email,
+            "is_critical": False
+        },
+        workspace_id=ws.id,
+        actor_id=owner.id,
+        idempotency_key=f"pay_cancel:{ws.id}",
+        db=db_session,
+        dispatch_immediately=False
+    )
+
+    assert len(logs) == 1
+    log = logs[0]
+    assert log.event_name == "payment.cancelled"
+    assert log.template_key == "payment_cancelled"
+    assert log.recipient_email == "cancelled_user@auromind.ai"
+    assert "Did something go wrong with your Orbion Agents subscription?" in log.subject
+    assert "Starter Plan" in log.body_html
+    assert "Resume Checkout" in log.body_html
+    assert "₹234.82 INR" in log.body_html
+
+
+

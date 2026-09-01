@@ -413,13 +413,13 @@ function AdminLayoutContent({ children }) {
                     >
                         <div className={`${poppins.className} flex flex-col h-full bg-[#0f0f12]`}>
                             {/* Workspace Brand */}
-                            <div className="h-14 flex items-center px-4 border-b border-white/5">
+                            <div className="h-14 flex items-center pl-3 pr-10 border-b border-white/5 shrink-0">
                                 <div className="flex items-center gap-2.5 overflow-hidden">
                                     <div className="w-5 h-5 rounded-[4px] bg-[#814AC8] flex items-center justify-center flex-shrink-0 text-[10px] text-white font-bold">
                                         {(currentWorkspaceName || 'A').charAt(0).toUpperCase()}
                                     </div>
 
-                                    <span className="font-medium text-sm truncate text-[#D4D4D4]">
+                                    <span className="font-medium text-xs truncate text-[#D4D4D4] min-w-0 flex-1">
                                         {currentWorkspaceName}
                                     </span>
                                 </div>

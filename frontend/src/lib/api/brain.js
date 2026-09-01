@@ -36,7 +36,7 @@ export async function syncURL(url, workspace_id) {
   return client.post('/brain/ingest/url', { url, workspace_id });
 }
 
-export async function crawlWebsite(url, workspace_id, max_pages = 50) {
+export async function crawlWebsite(url, workspace_id, max_pages = 30) {
   return client.post('/brain/ingest/website', { url, max_pages, workspace_id });
 }
 

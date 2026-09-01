@@ -659,7 +659,8 @@ async def crawl_website(
             url=url,
             workspace_id=str(workspace_id),
             user_id=str(current_user.id),
-            base_metadata=base_metadata
+            base_metadata=base_metadata,
+            max_pages=min(request.max_pages, 30)
         )
 
         return {

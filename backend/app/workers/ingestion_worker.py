@@ -226,14 +226,15 @@ def crawl_website_task(
     url: str,
     workspace_id: str,
     user_id: str,
-    base_metadata: Optional[Dict[str, Any]] = None
+    base_metadata: Optional[Dict[str, Any]] = None,
+    max_pages: int = 30
 ):
   
     import time
     task_start_time = time.time()
     db = SessionLocal()
     try:
-        logger.info(f"[TIMING] [1. CRAWL TASK STARTED] entry={entry_id} workspace={workspace_id} url={url} at {task_start_time:.3f}")
+        logger.info(f"[TIMING] [1. CRAWL TASK STARTED] entry={entry_id} workspace={workspace_id} url={url} max_pages={max_pages} at {task_start_time:.3f}")
 
         entry = db.query(BrainEntry).filter(BrainEntry.id == entry_id).first()
         if not entry:
@@ -244,11 +245,15 @@ def crawl_website_task(
         entry.embedding_status = "processing"
         db.commit()
 
+        effective_max_pages = min(max_pages or 30, 30)
         scrape_start = time.time()
-        logger.info(f"[TIMING] [2. BROWSER/SCRAPER LAUNCH] url={url}")
-        scraper = Webscrapper(url)
+        logger.info(f"[TIMING] [2. BROWSER/SCRAPER LAUNCH] url={url} max_pages={effective_max_pages}")
+        scraper = Webscrapper(url, max_pages=effective_max_pages)
         pages = scraper.scrapper_choose()
         scrape_duration = time.time() - scrape_start
+
+        if isinstance(pages, list) and len(pages) > 30:
+            pages = pages[:30]
 
         page_count = len(pages) if isinstance(pages, list) else 0
         logger.info(f"[TIMING] [3. SCRAPING COMPLETED] pages_crawled={page_count} duration={scrape_duration:.3f}s")
