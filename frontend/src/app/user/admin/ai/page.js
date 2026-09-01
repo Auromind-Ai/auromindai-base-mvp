@@ -1262,44 +1262,48 @@ export default function AuromindAIPage() {
 
                                         {/* Prompt Input Box (Hero) */}
                                         <motion.div layoutId="chat-input-container" className="w-full max-w-4xl">
-                                            <div className="ai-input-box bg-[#070012] rounded-2xl border border-purple-300/30 shadow-2xl transition-all duration-300 overflow-visible flex flex-col p-3 md:p-4">
+                                            <div className="ai-input-box bg-[#070012] rounded-2xl border border-purple-300/30 shadow-2xl transition-all duration-300 overflow-hidden flex flex-col">
                                                 {attachedFile && (
-                                                    <div className="flex items-center gap-2 mb-3 bg-white/5 p-2 rounded-xl w-fit border border-white/10">
-                                                        <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-purple-500/20 text-purple-400 font-bold text-[10px]">
-                                                            {attachedFile.type.startsWith('image/') && attachedFile.url ? (
-                                                                <img src={attachedFile.url} alt="thumbnail" className="w-full h-full object-cover" />
-                                                            ) : attachedFile.type.startsWith('image/') ? (
-                                                                <ImageIcon size={16} />
-                                                            ) : (
-                                                                'DOC'
-                                                            )}
+                                                    <div className="px-4 pt-3 pb-0">
+                                                        <div className="flex items-center gap-2 bg-white/5 p-2 rounded-xl w-fit border border-white/10">
+                                                            <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-purple-500/20 text-purple-400 font-bold text-[10px]">
+                                                                {attachedFile.type.startsWith('image/') && attachedFile.url ? (
+                                                                    <img src={attachedFile.url} alt="thumbnail" className="w-full h-full object-cover" />
+                                                                ) : attachedFile.type.startsWith('image/') ? (
+                                                                    <ImageIcon size={16} />
+                                                                ) : (
+                                                                    'DOC'
+                                                                )}
+                                                            </div>
+                                                            <div className="flex flex-col pr-2">
+                                                                <span className="text-[12px] text-gray-200 font-medium truncate max-w-[150px]">{attachedFile.name}</span>
+                                                                <span className="text-[10px] text-gray-500 uppercase tracking-tight">Ready to analyze</span>
+                                                            </div>
+                                                            <button onClick={() => setAttachedFile(null)} className="p-1 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors">
+                                                                <X size={14} />
+                                                            </button>
                                                         </div>
-                                                        <div className="flex flex-col pr-2">
-                                                            <span className="text-[12px] text-gray-200 font-medium truncate max-w-[150px]">{attachedFile.name}</span>
-                                                            <span className="text-[10px] text-gray-500 uppercase tracking-tight">Ready to analyze</span>
-                                                        </div>
-                                                        <button onClick={() => setAttachedFile(null)} className="p-1 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors">
-                                                            <X size={14} />
-                                                        </button>
                                                     </div>
                                                 )}
-                                               
-                                                {/* Textarea Area */}
-                                                <textarea
-                                                    ref={heroTextareaRef}
-                                                    value={inputValue}
-                                                    onChange={(e) => {
-                                                        setInputValue(e.target.value);
-                                                        autoResizeTextarea(e.target);
-                                                    }}
-                                                    onKeyDown={handleKeyDown}
-                                                    placeholder="Ask me Anything..."
-                                                    className="w-full bg-transparent text-gray-100 placeholder:text-gray-600 text-[13px] md:text-[15px] resize-none outline-none leading-relaxed min-h-[60px] md:min-h-[80px] break-words px-2"
-                                                    style={{ overflowWrap: 'anywhere', wordBreak: 'break-word', maxHeight: '300px' }}
-                                                />
+                                                
+                                                {/* Textarea Area - Compact Perfect Height */}
+                                                <div className="px-4 pt-3.5 pb-2">
+                                                    <textarea
+                                                        ref={heroTextareaRef}
+                                                        value={inputValue}
+                                                        onChange={(e) => {
+                                                            setInputValue(e.target.value);
+                                                            autoResizeTextarea(e.target);
+                                                        }}
+                                                        onKeyDown={handleKeyDown}
+                                                        placeholder="Ask me Anything..."
+                                                        className="w-full bg-transparent text-gray-100 placeholder:text-gray-600 text-[14px] md:text-[15px] resize-none outline-none leading-relaxed min-h-[50px] md:min-h-[60px] break-words"
+                                                        style={{ overflowWrap: 'anywhere', wordBreak: 'break-word', maxHeight: '250px' }}
+                                                    />
+                                                </div>
 
-                                                {/* Bottom Row: + on Bottom-Left, Send on Bottom-Right */}
-                                                <div className="flex items-center justify-between pt-2">
+                                                {/* Full Edge-to-Edge Divider Line & Bottom Bar */}
+                                                <div className="w-full border-t border-white/10 flex items-center justify-between px-4 py-2.5">
                                                     <div ref={heroPlusRef} className="relative">
                                                         <button
                                                             onClick={() => setIsHeroPlusOpen(!isHeroPlusOpen)}
@@ -1323,7 +1327,11 @@ export default function AuromindAIPage() {
                                                         <button
                                                             onClick={handleExecute}
                                                             disabled={!inputValue.trim() || isLoading}
-                                                            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${inputValue.trim() ? 'bg-purple-700 text-white shadow-lg shadow-purple-700/40 hover:bg-purple-600' : 'bg-white/5 text-gray-600'}`}
+                                                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+                                                                inputValue.trim()
+                                                                    ? 'bg-purple-700 text-white shadow-lg shadow-purple-700/40 hover:bg-purple-600 hover:scale-110 hover:shadow-purple-500/50 hover:rotate-12'
+                                                                    : 'bg-[#281347] text-[#A855F7] cursor-default'
+                                                            }`}
                                                         >
                                                             <Send size={16} />
                                                         </button>
@@ -1331,7 +1339,7 @@ export default function AuromindAIPage() {
                                                 </div>
                                             </div>
                                         </motion.div>
-
+                                        
                                         {/* Starter Cards */}
                                         <div className="w-full max-w-4xl mt-10">
                                             <p className="text-[13px] font-medium text-gray-400 mb-4">Get started with</p>

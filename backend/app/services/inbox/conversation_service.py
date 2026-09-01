@@ -9,6 +9,11 @@ from sqlalchemy.orm import Session
 from app.models.conversation import ChannelType, Conversation, ConversationStatus
 from app.models.workspace import Workspace
 from app.core.security import to_uuid
+from datetime import datetime, timezone, timedelta
+from sqlalchemy import func, or_
+from app.models.message import Message, SenderType
+from app.models.ai_action import Lead
+
 
 
 class ConversationService:
@@ -119,18 +124,53 @@ class ConversationService:
             query = query.filter(
                 Conversation.channel == ConversationService.normalize_channel(channel)
             )
-        if status and status.upper() != "ALL":
-            query = query.filter(Conversation.status == status)
+
+        if status:
+            st = status.upper().strip()
+            if st == "OPEN":
+                query = query.filter(Conversation.status == ConversationStatus.OPEN)
+            elif st == "CONVERTED":
+                query = query.outerjoin(Lead, Lead.conversation_id == Conversation.id).filter(
+                    or_(
+                        Conversation.status == ConversationStatus.CONVERTED,
+                        Lead.is_converted == True,
+                        Lead.status == "converted"
+                    )
+                ).distinct()
+            elif st == "CLOSED":
+                cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+                query = query.filter(
+                    Conversation.status == ConversationStatus.CLOSED,
+                    func.coalesce(Conversation.closed_at, Conversation.updated_at) <= cutoff
+                )
+            elif st == "UNREAD":
+                unread_conv_subq = (
+                    db.query(Message.conversation_id)
+                    .filter(
+                        Message.is_read == False,
+                        Message.sender_type == SenderType.USER
+                    )
+                    .distinct()
+                )
+                query = query.filter(Conversation.id.in_(unread_conv_subq))
+            elif st != "ALL":
+                query = query.filter(Conversation.status == st)
+
         conversations = (
             query.order_by(Conversation.updated_at.desc())
             .offset(skip)
             .limit(limit)
             .all()
         )
-        if conversations:
-            from sqlalchemy import func
-            from app.models.message import Message, SenderType
 
+        # Deduplicate results by ID to guarantee uniqueness
+        unique_map = {}
+        for c in conversations:
+            if c.id not in unique_map:
+                unique_map[c.id] = c
+        conversations = list(unique_map.values())
+
+        if conversations:
             conv_ids = [c.id for c in conversations]
             counts = dict(
                 db.query(Message.conversation_id, func.count(Message.id))
@@ -174,6 +214,71 @@ class ConversationService:
                 c.__dict__['last_message'] = last_msg_map.get(c.id, '')
                 c.__dict__['last_message_text'] = last_msg_map.get(c.id, '')
         return conversations
+
+    @staticmethod
+    def get_conversation_counts(
+        db: Session,
+        *,
+        workspace_id: str | UUID,
+        channel: str | ChannelType | None = None,
+    ) -> dict[str, int]:
+        from datetime import datetime, timezone, timedelta
+        from sqlalchemy import func, or_
+        from app.models.message import Message, SenderType
+        from app.models.ai_action import Lead
+
+        ws_uuid = to_uuid(workspace_id)
+        base_query = db.query(Conversation).filter(Conversation.workspace_id == ws_uuid)
+        if channel:
+            base_query = base_query.filter(
+                Conversation.channel == ConversationService.normalize_channel(channel)
+            )
+
+        # 1. Total (All)
+        all_count = base_query.count()
+
+        # 2. Open
+        open_count = base_query.filter(Conversation.status == ConversationStatus.OPEN).count()
+
+        # 3. Converted
+        converted_count = (
+            base_query.outerjoin(Lead, Lead.conversation_id == Conversation.id)
+            .filter(
+                or_(
+                    Conversation.status == ConversationStatus.CONVERTED,
+                    Lead.is_converted == True,
+                    Lead.status == "converted"
+                )
+            )
+            .distinct()
+            .count()
+        )
+
+        # 4. Closed (closed >= 24 hours ago)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        closed_count = base_query.filter(
+            Conversation.status == ConversationStatus.CLOSED,
+            func.coalesce(Conversation.closed_at, Conversation.updated_at) <= cutoff
+        ).count()
+
+        # 5. Unread
+        unread_conv_subq = (
+            db.query(Message.conversation_id)
+            .filter(
+                Message.is_read == False,
+                Message.sender_type == SenderType.USER
+            )
+            .distinct()
+        )
+        unread_count = base_query.filter(Conversation.id.in_(unread_conv_subq)).count()
+
+        return {
+            "all": all_count,
+            "open": open_count,
+            "unread": unread_count,
+            "converted": converted_count,
+            "closed": closed_count,
+        }
 
     @staticmethod
     def get_conversation_or_404(

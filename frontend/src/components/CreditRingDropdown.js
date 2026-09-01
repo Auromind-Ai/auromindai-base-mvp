@@ -141,10 +141,17 @@ export default function CreditRingDropdown({ user, size = 36 }) {
 
       {/* ElevenLabs-style Dropdown */}
       {isOpen && (
-        <div
-          className="fixed w-auto sm:w-80 bg-[#0c0c12] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden text-[13px] text-[#EDEDED] font-sans"
-          style={panelStyle}
-        >
+        <>
+          {/* Background Blur Overlay (Mobile Only) */}
+          <div
+            onClick={() => setIsOpen(false)}
+            className="fixed inset-0 z-[49] bg-black/35 backdrop-blur-[2px] transition-all sm:hidden"
+          />
+
+          <div
+            className="fixed w-auto sm:w-80 bg-[#0c0c12] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden text-[13px] text-[#EDEDED] font-sans"
+            style={panelStyle}
+          >
           
           {/* Section 1: AI Model Messages Balance */}
           <div className="p-5 bg-gradient-to-b from-purple-950/20 to-transparent">
@@ -214,8 +221,9 @@ export default function CreditRingDropdown({ user, size = 36 }) {
             <div className="w-7 h-7 rounded-lg bg-[#1a1a24] flex items-center justify-center text-zinc-400 group-hover:text-white border border-white/5 transition-colors">
               <ArrowRightLeft size={13} />
             </div>
-          </div>
+             </div>
         </div>
+        </>
       )}
     </div>
   );
