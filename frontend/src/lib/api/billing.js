@@ -422,6 +422,8 @@ export async function openRazorpayCheckout({
     throw new Error("Payment service is currently unavailable. Please try again later or contact support.");
   }
 
+  const resolvedWsId = workspaceId || orderData?.workspace_id || orderData?.workspaceId || null;
+
   let isFailureReported = false;
 
   const handleDismiss = async () => {
