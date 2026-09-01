@@ -66,7 +66,7 @@ export default function FAQSection() {
           </h2>
 
           <p className="mt-[14px] text-[18px] font-normal text-white/85 md:text-[16px]">
-            Everything you need to know about Auromind
+            Everything you need to know about OrbionAgents
           </p>
         </motion.div>
 

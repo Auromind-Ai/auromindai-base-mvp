@@ -377,7 +377,7 @@ export default function PricingSectionNew() {
   const plans = dynamicPlans;
 
   return (
-    <section id="pricing" className="relative overflow-hidden bg-[#050507] min-h-screen py-16 md:py-24 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center">
+    <section id="pricing" className="relative overflow-hidden bg-[#050507] min-h-screen py-16 md:py-24 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center font-['Poppins',sans-serif]" style={{ fontFamily: "'Poppins', sans-serif" }}>
       {/* Background radial glow */}
       <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-purple-900/15 blur-[150px]" />
 
