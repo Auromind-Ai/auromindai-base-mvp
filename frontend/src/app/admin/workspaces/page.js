@@ -12,6 +12,9 @@ export default function WorkspacesPage() {
   const [error, setError] = useState(null)
   const [confirmWorkspace, setConfirmWorkspace] = useState(null)
 
+  const [togglingId, setTogglingId] = useState(null)
+  const [confirmLoading, setConfirmLoading] = useState(false)
+
   const fetchWorkspaces = useCallback(async () => {
     try {
       setLoading(true)
@@ -43,13 +46,12 @@ export default function WorkspacesPage() {
   }, [fetchWorkspaces])
 
   const editPlan = async (id, plan) => {
-    await api.editWorkspacePlan(id, plan)
-    fetchWorkspaces()
-  }
-
-  const resetLimits = async (id) => {
-    await api.resetWorkspaceLimits(id)
-    fetchWorkspaces()
+    try {
+      await api.editWorkspacePlan(id, plan)
+      fetchWorkspaces()
+    } catch (err) {
+      alert("Failed to update plan: " + err.message)
+    }
   }
 
   const confirmDeactivate = (workspace) => {
@@ -59,18 +61,31 @@ export default function WorkspacesPage() {
   const deactivateWorkspace = async () => {
     if (!confirmWorkspace) return
     try {
+      setConfirmLoading(true)
       await api.toggleWorkspaceStatus(confirmWorkspace.id)
-      fetchWorkspaces()
+      await fetchWorkspaces()
     } catch (err) {
       alert("Failed to deactivate workspace: " + err.message)
     } finally {
+      setConfirmLoading(false)
       setConfirmWorkspace(null)
     }
   }
 
-  const toggleWorkspace = async (id) => {
-    await api.toggleWorkspaceStatus(id)
-    fetchWorkspaces()
+  const toggleWorkspace = async (workspace) => {
+    if (workspace.is_active) {
+      confirmDeactivate(workspace)
+      return
+    }
+    try {
+      setTogglingId(workspace.id)
+      await api.toggleWorkspaceStatus(workspace.id)
+      await fetchWorkspaces()
+    } catch (err) {
+      alert("Failed to activate workspace: " + err.message)
+    } finally {
+      setTogglingId(null)
+    }
   }
 
   const availablePlanOptions = plans.length > 0
@@ -173,6 +188,8 @@ export default function WorkspacesPage() {
                       itemPlanOptions.push({ value: currentPlan, label: currentPlan })
                     }
 
+                    const isRowToggling = togglingId === workspace.id
+
                     return (
                       <tr key={workspace.id} className="border-b border-white/5">
 
@@ -218,22 +235,21 @@ export default function WorkspacesPage() {
                               </option>
                             ))}
                           </select>
-                          <button
-                            onClick={() => resetLimits(workspace.id)}
-                            className="bg-yellow-600 hover:bg-yellow-500 text-white px-3 py-1 rounded text-xs"
-                          >
-                            Reset
-                          </button>
 
                           <button
-                            onClick={() => toggleWorkspace(workspace.id)}
-                            className={`px-3 py-1 rounded text-xs ${
+                            onClick={() => toggleWorkspace(workspace)}
+                            disabled={isRowToggling}
+                            className={`px-3 py-1 rounded text-xs transition disabled:opacity-50 ${
                               workspace.is_active
                                 ? "bg-red-600 hover:bg-red-500 text-white"
                                 : "bg-green-600 hover:bg-green-500 text-white"
                             }`}
                           >
-                            {workspace.is_active ? "Deactivate" : "Activate"}
+                            {isRowToggling
+                              ? "Updating..."
+                              : workspace.is_active
+                              ? "Deactivate"
+                              : "Activate"}
                           </button>
                         </td>
                       </tr>
@@ -247,31 +263,33 @@ export default function WorkspacesPage() {
       </div>
 
       {confirmWorkspace && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
-          <div className="bg-[#0f0f0f] border border-white/10 rounded-xl p-6 w-96">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#0f0f0f] border border-white/10 rounded-xl p-6 w-96 shadow-2xl">
             <h3 className="text-white text-lg font-semibold mb-3">
               Deactivate Workspace
             </h3>
 
             <p className="text-gray-400 mb-6">
               Are you sure you want to deactivate{" "}
-              <b>{confirmWorkspace.name}</b>?
+              <b className="text-white">{confirmWorkspace.name}</b>?
             </p>
 
             <div className="flex justify-end gap-3">
 
               <button
                 onClick={() => setConfirmWorkspace(null)}
-                className="px-4 py-2 text-gray-300 bg-gray-800 rounded"
+                disabled={confirmLoading}
+                className="px-4 py-2 text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition disabled:opacity-50"
               >
                 Cancel
               </button>
 
               <button
                 onClick={deactivateWorkspace}
-                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded"
+                disabled={confirmLoading}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded transition disabled:opacity-50"
               >
-                Confirm
+                {confirmLoading ? "Deactivating..." : "Confirm"}
               </button>
             </div>
           </div>

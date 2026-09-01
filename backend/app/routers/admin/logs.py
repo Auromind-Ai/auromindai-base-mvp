@@ -1,7 +1,10 @@
 from fastapi import APIRouter
 import os
+import re
 import tempfile
+import logging
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 LOG_FILE = "logs/app.log"
@@ -9,7 +12,6 @@ FALLBACK_LOG_FILE = os.path.join(tempfile.gettempdir(), "auromind_logs", "app.lo
 
 @router.get("/logs")
 async def get_logs():
-
     target_file = None
     if os.path.exists(LOG_FILE):
         target_file = LOG_FILE
@@ -18,29 +20,61 @@ async def get_logs():
     else:
         return []
 
+    lines = []
+    try:
+        with open(target_file, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()[-300:]  # last 300 logs
+    except Exception as e:
+        logger.warning(f"Error reading log file {target_file}: {e}")
+        return []
+
     logs = []
-
-    with open(target_file, "r") as f:
-        lines = f.readlines()[-200:]  # last 200 logs
-
     for i, line in enumerate(lines):
-
-        parts = [p.strip() for p in line.split("|")]
-
-        if len(parts) < 3:
+        line = line.strip()
+        if not line:
             continue
 
-        endpoint = parts[2] if len(parts) > 2 else ""
-        status = parts[3].replace("Status", "").strip() if len(parts) > 3 else ""
-        duration = parts[4] if len(parts) > 4 else ""
+        parts = [p.strip() for p in line.split("|")]
+        
+        if len(parts) >= 3:
+            timestamp = parts[0].replace(",", ".")
+            level = parts[1].upper()
+            message = parts[2]
+            status = ""
+            duration = ""
 
-        logs.append({
-            "id": i,
-            "timestamp": parts[0].replace(",", "."),
-            "level": parts[1],
-            "message": endpoint,
-            "status": status,
-            "duration": duration
-        })
+            for extra in parts[3:]:
+                if "Status" in extra or extra.isdigit():
+                    status = extra.replace("Status", "").strip()
+                elif extra.endswith("s") and any(c.isdigit() for c in extra):
+                    duration = extra.strip()
+
+            # Default status for level if not explicitly present in log format
+            if not status:
+                if level == "ERROR":
+                    status = "500"
+                elif level == "WARNING":
+                    status = "400"
+                elif level == "INFO":
+                    status = "200"
+
+            logs.append({
+                "id": i,
+                "timestamp": timestamp,
+                "level": level,
+                "message": message,
+                "status": status,
+                "duration": duration
+            })
+        else:
+            # Single-line or unstructured message
+            logs.append({
+                "id": i,
+                "timestamp": "",
+                "level": "INFO",
+                "message": line,
+                "status": "200",
+                "duration": ""
+            })
 
     return logs

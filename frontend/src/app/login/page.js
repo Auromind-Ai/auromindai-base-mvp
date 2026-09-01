@@ -35,6 +35,9 @@ const getErrorMessage = (err) => {
     let msg = err?.message || '';
     let status = err?.status;
    
+    if (msg.toLowerCase().includes("deactivat")) {
+        return "Your account is deactivated due to some reason. Please call or contact the support team.";
+    }
     if (msg.includes("Invalid or expired OTP") || msg.includes("Invalid OTP") || msg.includes("expired OTP")) {
         return "Invalid or expired OTP. Please request a new code.";
     }
@@ -86,6 +89,7 @@ function LoginContent() {
     const [showCanvas, setShowCanvas] = useState(false);
     const [resendSuccess, setResendSuccess] = useState('');
     const [resendLoading, setResendLoading] = useState(false);
+    const [showDeactivatedModal, setShowDeactivatedModal] = useState(false);
     const tokenHandledRef = useRef(false);
 
     useEffect(() => {
@@ -124,20 +128,24 @@ function LoginContent() {
         }
     }, [user, authLoading, router, redirectPath, searchParams, refreshUser]);
 
-
-
     useEffect(() => {
+        const isDeactivated = searchParams.get('deactivated');
         const err = searchParams.get('error');
-        if (err) {
+
+        if (isDeactivated === 'true') {
+            setShowDeactivatedModal(true);
+            setError("Your account is deactivated due to some reason. Please call or contact the support team.");
+        } else if (err) {
             let decodedErr = decodeURIComponent(err);
-            // Handle google oauth error callback redirect gracefully
-            let mappedErr = getErrorMessage({ message: decodedErr });
-            // If it's for non-existent email on google login, requirement asks for:
-            // "Account not found. Please sign up first."
-            if (decodedErr.includes("not registered") || decodedErr.includes("not found") || decodedErr.includes("sign up first")) {
-                mappedErr = "Account not found. Please sign up first.";
+            if (decodedErr.toLowerCase().includes("deactivat")) {
+                setShowDeactivatedModal(true);
+                setError("Your account is deactivated due to some reason. Please call or contact the support team.");
+            } else if (decodedErr.includes("not registered") || decodedErr.includes("not found") || decodedErr.includes("sign up first")) {
+                setError("Account not found. Please sign up first.");
+            } else {
+                let mappedErr = getErrorMessage({ message: decodedErr });
+                setError(mappedErr);
             }
-            setError(mappedErr);
         }
     }, [searchParams, router]);
 
@@ -175,6 +183,9 @@ function LoginContent() {
             setResendTimer(60);
         } catch (err) {
             const mappedError = getErrorMessage(err);
+            if (err?.message?.toLowerCase()?.includes('deactivat') || mappedError.toLowerCase().includes('deactivat')) {
+                setShowDeactivatedModal(true);
+            }
             setError(mappedError);
         } finally {
             setLoading(false);
@@ -216,12 +227,16 @@ function LoginContent() {
             await refreshUser();
             router.push(redirectPath || '/user/admin/dashboard');
         } catch (err) {
-            setError(getErrorMessage(err));
+            const mappedError = getErrorMessage(err);
+            if (err?.message?.toLowerCase()?.includes('deactivat') || mappedError.toLowerCase().includes('deactivat')) {
+                setShowDeactivatedModal(true);
+            }
+            setError(mappedError);
         } finally {
             setLoading(false);
         }
     };
-        const handleResend = async () => {
+    const handleResend = async () => {
         if (resendTimer > 0 || resendLoading) return;
         setError('');
         setResendSuccess('');
@@ -235,7 +250,11 @@ function LoginContent() {
             setResendSuccess('Verification code resent successfully...');
             setTimeout(() => setResendSuccess(''), 4500);
         } catch (err) {
-            setError(getErrorMessage(err));
+            const mappedError = getErrorMessage(err);
+            if (err?.message?.toLowerCase()?.includes('deactivat') || mappedError.toLowerCase().includes('deactivat')) {
+                setShowDeactivatedModal(true);
+            }
+            setError(mappedError);
         } finally {
             setResendLoading(false);
         }
@@ -252,7 +271,11 @@ function LoginContent() {
             }
             router.push(redirectPath || '/user/admin/dashboard');
         } catch (err) {
-            setError(getErrorMessage(err));
+            const mappedError = getErrorMessage(err);
+            if (err?.message?.toLowerCase()?.includes('deactivat') || mappedError.toLowerCase().includes('deactivat')) {
+                setShowDeactivatedModal(true);
+            }
+            setError(mappedError);
         } finally {
             setCancelRestoreLoading(false);
         }
@@ -286,7 +309,11 @@ function LoginContent() {
             await refreshUser();
             router.push(redirectPath || '/user/admin/dashboard');
         } catch (err) {
-            setError(getErrorMessage(err));
+            const mappedError = getErrorMessage(err);
+            if (err?.message?.toLowerCase()?.includes('deactivat') || mappedError.toLowerCase().includes('deactivat')) {
+                setShowDeactivatedModal(true);
+            }
+            setError(mappedError);
         } finally {
             setLoading(false);
         }
@@ -767,6 +794,60 @@ function LoginContent() {
                     </p>
                 </div>
             </div>
+            {/* Deactivated Account Modal Popup */}
+            <AnimatePresence>
+                {showDeactivatedModal && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            transition={{ duration: 0.2 }}
+                            className="bg-[#0f0e17] border border-red-500/30 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative overflow-hidden"
+                        >
+                            {/* Top decorative accent */}
+                            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-500 via-orange-500 to-red-500" />
+                            
+                            <div className="flex items-start gap-4 mb-5">
+                                <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 shrink-0">
+                                    <AlertTriangle size={26} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="text-xl font-bold text-white mb-1 tracking-tight">
+                                        Account Deactivated
+                                    </h3>
+                                    <p className="text-xs text-zinc-400 font-medium">
+                                        Access Restricted
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-6">
+                                <p className="text-sm text-zinc-200 leading-relaxed font-medium">
+                                    Your account is deactivated due to some reason. Please call or contact the support team.
+                                </p>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <a
+                                    href="mailto:support@auromind.ai?subject=Account%20Reactivation%20Request"
+                                    className="flex-1 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl text-xs text-center transition flex items-center justify-center gap-2 shadow-lg shadow-red-900/30"
+                                >
+                                    <Mail size={15} /> Contact Support
+                                </a>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDeactivatedModal(false)}
+                                    className="px-6 py-3.5 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-900 text-zinc-200 rounded-xl text-xs font-semibold transition text-center"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
             {/* Hidden Turnstile Container */}
             <div 
                 ref={containerRef} 

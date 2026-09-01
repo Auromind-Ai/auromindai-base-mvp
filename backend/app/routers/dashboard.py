@@ -56,12 +56,14 @@ async def get_dashboard_overview(
 @router.get("/metrics", response_model=list[MetricResponse])
 async def get_metrics(
     workspace_id: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     wid = verify_workspace_access(current_user, db, workspace_id)
     try:
-        return await dashboard_service.get_overview_metrics(wid, db)
+        return await dashboard_service.get_overview_metrics(wid, db, start_date=start_date, end_date=end_date)
     except HTTPException:
         raise
     except Exception as exc:
@@ -75,12 +77,14 @@ async def get_metrics(
 @router.get("/revenue", response_model=RevenueChartResponse)
 async def get_revenue(
     workspace_id: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     wid = verify_workspace_access(current_user, db, workspace_id)
     try:
-        return await dashboard_service.get_revenue_chart(wid, db)
+        return await dashboard_service.get_revenue_chart(wid, db, start_date=start_date, end_date=end_date)
     except HTTPException:
         raise
     except Exception as exc:
@@ -94,12 +98,14 @@ async def get_revenue(
 @router.get("/activities", response_model=list[ActivityItemResponse])
 async def get_activities(
     workspace_id: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     wid = verify_workspace_access(current_user, db, workspace_id)
     try:
-        return await dashboard_service.get_recent_activities(wid, db)
+        return await dashboard_service.get_recent_activities(wid, db, start_date=start_date, end_date=end_date)
     except HTTPException:
         raise
     except Exception as exc:
@@ -113,12 +119,14 @@ async def get_activities(
 @router.get("/insights", response_model=list[InsightItemResponse])
 async def get_insights(
     workspace_id: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     wid = verify_workspace_access(current_user, db, workspace_id)
     try:
-        return await dashboard_service.get_ai_insights(wid, db)
+        return await dashboard_service.get_ai_insights(wid, db, start_date=start_date, end_date=end_date)
     except HTTPException:
         raise
     except Exception as exc:

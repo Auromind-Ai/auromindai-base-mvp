@@ -12,17 +12,32 @@ from app.models.plan import Plan
 from app.core.enums import SubscriptionStatus
 from datetime import datetime, timezone
 import logging
+from app.services.billing.gateway.base import get_tokens_per_credit
+from app.services.billing.entitlement_service import EntitlementService
+from app.routers.billing import get_billing_service
+from app.models.token_ledger import TokenLedger
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
+
 @router.get("/tokens")
 async def get_tokens(db: Session = Depends(get_db)):
     workspaces = db.query(Workspace).all()
+    billing_service = get_billing_service()
+    token_service = billing_service.token_service
+    tokens_per_credit = get_tokens_per_credit()
     results = []
 
     for ws in workspaces:
-        owner = db.query(User).filter(User.id == ws.created_by).first()
+        owner = None
+        if ws.created_by:
+            owner = db.query(User).filter(User.id == ws.created_by).first()
+        if not owner:
+            member = db.query(WorkspaceMember).filter(WorkspaceMember.workspace_id == ws.id).first()
+            if member:
+                owner = db.query(User).filter(User.id == member.user_id).first()
 
         # Active subscription + plan name
         sub = db.query(Subscription).filter(
@@ -35,18 +50,40 @@ async def get_tokens(db: Session = Depends(get_db)):
             plan = db.query(Plan).filter(Plan.id == sub.plan_id).first()
             if plan:
                 plan_name = plan.name.lower()
-            
-        now = datetime.now(timezone.utc)
-    #  Actual tokens used from Usage table (current period)
-        usage = (
-            db.query(func.sum(Usage.tokens_used))
-            .filter(
-                Usage.workspace_id == ws.id,
-                Usage.period_start >= now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            )
-            .scalar()
-        ) or 0
-        
+
+        # 1. Included Credits from plan entitlement
+        ent = EntitlementService.get_workspace_entitlement(db, ws.id)
+        included_credits = float(getattr(ent, "included_ai_credits", 0) or 0)
+
+        # 2. Purchased Credits grants from top-up packs
+        purchased_credits = float(token_service.get_purchased_grants(db, ws.id) or 0)
+
+        # 3. Total Credits
+        total_credits = included_credits + purchased_credits
+
+        # 4. Total Token Limit = (included_credits + purchased_credits) * tokens_per_credit
+        if ws.custom_token_limit:
+            token_limit = int(ws.custom_token_limit)
+        else:
+            token_limit = int(round(total_credits * tokens_per_credit))
+
+        # 5. Usage in Credits & Tokens (current cycle)
+        cycle_start = sub.current_period_start if sub else None
+        cycle_credits_used = float(token_service.get_cycle_usage(db, ws.id, cycle_start) or 0)
+
+        # Raw token count from TokenLedger
+        ledger_tokens_used = db.query(func.sum(TokenLedger.tokens_used)).filter(
+            TokenLedger.workspace_id == ws.id,
+            TokenLedger.entry_type == "usage"
+        ).scalar() or 0
+
+        # Equivalent tokens spent
+        if cycle_credits_used > 0:
+            tokens_used = int(round(cycle_credits_used * tokens_per_credit))
+        else:
+            tokens_used = int(ledger_tokens_used)
+
+        usage_percentage = round((tokens_used / token_limit * 100), 2) if token_limit > 0 else 0.0
 
         results.append({
             "id": str(ws.id),
@@ -54,7 +91,14 @@ async def get_tokens(db: Session = Depends(get_db)):
             "workspace_name": ws.name,
             "user_email": owner.email if owner else None,
             "plan_type": plan_name,
-            "tokens_used": usage,           
+            "included_credits": included_credits,
+            "purchased_credits": purchased_credits,
+            "total_credits": total_credits,
+            "tokens_per_credit": tokens_per_credit,
+            "credits_used": cycle_credits_used,
+            "tokens_used": tokens_used,
+            "token_limit": token_limit,
+            "usage_percent": usage_percentage,
             "custom_token_limit": ws.custom_token_limit
         })
 

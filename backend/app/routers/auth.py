@@ -203,6 +203,13 @@ async def get_current_user(
         logger.debug(f"❌ User {user_id} not found in DB")
         raise credentials_exception
 
+    if not user.is_active:
+        logger.debug(f"❌ User {user_id} is deactivated")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is deactivated due to some reason. Please call or contact the support team.",
+        )
+
     # Session check (skip if session_id is None for backward compatibility)
     if session_id:
         from app.models import UserSession

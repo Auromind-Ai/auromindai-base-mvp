@@ -163,26 +163,27 @@ async def get_overview_metrics(workspace_id: str, db: Session, start_date: date 
         from app.models.ai_action import Lead
 
         if hasattr(Lead, "conversion_amount"):
-            # Current month revenue
+            conversion_date = func.coalesce(Lead.converted_at, Lead.created_at)
+            # Current period revenue
             revenue_this = (
                 db.query(func.coalesce(func.sum(Lead.conversion_amount), 0))
                 .filter(
                     Lead.workspace_id == workspace_id,
-                    Lead.status == "converted",
-                    Lead.created_at >= start_dt,
-                    Lead.created_at <= end_dt,
+                    (Lead.status == "converted") | (Lead.is_converted == True),
+                    conversion_date >= start_dt,
+                    conversion_date <= end_dt,
                 )
                 .scalar()
             ) or 0
 
-            # Last month revenue  
+            # Last period revenue  
             revenue_last = (
                 db.query(func.coalesce(func.sum(Lead.conversion_amount), 0))
                 .filter(
                     Lead.workspace_id == workspace_id,
-                    Lead.status == "converted",
-                    Lead.created_at >= prev_start_dt,
-                    Lead.created_at <= prev_end_dt,
+                    (Lead.status == "converted") | (Lead.is_converted == True),
+                    conversion_date >= prev_start_dt,
+                    conversion_date <= prev_end_dt,
                 )
                 .scalar()
             ) or 0
@@ -244,13 +245,14 @@ async def get_overview_metrics(workspace_id: str, db: Session, start_date: date 
             .scalar()
         ) or 0
 
+        conversion_date = func.coalesce(Lead.converted_at, Lead.created_at)
         converted_leads = (
             db.query(func.count(Lead.id))
             .filter(
                 Lead.workspace_id == workspace_id,
-                Lead.status == "converted",
-                Lead.created_at >= start_dt,
-                Lead.created_at <= end_dt,
+                (Lead.status == "converted") | (Lead.is_converted == True),
+                conversion_date >= start_dt,
+                conversion_date <= end_dt,
             )
             .scalar()
         ) or 0
@@ -269,9 +271,9 @@ async def get_overview_metrics(workspace_id: str, db: Session, start_date: date 
             db.query(func.count(Lead.id))
             .filter(
                 Lead.workspace_id == workspace_id,
-                Lead.status == "converted",
-                Lead.created_at >= prev_start_dt,
-                Lead.created_at <= prev_end_dt,
+                (Lead.status == "converted") | (Lead.is_converted == True),
+                conversion_date >= prev_start_dt,
+                conversion_date <= prev_end_dt,
             )
             .scalar()
         ) or 0
@@ -415,30 +417,34 @@ async def get_revenue_chart(workspace_id: str, db: Session, start_date: date | N
             workspace_id = uuid.UUID(workspace_id)
         except ValueError:
             pass
- 
-    start_dt, end_dt = _resolve_dates(start_date, end_date)
-    cache_key = f"dashboard:revenue:{workspace_id}:{start_dt.isoformat()}:{end_dt.isoformat()}"
+
+    now_utc = datetime.now(timezone.utc)
+    current_year = now_utc.year
+    prior_year = current_year - 1
+
+    cache_key = f"dashboard:revenue:{workspace_id}:{current_year}"
     cached = await _cache_get(cache_key)
     if cached:
         return cached
 
-    current_year = end_dt.year
-    prior_year = current_year - 1
-
     try:
         from app.models.ai_action import Lead
 
+        conversion_date = func.coalesce(Lead.converted_at, Lead.created_at)
+        year_start = datetime(prior_year, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        year_end = datetime(current_year, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+
         rows = (
             db.query(
-                func.extract("year", Lead.created_at).label("yr"),
-                func.extract("month", Lead.created_at).label("mo"),
+                func.extract("year", conversion_date).label("yr"),
+                func.extract("month", conversion_date).label("mo"),
                 func.coalesce(func.sum(Lead.conversion_amount), 0).label("total"),
             )
             .filter(
                 Lead.workspace_id == workspace_id,
-                Lead.status == "converted",
-                Lead.created_at >= start_dt,
-                Lead.created_at <= end_dt,
+                (Lead.status == "converted") | (Lead.is_converted == True),
+                conversion_date >= year_start,
+                conversion_date <= year_end,
             )
             .group_by("yr", "mo")
             .order_by("yr", "mo")
@@ -455,36 +461,31 @@ async def get_revenue_chart(workspace_id: str, db: Session, start_date: date | N
             amount_inr = float(row.total or 0)
             if int(row.yr) == current_year:
                 current_data[mo_idx] = int(amount_inr)
-            else:
+            elif int(row.yr) == prior_year:
                 prior_data[mo_idx] = int(amount_inr)
 
-        # Only return up to current month (don't show future months as zeros)
-        current_month_idx = end_dt.month  # 1-based; slice to [0:current_month_idx]
-        months_trimmed = months[:current_month_idx]
-        current_trimmed = current_data[:current_month_idx]
-        prior_trimmed = prior_data[:current_month_idx]
-
         result = {
-            "months": months_trimmed,
+            "months": months,
             "current_year": current_year,
             "prior_year": prior_year,
-            "current_data": current_trimmed,
-            "prior_data": prior_trimmed,
+            "current_data": current_data,
+            "prior_data": prior_data,
+            "current_month_index": now_utc.month,
         }
-        await _cache_set(cache_key, result, ttl=300)
+        await _cache_set(cache_key, result, ttl=30)
         return result
 
     except Exception as exc:
         logger.error(f"[dashboard_service] get_revenue_chart error: {exc}", exc_info=True)
-        now_month = end_dt.month
         months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
         return {
-            "months": months[:now_month],
+            "months": months,
             "current_year": current_year,
             "prior_year": prior_year,
-            "current_data": [0] * now_month,
-            "prior_data": [0] * now_month,
+            "current_data": [0] * 12,
+            "prior_data": [0] * 12,
+            "current_month_index": now_utc.month,
         }
 
 
@@ -506,13 +507,13 @@ async def get_recent_activities(workspace_id: str, db: Session, start_date: date
 
     events: list[tuple[datetime, str]] = []
 
+    # 1. Customer Messages
     try:
         from app.models.message import Message, SenderType
         from app.models.conversation import Conversation
 
-        # Inbound messages from customers
         msgs = (
-            db.query(Message.content, Message.timestamp)
+            db.query(Message.content, Message.timestamp, Conversation.contact_name)
             .join(Conversation, Conversation.id == Message.conversation_id)
             .filter(
                 Conversation.workspace_id == workspace_id,
@@ -525,59 +526,16 @@ async def get_recent_activities(workspace_id: str, db: Session, start_date: date
             .all()
         )
         for m in msgs:
-            label = f"Customer message: {(m.content or '')[:40]}{'…' if len(m.content or '') > 40 else ''}"
+            contact = m.contact_name or "Customer"
+            raw_content = (m.content or "").strip()
+            snippet = f": {raw_content[:40]}…" if len(raw_content) > 40 else (f": {raw_content}" if raw_content else "")
+            label = f"Customer message from {contact}{snippet}"
             events.append((m.timestamp, label))
 
     except Exception as e:
         logger.warning(f"[activities] messages fetch failed: {e}")
 
-    try:
-        from app.models.ai_action import Lead
-        from app.models.workspace import WorkspaceMember
-
-        leads = (
-            db.query(Lead.name, Lead.created_at)
-            .filter(
-                Lead.workspace_id == workspace_id,
-                Lead.created_at >= start_dt,
-                Lead.created_at <= end_dt,
-            )
-            .order_by(Lead.created_at.desc())
-            .limit(5)
-            .all()
-        )
-        for l in leads:
-            label = f"New lead: {l.name or 'Unknown'}"
-            events.append((l.created_at, label))
-
-    except Exception as e:
-        logger.warning(f"[activities] leads fetch failed: {e}")
-
-    try:
-        from app.models.followup import Followup
-        from app.models.conversation import Conversation
-
-        followups = (
-            db.query(Followup.message_content, Followup.executed_at)
-            .join(Conversation, Conversation.id == Followup.conversation_id)
-            .filter(
-                Conversation.workspace_id == workspace_id,
-                Followup.status == "sent",
-                Followup.executed_at.isnot(None),
-                Followup.created_at >= start_dt,
-                Followup.created_at <= end_dt,
-            )
-            .order_by(Followup.executed_at.desc())
-            .limit(5)
-            .all()
-        )
-        for f in followups:
-            label = "Follow-up sent to customer"
-            events.append((f.executed_at, label))
-
-    except Exception as e:
-        logger.warning(f"[activities] followups fetch failed: {e}")
-
+    # 2. AI Action / Tool Executions
     try:
         from app.models.ai_action import AIAction
 
@@ -594,11 +552,129 @@ async def get_recent_activities(workspace_id: str, db: Session, start_date: date
             .all()
         )
         for a in ai_actions:
-            label = f"AI action: {a.action_type.replace('_', ' ').title()}"
+            action_title = (a.action_type or "task").replace("_", " ").title()
+            label = f"AI action: {action_title}"
             events.append((a.created_at, label))
 
     except Exception as e:
         logger.warning(f"[activities] ai_actions fetch failed: {e}")
+
+    # 3. New Lead Captured
+    try:
+        from app.models.ai_action import Lead
+
+        leads = (
+            db.query(Lead.name, Lead.source, Lead.created_at)
+            .filter(
+                Lead.workspace_id == workspace_id,
+                Lead.created_at >= start_dt,
+                Lead.created_at <= end_dt,
+            )
+            .order_by(Lead.created_at.desc())
+            .limit(5)
+            .all()
+        )
+        for l in leads:
+            lead_name = l.name or "Unknown"
+            source_tag = f" ({l.source.title()})" if l.source else ""
+            label = f"New lead captured: {lead_name}{source_tag}"
+            events.append((l.created_at, label))
+
+    except Exception as e:
+        logger.warning(f"[activities] leads fetch failed: {e}")
+
+    # 4. Lead Score / Tier Upgraded
+    try:
+        from app.models.lead_scoring import LeadScoreHistory
+        from app.models.ai_action import Lead
+
+        score_events = (
+            db.query(
+                Lead.name,
+                Lead.lead_tier,
+                LeadScoreHistory.score_after,
+                LeadScoreHistory.reason,
+                LeadScoreHistory.created_at,
+            )
+            .join(Lead, Lead.id == LeadScoreHistory.lead_id)
+            .filter(
+                Lead.workspace_id == workspace_id,
+                LeadScoreHistory.created_at >= start_dt,
+                LeadScoreHistory.created_at <= end_dt,
+                (LeadScoreHistory.score_after >= 70) | (Lead.lead_tier == "hot") | (LeadScoreHistory.reason.ilike("%tier%")),
+            )
+            .order_by(LeadScoreHistory.created_at.desc())
+            .limit(5)
+            .all()
+        )
+        for se in score_events:
+            lead_name = se.name or "Lead"
+            tier = (se.lead_tier or "HOT").upper()
+            if se.score_after and se.score_after >= 70:
+                label = f"Lead qualified: {lead_name} marked as {tier} ({se.score_after} pts)"
+            else:
+                label = f"Lead qualified: {lead_name} marked as {tier}"
+            events.append((se.created_at, label))
+
+    except Exception as e:
+        logger.warning(f"[activities] lead score history fetch failed: {e}")
+
+    # 5. Deal Won / Converted
+    try:
+        from app.models.ai_action import Lead
+
+        converted_leads = (
+            db.query(Lead.name, Lead.conversion_amount, Lead.converted_at)
+            .filter(
+                Lead.workspace_id == workspace_id,
+                Lead.is_converted == True,
+                Lead.converted_at.isnot(None),
+                Lead.converted_at >= start_dt,
+                Lead.converted_at <= end_dt,
+            )
+            .order_by(Lead.converted_at.desc())
+            .limit(5)
+            .all()
+        )
+        for cl in converted_leads:
+            lead_name = cl.name or "Lead"
+            if cl.conversion_amount:
+                try:
+                    amt_val = float(cl.conversion_amount)
+                    amt_str = f"₹{amt_val:,.0f}" if amt_val.is_integer() else f"₹{amt_val:,.2f}"
+                except Exception:
+                    amt_str = f"₹{cl.conversion_amount}"
+                label = f"Deal Won: {lead_name} ({amt_str})"
+            else:
+                label = f"Deal Won: {lead_name}"
+            events.append((cl.converted_at, label))
+
+    except Exception as e:
+        logger.warning(f"[activities] converted leads fetch failed: {e}")
+
+    # 6. Demo / Meeting Booked
+    try:
+        from app.models.integration import CalendarEvent
+
+        meetings = (
+            db.query(CalendarEvent.title, CalendarEvent.client_name, CalendarEvent.created_at)
+            .filter(
+                CalendarEvent.workspace_id == workspace_id,
+                CalendarEvent.created_at >= start_dt,
+                CalendarEvent.created_at <= end_dt,
+            )
+            .order_by(CalendarEvent.created_at.desc())
+            .limit(5)
+            .all()
+        )
+        for m in meetings:
+            client = m.client_name or "Client"
+            meeting_title = m.title or "Product Demo"
+            label = f"Meeting scheduled: {meeting_title} with {client}"
+            events.append((m.created_at, label))
+
+    except Exception as e:
+        logger.warning(f"[activities] meetings fetch failed: {e}")
 
     # Sort all events by timestamp desc
     events.sort(key=lambda x: x[0] if x[0] else datetime.min.replace(tzinfo=timezone.utc), reverse=True)
@@ -634,141 +710,296 @@ async def get_ai_insights(workspace_id: str, db: Session, start_date: date | Non
     if cached:
         return cached
 
+    now_utc = datetime.now(timezone.utc)
+    today = now_utc.date()
+    is_current_period = end_dt.date() >= today
+
     insights: list[dict] = []
 
-    # Hot leads 
-    try:
-        from app.models.ai_action import Lead
-        from app.models.workspace import WorkspaceMember
+    if is_current_period:
 
-        hot_count = (
-            db.query(func.count(Lead.id))
-            .filter(
-                Lead.workspace_id == workspace_id,
-                Lead.qualification == "hot",
-                Lead.created_at >= start_dt,
-                Lead.created_at <= end_dt,
-            )
-            .scalar()
-        ) or 0
+        # 1. Hot Leads Ready to Convert
+        try:
+            from app.models.ai_action import Lead
 
-        if hot_count > 0:
-            insights.append({
-                "type": "opportunity",
-                "icon_type": "flame",
-                "title": "Hot Leads Detected",
-                "subtitle": f"{hot_count} hot lead{'s' if hot_count != 1 else ''} showing high engagement in this period.",
-                "icon_bg": "bg-orange-500/10",
-                "icon_color": "text-orange-400",
-            })
-    except Exception as e:
-        logger.warning(f"[insights] hot leads error: {e}")
+            hot_count = (
+                db.query(func.count(Lead.id))
+                .filter(
+                    Lead.workspace_id == workspace_id,
+                    (func.lower(Lead.qualification) == "hot") | (func.lower(Lead.lead_tier) == "hot"),
+                    Lead.is_converted == False,
+                    Lead.status.notin_(["converted", "lost", "closed"]),
+                    Lead.archived_at.is_(None),
+                )
+                .scalar()
+            ) or 0
 
-    # Outbound message volume (WhatsApp/Twilio) 
-    try:
-        from app.models.outbound_message import OutboundMessage
-        from app.models.conversation import Conversation
+            if hot_count > 0:
+                insights.append({
+                    "type": "opportunity",
+                    "icon_type": "flame",
+                    "title": "Hot Leads Ready to Convert",
+                    "subtitle": f"{hot_count} active Hot Lead{'s' if hot_count != 1 else ''} showing high buying intent. Follow up to close deals.",
+                    "icon_bg": "bg-orange-500/10",
+                    "icon_color": "text-orange-400",
+                })
+        except Exception as e:
+            logger.warning(f"[insights] current hot leads error: {e}")
 
-        sent_7d = (
-            db.query(func.count(OutboundMessage.id))
-            .join(Conversation, Conversation.id == OutboundMessage.conversation_id)
-            .filter(
-                Conversation.workspace_id == workspace_id,
-                OutboundMessage.status == "sent",
-                OutboundMessage.created_at >= start_dt,
-                OutboundMessage.created_at <= end_dt,
-            )
-            .scalar()
-        ) or 0
+        # 2. Human Attention Required
+        try:
+            from app.models.conversation import Conversation
 
-        sent_prev = (
-            db.query(func.count(OutboundMessage.id))
-            .join(Conversation, Conversation.id == OutboundMessage.conversation_id)
-            .filter(
-                Conversation.workspace_id == workspace_id,
-                OutboundMessage.status == "sent",
-                OutboundMessage.created_at >= prev_start_dt,
-                OutboundMessage.created_at <= prev_end_dt,
-            )
-            .scalar()
-        ) or 0
+            escalated_count = (
+                db.query(func.count(Conversation.id))
+                .filter(
+                    Conversation.workspace_id == workspace_id,
+                    Conversation.status == "OPEN",
+                    Conversation.agent_locked == True,
+                )
+                .scalar()
+            ) or 0
 
-        if sent_7d < sent_prev and sent_prev > 0:
-            drop_pct = round(((sent_prev - sent_7d) / sent_prev) * 100, 0)
+            if escalated_count > 0:
+                insights.append({
+                    "type": "optimization",
+                    "icon_type": "bot",
+                    "title": "Human Attention Required",
+                    "subtitle": f"{escalated_count} conversation{'s' if escalated_count != 1 else ''} escalated for human agent review.",
+                    "icon_bg": "bg-red-500/10",
+                    "icon_color": "text-red-400",
+                })
+        except Exception as e:
+            logger.warning(f"[insights] human attention error: {e}")
+
+        # 3. AI Booked Meetings
+        try:
+            from app.models.integration import CalendarEvent
+
+            meeting_count = (
+                db.query(func.count(CalendarEvent.id))
+                .filter(
+                    CalendarEvent.workspace_id == workspace_id,
+                    CalendarEvent.created_at >= start_dt,
+                    CalendarEvent.created_at <= end_dt,
+                )
+                .scalar()
+            ) or 0
+
+            if meeting_count > 0:
+                insights.append({
+                    "type": "opportunity",
+                    "icon_type": "bot",
+                    "title": "AI Booked Meetings",
+                    "subtitle": f"{meeting_count} demo meeting{'s' if meeting_count != 1 else ''} scheduled by AI for this period.",
+                    "icon_bg": "bg-purple-500/10",
+                    "icon_color": "text-purple-400",
+                })
+        except Exception as e:
+            logger.warning(f"[insights] booked meetings error: {e}")
+
+        # 4. Strong Inbound Momentum
+        try:
+            from app.models.conversation import Conversation
+            from app.models.ai_action import Lead
+
+            cur_convs = (
+                db.query(func.count(Conversation.id))
+                .filter(
+                    Conversation.workspace_id == workspace_id,
+                    Conversation.created_at >= start_dt,
+                    Conversation.created_at <= end_dt,
+                )
+                .scalar()
+            ) or 0
+
+            prev_convs = (
+                db.query(func.count(Conversation.id))
+                .filter(
+                    Conversation.workspace_id == workspace_id,
+                    Conversation.created_at >= prev_start_dt,
+                    Conversation.created_at <= prev_end_dt,
+                )
+                .scalar()
+            ) or 0
+
+            total_leads = (
+                db.query(func.count(Lead.id))
+                .filter(
+                    Lead.workspace_id == workspace_id,
+                    Lead.created_at >= start_dt,
+                    Lead.created_at <= end_dt,
+                )
+                .scalar()
+            ) or 0
+
+            converted_leads = (
+                db.query(func.count(Lead.id))
+                .filter(
+                    Lead.workspace_id == workspace_id,
+                    Lead.is_converted == True,
+                    Lead.converted_at >= start_dt,
+                    Lead.converted_at <= end_dt,
+                )
+                .scalar()
+            ) or 0
+
+            conv_rate = round((converted_leads / total_leads * 100), 0) if total_leads > 0 else 0
+
+            if cur_convs > prev_convs and prev_convs > 0:
+                growth_pct = round(((cur_convs - prev_convs) / prev_convs) * 100, 0)
+                insights.append({
+                    "type": "opportunity",
+                    "icon_type": "mail",
+                    "title": "Strong Inbound Momentum",
+                    "subtitle": f"Inbound conversations grew {growth_pct:.0f}% this period with a {conv_rate:.0f}% lead conversion rate.",
+                    "icon_bg": "bg-emerald-500/10",
+                    "icon_color": "text-emerald-400",
+                })
+            elif cur_convs > 0:
+                insights.append({
+                    "type": "opportunity",
+                    "icon_type": "mail",
+                    "title": "Strong Inbound Momentum",
+                    "subtitle": f"{cur_convs} inbound conversation{'s' if cur_convs != 1 else ''} recorded with a {conv_rate:.0f}% lead conversion rate.",
+                    "icon_bg": "bg-emerald-500/10",
+                    "icon_color": "text-emerald-400",
+                })
+        except Exception as e:
+            logger.warning(f"[insights] inbound momentum error: {e}")
+
+    else:
+
+        # 1. Lead Generation Performance
+        try:
+            from app.models.ai_action import Lead
+
+            captured_count = (
+                db.query(func.count(Lead.id))
+                .filter(
+                    Lead.workspace_id == workspace_id,
+                    Lead.created_at >= start_dt,
+                    Lead.created_at <= end_dt,
+                )
+                .scalar()
+            ) or 0
+
+            if captured_count > 0:
+                insights.append({
+                    "type": "opportunity",
+                    "icon_type": "bot",
+                    "title": "Strong Lead Activity",
+                    "subtitle": f"{captured_count} lead{'s were' if captured_count != 1 else ' was'} captured during this period.",
+                    "icon_bg": "bg-indigo-500/10",
+                    "icon_color": "text-indigo-400",
+                })
+        except Exception as e:
+            logger.warning(f"[insights] historical lead activity error: {e}")
+
+        # 2. Conversion Performance
+        try:
+            from app.models.ai_action import Lead
+
+            converted_count = (
+                db.query(func.count(Lead.id))
+                .filter(
+                    Lead.workspace_id == workspace_id,
+                    Lead.is_converted == True,
+                    Lead.converted_at >= start_dt,
+                    Lead.converted_at <= end_dt,
+                )
+                .scalar()
+            ) or 0
+
+            if converted_count > 0:
+                insights.append({
+                    "type": "opportunity",
+                    "icon_type": "flame",
+                    "title": "Conversion Performance",
+                    "subtitle": f"{converted_count} lead{'s were' if converted_count != 1 else ' was'} converted during this period.",
+                    "icon_bg": "bg-orange-500/10",
+                    "icon_color": "text-orange-400",
+                })
+        except Exception as e:
+            logger.warning(f"[insights] historical conversion error: {e}")
+
+        # 3. Response Performance
+        try:
+            avg_resp_q = text("""
+                SELECT AVG(
+                  EXTRACT(EPOCH FROM 
+                    (bot.timestamp - usr.timestamp)
+                  ) / 60
+                )
+                FROM (
+                  SELECT conversation_id, MIN(timestamp) as timestamp
+                  FROM messages WHERE sender_type::text = 'USER'
+                  AND timestamp >= :start_dt AND timestamp <= :end_dt
+                  GROUP BY conversation_id
+                ) usr
+                JOIN (
+                  SELECT conversation_id, MIN(timestamp) as timestamp
+                  FROM messages 
+                  WHERE sender_type::text IN ('AI','AGENT')
+                  GROUP BY conversation_id
+                ) bot ON (
+                  bot.conversation_id = usr.conversation_id
+                  AND bot.timestamp > usr.timestamp
+                )
+                JOIN conversations c ON c.id = usr.conversation_id
+                WHERE c.workspace_id = :wid
+                AND EXTRACT(EPOCH FROM 
+                  (bot.timestamp - usr.timestamp)
+                ) / 3600 < 1
+            """)
+            avg_resp_val = db.execute(avg_resp_q, {"wid": str(workspace_id), "start_dt": start_dt, "end_dt": end_dt}).scalar()
+            avg_resp_min = round(float(avg_resp_val or 0), 1)
+
+            if avg_resp_min > 0 and avg_resp_min <= 1:
+                resp_text = "under 1 minute"
+            elif avg_resp_min > 1:
+                resp_text = f"around {int(avg_resp_min)} minutes"
+            else:
+                resp_text = "under 1 minute"
+
             insights.append({
                 "type": "optimization",
                 "icon_type": "mail",
-                "title": "Outbound Activity Drop",
-                "subtitle": f"Messages sent dropped {drop_pct:.0f}% vs prior period. Consider a broadcast campaign.",
-                "icon_bg": "bg-indigo-500/10",
-                "icon_color": "text-indigo-400",
-            })
-        elif sent_7d > sent_prev and sent_prev > 0:
-            rise_pct = round(((sent_7d - sent_prev) / sent_prev) * 100, 0)
-            insights.append({
-                "type": "opportunity",
-                "icon_type": "mail",
-                "title": "High Outbound Activity",
-                "subtitle": f"Messages sent increased {rise_pct:.0f}% vs prior period. Keep the momentum!",
-                "icon_bg": "bg-indigo-500/10",
-                "icon_color": "text-indigo-400",
-            })
-    except Exception as e:
-        logger.warning(f"[insights] outbound messages error: {e}")
-
-    #  Automation gap: leads with no followup 
-    try:
-        from app.models.ai_action import Lead
-        from app.models.workspace import WorkspaceMember
-        from app.models.followup import Followup
-        from app.models.conversation import Conversation
-
-        # Leads created in selected period that have NO sent followup
-        recent_leads = (
-            db.query(Lead.id)
-            .filter(
-                WorkspaceMember.workspace_id == workspace_id,
-                Lead.created_at >= start_dt,
-                Lead.created_at <= end_dt,
-            )
-            .subquery()
-        )
-
-        # Conversations linked to those users in selected period
-        uncontacted = (
-            db.query(func.count(Conversation.id))
-            .filter(
-                Conversation.workspace_id == workspace_id,
-                Conversation.created_at >= start_dt,
-                Conversation.created_at <= end_dt,
-                ~Conversation.id.in_(
-                    select(Followup.conversation_id)
-                    .join(
-                        Conversation,
-                        Conversation.id == Followup.conversation_id
-                    )
-                    .where(
-                        Conversation.workspace_id == workspace_id,
-                        Followup.status == "sent",
-                    )
-                ),
-            )
-            .scalar()
-        ) or 0
-
-        if uncontacted > 0:
-            insights.append({
-                "type": "optimization",
-                "icon_type": "bot",
-                "title": "Automation Opportunity",
-                "subtitle": f"{uncontacted} new conversation{'s' if uncontacted != 1 else ''} without a follow-up in this period.",
+                "title": "Response Performance",
+                "subtitle": f"Average first response was {resp_text}.",
                 "icon_bg": "bg-emerald-500/10",
                 "icon_color": "text-emerald-400",
             })
-    except Exception as e:
-        logger.warning(f"[insights] automation gap error: {e}")
+        except Exception as e:
+            logger.warning(f"[insights] historical response performance error: {e}")
 
-    #  Fallback if nothing computed ─
+        # 4. AI Booked Meetings
+        try:
+            from app.models.integration import CalendarEvent
+
+            meeting_count = (
+                db.query(func.count(CalendarEvent.id))
+                .filter(
+                    CalendarEvent.workspace_id == workspace_id,
+                    CalendarEvent.created_at >= start_dt,
+                    CalendarEvent.created_at <= end_dt,
+                )
+                .scalar()
+            ) or 0
+
+            if meeting_count > 0:
+                insights.append({
+                    "type": "opportunity",
+                    "icon_type": "bot",
+                    "title": "AI Booked Meetings",
+                    "subtitle": f"{meeting_count} demo meeting{'s were' if meeting_count != 1 else ' was'} scheduled in this period.",
+                    "icon_bg": "bg-purple-500/10",
+                    "icon_color": "text-purple-400",
+                })
+        except Exception as e:
+            logger.warning(f"[insights] historical booked meetings error: {e}")
+
+    # 5. Fallback if nothing computed
     if not insights:
         insights = [
             {
@@ -781,7 +1012,7 @@ async def get_ai_insights(workspace_id: str, db: Session, start_date: date | Non
             }
         ]
 
-    await _cache_set(cache_key, insights, ttl=300)
+    await _cache_set(cache_key, insights, ttl=15)
     return insights
 
 
@@ -806,5 +1037,5 @@ async def get_full_overview(workspace_id: str, db: Session, start_date: date | N
         "activities": activities,
         "insights": insights,
     }
-    await _cache_set(cache_key, result, ttl=60)
+    await _cache_set(cache_key, result, ttl=15)
     return result

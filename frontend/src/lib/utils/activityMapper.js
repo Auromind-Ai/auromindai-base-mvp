@@ -153,7 +153,7 @@ export function getActivityMeta(item) {
     };
   }
 
-  if (type === "ai_credit_recharge" || type === "topup" || type === "purchase" || desc.includes("ai credit") || desc.includes("token")) {
+  if (type === "ai_credit_recharge" || type === "ai_credits" || type === "topup" || type === "purchase" || desc.includes("ai credit") || desc.includes("token") || desc.includes("ai_credit_recharge")) {
     return {
       title: "AI Credits Purchased",
       desc: item?.description || "AI Workspace Credit Pack",
@@ -164,7 +164,7 @@ export function getActivityMeta(item) {
     };
   }
 
-  if (type === "flow_packs" || type === "flow_purchase" || type === "flow_pack_purchase" || desc.includes("flow")) {
+  if (type === "flow_packs" || type === "flow_purchase" || type === "flow_pack" || type === "flow_pack_purchase" || desc.includes("flow")) {
     return {
       title: "Flow Pack Purchased",
       desc: item?.description || "Automation Flow Pack Addon",

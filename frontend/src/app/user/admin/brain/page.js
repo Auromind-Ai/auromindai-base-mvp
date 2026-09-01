@@ -532,7 +532,7 @@ export default function BrainPage() {
 
                         <div className="flex items-center gap-2 shrink-0">
                             {/* Filters */}
-                            <div className="relative">
+                            {/* <div className="relative">
                                 <button
                                     onClick={(e) => { e.stopPropagation(); setShowFilters(v => !v); }}
                                     className="flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3.5 py-2 md:py-2.5 bg-[#0d0d14] border border-white/10 rounded-xl text-xs font-medium text-[#D4D4D4] hover:border-[#814AC8]/40 transition-all"
@@ -560,7 +560,7 @@ export default function BrainPage() {
                                         ))}
                                     </div>
                                 )}
-                            </div>
+                            </div> */}
 
                             {/* View toggle */}
                             <div className="flex items-center bg-[#0d0d14] border border-white/10 rounded-xl p-1">

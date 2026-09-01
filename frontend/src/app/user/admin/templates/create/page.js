@@ -368,6 +368,8 @@ export default function CreateTemplatePage() {
   const [generatedTemplates, setGeneratedTemplates] = useState([]);
   const [actionMode, setActionMode] = useState('none');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -401,10 +403,12 @@ export default function CreateTemplatePage() {
   const isAuth = form.category === 'AUTHENTICATION';
 
   const handleGenerate = async () => {
+    if (isGeneratingAI) return;
     if (!aiPrompt || aiPrompt.trim() === '') {
       alert('Please enter a prompt to generate message');
       return;
     }
+    setIsGeneratingAI(true);
     try {
       const res = await api.post('/templates/generate', {
         prompt: aiPrompt,
@@ -447,67 +451,74 @@ export default function CreateTemplatePage() {
       } else {
         alert(err?.data?.detail || err?.data?.message || err.message || 'Failed to generate template');
       }
+    } finally {
+      setIsGeneratingAI(false);
     }
   };
 
   const handleSubmit = async () => {
-  if (!form.name || form.name.trim() === '') {
-    alert('Template Name is required');
-    return;
-  }
-  const nameRegex = /^[a-z0-9_]+$/;
-  if (!nameRegex.test(form.name)) {
-    alert('Template Name can only contain lowercase alphanumeric characters and underscores (e.g., app_verification_code)');
-    return;
-  }
-  if (!form.message || form.message.trim() === '') {
-    alert('Message content is required');
-    return;
-  }
-  if ((form.type === 'IMAGE' || form.type === 'VIDEO') && !form.mediaFile) {
-    alert(`Please upload a ${form.type === 'IMAGE' ? 'image' : 'video'} for the header`);
-    return;
-  }
+    if (isSubmitting) return;
 
-  try {
-    let payload;
-
-    if (form.mediaFile) {
-      const fd = new FormData();
-      fd.append('name', form.name);
-      fd.append('type', form.type);
-      fd.append('message', form.message);
-      fd.append('header', form.header);
-      fd.append('footer', form.footer);
-      fd.append('cta', form.cta);
-      fd.append('cta_btn_title', form.ctaBtnTitle);
-      fd.append('category', form.category);
-      fd.append('language', form.language);
-      fd.append('workspace_id', workspaceId);
-      fd.append('media', form.mediaFile);
-      payload = fd;
-    } else {
-      payload = {
-        name: form.name,
-        type: form.type,
-        message: form.message,
-        header: form.header,
-        footer: form.footer,
-        cta: form.cta,
-        cta_btn_title: form.ctaBtnTitle,
-        category: form.category,
-        language: form.language,
-        workspace_id: workspaceId,
-      };
+    if (!form.name || form.name.trim() === '') {
+      alert('Template Name is required');
+      return;
+    }
+    const nameRegex = /^[a-z0-9_]+$/;
+    if (!nameRegex.test(form.name)) {
+      alert('Template Name can only contain lowercase alphanumeric characters and underscores (e.g., app_verification_code)');
+      return;
+    }
+    if (!form.message || form.message.trim() === '') {
+      alert('Message content is required');
+      return;
+    }
+    if ((form.type === 'IMAGE' || form.type === 'VIDEO') && !form.mediaFile) {
+      alert(`Please upload a ${form.type === 'IMAGE' ? 'image' : 'video'} for the header`);
+      return;
     }
 
-    await api.post('/templates/create', payload);
-    window.location.href = '/user/admin/templates';
-  } catch (err) {
-    console.error(err);
-    alert(err.message || 'Failed to create template');
-  }
-};
+    setIsSubmitting(true);
+    try {
+      let payload;
+
+      if (form.mediaFile) {
+        const fd = new FormData();
+        fd.append('name', form.name);
+        fd.append('type', form.type);
+        fd.append('message', form.message);
+        fd.append('header', form.header);
+        fd.append('footer', form.footer);
+        fd.append('cta', form.cta);
+        fd.append('cta_btn_title', form.ctaBtnTitle);
+        fd.append('category', form.category);
+        fd.append('language', form.language);
+        fd.append('workspace_id', workspaceId);
+        fd.append('media', form.mediaFile);
+        payload = fd;
+      } else {
+        payload = {
+          name: form.name,
+          type: form.type,
+          message: form.message,
+          header: form.header,
+          footer: form.footer,
+          cta: form.cta,
+          cta_btn_title: form.ctaBtnTitle,
+          category: form.category,
+          language: form.language,
+          workspace_id: workspaceId,
+        };
+      }
+
+      await api.post('/templates/create', payload);
+      window.location.href = '/user/admin/templates';
+    } catch (err) {
+      console.error(err);
+      alert(err.message || err?.data?.detail || 'Failed to create template');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleMediaUpload = (e) => {
     const file = e.target.files?.[0];
@@ -682,16 +693,25 @@ export default function CreateTemplatePage() {
                     </div>
                     <button
                       onClick={handleGenerate}
-                      disabled={!aiPrompt || aiPrompt.trim() === ''}
+                      disabled={isGeneratingAI || !aiPrompt || aiPrompt.trim() === ''}
                       className={`flex items-center gap-2 px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-normal sm:font-medium
-                        transition-all duration-300 hover:scale-[1.02]
-                        ${!aiPrompt
-                          ? 'bg-[#1A0B2E] text-[#4A4359] cursor-not-allowed'
+                        transition-all duration-300 ${isGeneratingAI ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02]'}
+                        ${!aiPrompt || isGeneratingAI
+                          ? 'bg-[#1A0B2E] text-[#B7B3C7]/60 cursor-not-allowed'
                           : 'bg-gradient-to-r from-[#814AC8] to-[#814AC8] text-white shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_28px_rgba(168,85,247,0.5)]'
                         }`}
                     >
-                      <Icon d={icons.sparkle} size={14} />
-                      ✨ Generate (10 WCC)
+                      {isGeneratingAI ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>Generating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Icon d={icons.sparkle} size={14} />
+                          ✨ Generate (10 WCC)
+                        </>
+                      )}
                     </button>
                   </div>
                   {generatedTemplates.length > 0 && (
@@ -916,13 +936,14 @@ export default function CreateTemplatePage() {
               {/* Submit */}
               <button
                 onClick={handleSubmit}
+                disabled={isSubmitting}
                 className="w-full py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-normal sm:font-semibold text-xs sm:text-base text-white
-                  bg-[#814AC8]
+                  bg-[#814AC8] disabled:opacity-50 disabled:cursor-not-allowed
                   shadow-[0_0_30px_rgba(168,85,247,0.3)]
                   hover:shadow-[0_0_40px_rgba(168,85,247,0.5)] hover:scale-[1.01]
                   transition-all duration-300"
               >
-                Submit
+                {isSubmitting ? 'Submitting...' : 'Submit'}
               </button>
             </div>
 

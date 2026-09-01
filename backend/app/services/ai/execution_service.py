@@ -310,6 +310,7 @@ class AIExecutionService:
             db = SessionLocal()
             is_internal_db = True
 
+        token_token = None
         try:
             # 1. Resolve Execution Context & Mode
             parent_context = current_execution_context.get()
@@ -409,6 +410,9 @@ class AIExecutionService:
                     else:
                         reservation_created = True
 
+                    # Release Postgres row locks (SELECT FOR UPDATE) immediately before external network call
+                    db.commit()
+
                 # 6. Execute Provider
                 #    Provider config is resolved ONCE here and cached on ctx.resolved_config.
                 #    All nested AI calls reuse ctx.resolved_config — no per-call re-discovery.
@@ -470,12 +474,16 @@ class AIExecutionService:
                                 f"[AIExecutionService] Fallback provider '{config.get('provider')}' "
                                 f"also failed at runtime: {primary_err}"
                             )
+                            if isinstance(primary_err, AIProviderError):
+                                raise primary_err
                             raise AIProviderError("AI services are temporarily unavailable. Please try again later.")
 
                         from app.services.model_config_service import ModelConfigService
                         _primary_cfg = ModelConfigService(db).get_config_for_feature(ctx.feature_key, _exp)
                         if not _primary_cfg.get("fallback_enabled"):
                             logger.error(f"[AIExecutionService] Primary AI call failed and fallback is disabled: {primary_err}")
+                            if isinstance(primary_err, AIProviderError):
+                                raise primary_err
                             raise AIProviderError("AI services are temporarily unavailable. Please try again later.")
 
                         fallback_config = {
@@ -572,8 +580,9 @@ class AIExecutionService:
                             usage=provider_usage,
                             feature_key=ctx.feature_key,
                             execution_id=ctx.execution_id,
-                            commit=is_internal_db
+                            commit=True
                         )
+                        db.commit()
                         logger.info(
                             f"[AIExecutionService] Settled | execution={ctx.execution_id} "
                             f"provider={provider_usage['provider']} model={provider_usage['model']} "
@@ -615,7 +624,11 @@ class AIExecutionService:
                     )
                 raise e
             finally:
-                current_execution_context.reset(token_token)
+                if token_token is not None:
+                    try:
+                        current_execution_context.reset(token_token)
+                    except Exception:
+                        pass
         finally:
             if is_internal_db:
                 db.close()
@@ -640,6 +653,7 @@ class AIExecutionService:
             db = SessionLocal()
             is_internal_db = True
 
+        token_token = None
         try:
             parent_context = current_execution_context.get()
             is_nested = False
@@ -716,6 +730,9 @@ class AIExecutionService:
                             reservation_created = True
                     else:
                         reservation_created = True
+
+                    # Release Postgres row locks (SELECT FOR UPDATE) immediately before external network streaming
+                    db.commit()
 
                 # 6. Execute Provider (via execute_fn or LLMRouter)
                 #    Provider config is resolved ONCE and cached on ctx.resolved_config.
@@ -955,7 +972,11 @@ class AIExecutionService:
                         cleanup_db.close()
                 raise e
             finally:
-                current_execution_context.reset(token_token)
+                if token_token is not None:
+                    try:
+                        current_execution_context.reset(token_token)
+                    except Exception:
+                        pass
         finally:
             if is_internal_db and db is not None:
                 try:

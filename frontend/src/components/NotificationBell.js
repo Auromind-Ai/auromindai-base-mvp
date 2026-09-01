@@ -276,15 +276,15 @@ const NotificationBell = () => {
         <div
           ref={buttonRef}
           onClick={() => setIsOpen((prev) => !prev)}
-          className="relative p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none"
+          className="relative flex items-center justify-center h-8 w-8 sm:h-[42px] sm:w-[42px] p-1.5 sm:p-2.5 bg-white/5 border border-white/10 rounded-lg sm:rounded-2xl hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none shrink-0"
         >
           <Bell
-            size={18}
-            className="text-zinc-400"
+            size={16}
+            className="text-zinc-400 sm:w-[18px] sm:h-[18px]"
           />
 
           {unreadCount > 0 && (
-            <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-indigo-500 rounded-full ring-2 ring-[#050508]" />
+            <span className="absolute top-1.5 right-1.5 sm:top-2.5 sm:right-2.5 w-1.5 h-1.5 bg-indigo-500 rounded-full ring-2 ring-[#050508]" />
           )}
         </div>
 
