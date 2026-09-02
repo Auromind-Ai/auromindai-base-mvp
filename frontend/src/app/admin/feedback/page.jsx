@@ -3,6 +3,34 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 
+// Format UTC / backend timestamps reliably into Local Indian Standard Time (IST)
+const formatToIST = (dateVal) => {
+    if (!dateVal) return '';
+
+    let str = String(dateVal).trim().replace(' ', 'T');
+
+    // Timezone offset illana explicitly 'Z' (UTC) append panrom
+    if (!str.endsWith('Z') && !/[+-]\d{2}:?\d{2}$/.test(str)) {
+        str = `${str}Z`;
+    }
+
+    const date = new Date(str);
+
+    if (isNaN(date.getTime())) {
+        return String(dateVal);
+    }
+
+    return date.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
+};
+
 export default function FeedbackPage() {
     const [feedbacks, setFeedbacks] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -14,7 +42,6 @@ export default function FeedbackPage() {
 
                 console.log('Feedback GET response:', response);
 
-                // api.get() returns response data directly
                 const data = Array.isArray(response)
                     ? response
                     : Array.isArray(response?.data)
@@ -106,12 +133,9 @@ export default function FeedbackPage() {
                                         </span>
                                     </div>
 
+                                    {/* IST Converted Time */}
                                     <div>
-                                        {feedback.created_at
-                                            ? new Date(
-                                                feedback.created_at
-                                            ).toLocaleString()
-                                            : ''}
+                                        {formatToIST(feedback.created_at)}
                                     </div>
 
                                 </div>

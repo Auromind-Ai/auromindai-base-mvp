@@ -137,9 +137,6 @@ class WCCService:
                 wallet = WCCWallet(
                     workspace_id=workspace_id,
                     balance=Decimal("0.00"),
-                    included_balance=Decimal("0.00"),
-                    purchased_balance=Decimal("0.00"),
-                    overage_balance=Decimal("0.00"),
                     currency="INR"
                 )
                 db.add(wallet)
@@ -148,6 +145,8 @@ class WCCService:
             except IntegrityError:
                 nested.rollback()
                 wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == workspace_id).first()
+        else:
+            cls._reconcile_wallet_if_needed(db, wallet)
         return wallet
 
     @classmethod

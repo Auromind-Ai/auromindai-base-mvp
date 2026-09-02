@@ -65,7 +65,7 @@ const NotificationBell = () => {
   }, [isOpen]);
 
   // Close dropdown when clicking outside
- useEffect(() => {
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (
         dropdownRef.current &&
@@ -76,7 +76,6 @@ const NotificationBell = () => {
     };
 
     const handleScroll = (event) => {
-      // Notification list kulla scroll aana close aaga koodadhu, page scroll aana close aaganum
       if (dropdownRef.current && dropdownRef.current.contains(event.target)) return;
       setIsOpen(false);
     };
@@ -92,16 +91,11 @@ const NotificationBell = () => {
     };
   }, [isOpen]);
 
-
   // Click notification
   const handleNotificationClick = async (item) => {
-    // Show full notification immediately
     setSelectedNotification(item);
-
-    // Close notification dropdown
     setIsOpen(false);
 
-    // Mark as read
     if (!item.is_read) {
       try {
         await api.markNotificationRead(item.id);
@@ -169,7 +163,6 @@ const NotificationBell = () => {
     }
   };
 
-  // Close full notification modal
   const closeNotificationModal = () => {
     setSelectedNotification(null);
   };
@@ -201,58 +194,75 @@ const NotificationBell = () => {
       case 'payment_failed':
       case 'workflow_failed':
         return (
-          <div className="w-10 h-10 rounded-full bg-[#3B1828] border border-[#f43f5e]/30 flex items-center justify-center shrink-0">
-            <AlertCircle size={18} className="text-[#fb7185]" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#3B1828] border border-[#f43f5e]/30 flex items-center justify-center shrink-0">
+            <AlertCircle size={16} className="text-[#fb7185] sm:w-[18px] sm:h-[18px]" />
           </div>
         );
 
       case 'wallet_recharge':
       case 'lead_alert':
         return (
-          <div className="w-10 h-10 rounded-full bg-[#132A24] border border-[#10b981]/30 flex items-center justify-center shrink-0">
-            <Wallet size={18} className="text-[#34d399]" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#132A24] border border-[#10b981]/30 flex items-center justify-center shrink-0">
+            <Wallet size={16} className="text-[#34d399] sm:w-[18px] sm:h-[18px]" />
           </div>
         );
 
       case 'ai_credits':
       case 'product_update':
         return (
-          <div className="w-10 h-10 rounded-full bg-[#122738] border border-[#38bdf8]/30 flex items-center justify-center shrink-0">
-            <Sparkles size={18} className="text-[#38bdf8]" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#122738] border border-[#38bdf8]/30 flex items-center justify-center shrink-0">
+            <Sparkles size={16} className="text-[#38bdf8] sm:w-[18px] sm:h-[18px]" />
           </div>
         );
 
       case 'payment_confirmed':
       case 'workflow_completed':
         return (
-          <div className="w-10 h-10 rounded-full bg-[#27183B] border border-[#a855f7]/30 flex items-center justify-center shrink-0">
-            <FileCheck size={18} className="text-[#c084fc]" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#27183B] border border-[#a855f7]/30 flex items-center justify-center shrink-0">
+            <FileCheck size={16} className="text-[#c084fc] sm:w-[18px] sm:h-[18px]" />
           </div>
         );
 
       case 'security_alert':
         return (
-          <div className="w-10 h-10 rounded-full bg-[#362512] border border-[#f59e0b]/30 flex items-center justify-center shrink-0">
-            <ShieldAlert size={18} className="text-[#fbbf24]" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#362512] border border-[#f59e0b]/30 flex items-center justify-center shrink-0">
+            <ShieldAlert size={16} className="text-[#fbbf24] sm:w-[18px] sm:h-[18px]" />
           </div>
         );
 
       default:
         return (
-          <div className="w-10 h-10 rounded-full bg-[#1E1B2E] border border-white/10 flex items-center justify-center shrink-0">
-            <Info size={18} className="text-[#A78BFA]" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#1E1B2E] border border-white/10 flex items-center justify-center shrink-0">
+            <Info size={16} className="text-[#A78BFA] sm:w-[18px] sm:h-[18px]" />
           </div>
         );
     }
   };
 
+  const isClient = typeof window !== 'undefined';
+  const isMobile = isClient && window.innerWidth < 640;
+  // 375x667 dimension-ku mattum exact targeted check
+  const is375 = isClient && window.innerWidth <= 380;
+
+  const panelStyle = isMobile
+    ? {
+        top: `${dropdownPos.top || (is375 ? 64 : 72)}px`,
+        left: is375 ? '16px' : '12px',
+        right: is375 ? '16px' : '12px',
+      }
+    : {
+        top: dropdownPos.top,
+        right: dropdownPos.right,
+      };
+
   return (
     <>
       <div className="relative" ref={dropdownRef}>
+        {/* Bell Trigger Button */}
         <div
           ref={buttonRef}
           onClick={() => setIsOpen((prev) => !prev)}
-          className="relative flex items-center justify-center h-8 w-8 sm:h-[42px] sm:w-[42px] p-1.5 sm:p-2.5 bg-white/5 border border-white/10 rounded-lg sm:rounded-2xl hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none shrink-0"
+          className="relative z-50 flex items-center justify-center h-8 w-8 sm:h-[42px] sm:w-[42px] p-1.5 sm:p-2.5 bg-white/5 border border-white/10 rounded-lg sm:rounded-2xl hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none shrink-0"
         >
           <Bell
             size={16}
@@ -271,35 +281,40 @@ const NotificationBell = () => {
         <AnimatePresence>
           {isOpen && (
             <>
+              {/* Universal Backdrop Blur */}
               <div
                 onClick={() => setIsOpen(false)}
-                className="fixed inset-0 z-[998] bg-black/35 backdrop-blur-[2px] transition-all sm:hidden"
+                className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-[2px] transition-opacity duration-200"
               />
 
+              {/* Notification Panel */}
               <motion.div
                 initial={{
                   opacity: 0,
-                   y: 10, 
-                   scale: 0.98
-                  }}
+                  y: 10, 
+                  scale: 0.98
+                }}
                 animate={{
-                   opacity: 1,
-                    y: 0,
-                     scale: 1,
-                     }}
+                  opacity: 1,
+                  y: 0,
+                  scale: 1,
+                }}
                 exit={{
-                   opacity: 0,
-                    y: 10, scale: 0.98 }}
+                  opacity: 0,
+                  y: 10, 
+                  scale: 0.98 
+                }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="fixed inset-x-3.5 top-20 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2.5 w-auto sm:w-[410px] bg-[#0E0E15] border border-white/[0.08] rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.9)] z-[999] overflow-hidden flex flex-col font-sans"
+                style={panelStyle}
+                className={`fixed w-auto max-w-[343px] mx-auto sm:max-w-none sm:w-[410px] sm:mx-0 bg-[#0E0E15] border border-white/[0.08] rounded-2xl sm:rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.9)] z-[100] overflow-hidden flex flex-col font-sans transition-all`}
               >
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 pt-5 pb-3">
-                  <h3 className="font-semibold text-white text-base tracking-tight">
+                <div className="flex items-center justify-between px-4 pt-4 pb-2.5 sm:px-5 sm:pt-5 sm:pb-3">
+                  <h3 className="font-semibold text-white text-[15px] sm:text-base tracking-tight">
                     Notifications
                   </h3>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
                     <button
                       onClick={handleMarkAllRead}
                       className="text-xs text-[#9d62f2] hover:text-[#b784fc] flex items-center gap-1.5 transition-colors font-medium cursor-pointer"
@@ -316,11 +331,11 @@ const NotificationBell = () => {
                   </div>
                 </div>
 
-                {/* List with Base Purple Hover */}
-                <div className="max-h-[380px] overflow-y-auto custom-scrollbar px-2 divide-y divide-white/[0.04]">
+                {/* List */}
+                <div className="max-h-[300px] sm:max-h-[380px] overflow-y-auto custom-scrollbar px-1.5 sm:px-2 divide-y divide-white/[0.04]">
                   {notifications.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                      <div className="w-10 h-10 rounded-full bg-white/5 mx-auto flex items-center justify-center text-zinc-500 mb-2">
+                    <div className="flex flex-col items-center justify-center py-10 sm:py-12 px-4 text-center">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/5 mx-auto flex items-center justify-center text-zinc-500 mb-2">
                         <Inbox size={18} />
                       </div>
                       <p className="text-sm font-medium text-zinc-400">
@@ -338,7 +353,7 @@ const NotificationBell = () => {
                           e.stopPropagation();
                           handleNotificationClick(item);
                         }}
-                        className={`group flex items-start gap-3.5 p-3 rounded-2xl transition-all cursor-pointer border border-transparent ${
+                        className={`group flex items-start gap-2.5 sm:gap-3.5 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl transition-all cursor-pointer border border-transparent ${
                           !item.is_read
                             ? 'bg-[#814AC8]/[0.06] hover:bg-[#814AC8]/[0.16] hover:border-[#814AC8]/30'
                             : 'hover:bg-[#814AC8]/[0.10] hover:border-[#814AC8]/20'
@@ -348,7 +363,7 @@ const NotificationBell = () => {
 
                         <div className="flex-1 min-w-0 pt-0.5">
                           <h4
-                            className={`text-[13px] leading-tight truncate ${
+                            className={`text-[12.5px] sm:text-[13px] leading-tight truncate ${
                               !item.is_read
                                 ? 'font-semibold text-white'
                                 : 'font-medium text-zinc-300'
@@ -356,18 +371,18 @@ const NotificationBell = () => {
                           >
                             {item.title}
                           </h4>
-                          <p className="text-[11.5px] text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
+                          <p className="text-[11px] sm:text-[11.5px] text-zinc-400 mt-0.5 sm:mt-1 line-clamp-2 leading-relaxed">
                             {item.message}
                           </p>
                         </div>
 
-                        <div className="flex flex-col items-end shrink-0 pl-1 pt-0.5 gap-2">
+                        <div className="flex flex-col items-end shrink-0 pl-1 pt-0.5 gap-1.5 sm:gap-2">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] text-zinc-500 font-medium">
+                            <span className="text-[10px] sm:text-[11px] text-zinc-500 font-medium">
                               {formatRelativeTime(item.created_at)}
                             </span>
                             {!item.is_read && (
-                              <span className="w-2 h-2 rounded-full bg-[#814AC8] shadow-[0_0_8px_#814AC8]" />
+                              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#814AC8] shadow-[0_0_8px_#814AC8]" />
                             )}
                           </div>
                           <ChevronRight
@@ -381,10 +396,10 @@ const NotificationBell = () => {
                 </div>
 
                 {/* Footer */}
-                <div className="p-3 border-t border-white/[0.06] bg-[#0A0A10]/50 text-center">
+                <div className="p-2.5 sm:p-3 border-t border-white/[0.06] bg-[#0A0A10]/50 text-center">
                   <button
                     onClick={handleMarkAllRead}
-                    className="inline-flex items-center justify-center gap-2 text-xs font-semibold text-[#a855f7] hover:text-[#c084fc] transition-colors py-1 cursor-pointer"
+                    className="inline-flex items-center justify-center gap-2 text-xs font-semibold text-[#a855f7] hover:text-[#c084fc] transition-colors py-0.5 sm:py-1 cursor-pointer"
                   >
                   </button>
                 </div>
@@ -394,7 +409,7 @@ const NotificationBell = () => {
         </AnimatePresence>
       </div>
 
-      {/* Modal */}
+      {/* Full Modal Popup */}
       <AnimatePresence>
         {selectedNotification && (
           <motion.div

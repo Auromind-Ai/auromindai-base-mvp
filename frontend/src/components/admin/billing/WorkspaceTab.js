@@ -140,15 +140,14 @@ export default function WorkspaceTab({
     }
   }
 
-  const handleResetCredits = async (target = "all") => {
-    const targetLabel = target === "all" ? "ALL (Included + Purchased)" : target === "included" ? "INCLUDED Plan" : "PURCHASED Top-Up"
-    if (!selectedWorkspace || !confirm(`Are you sure you want to reset ${targetLabel} AI credits to 0?`)) return
+  const handleResetCredits = async () => {
+    if (!selectedWorkspace || !confirm("Are you sure you want to reset credits to 0?")) return
     try {
       setActionLoading(true)
       setError(null)
       setSuccess(null)
-      const res = await api.resetCredits(selectedWorkspace.id, { target, reason: `Admin Reset ${targetLabel} Credits` })
-      setSuccess(res.message || `${targetLabel} credits reset successfully`)
+      await api.resetCredits(selectedWorkspace.id)
+      setSuccess("Credits reset successfully")
       await loadWorkspaceDetails(selectedWorkspace.id)
     } catch (err) {
       setError(err.message || "Failed to reset credits")
@@ -230,15 +229,14 @@ export default function WorkspaceTab({
     }
   }
 
-  const handleResetWallet = async (target = "all") => {
-    const targetLabel = target === "all" ? "ALL (Included + Purchased)" : target === "included" ? "INCLUDED Promo" : "PURCHASED Recharge"
-    if (!selectedWorkspace || !confirm(`Are you sure you want to reset ${targetLabel} WCC wallet balance to ₹0.00?`)) return
+  const handleResetWallet = async () => {
+    if (!selectedWorkspace || !confirm("Are you sure you want to reset WCC wallet balance to 0?")) return
     try {
       setActionLoading(true)
       setError(null)
       setSuccess(null)
-      const res = await api.resetWallet(selectedWorkspace.id, { target, reason: `Admin Reset ${targetLabel} Wallet` })
-      setSuccess(res.message || `${targetLabel} wallet reset successfully`)
+      await api.resetWallet(selectedWorkspace.id)
+      setSuccess("Wallet reset successfully")
       await loadWorkspaceDetails(selectedWorkspace.id)
     } catch (err) {
       setError(err.message || "Failed to reset wallet")
@@ -404,11 +402,6 @@ export default function WorkspaceTab({
                   <div className="text-xl font-bold text-indigo-400">
                     {Number(selectedWorkspaceDetails.credits.balance ?? 0).toLocaleString()} credits
                   </div>
-                  <div className="flex gap-2 text-[10px] text-gray-400 mt-1">
-                    <span>Plan: <b className="text-white">{Number(selectedWorkspaceDetails.credits.included_remaining ?? 0).toLocaleString()}</b></span>
-                    <span>•</span>
-                    <span>Top-Up: <b className="text-indigo-300">{Number(selectedWorkspaceDetails.credits.purchased_remaining ?? 0).toLocaleString()}</b></span>
-                  </div>
                 </div>
                 <Coins className="text-indigo-400 opacity-30 w-7 h-7" />
               </div>
@@ -418,11 +411,6 @@ export default function WorkspaceTab({
                   <div className="text-gray-400 text-[10px] uppercase font-bold mb-0.5 tracking-wider">WCC Wallet Balance</div>
                   <div className="text-xl font-bold text-purple-400">
                     ₹{Number(selectedWorkspaceDetails.wallet_balance ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </div>
-                  <div className="flex gap-2 text-[10px] text-gray-400 mt-1">
-                    <span>Plan: <b className="text-white">₹{Number(selectedWorkspaceDetails.wallet?.included_balance ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</b></span>
-                    <span>•</span>
-                    <span>Recharge: <b className="text-purple-300">₹{Number(selectedWorkspaceDetails.wallet?.purchased_balance ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</b></span>
                   </div>
                 </div>
                 <Wallet className="text-purple-400 opacity-30 w-7 h-7" />
@@ -536,40 +524,20 @@ export default function WorkspaceTab({
                   <div className="flex gap-2">
                     <button
                       type="submit"
-                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all"
+                      className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all"
                     >
                       Adjust Balance
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResetCredits}
+                      className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/10 rounded-xl text-xs font-bold transition-all"
+                    >
+                      Reset
                     </button>
                   </div>
                 </form>
                 
-                <div className="space-y-1.5 pt-2 border-t border-white/5">
-                  <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Granular Credit Resets</div>
-                  <div className="grid grid-cols-3 gap-1.5 text-[10px]">
-                    <button
-                      type="button"
-                      onClick={() => handleResetCredits("all")}
-                      className="py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/10 rounded-lg transition-all font-bold"
-                    >
-                      Reset All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleResetCredits("included")}
-                      className="py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/10 rounded-lg transition-all font-bold"
-                    >
-                      Reset Plan
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleResetCredits("purchased")}
-                      className="py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/10 rounded-lg transition-all font-bold"
-                    >
-                      Reset Top-Up
-                    </button>
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-white/5 text-[10px]">
                   <button
                     onClick={handleRenewCredits}
@@ -622,39 +590,19 @@ export default function WorkspaceTab({
                   <div className="flex gap-2">
                     <button
                       type="submit"
-                      className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all"
+                      className="flex-1 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all"
                     >
                       Adjust Balance
                     </button>
+                    <button
+                      type="button"
+                      onClick={handleResetWallet}
+                      className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/10 rounded-xl text-xs font-bold transition-all"
+                    >
+                      Reset
+                    </button>
                   </div>
                 </form>
-
-                <div className="space-y-1.5 pt-2 border-t border-white/5">
-                  <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Granular Wallet Resets</div>
-                  <div className="grid grid-cols-3 gap-1.5 text-[10px]">
-                    <button
-                      type="button"
-                      onClick={() => handleResetWallet("all")}
-                      className="py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/10 rounded-lg transition-all font-bold"
-                    >
-                      Reset All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleResetWallet("included")}
-                      className="py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/10 rounded-lg transition-all font-bold"
-                    >
-                      Reset Plan
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleResetWallet("purchased")}
-                      className="py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/10 rounded-lg transition-all font-bold"
-                    >
-                      Reset Recharge
-                    </button>
-                  </div>
-                </div>
 
                 <div className="pt-2 border-t border-white/5 text-[10px]">
                   <button

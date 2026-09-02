@@ -27,7 +27,6 @@ export default function CreditRingDropdown({ user, size = 36 }) {
         const res = await api.getCreditSummary(workspaceId);
         setCredits(res.data ?? res ?? null);
 
-        // Set workspace object matching active workspaceId
         if (workspaces && workspaces.length > 0) {
           const activeWs = workspaces.find(w => w.id === workspaceId);
           if (activeWs) setWorkspace(activeWs);
@@ -39,7 +38,7 @@ export default function CreditRingDropdown({ user, size = 36 }) {
     fetchCredits();
   }, [workspaceId, workspaces]);
 
-  // Fetch WCC balance from backend when dropdown is open
+  // Fetch WCC balance
   useEffect(() => {
     async function fetchWcc() {
       if (!workspaceId || workspaceId === 'undefined' || workspaceId === 'null') return;
@@ -52,7 +51,6 @@ export default function CreditRingDropdown({ user, size = 36 }) {
     }
     if (isOpen) {
       fetchWcc();
-      // Compute fixed position from button rect
       if (buttonRef.current) {
         const rect = buttonRef.current.getBoundingClientRect();
         setDropdownPos({
@@ -74,149 +72,186 @@ export default function CreditRingDropdown({ user, size = 36 }) {
   }, []);
 
   const formatCredits = (value, precision = 2) => {
-    if (value === undefined || value === null || isNaN(Number(value))) return '—';
+    if (value === undefined || value === null || isNaN(Number(value))) return '0.00';
     return Number(value).toLocaleString(undefined, {
       minimumFractionDigits: precision,
       maximumFractionDigits: precision
     });
   };
 
-  const balance = credits?.credits_balance ?? 0;
-  const added = (credits?.monthly_grant && credits.monthly_grant > 0)
-    ? credits.monthly_grant
-    : (credits?.credits_added ?? 0);
-  const used = credits?.cycle_used ?? Math.max(0, added - balance);
-  const percentUsed = added > 0 ? Math.min(100, (used / added) * 100) : 0;
-  const percentRemaining = Math.max(0, 100 - percentUsed);
+  const balance = Number(credits?.credits_balance ?? 0);
+  const added = Number(
+    (credits?.monthly_grant && Number(credits.monthly_grant) > 0)
+      ? credits.monthly_grant
+      : (credits?.credits_added ?? 0)
+  );
 
-  const formatPercentLeft = (pct, usedAmt) => {
-    if (usedAmt === 0 || pct >= 100) return '100%';
+  const percentRemaining = added > 0 
+    ? Math.min(100, Math.max(0, (balance / added) * 100))
+    : (balance > 0 ? 100 : 0);
+
+  const formatPercentLeft = (pct) => {
+    if (pct <= 0) return '0%';
+    if (pct >= 100) return '100%';
     if (pct > 99.9) return '99.9%';
     return `${pct.toFixed(1)}%`;
   };
   
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  
+  // Mobile: screen-oda exact red-box area-la (left: 12px, right: 12px) | Desktop: button-kku keezha
   const panelStyle = isMobile
-    ? { top: dropdownPos.top, left: 12, right: 12 }
+    ? { top: `${dropdownPos.top || 72}px`, left: '12px', right: '12px' }
     : { top: dropdownPos.top, right: dropdownPos.right };
 
   const effectiveSize = isMobile ? 32 : size;
-  const radius = (effectiveSize / 2) - 2; // slightly smaller than half to fit stroke
+  const radius = (effectiveSize / 2) - 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (percentRemaining / 100) * circumference;
 
-  // Calculate estimated WhatsApp marketing messages
   const estMarketingMsgs = Math.floor(wccBalance / 1.25);
 
   return (
     <div className="relative font-sans shrink-0 flex-shrink-0" ref={dropdownRef}>
+      {/* Light Backdrop Blur for Mobile & Desktop (z-40) */}
+      {isOpen && (
+        <div 
+          onClick={() => setIsOpen(false)}
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] transition-opacity duration-200"
+        />
+      )}
+
       {/* Ring Button with Avatar */}
       <button 
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-center rounded-full hover:scale-105 transition-transform relative focus:outline-none shrink-0 flex-shrink-0"
+        className="flex items-center justify-center rounded-full hover:scale-105 transition-transform relative focus:outline-none shrink-0 flex-shrink-0 z-50"
         style={{ width: effectiveSize, height: effectiveSize }}
       >
-        <svg width={effectiveSize} height={effectiveSize} viewBox={`0 0 ${effectiveSize} ${effectiveSize}`} className="absolute inset-0 transform -rotate-90 pointer-events-none">
-          <circle cx={effectiveSize/2} cy={effectiveSize/2} r={radius} stroke="rgba(255,255,255,0.12)" strokeWidth="2.5" fill="none" />
+        <svg 
+          width={effectiveSize} 
+          height={effectiveSize} 
+          viewBox={`0 0 ${effectiveSize} ${effectiveSize}`} 
+          className="absolute inset-0 transform -rotate-90 pointer-events-none"
+        >
           <circle 
-            cx={effectiveSize/2} cy={effectiveSize/2} r={radius} 
-            stroke={percentRemaining < 15 ? "#ef4444" : "#814AC8"} 
-            strokeWidth="2.5" fill="none" 
+            cx={effectiveSize/2} 
+            cy={effectiveSize/2} 
+            r={radius} 
+            stroke="rgba(255,255,255,0.12)" 
+            strokeWidth="2.5" 
+            fill="none" 
+          />
+          <circle 
+            cx={effectiveSize/2} 
+            cy={effectiveSize/2} 
+            r={radius} 
+            stroke={percentRemaining <= 15 ? "#ef4444" : "#814AC8"} 
+            strokeWidth="2.5" 
+            fill="none" 
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
             strokeLinecap="round"
+            className="transition-all duration-700 ease-out"
           />
         </svg>
         {currentUser ? (
-          <div className="rounded-full bg-[#814AC8] flex items-center justify-center text-white font-bold" style={{ width: effectiveSize - 10, height: effectiveSize - 10, fontSize: effectiveSize * 0.35 }}>
+          <div 
+            className="rounded-full bg-[#814AC8] flex items-center justify-center text-white font-bold" 
+            style={{ width: effectiveSize - 10, height: effectiveSize - 10, fontSize: effectiveSize * 0.35 }}
+          >
             {(currentUser.full_name || currentUser.name || currentUser.email || 'U').charAt(0).toUpperCase()}
           </div>
         ) : (
           <div className="w-full h-full rounded-full bg-white/5 flex items-center justify-center text-[#D4D4D4]">
-             {/* Fallback */}
+             U
           </div>
         )}
       </button>
 
-      {/* ElevenLabs-style Dropdown */}
+      {/* ElevenLabs-style Dropdown (z-50) */}
       {isOpen && (
         <div
-          className="fixed w-auto sm:w-80 p-[1px] rounded-2xl bg-gradient-to-b from-purple-500/70 via-purple-500/20 to-teal-500/30 shadow-[0_0_30px_rgba(139,92,246,0.2),0_20px_50px_rgba(0,0,0,0.85)] z-50 text-[13px] text-[#EDEDED] font-sans"
+          className="fixed w-auto sm:w-80 p-[1px] rounded-2xl bg-gradient-to-b from-purple-500/70 via-purple-500/20 to-teal-500/30 shadow-[0_0_40px_rgba(139,92,246,0.25),0_20px_50px_rgba(0,0,0,0.95)] z-50 text-[13px] text-[#EDEDED] font-sans transition-all"
           style={panelStyle}
         >
           <div className="w-full h-full bg-[#0c0c12] rounded-[15px] overflow-hidden">
             {/* Section 1: AI Model Messages Balance */}
-          <div className="p-5 bg-gradient-to-b from-purple-950/20 to-transparent">
-            <div className="flex items-center justify-between mb-3.5">
-              <div className="flex items-center gap-2 text-purple-400">
-                <Sparkles size={14} />
-                <span className="font-semibold text-xs tracking-wider">AI Models Usage</span>
-              </div>
-              <span className="text-[10px] text-zinc-500 font-bold bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
-                {formatPercentLeft(percentRemaining, used)} Left
-              </span>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex items-baseline justify-between">
-                <span className="text-lg font-black text-white">{formatCredits(balance, 2)}</span>
-                <span className="text-zinc-500 text-xs font-semibold">/ {formatCredits(added, 2)} AI Messages</span>
+            <div className="p-5 bg-gradient-to-b from-purple-950/20 to-transparent">
+              <div className="flex items-center justify-between mb-3.5">
+                <div className="flex items-center gap-2 text-purple-400">
+                  <Sparkles size={14} />
+                  <span className="font-semibold text-xs tracking-wider">AI Models Usage</span>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                  percentRemaining <= 15 
+                    ? 'text-red-400 bg-red-500/10 border-red-500/20' 
+                    : 'text-zinc-400 bg-purple-500/10 border-purple-500/20'
+                }`}>
+                  {formatPercentLeft(percentRemaining)} Left
+                </span>
               </div>
               
-              {/* ElevenLabs Progress Bar */}
-              <div className="h-1.5 w-full rounded-full bg-zinc-900 overflow-hidden">
-                <div 
-                  className="h-full rounded-full bg-purple-500 transition-all duration-500" 
-                  style={{ width: `${percentRemaining}%` }} 
-                />
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-lg font-black text-white">{formatCredits(balance, 2)}</span>
+                  <span className="text-zinc-500 text-xs font-semibold">/ {formatCredits(added, 2)} AI Messages</span>
+                </div>
+                
+                <div className="h-1.5 w-full rounded-full bg-zinc-900 overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      percentRemaining <= 15 ? 'bg-red-500' : 'bg-purple-500'
+                    }`} 
+                    style={{ width: `${percentRemaining}%` }} 
+                  />
+                </div>
+                <p className="text-[10px] text-zinc-500 font-medium">Used for LLMs (Sonnet, Groq, etc.)</p>
               </div>
-              <p className="text-[10px] text-zinc-500 font-medium">Used for LLMs (Sonnet, Groq, etc.)</p>
+            </div>
+
+            {/* Section 2: Meta WhatsApp Prepaid Balance */}
+            <div className="p-5 border-t border-white/5 bg-gradient-to-b from-emerald-950/20 to-transparent">
+              <div className="flex items-center justify-between mb-3.5">
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <Wallet size={14} />
+                  <span className="font-regular text-xs tracking-wider">WhatsApp Wallet</span>
+                </div>
+                <button 
+                  onClick={() => { setIsOpen(false); router.push('/user/admin/credits?tab=wcc'); }}
+                  className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-emerald-500/30 transition-colors"
+                >
+                  Recharge
+                </button>
+              </div>
+              
+              <div className="space-y-1">
+                <div className="text-lg font-black text-white">
+                  ₹{wccBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="flex items-center gap-1.5 text-zinc-500 text-xs font-medium">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>≈ {estMarketingMsgs.toLocaleString()} Marketing messages</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Workspace Footer */}
+            <div className="p-4 border-t border-white/5 bg-[#12121c]/40 flex items-center justify-between group cursor-pointer" onClick={() => { setIsOpen(false); router.push('/user/admin/credits'); }}>
+              <div>
+                <div className="font-semibold text-xs text-white flex items-center gap-1">
+                  {workspace?.name && !workspace.name.endsWith("'s Workspace") && !workspace.name.endsWith("’s Workspace")
+                    ? workspace.name
+                    : `${currentUser?.full_name || currentUser?.name || 'User'}'s Workspace`}
+                </div>
+                <div className="text-white/70 text-[10px] mt-0.5 font-medium tracking-wider">Manage Credits & Wallet</div>
+              </div>
+              <div className="w-7 h-7 rounded-lg bg-[#1a1a24] flex items-center justify-center text-zinc-400 group-hover:text-white border border-white/5 transition-colors">
+                <ArrowRightLeft size={13} />
+              </div>
             </div>
           </div>
-
-          {/* Section 2: Meta WhatsApp Prepaid Balance */}
-          <div className="p-5 border-t border-white/5 bg-gradient-to-b from-emerald-950/20 to-transparent">
-            <div className="flex items-center justify-between mb-3.5">
-              <div className="flex items-center gap-2 text-emerald-400">
-                <Wallet size={14} />
-                <span className="font-regular text-xs tracking-wider">WhatsApp Wallet</span>
-              </div>
-              <button 
-                onClick={() => { setIsOpen(false); router.push('/user/admin/credits?tab=wcc'); }}
-                className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-emerald-500/30 transition-colors"
-              >
-                Recharge
-              </button>
-            </div>
-            
-            <div className="space-y-1">
-              <div className="text-lg font-black text-white">
-                ₹{wccBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </div>
-              <div className="flex items-center gap-1.5 text-zinc-500 text-xs font-medium">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>≈ {estMarketingMsgs.toLocaleString()} Marketing messages</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Workspace Footer */}
-          <div className="p-4 border-t border-white/5 bg-[#12121c]/40 flex items-center justify-between group cursor-pointer" onClick={() => { setIsOpen(false); router.push('/user/admin/credits'); }}>
-            <div>
-              <div className="font-semibold text-xs text-white flex items-center gap-1">
-                {workspace?.name && !workspace.name.endsWith("'s Workspace") && !workspace.name.endsWith("’s Workspace")
-                  ? workspace.name
-                  : `${currentUser?.full_name || currentUser?.name || 'User'}'s Workspace`}
-              </div>
-              <div className="text-white/70 text-[10px] mt-0.5 font-medium tracking-wider">Manage Credits & Wallet</div>
-            </div>
-            <div className="w-7 h-7 rounded-lg bg-[#1a1a24] flex items-center justify-center text-zinc-400 group-hover:text-white border border-white/5 transition-colors">
-              <ArrowRightLeft size={13} />
-            </div>
-             </div>
         </div>
-      </div>
       )}
     </div>
   );

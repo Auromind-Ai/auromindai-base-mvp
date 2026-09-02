@@ -34,6 +34,7 @@ def submit_feedback(
             answer=data.get("answer"),
             feedback=data.get("feedback"),
         )
+        
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

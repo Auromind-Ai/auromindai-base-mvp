@@ -520,7 +520,7 @@ class TokenService:
         return float(result or 0)
 
     def get_cycle_included_usage(self, db: Session, workspace_id: str | uuid.UUID, cycle_start: datetime | None = None) -> float:
-        """Sum of actual INCLUDED credits consumed or deducted since cycle_start."""
+        """Sum of actual INCLUDED credits consumed since cycle_start."""
         ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
         used_expr = func.coalesce(
             func.sum(
@@ -529,7 +529,7 @@ class TokenService:
                         and_(
                             TokenLedger.status == "posted",
                             TokenLedger.balance_source == "INCLUDED",
-                            TokenLedger.entry_type.in_(["usage", "deduction", "token_expiration", "admin_reset"]),
+                            TokenLedger.entry_type == "usage",
                             TokenLedger.credits_delta < 0,
                         ),
                         -TokenLedger.credits_delta,
@@ -546,7 +546,7 @@ class TokenService:
         return float(result or 0)
 
     def get_cycle_purchased_usage(self, db: Session, workspace_id: str | uuid.UUID, cycle_start: datetime | None = None) -> float:
-        """Sum of actual PURCHASED credits consumed or deducted since cycle_start."""
+        """Sum of actual PURCHASED credits consumed since cycle_start."""
         ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
         used_expr = func.coalesce(
             func.sum(
@@ -555,7 +555,7 @@ class TokenService:
                         and_(
                             TokenLedger.status == "posted",
                             TokenLedger.balance_source == "PURCHASED",
-                            TokenLedger.entry_type.in_(["usage", "deduction", "token_expiration", "admin_reset"]),
+                            TokenLedger.entry_type == "usage",
                             TokenLedger.credits_delta < 0,
                         ),
                         -TokenLedger.credits_delta,
@@ -572,7 +572,7 @@ class TokenService:
         return float(result or 0)
 
     def get_purchased_grants(self, db: Session, workspace_id: str | uuid.UUID) -> float:
-        """Original sum of credits added via purchased top-up packs, grants, and admin adjustments (credits_delta > 0, balance_source == 'PURCHASED')."""
+        """Original sum of credits added via purchased top-up packs (credits_delta > 0, balance_source == 'PURCHASED')."""
         ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
         grants = (
             db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0))
@@ -587,7 +587,7 @@ class TokenService:
         return float(grants or 0)
 
     def get_purchased_usage(self, db: Session, workspace_id: str | uuid.UUID) -> float:
-        """Total lifetime posted usage and deductions consumed from PURCHASED balance."""
+        """Total lifetime posted usage consumed from PURCHASED balance."""
         ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
         used = (
             db.query(func.coalesce(func.sum(-TokenLedger.credits_delta), 0))
@@ -595,7 +595,7 @@ class TokenService:
                 TokenLedger.workspace_id == ws_id,
                 TokenLedger.status == "posted",
                 TokenLedger.balance_source == "PURCHASED",
-                TokenLedger.entry_type.in_(["usage", "deduction", "token_expiration", "admin_reset"]),
+                TokenLedger.entry_type == "usage",
                 TokenLedger.credits_delta < 0,
             )
             .scalar()

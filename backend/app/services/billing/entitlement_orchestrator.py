@@ -251,15 +251,13 @@ class EntitlementOrchestrator:
                 wallet.balance = (wallet.included_balance or Decimal("0.00")) + (wallet.purchased_balance or Decimal("0.00"))
                 db.flush()
 
-        # Update reset timestamps and billing period
+        # Update reset timestamps
         dt = datetime.now(timezone.utc)
         month = dt.month % 12 + 1
         year = dt.year + (dt.month // 12)
         max_day = calendar.monthrange(year, month)[1]
         next_dt = dt.replace(year=year, month=month, day=min(dt.day, max_day))
 
-        subscription.current_period_start = dt
-        subscription.current_period_end = next_dt
         subscription.last_entitlement_reset_at = dt
         subscription.next_entitlement_reset_at = next_dt
         db.flush()
