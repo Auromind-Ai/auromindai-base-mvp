@@ -405,7 +405,7 @@ function AdminLayoutContent({ children }) {
                     </div>
                 )}
 
-                {/* Mobile Drawer */}
+                {/* Mobile Drawer (width remains unchanged at original w-[200px]) */}
                 <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
                     <SheetContent
                         side="left"
@@ -446,8 +446,21 @@ function AdminLayoutContent({ children }) {
                                 </div>
                             </div>
 
-                            {/* User Profile */}
-                            <div className="p-3 border-t border-white/5 bg-[#141418]">
+                            {/* User Profile + Feedback Button */}
+                            <div className="p-3 border-t border-white/5 bg-[#141418] space-y-1">
+                                {/* Mobile Feedback Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsMobileOpen(false);
+                                        setIsFeedbackOpen(true);
+                                    }}
+                                    className="flex items-center gap-2.5 px-2 py-1.5 text-xs text-[#9b9b9b] hover:text-white hover:bg-white/5 rounded-lg transition-colors w-full"
+                                >
+                                    <MessageSquare size={14} className="shrink-0" />
+                                    <span className="truncate">Feedback</span>
+                                </button>
+
                                 <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors">
                                     <div className="w-8 h-8 rounded-lg bg-[#814AC8] flex items-center justify-center text-xs text-white font-bold">
                                         {(user?.full_name || user?.name || user?.email || 'U').charAt(0).toUpperCase()}
