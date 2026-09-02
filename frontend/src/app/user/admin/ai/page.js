@@ -1261,8 +1261,8 @@ export default function AuromindAIPage() {
                                         </motion.p>
 
                                         {/* Prompt Input Box (Hero) */}
-                                        <motion.div layoutId="chat-input-container" className="w-full max-w-4xl">
-                                            <div className="ai-input-box bg-[#070012] rounded-2xl border border-purple-300/30 shadow-2xl transition-all duration-300 overflow-hidden flex flex-col">
+                                        <motion.div layoutId="chat-input-container" className="w-full max-w-4xl relative z-20">
+                                            <div className="ai-input-box bg-[#070012] rounded-2xl border border-purple-300/30 shadow-2xl transition-all duration-300 flex flex-col">
                                                 {attachedFile && (
                                                     <div className="px-4 pt-3 pb-0">
                                                         <div className="flex items-center gap-2 bg-white/5 p-2 rounded-xl w-fit border border-white/10">

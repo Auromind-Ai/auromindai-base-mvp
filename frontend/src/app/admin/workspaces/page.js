@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Building2, Users, TrendingUp } from "lucide-react"
 import api from "@/lib/api"
+import { useToast } from "@/context/ToastContext"
 
 export default function WorkspacesPage() {
-
+  const { showToast } = useToast()
   const [workspaces, setWorkspaces] = useState([])
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
@@ -48,9 +49,10 @@ export default function WorkspacesPage() {
   const editPlan = async (id, plan) => {
     try {
       await api.editWorkspacePlan(id, plan)
+      showToast("Workspace plan updated successfully", "success")
       fetchWorkspaces()
     } catch (err) {
-      alert("Failed to update plan: " + err.message)
+      showToast("Failed to update plan: " + err.message, "error")
     }
   }
 
@@ -63,9 +65,10 @@ export default function WorkspacesPage() {
     try {
       setConfirmLoading(true)
       await api.toggleWorkspaceStatus(confirmWorkspace.id)
+      showToast("Workspace deactivated successfully", "success")
       await fetchWorkspaces()
     } catch (err) {
-      alert("Failed to deactivate workspace: " + err.message)
+      showToast("Failed to deactivate workspace: " + err.message, "error")
     } finally {
       setConfirmLoading(false)
       setConfirmWorkspace(null)
@@ -80,9 +83,10 @@ export default function WorkspacesPage() {
     try {
       setTogglingId(workspace.id)
       await api.toggleWorkspaceStatus(workspace.id)
+      showToast("Workspace activated successfully", "success")
       await fetchWorkspaces()
     } catch (err) {
-      alert("Failed to activate workspace: " + err.message)
+      showToast("Failed to activate workspace: " + err.message, "error")
     } finally {
       setTogglingId(null)
     }

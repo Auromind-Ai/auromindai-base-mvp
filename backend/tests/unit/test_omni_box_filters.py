@@ -42,11 +42,11 @@ def test_setup(db_session: Session):
     return {"user": user, "workspace": workspace}
 
 
-def test_closed_filter_24_hour_rule(db_session: Session, test_setup):
+def test_closed_filter_immediate_and_24h_auto_close(db_session: Session, test_setup):
     ws_id = test_setup["workspace"].id
     now = datetime.now(timezone.utc)
 
-    # 1. Closed conversation closed 2 hours ago (< 24 hours) -> should NOT appear in CLOSED filter
+    # 1. Closed conversation closed 2 hours ago (< 24 hours) -> SHOULD appear in CLOSED filter immediately
     conv_closed_recent = Conversation(
         id=uuid.uuid4(),
         workspace_id=ws_id,
@@ -68,18 +68,51 @@ def test_closed_filter_24_hour_rule(db_session: Session, test_setup):
         updated_at=now - timedelta(hours=25),
     )
 
-    # 3. Open conversation
-    conv_open = Conversation(
+    # 3. Open WhatsApp conversation with last customer message 26 hours ago -> MUST auto-close to CLOSED
+    conv_open_expired = Conversation(
         id=uuid.uuid4(),
         workspace_id=ws_id,
         phone="+12345678903",
         channel=ChannelType.WHATSAPP,
         status=ConversationStatus.OPEN,
+        created_at=now - timedelta(hours=30),
+        updated_at=now - timedelta(hours=26),
     )
 
-    db_session.add_all([conv_closed_recent, conv_closed_old, conv_open])
+    # 4. Open WhatsApp conversation with recent customer message (1 hour ago) -> stays OPEN
+    conv_open_active = Conversation(
+        id=uuid.uuid4(),
+        workspace_id=ws_id,
+        phone="+12345678904",
+        channel=ChannelType.WHATSAPP,
+        status=ConversationStatus.OPEN,
+        created_at=now - timedelta(hours=5),
+        updated_at=now - timedelta(hours=1),
+    )
+
+    db_session.add_all([conv_closed_recent, conv_closed_old, conv_open_expired, conv_open_active])
+    db_session.flush()
+
+    # Add user message 26 hours ago to expired conversation
+    msg_expired = Message(
+        id=uuid.uuid4(),
+        conversation_id=conv_open_expired.id,
+        sender_type=SenderType.USER,
+        content="I need info",
+        timestamp=now - timedelta(hours=26),
+    )
+    # Add user message 1 hour ago to active conversation
+    msg_active = Message(
+        id=uuid.uuid4(),
+        conversation_id=conv_open_active.id,
+        sender_type=SenderType.USER,
+        content="Still here",
+        timestamp=now - timedelta(hours=1),
+    )
+    db_session.add_all([msg_expired, msg_active])
     db_session.commit()
 
+    # Test CLOSED filter
     closed_results = ConversationService.list_conversations(
         db_session,
         workspace_id=ws_id,
@@ -88,9 +121,23 @@ def test_closed_filter_24_hour_rule(db_session: Session, test_setup):
     )
     closed_ids = [c.id for c in closed_results]
 
-    assert conv_closed_old.id in closed_ids, "Conversation closed >= 24h must appear in CLOSED filter"
-    assert conv_closed_recent.id not in closed_ids, "Conversation closed < 24h must NOT appear in CLOSED filter"
-    assert conv_open.id not in closed_ids, "Open conversation must NOT appear in CLOSED filter"
+    assert conv_closed_recent.id not in closed_ids, "Conversation manually closed < 24h must NOT appear in Closed (>24h) filter yet"
+    assert conv_closed_old.id in closed_ids, "Conversation closed >= 24h MUST appear in CLOSED filter"
+    assert conv_open_expired.id in closed_ids, "Open WhatsApp conversation with last message > 24h ago MUST auto-close and appear in CLOSED filter"
+    assert conv_open_active.id not in closed_ids, "Active open WhatsApp conversation MUST NOT appear in CLOSED filter"
+
+    # Test OPEN filter
+    open_results = ConversationService.list_conversations(
+        db_session,
+        workspace_id=ws_id,
+        channel="WHATSAPP",
+        status="OPEN",
+    )
+    open_ids = [c.id for c in open_results]
+
+    assert conv_open_active.id in open_ids, "Active open WhatsApp conversation MUST appear in OPEN filter"
+    assert conv_open_expired.id not in open_ids, "Expired WhatsApp conversation MUST NOT appear in OPEN filter"
+    assert conv_closed_recent.id not in open_ids, "Closed conversation MUST NOT appear in OPEN filter"
 
 
 def test_converted_filter_accuracy(db_session: Session, test_setup):
@@ -245,7 +292,7 @@ def test_get_conversation_counts(db_session: Session, test_setup):
     assert counts["all"] == 4
     assert counts["open"] == 1
     assert counts["converted"] == 1
-    assert counts["closed"] == 1  # Only c3 (closed >= 24h), c4 is excluded!
+    assert counts["closed"] == 1  # Only c3 (closed >= 24h), c4 (< 24h) excluded until 24h
     assert counts["unread"] == 1
 
 
@@ -310,3 +357,71 @@ def test_channel_filtering(db_session: Session, test_setup):
 
     assert tw_conv.id in [c.id for c in tw_list]
     assert wa_conv.id not in [c.id for c in tw_list]
+
+
+def test_whatsapp_24h_auto_close_and_reopen(db_session: Session, test_setup):
+    ws_id = test_setup["workspace"].id
+    now = datetime.now(timezone.utc)
+
+    # 1. Create open WhatsApp conversation
+    conv = Conversation(
+        id=uuid.uuid4(),
+        workspace_id=ws_id,
+        phone="+919876543210",
+        channel=ChannelType.WHATSAPP,
+        status=ConversationStatus.OPEN,
+        created_at=now - timedelta(hours=30),
+        updated_at=now - timedelta(hours=30),
+    )
+    db_session.add(conv)
+    db_session.flush()
+
+    lead = Lead(
+        id=uuid.uuid4(),
+        workspace_id=ws_id,
+        conversation_id=conv.id,
+        name="Lead AutoClose",
+        status="open",
+        lead_tier="warm",
+    )
+    # User message from 25 hours ago
+    old_msg = Message(
+        id=uuid.uuid4(),
+        conversation_id=conv.id,
+        sender_type=SenderType.USER,
+        content="Hello 25h ago",
+        timestamp=now - timedelta(hours=25),
+    )
+    db_session.add_all([lead, old_msg])
+    db_session.commit()
+
+    # Trigger auto-close via list_conversations or direct method
+    closed_count = ConversationService.auto_close_expired_conversations(db_session, workspace_id=ws_id)
+    assert closed_count >= 1
+
+    db_session.refresh(conv)
+    db_session.refresh(lead)
+
+    assert conv.status == ConversationStatus.CLOSED
+    assert conv.closed_at is not None
+    assert lead.status == "closed"
+    assert lead.lead_tier == "inactive"
+
+    # Verify listing in CLOSED filter
+    closed_convs = ConversationService.list_conversations(
+        db_session,
+        workspace_id=ws_id,
+        channel="WHATSAPP",
+        status="CLOSED",
+    )
+    assert conv.id in [c.id for c in closed_convs]
+
+    # Verify NOT in OPEN filter
+    open_convs = ConversationService.list_conversations(
+        db_session,
+        workspace_id=ws_id,
+        channel="WHATSAPP",
+        status="OPEN",
+    )
+    assert conv.id not in [c.id for c in open_convs]
+

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Poppins } from 'next/font/google';
 import { Instagram, Search, ChevronDown, Check, X, ChevronRight, Eye, EyeOff, ExternalLink, Settings, Copy } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
 
 const poppins = Poppins({
@@ -11,35 +12,6 @@ const poppins = Poppins({
     weight: ['300', '400', '500', '600', '700', '800'],
     variable: '--font-poppins',
 });
-
-const showToast = (message) => {
-    if (typeof window === 'undefined') return;
-    let container = document.getElementById('toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-container';
-        container.className = 'fixed bottom-5 right-5 z-[99999] flex flex-col gap-2 pointer-events-none';
-        document.body.appendChild(container);
-    }
-
-    const toast = document.createElement('div');
-    toast.className = 'flex items-center gap-2 px-4 py-3 rounded-xl border border-white/10 bg-[#0d0d0d]/95 backdrop-blur-md shadow-2xl text-white text-sm font-semibold transition-all duration-300 ease-out opacity-0 translate-y-5';
-    toast.innerHTML = message;
-
-    container.appendChild(toast);
-    toast.offsetHeight;
-
-    toast.classList.remove('opacity-0', 'translate-y-5');
-    toast.classList.add('opacity-100', 'translate-y-0');
-
-    setTimeout(() => {
-        toast.classList.remove('opacity-100', 'translate-y-0');
-        toast.classList.add('opacity-0', 'translate-y-5');
-        setTimeout(() => {
-            toast.remove();
-        }, 300);
-    }, 4000);
-};
 
 const WhatsAppIcon = ({ className = "w-8 h-8 sm:w-9 sm:h-9 text-white" }) => (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -832,6 +804,7 @@ function ChannelDetailsModal({
 }
 
 export default function ChannelsPage() {
+    const { showToast } = useToast();
     const WA_CONFIG_ID = process.env.NEXT_PUBLIC_META_CONFIG_ID;
 
     const { workspaces, workspaceId } = useAuth();
@@ -1076,7 +1049,7 @@ export default function ChannelsPage() {
 
     const startWhatsAppSignup = () => {
         if (typeof window === 'undefined' || !window.FB) {
-            alert("Facebook SDK is not loaded yet. If you are using an adblocker or private browsing mode, please disable tracking protection for this site and try again in a moment.");
+            showToast("Facebook SDK is not loaded yet. If you are using an adblocker or private browsing mode, please disable tracking protection for this site and try again in a moment.", "warning");
             return;
         }
         setConnecting('whatsapp');
@@ -1101,7 +1074,7 @@ export default function ChannelsPage() {
         setConnecting('instagram');
         const currentWorkspaceId = workspace?.id;
         if (!currentWorkspaceId) {
-            alert("Workspace not loaded. Please wait...");
+            showToast("Workspace not loaded. Please wait...", "warning");
             return;
         }
         const REDIRECT_URI = `${window.location.origin}/instagram/callback`;
@@ -1113,7 +1086,7 @@ export default function ChannelsPage() {
             `&scope=${encodeURIComponent('instagram_basic,instagram_manage_messages,instagram_manage_comments,pages_show_list,pages_messaging,pages_read_engagement,business_management')}` +
             `&response_type=code`;
         window.location.href = authUrl;
-    }, [workspace]);
+    }, [workspace, showToast]);
 
     const connectIntegration = async (integrationId) => {
         setConnecting(integrationId);
@@ -1125,7 +1098,7 @@ export default function ChannelsPage() {
             }
         } catch (err) {
             console.error('Integration connect error:', err);
-            alert(`Connection failed: ${err.message}`);
+            showToast(`Connection failed: ${err.message}`, "error");
         } finally {
             setConnecting(null);
         }

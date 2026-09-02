@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import TwoFactorSetupModal    from '@/components/TwoFactorSetupModal';
 import TwoFactorDisableModal  from '@/components/TwoFactorDisableModal';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
@@ -869,6 +870,7 @@ function getDeviceIcon(deviceType) {
 
 function SecuritySection() {
   const { logout } = useAuth();
+  const { showConfirm, showToast } = useToast();
   const [summary, setSummary] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -948,91 +950,124 @@ function SecuritySection() {
     const hasCurrent = targetGroup?.hasCurrent;
 
     if (hasCurrent) {
-      if (!confirm(`Are you sure you want to sign out of this device? You will be logged out of your current session immediately.`)) return;
-      try {
-        setActionLoading(`device_${deviceKey}`);
-        setError(null);
-        await api.revokeDeviceSessions(deviceKey);
-      } catch (err) {
-        console.warn("Revoke device notice:", err);
-      }
-      await logout();
+      showConfirm({
+        title: "Sign Out Current Device",
+        message: "Are you sure you want to sign out of this device? You will be logged out of your current session immediately.",
+        confirmText: "Sign Out",
+        type: "danger",
+        onConfirm: async () => {
+          try {
+            setActionLoading(`device_${deviceKey}`);
+            setError(null);
+            await api.revokeDeviceSessions(deviceKey);
+          } catch (err) {
+            console.warn("Revoke device notice:", err);
+          }
+          await logout();
+        }
+      });
       return;
     }
 
     const devDisplayName = targetGroup ? `${targetGroup.deviceName} (${targetGroup.browser})` : deviceKey;
-    if (!confirm(`Are you sure you want to log out and remove "${devDisplayName}"?`)) return;
+    showConfirm({
+      title: "Remove Device",
+      message: `Are you sure you want to log out and remove "${devDisplayName}"?`,
+      confirmText: "Log Out Device",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          setActionLoading(`device_${deviceKey}`);
+          setError(null);
+          await api.revokeDeviceSessions(deviceKey);
+          setSuccessMessage(`"${devDisplayName}" has been successfully logged out.`);
+          showToast(`"${devDisplayName}" has been successfully logged out.`, "success");
+          setTimeout(() => setSuccessMessage(null), 4000);
 
-    try {
-      setActionLoading(`device_${deviceKey}`);
-      setError(null);
-      await api.revokeDeviceSessions(deviceKey);
-      setSuccessMessage(`"${devDisplayName}" has been successfully logged out.`);
-      setTimeout(() => setSuccessMessage(null), 4000);
-
-      const [sess, summ] = await Promise.all([
-        api.getSessions(),
-        api.getSecuritySummary(),
-      ]);
-      setSessions(sess);
-      setSummary(summ);
-    } catch (err) {
-      if (err?.status === 401) {
-        await logout();
-        return;
+          const [sess, summ] = await Promise.all([
+            api.getSessions(),
+            api.getSecuritySummary(),
+          ]);
+          setSessions(sess);
+          setSummary(summ);
+        } catch (err) {
+          if (err?.status === 401) {
+            await logout();
+            return;
+          }
+          setError('Failed to sign out device. Please try again.');
+          showToast('Failed to sign out device. Please try again.', 'error');
+        } finally {
+          setActionLoading(null);
+        }
       }
-      setError('Failed to sign out device. Please try again.');
-    } finally {
-      setActionLoading(null);
-    }
+    });
   };
 
   const handleRevokeOthers = async () => {
-    if (!confirm('Are you sure you want to sign out of all other connected devices? You will remain signed in on this device.')) return;
-    try {
-      setActionLoading('revoke_others');
-      setError(null);
-      await api.revokeOtherSessions();
-      setSuccessMessage('Successfully signed out of all other devices.');
-      setTimeout(() => setSuccessMessage(null), 4000);
+    showConfirm({
+      title: "Sign Out Other Devices",
+      message: "Are you sure you want to sign out of all other connected devices? You will remain signed in on this device.",
+      confirmText: "Sign Out Others",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          setActionLoading('revoke_others');
+          setError(null);
+          await api.revokeOtherSessions();
+          setSuccessMessage('Successfully signed out of all other devices.');
+          showToast('Successfully signed out of all other devices.', 'success');
+          setTimeout(() => setSuccessMessage(null), 4000);
 
-      const [sess, summ] = await Promise.all([
-        api.getSessions(),
-        api.getSecuritySummary(),
-      ]);
-      setSessions(sess);
-      setSummary(summ);
-    } catch (err) {
-      if (err?.status === 401) {
-        await logout();
-        return;
+          const [sess, summ] = await Promise.all([
+            api.getSessions(),
+            api.getSecuritySummary(),
+          ]);
+          setSessions(sess);
+          setSummary(summ);
+        } catch (err) {
+          if (err?.status === 401) {
+            await logout();
+            return;
+          }
+          setError('Failed to sign out other devices. Please try again.');
+          showToast('Failed to sign out other devices. Please try again.', 'error');
+        } finally {
+          setActionLoading(null);
+        }
       }
-      setError('Failed to sign out other devices. Please try again.');
-    } finally {
-      setActionLoading(null);
-    }
+    });
   };
 
   const handleBlock = async (sessionId) => {
-    if (!confirm('Are you sure you want to block this device? You will not be able to log in from this device until it is unblocked.')) return;
-    try {
-      setActionLoading(sessionId);
-      setError(null);
-      await api.blockSession(sessionId);
-      setSuccessMessage('Device has been blocked successfully.');
-      setTimeout(() => setSuccessMessage(null), 4000);
+    showConfirm({
+      title: "Block Device",
+      message: "Are you sure you want to block this device? You will not be able to log in from this device until it is unblocked.",
+      confirmText: "Block Device",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          setActionLoading(sessionId);
+          setError(null);
+          await api.blockSession(sessionId);
+          setSuccessMessage('Device has been blocked successfully.');
+          showToast('Device has been blocked successfully.', 'success');
+          setTimeout(() => setSuccessMessage(null), 4000);
 
-      const [sess, summ] = await Promise.all([
-        api.getSessions(),
-        api.getSecuritySummary(),
-      ]);
-      setSessions(sess);
-      setSummary(summ);
-    } catch (err) {
-      setError('Failed to block device. Please try again.');
-    } finally {
-      setActionLoading(null);
-    }
+          const [sess, summ] = await Promise.all([
+            api.getSessions(),
+            api.getSecuritySummary(),
+          ]);
+          setSessions(sess);
+          setSummary(summ);
+        } catch (err) {
+          setError('Failed to block device. Please try again.');
+          showToast('Failed to block device. Please try again.', 'error');
+        } finally {
+          setActionLoading(null);
+        }
+      }
+    });
   };
 
   const handleUnblock = async (sessionId) => {

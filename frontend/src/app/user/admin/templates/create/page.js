@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Poppins } from 'next/font/google';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import UpgradeModal from '@/components/UpgradeModal';
 
 const poppins = Poppins({
@@ -346,6 +347,7 @@ function PhonePreview({ form, actionMode }) {
 //  Main Component ─
 export default function CreateTemplatePage() {
   const { workspaceId } = useAuth();
+  const { showToast } = useToast();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [form, setForm] = useState({
     category: 'UTILITY',
@@ -405,13 +407,17 @@ export default function CreateTemplatePage() {
   const handleGenerate = async () => {
     if (isGeneratingAI) return;
     if (!aiPrompt || aiPrompt.trim() === '') {
-      alert('Please enter a prompt to generate message');
+      showToast('Please enter a prompt to generate message', 'warning');
+      return;
+    }
+    if (aiPrompt.trim().length < 3) {
+      showToast('Prompt must be at least 3 characters', 'warning');
       return;
     }
     setIsGeneratingAI(true);
     try {
       const res = await api.post('/templates/generate', {
-        prompt: aiPrompt,
+        prompt: aiPrompt.trim(),
         tone: tone,
         language: form.language,
       });
@@ -449,7 +455,8 @@ export default function CreateTemplatePage() {
       if (isQuotaOrLimit) {
         setShowUpgradeModal(true);
       } else {
-        alert(err?.data?.detail || err?.data?.message || err.message || 'Failed to generate template');
+        const errorDetail = err?.data?.detail || err?.data?.message || err.message || 'Failed to generate template';
+        showToast(errorDetail, 'error');
       }
     } finally {
       setIsGeneratingAI(false);
@@ -460,20 +467,20 @@ export default function CreateTemplatePage() {
     if (isSubmitting) return;
 
     if (!form.name || form.name.trim() === '') {
-      alert('Template Name is required');
+      showToast('Template Name is required', 'warning');
       return;
     }
     const nameRegex = /^[a-z0-9_]+$/;
     if (!nameRegex.test(form.name)) {
-      alert('Template Name can only contain lowercase alphanumeric characters and underscores (e.g., app_verification_code)');
+      showToast('Template Name can only contain lowercase alphanumeric characters and underscores (e.g., app_verification_code)', 'warning');
       return;
     }
     if (!form.message || form.message.trim() === '') {
-      alert('Message content is required');
+      showToast('Message content is required', 'warning');
       return;
     }
     if ((form.type === 'IMAGE' || form.type === 'VIDEO') && !form.mediaFile) {
-      alert(`Please upload a ${form.type === 'IMAGE' ? 'image' : 'video'} for the header`);
+      showToast(`Please upload a ${form.type === 'IMAGE' ? 'image' : 'video'} for the header`, 'warning');
       return;
     }
 
@@ -514,7 +521,7 @@ export default function CreateTemplatePage() {
       window.location.href = '/user/admin/templates';
     } catch (err) {
       console.error(err);
-      alert(err.message || err?.data?.detail || 'Failed to create template');
+      showToast(err.message || err?.data?.detail || 'Failed to create template', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -531,11 +538,11 @@ export default function CreateTemplatePage() {
     const maxSize = isImage ? 5 * 1024 * 1024 : 16 * 1024 * 1024;
 
     if (!allowedTypes.includes(file.type)) {
-      alert(isImage ? 'Only JPG, PNG, WEBP allowed' : 'Only MP4, MOV allowed');
+      showToast(isImage ? 'Only JPG, PNG, WEBP allowed' : 'Only MP4, MOV allowed', 'warning');
       return;
     }
     if (file.size > maxSize) {
-      alert(`Max file size is ${isImage ? '5MB' : '16MB'}`);
+      showToast(`Max file size is ${isImage ? '5MB' : '16MB'}`, 'warning');
       return;
     }
 

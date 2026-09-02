@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { Shield, RefreshCw } from 'lucide-react'
 
 import api from '@/lib/api'
+import { useToast } from '@/context/ToastContext'
 
 export default function AIGovernancePage() {
+  const { showToast } = useToast()
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -36,7 +38,7 @@ export default function AIGovernancePage() {
   }
 
   const handleOverride = async (actionId) => {
-    alert(`Override action ${actionId}`)
+    showToast(`Override action ${actionId}`, 'info')
   }
 
   useEffect(() => {

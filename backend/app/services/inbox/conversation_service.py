@@ -109,6 +109,82 @@ class ConversationService:
         return workspace
 
     @staticmethod
+    def auto_close_expired_conversations(
+        db: Session,
+        workspace_id: str | UUID | None = None
+    ) -> int:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+
+        query = db.query(Conversation).filter(
+            Conversation.status == ConversationStatus.OPEN,
+            Conversation.channel.in_([ChannelType.WHATSAPP, ChannelType.TWILIO]),
+        )
+        if workspace_id:
+            ws_uuid = to_uuid(workspace_id)
+            query = query.filter(Conversation.workspace_id == ws_uuid)
+
+        open_convs = query.all()
+        if not open_convs:
+            return 0
+
+        conv_ids = [c.id for c in open_convs]
+
+        # Latest user/inbound message timestamp for each conversation
+        latest_user_msgs = dict(
+            db.query(
+                Message.conversation_id,
+                func.max(Message.timestamp).label("max_user_ts"),
+            )
+            .filter(
+                Message.conversation_id.in_(conv_ids),
+                Message.sender_type == SenderType.USER,
+            )
+            .group_by(Message.conversation_id)
+            .all()
+        )
+
+        now_utc = datetime.now(timezone.utc)
+        closed_conv_ids = []
+
+        for conv in open_convs:
+            last_user_ts = latest_user_msgs.get(conv.id)
+            if last_user_ts:
+                if last_user_ts.tzinfo is None:
+                    last_user_ts = last_user_ts.replace(tzinfo=timezone.utc)
+                if last_user_ts <= cutoff:
+                    conv.status = ConversationStatus.CLOSED
+                    conv.closed_at = last_user_ts
+                    closed_conv_ids.append(conv.id)
+            else:
+                ref_time = conv.updated_at or conv.created_at
+                if ref_time:
+                    if ref_time.tzinfo is None:
+                        ref_time = ref_time.replace(tzinfo=timezone.utc)
+                    if ref_time <= cutoff:
+                        conv.status = ConversationStatus.CLOSED
+                        conv.closed_at = ref_time
+                        closed_conv_ids.append(conv.id)
+
+        if closed_conv_ids:
+            # Update leads if not converted
+            leads = (
+                db.query(Lead)
+                .filter(
+                    Lead.conversation_id.in_(closed_conv_ids),
+                    Lead.is_converted == False,
+                    Lead.status != "converted",
+                )
+                .all()
+            )
+            for lead in leads:
+                lead.status = "closed"
+                lead.lead_tier = "inactive"
+
+            db.commit()
+
+        return len(closed_conv_ids)
+
+    @staticmethod
     def list_conversations(
         db: Session,
         *,
@@ -119,6 +195,10 @@ class ConversationService:
         limit: int = 100,
     ):
         ws_uuid = to_uuid(workspace_id)
+        
+        # Auto-close expired WhatsApp conversations before listing
+        ConversationService.auto_close_expired_conversations(db, workspace_id=ws_uuid)
+
         query = db.query(Conversation).filter(Conversation.workspace_id == ws_uuid)
         if channel:
             query = query.filter(
@@ -139,9 +219,26 @@ class ConversationService:
                 ).distinct()
             elif st == "CLOSED":
                 cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
-                query = query.filter(
+                latest_msg_subq = (
+                    db.query(
+                        Message.conversation_id,
+                        func.max(Message.timestamp).label("latest_msg_time"),
+                    )
+                    .group_by(Message.conversation_id)
+                    .subquery()
+                )
+                query = query.outerjoin(
+                    latest_msg_subq,
+                    latest_msg_subq.c.conversation_id == Conversation.id,
+                ).filter(
                     Conversation.status == ConversationStatus.CLOSED,
-                    func.coalesce(Conversation.closed_at, Conversation.updated_at) <= cutoff
+                    func.coalesce(
+                        latest_msg_subq.c.latest_msg_time,
+                        Conversation.closed_at,
+                        Conversation.last_message_at,
+                        Conversation.updated_at,
+                        Conversation.created_at,
+                    ) <= cutoff,
                 )
             elif st == "UNREAD":
                 unread_conv_subq = (
@@ -228,6 +325,10 @@ class ConversationService:
         from app.models.ai_action import Lead
 
         ws_uuid = to_uuid(workspace_id)
+        
+        # Auto-close expired WhatsApp conversations before calculating counts
+        ConversationService.auto_close_expired_conversations(db, workspace_id=ws_uuid)
+
         base_query = db.query(Conversation).filter(Conversation.workspace_id == ws_uuid)
         if channel:
             base_query = base_query.filter(
@@ -254,12 +355,33 @@ class ConversationService:
             .count()
         )
 
-        # 4. Closed (closed >= 24 hours ago)
+        # 4. Closed (closed and last message was >= 24 hours ago)
         cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
-        closed_count = base_query.filter(
-            Conversation.status == ConversationStatus.CLOSED,
-            func.coalesce(Conversation.closed_at, Conversation.updated_at) <= cutoff
-        ).count()
+        latest_msg_subq = (
+            db.query(
+                Message.conversation_id,
+                func.max(Message.timestamp).label("latest_msg_time"),
+            )
+            .group_by(Message.conversation_id)
+            .subquery()
+        )
+        closed_count = (
+            base_query.outerjoin(
+                latest_msg_subq,
+                latest_msg_subq.c.conversation_id == Conversation.id,
+            )
+            .filter(
+                Conversation.status == ConversationStatus.CLOSED,
+                func.coalesce(
+                    latest_msg_subq.c.latest_msg_time,
+                    Conversation.closed_at,
+                    Conversation.last_message_at,
+                    Conversation.updated_at,
+                    Conversation.created_at,
+                ) <= cutoff,
+            )
+            .count()
+        )
 
         # 5. Unread
         unread_conv_subq = (
@@ -289,6 +411,9 @@ class ConversationService:
     ) -> Conversation:
         ws_uuid = to_uuid(workspace_id)
         conv_uuid = to_uuid(conversation_id)
+        
+        ConversationService.auto_close_expired_conversations(db, workspace_id=ws_uuid)
+
         conversation = (
             db.query(Conversation)
             .filter(

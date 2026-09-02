@@ -10,12 +10,14 @@ import {
   ArrowRightLeft
 } from "lucide-react"
 import api from "@/lib/api"
+import { useToast } from "@/context/ToastContext"
 
 export default function WorkspaceTab({
   setError,
   setSuccess,
   setActionLoading
 }) {
+  const { showConfirm, showToast } = useToast()
   // Workspace Selector State
   const [workspaceQuery, setWorkspaceQuery] = useState("")
   const [workspaceSearchResults, setWorkspaceSearchResults] = useState([])
@@ -141,19 +143,29 @@ export default function WorkspaceTab({
   }
 
   const handleResetCredits = async () => {
-    if (!selectedWorkspace || !confirm("Are you sure you want to reset credits to 0?")) return
-    try {
-      setActionLoading(true)
-      setError(null)
-      setSuccess(null)
-      await api.resetCredits(selectedWorkspace.id)
-      setSuccess("Credits reset successfully")
-      await loadWorkspaceDetails(selectedWorkspace.id)
-    } catch (err) {
-      setError(err.message || "Failed to reset credits")
-    } finally {
-      setActionLoading(false)
-    }
+    if (!selectedWorkspace) return
+    showConfirm({
+      title: "Reset Credits",
+      message: "Are you sure you want to reset credits to 0?",
+      confirmText: "Reset to 0",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          setActionLoading(true)
+          setError(null)
+          setSuccess(null)
+          await api.resetCredits(selectedWorkspace.id)
+          setSuccess("Credits reset successfully")
+          showToast("Credits reset successfully", "success")
+          await loadWorkspaceDetails(selectedWorkspace.id)
+        } catch (err) {
+          setError(err.message || "Failed to reset credits")
+          showToast(err.message || "Failed to reset credits", "error")
+        } finally {
+          setActionLoading(false)
+        }
+      }
+    })
   }
 
   const handleRenewCredits = async () => {
@@ -173,19 +185,29 @@ export default function WorkspaceTab({
   }
 
   const handleExpireCredits = async () => {
-    if (!selectedWorkspace || !confirm("Are you sure you want to expire all remaining credits?")) return
-    try {
-      setActionLoading(true)
-      setError(null)
-      setSuccess(null)
-      const res = await api.expireCredits(selectedWorkspace.id)
-      setSuccess(res.message || "Unused credits expired successfully")
-      await loadWorkspaceDetails(selectedWorkspace.id)
-    } catch (err) {
-      setError(err.message || "Failed to expire credits")
-    } finally {
-      setActionLoading(false)
-    }
+    if (!selectedWorkspace) return
+    showConfirm({
+      title: "Expire Remaining Credits",
+      message: "Are you sure you want to expire all remaining credits?",
+      confirmText: "Expire Credits",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          setActionLoading(true)
+          setError(null)
+          setSuccess(null)
+          const res = await api.expireCredits(selectedWorkspace.id)
+          setSuccess(res.message || "Unused credits expired successfully")
+          showToast(res.message || "Unused credits expired successfully", "success")
+          await loadWorkspaceDetails(selectedWorkspace.id)
+        } catch (err) {
+          setError(err.message || "Failed to expire credits")
+          showToast(err.message || "Failed to expire credits", "error")
+        } finally {
+          setActionLoading(false)
+        }
+      }
+    })
   }
 
   const handleRecalculateCredits = async () => {
@@ -230,19 +252,29 @@ export default function WorkspaceTab({
   }
 
   const handleResetWallet = async () => {
-    if (!selectedWorkspace || !confirm("Are you sure you want to reset WCC wallet balance to 0?")) return
-    try {
-      setActionLoading(true)
-      setError(null)
-      setSuccess(null)
-      await api.resetWallet(selectedWorkspace.id)
-      setSuccess("Wallet reset successfully")
-      await loadWorkspaceDetails(selectedWorkspace.id)
-    } catch (err) {
-      setError(err.message || "Failed to reset wallet")
-    } finally {
-      setActionLoading(false)
-    }
+    if (!selectedWorkspace) return
+    showConfirm({
+      title: "Reset Wallet Balance",
+      message: "Are you sure you want to reset WCC wallet balance to 0?",
+      confirmText: "Reset Balance",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          setActionLoading(true)
+          setError(null)
+          setSuccess(null)
+          await api.resetWallet(selectedWorkspace.id)
+          setSuccess("Wallet reset successfully")
+          showToast("Wallet reset successfully", "success")
+          await loadWorkspaceDetails(selectedWorkspace.id)
+        } catch (err) {
+          setError(err.message || "Failed to reset wallet")
+          showToast(err.message || "Failed to reset wallet", "error")
+        } finally {
+          setActionLoading(false)
+        }
+      }
+    })
   }
 
   const handleRecalculateWallet = async () => {

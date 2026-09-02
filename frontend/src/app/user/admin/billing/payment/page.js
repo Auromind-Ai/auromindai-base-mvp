@@ -12,12 +12,14 @@ import PaymentSuccessModal from "@/components/billing/PaymentSuccessModal"
 import PaymentFailedModal from "@/components/billing/PaymentFailedModal"
 import api from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
+import { useToast } from "@/context/ToastContext"
 
 const LOG_PREFIX = "[BILLING]"
 const DEFAULT_PROVIDER = "razorpay"
 
 /* ─ Contact Modal for "Let's Talk" (Enterprise / Custom plans) ─ */
 function ContactModal({ isOpen, onClose, initialData = {} }) {
+  const { showToast } = useToast()
   const [formData, setFormData] = useState({
     name: initialData?.name || "",
     phone: initialData?.phone || "",
@@ -62,7 +64,7 @@ function ContactModal({ isOpen, onClose, initialData = {} }) {
       }, 2000)
     } catch (error) {
       console.error(LOG_PREFIX, "Inquiry submission failed:", error)
-      alert("Failed to submit inquiry. Please check your network and try again.")
+      showToast("Failed to submit inquiry. Please check your network and try again.", "error")
     } finally {
       setIsSubmitting(false)
     }

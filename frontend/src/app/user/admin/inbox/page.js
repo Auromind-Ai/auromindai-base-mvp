@@ -14,6 +14,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useRealtime } from '@/context/RealtimeContext';
+import { useToast } from '@/context/ToastContext';
 import MessageRenderer from '@/components/chat/MessageRenderer';
 import { insertDateSeparators } from '@/lib/dateUtils';
 import ConvertLeadModal from '@/components/leads/ConvertLeadModal';
@@ -787,6 +788,7 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
 }
 
 function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
+    const { showToast } = useToast();
     const [templates, setTemplates] = useState([]);
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [variables, setVariables] = useState({});
@@ -813,8 +815,11 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
     }, [isOpen, workspace?.id]);
 
     useEffect(() => {
-        if (!selectedTemplate) { setVariables({}); return; }
-        const matches = selectedTemplate.content.match(/\{\{(\d+)\}\}/g) || [];
+        if (!selectedTemplate || !selectedTemplate.content) {
+            setVariables({});
+            return;
+        }
+        const matches = selectedTemplate.content.match(/\{\{\d+\}\}/g) || [];
         const uniqueVars = {};
         matches.forEach(m => {
             const num = m.replace(/\{\{|\}\}/g, '');
@@ -850,10 +855,11 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
                 variables: varArray
             });
             onSuccess(getPreviewContent());
+            showToast("Template message sent successfully", "success");
             onClose();
         } catch (e) {
             console.error("Send template error:", e);
-            alert("Error sending template message.");
+            showToast("Error sending template message: " + (e?.message || "Failed to send"), "error");
         } finally {
             setLoading(false);
         }

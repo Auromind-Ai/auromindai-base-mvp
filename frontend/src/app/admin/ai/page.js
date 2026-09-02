@@ -4,8 +4,10 @@ import { useState, useEffect } from "react"
 import { BrainCircuit, Settings, Toggle2 } from "lucide-react"
 
 import api from "@/lib/api"
+import { useToast } from "@/context/ToastContext"
 
 export default function AISettingsPage() {
+  const { showToast } = useToast()
   const [config, setConfig] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -48,12 +50,10 @@ export default function AISettingsPage() {
       setSaving(true)
       await api.saveAIConfig(config)
       setError(null)
-      // Show success message
-      setTimeout(() => {
-        alert("Configuration saved successfully!")
-      }, 100)
+      showToast("Configuration saved successfully!", "success")
     } catch (err) {
       setError(err.message)
+      showToast(err.message || "Failed to save configuration", "error")
     } finally {
       setSaving(false)
     }

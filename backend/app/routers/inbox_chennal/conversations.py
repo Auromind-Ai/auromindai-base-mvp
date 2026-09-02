@@ -25,6 +25,7 @@ from app.models.conversation import Conversation
 from app.models.workspace import Workspace, WorkspaceMember
 from app.services.inbox.conversation_service import ConversationService
 from app.services.inbox.message_service import MessageService
+from app.services.analytics.realtime_service import publish_to_workspace
 from app.services.config_service import config_service
 from fastapi.encoders import jsonable_encoder
 
@@ -386,6 +387,22 @@ def close_conversation(
         db.add(history_entry)
         
     db.commit()
+
+    # Realtime pubsub
+    try:
+       
+        publish_to_workspace(
+            workspace_id=str(workspace_id),
+            event_type="conversation_updated",
+            payload={
+                "type": "conversation_closed",
+                "conversation_id": conversation_id,
+            },
+            conversation_id=conversation_id,
+        )
+    except Exception as evt_exc:
+        logger.warning(f"Failed to publish conversation_closed event: {evt_exc}")
+
     return {"status": "success"}
 
 

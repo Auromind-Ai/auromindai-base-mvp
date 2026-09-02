@@ -3,11 +3,13 @@
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
+import { useToast } from "@/context/ToastContext"
 import api from "@/lib/api"
 
 export default function Page({ params }) {
   const router = useRouter()
   const { refreshUser } = useAuth()
+  const { showToast } = useToast()
   const lastSessionIdRef = useRef(null)
 
   useEffect(() => {
@@ -55,7 +57,7 @@ export default function Page({ params }) {
         router.replace("/user/admin/dashboard")
 
       } catch (err) {
-        alert("Impersonation failed: " + err.message)
+        showToast("Impersonation failed: " + err.message, "error")
         
         try {
           await api.stopImpersonation();

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { getToken } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { FileText, Plus, Trash2 } from "lucide-react";
+import { useToast } from "@/context/ToastContext";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
@@ -15,6 +16,7 @@ const SYSTEM_TAGS = [
 
 export default function AdminTemplatesPage() {
   const router = useRouter();
+  const { showToast, showConfirm } = useToast();
   
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -83,28 +85,37 @@ export default function AdminTemplatesPage() {
         content: "", system_tag: "trending", header: "", footer: "", cta: "", cta_btn_title: ""
       });
       
+      showToast("Template created successfully!", "success");
       fetchTemplates();
     } catch (err) {
-      alert("Error: " + err.message);
+      showToast("Error: " + err.message, "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to delete this system template?")) return;
-    try {
-      const res = await fetch(`${API_BASE}/admin/templates/system/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${getToken()}`
+    showConfirm({
+      title: "Delete System Template",
+      message: "Are you sure you want to delete this system template?",
+      confirmText: "Delete",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API_BASE}/admin/templates/system/${id}`, {
+            method: "DELETE",
+            headers: {
+              "Authorization": `Bearer ${getToken()}`
+            }
+          });
+          if (!res.ok) throw new Error("Failed to delete template");
+          showToast("Template deleted successfully", "success");
+          fetchTemplates();
+        } catch (err) {
+          showToast("Error deleting template: " + err.message, "error");
         }
-      });
-      if (!res.ok) throw new Error("Failed to delete template");
-      fetchTemplates();
-    } catch (err) {
-      alert("Error deleting template: " + err.message);
-    }
+      }
+    });
   };
 
   return (

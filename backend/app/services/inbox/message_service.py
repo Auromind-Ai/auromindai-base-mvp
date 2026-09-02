@@ -158,7 +158,9 @@ class MessageService:
             source=source,
             metadata_json=json.dumps(metadata or {}),
         )
-        conversation.updated_at = datetime.utcnow()
+        now_utc = datetime.utcnow()
+        conversation.updated_at = now_utc
+        conversation.last_message_at = now_utc
         db.add(message)
         db.flush()
         return message

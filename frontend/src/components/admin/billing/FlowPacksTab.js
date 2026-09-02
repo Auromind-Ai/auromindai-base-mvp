@@ -3,6 +3,7 @@
 import React, { useState } from "react"
 import { Workflow, Plus } from "lucide-react"
 import api from "@/lib/api"
+import { useToast } from "@/context/ToastContext"
 
 export default function FlowPacksTab({
   flowPacks,
@@ -11,6 +12,7 @@ export default function FlowPacksTab({
   setSuccess,
   setActionLoading
 }) {
+  const { showConfirm, showToast } = useToast()
   const [showCreatePack, setShowCreatePack] = useState(false)
   const [editingPackId, setEditingPackId] = useState(null)
   
@@ -111,20 +113,29 @@ export default function FlowPacksTab({
   }
 
   const handleDeleteFlowPack = async (id) => {
-    if (!confirm("Are you sure you want to delete this flow pack?")) return
-    try {
-      setActionLoading(true)
-      setError(null)
-      setSuccess(null)
-      await api.deleteFlowPackAdmin(id)
-      setSuccess("Flow pack deleted successfully")
-      const packs = await api.getFlowPacksAdmin()
-      setFlowPacks(packs)
-    } catch (err) {
-      setError(err.message || "Failed to delete flow pack")
-    } finally {
-      setActionLoading(false)
-    }
+    showConfirm({
+      title: "Delete Flow Pack",
+      message: "Are you sure you want to delete this flow pack?",
+      confirmText: "Delete",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          setActionLoading(true)
+          setError(null)
+          setSuccess(null)
+          await api.deleteFlowPackAdmin(id)
+          setSuccess("Flow pack deleted successfully")
+          showToast("Flow pack deleted successfully", "success")
+          const packs = await api.getFlowPacksAdmin()
+          setFlowPacks(packs)
+        } catch (err) {
+          setError(err.message || "Failed to delete flow pack")
+          showToast(err.message || "Failed to delete flow pack", "error")
+        } finally {
+          setActionLoading(false)
+        }
+      }
+    })
   }
 
   return (

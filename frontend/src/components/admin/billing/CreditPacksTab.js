@@ -3,6 +3,7 @@
 import React, { useState } from "react"
 import { Coins, Plus } from "lucide-react"
 import api from "@/lib/api"
+import { useToast } from "@/context/ToastContext"
 
 export default function CreditPacksTab({
   creditPacks,
@@ -11,6 +12,7 @@ export default function CreditPacksTab({
   setSuccess,
   setActionLoading
 }) {
+  const { showConfirm, showToast } = useToast()
   const [showCreatePack, setShowCreatePack] = useState(false)
   const [editingPack, setEditingPack] = useState(null)
   
@@ -87,20 +89,29 @@ export default function CreditPacksTab({
   }
 
   const handleDeleteCreditPack = async (id) => {
-    if (!confirm("Are you sure you want to delete this credit pack?")) return
-    try {
-      setActionLoading(true)
-      setError(null)
-      setSuccess(null)
-      await api.deleteCreditPackAdmin(id)
-      setSuccess("Credit pack deleted successfully")
-      const packs = await api.getCreditPacksAdmin()
-      setCreditPacks(packs)
-    } catch (err) {
-      setError(err.message || "Failed to delete credit pack")
-    } finally {
-      setActionLoading(false)
-    }
+    showConfirm({
+      title: "Delete Credit Pack",
+      message: "Are you sure you want to delete this credit pack?",
+      confirmText: "Delete",
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          setActionLoading(true)
+          setError(null)
+          setSuccess(null)
+          await api.deleteCreditPackAdmin(id)
+          setSuccess("Credit pack deleted successfully")
+          showToast("Credit pack deleted successfully", "success")
+          const packs = await api.getCreditPacksAdmin()
+          setCreditPacks(packs)
+        } catch (err) {
+          setError(err.message || "Failed to delete credit pack")
+          showToast(err.message || "Failed to delete credit pack", "error")
+        } finally {
+          setActionLoading(false)
+        }
+      }
+    })
   }
 
   return (

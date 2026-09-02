@@ -54,7 +54,6 @@
 //             if (workspaceId) loadData(workspaceId);
 //         } catch (error) {
 //             console.error('Failed to override decision:', error);
-//             alert('Failed to override decision');
 //         }
 //     };
 

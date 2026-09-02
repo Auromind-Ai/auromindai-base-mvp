@@ -16,6 +16,7 @@ import {
   Search,
 } from 'lucide-react';
 import api from '@/lib/api';
+import { useToast } from '@/context/ToastContext';
 
 const FEATURES = [
   { key: 'chat', label: 'Chat & Conversations', icon: MessageSquare, modes: ['auto', 'fast', 'smart', 'deep', 'flash'] },
@@ -51,6 +52,7 @@ const getEmptyConfig = (featureKey, experienceLevel, label) => ({
 });
 
 export default function ModelConfigAdmin() {
+  const { showConfirm, showToast } = useToast();
   const [activeFeature, setActiveFeature] = useState(FEATURES[0]);
   const [activeMode, setActiveMode] = useState('auto');
   
@@ -230,26 +232,34 @@ export default function ModelConfigAdmin() {
   };
 
   const handleSeedDefaults = async () => {
-    if (!window.confirm('Are you sure you want to seed default routes? This will overwrite missing configurations.')) {
-      return;
-    }
-    try {
-      setLoading(true);
-      setError('');
-      const res = await api.seedModelConfigs();
-      if (res.success) {
-        setSuccess('Default configurations seeded successfully.');
-        await fetchConfigs();
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        setError('Failed to seed configurations.');
+    showConfirm({
+      title: "Seed Default Routes",
+      message: "Are you sure you want to seed default routes? This will overwrite missing configurations.",
+      confirmText: "Seed Defaults",
+      type: "warning",
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          setError('');
+          const res = await api.seedModelConfigs();
+          if (res.success) {
+            setSuccess('Default configurations seeded successfully.');
+            showToast('Default configurations seeded successfully.', 'success');
+            await fetchConfigs();
+            setTimeout(() => setSuccess(''), 3000);
+          } else {
+            setError('Failed to seed configurations.');
+            showToast('Failed to seed configurations.', 'error');
+          }
+        } catch (err) {
+          console.error(err);
+          setError(err.message || 'Error seeding configurations.');
+          showToast(err.message || 'Error seeding configurations.', 'error');
+        } finally {
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      console.error(err);
-      setError(err.message || 'Error seeding configurations.');
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const currentModels = providerModels[formData.provider] || [];

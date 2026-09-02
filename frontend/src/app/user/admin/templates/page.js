@@ -14,6 +14,7 @@ import {
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -568,6 +569,7 @@ function SidebarItem({ id, label, Icon, active, onClick }) {
 export default function TemplatesPage() {
   const router = useRouter();
   const { workspaceId } = useAuth();
+  const { showToast } = useToast();
   const [templates, setTemplates] = useState([]);
   const [systemTemplates, setSystemTemplates] = useState([]);
   const [filtered, setFiltered]   = useState([]);
@@ -657,10 +659,11 @@ export default function TemplatesPage() {
   const handleSubmit = async tpl => {
     try {
       await api.post(`/templates/submit/${tpl.id}`);
+      showToast('Template submitted successfully', 'success');
       fetchTemplates();
     } catch (err) {
       console.error(err);
-      alert(err.message || err?.data?.detail || 'Failed to submit template');
+      showToast(err.message || err?.data?.detail || 'Failed to submit template', 'error');
       fetchTemplates();
     }
   };

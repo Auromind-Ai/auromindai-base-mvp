@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import { Inbox, RefreshCw, ExternalLink } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import api from "@/lib/api";
 
 export default function EmailPage() {
+  const { showToast } = useToast();
   const { workspaces, workspaceId } = useAuth();
   const workspace = workspaces.find((item) => item.id === workspaceId) || null;
 
@@ -87,10 +89,10 @@ export default function EmailPage() {
   const approveAction = async () => {
     try {
       await api.approveAutomation(aiData.id);
-      alert("Automation executed");
+      showToast("Automation executed", "success");
     } catch (err) {
       console.error("Approve action failed:", err);
-      alert("Approve action failed: " + err.message);
+      showToast("Approve action failed: " + err.message, "error");
     }
   };
 
@@ -101,10 +103,10 @@ export default function EmailPage() {
   const rejectAction = async () => {
     try {
       await api.rejectAutomation(aiData.id);
-      alert("Automation rejected");
+      showToast("Automation rejected", "info");
     } catch (err) {
       console.error("Reject action failed:", err);
-      alert("Reject action failed: " + err.message);
+      showToast("Reject action failed: " + err.message, "error");
     }
   };
 
@@ -114,7 +116,7 @@ export default function EmailPage() {
 
   const sendReply = async () => {
     if (!aiData?.suggested_reply) {
-      alert("No suggested reply available");
+      showToast("No suggested reply available", "warning");
       return;
     }
 
@@ -127,10 +129,10 @@ export default function EmailPage() {
         subject: selectedEmail.subject,
         reply_text: editedReply
       });
-      alert("Reply sent successfully");
+      showToast("Reply sent successfully", "success");
     } catch (err) {
       console.error("Failed to send reply:", err);
-      alert("Failed to send reply: " + err.message);
+      showToast("Failed to send reply: " + err.message, "error");
     } finally {
       setSendingReply(false);
     }

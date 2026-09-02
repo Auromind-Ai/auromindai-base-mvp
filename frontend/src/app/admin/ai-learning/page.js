@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { TrendingUp, RefreshCw } from 'lucide-react'
 
 import api from '@/lib/api'
+import { useToast } from '@/context/ToastContext'
 
 export default function AILearningPage() {
+  const { showToast } = useToast()
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -36,7 +38,7 @@ export default function AILearningPage() {
   }
 
   const handlePromoteToRule = async (eventId) => {
-    alert(`Promote event ${eventId} to rule`)
+    showToast(`Promote event ${eventId} to rule`, 'info')
   }
 
   useEffect(() => {

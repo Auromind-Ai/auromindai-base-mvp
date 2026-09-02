@@ -5,11 +5,13 @@ import { getToken, setAdminBackup } from "@/lib/auth";
 import { useRouter, useParams } from "next/navigation";
 import { Users, CheckCircle, Mail, ExternalLink, Loader2 } from "lucide-react";
 import api from "@/lib/api";
+import { useToast } from "@/context/ToastContext";
 
 const CLIENT_URL = process.env.NEXT_PUBLIC_CLIENT_URL ?? "http://localhost:3000";
 
 export default function UsersPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const params = useParams();
   const adminPath = params?.admin_path || "x7k2-admin-9pqm";
   
@@ -72,7 +74,7 @@ export default function UsersPage() {
       router.push(`/impersonate/${session_id}`);
     } catch (err) {
       console.error("Impersonation failed:", err);
-      alert("Could not start impersonation: " + err.message);
+      showToast("Could not start impersonation: " + err.message, "error");
     } finally {
       setImpersonating(null);
     }

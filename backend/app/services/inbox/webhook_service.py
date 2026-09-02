@@ -614,6 +614,7 @@ class WebhookService:
             from app.models.ai_action import ConversationState
             if conversation.status != ConversationStatus.OPEN:
                 conversation.status = ConversationStatus.OPEN
+                conversation.closed_at = None
 
             conv_state = db.query(ConversationState).filter_by(
                 conversation_id=conversation.id,
@@ -638,6 +639,10 @@ class WebhookService:
                 source=source,
                 db=db,
             )
+            if lead and lead.status == "closed":
+                lead.status = "open"
+                if lead.lead_tier == "inactive":
+                    lead.lead_tier = "warm"
 
             #  Step 3: Save inbound message 
             message_metadata = {
