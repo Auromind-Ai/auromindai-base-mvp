@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Building2, Users, TrendingUp } from "lucide-react"
 import api from "@/lib/api"
 
@@ -99,6 +99,57 @@ export default function WorkspacesPage() {
         { value: "enterprise", label: "enterprise" }
       ];
 
+  const momGrowth = useMemo(() => {
+    if (!workspaces || workspaces.length === 0) {
+      return { text: "0%", sub: "vs last month", color: "text-gray-400" }
+    }
+
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth()
+
+    const startOfCurrentMonth = new Date(currentYear, currentMonth, 1)
+    const startOfLastMonth = new Date(currentYear, currentMonth - 1, 1)
+
+    let thisMonthNew = 0
+    let lastMonthNew = 0
+
+    workspaces.forEach((w) => {
+      if (!w.created_at) return
+      const createdDate = new Date(w.created_at)
+      if (isNaN(createdDate.getTime())) return
+
+      if (createdDate >= startOfCurrentMonth) {
+        thisMonthNew++
+      } else if (createdDate >= startOfLastMonth && createdDate < startOfCurrentMonth) {
+        lastMonthNew++
+      }
+    })
+
+    if (lastMonthNew === 0) {
+      if (thisMonthNew === 0) {
+        return { text: "0%", sub: "0 new this month", color: "text-gray-400" }
+      }
+      return {
+        text: "+100%",
+        sub: `${thisMonthNew} new this mo (0 last mo)`,
+        color: "text-emerald-400",
+      }
+    }
+
+    const diff = thisMonthNew - lastMonthNew
+    const rate = (diff / lastMonthNew) * 100
+    const formattedRate = rate % 1 === 0 ? rate.toFixed(0) : rate.toFixed(1)
+    const isPositive = rate > 0
+    const isNeutral = rate === 0
+
+    return {
+      text: `${isPositive ? "+" : ""}${formattedRate}%`,
+      sub: `${thisMonthNew} this mo vs ${lastMonthNew} last mo`,
+      color: isNeutral ? "text-gray-300" : isPositive ? "text-emerald-400" : "text-rose-400",
+    }
+  }, [workspaces])
+
   return (
     <div className="min-h-screen bg-black p-8">
       <div className="max-w-7xl mx-auto">
@@ -141,8 +192,10 @@ export default function WorkspacesPage() {
 
               <StatCard
                 icon={TrendingUp}
-                label="Growth"
-                value="+12%"
+                label="Growth (MoM)"
+                value={momGrowth.text}
+                sub={momGrowth.sub}
+                valueColor={momGrowth.color}
               />
             </div>
 
@@ -299,12 +352,13 @@ export default function WorkspacesPage() {
   )
 }
 
-function StatCard({ icon: Icon, label, value }) {
+function StatCard({ icon: Icon, label, value, sub, valueColor = "text-white" }) {
   return (
     <div className="bg-[#0f0f0f] border border-white/10 rounded-xl p-6">
       <Icon className="text-indigo-400 mb-3" size={24} />
       <p className="text-gray-400 text-sm">{label}</p>
-      <p className="text-white text-2xl font-bold">{value}</p>
+      <p className={`text-2xl font-bold ${valueColor}`}>{value}</p>
+      {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
     </div>
   )
 }

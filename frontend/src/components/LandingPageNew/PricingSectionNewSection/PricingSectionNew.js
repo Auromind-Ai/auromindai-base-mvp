@@ -261,9 +261,24 @@ export default function PricingSectionNew() {
           ? "Let's Talk"
           : `₹${Number(rawPrice).toLocaleString('en-IN')}`;
 
-        const repliesCount = p.credits
-          ? `${Math.round(p.credits).toLocaleString('en-IN')} AI Replies`
-          : `${Math.round((p.token_limit || 1000000) / TOKENS_PER_CREDIT).toLocaleString('en-IN')} AI Replies`;
+        const repliesCount = p.credits || p.included_ai_credits
+          ? `${Number(p.included_ai_credits || p.credits).toLocaleString('en-IN')} AI Credits / month`
+          : `${Math.round((p.token_limit || 1000000) / TOKENS_PER_CREDIT).toLocaleString('en-IN')} AI Credits / month`;
+
+        const dynamicFeatures = [
+          repliesCount,
+          Number(p.included_wcc_wallet) > 0 ? `₹${Number(p.included_wcc_wallet).toFixed(0)} WhatsApp Wallet` : null,
+          p.flow === -1 ? 'Unlimited Flow Executions' : p.flow > 0 ? `${p.flow} Flow Executions / month` : null,
+          p.automation_limit === -1 ? 'Unlimited Active Automations' : p.automation_limit > 0 ? `${p.automation_limit} Active Automations` : null,
+          p.knowledge_base_limit === -1 ? 'Unlimited KB Documents' : p.knowledge_base_limit > 0 ? `${Number(p.knowledge_base_limit).toLocaleString('en-IN')} KB Documents` : null,
+          p.storage_limit_mb >= 1024 ? `${p.storage_limit_mb / 1024} GB File Storage` : p.storage_limit_mb > 0 ? `${p.storage_limit_mb} MB File Storage` : null,
+          p.lead_limit === -1 ? 'Unlimited Leads & CRM' : p.lead_limit > 0 ? `${p.lead_limit} Leads & CRM` : null,
+          p.meeting_limit === -1 ? 'Unlimited Meetings / month' : p.meeting_limit > 0 ? `${p.meeting_limit} Meetings / month` : null,
+          p.gmail_limit === -1 ? 'Unlimited Gmail Connections' : p.gmail_limit > 0 ? `${p.gmail_limit} Gmail Connection${p.gmail_limit > 1 ? 's' : ''}` : null,
+          p.team_limit === -1 ? 'Unlimited Team Members' : p.team_limit > 0 ? `${p.team_limit} Team Member${p.team_limit > 1 ? 's' : ''}` : null,
+          p.allow_ai_topup ? 'AI Credit Top-ups Enabled' : null,
+          p.allow_wcc_recharge ? 'WhatsApp Wallet Recharge Enabled' : null,
+        ].filter(Boolean);
 
         return {
           key: p.key,
@@ -274,105 +289,12 @@ export default function PricingSectionNew() {
           description: p.description,
           features: (p.features && p.features.length > 0)
             ? p.features
-            : [repliesCount, 'Basic Workflows', 'Meta API Included'],
+            : dynamicFeatures,
           buttonText: p.key === 'free' ? 'Choose this plan' : (p.key === 'enterprise' ? 'Schedule a call' : 'Choose this plan'),
           featured: p.featured || p.is_featured || p.key === 'pro',
         };
       })
-    : [
-        {
-          key: 'free',
-          name: settings?.free_plan_name || 'Free Starter',
-          icon: "🚀",
-          displayPrice: (settings?.free_plan_price ?? 0) === 0 ? 'Free' : `₹${settings?.free_plan_price}`,
-          pricePeriod: billing === 'annual' ? '/year' : '/month',
-          description: settings?.free_plan_desc || 'A controlled top-of-funnel acquisition tier for getting started.',
-          features: settings?.free_plan_features || [
-            `${Math.round((settings?.token_limit_per_plan?.free || 1000000) / TOKENS_PER_CREDIT)} AI Replies`,
-            '₹50 WhatsApp Wallet (~45 messages)',
-            '2 Flow Executions / month',
-            '2 Active Automations',
-            '5 Knowledge Base Documents',
-            '100 MB Brain File Storage',
-            '50 Leads & CRM',
-            '10 Meetings / month',
-            '1 Gmail Connection',
-            '1 Team Member',
-          ],
-          buttonText: 'Choose this plan',
-          featured: false,
-        },
-        {
-          key: 'solo',
-          name: settings?.solo_plan_name || 'Solo Smart',
-          icon: "⚡",
-          displayPrice: billing === 'annual'
-            ? `₹${Number(settings?.solo_yearly_plan_price || 9990).toLocaleString('en-IN')}`
-            : `₹${Number(settings?.solo_plan_price || 999).toLocaleString('en-IN')}`,
-          pricePeriod: billing === 'annual' ? '/year' : '/month',
-          description: settings?.solo_plan_desc || 'RAG & custom knowledge base on a budget for solopreneurs.',
-          features: settings?.solo_plan_features || [
-            `${Math.round((settings?.token_limit_per_plan?.solo || 15000000) / TOKENS_PER_CREDIT)} AI Replies`,
-            '₹200 WhatsApp Wallet',
-            '5 Flow Executions / month',
-            '10 Active Automations',
-            '25 Knowledge Base Documents',
-            '1 GB Brain File Storage',
-            '500 Leads & CRM',
-            '50 Meetings / month',
-            '2 Gmail Connections',
-            '3 Team Members',
-          ],
-          buttonText: 'Choose this plan',
-          featured: false,
-        },
-        {
-          key: 'pro',
-          name: settings?.pro_plan_name || 'Pro',
-          icon: "🔥",
-          displayPrice: billing === 'annual'
-            ? `₹${Number(settings?.pro_yearly_plan_price || 59990).toLocaleString('en-IN')}`
-            : `₹${Number(settings?.pro_plan_price || 5999).toLocaleString('en-IN')}`,
-          pricePeriod: billing === 'annual' ? '/year' : '/month',
-          description: settings?.pro_plan_desc || 'Advanced features for growing teams and scalable workflows.',
-          features: settings?.pro_plan_features || [
-            `${Math.round((settings?.token_limit_per_plan?.pro || 100000000) / TOKENS_PER_CREDIT)} AI Replies`,
-            '₹500 WhatsApp Wallet (~450 messages)',
-            '10 Flow Executions / month',
-            '50 Active Automations',
-            '100 Knowledge Base Documents',
-            '5 GB Brain File Storage',
-            '100 Leads & CRM',
-            '500 Meetings / month',
-            '5 Gmail Connections',
-            '10 Team Members',
-          ],
-          buttonText: 'Choose this plan',
-          featured: true,
-        },
-        {
-          key: 'enterprise',
-          name: settings?.enterprise_plan_name || 'Enterprise',
-          icon: "👑",
-          displayPrice: "Let's Talk",
-          pricePeriod: billing === 'annual' ? '/year' : '/month',
-          description: settings?.enterprise_plan_desc || 'For large-scale operations with dedicated infrastructure and limits.',
-          features: settings?.enterprise_plan_features || [
-            '500,000 AI Credits / month',
-            '₹500 WhatsApp Wallet',
-            'Unlimited Flow Executions',
-            'Unlimited Active Automations',
-            '1,000 Knowledge Base Documents',
-            '100 GB Brain File Storage',
-            'Unlimited Leads & CRM',
-            'Unlimited Meetings / month',
-            'Unlimited Gmail Connections',
-            '50 Team Members',
-          ],
-          buttonText: 'Schedule a call',
-          featured: false,
-        },
-      ];
+    : [];
 
   const plans = dynamicPlans;
 
@@ -447,7 +369,12 @@ export default function PricingSectionNew() {
         </motion.div>
 
         {/* Feature Comparison Table */}
-        <PricingComparisonTable onSelectPlan={handlePlanClick} />
+        <PricingComparisonTable 
+          plans={settings?.plans || []} 
+          onSelectPlan={handlePlanClick} 
+          billingCycle={billing} 
+          onBillingCycleChange={setBilling} 
+        />
       </div>
     </section>
   );

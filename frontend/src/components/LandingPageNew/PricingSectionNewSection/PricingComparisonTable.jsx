@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
   MessageSquare, 
@@ -13,147 +13,71 @@ import {
   Mail, 
   UserCheck, 
   PlusCircle, 
-  RefreshCw,
+  RefreshCw, 
   Check
 } from 'lucide-react';
+import api from '@/lib/api';
 
-const featureCategories = [
-  {
-    category: 'USAGE & CREDITS',
-    icon: Sparkles,
-    rows: [
-      {
-        icon: Sparkles,
-        name: 'AI Credits / month',
-        free: '20,000',
-        pro: '250,000',
-        enterprise: '500,000',
-      },
-      {
-        icon: MessageSquare,
-        name: 'WhatsApp Wallet',
-        free: '₹50 (~45 messages)',
-        pro: '₹500 (~450 messages)',
-        enterprise: '₹500',
-      },
-      {
-        icon: Workflow,
-        name: 'Flow Executions / month',
-        free: '2',
-        pro: '10',
-        enterprise: 'Unlimited',
-      },
-    ],
-  },
-  {
-    category: 'AUTOMATION & KNOWLEDGE',
-    icon: Bot,
-    rows: [
-      {
-        icon: Bot,
-        name: 'Active Automations',
-        free: '2',
-        pro: '50',
-        enterprise: 'Unlimited',
-      },
-      {
-        icon: BookOpen,
-        name: 'Knowledge Base Documents',
-        free: '5',
-        pro: '100',
-        enterprise: '1,000',
-      },
-      {
-        icon: HardDrive,
-        name: 'Brain File Storage',
-        free: '100 MB',
-        pro: '5 GB',
-        enterprise: '100 GB',
-      },
-    ],
-  },
-  {
-    category: 'CRM & MEETINGS',
-    icon: Users,
-    rows: [
-      {
-        icon: Users,
-        name: 'Leads & CRM',
-        free: '50',
-        pro: '100',
-        enterprise: 'Unlimited',
-      },
-      {
-        icon: Calendar,
-        name: 'Meetings / month',
-        free: '10',
-        pro: '500',
-        enterprise: 'Unlimited',
-      },
-    ],
-  },
-  {
-    category: 'INTEGRATIONS & TEAM',
-    icon: Mail,
-    rows: [
-      {
-        icon: Mail,
-        name: 'Gmail Connections',
-        free: '1',
-        pro: '5',
-        enterprise: 'Unlimited',
-      },
-      {
-        icon: UserCheck,
-        name: 'Team Members',
-        free: '1',
-        pro: '10',
-        enterprise: '50',
-      },
-    ],
-  },
-  {
-    category: 'ADVANCED FEATURES',
-    icon: PlusCircle,
-    rows: [
-      {
-        icon: PlusCircle,
-        name: 'AI Credit Top-ups',
-        free: '-',
-        pro: 'check',
-        enterprise: '-',
-      },
-      {
-        icon: RefreshCw,
-        name: 'WhatsApp Wallet Recharge',
-        free: '-',
-        pro: 'check',
-        enterprise: '-',
-      },
-    ],
-  },
-];
-
-function ValueCell({ value, isPro = false }) {
-  if (value === 'check') {
+function ValueCell({ value, isFeatured = false }) {
+  if (value === 'check' || value === true) {
     return (
       <div className="w-5 h-5 rounded-full bg-[#7C3AED]/30 border border-[#7C3AED] flex items-center justify-center mx-auto shadow-[0_0_10px_rgba(124,58,237,0.5)]">
         <Check size={11} className="text-[#C084FC] stroke-[3]" />
       </div>
     );
   }
-  if (value === '-' || !value) {
+  if (value === '-' || value === false || value === null || value === undefined) {
     return <span className="text-zinc-600 font-medium text-xs md:text-sm">—</span>;
   }
   return (
-    <span className={`text-[11px] sm:text-xs md:text-sm ${isPro ? 'text-white font-extrabold' : 'text-zinc-300 font-medium'}`}>
+    <span className={`text-[11px] sm:text-xs md:text-sm ${isFeatured ? 'text-white font-extrabold' : 'text-zinc-300 font-medium'}`}>
       {value}
     </span>
   );
 }
 
-export default function PricingComparisonTable({ onSelectPlan }) {
-  const [billingCycle, setBillingCycle] = useState('monthly');
+function formatStorage(mb) {
+  if (!mb || mb <= 0) return '—';
+  if (mb >= 1024) return `${mb / 1024} GB`;
+  return `${mb} MB`;
+}
+
+function formatLimit(val, suffix = '') {
+  if (val === -1 || val === null || val === undefined) return 'Unlimited';
+  if (val === 0) return '—';
+  return `${Number(val).toLocaleString('en-IN')}${suffix}`;
+}
+
+export default function PricingComparisonTable({ 
+  plans: propPlans, 
+  onSelectPlan, 
+  billingCycle: propBillingCycle, 
+  onBillingCycleChange 
+}) {
+  const [internalBillingCycle, setInternalBillingCycle] = useState('monthly');
+  const [loadedPlans, setLoadedPlans] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const billingCycle = propBillingCycle || internalBillingCycle;
+  const setBillingCycle = onBillingCycleChange || setInternalBillingCycle;
+
+  useEffect(() => {
+    if (propPlans && Array.isArray(propPlans) && propPlans.length > 0) {
+      setLoadedPlans(propPlans);
+    } else {
+      setLoading(true);
+      api.getPricing()
+        .then((data) => {
+          if (data && data.plans && Array.isArray(data.plans)) {
+            setLoadedPlans(data.plans);
+          }
+        })
+        .catch((err) => console.error("Failed to load pricing for comparison table:", err))
+        .finally(() => setLoading(false));
+    }
+  }, [propPlans]);
+
+  const activePlans = (propPlans && propPlans.length > 0) ? propPlans : loadedPlans;
 
   const handleAction = (planKey) => {
     if (onSelectPlan) {
@@ -166,6 +90,122 @@ export default function PricingComparisonTable({ onSelectPlan }) {
       }
     }
   };
+
+  if (!activePlans || activePlans.length === 0) {
+    if (loading) {
+      return (
+        <div className="w-full text-center py-12 text-zinc-500 text-sm font-medium">
+          Loading comparison table...
+        </div>
+      );
+    }
+    return null;
+  }
+
+  // Define structured feature categories based on real plan entitlements
+  const featureCategories = [
+    {
+      category: 'USAGE & CREDITS',
+      icon: Sparkles,
+      rows: [
+        {
+          icon: Sparkles,
+          name: 'AI Credits / month',
+          getValue: (p) => formatLimit(p.included_ai_credits || p.credits || (p.token_limit ? p.token_limit / 1000 : 0)),
+        },
+        {
+          icon: MessageSquare,
+          name: 'WhatsApp Wallet',
+          getValue: (p) => {
+            const val = Number(p.included_wcc_wallet || 0);
+            if (val <= 0) return '—';
+            const approxMsgs = Math.round(val / 1.1);
+            return `₹${val.toFixed(0)} (~${approxMsgs} msgs)`;
+          },
+        },
+        {
+          icon: Workflow,
+          name: 'Flow Executions / month',
+          getValue: (p) => formatLimit(p.flow),
+        },
+      ],
+    },
+    {
+      category: 'AUTOMATION & KNOWLEDGE',
+      icon: Bot,
+      rows: [
+        {
+          icon: Bot,
+          name: 'Active Automations',
+          getValue: (p) => formatLimit(p.automation_limit),
+        },
+        {
+          icon: BookOpen,
+          name: 'Knowledge Base Documents',
+          getValue: (p) => formatLimit(p.knowledge_base_limit),
+        },
+        {
+          icon: HardDrive,
+          name: 'Brain File Storage',
+          getValue: (p) => formatStorage(p.storage_limit_mb),
+        },
+      ],
+    },
+    {
+      category: 'CRM & MEETINGS',
+      icon: Users,
+      rows: [
+        {
+          icon: Users,
+          name: 'Leads & CRM',
+          getValue: (p) => formatLimit(p.lead_limit),
+        },
+        {
+          icon: Calendar,
+          name: 'Meetings / month',
+          getValue: (p) => formatLimit(p.meeting_limit),
+        },
+      ],
+    },
+    {
+      category: 'INTEGRATIONS & TEAM',
+      icon: Mail,
+      rows: [
+        {
+          icon: Mail,
+          name: 'Gmail Connections',
+          getValue: (p) => formatLimit(p.gmail_limit),
+        },
+        {
+          icon: UserCheck,
+          name: 'Team Members',
+          getValue: (p) => formatLimit(p.team_limit),
+        },
+      ],
+    },
+    {
+      category: 'ADVANCED FEATURES',
+      icon: PlusCircle,
+      rows: [
+        {
+          icon: PlusCircle,
+          name: 'AI Credit Top-ups',
+          getValue: (p) => p.allow_ai_topup ? 'check' : '-',
+        },
+        {
+          icon: RefreshCw,
+          name: 'WhatsApp Wallet Recharge',
+          getValue: (p) => p.allow_wcc_recharge ? 'check' : '-',
+        },
+      ],
+    },
+  ];
+
+  const gridColsClass = activePlans.length === 2 
+    ? 'grid-cols-2' 
+    : activePlans.length === 3 
+    ? 'grid-cols-3' 
+    : 'grid-cols-4';
 
   return (
     <div className="w-full max-w-6xl mx-auto mt-16 md:mt-24 px-3 sm:px-6 font-['Poppins',sans-serif]" style={{ fontFamily: "'Poppins', sans-serif" }}>
@@ -208,106 +248,98 @@ export default function PricingComparisonTable({ onSelectPlan }) {
       </div>
 
       {/* Top Plan Headers (Mobile View < 640px) */}
-      <div className="sm:hidden grid grid-cols-3 gap-2 mb-4">
-        {/* Mobile Free Starter */}
-        <div className="bg-[#0e0d16] border border-white/10 rounded-xl p-2.5 text-center flex flex-col items-center justify-center">
-          <div className="text-xs font-bold text-white">Free</div>
-          <div className="text-[10px] text-zinc-400">Starter</div>
-        </div>
+      <div className={`sm:hidden grid ${gridColsClass} gap-2 mb-4`}>
+        {activePlans.map((plan) => {
+          const isFeatured = plan.featured || plan.is_featured || plan.key === 'pro';
+          const isFree = plan.key === 'free' || (plan.monthly_price === 0 && plan.yearly_price === 0);
+          const isEnterprise = plan.key === 'enterprise';
+          const price = billingCycle === 'yearly' ? plan.yearly_price : plan.monthly_price;
+          const displayPrice = isFree ? 'Free' : isEnterprise ? "Let's Talk" : `₹${Number(price).toLocaleString('en-IN')}`;
 
-        {/* Mobile Pro */}
-        <div className="bg-[#1a122e] border border-purple-500/60 rounded-xl p-2 text-center flex flex-col items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.3)]">
-          <span className="text-[8px] bg-purple-500/30 text-purple-200 border border-purple-400/40 rounded-full px-1.5 py-0.5 mb-1 font-bold uppercase tracking-wider">
-            • POPULAR
-          </span>
-          <div className="text-xs font-black text-white">Pro</div>
-          <div className="text-[10px] text-purple-300 font-bold">
-            {billingCycle === 'monthly' ? '₹199 /month' : '₹159 /month'}
-          </div>
-        </div>
-
-        {/* Mobile Enterprise */}
-        <div className="bg-[#0e0d16] border border-white/10 rounded-xl p-2.5 text-center flex flex-col items-center justify-center">
-          <div className="text-xs font-bold text-white">Enterprise</div>
-          <div className="text-[10px] text-zinc-400">Let&#39;s Talk</div>
-        </div>
+          return (
+            <div 
+              key={plan.key || plan.name}
+              className={`${
+                isFeatured 
+                  ? 'bg-[#1a122e] border border-purple-500/60 shadow-[0_0_15px_rgba(139,92,246,0.3)]' 
+                  : 'bg-[#0e0d16] border border-white/10'
+              } rounded-xl p-2.5 text-center flex flex-col items-center justify-center`}
+            >
+              {isFeatured && (
+                <span className="text-[8px] bg-purple-500/30 text-purple-200 border border-purple-400/40 rounded-full px-1.5 py-0.5 mb-1 font-bold uppercase tracking-wider">
+                  • POPULAR
+                </span>
+              )}
+              <div className="text-xs font-bold text-white capitalize">{plan.display_name || plan.name}</div>
+              <div className={`text-[10px] ${isFeatured ? 'text-purple-300 font-bold' : 'text-zinc-400'}`}>
+                {displayPrice} {(!isFree && !isEnterprise) ? (billingCycle === 'yearly' ? '/yr' : '/mo') : ''}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Top Plan Cards (Tablet & Laptop View >= 640px) */}
-      <div className="hidden sm:grid sm:grid-cols-3 gap-3 md:gap-4 mb-6">
-        {/* Free Starter Card */}
-        <div className="bg-[#0d0d14] border border-white/10 rounded-2xl p-4 md:p-5 flex flex-col justify-between text-center">
-          <div>
-            <div className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-zinc-400">
-              FREE STARTER
-            </div>
-            <div className="text-2xl md:text-3xl font-extrabold text-white mt-2">
-              Free
-            </div>
-            <div className="text-xs text-zinc-400 mt-2 leading-relaxed font-normal min-h-[2.5rem] flex items-center justify-center">
-              A controlled top-of-funnel acquisition tier.
-            </div>
-          </div>
-          <button
-            onClick={() => handleAction('free')}
-            className="mt-4 w-full py-2.5 px-4 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <div>Get Started</div>
-            <div className="text-[10px] text-zinc-400 font-normal">Free forever</div>
-          </button>
-        </div>
+      <div className={`hidden sm:grid ${gridColsClass} gap-3 md:gap-4 mb-6`}>
+        {activePlans.map((plan) => {
+          const isFeatured = plan.featured || plan.is_featured || plan.key === 'pro';
+          const isFree = plan.key === 'free' || (plan.monthly_price === 0 && plan.yearly_price === 0);
+          const isEnterprise = plan.key === 'enterprise';
+          const price = billingCycle === 'yearly' ? plan.yearly_price : plan.monthly_price;
+          const displayPrice = isFree ? 'Free' : isEnterprise ? "Let's Talk" : `₹${Number(price).toLocaleString('en-IN')}`;
 
-        {/* Pro Card (Hero Highlight) */}
-        <div className="bg-gradient-to-b from-[#1c1333] via-[#120c22] to-[#0d0918] border border-purple-500/60 rounded-2xl p-4 md:p-5 flex flex-col justify-between text-center shadow-[0_0_30px_rgba(139,92,246,0.25)] relative overflow-hidden">
-          <div>
-            <span className="inline-block bg-purple-500/30 text-purple-200 border border-purple-400/40 rounded-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-widest mb-1">
-              • POPULAR
-            </span>
-            <div className="text-xs font-extrabold tracking-widest uppercase text-purple-200">
-              PRO
+          return (
+            <div
+              key={plan.key || plan.name}
+              className={`${
+                isFeatured
+                  ? 'bg-gradient-to-b from-[#1c1333] via-[#120c22] to-[#0d0918] border border-purple-500/60 shadow-[0_0_30px_rgba(139,92,246,0.25)] relative overflow-hidden'
+                  : 'bg-[#0d0d14] border border-white/10'
+              } rounded-2xl p-4 md:p-5 flex flex-col justify-between text-center`}
+            >
+              <div>
+                {isFeatured ? (
+                  <span className="inline-block bg-purple-500/30 text-purple-200 border border-purple-400/40 rounded-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-widest mb-1">
+                    • POPULAR
+                  </span>
+                ) : (
+                  <div className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-zinc-400">
+                    {plan.display_name || plan.name}
+                  </div>
+                )}
+                {isFeatured && (
+                  <div className="text-xs font-extrabold tracking-widest uppercase text-purple-200">
+                    {plan.display_name || plan.name}
+                  </div>
+                )}
+                <div className="text-2xl md:text-3xl font-black text-white mt-2">
+                  {displayPrice}{' '}
+                  {!isFree && !isEnterprise && (
+                    <span className="text-xs md:text-sm font-medium text-purple-300/80">
+                      {billingCycle === 'yearly' ? '/year' : '/month'}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-zinc-400 mt-2 leading-relaxed font-normal min-h-[2.5rem] flex items-center justify-center">
+                  {plan.description || (isFree ? 'Get started for free.' : isEnterprise ? 'For large-scale operations with dedicated infrastructure.' : 'Advanced features for scaling teams.')}
+                </div>
+              </div>
+              <button
+                onClick={() => handleAction(plan.key)}
+                className={`mt-4 w-full py-2.5 px-4 rounded-xl text-xs font-semibold transition cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${
+                  isFeatured
+                    ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white font-extrabold shadow-[0_0_25px_rgba(124,58,237,0.7)] hover:brightness-110'
+                    : 'border border-white/15 bg-white/5 hover:bg-white/10 text-white'
+                }`}
+              >
+                <div>{isEnterprise ? 'Contact Sales' : 'Get Started'}</div>
+                <div className={`text-[10px] font-normal ${isFeatured ? 'text-purple-200 font-semibold' : 'text-zinc-400'}`}>
+                  {isFree ? 'Free forever' : isEnterprise ? "Let's Talk" : `${displayPrice} / ${billingCycle === 'yearly' ? 'year' : 'month'}`}
+                </div>
+              </button>
             </div>
-            <div className="text-2xl md:text-3xl font-black text-white mt-2">
-              {billingCycle === 'monthly' ? '₹199' : '₹159'}{' '}
-              <span className="text-xs md:text-sm font-medium text-purple-300/80">/month</span>
-            </div>
-            <div className="text-xs text-purple-200/80 mt-2 leading-relaxed font-medium min-h-[2.5rem] flex items-center justify-center">
-              {billingCycle === 'monthly'
-                ? 'Billed monthly at ₹199. Cancel or upgrade anytime.'
-                : 'Billed annually at ₹1,908. Save 20%.'}
-            </div>
-          </div>
-          <button
-            onClick={() => handleAction('pro')}
-            className="mt-4 w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white text-xs font-extrabold shadow-[0_0_25px_rgba(124,58,237,0.7)] hover:brightness-110 transition cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <div>Get Started</div>
-            <div className="text-[10px] text-purple-200 font-semibold">
-              {billingCycle === 'monthly' ? '₹199 / month' : '₹159 / month'}
-            </div>
-          </button>
-        </div>
-
-        {/* Enterprise Card */}
-        <div className="bg-[#0d0d14] border border-white/10 rounded-2xl p-4 md:p-5 flex flex-col justify-between text-center">
-          <div>
-            <div className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-zinc-400">
-              ENTERPRISE
-            </div>
-            <div className="text-2xl md:text-3xl font-extrabold text-white mt-2">
-              Let&#39;s Talk
-            </div>
-            <div className="text-xs text-zinc-400 mt-2 leading-relaxed font-normal min-h-[2.5rem] flex items-center justify-center">
-              For large-scale operations with dedicated infrastructure and unlimited limits.
-            </div>
-          </div>
-          <button
-            onClick={() => handleAction('enterprise')}
-            className="mt-4 w-full py-2.5 px-4 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <div>Contact Sales</div>
-            <div className="text-[10px] text-zinc-400 font-normal">Let&#39;s Talk</div>
-          </button>
-        </div>
+          );
+        })}
       </div>
 
       {/* Feature Comparison Table Container */}
@@ -316,9 +348,9 @@ export default function PricingComparisonTable({ onSelectPlan }) {
           <thead>
             <tr className="sr-only">
               <th scope="col">Feature</th>
-              <th scope="col">Free</th>
-              <th scope="col">Pro</th>
-              <th scope="col">Enterprise</th>
+              {activePlans.map((p) => (
+                <th key={p.key || p.name} scope="col">{p.display_name || p.name}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -329,7 +361,7 @@ export default function PricingComparisonTable({ onSelectPlan }) {
                   {/* Category Header Row */}
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={activePlans.length + 1}
                       className="bg-[#130f24] border-t border-b border-purple-500/20 py-2.5 px-3 sm:px-5"
                     >
                       <div className="flex items-center gap-2">
@@ -350,7 +382,7 @@ export default function PricingComparisonTable({ onSelectPlan }) {
                         className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
                       >
                         {/* Feature Name */}
-                        <td className="w-[38%] sm:w-[34%] md:w-[31%] py-3 px-2.5 sm:px-5 text-left align-middle">
+                        <td className="w-[38%] sm:w-[30%] py-3 px-2.5 sm:px-5 text-left align-middle">
                           <div className="flex items-center gap-1.5 sm:gap-2.5">
                             {IconComp && (
                               <IconComp size={14} className="text-purple-400 shrink-0 hidden xs:block" />
@@ -361,20 +393,23 @@ export default function PricingComparisonTable({ onSelectPlan }) {
                           </div>
                         </td>
 
-                        {/* Free Starter Value */}
-                        <td className="w-[20%] sm:w-[22%] md:w-[23%] py-3 px-1 sm:px-3 text-center align-middle">
-                          <ValueCell value={row.free} />
-                        </td>
-
-                        {/* Pro Value (Highlighted Column) */}
-                        <td className="w-[22%] sm:w-[22%] md:w-[23%] py-3 px-1 sm:px-3 text-center align-middle bg-[#7C3AED]/[0.08] border-l border-r border-purple-500/30">
-                          <ValueCell value={row.pro} isPro={true} />
-                        </td>
-
-                        {/* Enterprise Value */}
-                        <td className="w-[20%] sm:w-[22%] md:w-[23%] py-3 px-1 sm:px-3 text-center align-middle">
-                          <ValueCell value={row.enterprise} />
-                        </td>
+                        {/* Plan Values */}
+                        {activePlans.map((plan) => {
+                          const isFeatured = plan.featured || plan.is_featured || plan.key === 'pro';
+                          const val = row.getValue(plan);
+                          return (
+                            <td 
+                              key={plan.key || plan.name}
+                              className={`py-3 px-1 sm:px-3 text-center align-middle ${
+                                isFeatured 
+                                  ? 'bg-[#7C3AED]/[0.08] border-l border-r border-purple-500/30' 
+                                  : ''
+                              }`}
+                            >
+                              <ValueCell value={val} isFeatured={isFeatured} />
+                            </td>
+                          );
+                        })}
                       </tr>
                     );
                   })}
@@ -391,63 +426,32 @@ export default function PricingComparisonTable({ onSelectPlan }) {
       </div>
 
       {/* Bottom CTA Action Buttons (Tablet & Laptop View >= 640px) */}
-      <div className="hidden sm:grid sm:grid-cols-3 gap-3 md:gap-4 mt-2">
-        <button
-          onClick={() => handleAction('free')}
-          className="w-full py-3 px-4 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold text-center transition cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <div>Get Started with Free</div>
-          <div className="text-[10px] text-zinc-400 font-normal mt-0.5">Free forever</div>
-        </button>
+      <div className={`hidden sm:grid ${gridColsClass} gap-3 md:gap-4 mt-2`}>
+        {activePlans.map((plan) => {
+          const isFeatured = plan.featured || plan.is_featured || plan.key === 'pro';
+          const isFree = plan.key === 'free' || (plan.monthly_price === 0 && plan.yearly_price === 0);
+          const isEnterprise = plan.key === 'enterprise';
+          const price = billingCycle === 'yearly' ? plan.yearly_price : plan.monthly_price;
+          const displayPrice = isFree ? 'Free' : isEnterprise ? "Let's Talk" : `₹${Number(price).toLocaleString('en-IN')}`;
 
-        <button
-          onClick={() => handleAction('pro')}
-          className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white text-xs font-extrabold text-center shadow-[0_0_25px_rgba(124,58,237,0.7)] hover:brightness-110 transition cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <div>Get Started with Pro</div>
-          <div className="text-[10px] text-purple-200 font-semibold mt-0.5">
-            {billingCycle === 'monthly' ? '₹199 / month' : '₹159 / month'}
-          </div>
-        </button>
-
-        <button
-          onClick={() => handleAction('enterprise')}
-          className="w-full py-3 px-4 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold text-center transition cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <div>Contact Sales</div>
-          <div className="text-[10px] text-zinc-400 font-normal mt-0.5">Let&#39;s Talk</div>
-        </button>
-      </div>
-
-      {/* Bottom CTA Action Buttons (Mobile View < 640px) */}
-      <div className="sm:hidden flex flex-col gap-2.5 mt-2">
-        <button
-          onClick={() => handleAction('pro')}
-          className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white text-xs font-extrabold text-center shadow-[0_0_25px_rgba(124,58,237,0.7)]"
-        >
-          <div>Get Started with Pro</div>
-          <div className="text-[10px] text-purple-200 font-semibold mt-0.5">
-            {billingCycle === 'monthly' ? '₹199 / month' : '₹159 / month'}
-          </div>
-        </button>
-
-        <button
-          onClick={() => handleAction('free')}
-          className="w-full py-2.5 px-4 rounded-xl border border-white/15 bg-white/5 text-white text-xs font-semibold text-center"
-        >
-          <div>Get Started with Free</div>
-          <div className="text-[10px] text-zinc-400 font-normal mt-0.5">Free forever</div>
-        </button>
-
-        <button
-          onClick={() => handleAction('enterprise')}
-          className="w-full py-2 text-zinc-400 hover:text-white text-xs font-semibold text-center"
-        >
-          <div>Contact Sales</div>
-          <div className="text-[10px] text-zinc-500 font-normal">Let&#39;s Talk</div>
-        </button>
+          return (
+            <button
+              key={plan.key || plan.name}
+              onClick={() => handleAction(plan.key)}
+              className={`w-full py-3 px-4 rounded-xl text-xs font-semibold text-center transition cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${
+                isFeatured
+                  ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white font-extrabold shadow-[0_0_25px_rgba(124,58,237,0.7)] hover:brightness-110'
+                  : 'border border-white/15 bg-white/5 hover:bg-white/10 text-white'
+              }`}
+            >
+              <div>{isEnterprise ? 'Contact Sales' : `Get Started with ${plan.display_name || plan.name}`}</div>
+              <div className={`text-[10px] font-normal mt-0.5 ${isFeatured ? 'text-purple-200 font-semibold' : 'text-zinc-400'}`}>
+                {isFree ? 'Free forever' : isEnterprise ? "Let's Talk" : `${displayPrice} / ${billingCycle === 'yearly' ? 'year' : 'month'}`}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
 }
-

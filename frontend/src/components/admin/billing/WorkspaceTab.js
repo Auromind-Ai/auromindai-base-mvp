@@ -36,9 +36,29 @@ export default function WorkspaceTab({
   const [walletAmount, setWalletAmount] = useState("")
   const [walletReason, setWalletReason] = useState("")
 
-  const [overridePlan, setOverridePlan] = useState("pro")
+  const [overridePlan, setOverridePlan] = useState("")
   const [overrideStatus, setOverrideStatus] = useState("active")
   const [overrideReason, setOverrideReason] = useState("")
+  const [availablePlans, setAvailablePlans] = useState([])
+  const [plansLoading, setPlansLoading] = useState(true)
+
+  React.useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        setPlansLoading(true)
+        const plans = await api.getPlanEntitlementsAdmin()
+        if (plans && Array.isArray(plans) && plans.length > 0) {
+          setAvailablePlans(plans)
+          setOverridePlan(plans[0].plan_name.toLowerCase())
+        }
+      } catch (err) {
+        console.error("Failed to load available plans from database:", err)
+      } finally {
+        setPlansLoading(false)
+      }
+    }
+    fetchPlans()
+  }, [])
 
   const handleWorkspaceSearch = async (e) => {
     const q = e.target.value
@@ -657,11 +677,20 @@ export default function WorkspaceTab({
                     <select
                       value={overridePlan}
                       onChange={(e) => setOverridePlan(e.target.value)}
-                      className="w-full p-2.5 bg-black border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none"
+                      disabled={plansLoading || availablePlans.length === 0}
+                      className="w-full p-2.5 bg-black border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none disabled:opacity-50"
                     >
-                      <option value="free">Free Plan</option>
-                      <option value="pro">Pro Plan</option>
-                      <option value="enterprise">Enterprise Plan</option>
+                      {plansLoading ? (
+                        <option value="">Loading plans from database...</option>
+                      ) : availablePlans && availablePlans.length > 0 ? (
+                        availablePlans.map((p) => (
+                          <option key={p.plan_id || p.id} value={p.plan_name.toLowerCase()}>
+                            {p.plan_name.toUpperCase()} Plan ({Number(p.included_ai_credits).toLocaleString()} Credits, ₹{Number(p.included_wcc_wallet).toFixed(2)} WCC)
+                          </option>
+                        ))
+                      ) : (
+                        <option value="">No plans found in database</option>
+                      )}
                     </select>
                   </div>
                   
@@ -674,6 +703,9 @@ export default function WorkspaceTab({
                     >
                       <option value="active">Active</option>
                       <option value="pending">Pending</option>
+                      <option value="cancelled">Cancelled</option>
+                      <option value="expired">Expired</option>
+                      <option value="past_due">Past Due</option>
                     </select>
                   </div>
 

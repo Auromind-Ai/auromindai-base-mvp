@@ -1,8 +1,15 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
-import { Coins, TrendingUp, Calendar, Zap } from "lucide-react"
+import { Poppins } from 'next/font/google'
+import { Coins, TrendingUp, Calendar, Zap, Layers } from "lucide-react"
 import api from "@/lib/api"
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800'],
+  variable: '--font-poppins',
+})
 
 export default function TokenUsagePage() {
 
@@ -38,17 +45,20 @@ export default function TokenUsagePage() {
     0
   )
 
-  const tokensPerCreditRate = tokens.length > 0 ? (tokens[0].tokens_per_credit || 1000) : 1000
+  const totalCreditsAllocated = tokens.reduce(
+    (sum, t) => sum + (t.total_credits ?? ((t.included_credits || 0) + (t.purchased_credits || 0))),
+    0
+  )
 
   return (
-    <div className="min-h-screen bg-black p-8">
+    <div className={`${poppins.className} min-h-screen bg-black p-8 font-['Poppins',sans-serif]`} style={{ fontFamily: "'Poppins', sans-serif" }}>
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">
             Token Usage
           </h1>
-          <p className="text-gray-400">
-            Monitor API token consumption and calculated allocations across workspaces (1 Credit = {tokensPerCreditRate.toLocaleString()} Tokens)
+          <p className="text-gray-400 text-sm">
+            Monitor API token consumption and calculated allocations across workspaces
           </p>
         </div>
 
@@ -83,10 +93,10 @@ export default function TokenUsagePage() {
               />
 
               <StatCard
-                icon={Zap}
-                label="Conversion Rate"
-                value={`1 Cr = ${tokensPerCreditRate.toLocaleString()} Tok`}
-                sub="System token rate"
+                icon={Layers}
+                label="Total Credits"
+                value={totalCreditsAllocated.toLocaleString()}
+                sub="Combined credit pool"
               />
 
               <StatCard
@@ -105,7 +115,7 @@ export default function TokenUsagePage() {
                     Workspace Token Consumption
                   </h2>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    Allocated Token Limit = (Included Credits + Purchased Credits) × {tokensPerCreditRate.toLocaleString()} Tokens
+                    Real-time token usage and allocated token limits per workspace
                   </p>
                 </div>
               </div>
@@ -198,9 +208,6 @@ export default function TokenUsagePage() {
                           <td className="py-4 px-4 text-right">
                             <div className="font-mono text-gray-200 font-semibold">
                               {limit.toLocaleString()}
-                            </div>
-                            <div className="text-[10px] text-gray-500 font-mono">
-                              {totalCr.toLocaleString()} Cr × {(token.tokens_per_credit || 1000).toLocaleString()}
                             </div>
                           </td>
 

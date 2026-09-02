@@ -17,6 +17,8 @@ from app.services.billing.entitlement_service import EntitlementService
 from app.routers.billing import get_billing_service
 from app.models.token_ledger import TokenLedger
 
+from app.services.platform_settings_service import get_setting
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -27,7 +29,17 @@ async def get_tokens(db: Session = Depends(get_db)):
     workspaces = db.query(Workspace).all()
     billing_service = get_billing_service()
     token_service = billing_service.token_service
-    tokens_per_credit = get_tokens_per_credit()
+    
+
+    raw_rate = get_setting(db, "tokens_per_credit", None)
+    if raw_rate is not None:
+        try:
+            system_tokens_per_credit = int(raw_rate)
+        except (ValueError, TypeError):
+            system_tokens_per_credit = get_tokens_per_credit()
+    else:
+        system_tokens_per_credit = get_tokens_per_credit()
+        
     results = []
 
     for ws in workspaces:
@@ -61,11 +73,13 @@ async def get_tokens(db: Session = Depends(get_db)):
         # 3. Total Credits
         total_credits = included_credits + purchased_credits
 
-        # 4. Total Token Limit = (included_credits + purchased_credits) * tokens_per_credit
-        if ws.custom_token_limit:
+        # 4. Total Token Limit = (included_credits + purchased_credits) * system_tokens_per_credit
+        if total_credits > 0:
+            token_limit = int(round(total_credits * system_tokens_per_credit))
+        elif ws.custom_token_limit:
             token_limit = int(ws.custom_token_limit)
         else:
-            token_limit = int(round(total_credits * tokens_per_credit))
+            token_limit = 0
 
         # 5. Usage in Credits & Tokens (current cycle)
         cycle_start = sub.current_period_start if sub else None
@@ -79,7 +93,7 @@ async def get_tokens(db: Session = Depends(get_db)):
 
         # Equivalent tokens spent
         if cycle_credits_used > 0:
-            tokens_used = int(round(cycle_credits_used * tokens_per_credit))
+            tokens_used = int(round(cycle_credits_used * system_tokens_per_credit))
         else:
             tokens_used = int(ledger_tokens_used)
 
@@ -94,12 +108,12 @@ async def get_tokens(db: Session = Depends(get_db)):
             "included_credits": included_credits,
             "purchased_credits": purchased_credits,
             "total_credits": total_credits,
-            "tokens_per_credit": tokens_per_credit,
+            "tokens_per_credit": system_tokens_per_credit,
             "credits_used": cycle_credits_used,
             "tokens_used": tokens_used,
             "token_limit": token_limit,
             "usage_percent": usage_percentage,
-            "custom_token_limit": ws.custom_token_limit
+            "custom_limit_active": bool(ws.custom_token_limit)
         })
 
     return results

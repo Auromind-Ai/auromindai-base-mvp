@@ -64,25 +64,25 @@ useEffect(() => {
                 icon={Users}
                 label="Total Users"
                 value={analytics.total_users || 0}
-                change="+12%"
+                change={analytics.users_growth || "+0%"}
               />
               <MetricCard
                 icon={Activity}
                 label="Active Today"
                 value={analytics.active_today || 0}
-                change="+8%"
+                change={analytics.active_today_growth || "+0%"}
               />
               <MetricCard
                 icon={BarChart3}
                 label="Total API Calls"
                 value={(analytics.total_api_calls || 0).toLocaleString()}
-                change="+24%"
+                change={analytics.api_growth || "+0%"}
               />
               <MetricCard
                 icon={TrendingUp}
                 label="Revenue (INR)"
                 value={`₹${(analytics.total_revenue || 0).toLocaleString('en-IN')}`}
-                change="+18%"
+                change={analytics.revenue_growth || "+0%"}
               />
             </div>
 
@@ -110,7 +110,7 @@ useEffect(() => {
                   <AnalyticsRow
                     label="Active Workspaces"
                     value={analytics.active_workspaces || 0}
-                    total={analytics.total_users || 1}
+                    total={analytics.total_workspaces || analytics.active_workspaces || 1}
                   />
                   <AnalyticsRow
                     label="Trial Users"
@@ -147,7 +147,7 @@ useEffect(() => {
                 <h2 className="text-lg font-semibold text-white mb-6">System Health</h2>
                 <div className="space-y-4">
                   <HealthRow label="Uptime" value={`${analytics.uptime_percent || 99.9}%`} good />
-                  <HealthRow label="Database Status" value="Healthy" good />
+                  <HealthRow label="Database Status" value={analytics.db_status || "Healthy"} good={analytics.db_status !== "Degraded"} />
                   <HealthRow label="Cache Hit Rate" value={`${(analytics.cache_hit_rate || 0).toFixed(2)}%`} good />
                   <HealthRow label="Queue Depth" value={analytics.queue_depth || 0} good={analytics.queue_depth < 100} />
                 </div>
@@ -171,11 +171,15 @@ useEffect(() => {
 }
 
 function MetricCard({ icon: Icon, label, value, change }) {
+  const isNegative = typeof change === 'string' && change.startsWith('-');
+  const isNeutral = change === '+0%' || change === '0%' || change === '0';
+  const changeColor = isNeutral ? 'text-gray-400' : isNegative ? 'text-rose-400' : 'text-emerald-400';
+
   return (
     <div className="bg-[#0f0f0f] border border-white/10 rounded-xl p-6 hover:border-white/20 transition">
       <div className="flex items-center justify-between mb-4">
         <Icon className="text-indigo-400" size={24} />
-        <span className="text-green-400 text-sm font-medium">{change}</span>
+        <span className={`${changeColor} text-sm font-medium`}>{change}</span>
       </div>
       <p className="text-gray-400 text-sm mb-2">{label}</p>
       <p className="text-white text-2xl font-bold">{value}</p>

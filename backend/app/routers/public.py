@@ -5,6 +5,7 @@ from app.database import get_db
 from app.services.platform_settings_service import get_all_settings, get_setting
 from app.models.plan import Plan
 from app.services.platform_settings_service import get_setting
+from app.services.billing.entitlement_service import EntitlementService
     
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -42,11 +43,15 @@ async def get_pricing(db: Session = Depends(get_db)) -> Dict[str, Any]:
     plans_list = []
     token_limits = {}
     
+ 
+
     for plan in db_plans:
         key = plan.name.lower()
         disp_name = plan.display_name or (key.title() if key != "solo" else "Solo Smart")
         tokens = plan.token_limit if plan.token_limit is not None else 1000000
         token_limits[key] = tokens
+        
+        ent = EntitlementService.ensure_plan_entitlement(db, plan)
         
         plans_list.append({
             "key": key,
@@ -58,7 +63,20 @@ async def get_pricing(db: Session = Depends(get_db)) -> Dict[str, Any]:
             "description": plan.description or "",
             "features": plan.features or [],
             "token_limit": tokens,
-            "credits": float(tokens) / 1000,
+            "credits": float(ent.included_ai_credits if ent else (tokens / 1000)),
+            "included_ai_credits": ent.included_ai_credits if ent else int(tokens / 1000),
+            "included_wcc_wallet": float(ent.included_wcc_wallet) if ent else 0.0,
+            "automation_limit": ent.automation_limit if ent else 0,
+            "flow": ent.flow if ent else 0,
+            "knowledge_base_limit": ent.knowledge_base_limit if ent else 0,
+            "storage_limit_mb": ent.storage_limit_mb if ent else 0,
+            "lead_limit": ent.lead_limit if ent else 0,
+            "meeting_limit": ent.meeting_limit if ent else 0,
+            "gmail_limit": ent.gmail_limit if ent else 0,
+            "team_limit": ent.team_limit if ent else 0,
+            "allow_ai_topup": ent.allow_ai_topup if ent else False,
+            "allow_wcc_recharge": ent.allow_wcc_recharge if ent else False,
+            "allow_flow_addon": ent.allow_flow_addon if ent else False,
             "featured": plan.is_featured,
             "is_featured": plan.is_featured,
             "display_order": plan.display_order,

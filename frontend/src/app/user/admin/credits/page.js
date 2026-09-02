@@ -1883,6 +1883,29 @@ export default function CreditsPage() {
     );
 }
 
+function formatCreditEntryType(entryType) {
+    if (!entryType) return 'AI Usage';
+    const raw = String(entryType).toLowerCase().trim();
+    const map = {
+        usage: 'AI Usage',
+        purchase: 'Top-Up Purchase',
+        purchased_grant: 'Purchased Top-Up',
+        token_grant: 'Plan Grant',
+        token_expiration: 'Credit Expiration',
+        admin_reset: 'Admin Reset',
+        admin_adjust: 'Admin Adjustment',
+        deduction: 'Deduction',
+        reservation: 'Usage Hold',
+        release: 'Hold Released',
+        refund: 'Refund',
+    };
+    if (map[raw]) return map[raw];
+    return raw
+        .split('_')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+}
+
 function getCreditTypeMeta(entryType, description) {
     const type = String(entryType || '').toLowerCase();
     const desc = String(description || '').toLowerCase();
