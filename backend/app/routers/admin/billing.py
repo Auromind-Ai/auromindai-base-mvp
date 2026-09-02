@@ -101,6 +101,20 @@ class OverrideSubscriptionRequest(BaseModel):
         return v_str
 
 
+class ResetResourceRequest(BaseModel):
+    target: str = Field("all", pattern=r"^(?i)(all|included|purchased)$", description="Reset target: 'all', 'included', or 'purchased'")
+    reason: Optional[str] = Field("Admin Reset", description="Reason for reset")
+
+    @field_validator("target")
+    @classmethod
+    def normalize_target(cls, v: str) -> str:
+        v_str = (v or "all").strip().lower()
+        if v_str not in ("all", "included", "purchased"):
+            raise ValueError("Target must be 'all', 'included', or 'purchased'")
+        return v_str
+
+
+
 
 def get_admin_identity(request: Request) -> str:
     token = request.cookies.get("admin_session")
@@ -583,8 +597,8 @@ async def search_workspaces(payload: WorkspaceSearchRequest, db: Session = Depen
             if plan:
                 plan_name = plan.name
                 
-        credit_service = BillingService().token_service
-        balance = credit_service.get_token_balance(db, str(ws.id))
+        credit_summary = BillingService().get_credit_summary(db, ws.id)
+        credits_bal = float(credit_summary.get("credits_balance", 0.0))
         
         wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
         wallet_balance = float(wallet.balance) if wallet else 0.0
@@ -594,7 +608,7 @@ async def search_workspaces(payload: WorkspaceSearchRequest, db: Session = Depen
             "name": ws.name,
             "plan_type": plan_name.lower(),
             "subscription_status": sub.status.value.upper() if sub else "FREE",
-            "credits_balance": float(balance.balance),
+            "credits_balance": credits_bal,
             "wallet_balance": wallet_balance,
             "created_at": ws.created_at.isoformat() if ws.created_at else None
         })
@@ -629,11 +643,14 @@ async def get_workspace_billing_detail(
             plan_name = plan.name
         billing_cycle = sub.billing_cycle
         
+    credit_summary = BillingService().get_credit_summary(db, ws.id)
     credit_service = BillingService().token_service
     balance = credit_service.get_token_balance(db, str(ws.id))
     
     wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
     wallet_balance = float(wallet.balance) if wallet else 0.0
+    wallet_included = float(wallet.included_balance) if wallet and wallet.included_balance else 0.0
+    wallet_purchased = float(wallet.purchased_balance) if wallet and wallet.purchased_balance else 0.0
     
     recharges = (
         db.query(WCCRechargeLog)
@@ -683,12 +700,21 @@ async def get_workspace_billing_detail(
         "subscription_status": sub.status.value.upper() if sub else "FREE",
         "billing_cycle": billing_cycle,
         "credits": {
-            "balance": float(balance.balance),
+            "balance": float(credit_summary.get("credits_balance", 0.0)),
+            "included_remaining": float(credit_summary.get("included_remaining", 0.0)),
+            "purchased_remaining": float(credit_summary.get("purchased_remaining", 0.0)),
+            "included_credits": float(credit_summary.get("included_credits", 0.0)),
+            "purchased_credits": float(credit_summary.get("purchased_credits", 0.0)),
             "added": float(balance.tokens_added),
             "used": float(balance.tokens_used),
             "reserved": float(balance.tokens_reserved)
         },
         "wallet_balance": wallet_balance,
+        "wallet": {
+            "balance": wallet_balance,
+            "included_balance": wallet_included,
+            "purchased_balance": wallet_purchased
+        },
         "recharges": [
             {
                 "id": str(r.id),
@@ -800,25 +826,55 @@ async def adjust_credits(
     ws_uuid = verify_admin_workspace(db, workspace_id)
     ws_id = str(ws_uuid)
         
-    credit_service = BillingService().token_service
-    old_bal = float(credit_service.get_token_balance(db, ws_id).balance)
+    credit_summary = BillingService().get_credit_summary(db, ws_uuid)
+    old_bal = float(credit_summary.get("credits_balance", 0.0))
+    inc_rem = float(credit_summary.get("included_remaining", 0.0))
     
-    tokens_delta = 0
-    entry_type = "token_grant" if payload.credits >= 0 else "deduction"
-    
-    ledger_entry = TokenLedger(
-        workspace_id=ws_uuid,
-        entry_type=entry_type,
-        status="posted",
-        tokens_delta=tokens_delta,
-        credits_delta=payload.credits,
-        reference_key=f"admin_adjust:{uuid.uuid4()}",
-        description=f"Admin Adjustment ({admin_user}): {payload.reason}"
-    )
-    db.add(ledger_entry)
+    adj = payload.credits
+    if adj >= 0:
+        # Positive credit adjustment is added as a non-expiring PURCHASED grant
+        ledger_entry = TokenLedger(
+            workspace_id=ws_uuid,
+            entry_type="token_grant",
+            status="posted",
+            tokens_delta=0,
+            credits_delta=Decimal(str(adj)),
+            balance_source="PURCHASED",
+            reference_key=f"admin_adjust:{uuid.uuid4()}",
+            description=f"Admin Adjustment ({admin_user}): {payload.reason}"
+        )
+        db.add(ledger_entry)
+    else:
+        # Negative adjustment: deduct from INCLUDED first, then remainder from PURCHASED
+        deduct_total = abs(adj)
+        deduct_inc = min(inc_rem, deduct_total)
+        deduct_pur = deduct_total - deduct_inc
+        if deduct_inc > 0:
+            db.add(TokenLedger(
+                workspace_id=ws_uuid,
+                entry_type="deduction",
+                status="posted",
+                tokens_delta=0,
+                credits_delta=-Decimal(str(deduct_inc)),
+                balance_source="INCLUDED",
+                reference_key=f"admin_adjust:inc:{uuid.uuid4()}",
+                description=f"Admin Adjustment ({admin_user}): {payload.reason}"
+            ))
+        if deduct_pur > 0:
+            db.add(TokenLedger(
+                workspace_id=ws_uuid,
+                entry_type="deduction",
+                status="posted",
+                tokens_delta=0,
+                credits_delta=-Decimal(str(deduct_pur)),
+                balance_source="PURCHASED",
+                reference_key=f"admin_adjust:pur:{uuid.uuid4()}",
+                description=f"Admin Adjustment ({admin_user}): {payload.reason}"
+            ))
     db.commit()
     
-    new_bal = float(credit_service.get_token_balance(db, ws_id).balance)
+    new_summary = BillingService().get_credit_summary(db, ws_uuid)
+    new_bal = float(new_summary.get("credits_balance", 0.0))
     
     log_audit(
         db=db,
@@ -847,13 +903,28 @@ async def adjust_wallet(
         
     wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws_uuid).first()
     if not wallet:
-        wallet = WCCWallet(workspace_id=ws_uuid, balance=Decimal("0.00"))
+        wallet = WCCWallet(
+            workspace_id=ws_uuid,
+            balance=Decimal("0.00"),
+            included_balance=Decimal("0.00"),
+            purchased_balance=Decimal("0.00"),
+            overage_balance=Decimal("0.00")
+        )
         db.add(wallet)
         db.flush()
         
     old_bal = float(wallet.balance)
     adjustment_decimal = Decimal(str(payload.amount))
-    wallet.purchased_balance = (wallet.purchased_balance or Decimal("0.00")) + adjustment_decimal
+    if adjustment_decimal >= 0:
+        wallet.purchased_balance = (wallet.purchased_balance or Decimal("0.00")) + adjustment_decimal
+    else:
+        deduct = abs(adjustment_decimal)
+        inc = wallet.included_balance or Decimal("0.00")
+        pur = wallet.purchased_balance or Decimal("0.00")
+        drawn_inc = min(inc, deduct)
+        drawn_pur = min(pur, deduct - drawn_inc)
+        wallet.included_balance = max(Decimal("0.00"), inc - drawn_inc)
+        wallet.purchased_balance = max(Decimal("0.00"), pur - drawn_pur)
     wallet.balance = (wallet.included_balance or Decimal("0.00")) + (wallet.purchased_balance or Decimal("0.00"))
     db.commit()
     
@@ -995,75 +1066,143 @@ async def override_subscription(
 @router.post("/billing/workspaces/{workspace_id}/reset-credits")
 async def reset_credits(
     workspace_id: uuid.UUID,
+    payload: Optional[ResetResourceRequest] = None,
     db: Session = Depends(get_db),
     admin_user: str = Depends(get_admin_identity),
     request: Request = None
 ):
     ws_uuid = verify_admin_workspace(db, workspace_id)
     ws_id = str(ws_uuid)
+    target = (payload.target if payload else "all").lower().strip()
+    reason = (payload.reason if payload else "Admin Reset Limits") or "Admin Reset Limits"
         
-    credit_service = BillingService().token_service
-    old_bal = float(credit_service.get_token_balance(db, ws_id).balance)
+    credit_summary = BillingService().get_credit_summary(db, ws_uuid)
+    old_bal = float(credit_summary.get("credits_balance", 0.0))
+    inc_rem = float(credit_summary.get("included_remaining", 0.0))
+    pur_rem = float(credit_summary.get("purchased_remaining", 0.0))
     
-    ledger_entry = TokenLedger(
-        workspace_id=ws_uuid,
-        entry_type="deduction",
-        status="posted",
-        tokens_delta=0,
-        credits_delta=-old_bal,
-        reference_key=f"admin_reset:{uuid.uuid4()}",
-        description=f"Admin Credit Reset ({admin_user})"
-    )
-    db.add(ledger_entry)
+    if target in ("all", "included") and inc_rem > 0:
+        db.add(TokenLedger(
+            workspace_id=ws_uuid,
+            entry_type="token_expiration",
+            status="posted",
+            tokens_delta=0,
+            credits_delta=-Decimal(str(inc_rem)),
+            balance_source="INCLUDED",
+            reference_key=f"admin_reset:inc:{uuid.uuid4()}",
+            description=f"Admin Reset Included Plan Credits ({admin_user}): {reason}"
+        ))
+    
+    if target in ("all", "purchased") and pur_rem > 0:
+        db.add(TokenLedger(
+            workspace_id=ws_uuid,
+            entry_type="deduction",
+            status="posted",
+            tokens_delta=0,
+            credits_delta=-Decimal(str(pur_rem)),
+            balance_source="PURCHASED",
+            reference_key=f"admin_reset:pur:{uuid.uuid4()}",
+            description=f"Admin Reset Purchased Credits ({admin_user}): {reason}"
+        ))
+        
+    # Also release any active reservations if target == "all"
+    if target == "all":
+        reservations = db.query(TokenLedger).filter(
+            TokenLedger.workspace_id == ws_uuid,
+            TokenLedger.status == "reserved"
+        ).all()
+        for res in reservations:
+            res.status = "released"
+            res.description = "Auto-released by admin full credit reset"
+            
     db.commit()
+    
+    new_summary = BillingService().get_credit_summary(db, ws_uuid)
+    new_bal = float(new_summary.get("credits_balance", 0.0))
     
     log_audit(
         db=db,
         admin_user=admin_user,
-        action="CREDITS_RESET",
+        action=f"CREDITS_RESET_{target.upper()}",
         workspace_id=ws_uuid,
-        old_value={"balance": old_bal},
-        new_value={"balance": 0.0},
-        reason="Admin Reset Limits",
+        old_value={"balance": old_bal, "included_remaining": inc_rem, "purchased_remaining": pur_rem},
+        new_value={"balance": new_bal, "target": target},
+        reason=reason,
         request=request
     )
     
-    return {"message": "Credits reset successfully"}
+    msg = "All credits reset successfully" if target == "all" else f"{target.capitalize()} credits reset successfully"
+    return {
+        "message": msg,
+        "target": target,
+        "new_balance": new_bal,
+        "included_remaining": float(new_summary.get("included_remaining", 0.0)),
+        "purchased_remaining": float(new_summary.get("purchased_remaining", 0.0))
+    }
 
 
 @router.post("/billing/workspaces/{workspace_id}/reset-wallet")
 async def reset_wallet(
     workspace_id: uuid.UUID,
+    payload: Optional[ResetResourceRequest] = None,
     db: Session = Depends(get_db),
     admin_user: str = Depends(get_admin_identity),
     request: Request = None
 ):
     ws_uuid = verify_admin_workspace(db, workspace_id)
     ws_id = str(ws_uuid)
+    target = (payload.target if payload else "all").lower().strip()
+    reason = (payload.reason if payload else "Admin Reset Wallet") or "Admin Reset Wallet"
         
     wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws_uuid).first()
     old_bal = float(wallet.balance) if wallet else 0.0
+    old_inc = float(wallet.included_balance) if wallet and wallet.included_balance else 0.0
+    old_pur = float(wallet.purchased_balance) if wallet and wallet.purchased_balance else 0.0
     
-    if wallet:
-        wallet.balance = Decimal("0.00")
-    else:
-        wallet = WCCWallet(workspace_id=ws_uuid, balance=Decimal("0.00"))
+    if not wallet:
+        wallet = WCCWallet(
+            workspace_id=ws_uuid,
+            balance=Decimal("0.00"),
+            included_balance=Decimal("0.00"),
+            purchased_balance=Decimal("0.00"),
+            overage_balance=Decimal("0.00")
+        )
         db.add(wallet)
+    else:
+        if target == "all":
+            wallet.balance = Decimal("0.00")
+            wallet.included_balance = Decimal("0.00")
+            wallet.purchased_balance = Decimal("0.00")
+            wallet.overage_balance = Decimal("0.00")
+        elif target == "included":
+            wallet.included_balance = Decimal("0.00")
+            wallet.balance = wallet.purchased_balance or Decimal("0.00")
+        elif target == "purchased":
+            wallet.purchased_balance = Decimal("0.00")
+            wallet.balance = wallet.included_balance or Decimal("0.00")
         
     db.commit()
+    new_bal = float(wallet.balance)
     
     log_audit(
         db=db,
         admin_user=admin_user,
-        action="WALLET_RESET",
+        action=f"WALLET_RESET_{target.upper()}",
         workspace_id=ws_uuid,
-        old_value={"balance": old_bal},
-        new_value={"balance": 0.0},
-        reason="Admin Reset Wallet",
+        old_value={"balance": old_bal, "included_balance": old_inc, "purchased_balance": old_pur},
+        new_value={"balance": new_bal, "target": target},
+        reason=reason,
         request=request
     )
     
-    return {"message": "Wallet reset successfully"}
+    msg = "All wallet balance reset successfully" if target == "all" else f"{target.capitalize()} wallet balance reset successfully"
+    return {
+        "message": msg,
+        "target": target,
+        "new_balance": new_bal,
+        "included_balance": float(wallet.included_balance or Decimal("0.00")),
+        "purchased_balance": float(wallet.purchased_balance or Decimal("0.00"))
+    }
 
 
 @router.get("/billing/audit-logs")
@@ -1235,9 +1374,34 @@ async def recalculate_balances_op(
 ):
     wallets = db.query(WCCWallet).all()
     for w in wallets:
-        recharges_raw = db.query(func.sum(WCCRechargeLog.amount)).filter(WCCRechargeLog.workspace_id == w.workspace_id, WCCRechargeLog.status == "success").scalar()
-        debits_raw = db.query(func.sum(WCCTransaction.debit_amount)).filter(WCCRechargeLog.workspace_id == w.workspace_id, WCCTransaction.status == "success").scalar()
-        w.balance = Decimal(str(recharges_raw or "0.00")) - Decimal(str(debits_raw or "0.00"))
+        recharges_raw = db.query(func.coalesce(func.sum(WCCRechargeLog.taxable_amount), func.sum(WCCRechargeLog.amount), 0)).filter(
+            WCCRechargeLog.workspace_id == w.workspace_id,
+            WCCRechargeLog.status == "success",
+            ~WCCRechargeLog.gateway_payment_id.like("promo_grant:%")
+        ).scalar() or Decimal("0.00")
+        
+        promo_raw = db.query(func.coalesce(func.sum(WCCRechargeLog.taxable_amount), func.sum(WCCRechargeLog.amount), 0)).filter(
+            WCCRechargeLog.workspace_id == w.workspace_id,
+            WCCRechargeLog.status == "success",
+            WCCRechargeLog.gateway_payment_id.like("promo_grant:%")
+        ).scalar() or Decimal("0.00")
+        
+        debits_raw = db.query(func.coalesce(func.sum(WCCTransaction.customer_price_applied), func.sum(WCCTransaction.debit_amount), 0)).filter(
+            WCCTransaction.workspace_id == w.workspace_id,
+            WCCTransaction.status == "success"
+        ).scalar() or Decimal("0.00")
+        
+        recharges_sum = Decimal(str(recharges_raw))
+        promo_sum = Decimal(str(promo_raw))
+        debits_sum = Decimal(str(debits_raw))
+        
+        total_available = recharges_sum + promo_sum
+        net_balance = max(Decimal("0.00"), total_available - debits_sum)
+        
+        rem_debit_after_promo = max(Decimal("0.00"), debits_sum - promo_sum)
+        w.purchased_balance = max(Decimal("0.00"), recharges_sum - rem_debit_after_promo)
+        w.included_balance = max(Decimal("0.00"), promo_sum - min(debits_sum, promo_sum))
+        w.balance = net_balance
     db.commit()
     
     log_audit(
@@ -1341,21 +1505,17 @@ async def expire_credits_op(
     ws_uuid = verify_admin_workspace(db, workspace_id)
     ws_id = str(ws_uuid)
     
-    # Get current included pool balance
-    included_pool = db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(
-        TokenLedger.workspace_id == ws_uuid,
-        TokenLedger.status == "posted",
-        TokenLedger.balance_source == "INCLUDED"
-    ).scalar() or 0.0
+    credit_summary = BillingService().get_credit_summary(db, ws_uuid)
+    old_bal = float(credit_summary.get("credits_balance", 0.0))
+    included_pool_val = float(credit_summary.get("included_remaining", 0.0))
     
-    included_pool_val = float(included_pool)
     if included_pool_val > 0:
         expire_entry = TokenLedger(
             workspace_id=ws_uuid,
             entry_type="token_expiration",
             status="posted",
             tokens_delta=0,
-            credits_delta=-included_pool,
+            credits_delta=-Decimal(str(included_pool_val)),
             balance_source="INCLUDED",
             reference_key=f"token_expire:{ws_uuid}:manual:{datetime.now(timezone.utc).timestamp()}",
             description="Expired unused plan credits manually"
@@ -1363,20 +1523,20 @@ async def expire_credits_op(
         db.add(expire_entry)
         db.commit()
         
-    credit_service = BillingService().token_service
-    new_bal = float(credit_service.get_token_balance(db, ws_id).balance)
+    new_summary = BillingService().get_credit_summary(db, ws_uuid)
+    new_bal = float(new_summary.get("credits_balance", 0.0))
     
     log_audit(
         db=db,
         admin_user=admin_user,
         action="CREDITS_EXPIRED",
         workspace_id=ws_uuid,
-        old_value={"expired_credits": included_pool_val},
+        old_value={"balance": old_bal, "expired_credits": included_pool_val},
         new_value={"balance": new_bal},
         reason="Manual Admin Triggered Credit Expiry",
         request=request
     )
-    return {"message": "Remaining credits expired successfully", "expired_amount": included_pool_val, "new_balance": new_bal}
+    return {"message": "Remaining included plan credits expired successfully", "expired_amount": included_pool_val, "new_balance": new_bal}
 
 
 @router.post("/billing/workspaces/{workspace_id}/recalculate-credits")
@@ -1497,17 +1657,34 @@ async def recalculate_wallet_op(
         
     old_bal = float(wallet.balance)
     
-    recharges_raw = db.query(func.sum(WCCRechargeLog.amount)).filter(
+    recharges_raw = db.query(func.coalesce(func.sum(WCCRechargeLog.taxable_amount), func.sum(WCCRechargeLog.amount), 0)).filter(
         WCCRechargeLog.workspace_id == ws_uuid,
-        WCCRechargeLog.status == "success"
-    ).scalar()
+        WCCRechargeLog.status == "success",
+        ~WCCRechargeLog.gateway_payment_id.like("promo_grant:%")
+    ).scalar() or Decimal("0.00")
     
-    debits_raw = db.query(func.sum(WCCTransaction.debit_amount)).filter(
+    promo_raw = db.query(func.coalesce(func.sum(WCCRechargeLog.taxable_amount), func.sum(WCCRechargeLog.amount), 0)).filter(
+        WCCRechargeLog.workspace_id == ws_uuid,
+        WCCRechargeLog.status == "success",
+        WCCRechargeLog.gateway_payment_id.like("promo_grant:%")
+    ).scalar() or Decimal("0.00")
+    
+    debits_raw = db.query(func.coalesce(func.sum(WCCTransaction.customer_price_applied), func.sum(WCCTransaction.debit_amount), 0)).filter(
         WCCTransaction.workspace_id == ws_uuid,
         WCCTransaction.status == "success"
-    ).scalar()
+    ).scalar() or Decimal("0.00")
     
-    wallet.balance = Decimal(str(recharges_raw or "0.00")) - Decimal(str(debits_raw or "0.00"))
+    recharges_sum = Decimal(str(recharges_raw))
+    promo_sum = Decimal(str(promo_raw))
+    debits_sum = Decimal(str(debits_raw))
+    
+    total_available = recharges_sum + promo_sum
+    net_balance = max(Decimal("0.00"), total_available - debits_sum)
+    
+    rem_debit_after_promo = max(Decimal("0.00"), debits_sum - promo_sum)
+    wallet.purchased_balance = max(Decimal("0.00"), recharges_sum - rem_debit_after_promo)
+    wallet.included_balance = max(Decimal("0.00"), promo_sum - min(debits_sum, promo_sum))
+    wallet.balance = net_balance
     db.commit()
     new_bal = float(wallet.balance)
     
@@ -1517,11 +1694,16 @@ async def recalculate_wallet_op(
         action="WALLET_RECALCULATED",
         workspace_id=ws_uuid,
         old_value={"balance": old_bal},
-        new_value={"balance": new_bal},
+        new_value={"balance": new_bal, "included_balance": float(wallet.included_balance), "purchased_balance": float(wallet.purchased_balance)},
         reason="Manual Recalculate Wallet Balance",
         request=request
     )
-    return {"message": "Wallet balance recalculated successfully", "new_balance": new_bal}
+    return {
+        "message": "Wallet balance recalculated successfully",
+        "new_balance": new_bal,
+        "included_balance": float(wallet.included_balance),
+        "purchased_balance": float(wallet.purchased_balance)
+    }
 
 
 @router.post("/billing/operations/verify-payment-manually")
@@ -1910,20 +2092,37 @@ async def repair_billing_op(
             wallet = WCCService.get_balance(db, workspace_id)
         old_val = {"balance": float(wallet.balance)}
         
-        recharges_raw = db.query(func.sum(WCCRechargeLog.amount)).filter(
+        recharges_raw = db.query(func.coalesce(func.sum(WCCRechargeLog.taxable_amount), func.sum(WCCRechargeLog.amount), 0)).filter(
             WCCRechargeLog.workspace_id == workspace_id,
-            WCCRechargeLog.status == "success"
-        ).scalar()
+            WCCRechargeLog.status == "success",
+            ~WCCRechargeLog.gateway_payment_id.like("promo_grant:%")
+        ).scalar() or Decimal("0.00")
         
-        debits_raw = db.query(func.sum(WCCTransaction.debit_amount)).filter(
+        promo_raw = db.query(func.coalesce(func.sum(WCCRechargeLog.taxable_amount), func.sum(WCCRechargeLog.amount), 0)).filter(
+            WCCRechargeLog.workspace_id == workspace_id,
+            WCCRechargeLog.status == "success",
+            WCCRechargeLog.gateway_payment_id.like("promo_grant:%")
+        ).scalar() or Decimal("0.00")
+        
+        debits_raw = db.query(func.coalesce(func.sum(WCCTransaction.customer_price_applied), func.sum(WCCTransaction.debit_amount), 0)).filter(
             WCCTransaction.workspace_id == workspace_id,
             WCCTransaction.status == "success"
-        ).scalar()
+        ).scalar() or Decimal("0.00")
         
-        wallet.balance = Decimal(str(recharges_raw or "0.00")) - Decimal(str(debits_raw or "0.00"))
+        recharges_sum = Decimal(str(recharges_raw))
+        promo_sum = Decimal(str(promo_raw))
+        debits_sum = Decimal(str(debits_raw))
+        
+        total_available = recharges_sum + promo_sum
+        net_balance = max(Decimal("0.00"), total_available - debits_sum)
+        
+        rem_debit_after_promo = max(Decimal("0.00"), debits_sum - promo_sum)
+        wallet.purchased_balance = max(Decimal("0.00"), recharges_sum - rem_debit_after_promo)
+        wallet.included_balance = max(Decimal("0.00"), promo_sum - min(debits_sum, promo_sum))
+        wallet.balance = net_balance
         db.commit()
         
-        new_val = {"balance": float(wallet.balance)}
+        new_val = {"balance": float(wallet.balance), "included_balance": float(wallet.included_balance), "purchased_balance": float(wallet.purchased_balance)}
         repaired_details = new_val
         log_audit(db, admin_user, "REPAIR_WALLET_LEDGER_MISMATCH", workspace_id, old_val, new_val, "One-click diagnostics repair", request)
         
@@ -2096,8 +2295,17 @@ async def manual_provision_op(
         wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws_id).first()
         if wallet:
             wallet.balance = Decimal("0.00")
+            wallet.included_balance = Decimal("0.00")
+            wallet.purchased_balance = Decimal("0.00")
+            wallet.overage_balance = Decimal("0.00")
         else:
-            wallet = WCCWallet(workspace_id=ws_id, balance=Decimal("0.00"))
+            wallet = WCCWallet(
+                workspace_id=ws_id,
+                balance=Decimal("0.00"),
+                included_balance=Decimal("0.00"),
+                purchased_balance=Decimal("0.00"),
+                overage_balance=Decimal("0.00")
+            )
             db.add(wallet)
             
         db.query(WCCRechargeLog).filter(WCCRechargeLog.workspace_id == ws_id).delete()

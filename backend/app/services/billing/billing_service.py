@@ -1329,7 +1329,7 @@ class BillingService:
         cycle_start = None
         cycle_reset_date = None
         if is_active_paid and subscription:
-            cycle_start = subscription.current_period_start
+            cycle_start = subscription.last_entitlement_reset_at or subscription.current_period_start
             if subscription.next_entitlement_reset_at:
                 cycle_reset_date = subscription.next_entitlement_reset_at.isoformat()
             elif subscription.current_period_end:

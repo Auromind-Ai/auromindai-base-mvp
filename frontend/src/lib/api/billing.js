@@ -113,12 +113,14 @@ export async function overrideSubscription(workspaceId, payload) {
   return client.post(`/admin/billing/workspaces/${workspaceId}/override-subscription`, payload);
 }
 
-export async function resetCredits(workspaceId) {
-  return client.post(`/admin/billing/workspaces/${workspaceId}/reset-credits`);
+export async function resetCredits(workspaceId, payload = { target: 'all', reason: 'Admin Reset' }) {
+  const body = typeof payload === 'string' ? { target: payload, reason: 'Admin Reset' } : payload;
+  return client.post(`/admin/billing/workspaces/${workspaceId}/reset-credits`, body);
 }
 
-export async function resetWallet(workspaceId) {
-  return client.post(`/admin/billing/workspaces/${workspaceId}/reset-wallet`);
+export async function resetWallet(workspaceId, payload = { target: 'all', reason: 'Admin Reset' }) {
+  const body = typeof payload === 'string' ? { target: payload, reason: 'Admin Reset' } : payload;
+  return client.post(`/admin/billing/workspaces/${workspaceId}/reset-wallet`, body);
 }
 
 export async function getAdminAuditLogs(page = 1, limit = 50) {
