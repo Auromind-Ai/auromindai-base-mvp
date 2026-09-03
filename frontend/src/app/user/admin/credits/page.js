@@ -560,7 +560,14 @@ export default function CreditsPage() {
         return todayEntry ? formatCredits(todayEntry.credits_used, 2) : '0.00';
     };
 
-    const cycleTotal = Number(creditSummary?.quota_limit ?? creditSummary?.included_credits ?? 0);
+    const cycleIncluded = Number(creditSummary?.included_credits ?? creditSummary?.monthly_grant ?? 0);
+    const cyclePurchased = Number(creditSummary?.purchased_credits ?? 0);
+    const cycleTotal = Math.max(
+        Number(creditSummary?.quota_limit ?? 0),
+        Number(creditSummary?.credits_added ?? 0),
+        cycleIncluded + cyclePurchased,
+        cycleIncluded
+    );
     const cycleUsed = Number(creditSummary?.cycle_used ?? 0);
     const usedPct = creditSummary?.usage_percent !== undefined && creditSummary?.usage_percent !== null
         ? Number(creditSummary.usage_percent)
@@ -744,6 +751,10 @@ export default function CreditsPage() {
                                         <div>
                                             <span className="text-white/55 text-[11px] sm:text-xs font-normal mr-1.5">Used this cycle</span>
                                             <span className="font-medium sm:font-semibold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.cycle_used, 2)}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-white/55 text-[11px] sm:text-xs font-normal mr-1.5">Total quota</span>
+                                            <span className="font-medium sm:font-semibold text-white">{creditSummaryLoading ? '...' : formatCredits(cycleTotal, 2)}</span>
                                         </div>
                                         <div>
                                             <span className="text-white/55 text-[11px] sm:text-xs font-normal mr-1.5">Runway</span>
