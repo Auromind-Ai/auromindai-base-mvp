@@ -58,11 +58,30 @@ async def receive_instagram(request: Request, db: Session = Depends(get_db)):
     try:
        
         raw_body = await request.body()
+
         sig_header = request.headers.get("x-hub-signature-256")
         app_secret = config_service.get("meta_app_secret")
-        if app_secret and not WebhookService.verify_meta_signature(raw_body, sig_header, app_secret):
-            logger.warning("[INSTAGRAM WEBHOOK] Signature verification failed")
-            raise HTTPException(status_code=403, detail="Webhook signature verification failed")
+
+        logger.info(
+            "[INSTAGRAM DEBUG] body_length=%d signature=%s secret_length=%d",
+            len(raw_body),
+            sig_header,
+            len(app_secret or ""),
+        )
+
+        valid = WebhookService.verify_meta_signature(
+            raw_body,
+            sig_header,
+            app_secret,
+        )
+
+        logger.info("[INSTAGRAM DEBUG] signature_valid=%s", valid)
+
+        if not valid:
+            raise HTTPException(
+                status_code=403,
+                detail="Webhook signature verification failed",
+            )
 
         data = json.loads(raw_body.decode("utf-8") or "{}")
         return await WebhookService.handle_instagram_webhook(data, db)
