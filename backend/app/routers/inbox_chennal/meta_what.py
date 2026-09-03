@@ -63,8 +63,10 @@ async def receive_whatsapp(request: Request, db: Session = Depends(get_db)):
     
         raw_body = await request.body()
         sig_header = request.headers.get("x-hub-signature-256")
-        app_secret = config_service.get("meta_app_secret")
-        if app_secret and not WebhookService.verify_meta_signature(raw_body, sig_header, app_secret):
+        meta_secret = config_service.get("meta_app_secret")
+        ig_secret = config_service.get("ig_app_secret")
+        candidate_secrets = [s for s in [meta_secret, ig_secret] if s]
+        if candidate_secrets and not WebhookService.verify_meta_signature(raw_body, sig_header, candidate_secrets):
             logger.warning("[META WEBHOOK] Signature verification failed")
             raise HTTPException(status_code=403, detail="Webhook signature verification failed")
 

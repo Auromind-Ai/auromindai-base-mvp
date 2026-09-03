@@ -42,9 +42,10 @@ from fastapi.responses import PlainTextResponse
 @router.get("/webhook")
 async def verify_instagram(request: Request):
     from app.services.config_service import config_service
+    verify_token = config_service.get("ig_verify_token") or config_service.get("meta_verify_token")
     challenge = WebhookService.verify_meta_subscription(
         request.query_params,
-        config_service.get("meta_verify_token"),
+        verify_token,
     )
     if challenge is not None:
         return PlainTextResponse(str(challenge))
@@ -60,24 +61,31 @@ async def receive_instagram(request: Request, db: Session = Depends(get_db)):
         raw_body = await request.body()
 
         sig_header = request.headers.get("x-hub-signature-256")
-        app_secret = config_service.get("meta_app_secret")
+        ig_secret = config_service.get("ig_app_secret")
+        meta_secret = config_service.get("meta_app_secret")
+        candidate_secrets = [s for s in [ig_secret, meta_secret] if s]
 
         logger.info(
-            "[INSTAGRAM DEBUG] body_length=%d signature=%s secret_length=%d",
+            "[INSTAGRAM DEBUG] body_length=%d signature=%s has_ig_secret=%s has_meta_secret=%s",
             len(raw_body),
             sig_header,
-            len(app_secret or ""),
+            bool(ig_secret),
+            bool(meta_secret),
         )
 
         valid = WebhookService.verify_meta_signature(
             raw_body,
             sig_header,
-            app_secret,
+            candidate_secrets if candidate_secrets else None,
         )
 
         logger.info("[INSTAGRAM DEBUG] signature_valid=%s", valid)
 
         if not valid:
+            logger.warning(
+                "[INSTAGRAM WEBHOOK] Webhook signature verification failed. "
+                "Ensure 'ig_app_secret' or 'meta_app_secret' in Platform Settings matches the App Secret from Meta for Developers."
+            )
             raise HTTPException(
                 status_code=403,
                 detail="Webhook signature verification failed",
