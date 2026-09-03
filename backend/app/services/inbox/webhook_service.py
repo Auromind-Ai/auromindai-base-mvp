@@ -155,6 +155,18 @@ class WebhookService:
             hashlib.sha256,
         ).hexdigest()
 
+        # ADD THIS DEBUG LOG
+        logger.info(
+            "[META SIGNATURE DEBUG] "
+            "received_prefix=%s expected_prefix=%s "
+            "received_len=%d expected_len=%d body_length=%d",
+            received_signature[:8],
+            expected_signature[:8],
+            len(received_signature),
+            len(expected_signature),
+            len(raw_body),
+        )
+
         valid = hmac.compare_digest(
             received_signature.lower(),
             expected_signature.lower(),
