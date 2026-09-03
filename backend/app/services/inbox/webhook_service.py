@@ -115,15 +115,60 @@ class WebhookService:
         return None
 
     @staticmethod
-    def verify_meta_signature(raw_body: bytes, signature_header: str | None, app_secret: str | None) -> bool:
+    def verify_meta_signature(
+        raw_body: bytes,
+        signature_header: str | None,
+        app_secret: str | None,
+    ) -> bool:
+
         if not app_secret:
+            logger.warning(
+                "[META WEBHOOK] App secret is missing"
+            )
             return True
-        if not signature_header or not signature_header.startswith("sha256="):
+
+        if not signature_header:
+            logger.warning(
+                "[META WEBHOOK] x-hub-signature-256 header missing"
+            )
             return False
-        expected_sig = signature_header.split("sha256=", 1)[1].strip()
-        import hmac, hashlib
-        computed_sig = hmac.new(app_secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(expected_sig, computed_sig)
+
+        signature_header = signature_header.strip()
+
+        if not signature_header.startswith("sha256="):
+            logger.warning(
+                "[META WEBHOOK] Invalid signature format: %s",
+                signature_header[:30],
+            )
+            return False
+
+        received_signature = signature_header[
+            len("sha256="):
+        ].strip()
+
+        import hmac
+        import hashlib
+
+        expected_signature = hmac.new(
+            app_secret.encode("utf-8"),
+            raw_body,
+            hashlib.sha256,
+        ).hexdigest()
+
+        valid = hmac.compare_digest(
+            received_signature.lower(),
+            expected_signature.lower(),
+        )
+
+        if not valid:
+            logger.error(
+                "[META WEBHOOK] Signature mismatch | "
+                "body_length=%d received_signature_length=%d",
+                len(raw_body),
+                len(received_signature),
+            )
+
+        return valid
 
     @staticmethod
     def verify_twilio_signature(url: str, params: dict, signature_header: str | None, auth_token: str | None) -> bool:
