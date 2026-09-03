@@ -306,3 +306,13 @@ export const evaluateConditionBranch = (operator, leftValue, rightValue) => {
       return leftStr.toLowerCase() === rightStr.toLowerCase();
   }
 };
+
+export const formatVariableName = (value = '') =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+

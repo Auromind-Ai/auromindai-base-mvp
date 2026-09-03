@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -910,6 +911,34 @@ class FlowServiceV2:
                 "button_value": matched_button.get("value"),
             },
         )
+
+        # Resolve user-facing button label
+        button_label = (
+            matched_button.get("label")
+            or matched_button.get("value")
+            or inbound_text
+        )
+
+        state.runtime_context = state.runtime_context or {}
+        state.runtime_context["last_user_message"] = button_label
+
+        raw_var_name = pending.get("variable_name")
+        if not raw_var_name:
+            curr_node = next(
+                (n for n in (flow.nodes or []) if n.get("id") == pending.get("node_id")),
+                None,
+            )
+            if curr_node:
+                raw_var_name = (curr_node.get("config") or {}).get("variable_name")
+
+        if raw_var_name and isinstance(raw_var_name, str):
+            clean_var_name = re.sub(r"[^a-z0-9_]", "", raw_var_name.strip().lower().replace(" ", "_"))
+            if clean_var_name:
+                state.runtime_context[clean_var_name] = button_label
+                flag_modified(state, "runtime_context")
+                logger.info(
+                    f"🔘 Button selection saved! Stored '{button_label}' → context['{clean_var_name}']"
+                )
 
         state.pending_button = None
         state.button_expires_at = None
@@ -1825,6 +1854,7 @@ class FlowServiceV2:
                 "node_id": node.get("id"),
                 "buttons": buttons,
                 "mode": mode,
+                "variable_name": (config.get("variable_name") or "").strip(),
             }
             state.button_expires_at = datetime.now(timezone.utc) + timedelta(
                 minutes=int(config.get("button_timeout_minutes", 60))

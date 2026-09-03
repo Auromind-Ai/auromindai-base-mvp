@@ -7,7 +7,7 @@ import AskQuestionConfig from '@/components/AskQuestionConfig';
 import {
   MAX_KEYWORDS, DEFAULT_MESSAGE_TYPE, MAX_BUTTONS,
   getNodeButtons, isMultiPathNode, isConditionNode, getNodeBranches,
-  getHandleIdForButton, normalizeButtons, createDefaultButton
+  getHandleIdForButton, normalizeButtons, createDefaultButton, formatVariableName
 } from '../helpers';
 
 export default function NodeInspector({
@@ -376,7 +376,30 @@ export default function NodeInspector({
 
                     {(activeNode.config?.message_type || DEFAULT_MESSAGE_TYPE) === 'button_message' && (
                       <section className="space-y-4">
-                        <div className="flex items-center justify-between">
+                        <div>
+                          <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">
+                            Save Selection As (Optional Variable)
+                          </label>
+                          <input
+                            type="text"
+                            value={activeNode.config?.variable_name || ''}
+                            onChange={(e) => {
+                              updateNodeConfig(activeNodeId, {
+                                variable_name: formatVariableName(e.target.value),
+                              });
+                            }}
+                            placeholder="e.g. requirement or selected_service"
+                            className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm font-medium text-white outline-none focus:border-indigo-500/50 transition shadow-inner placeholder:text-zinc-600"
+                          />
+                          <p className="text-[10px] text-zinc-500 mt-1.5 font-medium">
+                            When user taps a button, its label will be saved in{' '}
+                            <span className="text-violet-400 font-mono font-semibold">
+                              &#123;&#123;{activeNode.config?.variable_name || 'variable_name'}&#125;&#125;
+                            </span>
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-white/5">
                           <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Buttons</label>
                           <button
                             onClick={() => addButtonToNode(activeNodeId)}

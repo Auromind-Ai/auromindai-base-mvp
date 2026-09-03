@@ -352,14 +352,23 @@ export default function FlowConversationPreviewModal({
       return;
     }
 
+    const rawVarName = currentMsgNode.config?.variable_name;
+    const varName = typeof rawVarName === 'string' ? rawVarName.trim() : '';
+    const updatedVars = {
+      ...variables,
+      last_user_message: buttonLabel,
+      ...(varName ? { [varName]: buttonLabel } : {})
+    };
+    setVariables(updatedVars);
+
     const handleId = button.value || button.id;
     setTimeout(() => {
-      const next = getNextNode(currentMsgNode, handleId, variables);
+      const next = getNextNode(currentMsgNode, handleId, updatedVars);
       if (next) {
-        processNode(next, variables);
+        processNode(next, updatedVars);
       } else {
-        const fallbackNext = getNextNode(currentMsgNode, null, variables);
-        if (fallbackNext) processNode(fallbackNext, variables);
+        const fallbackNext = getNextNode(currentMsgNode, null, updatedVars);
+        if (fallbackNext) processNode(fallbackNext, updatedVars);
         else setIsCompleted(true);
       }
     }, 300);
