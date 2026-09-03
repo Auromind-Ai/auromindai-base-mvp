@@ -173,7 +173,6 @@ def seed_settings_from_env(db: Session):
         "IG_APP_ID": "ig_app_id",
         "IG_APP_SECRET": "ig_app_secret",
         "IG_REDIRECT_URI": "ig_redirect_uri",
-        "IG_VERIFY_TOKEN": "ig_verify_token",
         
         # SMTP
         "GMAIL_USER": "gmail_user",
