@@ -347,6 +347,10 @@ export default function AIChat({ isOpen, onClose, onToggleHistory, activeSession
                 // User clicked Stop — partial response already visible, do nothing
                 return;
             }
+            if (err?.status === 401 || err?.isSessionExpired || String(err?.message || '').toLowerCase().includes('session expired') || String(err?.message || '').toLowerCase().includes('authentication failed')) {
+                // Session expired: logout & redirect handled by base.js
+                return;
+            }
             console.error('Failed to send message:', err);
             setMessages(prev => [...prev, {
                 role: 'assistant',

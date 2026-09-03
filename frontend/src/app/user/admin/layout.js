@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Poppins } from 'next/font/google';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { getToken, isTokenExpired } from '@/lib/auth';
 import {
     Sparkles,
     LayoutDashboard,
@@ -49,6 +50,7 @@ const GlobalAudioNotification = dynamic(
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 import { RealtimeProvider } from '@/context/RealtimeContext';
 import CreditRingDropdown from '@/components/CreditRingDropdown';
+import AnnouncementBanner from '@/components/AnnouncementBanner';
 
 const MAIN_NAV_ITEMS = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/user/admin/dashboard' },
@@ -162,11 +164,20 @@ function AdminLayoutContent({ children }) {
     };
 
     useEffect(() => {
-        if (!loading && !user) {
-            console.warn("🚫 No current user found, redirecting to login");
-            router.push('/login');
+        if (loading) return;
+
+        const token = getToken();
+        if (!token || isTokenExpired(token)) {
+            console.warn("🚫 Session expired on route navigation:", pathname);
+            logout({ reason: 'expired' });
+            return;
         }
-    }, [user, loading, router]);
+
+        if (!user) {
+            console.warn("🚫 No current user found, redirecting to login");
+            router.replace('/login');
+        }
+    }, [pathname, user, loading, router, logout]);
 
     // app/layout.js or _app.js
     useEffect(() => {
@@ -530,6 +541,9 @@ function AdminLayoutContent({ children }) {
                             {(user?.full_name || user?.name || user?.email || 'U').charAt(0).toUpperCase()}
                         </div>
                     </div>
+
+                    {/* Platform Global Announcement Banner */}
+                    <AnnouncementBanner />
 
                     <div
                         className={`w-full flex-1 flex flex-col overflow-hidden ${

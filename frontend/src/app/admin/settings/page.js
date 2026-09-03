@@ -724,35 +724,6 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 </section>
-
-                <section>
-                   <div className="flex items-center gap-3 mb-6 pt-4">
-                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                      <Database className="text-purple-500 w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold">Platform Constraints</h3>
-                      <p className="text-xs text-gray-500">Global resource limits</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {[
-                      { label: "Max Workspaces", key: "max_workspaces" },
-                      { label: "Users/Workspace", key: "max_users_per_workspace" },
-                      { label: "Max Conversations", key: "max_conversations" }
-                    ].map(item => (
-                      <div key={item.key} className="space-y-2">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase px-2">{item.label}</p>
-                        <input 
-                          type="number"
-                          value={settings[item.key] ?? ""}
-                          onChange={(e) => handleInputChange(item.key, parseInt(e.target.value) || 0)}
-                          className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-colors outline-none font-mono"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </section>
               </div>
             )}
 
@@ -1974,9 +1945,7 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
                       { label: "Gmail Integration", desc: "Allow mailbox connections", key: "enable_gmail_integration" },
-                      { label: "Calendar Sync", desc: "Enable meeting schedulers", key: "enable_calendar_integration" },
-                      { label: "RAG Brain", desc: "Enable vector knowledge base", key: "enable_rag" },
-                      { label: "AI Learning", desc: "Enable feedback loops", key: "enable_ai_learning" }
+                      { label: "Calendar Sync", desc: "Enable meeting schedulers", key: "enable_calendar_integration" }
                     ].map(feat => (
                       <div key={feat.key} className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl hover:bg-white/[0.04] transition-all">
                         <div>

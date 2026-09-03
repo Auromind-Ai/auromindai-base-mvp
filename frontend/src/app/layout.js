@@ -7,6 +7,8 @@ import { GeistMono } from "geist/font/mono";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
+import ServerHealthMonitor from "@/components/ServerHealthMonitor";
+
 export const metadata = {
   title: "Orbionagents AI - v1.1.16",
   description: "Secure AI Business Assistant (v1.1.16)",
@@ -22,6 +24,7 @@ export default function RootLayout({ children }) {
         <BrandingProvider>
           <AuthProvider>
             <ToastProvider>
+              <ServerHealthMonitor />
               {children}
             </ToastProvider>
           </AuthProvider>

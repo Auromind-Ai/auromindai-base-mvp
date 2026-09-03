@@ -1008,20 +1008,25 @@ export default function ChannelsPage() {
             try {
                 const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
                 if (data?.type === 'WA_EMBEDDED_SIGNUP') {
-                    if (data.event === 'CANCEL' || data.event === 'ERROR') {
+                    if (data.event === 'CANCEL') {
                         setConnecting(null);
+                        showToast("WhatsApp setup was cancelled.", "warning");
+                    } else if (data.event === 'ERROR') {
+                        setConnecting(null);
+                        const errMsg = data?.data?.error_message || data?.error?.message || "WhatsApp signup encountered an error.";
+                        showToast(errMsg, "error");
                     }
                 }
             } catch (_) {}
         };
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, []);
+    }, [showToast]);
 
     const connectWhatsAppToBackend = async (payload) => {
         try {
             const data = await api.connectWhatsApp({ ...payload, workspace_id: workspace?.id });
-            if (data.status === 'connected') {
+            if (data?.status === 'connected') {
                 const phone = data.phone_number || data.display_number || "Connected";
                 const phoneId = data.phone_number_id || '';
                 const wabaId = data.waba_id || '';
@@ -1039,9 +1044,18 @@ export default function ChannelsPage() {
                 if (typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('channel-status-changed'));
                 }
+                showToast(`WhatsApp connected successfully: ${phone}`, "success");
+            } else {
+                showToast(data?.message || data?.detail || "Failed to connect WhatsApp account.", "error");
             }
         } catch (err) {
             console.error('WhatsApp connect error:', err);
+            const errorMsg =
+                err?.data?.detail ||
+                err?.detail ||
+                err?.message ||
+                'Failed to connect WhatsApp account. Please try again.';
+            showToast(errorMsg, 'error');
         } finally {
             setConnecting(null);
         }
@@ -1059,6 +1073,9 @@ export default function ChannelsPage() {
                     connectWhatsAppToBackend({ code: response.authResponse.code });
                 } else {
                     setConnecting(null);
+                    if (response?.status === 'not_authorized') {
+                        showToast("WhatsApp authorization was not granted.", "warning");
+                    }
                 }
             },
             {

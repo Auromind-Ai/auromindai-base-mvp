@@ -130,11 +130,14 @@ function LoginContent() {
 
     useEffect(() => {
         const isDeactivated = searchParams.get('deactivated');
+        const isSessionExpired = searchParams.get('session_expired');
         const err = searchParams.get('error');
 
         if (isDeactivated === 'true') {
             setShowDeactivatedModal(true);
             setError("Your account is deactivated due to some reason. Please call or contact the support team.");
+        } else if (isSessionExpired === 'true') {
+            setError("Your session has expired. Please log in again to continue.");
         } else if (err) {
             let decodedErr = decodeURIComponent(err);
             if (decodedErr.toLowerCase().includes("deactivat")) {

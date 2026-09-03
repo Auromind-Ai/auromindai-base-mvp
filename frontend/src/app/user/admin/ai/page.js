@@ -810,6 +810,9 @@ export default function AuromindAIPage() {
                 } : msg));
             } else if (err.name === 'AbortError') {
                 // Silently handled
+            } else if (err?.status === 401 || err?.isSessionExpired || errStr.includes('session expired') || errStr.includes('authentication failed')) {
+                setMessages(prev => prev.filter((_, i) => i !== prev.length - 1));
+                return;
             } else if (err.status === 409 || (err.data && err.data.detail === 'previous_generation_stopping')) {
                 setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? {
                     ...msg,
@@ -975,6 +978,10 @@ export default function AuromindAIPage() {
             isAnimatingRef.current = false;
             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
             if (err.name !== 'AbortError') {
+                if (err?.status === 401 || err?.isSessionExpired) {
+                    setMessages(prev => prev.filter((_, i) => i !== prev.length - 1));
+                    return;
+                }
                 console.error(err);
                 setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Orbionagents. Please try again.", isError: true, isStreaming: false } : msg));
             }
@@ -1036,6 +1043,10 @@ export default function AuromindAIPage() {
             isAnimatingRef.current = false;
             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
             if (err.name !== 'AbortError') {
+                if (err?.status === 401 || err?.isSessionExpired) {
+                    setMessages(prev => prev.filter((_, i) => i !== prev.length - 1));
+                    return;
+                }
                 console.error(err);
                 setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Orbionagents. Please try again.", isError: true, isStreaming: false } : msg));
             }

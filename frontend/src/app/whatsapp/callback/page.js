@@ -57,7 +57,7 @@ function WhatsAppCallbackContent() {
 
         const connectWhatsApp = async () => {
             try {
-                setStatus("Connecting to Auromind backend...");
+                setStatus("Connecting to Orbion Agents backend...");
                 setSubStatus("Exchanging authorization code with Meta APIs...");
 
                 const redirectUri = `${window.location.origin}/whatsapp/callback`;
@@ -82,7 +82,12 @@ function WhatsAppCallbackContent() {
             } catch (err) {
                 console.error("❌ WhatsApp connect failed:", err);
                 setStatus("Connection Failed");
-                setSubStatus(err?.detail || err?.message || JSON.stringify(err));
+                const errorMsg =
+                    err?.data?.detail ||
+                    err?.detail ||
+                    err?.message ||
+                    'WhatsApp connection failed. Please try again.';
+                setSubStatus(errorMsg);
                 setIsError(true);
             }
         };

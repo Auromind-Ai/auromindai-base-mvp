@@ -1,3 +1,5 @@
+import { isTokenExpired, removeToken } from '../auth';
+
 // Timeout constants
 const DEFAULT_TIMEOUT_MS = 60_000;   // 60s for regular API calls
 const ADMIN_TIMEOUT_MS   = 45_000;   // 45s for admin panel calls
@@ -22,6 +24,20 @@ export function sanitizeErrorMessage(msg, status = 500) {
 
   if (lower.includes('deactivat')) {
     return 'Your account is deactivated due to some reason. Please call or contact the support team.';
+  }
+
+  // Preserve friendly user-facing conflict, duplicate, and channel validation messages
+  if (
+    lower.includes('already connected') ||
+    lower.includes('already in use') ||
+    lower.includes('already linked') ||
+    lower.includes('already registered') ||
+    lower.includes('already exists') ||
+    lower.includes('disconnect') ||
+    lower.includes('phone number format') ||
+    lower.includes('set up')
+  ) {
+    return msg;
   }
 
   // List of technical internals, vendor names, stack traces, and database terms that must never be exposed
@@ -53,6 +69,23 @@ export function sanitizeErrorMessage(msg, status = 500) {
     'openai', 'groq', 'anthropic', 'claude', 'gemini', 'deepseek',
     'redis', 'celery', 'aws', 's3', 'boto'
   ];
+
+  // Critical internals that must never leak under any status
+  const criticalTechnicalPatterns = [
+    'traceback', 'psycopg', 'sqlalchemy', 'operationalerror', 'integrityerror', 'syntaxerror',
+    'attributeerror', 'keyerror', 'typeerror', 'valueerror', 'nameerror', 'indexerror',
+    'unicodedecodeerror', 'unicodeencodeerror', 'zerodivisionerror', 'exception:',
+    'postgres', 'sqlite', 'alembic', 'select ', 'insert into', 'update ', 'delete from',
+    'duplicate key', 'unique constraint', 'foreign key constraint', 'violates',
+    'column does not exist', 'table does not exist',
+    'codec', 'latin-1', 'latin1', 'ordinal not in range',
+    'password', 'secret', 'api_key', 'apikey', 'private_key', 'bearer '
+  ];
+
+  // For 4xx client errors without sensitive technical/database leaks, preserve clear user-facing messages
+  if (status < 500 && !criticalTechnicalPatterns.some(pat => lower.includes(pat))) {
+    return msg;
+  }
 
   const hasLeak = technicalPatterns.some(pat => lower.includes(pat));
 
@@ -122,9 +155,29 @@ export class APIClient {
     const isPostOrPutOrPatch = ['POST', 'PUT', 'PATCH'].includes(method);
     const { signal: optSignal, ...restOptions } = options;
 
+    const isPublicAuthEndpoint = url.includes('/auth/login') ||
+                                 url.includes('/auth/verify-otp') ||
+                                 url.includes('/auth/send-otp') ||
+                                 url.includes('/auth/google') ||
+                                 url.includes('/2fa/verify-login');
+
     const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
     const adminSessionToken = typeof window !== 'undefined' ? sessionStorage.getItem('admin_session_token') : null;
     const adminBackupToken = typeof window !== 'undefined' ? localStorage.getItem('admin_backup_token') : null;
+
+    if (token && isTokenExpired(token) && !isPublicAuthEndpoint) {
+      if (typeof window !== 'undefined') {
+        removeToken();
+        window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'expired' } }));
+        if (!window.location.pathname.startsWith('/login')) {
+          window.location.replace('/login?session_expired=true');
+        }
+      }
+      const expiredErr = new Error('Authentication failed or session expired. Please sign in again.');
+      expiredErr.status = 401;
+      expiredErr.isSessionExpired = true;
+      throw expiredErr;
+    }
 
     const config = {
       credentials: 'include', 
@@ -249,14 +302,10 @@ export class APIClient {
         const isDeactivated = (errorMessage && errorMessage.toLowerCase().includes('deactivat')) || 
                               (data?.detail && typeof data.detail === 'string' && data.detail.toLowerCase().includes('deactivat'));
 
-        if (isDeactivated && !url.includes('/auth/login') && !url.includes('/auth/verify-otp') && !url.includes('/auth/send-otp') && !url.includes('/auth/google')) {
+        if (isDeactivated && !isPublicAuthEndpoint) {
           if (typeof window !== 'undefined') {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('auromind_logged_in');
-            localStorage.removeItem('auromind_user');
-            localStorage.removeItem('user');
-            localStorage.removeItem('workspace');
-            sessionStorage.removeItem('admin_session_token');
+            removeToken();
+            window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'deactivated' } }));
             if (!window.location.pathname.startsWith('/login')) {
               window.location.replace('/login?deactivated=true');
             }
@@ -265,18 +314,28 @@ export class APIClient {
           if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/admin')) {
             window.location.href = '/admin';
           }
-        } else if (response.status === 401 && !url.includes('/auth/login') && !url.includes('/auth/verify-otp') && !url.includes('/auth/send-otp') && !url.includes('/auth/google')) {
-          if (typeof window !== 'undefined' && localStorage.getItem('auromind_logged_in') === 'true') {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('auromind_logged_in');
-            localStorage.removeItem('auromind_user');
+        } else if (response.status === 401 && !isPublicAuthEndpoint) {
+          errorObj.isSessionExpired = true;
+          if (typeof window !== 'undefined') {
+            removeToken();
+            window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'expired' } }));
             if (!window.location.pathname.startsWith('/login')) {
-              window.location.replace('/login');
+              window.location.replace('/login?session_expired=true');
             }
           }
         }
 
+        if (response.status >= 502 && response.status <= 504) {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('server-connection-error', { detail: { status: response.status } }));
+          }
+        }
+
         throw errorObj;
+      }
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('server-connection-success'));
       }
 
       return response;
@@ -314,6 +373,9 @@ export class APIClient {
       }
 
       if (isFetchNetworkError) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('server-connection-error', { detail: { status: 0 } }));
+        }
         const networkErr = new Error('Unable to connect to the server. Please check your internet connection and try again.');
         networkErr.status = 0;
         networkErr.isNetworkError = true;

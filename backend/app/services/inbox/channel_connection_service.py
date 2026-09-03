@@ -5,7 +5,7 @@ import logging
 import requests
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-
+from sqlalchemy import or_
 from app import models
 
 logger = logging.getLogger(__name__)
@@ -201,15 +201,27 @@ class ChannelConnectionService:
                 detail=f"Retrieved WhatsApp phone number '{display_number}' does not follow a valid phone number format."
             )
 
-        # WhatsApp duplicate check
+        # WhatsApp duplicate check across workspaces
+   
+        duplicate_filters = [models.Workspace.meta_phone_number_id == phone_number_id]
+        if waba_id:
+            duplicate_filters.append(models.Workspace.meta_waba_id == waba_id)
+        if display_number:
+            duplicate_filters.append(models.Workspace.meta_display_phone == display_number)
+
         existing_ws = db.query(models.Workspace).filter(
-            models.Workspace.meta_phone_number_id == phone_number_id,
+            or_(*duplicate_filters),
             models.Workspace.id != workspace_id
         ).first()
         if existing_ws:
+            phone_text = f" ({display_number})" if display_number else ""
+            logger.warning(
+                "WhatsApp duplicate connection rejected: Account/number %s (%s) already connected to workspace %s",
+                display_number, phone_number_id, existing_ws.id
+            )
             raise HTTPException(
                 status_code=400,
-                detail="This WhatsApp Business Account is already connected to another workspace."
+                detail=f"This WhatsApp number{phone_text} is already connected to another workspace or user account. Please disconnect it from that account before connecting here."
             )
 
         # Try to retrieve the parent Business ID for the selected WABA

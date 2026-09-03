@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import api from '@/lib/api';
-import { setUser, setWorkspace, removeToken, setToken } from '@/lib/auth';
+import { setUser, setWorkspace, removeToken, setToken, getToken, isTokenExpired } from '@/lib/auth';
 
 const AuthContext = createContext({
   user: null,
@@ -89,9 +89,16 @@ export function AuthProvider({ children }) {
         if (err.name === 'AbortError') return null;
         
         const isDeactivated = err?.message?.toLowerCase()?.includes('deactivat') || (err?.status === 403 && String(err?.data?.detail || '').toLowerCase().includes('deactivat'));
+        const isAuthError = err?.status === 401 ||
+                            err?.status === 403 ||
+                            err?.isSessionExpired ||
+                            err?.message?.toLowerCase()?.includes('unauthorized') ||
+                            err?.message?.toLowerCase()?.includes('session expired') ||
+                            err?.message?.toLowerCase()?.includes('could not validate credentials') ||
+                            err?.message?.toLowerCase()?.includes('credentials');
+
         if (isDeactivated) {
           removeToken();
-          localStorage.removeItem('auromind_logged_in');
           setUserState(null);
           setWorkspacesState([]);
           setWorkspaceIdState(null);
@@ -102,12 +109,16 @@ export function AuthProvider({ children }) {
             window.location.replace('/login?deactivated=true');
           }
         } else if (isAuthError) {
+          removeToken();
           setUserState(null);
           setWorkspacesState([]);
           setWorkspaceIdState(null);
           workspaceIdRef.current = null;
           setUser(null);
           setWorkspace(null);
+          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+            window.location.replace('/login?session_expired=true');
+          }
         } else {
           console.warn('Auth check failed (non-auth error):', err?.message || err);
         }
@@ -144,7 +155,14 @@ export function AuthProvider({ children }) {
         }
       }
 
-      const isLogged = typeof window !== 'undefined' && localStorage.getItem('auromind_logged_in') === 'true';
+      const isLogged = typeof window !== 'undefined' && (
+        localStorage.getItem('orbionagents_logged_in') === 'true' ||
+        localStorage.getItem('auromind_logged_in') === 'true'
+      );
+      if (typeof window !== 'undefined' && localStorage.getItem('auromind_logged_in')) {
+        localStorage.setItem('orbionagents_logged_in', 'true');
+        localStorage.removeItem('auromind_logged_in');
+      }
       const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
 
       const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup');
@@ -166,17 +184,13 @@ export function AuthProvider({ children }) {
     return () => controller.abort(); // cleanup on unmount
   }, [refreshUser]);
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(async (options = {}) => {
     try {
       await api.logout();
     } catch (err) {
       console.warn("Logout API call failed:", err?.message || err);
     } finally {
       removeToken();
-      localStorage.removeItem('auromind_logged_in');
-      localStorage.removeItem('auromind_user');
-      localStorage.removeItem('user');
-      localStorage.removeItem('workspace');
       setUserState(null);
       setWorkspaceIdState(null);
       workspaceIdRef.current = null;
@@ -185,11 +199,66 @@ export function AuthProvider({ children }) {
       csrfTokenRef.current = null;
       setUser(null);
       setWorkspace(null);
+
+      const reason = options?.reason;
+      const redirectUrl = reason === 'expired'
+        ? '/login?session_expired=true'
+        : (reason === 'deactivated' ? '/login?deactivated=true' : '/login');
+
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-        window.location.replace('/login');
+        window.location.replace(redirectUrl);
       }
     }
   }, []);
+
+  // Listen to cross-module auth:logout events
+  useEffect(() => {
+    const handleAuthLogout = () => {
+      setUserState(null);
+      setWorkspaceIdState(null);
+      workspaceIdRef.current = null;
+      setWorkspacesState([]);
+      setCsrfTokenState(null);
+      csrfTokenRef.current = null;
+      setUser(null);
+      setWorkspace(null);
+    };
+
+    window.addEventListener('auth:logout', handleAuthLogout);
+    return () => window.removeEventListener('auth:logout', handleAuthLogout);
+  }, []);
+
+  // Periodic and Idle Token Freshness Check
+  useEffect(() => {
+    const checkTokenFreshness = () => {
+      if (typeof window === 'undefined') return;
+      const pathname = window.location.pathname;
+      const isProtected = pathname.startsWith('/user/admin') || pathname.startsWith('/admin');
+      if (!isProtected) return;
+
+      const token = getToken();
+      if (token && isTokenExpired(token)) {
+        console.warn("🚫 Session token expired during active session. Logging out.");
+        logout({ reason: 'expired' });
+      }
+    };
+
+    const interval = setInterval(checkTokenFreshness, 15000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkTokenFreshness();
+      }
+    };
+
+    window.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', onVisibilityChange);
+    };
+  }, [logout]);
 
   const setWorkspaceId = useCallback((id) => {
     setWorkspaceIdState(id);

@@ -2172,6 +2172,9 @@ function InboxContent() {
             setTemplateLanguage('en_US');
             fetchMessages(lead.id);
         } catch (e) {
+            if (e?.status === 401 || e?.isSessionExpired) {
+                return;
+            }
             console.error('Send error:', e);
             if (e.status === 503) {
                 showToast("This channel isn't configured for this workspace yet. Please contact admin to set up channel credentials.");
