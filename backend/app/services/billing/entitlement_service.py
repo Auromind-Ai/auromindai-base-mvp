@@ -391,6 +391,47 @@ class EntitlementService:
         return db.query(PlanEntitlement).filter(PlanEntitlement.plan_id == plan_id).first()
 
     @classmethod
+    def get_active_plan_key(cls, db: Session, workspace_id: uuid.UUID | str) -> str:
+        """Fetch active plan key ('free', 'solo', 'pro', 'enterprise') for a workspace."""
+        from datetime import datetime, timezone
+        if isinstance(workspace_id, str):
+            try:
+                workspace_id = uuid.UUID(workspace_id)
+            except ValueError:
+                return "free"
+
+        subscription = (
+            db.query(Subscription)
+            .filter(
+                Subscription.workspace_id == workspace_id,
+                Subscription.status == SubscriptionStatus.active,
+            )
+            .first()
+        )
+
+        if subscription and subscription.plan_id:
+            if subscription.current_period_end:
+                now_utc = datetime.now(timezone.utc)
+                end_utc = subscription.current_period_end
+                if isinstance(end_utc, datetime):
+                    if end_utc.tzinfo is None:
+                        end_utc = end_utc.replace(tzinfo=timezone.utc)
+                    if end_utc >= now_utc:
+                        plan = db.query(Plan).filter(Plan.id == subscription.plan_id).first()
+                        if plan and plan.name:
+                            return plan.name.lower()
+                else:
+                    plan = db.query(Plan).filter(Plan.id == subscription.plan_id).first()
+                    if plan and plan.name:
+                        return plan.name.lower()
+            else:
+                plan = db.query(Plan).filter(Plan.id == subscription.plan_id).first()
+                if plan and plan.name:
+                    return plan.name.lower()
+
+        return "free"
+
+    @classmethod
     def get_workspace_entitlement(cls, db: Session, workspace_id: uuid.UUID) -> PlanEntitlement:
         from datetime import datetime, timezone
         if isinstance(workspace_id, str):

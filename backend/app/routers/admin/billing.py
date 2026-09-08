@@ -1,7 +1,7 @@
 
 import uuid
 from datetime import datetime, timezone, timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, validator
@@ -31,6 +31,9 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.models.flow_pack import FlowPack, FlowPackPurchase
 from app.services.billing import BillingService
 from app.services.billing.entitlement_service import EntitlementService
+from app.services.billing.gst_service import GSTService
+from app.services.billing.invoice_service import InvoiceService
+from app.services.billing.entitlement_orchestrator import EntitlementOrchestrator
 from jose import jwt
 from app.core.config import settings
 from app.core.admin_security import verify_admin_workspace
@@ -908,6 +911,10 @@ async def override_subscription(
     ws_uuid = verify_admin_workspace(db, workspace_id)
     ws_id = str(ws_uuid)
         
+    workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
     sub = db.query(Subscription).filter(
         Subscription.workspace_id == ws_uuid,
         Subscription.status == SubscriptionStatus.active
@@ -947,33 +954,91 @@ async def override_subscription(
         sub_status = SubscriptionStatus.active
         pay_status = PaymentStatus.paid
 
+    billing_cycle = getattr(plan, "billing_cycle", "monthly") or "monthly"
+    cycle_days = 365 if billing_cycle == "yearly" else 30
+
     new_sub = Subscription(
         workspace_id=ws_uuid,
         plan_id=plan.id,
         status=sub_status,
-        billing_cycle="monthly",
+        billing_cycle=billing_cycle,
         is_admin_override=True,
         start_date=datetime.now(timezone.utc),
         current_period_start=datetime.now(timezone.utc),
-        current_period_end=datetime.now(timezone.utc) + timedelta(days=30),
+        current_period_end=datetime.now(timezone.utc) + timedelta(days=cycle_days),
         provider="manual"
     )
     db.add(new_sub)
     db.flush()
+
+    # Sync workspace plan type
+    if hasattr(workspace, "plan_type"):
+        workspace.plan_type = plan.name.lower()
+    if hasattr(workspace, "plan_id"):
+        workspace.plan_id = plan.id
+    db.flush()
+
+    # Perform GST calculation using plan price
+    base_price = Decimal(str(plan.price or 0))
+    gst_calcs = GSTService.calculate_gst(
+        amount=base_price,
+        customer_state=workspace.billing_state,
+        customer_country=workspace.billing_country or "IN",
+        product_type="subscription",
+        db=db,
+        tax_inclusive=False
+    )
+    amount_major = int(Decimal(str(gst_calcs["total_amount"])).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
     
     payment = Payment(
         workspace_id=ws_uuid,
         subscription_id=new_sub.id,
-        amount=plan.price,
-        currency=plan.currency,
+        amount=amount_major,
+        currency=plan.currency or "INR",
         status=pay_status,
         provider="manual",
+        payment_type="subscription",
+        payment_method="admin_manual",
+        description=f"{plan.display_name or plan.name.title()} Plan Subscription (Admin Manual Override)",
         provider_payment_id=f"manual_override_{uuid.uuid4()}",
         provider_order_id=f"manual_override_{uuid.uuid4()}",
+        billing_start=new_sub.current_period_start,
+        billing_end=new_sub.current_period_end,
+        subtotal=gst_calcs["subtotal"],
+        gst_rate=gst_calcs["gst_rate"],
+        gst_amount=gst_calcs["gst_amount"],
+        cgst=gst_calcs["cgst"],
+        sgst=gst_calcs["sgst"],
+        igst=gst_calcs["igst"],
+        taxable_amount=gst_calcs["taxable_amount"],
+        total_amount=gst_calcs["total_amount"],
+        place_of_supply=gst_calcs["place_of_supply"],
+        customer_state=gst_calcs["customer_state"],
+        customer_country=gst_calcs["customer_country"],
+        customer_gstin=workspace.billing_gstin,
     )
     db.add(payment)
     db.flush()
     
+    # Generate GST Tax Invoice & PDF if paid
+    invoice = None
+    if pay_status == PaymentStatus.paid:
+        try:
+            invoice = InvoiceService.create_invoice(
+                db=db,
+                workspace_id=ws_uuid,
+                amount=gst_calcs["total_amount"],
+                currency=plan.currency or "INR",
+                gst_calculations=gst_calcs,
+                product_type="subscription",
+                payment_id=payment.id,
+                subscription_id=new_sub.id
+            )
+            payment.invoice_id = invoice.id
+            db.flush()
+        except Exception as inv_err:
+            logger.error(f"[ADMIN OVERRIDE INVOICE ERROR] Failed to create invoice: {inv_err}")
+
     if sub_status == SubscriptionStatus.active:
         EntitlementOrchestrator.renew_subscription(db, ws_uuid, payment)
     db.commit()
@@ -984,12 +1049,22 @@ async def override_subscription(
         action="SUBSCRIPTION_OVERRIDDEN",
         workspace_id=ws_uuid,
         old_value={"plan": old_plan_name, "subscription_id": str(old_sub_id) if old_sub_id else None},
-        new_value={"plan": plan.name.lower(), "subscription_id": str(new_sub.id)},
+        new_value={
+            "plan": plan.name.lower(),
+            "subscription_id": str(new_sub.id),
+            "invoice_number": invoice.invoice_number if invoice else None
+        },
         reason=payload.reason,
         request=request
     )
     
-    return {"message": f"Subscription successfully overridden to {plan.name}"}
+    return {
+        "message": f"Subscription successfully overridden to {plan.name}",
+        "invoice_number": invoice.invoice_number if invoice else None,
+        "payment_id": str(payment.id),
+        "total_amount": float(gst_calcs["total_amount"]),
+        "gst_amount": float(gst_calcs["gst_amount"])
+    }
 
 
 @router.post("/billing/workspaces/{workspace_id}/reset-credits")
@@ -1539,6 +1614,62 @@ async def verify_payment_manually_op(
     old_status = payment.status.value
     payment.status = PaymentStatus.paid
     db.commit()
+
+    # Ensure GST Tax Invoice exists
+    existing_inv = db.query(Invoice).filter(Invoice.payment_id == payment.id).first()
+    if not existing_inv:
+        try:
+            workspace = db.query(Workspace).filter(Workspace.id == payment.workspace_id).first()
+            if payment.gst_amount is None or payment.total_amount is None:
+                gst_calcs = GSTService.calculate_gst(
+                    amount=Decimal(str(payment.amount or 0)),
+                    customer_state=workspace.billing_state if workspace else None,
+                    customer_country=workspace.billing_country if workspace else "IN",
+                    product_type=payment.payment_type or "subscription",
+                    db=db,
+                    tax_inclusive=False
+                )
+                payment.subtotal = gst_calcs["subtotal"]
+                payment.gst_rate = gst_calcs["gst_rate"]
+                payment.gst_amount = gst_calcs["gst_amount"]
+                payment.cgst = gst_calcs["cgst"]
+                payment.sgst = gst_calcs["sgst"]
+                payment.igst = gst_calcs["igst"]
+                payment.taxable_amount = gst_calcs["taxable_amount"]
+                payment.total_amount = gst_calcs["total_amount"]
+                payment.place_of_supply = gst_calcs["place_of_supply"]
+                payment.customer_state = gst_calcs["customer_state"]
+                payment.customer_country = gst_calcs["customer_country"]
+                payment.customer_gstin = workspace.billing_gstin if workspace else None
+                db.flush()
+            else:
+                gst_calcs = {
+                    "subtotal": payment.subtotal,
+                    "gst_rate": payment.gst_rate,
+                    "gst_amount": payment.gst_amount,
+                    "cgst": payment.cgst,
+                    "sgst": payment.sgst,
+                    "igst": payment.igst,
+                    "taxable_amount": payment.taxable_amount,
+                    "total_amount": payment.total_amount,
+                    "place_of_supply": payment.place_of_supply or (workspace.billing_state if workspace else "N/A"),
+                    "customer_state": payment.customer_state or (workspace.billing_state if workspace else "N/A"),
+                    "customer_country": payment.customer_country or (workspace.billing_country if workspace else "IN")
+                }
+            inv = InvoiceService.create_invoice(
+                db=db,
+                workspace_id=payment.workspace_id,
+                amount=gst_calcs["total_amount"],
+                currency=payment.currency or "INR",
+                gst_calculations=gst_calcs,
+                product_type=payment.payment_type or "subscription",
+                payment_id=payment.id,
+                subscription_id=payment.subscription_id
+            )
+            payment.invoice_id = inv.id
+            db.commit()
+        except Exception as inv_err:
+            logger.error(f"[MANUAL VERIFY INVOICE ERROR] {inv_err}")
     
     # Trigger entitlement renewal
     EntitlementOrchestrator.renew_subscription(db, payment.workspace_id, payment)
@@ -2035,6 +2166,84 @@ async def repair_billing_op(
             db.commit()
             repaired_details = {"deleted_ids": deleted_ids}
             log_audit(db, admin_user, "REPAIR_DUPLICATE_LEDGER", None, {"count": len(entries)}, {"count": 1}, f"Deleted duplicate entries for {ref_key}", request)
+
+    elif issue_type in ["missing_invoice", "missing_invoices"]:
+        repaired_count = 0
+        target_payments = []
+        if workspace_id:
+            invoices = db.query(Invoice).filter(Invoice.workspace_id == workspace_id).all()
+            inv_pids = {inv.payment_id for inv in invoices if inv.payment_id}
+            q = db.query(Payment).filter(Payment.workspace_id == workspace_id, Payment.status == PaymentStatus.paid)
+            if inv_pids:
+                q = q.filter(~Payment.id.in_(inv_pids))
+            target_payments = q.all()
+        else:
+            invoices = db.query(Invoice).all()
+            inv_pids = {inv.payment_id for inv in invoices if inv.payment_id}
+            q = db.query(Payment).filter(Payment.status == PaymentStatus.paid)
+            if inv_pids:
+                q = q.filter(~Payment.id.in_(inv_pids))
+            target_payments = q.all()
+
+        for p in target_payments:
+            try:
+                ws = db.query(Workspace).filter(Workspace.id == p.workspace_id).first()
+                if p.gst_amount is None or p.total_amount is None:
+                    gst_calcs = GSTService.calculate_gst(
+                        amount=Decimal(str(p.amount or 0)),
+                        customer_state=ws.billing_state if ws else None,
+                        customer_country=ws.billing_country if ws else "IN",
+                        product_type=p.payment_type or "subscription",
+                        db=db,
+                        tax_inclusive=False
+                    )
+                    p.subtotal = gst_calcs["subtotal"]
+                    p.gst_rate = gst_calcs["gst_rate"]
+                    p.gst_amount = gst_calcs["gst_amount"]
+                    p.cgst = gst_calcs["cgst"]
+                    p.sgst = gst_calcs["sgst"]
+                    p.igst = gst_calcs["igst"]
+                    p.taxable_amount = gst_calcs["taxable_amount"]
+                    p.total_amount = gst_calcs["total_amount"]
+                    p.place_of_supply = gst_calcs["place_of_supply"]
+                    p.customer_state = gst_calcs["customer_state"]
+                    p.customer_country = gst_calcs["customer_country"]
+                    p.customer_gstin = ws.billing_gstin if ws else None
+                    db.flush()
+                else:
+                    gst_calcs = {
+                        "subtotal": p.subtotal,
+                        "gst_rate": p.gst_rate,
+                        "gst_amount": p.gst_amount,
+                        "cgst": p.cgst,
+                        "sgst": p.sgst,
+                        "igst": p.igst,
+                        "taxable_amount": p.taxable_amount,
+                        "total_amount": p.total_amount,
+                        "place_of_supply": p.place_of_supply or (ws.billing_state if ws else "N/A"),
+                        "customer_state": p.customer_state or (ws.billing_state if ws else "N/A"),
+                        "customer_country": p.customer_country or (ws.billing_country if ws else "IN")
+                    }
+
+                inv = InvoiceService.create_invoice(
+                    db=db,
+                    workspace_id=p.workspace_id,
+                    amount=gst_calcs["total_amount"],
+                    currency=p.currency or "INR",
+                    gst_calculations=gst_calcs,
+                    product_type=p.payment_type or "subscription",
+                    payment_id=p.id,
+                    subscription_id=p.subscription_id
+                )
+                p.invoice_id = inv.id
+                db.commit()
+                repaired_count += 1
+            except Exception as e:
+                logger.error(f"[REPAIR INVOICE ERROR] Failed for payment {p.id}: {e}")
+                db.rollback()
+
+        repaired_details = {"repaired_invoices_count": repaired_count}
+        log_audit(db, admin_user, "REPAIR_MISSING_INVOICE", workspace_id, None, repaired_details, "One-click diagnostics repair", request)
 
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported issue_type: {issue_type}")

@@ -12,6 +12,7 @@ const routes = [
   "/resources/demo-videos",
   "/resources/docs",
   "/resources/help",
+  "/docs",
   "/solutions/ecommerce",
   "/solutions/education",
   "/solutions/high-ticket",
@@ -20,6 +21,8 @@ const routes = [
   "/solutions/saas",
   "/solutions/sales-automation",
 ];
+
+import { ALL_DOC_SLUGS } from "@/docs-data/docs-navigation";
 
 /**
  * Assigns SEO metadata based on route patterns
@@ -56,6 +59,13 @@ export default async function sitemap() {
     };
   });
 
+  const docEntries = ALL_DOC_SLUGS.map((slug) => ({
+    url: `${baseUrl}/docs/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly",
+    priority: 0.85,
+  }));
+
   const dynamicEntries = [];
 
   // Resilient try-catch placeholder for future dynamic routes (e.g. blog posts, case study articles)
@@ -75,6 +85,6 @@ export default async function sitemap() {
     console.warn("Warning: Failed to generate dynamic sitemap entries:", error);
   }
 
-  return [...staticEntries, ...dynamicEntries];
+  return [...staticEntries, ...docEntries, ...dynamicEntries];
 }
 
