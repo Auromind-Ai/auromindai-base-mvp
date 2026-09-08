@@ -2,17 +2,9 @@
 
 import { useEffect } from 'react';
 import { HelpCircle } from 'lucide-react';
+import { formatVariableName } from '@/app/user/admin/automation/helpers';
 
 const INPUT_TYPES = ['text', 'email', 'number'];
-
-const formatVariableName = (value = '') =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_]/g, '')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '');
 
 export default function AskQuestionConfig({ node, updateNodeConfig }) {
   const config = node?.config || {};

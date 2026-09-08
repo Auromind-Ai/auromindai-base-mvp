@@ -235,6 +235,17 @@ const NavigationSection = () => {
             Pricing
           </Link>
 
+          {/* Docs */}
+          <Link
+            href="/docs"
+            className="text-[15px] font-medium text-white/90 transition-colors hover:text-white flex items-center gap-1.5"
+          >
+            <span>Docs</span>
+            <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
+              New
+            </span>
+          </Link>
+
           {/* Resources */}
           <div className="relative group">
             <button className="text-[15px] font-medium text-white/90 hover:text-white transition-colors">
@@ -404,6 +415,10 @@ const NavigationSection = () => {
 
           <Link href="#pricing" className="block text-white text-[14px] font-medium tracking-wide hover:text-white/80 transition-colors" onClick={() => setMenuOpen(false)}>
             Pricing
+          </Link>
+
+          <Link href="/docs" className="block text-white text-[14px] font-medium tracking-wide hover:text-white/80 transition-colors" onClick={() => setMenuOpen(false)}>
+            Docs
           </Link>
 
           {/* Resources Accordion */}

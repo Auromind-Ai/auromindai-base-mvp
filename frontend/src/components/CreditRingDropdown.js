@@ -80,14 +80,19 @@ export default function CreditRingDropdown({ user, size = 36 }) {
   };
 
   const balance = Number(credits?.credits_balance ?? 0);
-  const added = Number(
-    (credits?.monthly_grant && Number(credits.monthly_grant) > 0)
-      ? credits.monthly_grant
-      : (credits?.credits_added ?? 0)
+  const includedCredits = Number(credits?.included_credits ?? credits?.monthly_grant ?? 0);
+  const purchasedCredits = Number(credits?.purchased_credits ?? 0);
+
+  // The total must show Included Credits + Purchased Credits combined
+  const total = Math.max(
+    Number(credits?.quota_limit ?? 0),
+    Number(credits?.credits_added ?? 0),
+    includedCredits + purchasedCredits,
+    Number(credits?.monthly_grant ?? 0)
   );
 
-  const percentRemaining = added > 0 
-    ? Math.min(100, Math.max(0, (balance / added) * 100))
+  const percentRemaining = total > 0 
+    ? Math.min(100, Math.max(0, (balance / total) * 100))
     : (balance > 0 ? 100 : 0);
 
   const formatPercentLeft = (pct) => {
@@ -195,7 +200,7 @@ export default function CreditRingDropdown({ user, size = 36 }) {
               <div className="space-y-2">
                 <div className="flex items-baseline justify-between">
                   <span className="text-lg font-black text-white">{formatCredits(balance, 2)}</span>
-                  <span className="text-zinc-500 text-xs font-semibold">/ {formatCredits(added, 2)} AI Messages</span>
+                  <span className="text-zinc-500 text-xs font-semibold">/ {formatCredits(total, 2)} AI Messages</span>
                 </div>
                 
                 <div className="h-1.5 w-full rounded-full bg-zinc-900 overflow-hidden">

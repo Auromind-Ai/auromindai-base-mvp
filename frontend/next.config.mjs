@@ -108,6 +108,15 @@ const nextConfig = {
             },
         ];
     },
+    async redirects() {
+        return [
+            {
+                source: '/resources/docs',
+                destination: '/docs',
+                permanent: true,
+            },
+        ];
+    },
     async rewrites() {
         return [
             {

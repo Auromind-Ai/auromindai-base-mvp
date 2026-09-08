@@ -161,6 +161,8 @@ async def stream_chat(
         )
     except BillingError as e:
         raise HTTPException(status_code=402, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"[STREAM CHAT] preflight error: {e}")
         raise HTTPException(status_code=500, detail="Failed to initialize chat stream.")
@@ -172,7 +174,7 @@ async def stream_chat(
                 message=request.message,
                 workspace_id=str(workspace_id),
                 session_id=request.session_id,
-                use_rag=request.use_rag,
+                use_rag=preflight.get("use_rag", request.use_rag),
                 model = request.model if request.model else "auto",
                 user_id=str(current_user.id),
                 document_id=request.document_id,

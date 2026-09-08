@@ -22,7 +22,8 @@ def to_uuid(val):
 def verify_workspace_access(
     current_user, 
     db: Session, 
-    target_workspace_id: uuid.UUID | str = None
+    target_workspace_id: uuid.UUID | str = None,
+    required_roles: list[str] = None
 ) -> str:
     user_id = to_uuid(current_user.id)
     if not user_id:
@@ -50,6 +51,14 @@ def verify_workspace_access(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Access denied or workspace not found."
                 )
+            if required_roles is not None:
+                user_role = (membership.role or "").lower().strip()
+                allowed_roles = [r.lower().strip() for r in required_roles]
+                if user_role not in allowed_roles:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"Action requires one of the following workspace roles: {', '.join(required_roles)}. Your role is '{membership.role}'."
+                    )
             return str(membership.workspace_id)
 
     # Fallback to default user workspace
@@ -63,4 +72,13 @@ def verify_workspace_access(
             detail="Access denied or workspace not found."
         )
     
+    if required_roles is not None:
+        user_role = (membership.role or "").lower().strip()
+        allowed_roles = [r.lower().strip() for r in required_roles]
+        if user_role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Action requires one of the following workspace roles: {', '.join(required_roles)}. Your role is '{membership.role}'."
+            )
+
     return str(membership.workspace_id)

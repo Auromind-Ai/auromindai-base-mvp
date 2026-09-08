@@ -172,7 +172,29 @@ class ChatService:
         source: str = "internal",
     ) -> Dict[str, Any]:
         
-        self._validate_workspace_access(db, workspace_id, user_id)
+        workspace = self._validate_workspace_access(db, workspace_id, user_id)
+
+        # 1. Model Entitlement Verification (block Pro/Enterprise models on Free tier)
+        from app.services.billing.entitlement_service import EntitlementService
+        active_plan = EntitlementService.get_active_plan_key(db, workspace.id)
+        model_key = (model or "auto").lower()
+        premium_models = {"opus", "gemini_flash", "deep", "flash", "expert", "premium"}
+        if model_key in premium_models and active_plan not in ("pro", "enterprise"):
+            raise HTTPException(
+                status_code=403,
+                detail=f"The requested AI model '{model}' requires a Pro or Enterprise subscription. Please upgrade your plan."
+            )
+
+        # 2. RAG Entitlement Verification
+        has_rag_enabled = EntitlementService.is_feature_enabled(db, workspace.id, "has_rag")
+        if not has_rag_enabled:
+            if document_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Knowledge base document analysis requires a Pro or Enterprise subscription. Please upgrade your plan."
+                )
+            use_rag = False
+
         guard_result = await self._check_guardrails(message)
         safe_query = guard_result["safe_query"]
 
@@ -257,6 +279,27 @@ class ChatService:
     ) -> Dict[str, Any]:
         try:
             workspace = self._validate_workspace_access(db, workspace_id, user_id)
+
+            # 1. Model Entitlement Verification (block Pro/Enterprise models on Free tier)
+            from app.services.billing.entitlement_service import EntitlementService
+            active_plan = EntitlementService.get_active_plan_key(db, workspace.id)
+            model_key = (model or "auto").lower()
+            premium_models = {"opus", "gemini_flash", "deep", "flash", "expert", "premium"}
+            if model_key in premium_models and active_plan not in ("pro", "enterprise"):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"The requested AI model '{model}' requires a Pro or Enterprise subscription. Please upgrade your plan."
+                )
+
+            # 2. RAG Entitlement Verification
+            has_rag_enabled = EntitlementService.is_feature_enabled(db, workspace.id, "has_rag")
+            if not has_rag_enabled:
+                if document_id:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Knowledge base document analysis requires a Pro or Enterprise subscription. Please upgrade your plan."
+                    )
+                use_rag = False
 
             if document_id:
                 from app.models.brain import BrainEntry
@@ -379,7 +422,8 @@ class ChatService:
             return {
                 "status": "ok",
                 "safe_query": safe_query,
-                "context": ctx
+                "context": ctx,
+                "use_rag": use_rag,
             }
         except Exception as e:
             db.rollback()
@@ -406,6 +450,7 @@ class ChatService:
 
         safe_query = preflight["safe_query"]
         ctx = preflight["context"]
+        effective_use_rag = preflight.get("use_rag", use_rag)
 
         import redis.asyncio as aioredis
         import socket
@@ -499,7 +544,7 @@ class ChatService:
 
                 rag_answered = False
                 try:
-                    if use_rag:
+                    if effective_use_rag:
                         try:
                             with SessionLocal() as rag_db:
                                 async for chunk in self._get_rag_answer_stream(
