@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.media import MediaFile
 from app.routers.auth import get_current_user, CurrentUser
+from app.services.billing.entitlement_service import EntitlementService
 from app.services.storage.service import get_storage
 from app.core.security import verify_workspace_access
 
@@ -135,6 +136,11 @@ async def upload_file(
 
     verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
     ws_uuid = uuid.UUID(verified_workspace_id) if isinstance(verified_workspace_id, str) else verified_workspace_id
+
+    upload_size_mb = max(1, (len(file_content) + 1024 * 1024 - 1) // (1024 * 1024))
+    ent_check = EntitlementService.check_entitlement(db, ws_uuid, "storage", value=upload_size_mb)
+    if not ent_check.get("allowed", True):
+        EntitlementService.raise_entitlement_exceeded(db, ws_uuid, "storage", ent_check.get("limit", 100))
 
     file_extension = MIME_EXTENSION_MAP.get(real_mime, "")
     unique_filename = f"{uuid.uuid4()}{file_extension}"

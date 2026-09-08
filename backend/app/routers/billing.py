@@ -55,6 +55,7 @@ def resolve_and_verify_workspace(
     workspace_id_query: str | None = None,
     x_workspace_id_header: str | None = None,
     payload: Any | None = None,
+    required_roles: list[str] | None = None,
 ) -> str:
     ws_id = None
     if payload and hasattr(payload, "workspace_id") and getattr(payload, "workspace_id"):
@@ -80,7 +81,7 @@ def resolve_and_verify_workspace(
                 detail=f"Invalid workspace_id UUID format: '{ws_id}'"
             )
 
-    return verify_workspace_access(current_user, db, ws_id)
+    return verify_workspace_access(current_user, db, ws_id, required_roles=required_roles)
 
 
 def _safe_to_uuid(val):
@@ -104,7 +105,8 @@ def create_subscription(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id, payload
+            current_user, db, workspace_id, x_workspace_id, payload,
+            required_roles=["founder", "owner", "admin"]
         )
         logger.info(f"[SUBSCRIPTION] user={current_user.email} workspace={resolved_ws_id} plan={payload.plan}")
 
@@ -135,7 +137,8 @@ def verify_payment(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id, payload
+            current_user, db, workspace_id, x_workspace_id, payload,
+            required_roles=["founder", "owner", "admin"]
         )
         logger.info(f"[PAYMENT VERIFY] user={current_user.email} workspace={resolved_ws_id} provider={payload.provider}")
 
@@ -167,7 +170,8 @@ def purchase_plan(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id, payload
+            current_user, db, workspace_id, x_workspace_id, payload,
+            required_roles=["founder", "owner", "admin"]
         )
         logger.info(f"[PLAN PURCHASE] user={current_user.email} workspace={resolved_ws_id} plan={payload.plan}")
 
@@ -201,7 +205,8 @@ def verify_plan(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id, payload
+            current_user, db, workspace_id, x_workspace_id, payload,
+            required_roles=["founder", "owner", "admin"]
         )
         order_id = payload.razorpay_order_id or payload.order_id
         payment_id = payload.razorpay_payment_id or payload.payment_id
@@ -570,7 +575,8 @@ def purchase_credit_pack(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id, payload
+            current_user, db, workspace_id, x_workspace_id, payload,
+            required_roles=["founder", "owner", "admin"]
         )
         from app.services.billing.entitlement_service import EntitlementService
         import uuid
@@ -609,7 +615,8 @@ def verify_credit_pack(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id, payload
+            current_user, db, workspace_id, x_workspace_id, payload,
+            required_roles=["founder", "owner", "admin"]
         )
         service = get_billing_service()
         return service.verify_credit_pack_payment(
@@ -1076,7 +1083,8 @@ def update_workspace_billing_profile(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id
+            current_user, db, workspace_id,
+            required_roles=["founder", "owner", "admin"]
         )
         import uuid
         ws_uuid = to_uuid(resolved_ws_id)
