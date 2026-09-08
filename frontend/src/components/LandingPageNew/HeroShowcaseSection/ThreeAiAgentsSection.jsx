@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -25,6 +25,13 @@ import {
   ChevronRight,
   Send,
 } from "lucide-react";
+import AgentWireFlow from "./AgentWireFlow";
+
+const AGENT_ORDER_MAP = {
+  sales: ["lead", "sales", "support"],
+  support: ["sales", "support", "lead"],
+  lead: ["support", "lead", "sales"],
+};
 
 export const AGENTS_DATA = {
   lead: {
@@ -139,11 +146,11 @@ export const AGENTS_DATA = {
     id: "support",
     name: "Support Agent",
     tagline: "Resolve & Delight Customers",
-    themeColor: "#10B981",
+    themeColor: "#1083b9",
     activeCardBg: "bg-gradient-to-br from-[#6730e6]/35 via-[#3d1c8c]/20 to-[#1c0d38]/15 border-white/[0.12] shadow-[0_4px_20px_rgba(103,48,230,0.18)]",
     iconBg: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30",
     pillBadgeBg: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.25)]",
-    ringColor: "rgba(16, 185, 129, 0.35)",
+    ringColor: "rgba(16, 103, 185, 0.35)",
     glowGradient: "from-emerald-600/30 via-teal-600/10 to-transparent",
     icon: Headphones,
     avatar: "/images/Ai_Agent_image.png",
@@ -192,37 +199,58 @@ export const AGENTS_DATA = {
 };
 
 export default function ThreeAiAgentsSection() {
-  const [selectedAgentKey, setSelectedAgentKey] = useState("lead");
-  const currentAgent = AGENTS_DATA[selectedAgentKey] || AGENTS_DATA.lead;
+  const [selectedAgentKey, setSelectedAgentKey] = useState("sales");
+  const currentAgent = AGENTS_DATA[selectedAgentKey] || AGENTS_DATA.sales;
 
-  const agentKeys = ["lead", "sales", "support"];
+  const containerRef = useRef(null);
+  const leftCardsContainerRef = useRef(null);
+  const centerAgentRef = useRef(null);
+  const featureCardRefs = useRef([]);
+
+  const visibleAgentKeys =
+    AGENT_ORDER_MAP[selectedAgentKey] || ["lead", "sales", "support"];
 
   return (
     <div className="w-full text-white select-none pt-1 sm:pt-2 pb-1">
       {/* ========================================================================= */}
       {/* MAIN 3-COLUMN INTERACTIVE SHOWCASE                                        */}
       {/* ========================================================================= */}
-      <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-center w-full">
-        
+      <div
+        ref={containerRef}
+        className="relative grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-center w-full"
+      >
+        {/* Animated Wire Flow SVG Overlay (Desktop / Laptop Only) */}
+        <AgentWireFlow
+          containerRef={containerRef}
+          leftCardsContainerRef={leftCardsContainerRef}
+          centerAgentRef={centerAgentRef}
+          featureCardRefs={featureCardRefs}
+          selectedAgentKey={selectedAgentKey}
+        />
+
         {/* ----------------------------------------------------------------------- */}
-        {/* LEFT COLUMN: SELECT AGENT CARDS (4 cols)                                */}
+        {/* LEFT COLUMN: SELECT AGENT CARDS (Compact 3 cols)                        */}
         {/* ----------------------------------------------------------------------- */}
-        <div className="lg:col-span-4 flex flex-col gap-2.5 z-20">
+        <div className="lg:col-span-3 flex flex-col gap-2 z-20">
           <div className="text-[11px] uppercase tracking-widest text-[#7f869e] font-semibold pl-1">
             SELECT AGENT
           </div>
 
-          <div className="flex flex-col gap-2.5">
-            {agentKeys.map((key) => {
+          <div ref={leftCardsContainerRef} className="flex flex-col gap-2">
+            {visibleAgentKeys.map((key) => {
               const agent = AGENTS_DATA[key];
               const isSelected = selectedAgentKey === key;
               const IconComp = agent.icon;
 
               return (
-                <button
+                <motion.button
                   key={key}
+                  layout
                   onClick={() => setSelectedAgentKey(key)}
-                  className={`group relative text-left p-3 sm:p-3.5 rounded-xl border transition-all duration-300 flex items-center justify-between gap-3 overflow-hidden ${
+                  transition={{
+                    layout: { type: "spring", stiffness: 360, damping: 30 },
+                  }}
+                  className={`group relative text-left p-2.5 sm:p-3 rounded-xl border transition-colors duration-300 flex items-center justify-between gap-2.5 overflow-hidden ${
                     isSelected
                       ? `${agent.activeCardBg}`
                       : "bg-[#0b0d14]/70 border-white/[0.06] hover:bg-[#121522] hover:border-white/[0.12]"
@@ -232,33 +260,34 @@ export default function ThreeAiAgentsSection() {
                   {isSelected && (
                     <motion.div
                       layoutId="activeAgentAccent"
+                      transition={{ type: "spring", stiffness: 380, damping: 32 }}
                       className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-[#9c75ff] to-[#6730e6]"
                     />
                   )}
 
-                  <div className="flex items-center gap-3 pl-1">
+                  <div className="flex items-center gap-2.5 pl-0.5 min-w-0">
                     {/* Icon Container */}
                     <div
-                      className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl border flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-105 ${
+                      className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center flex-shrink-0 transition-all duration-300 group-hover:scale-105 ${
                         isSelected
                           ? `${agent.iconBg}`
                           : "bg-white/[0.04] text-white/50 border-white/[0.08]"
                       }`}
                     >
-                      <IconComp className="w-4 h-4 sm:w-5 sm:h-5 stroke-[1.8]" />
+                      <IconComp className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[1.8]" />
                     </div>
 
                     {/* Agent Name & Tagline */}
-                    <div>
+                    <div className="min-w-0">
                       <div
-                        className={`text-sm sm:text-[14.5px] font-semibold tracking-tight transition-colors ${
+                        className={`text-[13px] sm:text-[13.5px] font-semibold tracking-tight truncate transition-colors duration-300 ${
                           isSelected ? "text-white" : "text-white/80 group-hover:text-white"
                         }`}
                       >
                         {agent.name}
                       </div>
                       <div
-                        className={`text-[10.5px] sm:text-[11px] leading-snug mt-0.5 transition-colors ${
+                        className={`text-[10px] sm:text-[10.5px] leading-snug mt-0.5 truncate transition-colors duration-300 ${
                           isSelected ? "text-[#c8c0db]" : "text-[#8e95ab]"
                         }`}
                       >
@@ -269,13 +298,13 @@ export default function ThreeAiAgentsSection() {
 
                   {/* Arrow Indicator */}
                   <ChevronRight
-                    className={`w-4 h-4 transition-all duration-300 ${
+                    className={`w-3.5 h-3.5 flex-shrink-0 transition-all duration-300 ${
                       isSelected
                         ? "text-[#9c75ff] translate-x-0.5 opacity-100"
                         : "text-white/30 group-hover:text-white/70 opacity-60"
                     }`}
                   />
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -291,7 +320,10 @@ export default function ThreeAiAgentsSection() {
           />
 
           {/* Larger Girl Image with Smooth Bottom Opacity Gradient Fade (No Surrounding Rings) */}
-          <div className="relative w-56 sm:w-64 md:w-72 h-60 sm:h-68 md:h-72 flex items-end justify-center overflow-visible">
+          <div
+            ref={centerAgentRef}
+            className="relative w-56 sm:w-64 md:w-72 h-60 sm:h-68 md:h-72 flex items-end justify-center overflow-visible"
+          >
             <div
               className="relative w-full h-full flex items-end justify-center"
               style={{
@@ -315,10 +347,10 @@ export default function ThreeAiAgentsSection() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={`badge-${currentAgent.id}`}
-                initial={{ opacity: 0, y: 5, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -5, scale: 0.95 }}
-                transition={{ duration: 0.25 }}
+                initial={{ opacity: 0, y: 6, scale: 0.94, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -6, scale: 0.94, filter: "blur(4px)" }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
                 className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs sm:text-[13px] font-semibold border shadow-md backdrop-blur-md ${currentAgent.pillBadgeBg}`}
               >
                 <span>{currentAgent.badgeText}</span>
@@ -328,35 +360,62 @@ export default function ThreeAiAgentsSection() {
         </div>
 
         {/* ----------------------------------------------------------------------- */}
-        {/* RIGHT COLUMN: DYNAMIC AGENT FEATURES LIST (4 cols)                      */}
+        {/* RIGHT COLUMN: DYNAMIC AGENT FEATURES LIST (Expanded 5 cols)             */}
         {/* ----------------------------------------------------------------------- */}
-        <div className="lg:col-span-4 flex flex-col gap-2.5 z-20">
+        <div className="lg:col-span-5 flex flex-col gap-2.5 z-20">
           <div className="text-[11px] uppercase tracking-widest text-[#7f869e] font-semibold pl-1">
             {currentAgent.featuresHeader}
           </div>
 
+          <style>{`
+            @keyframes featureCardBgPulse {
+              0%, 26% {
+                opacity: 0;
+              }
+              34%, 82% {
+                opacity: 1;
+              }
+              90%, 100% {
+                opacity: 0;
+              }
+            }
+            .feature-card-bg-pulse {
+              animation: featureCardBgPulse 4.8s cubic-bezier(0.25, 0.1, 0.25, 1) infinite;
+            }
+          `}</style>
+
           <AnimatePresence mode="wait">
             <motion.div
               key={`features-${currentAgent.id}`}
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              transition={{ duration: 0.3, staggerChildren: 0.04 }}
+              initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: -8, filter: "blur(4px)" }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
               className="flex flex-col gap-2"
             >
-              {currentAgent.features.map((feat) => {
+              {currentAgent.features.map((feat, idx) => {
                 const FeatIcon = feat.icon;
                 return (
                   <div
                     key={feat.id}
-                    className="p-2 sm:p-2.5 rounded-xl bg-[#0b0d14]/70 border border-white/[0.07] hover:border-white/[0.14] transition-all duration-200 flex items-start gap-2.5"
+                    ref={(el) => (featureCardRefs.current[idx] = el)}
+                    className="group relative p-2 sm:p-2.5 rounded-xl border border-white/[0.07] hover:border-white/[0.14] transition-all duration-200 flex items-start gap-2.5 overflow-hidden"
                   >
+                    {/* Base Default Card Background */}
+                    <div className="absolute inset-0 bg-[#0b0d14]/70 -z-10" />
+
+                    {/* Synchronized Active Gradient Background (Exact same properties as Top Tabs & Active Cards) */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#6730e6]/35 via-[#3d1c8c]/20 to-[#1c0d38]/15 border border-white/[0.12] rounded-xl shadow-[0_4px_20px_rgba(103,48,230,0.18)] -z-10 feature-card-bg-pulse pointer-events-none" />
+
+                    {/* Feature Icon */}
                     <div
-                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 border ${currentAgent.iconBg}`}
+                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 border relative z-10 ${currentAgent.iconBg}`}
                     >
                       <FeatIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[1.8]" />
                     </div>
-                    <div className="min-w-0 flex-1">
+
+                    {/* Feature Text Content */}
+                    <div className="min-w-0 flex-1 relative z-10">
                       <div className="text-xs sm:text-[12.5px] font-semibold text-white/95 leading-tight">
                         {feat.title}
                       </div>
