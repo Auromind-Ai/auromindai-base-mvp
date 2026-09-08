@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember
 from app.models.notification import Notification
+from app.services.notifications.category_resolver import resolve_notification_category
 from app.models.admin_audit_log import AdminAuditLog
 from app.core.notification_metrics import notification_metrics
 from app.workers.email_retry_worker import send_email_with_retry
@@ -73,7 +74,8 @@ class NotificationService:
         deduplication_key: Optional[str] = None,
         resource: Optional[str] = None,
         template_key: Optional[str] = None,
-        variables: Optional[Dict[str, Any]] = None
+        variables: Optional[Dict[str, Any]] = None,
+        category: Optional[str] = None
     ) -> Optional[Notification]:
         """
         Create a dynamic notification for a specific user.
@@ -189,12 +191,14 @@ class NotificationService:
 
         notification = None
         if should_create_in_app:
+            assigned_category = category or resolve_notification_category(type)
             # Create and persist in-app notification
             notification = Notification(
                 id=uuid.uuid4(),
                 user_id=clean_user_id,
                 workspace_id=clean_ws_id,
                 type=type,
+                category=assigned_category,
                 title=final_title,
                 message=final_message,
                 is_read=False
@@ -292,3 +296,93 @@ class NotificationService:
                 template_key=template_key,
                 variables=variables
             )
+
+    @staticmethod
+    def get_user_notifications(
+        db: Session,
+        user_id: UUID,
+        skip: int = 0,
+        limit: int = 50,
+        category: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Retrieve paginated notifications for a user, calculate tab counts via single-query
+        aggregation, and normalize missing categories for legacy rows.
+        """
+        from sqlalchemy import func, case, or_, and_
+        from app.services.notifications.category_resolver import (
+            NOTIFICATION_CATEGORY_MAPPING,
+            NotificationCategory,
+            resolve_notification_category,
+        )
+
+        clean_user_id = _ensure_uuid(user_id)
+        base_query = db.query(Notification).filter(Notification.user_id == clean_user_id)
+
+        from app.schemas.notification import NotificationCounts
+
+        mentions_types = [k for k, v in NOTIFICATION_CATEGORY_MAPPING.items() if v == NotificationCategory.MENTIONS]
+        updates_types = [k for k, v in NOTIFICATION_CATEGORY_MAPPING.items() if v == NotificationCategory.UPDATES]
+
+        mentions_cond = or_(
+            Notification.category == NotificationCategory.MENTIONS,
+            Notification.type.in_(mentions_types)
+        )
+        updates_cond = or_(
+            Notification.category == NotificationCategory.UPDATES,
+            Notification.type.in_(updates_types)
+        )
+        system_cond = or_(
+            Notification.category == NotificationCategory.SYSTEM,
+            and_(~Notification.type.in_(mentions_types + updates_types))
+        )
+
+        counts_row = db.query(
+            func.count(Notification.id).label("all_count"),
+            func.count(case((Notification.is_read == False, 1))).label("unread_count"),
+            func.count(case((mentions_cond, 1))).label("mentions_count"),
+            func.count(case((updates_cond, 1))).label("updates_count"),
+            func.count(case((system_cond, 1))).label("system_count"),
+        ).filter(Notification.user_id == clean_user_id).first()
+
+        counts = NotificationCounts(
+            all=getattr(counts_row, "all_count", 0) or 0,
+            unread=getattr(counts_row, "unread_count", 0) or 0,
+            mentions=getattr(counts_row, "mentions_count", 0) or 0,
+            updates=getattr(counts_row, "updates_count", 0) or 0,
+            system=getattr(counts_row, "system_count", 0) or 0,
+        )
+        unread_count = counts.unread
+
+        item_query = base_query
+        if category:
+            cat_clean = category.strip().lower()
+            if cat_clean == NotificationCategory.UNREAD:
+                item_query = item_query.filter(Notification.is_read == False)
+            elif cat_clean == NotificationCategory.MENTIONS:
+                item_query = item_query.filter(mentions_cond)
+            elif cat_clean == NotificationCategory.UPDATES:
+                item_query = item_query.filter(updates_cond)
+            elif cat_clean == NotificationCategory.SYSTEM:
+                item_query = item_query.filter(system_cond)
+
+        items = item_query.order_by(
+            Notification.created_at.desc()
+        ).offset(
+            skip
+        ).limit(
+            limit
+        ).all()
+
+        # Service-level data normalization: Ensure legacy rows without category are enriched
+        for item in items:
+            resolved = resolve_notification_category(item.type)
+            if not getattr(item, "category", None) or (item.category == "system" and resolved != "system"):
+                item.category = resolved
+
+        return {
+            "items": items,
+            "unread_count": unread_count,
+            "counts": counts,
+        }
+

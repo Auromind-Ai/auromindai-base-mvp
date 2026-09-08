@@ -36,8 +36,9 @@ export async function unblockSession(sessionId) {
   return client.post(`/api/user/sessions/${sessionId}/unblock`);
 }
 
-export async function getNotifications(skip = 0, limit = 50) {
-  return client.get(`/api/notifications?skip=${skip}&limit=${limit}`);
+export async function getNotifications(skip = 0, limit = 50, category = null) {
+  const catParam = category && category !== 'all' ? `&category=${category}` : '';
+  return client.get(`/api/notifications?skip=${skip}&limit=${limit}${catParam}`);
 }
 
 export async function markNotificationRead(id) {

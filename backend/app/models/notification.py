@@ -25,6 +25,7 @@ class Notification(Base):
         index=True
     )
     type = Column(String(50), nullable=False)  # e.g., "lead_alert", "workflow_completed", etc.
+    category = Column(String(50), nullable=True, default="system", server_default="system", index=True)
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=False)
     is_read = Column(Boolean, default=False, nullable=False)
