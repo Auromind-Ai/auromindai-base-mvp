@@ -72,16 +72,16 @@ export default function DocumentationWorkflowVisualizer({ className = '' }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-white/10">
         <div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-violet-500/10 border border-violet-500/20 text-violet-300 mb-1">
-            <Zap className="w-3 h-3 text-violet-400" />
-            <span>Workflow Architecture</span>
+            <Zap className="w-3 h-3 text-violet-400" aria-hidden="true" />
+            <span>Workflow Pipeline</span>
           </div>
           <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
-            From Trigger to Outcome
+            Event-Driven Execution Flow
           </h3>
         </div>
         <div className="text-xs text-zinc-400 font-mono flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-lg border border-white/10 w-fit">
-          <Clock className="w-3.5 h-3.5 text-violet-400" />
-          <span>Execution Latency: &lt; 380ms</span>
+          <Clock className="w-3.5 h-3.5 text-violet-400" aria-hidden="true" />
+          <span>Continuous State Engine</span>
         </div>
       </div>
 

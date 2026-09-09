@@ -3,75 +3,58 @@ export const GETTING_STARTED_ARTICLES = {
     slug: "getting-started/introduction",
     category: "Getting Started",
     title: "Introduction to OrbionAgents",
-    subtitle: "Enterprise-grade governed AI conversational agents, omnichannel automation, and cognitive knowledge grounding.",
-    readTime: "4 min read",
-    lastUpdated: "April 2026",
-    video: {
-      url: "/docs/videos/meet-orbion.mp4",
-      title: "Meet OrbionAgents: Complete Platform Overview",
-      duration: "0:40",
-      caption: "High-level overview showing AI Workspaces, Unified Inbox, Visual Automations, and Knowledge Brain."
-    },
-    whatIsIt: "OrbionAgents is a next-generation conversational AI platform built for businesses to automate customer interactions, qualify sales leads, and resolve support requests across WhatsApp, Instagram, SMS, and Webchat. Unlike simple chatbot wrappers, OrbionAgents pairs large language models with a Governed AI Architecture (Model Context Protocol safeguards) and a live pgvector Retrieval-Augmented Generation (RAG) Brain.",
-    whyUseIt: "Modern customer-facing teams lose up to 40% of potential inbound sales opportunities due to delayed response times outside business hours and manual repetitive ticket qualification. OrbionAgents resolves customer inquiries instantly (sub-second latency), captures lead information directly into your CRM, and ensures AI safety through strict deterministic policies before any response is dispatched.",
-    beforeYouStart: [
-      "A modern web browser (Chrome, Edge, Firefox, or Safari).",
-      "An active business email address for workspace registration.",
-      "Access to your business messaging accounts (Meta WhatsApp Cloud API or Instagram Business) if connecting messaging channels."
-    ],
-    steps: [
+    subtitle: "Enterprise conversational AI platform uniting messaging channels, knowledge grounding, and visual automation.",
+    pageType: "onboarding",
+    sections: [
       {
-        step: 1,
-        title: "Access the OrbionAgents Portal",
-        instruction: "Navigate to the OrbionAgents application URL and choose between signing in to an existing workspace or registering a new tenant.",
-        uiElements: ["Top navigation 'Login' button", "Domain selector", "Google OAuth / Email login field"]
+        id: "overview",
+        title: "Platform Overview",
+        type: "text",
+        content: "OrbionAgents is a conversational AI and operations platform built for businesses to handle customer communication, qualify inbound sales leads, and resolve support requests across WhatsApp, Instagram, SMS, and Webchat. By combining large language models with grounded knowledge retrieval (RAG) and deterministic workflow triggers, Orbion enables autonomous agents to operate 24/7 with strict human-in-the-loop oversight."
       },
       {
-        step: 2,
-        title: "Initialize Your Workspace",
-        instruction: "During first-time setup, input your official Organization Name, primary operating industry, and timezone to configure automated operational schedules.",
-        uiElements: ["'Organization Name' input", "'Operating Timezone' dropdown", "'Create Workspace' button"]
+        id: "core-pillars",
+        title: "Core Platform Capabilities",
+        type: "list",
+        items: [
+          { title: "Omni-Channel Inbox", description: "A unified collaborative queue aggregating conversations from WhatsApp Cloud API, Instagram Direct, and Twilio." },
+          { title: "AI Brain (RAG Knowledge Base)", description: "Vector-grounded document store ingesting PDFs, technical manuals, and live URLs to prevent model hallucinations." },
+          { title: "AI Workspace & Agent Studio", description: "Studio for engineering agent personas, system prompt constraints, and attaching external MCP tools." },
+          { title: "Automation Wire (Flow Builder)", description: "Visual node graph canvas for building multi-step logic, AI intent classifiers, and automated actions." },
+          { title: "AI Lead Intelligence & CRM", description: "Real-time parameter extraction identifying buyer budget, urgency, and qualification tiers (Hot/Warm/Cold)." },
+          { title: "AI Governance & Safeguards", description: "Runtime policy boundaries enforcing PII redaction, adversarial jailbreak defense, and human sign-off on financial actions." }
+        ]
       },
       {
-        step: 3,
-        title: "Select Your Communication Channels",
-        instruction: "Choose which channels your business uses to interact with customers. You can select WhatsApp Business, Instagram Graph API, or Omni-Webchat.",
-        uiElements: ["Channels selector cards", "WhatsApp toggle", "Instagram toggle"]
-      },
-      {
-        step: 4,
-        title: "Review Governance & Safety Safeguards",
-        instruction: "Inspect the default Model Context Protocol (MCP) guardrails. These ensure that the AI never makes unauthorized pricing promises or engages in inappropriate discussions.",
-        uiElements: ["MCP Policy status badge", "PII Redaction switch", "Escalation to Human threshold"]
-      },
-      {
-        step: 5,
-        title: "Complete Onboarding and Enter Dashboard",
-        instruction: "Click 'Launch Workspace' to be automatically directed to your live tenant dashboard with pre-configured templates and sandbox test credits.",
-        uiElements: ["'Launch Workspace' primary button", "Tour prompt"]
-      }
-    ],
-    screenshots: [
-      {
-        src: "/images/wires-hero.webp",
-        alt: "OrbionAgents Overview & Visual Ecosystem",
-        caption: "OrbionAgents centralized dashboard linking Automations, Brain RAG, and Omni-Inbox."
-      }
-    ],
-    expectedResult: "Your workspace is live, provisioned with an isolated pgvector namespace, a default AI agent profile, and full access to Omni-Inbox, Wires, Brain, and Channel Integrations.",
-    tips: [
-      "Keep the AI Workspace open in a secondary tab during testing so you can evaluate agent responses immediately.",
-      "Set up your business timezone accurately to ensure automated follow-up sequences fire during appropriate local hours.",
-      "Assign roles to team members (Admin, Agent, Viewer) to prevent accidental modifications to active production flows."
-    ],
-    troubleshooting: [
-      {
-        issue: "Cannot see the registration or workspace creation confirmation email?",
-        solution: "Check your spam or quarantine folder for emails from noreply@orbionagents.com, or verify that your company email firewall allows external transactional emails."
-      },
-      {
-        issue: "Page appears blank or stuck on authentication spinner?",
-        solution: "Clear local storage keys for 'orbionagents_user' or open an Incognito window to clear cached authentication tokens."
+        id: "next-steps",
+        title: "Recommended Implementation Path",
+        type: "steps",
+        steps: [
+          {
+            step: 1,
+            title: "Create Account & Provision Workspace",
+            instruction: "Sign up at /signup, create your organization, and configure your default operating timezone.",
+            uiElements: ["Signup portal", "Workspace provisioning wizard"]
+          },
+          {
+            step: 2,
+            title: "Connect Your Inbound Channels",
+            instruction: "Navigate to Channels (/user/admin/channels) to authenticate your official Meta WhatsApp Business number or Instagram Direct account.",
+            uiElements: ["Channels console", "'Connect WhatsApp' button"]
+          },
+          {
+            step: 3,
+            title: "Upload Grounding Knowledge",
+            instruction: "Add your pricing sheets, product catalogs, or FAQs to the AI Brain so your agents answer with verifiable source citations.",
+            uiElements: ["AI Brain console", "'Upload Documents' dropzone"]
+          },
+          {
+            step: 4,
+            title: "Test in Agent Studio & Deploy",
+            instruction: "Interact with your agent in the live studio playground, verify tool executions, and turn on autonomous mode.",
+            uiElements: ["Agent Studio playground", "'Publish' button"]
+          }
+        ]
       }
     ],
     seo: {
@@ -86,72 +69,78 @@ export const GETTING_STARTED_ARTICLES = {
     category: "Getting Started",
     title: "Creating an Account & Setup",
     subtitle: "Complete account creation, multi-tenant workspace provisioning, and security settings.",
-    readTime: "5 min read",
-    lastUpdated: "April 2026",
-    whatIsIt: "OrbionAgents accounts are structured as multi-tenant organizations. Each account can host multiple distinct workspaces (e.g., Sales, Customer Support, Regional Offices) with separated knowledge bases, messaging numbers, team members, and billing quotas.",
-    whyUseIt: "Multi-tenancy enables agencies and growing enterprises to maintain clean data boundaries. Client data, chat logs, and vector embeddings in one workspace are cryptographically isolated from all others, satisfying enterprise compliance standards.",
-    beforeYouStart: [
-      "A valid business email address.",
-      "Admin rights on your company's domain or messaging accounts."
-    ],
-    steps: [
+    pageType: "onboarding",
+    sections: [
       {
-        step: 1,
-        title: "Open the Signup Page",
-        instruction: "Navigate to https://orbionagents.com/signup or click the 'Start Free' button on the landing page header.",
-        uiElements: ["'Start Free' CTA", "'Sign Up with Google' button", "Email & Password inputs"]
+        id: "overview",
+        title: "Account & Workspace Architecture",
+        type: "text",
+        content: "Orbion accounts are structured around multi-tenant workspaces. An organization can host multiple distinct workspaces (such as separate departments, regional teams, or client accounts) with completely isolated knowledge collections, channel tokens, collaborator permissions, and billing quotas."
       },
       {
-        step: 2,
-        title: "Fill in Your Credentials",
-        instruction: "Enter your full name, work email address, and a secure password (minimum 8 characters with numbers and symbols).",
-        uiElements: ["'Full Name' field", "'Business Email' field", "'Password' field"]
+        id: "prerequisites",
+        title: "Prerequisites",
+        type: "checklist",
+        items: [
+          "A valid corporate email address.",
+          "Administrative access to your organization's business messaging accounts."
+        ]
       },
       {
-        step: 3,
-        title: "Verify Your Identity",
-        instruction: "Complete the Cloudflare Turnstile bot verification check and click 'Create Account'. If prompted, enter the 6-digit confirmation code sent to your email.",
-        uiElements: ["Security Turnstile checkbox", "'Create Account' button", "6-digit OTP modal"]
+        id: "setup-steps",
+        title: "Account Creation Walkthrough",
+        type: "steps",
+        steps: [
+          {
+            step: 1,
+            title: "Open Signup Portal",
+            instruction: "Navigate to https://orbionagents.com/signup or click 'Get Started' on the navigation header.",
+            uiElements: ["'Get Started' button", "Signup form"]
+          },
+          {
+            step: 2,
+            title: "Enter Account Credentials",
+            instruction: "Input your full name, work email address, and a secure password.",
+            uiElements: ["'Full Name' input", "'Work Email' input", "'Password' input"]
+          },
+          {
+            step: 3,
+            title: "Name Your Workspace",
+            instruction: "Enter your company name to initialize your primary workspace and choose your operating timezone.",
+            uiElements: ["'Workspace Name' field", "'Timezone' selector"]
+          },
+          {
+            step: 4,
+            title: "Access Dashboard",
+            instruction: "Click 'Launch Workspace' to be directed to your dashboard with access to Omni-Inbox, Channels, Brain, and Wires.",
+            uiElements: ["'Launch Workspace' button", "Admin Dashboard"]
+          }
+        ]
       },
       {
-        step: 4,
-        title: "Review Default Workspace Settings",
-        instruction: "Once logged in, click your avatar in the lower-left sidebar and select 'Settings' -> 'Workspaces' to customize the workspace name and currency.",
-        uiElements: ["Sidebar Avatar", "'Settings' modal", "'Workspace Name' input"]
+        id: "expected-result",
+        title: "Expected Outcome",
+        type: "callout",
+        calloutTitle: "Workspace Initialized:",
+        calloutText: "Your user profile is created with Owner permissions, and your isolated workspace environment is ready for channel connections."
       },
       {
-        step: 5,
-        title: "Invite Collaborators",
-        instruction: "Under 'Team Members', input email addresses of sales reps or support agents and assign their permission role ('Admin' or 'Agent').",
-        uiElements: ["'Invite Member' input", "'Role' dropdown", "'Send Invite' button"]
-      }
-    ],
-    screenshots: [
-      {
-        src: "/images/documentation.webp",
-        alt: "Account Setup & Workspace Provisioning",
-        caption: "Workspace settings and access control panel in OrbionAgents."
-      }
-    ],
-    expectedResult: "You receive an active session with an issued JWT token, redirecting directly to your newly created tenant workspace with free trial credits preloaded.",
-    tips: [
-      "Use your primary corporate Google Workspace login for seamless single sign-on without managing separate passwords.",
-      "Always configure at least two workspace administrators to ensure continuity if one user changes roles."
-    ],
-    troubleshooting: [
-      {
-        issue: "Password reset link shows 'Token Expired'?",
-        solution: "Password reset tokens expire after 15 minutes for security. Trigger a new reset link from the login page and use it immediately."
-      },
-      {
-        issue: "Invited team members cannot see the workspace?",
-        solution: "Ensure the invited user registers with the exact email address the invitation was sent to, and check that they accepted the invitation banner."
+        id: "troubleshooting",
+        title: "Troubleshooting",
+        type: "troubleshooting",
+        items: [
+          {
+            issue: "Confirmation email not received?",
+            cause: "Corporate spam filters or email firewall delays.",
+            solution: "Check your spam folder for messages from noreply@orbionagents.com, or request a verification link resend from the login screen."
+          }
+        ]
       }
     ],
     seo: {
-      title: "Account Setup & Workspace Provisioning | OrbionAgents Docs",
-      description: "How to register your OrbionAgents account, configure multi-tenant workspaces, invite team members, and manage role-based security.",
-      keywords: ["create OrbionAgents account", "workspace setup", "team permissions", "multi-tenant AI SaaS"]
+      title: "Creating an Account & Setup | OrbionAgents",
+      description: "Step-by-step account onboarding, workspace initialization, and profile settings in OrbionAgents.",
+      keywords: ["Orbion account setup", "workspace provisioning", "multi-tenant signup"]
     }
   },
 
@@ -159,69 +148,58 @@ export const GETTING_STARTED_ARTICLES = {
     slug: "getting-started/quickstart",
     category: "Getting Started",
     title: "5-Minute Quick Start Guide",
-    subtitle: "Launch your first live conversational AI agent with your company knowledge base in 5 minutes.",
-    readTime: "5 min read",
-    lastUpdated: "May 2026",
-    whatIsIt: "The Quick Start guide outlines the fastest path from an empty workspace to a fully functioning AI agent that understands your products and replies automatically on your chosen communication channel.",
-    whyUseIt: "Instead of spending days setting up complex integrations, this streamlined sequence allows you to test real conversational capabilities in sandbox mode within minutes.",
-    beforeYouStart: [
-      "A 1-2 page company FAQ, brochure, or product pricing sheet in PDF or DOCX format.",
-      "Access to the OrbionAgents dashboard."
-    ],
-    steps: [
+    subtitle: "Fast-track guide to connect your first messaging channel and deploy a grounded AI agent.",
+    pageType: "onboarding",
+    sections: [
       {
-        step: 1,
-        title: "Open the Brain Knowledge Base",
-        instruction: "Click on 'Brain' in the left-hand sidebar navigation (/user/admin/brain).",
-        uiElements: ["'Brain' navigation item with brain icon", "'Upload Document' dropzone"]
+        id: "overview",
+        title: "Quick Start Overview",
+        type: "text",
+        content: "This guide walks through the four essential steps to get your first autonomous AI agent live: connecting a communication channel, uploading a grounding document, configuring an agent persona, and verifying live responses in the Omni-Channel Inbox."
       },
       {
-        step: 2,
-        title: "Ingest Your Product FAQ",
-        instruction: "Drag and drop your company document (or paste your website URL) into the upload area and click 'Sync Knowledge'.",
-        uiElements: ["File dropzone", "'Sync URL' tab", "'Process Chunks' indicator"]
+        id: "quickstart-steps",
+        title: "Fast-Track Milestones",
+        type: "steps",
+        steps: [
+          {
+            step: 1,
+            title: "Connect WhatsApp or Webchat",
+            instruction: "Open Channels (/user/admin/channels) and authenticate your WhatsApp Cloud API credentials or enable the Omni-Webchat widget.",
+            uiElements: ["Channels console", "'Connect' button on WhatsApp or Webchat"]
+          },
+          {
+            step: 2,
+            title: "Upload Knowledge Base Document",
+            instruction: "Go to AI Brain (/user/admin/brain), click 'Add Documents', and upload your product FAQ or pricing PDF.",
+            uiElements: ["AI Brain dashboard", "'Upload Document' button", "PDF ingestion progress bar"]
+          },
+          {
+            step: 3,
+            title: "Configure Agent Persona in Studio",
+            instruction: "Open AI Workspace > Agent Studio (/user/admin/ai). Attach your newly uploaded document collection and select your preferred LLM.",
+            uiElements: ["Agent Studio", "Knowledge Sources selector", "Model dropdown (e.g. GPT-4o)"]
+          },
+          {
+            step: 4,
+            title: "Send Test Dialogue & Verify",
+            instruction: "Send a message asking about your pricing. Verify that the agent replies with verified answers citing your uploaded document.",
+            uiElements: ["Omni-Channel Inbox", "Live message stream", "Citation tag"]
+          }
+        ]
       },
       {
-        step: 3,
-        title: "Test in AI Workspace",
-        instruction: "Navigate to 'AI Workspace' (/user/admin/ai) and type a natural-language question about your business pricing or services.",
-        uiElements: ["'AI Workspace' tab", "Chat input field", "'✨ Auto' model badge"]
-      },
-      {
-        step: 4,
-        title: "Review Agent Response & Grounding",
-        instruction: "Observe the streaming reply and verify that the AI retrieved the exact facts from the document you uploaded in Step 2.",
-        uiElements: ["Live streaming token stream", "'Selecting tool...' badge", "Source citations"]
-      },
-      {
-        step: 5,
-        title: "Enable Inbound Messaging",
-        instruction: "Navigate to 'Channels' (/user/admin/channels), activate the Webchat widget or connect WhatsApp, and toggle 'AI Agent Auto-Reply' to ON.",
-        uiElements: ["'Channels' menu", "'AI Agent Status' toggle switch", "'Save Changes' button"]
-      }
-    ],
-    screenshots: [
-      {
-        src: "/docs/screenshots/ai-workspace-streaming.png",
-        alt: "Live Streaming Token Stream in AI Workspace",
-        caption: "Testing your knowledge base in real-time inside the AI Workspace."
-      }
-    ],
-    expectedResult: "Your AI agent is actively grounded in your business data and answering incoming inquiries autonomously.",
-    tips: [
-      "Start with a concise FAQ document before uploading 500-page manuals to evaluate accuracy faster.",
-      "Use the 'Sources' dropdown in AI Workspace to inspect which specific knowledge chunk was cited."
-    ],
-    troubleshooting: [
-      {
-        issue: "AI answers 'I do not have enough information to answer this'?",
-        solution: "Verify in the Brain tab that your uploaded document shows 'Ready' status with > 1 indexed chunk."
+        id: "expected-result",
+        title: "Expected Outcome",
+        type: "callout",
+        calloutTitle: "Live Agent Operational:",
+        calloutText: "Your connected messaging channel automatically routes inbound customer queries to your grounded agent, answering with zero manual intervention."
       }
     ],
     seo: {
       title: "5-Minute Quick Start Guide | OrbionAgents",
-      description: "Quick start tutorial to launch your first governed conversational AI agent and knowledge base in 5 minutes.",
-      keywords: ["OrbionAgents quickstart", "setup conversational agent", "RAG quickstart", "fast AI setup"]
+      description: "Fast-track guide to connect messaging channels and deploy grounded AI agents in minutes.",
+      keywords: ["Orbion quickstart", "fast track AI bot", "deploy WhatsApp AI"]
     }
   },
 
@@ -229,68 +207,57 @@ export const GETTING_STARTED_ARTICLES = {
     slug: "getting-started/dashboard-overview",
     category: "Getting Started",
     title: "Dashboard & Analytics KPIs",
-    subtitle: "Real-time visibility into inbound volume, AI resolution rates, conversation velocity, and ROI.",
-    readTime: "4 min read",
-    lastUpdated: "May 2026",
-    whatIsIt: "The OrbionAgents Dashboard (/user/admin/dashboard) provides an executive overview of all conversational activities across connected messaging channels. It displays live counters, conversion velocity, token burn, and agent performance.",
-    whyUseIt: "Business owners and operations leaders need clear metrics to gauge customer interest, identify bottlenecks, track lead capture efficiency, and calculate ROI on automation.",
-    beforeYouStart: [
-      "At least one active messaging channel or conversation history in the workspace."
-    ],
-    steps: [
+    subtitle: "Understanding your conversational pipeline, active chats, response times, and ROI.",
+    pageType: "onboarding",
+    sections: [
       {
-        step: 1,
-        title: "Navigate to the Dashboard",
-        instruction: "Click on 'Dashboard' at the top of the left sidebar navigation.",
-        uiElements: ["'Dashboard' item with LayoutDashboard icon"]
+        id: "overview",
+        title: "Dashboard Overview",
+        type: "text",
+        content: "The Executive Dashboard (/user/admin/dashboard) serves as your daily command center. It provides real-time visibility into active conversational volume, autonomous resolution rates, lead pipeline velocity, and channel health indicators."
       },
       {
-        step: 2,
-        title: "Inspect Top KPI Metric Cards",
-        instruction: "Review the primary metric cards: Total Inquiries, Active AI Sessions, Converted Leads, and Average Response Time.",
-        uiElements: ["'Total Inquiries' card", "'AI Resolution Rate' card", "'Captured Leads' card"]
+        id: "kpis-monitored",
+        title: "Key Metrics & Widgets",
+        type: "list",
+        items: [
+          { title: "Total Active Conversations", description: "Real-time count of customer threads active within the 24-hour messaging window across all connected channels." },
+          { title: "Autonomous Resolution Rate", description: "Percentage of inquiries answered completely by AI agents without requiring human takeover." },
+          { title: "Qualified Leads Pipeline", description: "Count of inbound prospects qualified into Hot, Warm, and Cold tiers by the AI Lead Intelligence engine." },
+          { title: "Credit Ring & Token Balance", description: "Real-time balance gauge showing available AI compute tokens and WhatsApp Conversation Credits (WCC)." },
+          { title: "Channel Connectivity Status", description: "Live heartbeat status pills showing operational health for WhatsApp, Instagram, and Twilio gateways." }
+        ]
       },
       {
-        step: 3,
-        title: "Analyze Channel Distribution Chart",
-        instruction: "Inspect the breakdown of customer messages arriving via WhatsApp vs Instagram vs Webchat.",
-        uiElements: ["Channel donut chart", "Channel legend toggles"]
-      },
-      {
-        step: 4,
-        title: "Review Lead Velocity & Sentiment",
-        instruction: "Scroll to the 'Lead Velocity' section to track high-intent leads generated by day or week.",
-        uiElements: ["Timeline bar chart", "Positive/Neutral sentiment indicators"]
-      },
-      {
-        step: 5,
-        title: "Deep-Dive into Recent Interactions",
-        instruction: "Click on any recent conversation entry in the dashboard activity feed to jump directly into the Omni-Inbox thread.",
-        uiElements: ["'Live Activity Feed' list", "'View in Inbox' link"]
-      }
-    ],
-    screenshots: [
-      {
-        src: "/images/HeroSection_Automation_Image.png",
-        alt: "OrbionAgents Executive Dashboard & Analytics",
-        caption: "Centralized analytics displaying conversation metrics, resolution velocity, and lead counts."
-      }
-    ],
-    expectedResult: "A comprehensive real-time view of customer engagement and agent automation health across all active touchpoints.",
-    tips: [
-      "Use the date-range picker in the upper right to filter analytics by Today, Last 7 Days, or This Month.",
-      "Monitor the 'Human Takeover Ratio' — if it exceeds 30%, review your Brain knowledge entries to fill information gaps."
-    ],
-    troubleshooting: [
-      {
-        issue: "Dashboard metrics show zero after running test messages?",
-        solution: "Ensure you are viewing the correct Workspace from the top workspace selector, and refresh the dashboard."
+        id: "daily-workflow",
+        title: "Recommended Daily Operations",
+        type: "steps",
+        steps: [
+          {
+            step: 1,
+            title: "Check Channel Heartbeats",
+            instruction: "Verify that all channel indicators in the top status bar display green 'Connected' pills.",
+            uiElements: ["Channel status widget", "Green health indicators"]
+          },
+          {
+            step: 2,
+            title: "Review Escalated Threads",
+            instruction: "Open Omni-Inbox to address threads flagged for 'Human Takeover' by sentiment or intent rules.",
+            uiElements: ["Omni-Inbox badge", "Human Takeover filter"]
+          },
+          {
+            step: 3,
+            title: "Monitor Token Balance",
+            instruction: "Inspect the Credit Ring dropdown. If balance is below safety thresholds, verify that auto-reload is active.",
+            uiElements: ["Credit Ring in top header", "Wallet quick balance"]
+          }
+        ]
       }
     ],
     seo: {
       title: "Dashboard & Analytics KPIs | OrbionAgents",
-      description: "Monitor real-time customer conversations, AI resolution metrics, lead conversion, and message volume.",
-      keywords: ["AI analytics dashboard", "conversational KPIs", "OrbionAgents reporting", "lead metrics"]
+      description: "Understand your conversational pipeline, active chats, response times, and ROI in OrbionAgents.",
+      keywords: ["AI analytics dashboard", "conversational KPIs", "bot performance metrics"]
     }
   }
 };

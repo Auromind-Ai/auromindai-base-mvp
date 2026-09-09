@@ -183,4 +183,5 @@ export const ALL_DOC_SLUGS = [
   "features/lead-intelligence",
   "features/wallet",
   "features/ai-governance",
+  "features/integrations",
 ];

@@ -3,68 +3,107 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
     slug: "account/workspace-management",
     category: "Account & Governance",
     title: "Workspaces & Team Permissions",
-    subtitle: "Manage multi-tenant organizations, invite team collaborators, and assign role-based access control.",
-    readTime: "6 min read",
-    lastUpdated: "May 2026",
-    whatIsIt: "Workspace Management (/user/admin/settings) enables organization owners to manage multiple isolated environments under one master account. You can invite team members, assign granular permissions, and switch between departments or client accounts with one click.",
-    whyUseIt: "Agencies serving multiple clients or enterprises managing multiple brands need strict boundaries. Workspaces prevent cross-contamination of customer conversations, proprietary Brain documents, API keys, and billing pools.",
-    beforeYouStart: [
-      "Workspace Owner or Admin privileges in your current organization."
-    ],
-    steps: [
+    subtitle: "Manage multi-tenant organizations, invite team collaborators, and configure role-based access control.",
+    pageType: "settings",
+    sections: [
       {
-        step: 1,
-        title: "Open Workspace Settings",
-        instruction: "Click on 'Settings' in the lower-left sidebar and select 'Workspaces'.",
-        uiElements: ["Sidebar Avatar / Settings gear", "'Workspaces' tab", "Current Workspace name card"]
+        id: "overview",
+        title: "Overview",
+        type: "text",
+        content: "Workspace Management enables organization owners to administer isolated environments under a master tenant account. Team members can be invited with defined roles, separating customer conversations, knowledge collections, channel tokens, and operational settings across departments or client projects."
       },
       {
-        step: 2,
-        title: "Create or Switch Workspaces",
-        instruction: "To create a new workspace, click '+ Add Workspace', enter the name and timezone. To switch, click the workspace dropdown at the top of the sidebar.",
-        uiElements: ["'+ Add Workspace' button", "Workspace switcher dropdown", "Organization selector"]
+        id: "what-this-manages",
+        title: "What this page manages",
+        type: "list",
+        items: [
+          { title: "Workspace Environments", description: "Create and switch between separate workspaces for different brands, branches, or client accounts." },
+          { title: "Team Collaborator Invitations", description: "Invite staff by business email address to collaborate on customer interactions." },
+          { title: "Role-Based Access Control (RBAC)", description: "Assign Admin, Agent, or Viewer permission tiers to restrict sensitive configuration areas." },
+          { title: "Member Revocation & Audit", description: "Instantly revoke workspace access and view active collaborators in the team table." }
+        ]
       },
       {
-        step: 3,
-        title: "Invite Team Members",
-        instruction: "In the 'Team & Members' section, enter the email address of the team member you want to add.",
-        uiElements: ["'Email Address' field", "'Send Invite' button", "Pending invites list"]
+        id: "prerequisites",
+        title: "Prerequisites",
+        type: "checklist",
+        items: [
+          "Workspace Owner or Admin privileges in your current organization.",
+          "Valid corporate email addresses for all team members being invited."
+        ]
       },
       {
-        step: 4,
-        title: "Assign Role-Based Permissions (RBAC)",
-        instruction: "Select the appropriate role: 'Admin' (full configuration and billing control), 'Agent' (access to Omni-Inbox, Leads, and AI Workspace), or 'Viewer' (read-only analytics).",
-        uiElements: ["'Role' dropdown", "Permissions summary card"]
+        id: "rbac-matrix",
+        title: "Role Permission Matrix",
+        type: "table",
+        headers: ["Role", "Omni-Inbox & Leads", "AI Studio & Wires", "Settings & Channels", "Billing & Profile"],
+        rows: [
+          ["Owner", "Full Access", "Full Access", "Full Access", "Full Access"],
+          ["Admin", "Full Access", "Full Access", "Full Access", "Full Access"],
+          ["Agent", "Read & Respond", "Test & View", "Read Only", "No Access"],
+          ["Viewer", "Read Only", "Read Only", "Read Only", "No Access"]
+        ]
       },
       {
-        step: 5,
-        title: "Review Member Activity & Revoke Access",
-        instruction: "Audit active team members and click the trash can icon or 'Revoke' button to immediately remove access when someone departs the organization.",
-        uiElements: ["Active members table", "'Revoke' button", "'Save Changes' button"]
-      }
-    ],
-    screenshots: [
+        id: "step-by-step",
+        title: "Configuring Workspaces & Inviting Members",
+        type: "steps",
+        steps: [
+          {
+            step: 1,
+            title: "Access Workspace Settings",
+            instruction: "Navigate to Settings in the lower-left navigation bar and select 'Workspaces'.",
+            uiElements: ["Sidebar Settings navigation", "'Workspaces' tab"]
+          },
+          {
+            step: 2,
+            title: "Add or Switch Workspaces",
+            instruction: "Click '+ Add Workspace' to initialize a new isolated tenant. Enter the workspace name and default operational timezone.",
+            uiElements: ["'+ Add Workspace' button", "'Workspace Name' input", "'Timezone' selector"]
+          },
+          {
+            step: 3,
+            title: "Invite a Team Member",
+            instruction: "In the 'Team & Members' panel, input the invitee's email address and select their role from the dropdown (Admin, Agent, or Viewer).",
+            uiElements: ["'Email Address' field", "'Role' selector", "'Send Invite' button"]
+          },
+          {
+            step: 4,
+            title: "Manage Active Collaborators",
+            instruction: "Review active collaborators in the team table. Click the revoke button to immediately remove access when an employee changes roles or leaves.",
+            uiElements: ["Collaborators table", "'Revoke' action button"]
+          }
+        ]
+      },
       {
-        src: "/images/documentation.webp",
-        alt: "Workspace Management & Team Access Control",
-        caption: "Managing team roles, member invitations, and multi-tenant workspace environments."
-      }
-    ],
-    expectedResult: "Your team collaborates securely with assigned permission tiers, protecting sensitive API keys and administrative settings.",
-    tips: [
-      "Keep the Owner role tied to a shared company email (e.g., admin@company.com) rather than an individual employee's inbox.",
-      "Agents do not see Billing, API Keys, or MCP safeguard policy editors, keeping operational views uncluttered."
-    ],
-    troubleshooting: [
+        id: "expected-result",
+        title: "Expected Outcome",
+        type: "callout",
+        calloutTitle: "Security & Isolation Guarantee:",
+        calloutText: "Invited collaborators receive access strictly limited to their assigned role tier, ensuring API keys, billing configurations, and customer data remain protected."
+      },
       {
-        issue: "Team member did not receive the invitation email?",
-        solution: "Have them visit https://orbionagents.com/signup directly and register with the exact invited email; the system will attach them to your workspace automatically upon signup."
+        id: "troubleshooting",
+        title: "Troubleshooting",
+        type: "troubleshooting",
+        items: [
+          {
+            issue: "Invited team member cannot access the workspace?",
+            cause: "The user may have registered with a different email address than the one invited.",
+            solution: "Verify that the user creates an account using the exact invited email. The platform links verified email addresses to the tenant on first sign in."
+          },
+          {
+            issue: "Agent cannot see the Billing or Channels tab?",
+            cause: "This is intentional RBAC security behavior.",
+            solution: "Only Owners and Admins have permission to modify payment methods and channel credentials. Upgrade the user's role to Admin if channel management is required."
+          }
+        ]
       }
     ],
     seo: {
       title: "Workspaces & Team Permissions | OrbionAgents",
       description: "Manage multi-tenant workspaces, invite team members, and configure role-based access control in OrbionAgents.",
-      keywords: ["multi-tenant workspaces", "team permissions", "RBAC", "agency workspace setup"]
+      keywords: ["multi-tenant workspaces", "team permissions", "RBAC", "workspace setup"]
     }
   },
 
@@ -73,68 +112,89 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
     category: "Account & Governance",
     title: "AI Governance & Safeguards (MCP)",
     subtitle: "Enforce Model Context Protocol policies, deterministic guardrails, PII redaction, and human escalation thresholds.",
-    readTime: "7 min read",
-    lastUpdated: "June 2026",
-    whatIsIt: "AI Governance & Safeguards is OrbionAgents' proprietary implementation of the Model Context Protocol (MCP). It acts as an immutable deterministic security layer sitting between the large language model and your customer. Every response is evaluated (Allow, Block, Escalate) before transmission.",
-    whyUseIt: "Deploying generative AI in public customer channels carries real risk: hallucinating unauthorized discounts, promising non-existent contract terms, disclosing competitor data, or leaking PII (Personally Identifiable Information). MCP guarantees enterprise compliance and brand safety.",
-    beforeYouStart: [
-      "Admin access to your workspace.",
-      "Company compliance guidelines regarding prohibited topics or escalation triggers."
-    ],
-    steps: [
+    pageType: "ai-feature",
+    sections: [
       {
-        step: 1,
-        title: "Access AI Governance Settings",
-        instruction: "Navigate to 'Settings' -> 'AI Governance & Safeguards' (or Admin -> 'ai-governance').",
-        uiElements: ["'AI Governance' menu item with Shield icon", "Governance policy status badge"]
+        id: "overview",
+        title: "Overview",
+        type: "text",
+        content: "AI Governance enforces runtime boundary controls on every model turn and tool execution. Inspect incoming prompts for adversarial jailbreaks, redact sensitive PII (credit cards, passwords), enforce human supervisor confirmation on high-stakes actions, and maintain an immutable HMAC-signed audit log."
       },
       {
-        step: 2,
-        title: "Configure Prohibited Topics & Blacklisted Words",
-        instruction: "Specify banned keywords, competitors, and off-limit subjects (e.g., pricing guarantees, legal advice, adult topics).",
-        uiElements: ["'Prohibited Keywords' tag input", "'Competitor Mention Policy' toggle (Block/Redirect)"]
+        id: "what-this-manages",
+        title: "Core Safeguard Policies",
+        type: "list",
+        items: [
+          { title: "PII & Secret Redaction", description: "Automatically masks credit cards, phone sequences, and passwords before tokens enter the model context." },
+          { title: "Adversarial & Jailbreak Defense", description: "Detects system override patterns and shuts down hostile prompt injection attempts." },
+          { title: "MCP Tool Authority Boundaries", description: "Separates read-only tool calls from write/financial actions requiring human sign-off." },
+          { title: "Cryptographic Audit Trail", description: "Maintains tamper-proof HMAC verification hashes for every inbound prompt and outbound response." }
+        ]
       },
       {
-        step: 3,
-        title: "Enable Automatic PII Redaction",
-        instruction: "Toggle 'PII Masking' to ON. The safeguard engine replaces credit card numbers, Social Security/Aadhaar numbers, and passwords with `[REDACTED]` before saving to chat logs.",
-        uiElements: ["'PII Masking' switch", "Regex pattern inspector"]
+        id: "prerequisites",
+        title: "Prerequisites",
+        type: "checklist",
+        items: [
+          "Workspace Admin or Owner permissions.",
+          "Established organization compliance guidelines on prohibited customer topics."
+        ]
       },
       {
-        step: 4,
-        title: "Define Human Escalation Thresholds",
-        instruction: "Set rules for automatic bot surrender: e.g., if sentiment score drops below 0.3 (angry customer) or if the customer mentions 'lawyer' or 'manager', immediately trigger Human Takeover in Omni-Inbox.",
-        uiElements: ["'Sentiment Escalation Threshold' slider", "'Escalate to Human' trigger terms list"]
+        id: "step-by-step",
+        title: "Configuring Guardrail Policies",
+        type: "steps",
+        steps: [
+          {
+            step: 1,
+            title: "Access Governance Console",
+            instruction: "Navigate to Settings > AI Governance & Safeguards in the administrator dashboard.",
+            uiElements: ["'AI Governance' menu link", "Master Safeguard toggle"]
+          },
+          {
+            step: 2,
+            title: "Enable PII Scrubbing Rules",
+            instruction: "Select which entity patterns to mask (Credit Cards, Phone Numbers, Passwords) and choose between Anonymize or Block.",
+            uiElements: ["PII entity checkboxes", "Redaction action selector"]
+          },
+          {
+            step: 3,
+            title: "Set MCP Tool Boundaries",
+            instruction: "Classify registered tools: designate read tools as Autonomous and high-stakes financial tools as 'Requires Human Approval'.",
+            uiElements: ["Tool permission matrix", "Approval threshold controls"]
+          },
+          {
+            step: 4,
+            title: "Review Audit Log",
+            instruction: "Inspect the tamper-proof compliance ledger to review evaluated requests, block reasons, and supervisor timestamps.",
+            uiElements: ["Audit log table", "HMAC hash verification inspector"]
+          }
+        ]
       },
       {
-        step: 5,
-        title: "Simulate Policy Violations & Deploy",
-        instruction: "Use the policy sandbox test box to input violation phrases and observe the MCP evaluation returning 'Action: Block & Fallback', then click 'Enforce Policy'.",
-        uiElements: ["Policy simulation test box", "Evaluation verdict indicator", "'Enforce Policy' button"]
-      }
-    ],
-    screenshots: [
+        id: "expected-result",
+        title: "Expected Outcome",
+        type: "callout",
+        calloutTitle: "Deterministic Compliance Guarantee:",
+        calloutText: "Every incoming and outgoing message is inspected against deterministic policies. Unsafe generations are intercepted and replaced with safe fallback responses."
+      },
       {
-        src: "/images/wires-hero.webp",
-        alt: "Model Context Protocol AI Governance Safeguards",
-        caption: "Configuring deterministic MCP safeguards, PII redaction, and human escalation triggers."
-      }
-    ],
-    expectedResult: "All outgoing agent communications pass through the governance validator in < 5ms. Unsafe generations are blocked and substituted with compliant fallback responses.",
-    tips: [
-      "Review the AI Activity audit log weekly to see which policies are being triggered most often.",
-      "Always configure a friendly fallback message like: 'I want to make sure you get the exact details on this. Let me connect you with our specialist team.'"
-    ],
-    troubleshooting: [
-      {
-        issue: "Valid customer inquiries are getting blocked by the safeguard?",
-        solution: "Inspect the blocked log in the audit view to see which keyword or policy rule was triggered, and refine your regex or keyword match sensitivity."
+        id: "troubleshooting",
+        title: "Troubleshooting",
+        type: "troubleshooting",
+        items: [
+          {
+            issue: "Valid inquiry flagged as unsafe?",
+            cause: "Sensitivity heuristics may be set to extreme, flagging technical or code queries.",
+            solution: "Adjust the Jailbreak Defense threshold in Governance Settings to 'Balanced' and review prohibited keyword regex patterns."
+          }
+        ]
       }
     ],
     seo: {
       title: "AI Governance & Safeguards (MCP) | OrbionAgents",
       description: "Learn how OrbionAgents Model Context Protocol (MCP) safeguards conversational agents with PII redaction and policy guardrails.",
-      keywords: ["AI governance", "Model Context Protocol", "MCP safeguards", "AI brand safety", "guardrails"]
+      keywords: ["AI governance", "Model Context Protocol", "MCP safeguards", "guardrails"]
     }
   },
 
@@ -142,62 +202,92 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
     slug: "billing/plans-pricing",
     category: "Billing & Subscriptions",
     title: "Subscription Plans & Add-ons",
-    subtitle: "Explore Free, Starter, Pro, and Enterprise tiers with quota limits and channel allowances.",
-    readTime: "5 min read",
-    lastUpdated: "June 2026",
-    whatIsIt: "OrbionAgents offers transparent, tiered subscription plans tailored for individual creators, growing businesses, and high-volume enterprises. Plans bundle active messaging channels, Wires automation quotas, Knowledge Brain storage, and included LLM credits.",
-    whyUseIt: "Understanding your plan limits ensures that your production messaging funnels never experience throttling or interruption during seasonal sales spikes.",
-    beforeYouStart: [
-      "Workspace Owner privileges to upgrade or downgrade subscription tiers."
-    ],
-    steps: [
+    subtitle: "Manage subscription tiers, channel allowances, automation quotas, and add-on packs.",
+    pageType: "billing",
+    sections: [
       {
-        step: 1,
-        title: "Open the Billing Page",
-        instruction: "Click 'Billing' in the left-hand navigation sidebar (/user/admin/billing).",
-        uiElements: ["'Billing' menu item with CreditCard icon", "'Current Plan' summary card"]
+        id: "overview",
+        title: "Overview",
+        type: "text",
+        content: "OrbionAgents provides structured subscription tiers designed for creators, growing teams, and high-volume enterprises. Plans bundle active messaging channels, Automation Wire limits, Knowledge Brain storage, and included compute credits."
       },
       {
-        step: 2,
-        title: "Compare Available Plan Tiers",
-        instruction: "Review the comparison table: Free (1 Channel, 5 Wires, 50k Tokens), Starter (2 Channels, 15 Wires, 500k Tokens), Pro (All Channels, Unlimited Wires, 2.5M Tokens, Priority Support), and Enterprise (Custom SLA, Dedicated Vector Cluster).",
-        uiElements: ["Plan cards (Free, Starter, Pro, Enterprise)", "'Upgrade Plan' button"]
+        id: "what-this-manages",
+        title: "What this page manages",
+        type: "list",
+        items: [
+          { title: "Current Subscription Status", description: "View your active plan, renewal date, and billing cycle (Monthly or Yearly)." },
+          { title: "Quota & Allowance Monitoring", description: "Track utilization of connected channels, active wires, and knowledge base capacity." },
+          { title: "Plan Upgrades & Downgrades", description: "Switch between Starter, Pro, and Enterprise tiers as your business scales." },
+          { title: "Individual Add-on Packs", description: "Purchase standalone extra channel slots or wire quotas without upgrading the whole plan tier." }
+        ]
       },
       {
-        step: 3,
-        title: "Choose Monthly vs Annual Billing",
-        instruction: "Toggle the billing cycle switch. Annual commitments receive a 20% discount across all paid tiers.",
-        uiElements: ["'Monthly / Yearly (Save 20%)' toggle switch"]
+        id: "tier-matrix",
+        title: "Plan Comparison Matrix",
+        type: "table",
+        headers: ["Feature Tier", "Starter", "Pro", "Enterprise"],
+        rows: [
+          ["Connected Channels", "1 Channel (WhatsApp or IG)", "Up to 3 Channels", "Unlimited Custom Channels"],
+          ["Automation Wires", "5 Active Wires", "25 Active Wires", "Unlimited Wires"],
+          ["Brain Collections", "2 Collections (50MB)", "10 Collections (500MB)", "Custom pgvector Namespaces"],
+          ["AI Copilot & Inbox", "Standard Queue", "Unified Queue + Copilot", "Dedicated Agent Pools + Priority SLA"]
+        ]
       },
       {
-        step: 4,
-        title: "Purchase Add-on Quotas",
-        instruction: "If you only need extra Wires or additional WhatsApp numbers without upgrading your tier, select individual add-on packs from the bottom section.",
-        uiElements: ["'Add-ons' section", "Extra Channels pack", "Extra Wires pack"]
+        id: "step-by-step",
+        title: "Managing Plans & Purchasing Add-ons",
+        type: "steps",
+        steps: [
+          {
+            step: 1,
+            title: "Navigate to Billing Dashboard",
+            instruction: "Open the admin dashboard and navigate to Billing (/user/admin/billing).",
+            uiElements: ["Sidebar Billing icon", "'Plans & Add-ons' section"]
+          },
+          {
+            step: 2,
+            title: "Select Billing Cadence",
+            instruction: "Toggle between Monthly and Yearly billing. Yearly plans include a 20% discount on base platform subscription charges.",
+            uiElements: ["Monthly / Yearly toggle switch"]
+          },
+          {
+            step: 3,
+            title: "Choose Target Plan or Add-on",
+            instruction: "Click 'Upgrade' under your desired tier, or scroll to 'Add-ons' to select additional channel seats or wire packs.",
+            uiElements: ["'Upgrade' button", "'Add-on Packs' selector"]
+          },
+          {
+            step: 4,
+            title: "Complete Checkout",
+            instruction: "Review the order summary modal and complete secure payment. The updated quotas take effect immediately.",
+            uiElements: ["Order Summary modal", "Payment confirmation"]
+          }
+        ]
       },
       {
-        step: 5,
-        title: "Complete Checkout",
-        instruction: "Click 'Upgrade Now', review the order summary, and complete secure payment via Razorpay.",
-        uiElements: ["Order summary modal", "Razorpay checkout modal", "Immediate confirmation banner"]
-      }
-    ],
-    screenshots: [
+        id: "expected-result",
+        title: "Expected Outcome",
+        type: "callout",
+        calloutTitle: "Instant Quota Provisioning:",
+        calloutText: "Upgraded limits for channels, wires, and storage are applied instantly to your workspace without requiring server restart or downtime."
+      },
       {
-        src: "/images/documentation.webp",
-        alt: "Subscription Plans & Pricing Tiers in Billing",
-        caption: "Plan comparison matrix and upgrade checkout options in OrbionAgents Billing."
-      }
-    ],
-    expectedResult: "Your workspace limits (channels, wires, and token quotas) are upgraded instantly without downtime.",
-    tips: [
-      "Start with the Pro plan if you plan to connect both WhatsApp and Instagram simultaneously.",
-      "Unused included monthly plan tokens roll over for 30 days on Pro and Enterprise tiers."
-    ],
-    troubleshooting: [
-      {
-        issue: "Card payment was declined during checkout?",
-        solution: "Verify that international or online transactions are enabled on your card, or choose UPI / Netbanking via the Razorpay modal."
+        id: "troubleshooting",
+        title: "Troubleshooting",
+        type: "troubleshooting",
+        items: [
+          {
+            issue: "Payment failed during plan checkout?",
+            cause: "Card may have international or recurring billing restrictions enabled by the issuing bank.",
+            solution: "Verify that international online transactions are enabled on your card, or choose an alternate payment method in the checkout modal."
+          },
+          {
+            issue: "Quota did not reflect immediately after payment?",
+            cause: "Webhook confirmation from payment gateway may experience slight network delay.",
+            solution: "Refresh the billing page after 15 seconds. If the issue persists, contact support with the transaction reference ID."
+          }
+        ]
       }
     ],
     seo: {
@@ -211,73 +301,146 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
     slug: "billing/gst-invoices",
     category: "Billing & Subscriptions",
     title: "GST Compliance & Invoices",
-    subtitle: "Configure your GSTIN, generate B2B compliant tax invoices, and download PDF receipts.",
-    readTime: "5 min read",
-    lastUpdated: "June 2026",
-    whatIsIt: "The GST & Invoice manager (/user/admin/billing) enables Indian and international businesses to manage tax profiles, maintain compliance with Indian Goods and Services Tax (GST) regulations, claim Input Tax Credit (ITC), and download itemized PDF tax invoices.",
-    whyUseIt: "Business customers in India require legally compliant tax invoices featuring their 15-digit GSTIN, legal business entity name, state code, and clear CGST/SGST/IGST tax breakdowns to file monthly GSTR-2B returns.",
-    beforeYouStart: [
-      "Your company's valid 15-digit GSTIN (e.g., `27AAPFU0939F1ZV`).",
-      "Registered corporate address matching GST records."
-    ],
-    steps: [
+    subtitle: "Manage your billing profile, GST details, and available invoice records from Orbion billing.",
+    pageType: "gst",
+    sections: [
       {
-        step: 1,
-        title: "Open Billing Profile",
-        instruction: "Navigate to 'Billing' (/user/admin/billing) and locate the 'Billing Profile & GST Details' section.",
-        uiElements: ["'Billing Profile' card", "'Edit Profile' button"]
+        id: "overview",
+        title: "Overview",
+        type: "text",
+        content: "The Billing Profile & Invoice console (/user/admin/billing) allows workspace administrators to configure corporate billing information, add an official Goods and Services Tax Identification Number (GSTIN), and access historical transaction invoice receipts for record-keeping."
       },
       {
-        step: 2,
-        title: "Enter Legal Entity Information",
-        instruction: "Click 'Edit Profile'. Enter your Legal Business Name, registered street address, city, state, postal code, and country.",
-        uiElements: ["'Legal Business Name' field", "'Billing Address' field", "'State' dropdown"]
+        id: "what-this-manages",
+        title: "What this page manages",
+        type: "list",
+        items: [
+          { title: "Billing Profile", description: "Primary billing contact name, notification email, and direct telephone number." },
+          { title: "Business Information", description: "Registered legal business name, street address, city, state, postal code, and country." },
+          { title: "GST Details", description: "Official 15-digit GSTIN registration number and GST status toggle." },
+          { title: "Invoice & Payment History", description: "Chronological table of completed subscription charges, top-ups, and transaction references." },
+          { title: "Invoice Documents", description: "Downloadable PDF invoice receipts associated with past billing transactions." }
+        ]
       },
       {
-        step: 3,
-        title: "Toggle GST Registration & Input GSTIN",
-        instruction: "Toggle 'I have a GST Registration' to ON, and type your 15-digit GSTIN. The system verifies the format and checks state code consistency.",
-        uiElements: ["'GST Registration' toggle switch", "'GSTIN' input field", "Format validation indicator"]
+        id: "prerequisites",
+        title: "Before You Start",
+        type: "checklist",
+        items: [
+          "Workspace Admin or Owner role in your Orbion organization.",
+          "Your company's official registered legal business name and corporate address.",
+          "Your valid 15-digit GSTIN (e.g. 27AAPFU0939F1ZV) if registered under Indian GST."
+        ]
       },
       {
-        step: 4,
-        title: "Save Profile",
-        instruction: "Click 'Save Billing Profile'. All future charges and renewals will automatically generate compliant B2B tax invoices with appropriate CGST/SGST (intra-state) or IGST (inter-state) line items.",
-        uiElements: ["'Save Profile' button", "Success toast notification"]
+        id: "configure-profile",
+        title: "Configure Billing Profile",
+        type: "steps",
+        steps: [
+          {
+            step: 1,
+            title: "Navigate to Billing Settings",
+            instruction: "Log in to the dashboard and open the Billing page at /user/admin/billing.",
+            uiElements: ["Sidebar 'Billing' navigation link", "'Billing Profile' card"]
+          },
+          {
+            step: 2,
+            title: "Open Profile Editor",
+            instruction: "Locate the 'Billing Profile' section and click the 'Edit Profile' button to enable editing fields.",
+            uiElements: ["'Edit Profile' button"]
+          },
+          {
+            step: 3,
+            title: "Fill Business & Contact Details",
+            instruction: "Input your Legal Business Name, Contact Name, Billing Email, Phone Number, Street Address, City, State, Postal Code, and Country.",
+            uiElements: [
+              "'Legal Business Name' input",
+              "'Billing Contact Name' input",
+              "'Billing Email' input",
+              "'State' dropdown selector",
+              "'Postal Code' input"
+            ]
+          }
+        ]
       },
       {
-        step: 5,
-        title: "Download Past Invoices",
-        instruction: "Scroll down to 'Invoice & Payment History'. Click the download icon next to any transaction to retrieve a signed PDF invoice.",
-        uiElements: ["'Payment History' table", "Download PDF icon", "Invoice modal preview"]
-      }
-    ],
-    screenshots: [
-      {
-        src: "/images/documentation.webp",
-        alt: "GST Profile and Invoice Download in Billing",
-        caption: "Configuring GSTIN details and downloading compliant tax invoices in Billing."
-      }
-    ],
-    expectedResult: "Compliant PDF invoices containing your GSTIN, supplier details (Orbion Agents Private Limited), and tax breakdowns are ready for your accounting department.",
-    tips: [
-      "Ensure your registered state matches the first two digits of your GSTIN (e.g., 33 for Tamil Nadu, 27 for Maharashtra) to avoid incorrect tax calculations.",
-      "Invoices are emailed automatically to the designated billing contact upon successful payment."
-    ],
-    troubleshooting: [
-      {
-        issue: "GSTIN validation displays 'Invalid GSTIN format'?",
-        solution: "A valid GSTIN must be exactly 15 characters long, following the standard pattern: 2 digits (state code) + 10 alphanumeric (PAN) + 1 entity code + 'Z' + 1 check digit."
+        id: "add-gst",
+        title: "Add GST Details",
+        type: "steps",
+        steps: [
+          {
+            step: 4,
+            title: "Enable GST Registration",
+            instruction: "Toggle 'I have a GST Registration' to the ON position. This reveals the GSTIN entry input.",
+            uiElements: ["'I have a GST Registration' toggle switch"]
+          },
+          {
+            step: 5,
+            title: "Input 15-Digit GSTIN",
+            instruction: "Enter your official 15-character GSTIN. Verify that the two-digit state prefix matches the state selected in your address.",
+            uiElements: ["'GSTIN' input field", "15-character uppercase format"]
+          },
+          {
+            step: 6,
+            title: "Save Profile",
+            instruction: "Click 'Save Billing Profile'. Your saved details will be recorded for future invoice generation.",
+            uiElements: ["'Save Billing Profile' button", "Success confirmation message"]
+          }
+        ]
       },
       {
-        issue: "Invoice does not display your GSTIN?",
-        solution: "GSTIN updates apply to future transactions. If you need a previous invoice reissued with your GSTIN, contact support at billing@orbionagents.com."
+        id: "invoice-history",
+        title: "Review Invoice History & Download",
+        type: "steps",
+        steps: [
+          {
+            step: 7,
+            title: "Inspect Payment History Table",
+            instruction: "Scroll down to the 'Invoice & Payment History' section. Review the date, transaction description, amount, and payment status.",
+            uiElements: ["'Invoice & Payment History' table", "Transaction date and status columns"]
+          },
+          {
+            step: 8,
+            title: "Download Invoice PDF",
+            instruction: "Click the download action icon on any completed transaction row to save the invoice receipt PDF to your device.",
+            uiElements: ["Download PDF button / icon", "Browser file download prompt"]
+          }
+        ]
+      },
+      {
+        id: "expected-result",
+        title: "Expected Result",
+        type: "callout",
+        calloutTitle: "Verified Product Behavior:",
+        calloutText: "Your corporate billing address and GSTIN are stored with your workspace profile, and all completed transactions in your payment history table can be downloaded as PDF receipts."
+      },
+      {
+        id: "troubleshooting",
+        title: "Troubleshooting",
+        type: "troubleshooting",
+        items: [
+          {
+            issue: "GSTIN fails to save or shows an error?",
+            cause: "A GSTIN must follow the exact 15-character alphanumeric format: 2 digits (State Code) + 10 characters (PAN) + 1 entity code + 'Z' + 1 checksum digit.",
+            solution: "Double-check your GST certificate for exact spelling and ensure no trailing spaces or special characters were pasted."
+          },
+          {
+            issue: "Invoice PDF download does not start?",
+            cause: "Browser popup blocker may be suppressing the download trigger.",
+            solution: "Allow popups for the Orbion application URL in your browser settings and click the download button again."
+          },
+          {
+            issue: "A past invoice does not show updated GST details?",
+            cause: "Billing profile updates apply to transactions generated after saving the profile.",
+            solution: "Past finalized transactions reflect the billing profile active at transaction time. If you need a previous invoice updated for accounting, contact billing support with the invoice ID."
+          }
+        ]
       }
     ],
     seo: {
       title: "GST Compliance & Invoices | OrbionAgents",
-      description: "How to configure GSTIN for Input Tax Credit (ITC), manage billing profiles, and download tax invoices in OrbionAgents.",
-      keywords: ["GST invoice", "GSTIN OrbionAgents", "B2B tax invoice", "Razorpay GST billing"]
+      description: "How to configure GSTIN details, manage billing profiles, and download invoice receipts in OrbionAgents.",
+      keywords: ["GST invoice", "GSTIN OrbionAgents", "billing profile", "invoice download"]
     }
   }
 };

@@ -2,69 +2,82 @@ export const CORE_FEATURES_PART3 = {
   "features/leads-crm": {
     slug: "features/leads-crm",
     category: "Core Features",
-    title: "Leads & CRM Pipeline",
-    subtitle: "Capture, qualify, score, and manage prospect pipelines generated across conversational channels.",
-    readTime: "6 min read",
-    lastUpdated: "May 2026",
-    whatIsIt: "The Leads & CRM module (/user/admin/leads) is a built-in contact management database specifically tailored for conversational commerce. It tracks contacts, lead stages (New, Qualified, Proposal, Won, Lost), lead intent scores, and conversational history.",
-    whyUseIt: "Inbound chats on WhatsApp often fail to turn into sales because contact details get lost in long message threads. OrbionAgents automatically extracts contact names, emails, phone numbers, and budget requirements from chat transcripts, organizing them into a structured sales pipeline.",
-    beforeYouStart: [
-      "Customer conversations occurring in your Omni-Inbox or through Orchestrator funnels."
-    ],
-    steps: [
+    title: "AI Lead Intelligence & CRM",
+    subtitle: "Autonomous prospect qualification, real-time intent extraction, and automated CRM pipeline syncing.",
+    pageType: "crm",
+    sections: [
       {
-        step: 1,
-        title: "Open the Leads & CRM Page",
-        instruction: "Click on 'Leads & CRM' in the left-hand navigation sidebar (/user/admin/leads).",
-        uiElements: ["'Leads & CRM' item with Users icon", "Pipeline summary metrics"]
+        id: "overview",
+        title: "Overview",
+        type: "text",
+        content: "The Leads & CRM module (/user/admin/leads) captures and qualifies customer contacts generated during WhatsApp and Instagram conversations. The AI Lead Intelligence engine parses dialogue in real time, extracts qualifying parameters (budget, timeline, intent), assigns a dynamic qualification score, and organizes leads into an interactive pipeline."
       },
       {
-        step: 2,
-        title: "Explore List vs Pipeline Kanban View",
-        instruction: "Toggle between the structured 'List View' (with filters and sorting) and the visual 'Kanban Board' (dragging leads between stages).",
-        uiElements: ["View switcher (List / Kanban)", "Stage columns ('New', 'Contacted', 'Qualified', 'Closed')"]
+        id: "capabilities",
+        title: "Key Lead Intelligence Features",
+        type: "list",
+        items: [
+          { title: "Automated Parameter Extraction", description: "Detects budget figures, purchase timelines, company name, and requirements without manual forms." },
+          { title: "Dynamic Lead Scoring (0-100)", description: "Categorizes prospects into Hot (>75), Warm (40-74), and Cold (<40) tiers based on buying intent." },
+          { title: "Pipeline Kanban Board", description: "Drag-and-drop stage transitions from Lead Identified to Qualified, Demo Booked, and Won." },
+          { title: "CRM Sync & Export", description: "One-click CSV exports and automated webhook sync to HubSpot, Salesforce, or custom backends." }
+        ]
       },
       {
-        step: 3,
-        title: "Filter by Lead Qualification Score",
-        instruction: "Use the filter bar to isolate 'Hot' leads (qualification score > 75) based on AI intent evaluation.",
-        uiElements: ["Lead score filter pill", "Tag dropdown (e.g. 'VIP', 'Enterprise', 'Follow-up')"]
+        id: "step-by-step",
+        title: "Managing the Lead Pipeline",
+        type: "steps",
+        steps: [
+          {
+            step: 1,
+            title: "Access Leads Dashboard",
+            instruction: "Click 'Leads' in the sidebar navigation (/user/admin/leads) to open your pipeline.",
+            uiElements: ["Sidebar 'Leads' link", "Pipeline view switcher"]
+          },
+          {
+            step: 2,
+            title: "Filter by Lead Qualification Tier",
+            instruction: "Use the filter bar to isolate 'Hot' leads requiring immediate sales attention within the 24-hour window.",
+            uiElements: ["Tier filter pills (Hot / Warm / Cold)", "Score range filter"]
+          },
+          {
+            step: 3,
+            title: "Inspect Lead Profile & Transcript",
+            instruction: "Click any lead card to view extracted contact info, budget notes, and jump directly into the full chat thread in Omni-Inbox.",
+            uiElements: ["Lead detail drawer", "'View Conversation' link"]
+          },
+          {
+            step: 4,
+            title: "Export or Sync Contacts",
+            instruction: "Click 'Export CSV' for offline sales reports, or configure webhooks to synchronize updated contacts to your CRM.",
+            uiElements: ["'Export CSV' button", "Webhook sync indicator"]
+          }
+        ]
       },
       {
-        step: 4,
-        title: "Inspect Lead Profile & Conversation History",
-        instruction: "Click on any lead record to open their customer drawer. View their verified phone number, email, captured form fields, and a 1-click link to their inbox thread.",
-        uiElements: ["Customer detail drawer", "'View Full Chat' button", "Edit Stage dropdown"]
+        id: "expected-result",
+        title: "Expected Outcome",
+        type: "callout",
+        calloutTitle: "Pipeline Synchronized:",
+        calloutText: "Contact records are enriched and organized automatically from chat conversations with zero manual data entry."
       },
       {
-        step: 5,
-        title: "Export to CSV or Sync with CRM",
-        instruction: "Click the 'Export' button to download a sanitized CSV file, or trigger a webhook to automatically push new leads to HubSpot or Salesforce.",
-        uiElements: ["'Export CSV' button", "Webhook sync indicator"]
-      }
-    ],
-    screenshots: [
-      {
-        src: "/images/lead-qualification.webp",
-        alt: "OrbionAgents Leads Pipeline & Qualification Management",
-        caption: "Centralized CRM pipeline showing lead scoring, contact info, and stage transitions."
-      }
-    ],
-    expectedResult: "A clean, synchronized customer database that captures qualified leads from conversations automatically without manual data entry.",
-    tips: [
-      "Configure automated follow-up rules in Wires for leads that remain in 'New' stage for more than 24 hours.",
-      "Assign specific sales reps as owners of leads based on geography or product interest."
-    ],
-    troubleshooting: [
-      {
-        issue: "Lead name shows up as phone number instead of person's name?",
-        solution: "WhatsApp only transmits the user's phone number initially unless the user provides their name during the bot dialogue or their WhatsApp profile name is public."
+        id: "troubleshooting",
+        title: "Troubleshooting",
+        type: "troubleshooting",
+        items: [
+          {
+            issue: "Lead name shows phone number instead of person's name?",
+            cause: "Customer has not stated their name in dialogue yet, and their WhatsApp profile name is hidden by privacy settings.",
+            solution: "When the customer introduces themselves or fills in a name prompt, the lead profile updates automatically."
+          }
+        ]
       }
     ],
     seo: {
       title: "Leads & CRM Pipeline | OrbionAgents",
-      description: "Manage and qualify inbound sales leads captured from WhatsApp and Instagram automatically with OrbionAgents CRM.",
-      keywords: ["conversational CRM", "lead qualification", "WhatsApp lead capture", "pipeline management"]
+      description: "Capture, qualify, tag, and export contacts directly from active conversational channels.",
+      keywords: ["AI CRM", "lead qualification", "conversational lead generation", "WhatsApp CRM"]
     }
   },
 
@@ -72,72 +85,85 @@ export const CORE_FEATURES_PART3 = {
     slug: "features/templates",
     category: "Core Features",
     title: "WhatsApp Message Templates",
-    subtitle: "Create, submit, and manage Meta-approved WhatsApp broadcast and transactional templates.",
-    readTime: "6 min read",
-    lastUpdated: "June 2026",
-    whatIsIt: "The Templates Manager (/user/admin/templates) allows you to design WhatsApp message templates conforming to Meta Cloud API specifications. WhatsApp requires pre-approved templates whenever a business initiates an outbound message to a user outside the 24-hour customer service window.",
-    whyUseIt: "Outbound re-engagement, order confirmations, shipping updates, and abandoned cart reminders require verified Meta templates. The template builder simplifies variable mapping (`{{1}}`, `{{2}}`), header media (images/documents), and quick reply buttons.",
-    beforeYouStart: [
-      "A connected Meta WhatsApp Cloud API account with active WABA (WhatsApp Business Account) permissions."
-    ],
-    steps: [
+    subtitle: "Design Meta-approved WhatsApp broadcast and transactional message templates with dynamic variables.",
+    pageType: "conversation",
+    sections: [
       {
-        step: 1,
-        title: "Navigate to Templates",
-        instruction: "Click 'Templates' in the left-hand sidebar navigation (/user/admin/templates).",
-        uiElements: ["'Templates' menu item with FileText icon", "'+ Create Template' button"]
+        id: "overview",
+        title: "Overview",
+        type: "text",
+        content: "WhatsApp Message Templates are pre-approved message structures required by Meta to initiate conversations outside the standard 24-hour service window. Use the Template Builder (/user/admin/templates) to compose, preview, and submit Marketing, Utility, and Authentication templates for official Meta approval."
       },
       {
-        step: 2,
-        title: "Set Template Category and Language",
-        instruction: "Click '+ Create Template'. Enter a Template Name (lowercase with underscores, e.g., `order_shipped_v1`), choose Category ('MARKETING' or 'UTILITY'), and select Language (e.g., 'English (US)').",
-        uiElements: ["'Template Name' input", "'Category' dropdown", "'Language' dropdown"]
+        id: "template-categories",
+        title: "Meta Template Categories",
+        type: "list",
+        items: [
+          { title: "Marketing Templates", description: "Promotional announcements, discount offers, product recommendations, and abandoned cart reminders." },
+          { title: "Utility Templates", description: "Transactional updates: order confirmations, shipping updates, account alerts, and billing receipts." },
+          { title: "Authentication Templates", description: "One-time passwords (OTP) and two-factor authentication verification codes." }
+        ]
       },
       {
-        step: 3,
-        title: "Draft Header, Body, and Variables",
-        instruction: "Type your message copy. Insert dynamic variable placeholders like `{{1}}` for customer name and `{{2}}` for tracking number using the '+ Add Variable' button.",
-        uiElements: ["'Header' toggle (Text, Image, PDF)", "'Body' textarea", "'+ Add Variable' pill"]
+        id: "step-by-step",
+        title: "Creating & Submitting a Template",
+        type: "steps",
+        steps: [
+          {
+            step: 1,
+            title: "Open Template Builder",
+            instruction: "Navigate to Templates (/user/admin/templates) and click '+ Create Template'.",
+            uiElements: ["Templates dashboard", "'+ Create Template' button"]
+          },
+          {
+            step: 2,
+            title: "Choose Category & Language",
+            instruction: "Select Category (Marketing or Utility), specify template name (lowercase with underscores), and select primary language.",
+            uiElements: ["Category radio buttons", "'Template Name' input", "'Language' selector"]
+          },
+          {
+            step: 3,
+            title: "Compose Header, Body & Buttons",
+            instruction: "Write your message copy using {{1}}, {{2}} variable syntax for dynamic customer names or order numbers. Add optional media header (Image/Video/Document) and Call-to-Action buttons.",
+            uiElements: ["Header media selector", "Body textarea with variable helper", "Button builder"]
+          },
+          {
+            step: 4,
+            title: "Submit to Meta for Approval",
+            instruction: "Review the live phone preview on the right. Click 'Submit for Review'. Approvals are typically processed by Meta within 15 minutes.",
+            uiElements: ["Mobile mockup preview", "'Submit to Meta' button"]
+          }
+        ]
       },
       {
-        step: 4,
-        title: "Add Call-to-Action Buttons",
-        instruction: "Configure interactive footer buttons: 'Quick Reply' (e.g., 'Track Order') or 'Call to Action' (e.g., 'Visit Website' with URL).",
-        uiElements: ["'Buttons' section", "'Quick Reply' option", "'Call to Action' option"]
+        id: "expected-result",
+        title: "Expected Outcome",
+        type: "callout",
+        calloutTitle: "Template Approved:",
+        calloutText: "The template status badge turns green 'Approved' and becomes immediately available for automated Wires broadcasts and re-engagement messaging."
       },
       {
-        step: 5,
-        title: "Submit to Meta for Verification",
-        instruction: "Inspect the real-time smartphone preview on the right side of the screen. Click 'Submit Template' to push the template to Meta's automated approval system (typically approved in 1-5 minutes).",
-        uiElements: ["Live smartphone preview container", "'Submit Template' primary button", "Approval status badge ('APPROVED' in green)"]
-      }
-    ],
-    screenshots: [
-      {
-        src: "/images/whatsapp-hero.webp",
-        alt: "WhatsApp Message Template Builder & Approval Status",
-        caption: "Designing Meta-approved WhatsApp message templates with dynamic variable placeholders."
-      }
-    ],
-    expectedResult: "Your template is approved by Meta, synchronized into your workspace, and ready to be dispatched via automations or broadcast campaigns.",
-    tips: [
-      "Ensure variable sample values are filled in before submitting to avoid Meta rejection.",
-      "Utility templates (order notifications, verification codes) have lower Meta per-message charges than Marketing templates."
-    ],
-    troubleshooting: [
-      {
-        issue: "Template rejected by Meta with reason 'Variable parameters missing'?",
-        solution: "Meta requires that every variable `{{1}}` has a corresponding realistic sample value in the template submission form."
-      },
-      {
-        issue: "Template status stuck on 'PENDING'?",
-        solution: "Meta approvals usually take under 5 minutes, but occasionally require manual review up to 24 hours. Click 'Refresh Status' in the templates table."
+        id: "troubleshooting",
+        title: "Troubleshooting",
+        type: "troubleshooting",
+        items: [
+          {
+            issue: "Template rejected with reason 'Variable formatting error'?",
+            cause: "Variables must follow consecutive numerical order starting at {{1}} (e.g. {{1}}, {{2}}). Meta rejects templates containing non-sequential variables or variables in the footer.",
+            solution: "Ensure variables start with {{1}} in the body text and provide realistic sample values for each variable during submission."
+          },
+          {
+            issue: "Template rejected for 'Category mismatch'?",
+            cause: "A promotional or sales message was submitted under the 'Utility' category.",
+            solution: "Change the template category to 'Marketing' and re-submit."
+          }
+        ]
       }
     ],
     seo: {
-      title: "WhatsApp Message Templates Guide | OrbionAgents",
-      description: "How to create, format variables, and submit Meta-approved WhatsApp templates for automated customer outreach.",
-      keywords: ["WhatsApp templates", "Meta Cloud API templates", "broadcast messages", "message variables"]
+      title: "WhatsApp Message Templates | OrbionAgents",
+      description: "Design Meta-approved WhatsApp broadcast and transactional templates with variables.",
+      keywords: ["WhatsApp templates", "Meta template approval", "HSM message builder", "WhatsApp marketing"]
     }
   },
 
@@ -145,68 +171,75 @@ export const CORE_FEATURES_PART3 = {
     slug: "features/credits-wallet",
     category: "Core Features",
     title: "Credits, Wallet & Token Metering",
-    subtitle: "Real-time visibility into LLM token expenditure, channel costs, and wallet balance.",
-    readTime: "5 min read",
-    lastUpdated: "May 2026",
-    whatIsIt: "The Credits & Wallet module (/user/admin/credits) manages your workspace's token balance and billing meters. It provides transparent auditing of every prompt, completion, and tool invocation across underlying providers (OpenAI, Anthropic, Google, Groq).",
-    whyUseIt: "Uncontrolled LLM usage can lead to surprise bills. OrbionAgents gives you granular cost tracking down to the exact conversation, customizable threshold alerts, and flexible auto-recharge settings to keep your customer bots running 24/7.",
-    beforeYouStart: [
-      "An active workspace with billing permissions."
-    ],
-    steps: [
+    subtitle: "Deterministic per-token metering, Meta WCC conversation billing, transparent transaction ledgers, and zero-downtime auto-reload.",
+    pageType: "billing",
+    sections: [
       {
-        step: 1,
-        title: "Open Credits & Wallet",
-        instruction: "Click on 'Credits & Wallet' in the left-hand sidebar navigation (/user/admin/credits).",
-        uiElements: ["'Credits & Wallet' menu item with Coins icon", "Credit Ring balance widget"]
+        id: "overview",
+        title: "Overview",
+        type: "text",
+        content: "The Credits & Wallet console (/user/admin/credits) provides transparent metering for AI token consumption across foundation models (GPT-4o, Claude, Gemini) and reconciles Meta WhatsApp Conversation Charges (WCC). Monitor daily expenditure, inspect an itemized ledger, and configure auto-recharge rules."
       },
       {
-        step: 2,
-        title: "Inspect Remaining Balance and Burn Rate",
-        instruction: "Review your available credits ring, daily burn rate, and projected days remaining at your current conversation volume.",
-        uiElements: ["Circular Credit Ring indicator", "'Daily Average Burn' stat", "'Projected Runway' counter"]
+        id: "ledger-features",
+        title: "Metering Architecture",
+        type: "list",
+        items: [
+          { title: "Deterministic Token Counting", description: "Captures exact prompt and completion tokens per inference turn with sub-cent accuracy." },
+          { title: "Meta WCC Cost Tracking", description: "Direct pass-through billing for Meta 24-hour service and marketing conversation windows." },
+          { title: "Auto-Reload Safety Buffer", description: "Automatically charges payment card when credit balance drops below your configured threshold." },
+          { title: "Immutable Transaction History", description: "Audit trail logging timestamp, model used, conversation ID, and credit deduction." }
+        ]
       },
       {
-        step: 3,
-        title: "Analyze Model-by-Model Breakdown",
-        instruction: "Scroll to the 'Usage by Model' section to see token consumption split across Claude 3.5 Sonnet, GPT-4o, and Llama 3.",
-        uiElements: ["Model breakdown bar chart", "Input vs Output token counters"]
+        id: "step-by-step",
+        title: "Managing Credits & Auto-Reload",
+        type: "steps",
+        steps: [
+          {
+            step: 1,
+            title: "Access Wallet Dashboard",
+            instruction: "Open Credits (/user/admin/credits) to inspect your AI Credits balance and Meta WCC reserves.",
+            uiElements: ["Sidebar 'Credits' item", "Balance cards"]
+          },
+          {
+            step: 2,
+            title: "Configure Auto-Reload",
+            instruction: "Click 'Auto-Reload Settings'. Set minimum threshold (e.g. reload when balance drops below $20) and top-up amount.",
+            uiElements: ["Auto-reload toggle", "Threshold input field", "Top-up amount selector"]
+          },
+          {
+            step: 3,
+            title: "Review Transaction History",
+            instruction: "Scroll to the ledger table to audit recent token deductions with model names and conversation IDs.",
+            uiElements: ["Ledger table", "Date range filter"]
+          }
+        ]
       },
       {
-        step: 4,
-        title: "Configure Balance Alerts & Auto-Topup",
-        instruction: "Click 'Wallet Settings' to set an email alert threshold (e.g., notify when credits fall below 5,000) or enable automatic wallet recharge.",
-        uiElements: ["'Threshold Alert' input", "'Auto Top-Up' toggle", "'Recharge Amount' selector"]
+        id: "expected-result",
+        title: "Expected Outcome",
+        type: "callout",
+        calloutTitle: "Continuous Operations Guaranteed:",
+        calloutText: "Agents operate continuously without running out of credits mid-conversation, backed by automated top-up protection."
       },
       {
-        step: 5,
-        title: "Add Credits via Razorpay Gateway",
-        instruction: "Click '+ Add Credits', select a credit pack, and complete payment via UPI, Credit Card, or Netbanking.",
-        uiElements: ["'+ Add Credits' button", "Packs selection modal", "Razorpay checkout modal"]
-      }
-    ],
-    screenshots: [
-      {
-        src: "/images/documentation.webp",
-        alt: "Credits & Token Metering Dashboard",
-        caption: "Credit balance ring, token consumption logs, and wallet recharge options."
-      }
-    ],
-    expectedResult: "Your wallet balance is updated in real time, with an itemized transaction receipt added to your billing log.",
-    tips: [
-      "Use '✨ Auto' model selection in the AI Workspace and Wires to let the system route routine queries to lightweight models, reducing token costs by up to 70%.",
-      "Set an alert threshold at 20% of your average monthly usage to prevent service interruptions."
-    ],
-    troubleshooting: [
-      {
-        issue: "Credits deducted but response failed due to network timeout?",
-        solution: "Failed generation requests are automatically detected by our billing reconciler and refunded to your wallet balance within 15 minutes."
+        id: "troubleshooting",
+        title: "Troubleshooting",
+        type: "troubleshooting",
+        items: [
+          {
+            issue: "Auto-reload triggered sooner than anticipated?",
+            cause: "A surge in high-token queries or large document RAG lookups increased token consumption.",
+            solution: "Inspect the Transaction Ledger to identify which agent drove the usage, and optimize temperature or switch simple FAQ tasks to Gemini Flash."
+          }
+        ]
       }
     ],
     seo: {
       title: "Credits, Wallet & Token Metering | OrbionAgents",
-      description: "Track conversational AI token usage, manage your wallet balance, and configure auto-recharge settings.",
-      keywords: ["AI tokens", "credit wallet", "token metering", "LLM billing", "auto top-up"]
+      description: "Monitor real-time token expenditure, model-by-model consumption, and auto top-up in OrbionAgents.",
+      keywords: ["AI token metering", "WhatsApp conversation cost", "WCC billing", "wallet credits"]
     }
   }
 };
