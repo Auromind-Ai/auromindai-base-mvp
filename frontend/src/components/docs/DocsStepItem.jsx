@@ -20,37 +20,41 @@ export default function DocsStepItem({ step, totalSteps }) {
           <span>{step.title}</span>
         </h4>
 
-        <p className="text-sm text-zinc-300 leading-relaxed font-normal">
-          {step.instruction}
-        </p>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="lg:col-span-6 space-y-3">
+            <p className="text-sm text-zinc-300 leading-relaxed font-normal">
+              {step.instruction}
+            </p>
 
-        {step.uiElements && step.uiElements.length > 0 && (
-          <div className="pt-1">
-            <span className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5 mb-2">
-              <MousePointer className="w-3.5 h-3.5 text-violet-400" /> UI Elements &amp; Actions:
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {step.uiElements.map((el, i) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono bg-white/[0.04] text-zinc-200 border border-white/10 shadow-sm"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
-                  {el}
+            {step.uiElements && step.uiElements.length > 0 && (
+              <div className="pt-1">
+                <span className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5 mb-2">
+                  <MousePointer className="w-3.5 h-3.5 text-violet-400 shrink-0" aria-hidden="true" />
+                  <span>UI Elements &amp; Actions:</span>
                 </span>
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-2">
+                  {step.uiElements.map((el, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono bg-white/[0.04] text-zinc-200 border border-white/10 shadow-sm"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+                      {el}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Inline Contextual Step Screenshot Slot */}
-        <div className="pt-2">
-          <DocumentationScreenshot
-            src={step.screenshot?.src || (typeof step.screenshot === 'string' ? step.screenshot : null)}
-            alt={step.screenshot?.alt || `${step.title} interface capture`}
-            caption={step.screenshot?.caption || `${step.title}: Product interface execution slot`}
-            stepNumber={step.step}
-          />
+          <div className="lg:col-span-6">
+            <DocumentationScreenshot
+              src={step.screenshot?.src || (typeof step.screenshot === 'string' ? step.screenshot : null)}
+              alt={step.screenshot?.alt || `${step.title} interface capture`}
+              caption={step.screenshot?.caption || `${step.title}: Interface preview`}
+              stepNumber={step.step}
+            />
+          </div>
         </div>
       </div>
     </div>

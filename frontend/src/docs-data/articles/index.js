@@ -1,10 +1,10 @@
-import { GETTING_STARTED_ARTICLES } from './getting-started';
-import { CORE_FEATURES_PART1 } from './core-features-part1';
-import { CORE_FEATURES_PART2 } from './core-features-part2';
-import { CORE_FEATURES_PART3 } from './core-features-part3';
-import { INTEGRATIONS_ARTICLES } from './integrations';
-import { ACCOUNT_AND_BILLING_ARTICLES } from './account-and-billing';
-import { TROUBLESHOOTING_ARTICLES } from './troubleshooting';
+import { GETTING_STARTED_ARTICLES } from './getting-started.js';
+import { CORE_FEATURES_PART1 } from './core-features-part1.js';
+import { CORE_FEATURES_PART2 } from './core-features-part2.js';
+import { CORE_FEATURES_PART3 } from './core-features-part3.js';
+import { INTEGRATIONS_ARTICLES } from './integrations.js';
+import { ACCOUNT_AND_BILLING_ARTICLES } from './account-and-billing.js';
+import { TROUBLESHOOTING_ARTICLES } from './troubleshooting.js';
 
 export const DOCS_ARTICLES = {
   ...GETTING_STARTED_ARTICLES,
@@ -22,6 +22,7 @@ export const SLUG_ALIASES = {
   'features/lead-intelligence': 'features/leads-crm',
   'features/wallet': 'features/credits-wallet',
   'features/ai-governance': 'account/ai-governance',
+  'features/integrations': 'integrations/whatsapp-cloud-api',
 };
 
 export function getArticleBySlug(slug) {

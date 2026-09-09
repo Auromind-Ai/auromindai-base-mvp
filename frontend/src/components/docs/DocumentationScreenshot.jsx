@@ -32,8 +32,8 @@ export default function DocumentationScreenshot({
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
             <span className="px-2.5 py-1 rounded-lg bg-black/70 text-xs text-white flex items-center gap-1.5 backdrop-blur-sm border border-white/10">
-              <Maximize2 className="w-3.5 h-3.5" />
-              <span>Expand</span>
+              <Maximize2 className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Expand Preview</span>
             </span>
           </div>
 
@@ -98,36 +98,42 @@ export default function DocumentationScreenshot({
         {/* Subtle architectural grid lines */}
         <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
 
-        {/* Step Badge */}
-        {stepNumber && (
-          <div className="absolute top-3 left-3 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] font-semibold text-zinc-300">
-            Step {stepNumber} Visual Slot
+        {/* Window Chrome Header */}
+        <div className="absolute top-0 inset-x-0 h-8 bg-white/[0.03] border-b border-white/10 px-3 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-red-500/40" />
+            <span className="w-2 h-2 rounded-full bg-amber-500/40" />
+            <span className="w-2 h-2 rounded-full bg-emerald-500/40" />
+            {stepNumber && (
+              <span className="ml-2 text-[10px] font-mono text-zinc-400 font-semibold">
+                Step {stepNumber}
+              </span>
+            )}
           </div>
-        )}
-
-        {annotation && (
-          <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-violet-500/10 border border-violet-500/20 text-[10px] font-medium text-violet-300">
-            {annotation}
-          </div>
-        )}
-
-        <div className="w-11 h-11 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-zinc-400 mb-3 shadow-md">
-          <Camera className="w-5 h-5 text-violet-400/80" />
+          {annotation && (
+            <span className="text-[10px] font-medium text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
+              {annotation}
+            </span>
+          )}
         </div>
 
-        <div className="space-y-1 max-w-sm">
-          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300 block">
-            Interface Preview Slot
+        <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-zinc-400 mb-2 mt-4 shadow-md">
+          <Camera className="w-4 h-4 text-violet-400/80" aria-hidden="true" />
+        </div>
+
+        <div className="space-y-1 max-w-sm px-4">
+          <span className="text-xs font-semibold text-zinc-200 block">
+            {alt || 'Interface Preview'}
           </span>
-          <p className="text-[12px] text-zinc-400 line-clamp-2 leading-relaxed">
-            {caption || 'Product screen recording & interface capture will appear here.'}
+          <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
+            {caption || 'Console interface configuration and live state preview.'}
           </p>
         </div>
 
-        <div className="mt-3.5 flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-white/5 border border-white/10 text-zinc-400">
-            <Layers className="w-3 h-3 text-violet-400" />
-            <span>High-DPI Slot Ready</span>
+        <div className="mt-3 flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-white/5 border border-white/10 text-zinc-400">
+            <Layers className="w-3 h-3 text-violet-400" aria-hidden="true" />
+            <span>Product Console</span>
           </span>
         </div>
       </div>

@@ -144,21 +144,21 @@ export default function DocumentationVideo({
         {/* Top Badge */}
         <div className="absolute top-4 left-4 flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-violet-500/10 border border-violet-500/20 text-violet-300">
-            <Film className="w-3 h-3 text-violet-400" />
-            <span>Video Tutorial Slot</span>
+            <Film className="w-3 h-3 text-violet-400" aria-hidden="true" />
+            <span>Video Tutorial</span>
           </span>
         </div>
 
         {videoData.duration && (
           <div className="absolute top-4 right-4 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[11px] font-mono text-zinc-400">
-            ~{videoData.duration} planned
+            {videoData.duration}
           </div>
         )}
 
         {/* Center Play Indicator */}
         <div className="relative mb-3">
           <div className="w-16 h-16 rounded-full bg-white/[0.04] border border-white/15 flex items-center justify-center text-zinc-400 group-hover:text-white group-hover:scale-105 group-hover:border-violet-500/50 group-hover:bg-[#814AC8]/20 transition-all duration-300 shadow-xl">
-            <Play className="w-6 h-6 fill-current translate-x-0.5 opacity-80" />
+            <Play className="w-6 h-6 fill-current translate-x-0.5 opacity-80" aria-hidden="true" />
           </div>
           {/* Subtle pulse ring */}
           <div className="absolute inset-0 rounded-full border border-violet-500/30 animate-ping opacity-20 pointer-events-none" />
@@ -171,14 +171,14 @@ export default function DocumentationVideo({
           </h4>
           <p className="text-xs text-zinc-400 leading-relaxed">
             {videoData.caption ||
-              'A guided step-by-step video demonstration of this workflow will appear here.'}
+              'A guided step-by-step video demonstration will appear here.'}
           </p>
         </div>
 
         {/* Bottom Status Indicator */}
-        <div className="mt-4 flex items-center gap-2 text-[11px] text-zinc-500 font-medium">
-          <Sparkles className="w-3.5 h-3.5 text-violet-400/70" />
-          <span>Interactive walkthrough recording in production</span>
+        <div className="mt-4 flex items-center gap-2 text-[11px] text-zinc-400 font-medium">
+          <Sparkles className="w-3.5 h-3.5 text-violet-400/70" aria-hidden="true" />
+          <span>Walkthrough Tutorial</span>
         </div>
       </div>
 
