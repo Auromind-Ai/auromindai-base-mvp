@@ -79,46 +79,48 @@ function CanvasGrid({
         }}
       >
         {/* SVG EDGES */}
-        <svg className="absolute inset-0 w-[8000px] h-[8000px] top-[-4000px] left-[-4000px] pointer-events-none" shapeRendering="geometricPrecision">
-          <g transform="translate(4000, 4000)">
-            <defs>
-              <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-                <path d="M0,0 L0,8 L8,4 z" fill="#7c3aed" />
-              </marker>
-            </defs>
-            {edges.map(edge => {
-              const source = nodes.find(n => n.id === edge.source);
-              const target = nodes.find(n => n.id === edge.target);
-              if (!source || !target) return null;
-              const pts = getEdgePoints(source, target, edge.sourceHandle);
-              if (!pts) return null;
-              const { sx, sy, tx, ty } = pts;
-              const curve = Math.min(Math.abs(tx - sx) * 0.5, 150);
-              const d = `M ${sx} ${sy} C ${sx + curve} ${sy}, ${tx - curve} ${ty}, ${tx} ${ty}`;
-              const isPreviewEdge = flowValidation.reachableEdgeIds.has(edge.id);
-              return (
-                <g key={edge.id}>
-                  <path d={d} fill="none" stroke={isPreviewEdge ? "#7c3aed" : "#4a4a6a"} strokeWidth={isPreviewEdge ? "2" : "1.5"} strokeOpacity={isPreviewEdge ? "0.9" : "0.5"} strokeDasharray={isPreviewEdge ? "0" : "6 4"} markerEnd="url(#arrow)" />
-                  {isPreviewEdge && (
-                    <circle r="3" fill="#a78bfa">
-                      <animateMotion dur="2.5s" repeatCount="indefinite" path={d} />
-                    </circle>
-                  )}
-                </g>
-              );
-            })}
-            {wiringPreview && (() => {
-              const { startPoint, currentPoint } = wiringPreview;
-              const curve = Math.min(Math.abs(currentPoint.x - startPoint.x) * 0.5, 150);
-              const d = `M ${startPoint.x} ${startPoint.y} C ${startPoint.x + curve} ${startPoint.y}, ${currentPoint.x - curve} ${currentPoint.y}, ${currentPoint.x} ${currentPoint.y}`;
-              return (
-                <g key="wiring-preview">
-                  <path d={d} fill="none" stroke="#a78bfa" strokeWidth="2" strokeDasharray="6 4" strokeOpacity="0.95" markerEnd="url(#arrow)" />
-                  <circle cx={currentPoint.x} cy={currentPoint.y} r="4" fill="#c4b5fd" />
-                </g>
-              );
-            })()}
-          </g>
+        <svg
+          className="absolute inset-0 w-full h-full pointer-events-none overflow-visible"
+          style={{ overflow: 'visible' }}
+          shapeRendering="geometricPrecision"
+        >
+          <defs>
+            <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+              <path d="M0,0 L0,8 L8,4 z" fill="#7c3aed" />
+            </marker>
+          </defs>
+          {edges.map(edge => {
+            const source = nodes.find(n => n.id === edge.source);
+            const target = nodes.find(n => n.id === edge.target);
+            if (!source || !target) return null;
+            const pts = getEdgePoints(source, target, edge.sourceHandle);
+            if (!pts) return null;
+            const { sx, sy, tx, ty } = pts;
+            const curve = Math.min(Math.abs(tx - sx) * 0.5, 150);
+            const d = `M ${sx} ${sy} C ${sx + curve} ${sy}, ${tx - curve} ${ty}, ${tx} ${ty}`;
+            const isPreviewEdge = flowValidation.reachableEdgeIds.has(edge.id);
+            return (
+              <g key={edge.id}>
+                <path d={d} fill="none" stroke={isPreviewEdge ? "#7c3aed" : "#4a4a6a"} strokeWidth={isPreviewEdge ? "2" : "1.5"} strokeOpacity={isPreviewEdge ? "0.9" : "0.5"} strokeDasharray={isPreviewEdge ? "0" : "6 4"} markerEnd="url(#arrow)" />
+                {isPreviewEdge && (
+                  <circle r="3" fill="#a78bfa">
+                    <animateMotion dur="2.5s" repeatCount="indefinite" path={d} />
+                  </circle>
+                )}
+              </g>
+            );
+          })}
+          {wiringPreview && (() => {
+            const { startPoint, currentPoint } = wiringPreview;
+            const curve = Math.min(Math.abs(currentPoint.x - startPoint.x) * 0.5, 150);
+            const d = `M ${startPoint.x} ${startPoint.y} C ${startPoint.x + curve} ${startPoint.y}, ${currentPoint.x - curve} ${currentPoint.y}, ${currentPoint.x} ${currentPoint.y}`;
+            return (
+              <g key="wiring-preview">
+                <path d={d} fill="none" stroke="#a78bfa" strokeWidth="2" strokeDasharray="6 4" strokeOpacity="0.95" markerEnd="url(#arrow)" />
+                <circle cx={currentPoint.x} cy={currentPoint.y} r="4" fill="#c4b5fd" />
+              </g>
+            );
+          })()}
         </svg>
 
         {/* NODES */}

@@ -23,11 +23,24 @@ export function middleware(request) {
 
   if (pathname.startsWith('/user/admin')) {
     const authToken = request.cookies.get('auth_token')?.value;
-    if (authToken && isTokenExpired(authToken)) {
+    if (!authToken) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    if (isTokenExpired(authToken)) {
       const loginUrl = new URL('/login?session_expired=true', request.url);
       const response = NextResponse.redirect(loginUrl);
       response.cookies.delete('auth_token');
       return response;
+    }
+  }
+
+  if (pathname.startsWith('/admin') && pathname !== '/admin' && pathname !== '/admin/') {
+    const authToken = request.cookies.get('auth_token')?.value;
+    if (!authToken || isTokenExpired(authToken)) {
+      const adminLoginUrl = new URL('/admin', request.url);
+      return NextResponse.redirect(adminLoginUrl);
     }
   }
 

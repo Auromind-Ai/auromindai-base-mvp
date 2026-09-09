@@ -234,7 +234,7 @@ async def verify_login(
         pass
 
     # Delete pending 2FA token cookie if it was set
-    from app.routers.auth import delete_auth_cookie
+    from app.routers.auth import set_auth_cookie, delete_auth_cookie
     delete_auth_cookie(response=response, request=request, key="pending_2fa_token", path="/")
 
     # Complete login — reuse existing session logic
@@ -250,7 +250,13 @@ async def verify_login(
             flag_modified(user, "preferences")
             db.commit()
 
-    response.set_cookie(key="auth_token", value=result["access_token"], **_get_cookie_kwargs(request))
+    set_auth_cookie(
+        response=response,
+        request=request,
+        key="auth_token",
+        value=result["access_token"],
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
     return result
 
 

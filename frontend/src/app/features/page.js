@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
-export default function ResourcesDocsRedirect() {
+export default function FeaturesRedirect() {
   redirect('/docs');
 }
