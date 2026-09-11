@@ -157,8 +157,8 @@ export const templatesDetail = {
     },
     {
       step: 9,
-      title: 'Track Pending Approval Status (1 Min to 2 Hours)',
-      description: 'Upon submission, your template appears on the Message Templates dashboard with an amber "Pending" badge. Under Meta\'s automated review policy, AI algorithms evaluate template compliance typically within 1 minute to 2 hours. Meta checks for valid formatting, sequential variables, and policy adherence.',
+      title: 'Track Pending Approval Status (1 Min to 24 Hours)',
+      description: 'Upon submission, your template appears on the Message Templates dashboard with an amber "Pending" badge. Under Meta\'s automated review policy, AI algorithms evaluate template compliance typically within 1 minute to 24 hours. Meta checks for valid formatting, sequential variables, and policy adherence.',
       screenshot: '/images/docs/whatsapp_template/wt_step_9.png',
       caption: 'Message Templates Dashboard — Template listed in "Pending" status awaiting Meta review.',
       highlight: 'Pending Review',
