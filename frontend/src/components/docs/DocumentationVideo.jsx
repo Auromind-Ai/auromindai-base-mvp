@@ -80,6 +80,11 @@ export default function DocumentationVideo({
     setIsPlaying(true);
   };
 
+  const openFullscreen = (e) => {
+    e?.stopPropagation();
+    setIsExpanded(true);
+  };
+
   const toggleFullscreen = (e) => {
     e?.stopPropagation();
     const container = containerRef.current || videoRef.current;
