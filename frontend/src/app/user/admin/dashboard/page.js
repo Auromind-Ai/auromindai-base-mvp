@@ -1609,7 +1609,7 @@ export default function DashboardPage() {
                   onClick={() => setRevenueRangeView('jan_jun')}
                   className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all cursor-pointer ${
                     revenueRangeView === 'jan_jun'
-                      ? 'bg-purple-600 text-white shadow-sm font-semibold'
+                      ? 'bg-[#814AC8] text-white shadow-sm font-semibold'
                       : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
                 >
@@ -1620,7 +1620,7 @@ export default function DashboardPage() {
                   onClick={() => setRevenueRangeView('jul_dec')}
                   className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all cursor-pointer ${
                     revenueRangeView === 'jul_dec'
-                      ? 'bg-purple-600 text-white shadow-sm font-semibold'
+                      ? 'bg-[#814AC8] text-white shadow-sm font-semibold'
                       : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
                 >
