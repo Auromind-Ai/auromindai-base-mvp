@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
+import styles from './FeatureDetailView.module.css';
 import { 
   ChevronRight, 
   CheckCircle2, 
@@ -16,6 +17,7 @@ import DocumentationScreenshot from '@/components/docs/DocumentationScreenshot';
 
 // Import all 8 bespoke feature visuals
 import InboxDetailVisual from './InboxDetailVisual';
+import InboxChannelDemo from './InboxChannelDemo';
 import BrainDetailVisual from './BrainDetailVisual';
 import WorkspaceDetailVisual from './WorkspaceDetailVisual';
 import LeadsDetailVisual from './LeadsDetailVisual';
@@ -35,11 +37,18 @@ const VISUAL_COMPONENTS = {
   integrations: IntegrationsDetailVisual,
 };
 
-export default function FeatureDetailView({ config, prevArticle, nextArticle }) {
+export default function FeatureDetailView({ config: baseConfig, prevArticle, nextArticle }) {
+  const [walletType, setWalletType] = useState('ai');
+  const config = baseConfig.walletVariants
+    ? { ...baseConfig, ...baseConfig.walletVariants[walletType] }
+    : baseConfig;
   const VisualComponent = VISUAL_COMPONENTS[config.visualKey] || null;
+  const isInbox = config.visualKey === 'inbox';
+  const alignPanels = config.visualKey === 'brain' || isInbox;
+  const stretchBenefits = Boolean(config.screenshots?.benefits?.guideItems) || config.visualKey === 'leads';
 
   return (
-    <article className="w-full min-w-0 space-y-16 lg:space-y-24 pb-20 font-sans">
+    <article style={config.visualKey === 'wallet' ? { '--wallet-border': walletType === 'ai' ? 'rgba(167, 139, 250, 0.6)' : 'rgba(52, 211, 153, 0.7)', '--wallet-glow': walletType === 'ai' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(16, 185, 129, 0.12)' } : undefined} className={`w-full min-w-0 space-y-16 lg:space-y-24 pb-20 ${alignPanels || config.visualKey === 'leads' ? `${styles.poppins} ${styles.screenshotFrames}` : config.visualKey === 'wallet' ? `${styles.poppins} ${styles.walletScreenshots}` : 'font-sans'} ${isInbox ? styles.inboxScreenshots : ''}`}>
       {/* SECTION 1: OVERVIEW & PRODUCT UI (Content Left | UI Right) */}
       <section id="overview" className="scroll-mt-24">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
@@ -61,7 +70,7 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
             {/* Badges */}
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30 uppercase tracking-wider font-mono">
-                Feature {config.featureNumber} • {config.category}
+                Feature {config.featureNumber} &bull; {config.category}
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
                 Verified Module
@@ -92,16 +101,16 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
           {/* Right: Product UI / Visual Component */}
           <div className="lg:col-span-6">
             <div className="space-y-2">
-              <div className="flex items-center justify-between px-1">
+              {config.visualKey !== 'wallet' && <div className="flex items-center justify-between px-1">
                 <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Live Product UI &amp; Simulator
+                  {config.visualLabel || 'Live Product UI & Simulator'}
                 </span>
                 <span className="text-[10px] font-mono text-zinc-500">Console View</span>
-              </div>
+              </div>}
               {VisualComponent ? (
-                <div className="rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-black/40">
-                  <VisualComponent />
+                <div className={config.visualKey === 'brain' || config.visualKey === 'wallet' || config.visualFrameless ? '' : 'rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-black/40'}>
+                  <VisualComponent selected={walletType} onSelect={setWalletType} />
                 </div>
               ) : (
                 <DocumentationScreenshot
@@ -117,29 +126,48 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
 
       {/* SECTION 2: WHY USE IT? (Video Left | Content Right) */}
       <section id="benefits" className="scroll-mt-24 pt-4 border-t border-white/10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 ${stretchBenefits ? 'items-stretch' : config.visualKey === 'leads' ? 'items-start' : 'items-center'}`}>
           {/* Left: Product Video / Media */}
           <div className="lg:col-span-6 order-2 lg:order-1 space-y-2">
             <div className="flex items-center justify-between px-1">
               <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                Product Walkthrough Tour
+                {config.screenshots?.benefits?.label || 'Product Walkthrough Tour'}
               </span>
-              {config.videoPlaceholder?.duration && (
+              {!config.screenshots?.benefits && config.videoPlaceholder?.duration && (
                 <span className="text-[10px] font-mono text-zinc-400">
                   {config.videoPlaceholder.duration}
                 </span>
               )}
             </div>
-            <DocumentationVideo
-              title={config.videoPlaceholder?.title || `Touring ${config.title}`}
-              duration={config.videoPlaceholder?.duration}
-              caption={config.videoPlaceholder?.description}
-            />
+            {config.screenshots?.benefits ? (
+              <DocumentationScreenshot {...config.screenshots.benefits} />
+            ) : (
+              <DocumentationVideo
+                title={config.videoPlaceholder?.title || `Touring ${config.title}`}
+                duration={config.videoPlaceholder?.duration}
+                caption={config.videoPlaceholder?.description}
+              />
+            )}
+            {config.screenshots?.benefits?.guideItems && (
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-white">
+                  {config.screenshots.benefits.guideTitle}
+                </h3>
+                <dl className="space-y-3">
+                  {config.screenshots.benefits.guideItems.map((item) => (
+                    <div key={item.title} className="border-l-2 border-violet-500/40 pl-3">
+                      <dt className="text-xs font-semibold text-zinc-200">{item.title}</dt>
+                      <dd className="mt-1 text-xs text-zinc-400 leading-relaxed">{item.description}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
           </div>
 
           {/* Right: Content */}
-          <div className="lg:col-span-6 order-1 lg:order-2 space-y-4">
+          <div className={`lg:col-span-6 order-1 lg:order-2 ${stretchBenefits ? 'flex flex-col gap-4' : 'space-y-4'} ${config.visualKey === 'leads' ? 'lg:pt-11 lg:pb-6' : ''}`}>
             <div>
               <span className="text-[11px] font-mono uppercase tracking-widest text-cyan-400 font-bold block mb-1">
                 Why use it?
@@ -148,12 +176,12 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
                 Core Capabilities &amp; Value
               </h2>
               <p className="text-sm text-zinc-400 mt-1">
-                Purpose-built operational advantages engineered for high-throughput teams.
+                {config.copy?.benefitsIntro || 'Purpose-built operational advantages engineered for high-throughput teams.'}
               </p>
             </div>
 
             {/* Benefits Cards */}
-            <div className="space-y-3">
+            <div className={stretchBenefits ? 'grid gap-3 lg:flex-1 lg:auto-rows-fr' : 'space-y-3'}>
               {config.benefits.map((b, idx) => (
                 <div
                   key={idx}
@@ -163,7 +191,7 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
                     {idx + 1}
                   </div>
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-sm font-semibold text-white">
                         {b.title}
                       </h3>
@@ -185,13 +213,13 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
       </section>
 
       {/* SECTION 3: CONFIGURATION & PIPELINE (Content Left | Product UI Right) */}
-      <section id="configuration" className="scroll-mt-24 pt-4 border-t border-white/10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+      {!config.hideConfiguration && <section id="configuration" className="scroll-mt-24 pt-4 border-t border-white/10">
+        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 ${alignPanels ? 'items-stretch' : 'items-start'}`}>
           {/* Left: Content */}
           <div className="lg:col-span-6 space-y-4">
             <div>
               <span className="text-[11px] font-mono uppercase tracking-widest text-pink-400 font-bold block mb-1">
-                Configuration &amp; Workflow
+                {config.copy?.setupLabel || 'Configuration & Workflow'}
               </span>
               <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
                 {config.architecture.title}
@@ -204,7 +232,7 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
             {/* Setup Steps */}
             <div className="space-y-3 pt-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 block font-mono">
-                Configuration Milestones:
+                {config.copy?.stepsLabel || 'Configuration Milestones:'}
               </span>
               {config.setupSteps.map((s) => (
                 <div
@@ -228,67 +256,72 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
           </div>
 
           {/* Right: Product UI / Screenshot & Pipeline Stages */}
-          <div className="lg:col-span-6 space-y-4">
-            <DocumentationScreenshot
+          <div className={`lg:col-span-6 ${alignPanels ? 'flex flex-col gap-4' : 'space-y-4'}`}>
+            {isInbox ? <InboxChannelDemo /> : <DocumentationScreenshot
               alt={config.setupSteps?.[0]?.screenshotPlaceholder?.title || `${config.title} Configuration Screen`}
               caption={config.setupSteps?.[0]?.screenshotPlaceholder?.description || `Configuration and operational console for ${config.title}`}
               annotation="Console Configuration"
-            />
+              {...config.screenshots?.setup}
+            />}
 
             {/* 4 Pipeline Stages */}
-            <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-2.5">
+            {!isInbox && !config.hideWorkflowStages && <div className={`p-4 rounded-xl border border-white/10 bg-white/[0.02] ${alignPanels ? 'flex flex-col gap-3 lg:flex-1' : 'space-y-2.5'}`}>
               <span className="text-[11px] font-mono uppercase tracking-widest text-zinc-400 block">
-                Execution Pipeline Stages:
+                {config.copy?.stagesLabel || 'Execution Pipeline Stages:'}
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 ${alignPanels ? 'lg:flex-1 auto-rows-fr' : ''}`}>
                 {config.architecture.stages.map((st) => (
                   <div key={st.number} className="p-2.5 rounded-lg border border-white/5 bg-black/40 space-y-1">
                     <div className="flex items-center gap-1.5">
                       <span className="text-[10px] font-mono text-violet-400 font-bold bg-violet-500/10 px-1.5 py-0.5 rounded">
                         S{st.number}
                       </span>
-                      <span className="text-xs font-semibold text-zinc-200 truncate">
+                      <span className={`text-xs font-semibold text-zinc-200 ${isInbox ? '' : 'truncate'}`}>
                         {st.name}
                       </span>
                     </div>
-                    <p className="text-[11px] text-zinc-400 line-clamp-2">
+                    <p className={`text-[11px] text-zinc-400 ${alignPanels ? 'leading-relaxed' : 'line-clamp-2'}`}>
                       {st.detail}
                     </p>
                   </div>
                 ))}
               </div>
-            </div>
+            </div>}
           </div>
         </div>
       </section>
 
+      }
       {/* SECTION 4: RESULT & VERIFICATION (Media Left | Content Right) */}
+      {!config.hideVerification &&
       <section id="verification" className="scroll-mt-24 pt-4 border-t border-white/10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 ${isInbox ? 'items-stretch' : 'items-center'}`}>
           {/* Left: Product Visual / Screenshot */}
-          <div className="lg:col-span-6 order-2 lg:order-1 space-y-2">
+          <div className={`${isInbox ? 'lg:col-span-5' : 'lg:col-span-6'} order-2 lg:order-1 space-y-2`}>
             <div className="flex items-center justify-between px-1">
               <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                Live Verification &amp; State Audit
+                {config.screenshots?.verification?.label || 'Live Verification & State Audit'}
               </span>
-              <span className="text-[10px] font-mono text-emerald-400">Status: Active</span>
+              <span className="text-[10px] font-mono text-emerald-400">{config.screenshots?.verification?.statusLabel || (config.screenshots?.verification ? 'Source Status' : 'Status: Active')}</span>
             </div>
             <DocumentationScreenshot
               alt={`${config.title} Verification Console`}
               caption={`Operational execution trace verifying state transitions, telemetry, and handling for ${config.title}.`}
               annotation="Production SLA Verified"
+              {...config.screenshots?.verification}
             />
+
           </div>
 
           {/* Right: Content */}
-          <div className="lg:col-span-6 order-1 lg:order-2 space-y-4">
+          <div className={`${isInbox ? 'lg:col-span-7 flex flex-col gap-4' : 'lg:col-span-6 space-y-4'} order-1 lg:order-2`}>
             <div>
               <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-400 font-bold block mb-1">
                 Result &amp; Verification
               </span>
               <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                Target Operational SLA &amp; Outcome
+                {config.copy?.verificationTitle || 'Target Operational SLA & Outcome'}
               </h2>
               <p className="text-sm text-zinc-400 mt-1">
                 What to verify in your console after completing setup.
@@ -300,48 +333,90 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
               <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
               <div className="text-xs sm:text-sm text-emerald-200 leading-relaxed">
                 <span className="font-semibold block text-emerald-300 mb-1">
-                  Guaranteed Operational SLA:
+                  {config.copy?.outcomeLabel || 'Guaranteed Operational SLA:'}
                 </span>
                 {config.expectedOutcome}
               </div>
             </div>
 
             {/* Deterministic Verification Checklist */}
-            <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-2">
+            <div className={`p-4 rounded-xl border border-white/10 bg-white/[0.02] ${isInbox ? 'flex flex-col gap-3' : 'space-y-2'}`}>
               <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider block font-mono">
                 Verification Checklist:
               </span>
-              <div className="space-y-2 text-xs sm:text-sm text-zinc-300">
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  <span>Channel webhooks verified with valid HMAC signatures.</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  <span>Active thread created and synchronized across connected consoles.</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  <span>Audit trail logs each decision with exact timestamp and agent ID.</span>
-                </div>
+              <div className={`${isInbox ? 'grid gap-4' : 'space-y-2'} text-xs sm:text-sm text-zinc-300`}>
+                {(config.verificationChecklist || [
+                  'Channel webhooks verified with valid HMAC signatures.',
+                  'Active thread created and synchronized across connected consoles.',
+                  'Audit trail logs each decision with exact timestamp and agent ID.'
+                ]).map((item) => (
+                  <div key={item} className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <span>{item}</span>
+                  </div>
+                ))}
               </div>
             </div>
+
+            {config.contactGuide && (
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-white">{config.visualKey === 'leads' ? 'Understanding Lead Overview' : 'Understanding Contact Details'}</h3>
+                <dl className="space-y-3">
+                  {config.contactGuide.map((item) => <div key={item.title}><dt className="text-xs font-semibold text-zinc-200">{item.title}</dt><dd className="text-xs text-zinc-400 leading-relaxed mt-1">{item.description}</dd></div>)}
+                </dl>
+              </div>
+            )}
           </div>
         </div>
       </section>
+
+      }
+      {config.featureGuides?.map((guide) => (
+        <section key={guide.title} className="pt-4 border-t border-white/10 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+          {guide.screenshot && <DocumentationScreenshot {...guide.screenshot} />}
+          <div className={`space-y-4 ${guide.screenshot ? '' : 'lg:col-span-2'}`}>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{guide.title}</h2>
+            <p className="text-sm text-zinc-400 leading-relaxed">{guide.description}</p>
+            {guide.layout === 'alternating' ? (
+              <div className="space-y-8 lg:space-y-10">
+                {guide.items.map((item, index) => (
+                  <div key={item.title} className={`grid items-center gap-6 md:grid-cols-2 md:gap-12 ${index ? 'border-t border-white/10 pt-8 lg:pt-10' : 'pt-2'}`}>
+                    <div className={`flex justify-center ${index % 2 ? 'md:order-2' : ''}`}>
+                      {item.screenshot && <DocumentationScreenshot {...item.screenshot} className="w-full max-w-[700px]" aspectRatio="h-[220px] sm:h-[260px] lg:h-[280px] [&_img]:object-contain [&_img]:!scale-100" />}
+                    </div>
+                    <div className={`mx-auto w-full max-w-[680px] space-y-3 md:px-5 lg:px-10 ${index % 2 ? 'md:order-1' : ''}`}>
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-violet-400">Step {index + 1}</span>
+                      <h3 className="text-xl sm:text-2xl font-semibold text-white">{item.title.replace(/^\d+\.\s*/, '')}</h3>
+                      <p className="max-w-xl text-sm leading-relaxed text-zinc-400">{item.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : <dl className={guide.screenshot ? 'space-y-3' : 'grid gap-3 md:grid-cols-2'}>
+              {guide.items.map((item) => (
+                <div key={item.title} data-wallet-image-card={config.visualKey === 'wallet' && item.screenshot ? '' : undefined} className={`p-4 rounded-xl border border-white/10 bg-white/[0.02] ${item.fullWidth ? 'md:col-span-2' : ''}`}>
+                  <dt className="text-sm font-semibold text-white">{item.title}</dt>
+                  <dd className="mt-1 text-xs text-zinc-400 leading-relaxed">{item.description}</dd>
+                  {item.screenshot && <div className="mt-4"><DocumentationScreenshot {...item.screenshot} /></div>}
+                </div>
+              ))}
+            </dl>}
+          </div>
+        </section>
+      ))}
 
       {/* SECTION 5: REAL-WORLD SCENARIOS (if present) */}
       {config.useCases && config.useCases.length > 0 && (
         <section id="use-cases" className="scroll-mt-24 pt-4 border-t border-white/10 space-y-6">
           <div className="space-y-1">
             <span className="text-[11px] font-mono uppercase tracking-widest text-amber-400 font-bold block">
-              Operational Scenarios
+              {config.copy?.useCasesLabel || 'Operational Scenarios'}
             </span>
             <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-              Real-World Deployment Scenarios
+              {config.copy?.useCasesTitle || 'Real-World Deployment Scenarios'}
             </h2>
             <p className="text-sm text-zinc-400">
-              Proven deployment patterns implemented across production teams.
+              {config.copy?.useCasesIntro || 'Proven deployment patterns implemented across production teams.'}
             </p>
           </div>
 
@@ -383,10 +458,10 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
               Diagnostics
             </span>
             <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-              Feature Troubleshooting &amp; Diagnostics
+              {config.copy?.troubleshootingTitle || 'Feature Troubleshooting & Diagnostics'}
             </h2>
             <p className="text-sm text-zinc-400">
-              Immediate resolutions for common configuration and runtime issues.
+              {config.copy?.troubleshootingIntro || 'Immediate resolutions for common configuration and runtime issues.'}
             </p>
           </div>
 
@@ -401,7 +476,7 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
                   <span>{item.question}</span>
                 </div>
                 <p className="text-xs text-zinc-300 pl-6 leading-relaxed">
-                  <strong className="text-emerald-400 font-medium">Diagnostic: </strong>
+                  <strong className="text-emerald-400 font-medium">{config.copy?.answerLabel || 'Diagnostic:'} </strong>
                   {item.answer}
                 </p>
               </div>
@@ -451,3 +526,5 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
     </article>
   );
 }
+
+

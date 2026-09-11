@@ -1,133 +1,263 @@
-export const creditsWalletDetail = {
-  slug: 'credits-wallet',
-  aliasSlugs: ['features/credits-wallet', 'billing/credits-wallet'],
-  featureNumber: '07',
-  category: 'Financial Infrastructure & Token Metering',
-  title: 'Credits, Wallet & Token Metering',
-  tagline: 'Deterministic per-token metering, Meta WCC conversation billing, transparent transaction ledgers, and zero-downtime auto-reload.',
-  description: 'Total financial transparency for your AI operations. The OrbionAgents Wallet provides real-time metering for AI token consumption across models (GPT-4o, Claude, Gemini) and transparently reconciles Meta WhatsApp Conversation Charges (WCC). Set automated balance reload triggers, monitor per-agent compute costs, and review an immutable transaction ledger down to the exact millicent.',
-  visualKey: 'wallet',
-  videoPlaceholder: {
-    title: 'Managing AI Credits & Meta Conversation Balance',
-    description: 'Learn how token metering works, how to configure zero-downtime auto-reload rules, and how to export itemized monthly cost reports for accounting.',
-    duration: '3:30 min walkthrough'
-  },
-  architecture: {
-    title: 'Real-Time Metering & Ledger Reconciliation Pipeline',
-    description: 'Every token stream and Meta webhook event is metered asynchronously at the edge to ensure zero latency impact on live conversation responses.',
-    stages: [
+const walletVariants = {
+  "ai": {
+    "tagline": "Track your AI usage, understand your remaining credits, and top up when needed.",
+    "description": "AI Workspace Credits power AI chat, Inbox reply suggestions, Brain content processing and knowledge-based answers, flow generation, and template generation. This wallet shows your available credits and usage. WhatsApp messaging charges use a separate WCC wallet.",
+    "copy": {
+      "benefitsIntro": "Know how much AI capacity you have and plan when to add more.",
+      "troubleshootingTitle": "AI Credit Questions",
+      "troubleshootingIntro": "Balance, access, and purchases.",
+      "answerLabel": "Answer:"
+    },
+    "screenshots": {
+      "benefits": {
+        "src": "/images/doc-images/ai-credit-balance-recharge.png",
+        "alt": "AI credit balance, usage metrics, credit-used bar and selectable recharge packs",
+        "label": "AI credit balance & recharge packs",
+        "caption": "Illustrative screenshot. Amounts and available options depend on your workspace.",
+        "aspectRatio": "aspect-[1655/952] [&_img]:object-contain"
+      }
+    },
+    "benefits": [
       {
-        number: '01',
-        name: 'Stream Token Counting',
-        detail: 'Precise prompt and completion token counts are captured directly from LLM streaming chunks via exact BPE tokenizers.'
+        "title": "Keep Your AI Features Running",
+        "description": "Check your balance before using AI chat, processing documents, or generating content so you can plan a top-up."
       },
       {
-        number: '02',
-        name: 'Meta WCC Window Calculation',
-        detail: 'Inbound customer WhatsApp messages trigger or renew 24-hour service conversation windows according to official Meta rate cards.'
+        "title": "Understand Your Usage",
+        "description": "Compare today's use with your monthly cycle to see how quickly your workspace is using credits."
       },
       {
-        number: '03',
-        name: 'Atomic Ledger Deduction',
-        detail: 'Deducts exact token credits and platform units from your workspace balance with ACID transaction guarantees.'
+        "title": "Choose a Suitable Credit Pack",
+        "description": "Compare available packs and add the amount of AI credits your workspace needs."
       },
       {
-        number: '04',
-        name: 'Auto-Reload & Threshold Guard',
-        detail: 'If credits fall below your configured safety buffer, Stripe auto-charges your card to guarantee zero service interruption.'
+        "title": "Plan Ahead",
+        "description": "Use the remaining balance, usage bar, and runway estimate to decide when to recharge."
+      }
+    ],
+    "featureGuides": [
+      {
+        "title": "How to Recharge AI Credits",
+        "layout": "alternating",
+        "description": "Use the AI Workspace Credits tab in Credits & Wallet.",
+        "items": [
+          {
+            "title": "1. Check your balance",
+            "description": "Review the available credits and current usage. Choose Recharge Wallet to move to the available packs.",
+            "screenshot": {
+              "src": "/images/doc-images/ai-credit-wallet-balance.png",
+              "alt": "AI wallet balance, usage, runway and Recharge Wallet button",
+              "aspectRatio": "aspect-[8/5] [&_img]:object-contain [&_img]:!scale-100",
+              "caption": "Illustrative screenshot. Click to expand."
+            }
+          },
+          {
+            "title": "2. Select a pack",
+            "description": "Compare the price and credit amount. The selected option is highlighted.",
+            "screenshot": {
+              "src": "/images/doc-images/ai-credit-pack-selection.png",
+              "alt": "AI credit packs with the Starter Pack selected and Purchase selected pack button",
+              "aspectRatio": "aspect-[8/5] [&_img]:object-contain [&_img]:!scale-100",
+              "caption": "Illustrative screenshot. Click to expand."
+            }
+          },
+          {
+            "title": "3. Review and pay",
+            "description": "Choose Purchase selected pack. Check the price summary, select an available payment method, and complete checkout.",
+            "screenshot": {
+              "src": "/images/doc-images/ai-credit-payment-checkout.png",
+              "alt": "Payment checkout showing price summary and available payment methods",
+              "aspectRatio": "aspect-[8/5] [&_img]:object-contain [&_img]:!scale-100",
+              "caption": "Example checkout preview. Use the checkout opened from your wallet to pay."
+            }
+          },
+          {
+            "title": "4. Confirm the update",
+            "description": "Wait for Payment Successful, then return to your wallet. Check the updated balance and the matching credit addition in Activity.",
+            "screenshot": {
+              "src": "/images/doc-images/ai-credit-payment-success-activity.png",
+              "alt": "Successful AI credit payment and the matching credit addition in Activity",
+              "aspectRatio": "aspect-[8/5] [&_img]:object-contain [&_img]:!scale-100",
+              "caption": "Illustrative screenshot. Click to expand."
+            }
+          }
+        ]
+      },
+      {
+        "title": "Follow Your Monthly Usage",
+        "description": "The rest of the AI overview helps you understand how credits are added and used.",
+        "items": [
+          {
+            "title": "Monthly Cycle",
+            "description": "Included Remaining is the unused credit allowance from your plan. Purchased Remaining is unused top-up credits. Used This Cycle shows monthly use, Avg. Daily Burn shows average daily use, and Cycle resets shows when the next cycle starts.",
+            "screenshot": {
+              "src": "/images/doc-images/ai-credits-monthly-cycle.png",
+              "alt": "Monthly Cycle showing remaining plan and purchased credits, cycle usage, average daily use and reset date",
+              "aspectRatio": "h-[200px] sm:h-[240px] [&_img]:object-contain [&_img]:!scale-100",
+              "caption": "Illustrative screenshot. Click to expand.",
+              "className": "w-full max-w-[560px] mx-auto"
+            }
+          },
+          {
+            "title": "Credit Distribution",
+            "description": "See how your recent credit use is split across AI features. Each row shows the credits used and its share of the total, helping you spot which features use the most.",
+            "screenshot": {
+              "src": "/images/doc-images/ai-credits-usage-distribution.png",
+              "alt": "Credit Distribution showing credit usage by AI feature",
+              "aspectRatio": "h-[200px] sm:h-[240px] [&_img]:object-contain [&_img]:!scale-100",
+              "caption": "Illustrative screenshot. Click to expand.",
+              "className": "w-full max-w-[560px] mx-auto"
+            }
+          },
+          {
+            "title": "Activity",
+            "description": "Review credit additions and usage deductions in Transactions, or switch to Billing for credit additions. Select View all to open the history, search for an entry, change the sort order, or browse more pages. Positive amounts add credits; negative amounts show credits used.",
+            "screenshot": {
+              "src": "/images/doc-images/ai-credits-activity-history.png",
+              "alt": "AI credit Activity and expanded history showing credit additions, usage deductions, search and pagination",
+              "aspectRatio": "h-[200px] sm:h-[240px] [&_img]:object-contain [&_img]:!scale-100",
+              "caption": "Illustrative screenshot. Click to expand.",
+              "className": "w-full max-w-[560px] mx-auto"
+            }
+          },
+          {
+            "title": "Plan access",
+            "description": "Your current plan may not allow AI credit top-ups. If you see this message, upgrade to Pro to buy more credits.",
+            "screenshot": {
+              "src": "/images/doc-images/ai-credit-topup-plan-access.png",
+              "alt": "AI credit top-up disabled on the current plan with an Upgrade plan to top up button",
+              "caption": "Example of a plan restriction. Click to expand.",
+              "aspectRatio": "h-[200px] sm:h-[240px] [&_img]:object-contain [&_img]:!scale-100",
+              "className": "w-full max-w-[560px] mx-auto"
+            }
+          }
+        ]
+      }
+    ],
+    "troubleshooting": [
+      {
+        "question": "Does buying AI credits add WhatsApp balance?",
+        "answer": "No. AI credits and WhatsApp WCC are separate balances. Select WhatsApp Credits to recharge messaging funds."
+      },
+      {
+        "question": "Is runway a fixed expiry date?",
+        "answer": "No. It is a forecast based on recent usage, not a guaranteed number of days or the date your credits expire."
       }
     ]
   },
-  benefits: [
-    {
-      title: 'Deterministic Token Accounting',
-      description: 'Know exactly what every customer interaction costs. Inspect prompt tokens, completion tokens, and tool overheads per conversation turn.',
-      highlight: 'Sub-cent accuracy across all LLMs'
+  "whatsapp": {
+    "tagline": "Check your WhatsApp balance, estimate messaging costs, and add funds when needed.",
+    "description": "WhatsApp Credits (WCC) is your prepaid balance for applicable WhatsApp messaging charges. Check your funds, estimate a campaign cost, add money, and review past recharges in one place. AI-generated replies and content use the separate AI Credits wallet.",
+    "copy": {
+      "benefitsIntro": "Plan messaging costs and check your funds before sending.",
+      "troubleshootingTitle": "WhatsApp Credit Questions",
+      "troubleshootingIntro": "Estimates, recharge, and account access.",
+      "answerLabel": "Answer:"
     },
-    {
-      title: 'Meta WhatsApp WCC Integration',
-      description: 'Direct pass-through billing for Meta 24-hour marketing and service conversation fees with no hidden markups.',
-      highlight: 'Official Meta pricing parity'
+    "screenshots": {
+      "benefits": {
+        "src": "/images/doc-images/whatsapp-wallet-overview-green.png",
+        "alt": "WhatsApp wallet balance, category rates, audience size, estimated cost, balance check and recharge amount",
+        "label": "WhatsApp balance, cost estimate & recharge",
+        "caption": "Illustrative screenshot. Amounts and available options depend on your workspace.",
+        "aspectRatio": "aspect-[1655/952] [&_img]:object-contain"
+      }
     },
-    {
-      title: 'Zero-Downtime Auto-Reload Guard',
-      description: 'Never worry about agents abruptly stopping mid-conversation due to exhausted credits. Set custom auto-topup thresholds.',
-      highlight: 'Configurable automated top-up'
-    },
-    {
-      title: 'Per-Agent & Department Budgets',
-      description: 'Allocate dedicated monthly credit caps for individual agents (e.g. Support Bot vs Inbound Sales) to avoid surprise compute spikes.',
-      highlight: 'Granular spending caps'
-    }
+    "benefits": [
+      {
+        "title": "Plan Before You Send",
+        "description": "Estimate the cost for your selected message category and audience before starting a campaign."
+      },
+      {
+        "title": "Spot a Balance Shortfall",
+        "description": "Compare the estimated cost with your available funds so you know whether to recharge."
+      },
+      {
+        "title": "Choose Your Recharge Amount",
+        "description": "Enter an amount or select a preset to add funds based on your messaging needs."
+      },
+      {
+        "title": "Keep Messaging Costs Separate",
+        "description": "Review WhatsApp spending in its own wallet, separately from the credits used to generate AI content."
+      }
+    ],
+    "featureGuides": [
+      {
+        "title": "Estimate Costs and Recharge",
+        "description": "Use the WhatsApp Credits (WCC) tab in Credits & Wallet.",
+        "layout": "alternating",
+        "items": [
+          {
+            "title": "1. Check your WhatsApp balance",
+            "description": "Open WhatsApp Credits to see your available balance. The wallet gauge gives a quick view of the funds remaining before you estimate a campaign or recharge.",
+            "screenshot": {
+              "src": "/images/doc-images/whatsapp-wallet-balance-step.png",
+              "alt": "WhatsApp wallet balance and gauge",
+              "caption": "Illustrative screenshot. Use your workspace for current amounts and rates. Click to expand."
+            }
+          },
+          {
+            "title": "2. Estimate your campaign cost",
+            "description": "Choose Marketing, Utility, Authentication, or Service. Set your audience size with the slider or number field, then review Estimated Cost and the balance check. The estimate uses your configured category rate and audience size.",
+            "screenshot": {
+              "src": "/images/doc-images/whatsapp-campaign-cost-calculator.png",
+              "alt": "WhatsApp campaign calculator showing categories, audience size, estimated cost and balance check",
+              "caption": "Illustrative screenshot. Use your workspace for current amounts and rates. Click to expand."
+            }
+          },
+          {
+            "title": "3. Add funds",
+            "description": "Enter a recharge amount, use the plus or minus buttons, or choose a preset. Review the approximate Marketing message count. Select Add funds to wallet, check the payment details, and complete checkout.",
+            "screenshot": {
+              "src": "/images/doc-images/whatsapp-wallet-add-funds.png",
+              "alt": "WhatsApp recharge amount, presets, approximate Marketing message count and Add funds button",
+              "caption": "Illustrative screenshot. Use your workspace for current amounts and rates. Click to expand."
+            }
+          },
+          {
+            "title": "4. Check the result",
+            "description": "After payment, confirm your updated balance and find the entry in Recharge History. Check the date, amount, payment or order ID, status, and method. Use search, sorting, or View all recharges to find older records.",
+            "screenshot": {
+              "src": "/images/doc-images/whatsapp-wallet-recharge-history.png",
+              "alt": "WhatsApp recharge history with dates, amounts, payment references, status, method and search",
+              "caption": "Illustrative screenshot. Use your workspace for current amounts and rates. Click to expand."
+            }
+          }
+        ]
+      }
+    ],
+    "troubleshooting": [
+      {
+        "question": "Does an estimate send messages?",
+        "answer": "No. The calculator only estimates the cost. Sending a campaign is a separate action."
+      },
+      {
+        "question": "Why is the approximate message count different from my estimate?",
+        "answer": "The recharge card estimates Marketing messages for the amount you add. The cost calculator uses your selected category and audience size."
+      },
+      {
+        "question": "Are the screenshot prices fixed?",
+        "answer": "No. The images are examples. Use the rates and payment totals currently shown in your workspace."
+      }
+    ]
+  }
+};
+
+export const creditsWalletDetail = {
+  ...walletVariants.ai,
+  ...{
+  "slug": "credits-wallet",
+  "aliasSlugs": [
+    "features/credits-wallet",
+    "billing/credits-wallet"
   ],
-  setupSteps: [
-    {
-      step: 1,
-      title: 'Access the Wallet & Review Current Balance',
-      description: 'Click "Wallet" in the main navigation. Review your AI Credits balance, Meta WCC reserves, and estimated remaining conversation days.',
-      screenshotPlaceholder: {
-        title: 'Wallet Balance Overview Cards',
-        description: 'Shows AI Token balance card, Meta WCC card, and 30-day spend trajectory graph.'
-      }
-    },
-    {
-      step: 2,
-      title: 'Set Up Automated Balance Top-Up',
-      description: 'Click "Auto-Reload Settings". Specify your minimum threshold (e.g. reload when balance drops below $25) and top-up amount (e.g. $100).',
-      screenshotPlaceholder: {
-        title: 'Auto-Reload Configuration Modal',
-        description: 'Shows threshold input field, reload amount selector, and linked credit card information.'
-      }
-    },
-    {
-      step: 3,
-      title: 'Configure Per-Agent Credit Allocation',
-      description: 'Under "Agent Spending Limits", set daily or monthly token budgets for each active agent to enforce predictable operational costs.',
-      screenshotPlaceholder: {
-        title: 'Agent Token Budget Matrix',
-        description: 'Shows active agent list with slider controls for monthly credit caps and alert thresholds.'
-      }
-    },
-    {
-      step: 4,
-      title: 'Audit Historical Usage & Export Invoices',
-      description: 'Inspect the Transaction Ledger to view itemized deductions by timestamp, model, and conversation ID. Click "Export CSV" for financial auditing.',
-      screenshotPlaceholder: {
-        title: 'Transaction History Ledger with Filter Controls',
-        description: 'Shows transaction table with date filter, transaction type selector, and one-click invoice download.'
-      }
-    }
-  ],
-  useCases: [
-    {
-      title: 'High-Volume Seasonal Support Peaks',
-      scenario: 'Holiday e-commerce rush with 5x typical inbound WhatsApp conversation volume.',
-      solution: 'Auto-reload prevents any downtime or dropped messages while live dashboard gives real-time visibility into compute expenditure.'
-    },
-    {
-      title: 'Multi-Client Agency Cost Pass-Through',
-      scenario: 'Agencies managing OrbionAgents across multiple client brands who need itemized billing.',
-      solution: 'Export individual workspace usage reports showing exact token consumption and Meta fees for seamless client invoicing.'
-    },
-    {
-      title: 'Cost Optimization Across LLM Models',
-      scenario: 'Engineering teams wanting to balance response quality against inference costs.',
-      solution: 'Review token ledger to identify simple FAQ tasks that can be migrated from GPT-4o to Gemini Flash, cutting costs by 70%.'
-    }
-  ],
-  expectedOutcome: 'Zero unexpected billing surprises, continuous 24/7 service availability, and complete financial auditability down to individual conversation turns.',
-  troubleshooting: [
-    {
-      question: 'Why did my auto-reload trigger earlier than expected?',
-      answer: 'A sudden burst of inbound messages or a high volume of document-heavy RAG queries can consume tokens faster. Review the Transaction Ledger to see which specific agent or conversation drove the increase.'
-    },
-    {
-      question: 'What is the difference between AI Credits and Meta WCC?',
-      answer: 'AI Credits cover LLM inference tokens and platform storage. Meta WCC covers official WhatsApp 24-hour conversation window fees billed directly by Meta Business.'
-    },
-    {
-      question: 'Can I set a hard spending cap to ensure I never exceed my budget?',
-      answer: 'Yes! In Wallet Settings, enable "Hard Cap Enforcement". When enabled, agents pause non-essential automated tasks if your maximum monthly limit is reached.'
-    }
-  ]
+  "featureNumber": "07",
+  "category": "Financial Infrastructure & Token Metering",
+  "title": "Credits, Wallet & Token Metering",
+  "visualKey": "wallet",
+  "visualFrameless": true,
+  "hideConfiguration": true,
+  "hideVerification": true
+},
+  walletVariants,
 };

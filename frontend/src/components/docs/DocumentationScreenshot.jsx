@@ -1,17 +1,18 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Image from 'next/image';
-import { Camera, Maximize2, X, Layers } from 'lucide-react';
+import { useState } from "react";
+import Image from "next/image";
+import { Camera, Maximize2, X, Layers } from "lucide-react";
 
 export default function DocumentationScreenshot({
   src,
-  alt = 'Product screenshot',
+  alt = "Product screenshot",
   caption,
   stepNumber,
   annotation,
-  aspectRatio = 'aspect-[16/9]',
-  className = '',
+  aspectRatio = "aspect-[16/9]",
+  className = "",
+  scrollPreview,
 }) {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
@@ -20,22 +21,44 @@ export default function DocumentationScreenshot({
     return (
       <figure className={`space-y-2 group ${className}`}>
         <div
+          data-screenshot-label
+          className="hidden items-center gap-2 px-1 text-[11px] font-semibold text-violet-300"
+        >
+          <Camera className="h-3.5 w-3.5" aria-hidden="true" />
+          Screenshot{" "}
+          <span className="font-normal text-zinc-400">· Click to expand</span>
+        </div>
+        <div
+          data-screenshot-frame
+          style={
+            scrollPreview
+              ? { overflowY: "auto", overflowX: "hidden" }
+              : undefined
+          }
           className={`relative rounded-xl overflow-hidden border border-white/10 bg-[#090A10] ${aspectRatio} cursor-pointer shadow-lg hover:border-violet-500/40 transition-all`}
           onClick={() => setIsLightboxOpen(true)}
         >
           <Image
             src={src}
             alt={alt}
-            fill
+            fill={!scrollPreview}
+            width={scrollPreview?.width}
+            height={scrollPreview?.height}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 75vw, 60vw"
-            className="object-cover group-hover:scale-[1.01] transition-transform duration-300"
+            className={
+              scrollPreview
+                ? "w-full h-auto"
+                : "object-cover group-hover:scale-[1.01] transition-transform duration-300"
+            }
           />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-            <span className="px-2.5 py-1 rounded-lg bg-black/70 text-xs text-white flex items-center gap-1.5 backdrop-blur-sm border border-white/10">
-              <Maximize2 className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Expand Preview</span>
-            </span>
-          </div>
+          {!scrollPreview && (
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+              <span className="px-2.5 py-1 rounded-lg bg-black/70 text-xs text-white flex items-center gap-1.5 backdrop-blur-sm border border-white/10">
+                <Maximize2 className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Expand Preview</span>
+              </span>
+            </div>
+          )}
 
           {stepNumber && (
             <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-[#814AC8] text-[11px] font-bold text-white shadow-md">
@@ -66,12 +89,7 @@ export default function DocumentationScreenshot({
             </button>
             <div className="relative max-w-5xl w-full max-h-[85vh] h-full flex flex-col items-center justify-center">
               <div className="relative w-full h-full rounded-2xl overflow-hidden border border-white/20">
-                <Image
-                  src={src}
-                  alt={alt}
-                  fill
-                  className="object-contain"
-                />
+                <Image src={src} alt={alt} fill className="object-contain" />
               </div>
               {caption && (
                 <p className="mt-3 text-sm text-zinc-300 font-medium text-center">
@@ -92,7 +110,7 @@ export default function DocumentationScreenshot({
         className={`relative rounded-xl overflow-hidden border border-white/10 bg-[#090A10]/80 ${aspectRatio} flex flex-col items-center justify-center p-6 text-center shadow-inner hover:border-violet-500/30 transition-all select-none`}
         style={{
           backgroundImage:
-            'radial-gradient(circle at 50% 50%, rgba(129, 74, 200, 0.04) 0%, transparent 60%)',
+            "radial-gradient(circle at 50% 50%, rgba(129, 74, 200, 0.04) 0%, transparent 60%)",
         }}
       >
         {/* Subtle architectural grid lines */}
@@ -123,10 +141,11 @@ export default function DocumentationScreenshot({
 
         <div className="space-y-1 max-w-sm px-4">
           <span className="text-xs font-semibold text-zinc-200 block">
-            {alt || 'Interface Preview'}
+            {alt || "Interface Preview"}
           </span>
           <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
-            {caption || 'Console interface configuration and live state preview.'}
+            {caption ||
+              "Console interface configuration and live state preview."}
           </p>
         </div>
 
