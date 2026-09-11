@@ -79,6 +79,42 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
   const stretchBenefits = Boolean(config.screenshots?.benefits?.guideItems) || config.visualKey === 'leads';
   const isIntegration = ['integrations', 'instagram', 'twilio', 'email-calendar', 'templates'].includes(config.visualKey);
 
+  const featureGuides = config.featureGuides?.map((guide) => (
+        <section key={guide.title} className="pt-4 border-t border-white/10 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+          {guide.screenshot && <DocumentationScreenshot {...guide.screenshot} />}
+          <div className={`space-y-4 ${guide.screenshot ? '' : 'lg:col-span-2'}`}>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{guide.title}</h2>
+            <p className="text-sm text-zinc-400 leading-relaxed">{guide.description}</p>
+            {guide.layout === 'alternating' ? (
+              <div className="space-y-8 lg:space-y-10">
+                {guide.items.map((item, index) => (
+                  <div key={item.title} className={`grid items-center gap-6 md:grid-cols-2 md:gap-12 ${index ? 'border-t border-white/10 pt-8 lg:pt-10' : 'pt-2'}`}>
+                    <div className={`flex justify-center ${index % 2 ? 'md:order-2' : ''}`}>
+                      {item.screenshot && <DocumentationScreenshot {...item.screenshot} className="w-full max-w-[700px]" aspectRatio="h-[220px] sm:h-[260px] lg:h-[280px] [&_img]:object-contain [&_img]:!scale-100" />}
+                    </div>
+                    <div className={`mx-auto w-full max-w-[680px] space-y-3 md:px-5 lg:px-10 ${index % 2 ? 'md:order-1' : ''}`}>
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-violet-400">Step {index + 1}</span>
+                      <h3 className="text-xl sm:text-2xl font-semibold text-white">{item.title.replace(/^\d+\.\s*/, '')}</h3>
+                      <p className="max-w-xl text-sm leading-relaxed text-zinc-400">{item.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <dl className={guide.screenshot ? 'space-y-3' : 'grid gap-3 md:grid-cols-2'}>
+                {guide.items.map((item) => (
+                  <div key={item.title} data-wallet-image-card={config.visualKey === 'wallet' && item.screenshot ? '' : undefined} className={`p-4 rounded-xl border border-white/10 bg-white/[0.02] ${item.fullWidth ? 'md:col-span-2' : ''}`}>
+                    <dt className="text-sm font-semibold text-white">{item.title}</dt>
+                    <dd className="mt-1 text-xs text-zinc-400 leading-relaxed">{item.description}</dd>
+                    {item.screenshot && <div className="mt-4"><DocumentationScreenshot {...item.screenshot} /></div>}
+                  </div>
+                ))}
+              </dl>
+            )}
+          </div>
+        </section>
+      ));
+
   return (
     <article
       style={config.visualKey === 'wallet' ? { '--wallet-border': walletType === 'ai' ? 'rgba(167, 139, 250, 0.6)' : 'rgba(52, 211, 153, 0.7)', '--wallet-glow': walletType === 'ai' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(16, 185, 129, 0.12)' } : undefined}
@@ -921,7 +957,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
           )}
 
           {/* 3c: Standard configuration / guided setup for non-flow-page features */}
-          {!isFlowPage && !isInbox && config.setupSteps && config.setupSteps.length > 0 ? (
+          {!isFlowPage && !isInbox && !config.staticSetup && config.setupSteps && config.setupSteps.length > 0 ? (
             <section id="configuration" className="scroll-mt-24 pt-4 border-t border-white/10 space-y-8">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
@@ -1197,12 +1233,14 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
         </>
       )}
 
+      {config.visualKey === 'leads' && featureGuides}
+
       {/* SECTION 4: RESULT & VERIFICATION (Media Left | Content Right) */}
       {!config.hideVerification && (config.activeConsoleScreenshot || config.expectedOutcome || config.screenshots?.verification) && (
       <section id="verification" className="scroll-mt-24 pt-4 border-t border-white/10">
         <div className={`grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 ${isInbox ? 'items-stretch' : 'items-center'}`}>
           {/* Left: Product Visual / Screenshot */}
-          <div className={`${isInbox ? 'lg:col-span-5' : 'lg:col-span-6'} order-2 lg:order-1 space-y-2`}>
+          <div className={`${isInbox ? 'lg:col-span-5' : 'lg:col-span-6'} order-2 ${config.visualKey === 'leads' ? 'lg:order-2' : 'lg:order-1'} space-y-2`}>
             <div className="flex items-center justify-between px-1">
               <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -1222,7 +1260,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
           </div>
 
           {/* Right: Content */}
-          <div className={`${isInbox ? 'lg:col-span-7 flex flex-col gap-4' : 'lg:col-span-6 space-y-4'} order-1 lg:order-2`}>
+          <div className={`${isInbox ? 'lg:col-span-7 flex flex-col gap-4' : 'lg:col-span-6 space-y-4'} order-1 ${config.visualKey === 'leads' ? 'lg:order-1' : 'lg:order-2'}`}>
             <div>
               <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-400 font-bold block mb-1">
                 Result &amp; Verification
@@ -1285,42 +1323,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
       </section>
       )}
 
-      {/* FEATURE GUIDES */}
-      {config.featureGuides?.map((guide) => (
-        <section key={guide.title} className="pt-4 border-t border-white/10 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-          {guide.screenshot && <DocumentationScreenshot {...guide.screenshot} />}
-          <div className={`space-y-4 ${guide.screenshot ? '' : 'lg:col-span-2'}`}>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{guide.title}</h2>
-            <p className="text-sm text-zinc-400 leading-relaxed">{guide.description}</p>
-            {guide.layout === 'alternating' ? (
-              <div className="space-y-8 lg:space-y-10">
-                {guide.items.map((item, index) => (
-                  <div key={item.title} className={`grid items-center gap-6 md:grid-cols-2 md:gap-12 ${index ? 'border-t border-white/10 pt-8 lg:pt-10' : 'pt-2'}`}>
-                    <div className={`flex justify-center ${index % 2 ? 'md:order-2' : ''}`}>
-                      {item.screenshot && <DocumentationScreenshot {...item.screenshot} className="w-full max-w-[700px]" aspectRatio="h-[220px] sm:h-[260px] lg:h-[280px] [&_img]:object-contain [&_img]:!scale-100" />}
-                    </div>
-                    <div className={`mx-auto w-full max-w-[680px] space-y-3 md:px-5 lg:px-10 ${index % 2 ? 'md:order-1' : ''}`}>
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-violet-400">Step {index + 1}</span>
-                      <h3 className="text-xl sm:text-2xl font-semibold text-white">{item.title.replace(/^\d+\.\s*/, '')}</h3>
-                      <p className="max-w-xl text-sm leading-relaxed text-zinc-400">{item.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <dl className={guide.screenshot ? 'space-y-3' : 'grid gap-3 md:grid-cols-2'}>
-                {guide.items.map((item) => (
-                  <div key={item.title} data-wallet-image-card={config.visualKey === 'wallet' && item.screenshot ? '' : undefined} className={`p-4 rounded-xl border border-white/10 bg-white/[0.02] ${item.fullWidth ? 'md:col-span-2' : ''}`}>
-                    <dt className="text-sm font-semibold text-white">{item.title}</dt>
-                    <dd className="mt-1 text-xs text-zinc-400 leading-relaxed">{item.description}</dd>
-                    {item.screenshot && <div className="mt-4"><DocumentationScreenshot {...item.screenshot} /></div>}
-                  </div>
-                ))}
-              </dl>
-            )}
-          </div>
-        </section>
-      ))}
+      {config.visualKey !== 'leads' && featureGuides}
 
       {/* TIPS & BEST PRACTICES */}
       {config.tips && config.tips.length > 0 && (

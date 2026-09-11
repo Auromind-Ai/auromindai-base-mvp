@@ -13,6 +13,9 @@ export default function DocumentationScreenshot({
   aspectRatio = "aspect-[16/9]",
   objectFit = "contain",
   className = "",
+  frameClassName = "",
+  frameless = false,
+  showLabel = false,
   scrollPreview,
 }) {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -20,8 +23,19 @@ export default function DocumentationScreenshot({
   // If a real screenshot exists, render the image directly
   // with optional scroll preview and lightbox support.
   if (src) {
+    const defaultFrameStyle = frameless
+      ? "border-0 rounded-none bg-transparent shadow-none"
+      : "border border-white/10 bg-[#090A10] shadow-lg hover:border-violet-500/40";
+
     return (
       <figure className={`space-y-2 group ${className}`}>
+        {showLabel && (
+          <div className="flex items-center gap-2 px-1 text-[11px] font-semibold text-violet-300">
+            <Camera className="h-3.5 w-3.5" aria-hidden="true" />
+            Screenshot{" "}
+            <span className="font-normal text-zinc-400">· Click to expand</span>
+          </div>
+        )}
         <div
           data-screenshot-label
           className="hidden items-center gap-2 px-1 text-[11px] font-semibold text-violet-300"
@@ -39,7 +53,7 @@ export default function DocumentationScreenshot({
         </div>
 
         <div
-          data-screenshot-frame
+          data-screenshot-frame={frameless ? undefined : ''}
           style={
             scrollPreview
               ? {
@@ -48,7 +62,7 @@ export default function DocumentationScreenshot({
                 }
               : undefined
           }
-          className={`relative rounded-xl overflow-hidden border border-white/10 bg-[#090A10] ${aspectRatio} cursor-pointer shadow-lg hover:border-violet-500/40 transition-all ${
+          className={`relative overflow-hidden ${defaultFrameStyle} ${frameless ? '' : 'rounded-xl'} ${frameClassName} ${aspectRatio} cursor-pointer transition-all ${
             scrollPreview
               ? ""
               : "flex items-center justify-center"
