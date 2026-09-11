@@ -1,23 +1,43 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Play, Pause, Volume2, VolumeX, RotateCcw, Film, Sparkles } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Play, Pause, Volume2, VolumeX, RotateCcw, Film, Sparkles, Maximize2, X } from 'lucide-react';
 
 export default function DocumentationVideo({
   video,
   url,
+  fallbackUrl,
   title,
   duration,
   caption,
   poster,
   className = '',
 }) {
-  const videoData = video || { url, title, duration, caption, poster };
-  const hasVideoUrl = !!videoData.url;
+  const videoData = video || { url, fallbackUrl, title, duration, caption, poster };
+  const hasVideoUrl = !!(videoData.url || url);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const videoRef = useRef(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isExpanded) {
+        setIsExpanded(false);
+      }
+    };
+    if (isExpanded) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isExpanded]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -43,20 +63,40 @@ export default function DocumentationVideo({
     setIsPlaying(true);
   };
 
+  const openFullscreen = () => {
+    setIsExpanded(true);
+  };
+
   // If a real video URL is provided, render active player
   if (hasVideoUrl) {
+    const effectiveUrl = videoData.url || url;
+    const effectiveFallback = videoData.fallbackUrl || fallbackUrl;
+
     return (
       <div className={`space-y-2.5 ${className}`}>
         <div className="relative rounded-2xl overflow-hidden border border-white/15 bg-black/60 shadow-2xl aspect-[16/9] group">
           <video
             ref={videoRef}
-            src={videoData.url}
             poster={videoData.poster}
             muted={isMuted}
             playsInline
             onEnded={() => setIsPlaying(false)}
             className="w-full h-full object-cover"
-          />
+          >
+            {effectiveUrl && (
+              <source
+                src={effectiveUrl}
+                type={effectiveUrl.toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4'}
+              />
+            )}
+            {effectiveFallback && (
+              <source
+                src={effectiveFallback}
+                type={effectiveFallback.toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4'}
+              />
+            )}
+            Your browser does not support HTML5 video playback.
+          </video>
 
           {/* Overlay Gradient */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none" />
@@ -72,21 +112,34 @@ export default function DocumentationVideo({
             </button>
           )}
 
-          {/* Top Title Overlay */}
+          {/* Top Header Overlay with Expand Button */}
           <div className="absolute top-4 left-4 right-4 flex items-center justify-between text-xs text-white/90">
             <div className="flex items-center gap-2">
               <span className="px-2 py-0.5 rounded bg-black/60 backdrop-blur-md border border-white/10 font-semibold text-[11px] text-violet-300">
                 Tutorial
               </span>
-              <span className="font-medium truncate max-w-sm drop-shadow">
+              <span className="font-medium truncate max-w-[200px] sm:max-w-sm drop-shadow">
                 {videoData.title || 'Video Walkthrough'}
               </span>
             </div>
-            {videoData.duration && (
-              <span className="px-2 py-0.5 rounded bg-black/60 backdrop-blur-md border border-white/10 font-mono text-[11px] text-zinc-300">
-                {videoData.duration}
-              </span>
-            )}
+
+            <div className="flex items-center gap-2">
+              {videoData.duration && (
+                <span className="px-2 py-0.5 rounded bg-black/60 backdrop-blur-md border border-white/10 font-mono text-[11px] text-zinc-300">
+                  {videoData.duration}
+                </span>
+              )}
+              {/* Top-right Quick Expand Button */}
+              <button
+                onClick={openFullscreen}
+                className="px-2 py-1 rounded bg-black/70 hover:bg-black/90 backdrop-blur-md border border-white/15 text-white flex items-center gap-1.5 transition-all text-xs font-medium hover:border-violet-400/50 shadow-md"
+                title="Expand video (Theater Mode)"
+                aria-label="Expand video"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span className="text-[11px] hidden sm:inline">Expand</span>
+              </button>
+            </div>
           </div>
 
           {/* Bottom Custom Controls Bar */}
@@ -114,7 +167,19 @@ export default function DocumentationVideo({
                 {isMuted ? <VolumeX className="w-4 h-4 text-zinc-400" /> : <Volume2 className="w-4 h-4" />}
               </button>
             </div>
-            <span className="text-[11px] text-zinc-400 font-mono">HD 1080p</span>
+
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-zinc-400 font-mono hidden sm:inline">HD 1080p</span>
+              <button
+                onClick={openFullscreen}
+                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors flex items-center gap-1 text-zinc-300 hover:text-white"
+                title="Expand video (Theater Mode)"
+                aria-label="Expand video to theater modal"
+              >
+                <Maximize2 className="w-4 h-4" />
+                <span className="text-[11px] font-mono">Expand</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -123,6 +188,77 @@ export default function DocumentationVideo({
             <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
             <span>{videoData.caption}</span>
           </p>
+        )}
+
+        {/* EXPANDED THEATER / LIGHTBOX MODAL */}
+        {isExpanded && (
+          <div
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-4 sm:p-8 animate-in fade-in duration-200"
+            onClick={() => setIsExpanded(false)}
+          >
+            {/* Top Bar with Title & Close button */}
+            <div
+              className="w-full max-w-6xl flex items-center justify-between pb-3 mb-2 border-b border-white/10 text-white z-50"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                  Walkthrough Video
+                </span>
+                <h3 className="text-sm sm:text-base font-bold text-white truncate max-w-md sm:max-w-xl">
+                  {videoData.title || 'Official Video Walkthrough'}
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-mono text-zinc-400 hidden sm:inline">Press ESC to close</span>
+                <button
+                  onClick={() => setIsExpanded(false)}
+                  className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1.5 border border-white/15 text-xs font-medium"
+                  aria-label="Close expanded video"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Close</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Expanded Video Container */}
+            <div
+              className="relative w-full max-w-6xl max-h-[80vh] flex flex-col items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-full relative rounded-2xl overflow-hidden border border-white/20 bg-black shadow-2xl aspect-[16/9]">
+                <video
+                  poster={videoData.poster}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-contain bg-black"
+                >
+                  {effectiveUrl && (
+                    <source
+                      src={effectiveUrl}
+                      type={effectiveUrl.toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4'}
+                    />
+                  )}
+                  {effectiveFallback && (
+                    <source
+                      src={effectiveFallback}
+                      type={effectiveFallback.toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4'}
+                    />
+                  )}
+                  Your browser does not support HTML5 video playback.
+                </video>
+              </div>
+
+              {videoData.caption && (
+                <p className="mt-3 text-xs sm:text-sm text-zinc-400 text-center max-w-3xl">
+                  {videoData.caption}
+                </p>
+              )}
+            </div>
+          </div>
         )}
       </div>
     );

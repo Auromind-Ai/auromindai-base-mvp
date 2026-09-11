@@ -11,6 +11,7 @@ export default function DocumentationScreenshot({
   stepNumber,
   annotation,
   aspectRatio = 'aspect-[16/9]',
+  objectFit = 'cover',
   className = '',
 }) {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -20,7 +21,7 @@ export default function DocumentationScreenshot({
     return (
       <figure className={`space-y-2 group ${className}`}>
         <div
-          className={`relative rounded-xl overflow-hidden border border-white/10 bg-[#090A10] ${aspectRatio} cursor-pointer shadow-lg hover:border-violet-500/40 transition-all`}
+          className={`relative rounded-xl overflow-hidden border border-white/10 bg-[#090A10] ${aspectRatio} cursor-pointer shadow-lg hover:border-violet-500/40 transition-all flex items-center justify-center`}
           onClick={() => setIsLightboxOpen(true)}
         >
           <Image
@@ -28,7 +29,7 @@ export default function DocumentationScreenshot({
             alt={alt}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 75vw, 60vw"
-            className="object-cover group-hover:scale-[1.01] transition-transform duration-300"
+            className={`${objectFit === 'contain' ? 'object-contain' : 'object-cover'} group-hover:scale-[1.01] transition-transform duration-300`}
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
             <span className="px-2.5 py-1 rounded-lg bg-black/70 text-xs text-white flex items-center gap-1.5 backdrop-blur-sm border border-white/10">

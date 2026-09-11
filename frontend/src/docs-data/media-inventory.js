@@ -141,18 +141,25 @@ export const MEDIA_INVENTORY = {
   "integrations/whatsapp-cloud-api": {
     featureName: "WhatsApp Business Cloud API",
     featureSlug: "integrations/whatsapp-cloud-api",
-    videoAvailable: false,
-    videoVersion: null,
-    videoUrl: "/docs/videos/whatsapp-setup.mp4",
-    videoDuration: "2:10",
-    screenshotAvailable: false,
-    screenshotVersion: null,
+    videoAvailable: true,
+    videoVersion: "v2.4.0",
+    videoUrl: "/videos/IMG_3477.mp4",
+    videoDuration: "1:03",
+    screenshotAvailable: true,
+    screenshotVersion: "v2.4.0",
     screenshotUrls: [
-      "/docs/screenshots/whatsapp-token-setup.png"
+      "/images/docs/whatsapp-connect/step-1-channels-dashboard.png",
+      "/images/docs/whatsapp-connect/step-2-meta-login-continue.png",
+      "/images/docs/whatsapp-connect/step-3-select-portfolio.png",
+      "/images/docs/whatsapp-connect/step-4-business-information.png",
+      "/images/docs/whatsapp-connect/step-5-phone-number-entry.png",
+      "/images/docs/whatsapp-connect/step-6-otp-verification.png",
+      "/images/docs/whatsapp-connect/step-7-connection-complete.png",
+      "/images/docs/whatsapp-connect/step-8-connected-status.png"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
-    notes: "Meta Developer portal token and webhook callback setup."
+    notes: "Official 1-click Meta Facebook Login for Business onboarding with 8-step visual walkthrough."
   }
 };
 

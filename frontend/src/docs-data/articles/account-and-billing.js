@@ -111,90 +111,63 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
     slug: "account/ai-governance",
     category: "Account & Governance",
     title: "AI Governance & Safeguards (MCP)",
-    subtitle: "Enforce Model Context Protocol policies, deterministic guardrails, PII redaction, and human escalation thresholds.",
+    subtitle: "Real-time AI guardrails: automatic response evaluation, content filtering, and human escalation.",
     pageType: "ai-feature",
     sections: [
       {
         id: "overview",
         title: "Overview",
         type: "text",
-        content: "AI Governance enforces runtime boundary controls on every model turn and tool execution. Inspect incoming prompts for adversarial jailbreaks, redact sensitive PII (credit cards, passwords), enforce human supervisor confirmation on high-stakes actions, and maintain an immutable HMAC-signed audit log."
+        content: "AI Governance & Safeguards (MCP) is our built-in safety gatekeeper for Orbion Agents. Before an AI Agent replies to a customer on WhatsApp, Instagram, or Email, the MCP engine automatically evaluates the message against strict safety rules. It decides whether to ALLOW safe responses, BLOCK harmful or abusive content, or ESCALATE sensitive customer issues (like refunds, complaints, or high-value leads) directly to a human team member in the Omni-Channel Inbox."
       },
       {
-        id: "what-this-manages",
-        title: "Core Safeguard Policies",
+        id: "why-use-it",
+        title: "Core Capabilities & Value",
         type: "list",
         items: [
-          { title: "PII & Secret Redaction", description: "Automatically masks credit cards, phone sequences, and passwords before tokens enter the model context." },
-          { title: "Adversarial & Jailbreak Defense", description: "Detects system override patterns and shuts down hostile prompt injection attempts." },
-          { title: "MCP Tool Authority Boundaries", description: "Separates read-only tool calls from write/financial actions requiring human sign-off." },
-          { title: "Cryptographic Audit Trail", description: "Maintains tamper-proof HMAC verification hashes for every inbound prompt and outbound response." }
+          { title: "Automated Response Safety (Allow / Block / Escalate)", description: "Every AI reply is evaluated before reaching the customer. Safe inquiries receive instant autonomous answers, while inappropriate or harmful messages are blocked immediately." },
+          { title: "Human Escalation for High-Value & Sensitive Inquiries", description: "When a customer requests a refund, files a major complaint, or asks about custom enterprise pricing, the AI pauses and immediately escalates the conversation to your team in the Omni-Channel Inbox." },
+          { title: "Blocked Keywords & Spam Filtering", description: "Filter out competitor names, prohibited words, or spam. If a user attempts prompt injection tricks or sends abusive messages, the AI safely rejects the input and stays on topic." },
+          { title: "Accurate Knowledge Base Answers (Confidence Scores)", description: "The AI only answers when it is confident in the information retrieved from your business Knowledge Base (RAG). If confidence is low, it connects the user to a human agent instead of guessing." }
         ]
-      },
-      {
-        id: "prerequisites",
-        title: "Prerequisites",
-        type: "checklist",
-        items: [
-          "Workspace Admin or Owner permissions.",
-          "Established organization compliance guidelines on prohibited customer topics."
-        ]
-      },
-      {
-        id: "step-by-step",
-        title: "Configuring Guardrail Policies",
-        type: "steps",
-        steps: [
-          {
-            step: 1,
-            title: "Access Governance Console",
-            instruction: "Navigate to Settings > AI Governance & Safeguards in the administrator dashboard.",
-            uiElements: ["'AI Governance' menu link", "Master Safeguard toggle"]
-          },
-          {
-            step: 2,
-            title: "Enable PII Scrubbing Rules",
-            instruction: "Select which entity patterns to mask (Credit Cards, Phone Numbers, Passwords) and choose between Anonymize or Block.",
-            uiElements: ["PII entity checkboxes", "Redaction action selector"]
-          },
-          {
-            step: 3,
-            title: "Set MCP Tool Boundaries",
-            instruction: "Classify registered tools: designate read tools as Autonomous and high-stakes financial tools as 'Requires Human Approval'.",
-            uiElements: ["Tool permission matrix", "Approval threshold controls"]
-          },
-          {
-            step: 4,
-            title: "Review Audit Log",
-            instruction: "Inspect the tamper-proof compliance ledger to review evaluated requests, block reasons, and supervisor timestamps.",
-            uiElements: ["Audit log table", "HMAC hash verification inspector"]
-          }
-        ]
-      },
-      {
-        id: "expected-result",
-        title: "Expected Outcome",
-        type: "callout",
-        calloutTitle: "Deterministic Compliance Guarantee:",
-        calloutText: "Every incoming and outgoing message is inspected against deterministic policies. Unsafe generations are intercepted and replaced with safe fallback responses."
       },
       {
         id: "troubleshooting",
-        title: "Troubleshooting",
+        title: "Feature Troubleshooting & Common Questions",
         type: "troubleshooting",
         items: [
           {
-            issue: "Valid inquiry flagged as unsafe?",
-            cause: "Sensitivity heuristics may be set to extreme, flagging technical or code queries.",
-            solution: "Adjust the Jailbreak Defense threshold in Governance Settings to 'Balanced' and review prohibited keyword regex patterns."
+            issue: "What does the AI Safeguard do when it cannot find an answer in my Knowledge Base?",
+            cause: "Missing documentation or low confidence score",
+            solution: "If the AI's confidence score is low because the answer is not in your uploaded documents, the safeguard prevents the bot from guessing or making up false details. Instead, it politely informs the customer and escalates the chat to a human team member."
+          },
+          {
+            issue: "How does the system handle refund requests or angry customer messages?",
+            cause: "Sensitive customer intent detected",
+            solution: "The MCP safeguard detects sensitive keywords (like 'refund', 'cancel', or complaint phrases) and flags the chat as an 'Escalation'. An alert banner appears on the conversation in your Omni-Channel Inbox so a human agent can step in immediately."
+          },
+          {
+            issue: "Can I prevent the AI Agent from discussing certain topics or competitors?",
+            cause: "Brand safety & competitor protection",
+            solution: "Yes. You can configure blocked keywords in your workspace settings. If a user asks about a blocked topic or competitor, the safeguard stops the AI from promoting or discussing those terms."
+          },
+          {
+            issue: "How do human agents take over an escalated conversation?",
+            cause: "Human handoff workflow",
+            solution: "When a chat is escalated, your team sees an 'Escalated by AI Safeguard' badge in the Omni-Channel Inbox. Any human agent can simply click into the chat and start typing. The AI pauses automatically until handed back."
+          },
+          {
+            issue: "Does the AI safeguard delay responses to customers on WhatsApp or Instagram?",
+            cause: "Processing latency",
+            solution: "No. The safeguard evaluates messages in real time in memory within a fraction of a second, so customers experience seamless, instant replies."
           }
         ]
       }
     ],
     seo: {
-      title: "AI Governance & Safeguards (MCP) | OrbionAgents",
-      description: "Learn how OrbionAgents Model Context Protocol (MCP) safeguards conversational agents with PII redaction and policy guardrails.",
-      keywords: ["AI governance", "Model Context Protocol", "MCP safeguards", "guardrails"]
+      title: "AI Governance & Safeguards (MCP) | Orbion Agents Documentation",
+      description: "Learn how Orbion Agents safeguards conversational AI with automatic response evaluation, blocked keyword filtering, and human escalation.",
+      keywords: ["AI governance", "Model Context Protocol", "MCP safeguards", "guardrails", "human escalation"]
     }
   },
 

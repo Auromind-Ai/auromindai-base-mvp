@@ -3,131 +3,159 @@ export const integrationsDetail = {
   aliasSlugs: ['features/integrations', 'integrations/whatsapp-cloud-api'],
   featureNumber: '08',
   category: 'Omni-Gateway & Channel Connectivity',
-  title: 'Multi-Channel Integrations Architecture',
-  tagline: 'Direct Meta Cloud API, Instagram Graph, Twilio, and CRM webhook gateways with zero-drop message queueing.',
-  description: 'Connect OrbionAgents directly to your customer communication channels without costly third-party aggregator markups. Our high-throughput integrations gateway supports Meta WhatsApp Cloud API, Instagram Direct & Story mentions, Twilio SMS/Voice, and outbound CRM webhooks with cryptographic HMAC signature verification and automatic retry policies.',
+  title: 'WhatsApp Business & Multi-Channel Messaging',
+  tagline: 'Connect your official WhatsApp Business number to automate conversations, deploy 24/7 AI agents, and send interactive templates.',
+  description: 'The WhatsApp Cloud API integration connects your official WhatsApp Business account directly to orbionagents. Once connected, your platform automatically powers 24/7 AI agent replies, triggers visual automation flows, and broadcasts pre-approved interactive message templates with quick-reply buttons — all managed seamlessly in one unified console without expensive third-party tools.',
   visualKey: 'integrations',
+  videoUrl: '/videos/IMG_3477.mp4',
+  videoFallbackUrl: '/videos/IMG_3477.MOV',
   videoPlaceholder: {
-    title: 'Connecting Channels & Verifying Webhooks',
-    description: 'Step-by-step tutorial on generating a Meta System User permanent token, setting up webhook callback URLs, and validating inbound test messages.',
-    duration: '4:30 min walkthrough'
+    title: 'Connecting WhatsApp Business via Meta Cloud API',
+    description: 'Official end-to-end video walkthrough demonstrating 1-click WhatsApp connection using Meta Facebook Login for Business embedded onboarding.',
+    duration: '1:03 min walkthrough',
+    url: '/videos/IMG_3477.mp4',
+    fallbackUrl: '/videos/IMG_3477.MOV',
+    poster: '/images/docs/whatsapp-connect/step-1-channels-dashboard.png'
   },
+  connectionRules: [
+    {
+      ruleNumber: '01',
+      title: 'New WhatsApp Number',
+      badge: 'Mandatory Requirement',
+      status: 'Required',
+      description: 'A fresh, dedicated phone number with active SMS or voice capability to receive the 6-digit OTP verification code. This number must not be currently active on any personal WhatsApp or WhatsApp Business mobile app.',
+      details: 'Meta Cloud API requires sole ownership of the phone number. Landline or mobile numbers are both supported as long as they can receive verification calls or text messages.'
+    },
+    {
+      ruleNumber: '02',
+      title: 'Facebook Account Mandatory',
+      badge: 'Meta Authentication',
+      status: 'Required',
+      description: 'An active Facebook personal profile is strictly required to authenticate into Meta Business Manager and complete the Facebook Login for Business onboarding modal.',
+      details: 'Your Facebook profile must have administrator rights or permission to create and manage the designated Meta Business Portfolio.'
+    },
+    {
+      ruleNumber: '03',
+      title: 'Already Existing Number? Delete WhatsApp Account First',
+      badge: 'Critical Action',
+      status: 'Action Needed',
+      description: 'If your phone number is currently active on personal WhatsApp or WhatsApp Business app on your mobile phone, you MUST delete the WhatsApp account from the mobile app settings before connecting.',
+      details: 'Open WhatsApp on mobile > Settings > Account > Delete my account. Once deleted, the number is freed up for Meta Cloud API registration. Make sure to back up any personal chat histories before deletion.'
+    }
+  ],
   architecture: {
-    title: 'High-Throughput Gateway & Ingestion Architecture',
-    description: 'Channel webhooks are received at edge gateway nodes, verified cryptographically, queued asynchronously in zero-drop Redis buffers, and dispatched to agents.',
-    stages: [
-      {
-        number: '01',
-        name: 'Meta Edge Webhook Ingestion',
-        detail: 'Inbound POST requests are received with X-Hub-Signature-256 verification and immediate 200 OK acknowledgment.'
-      },
-      {
-        number: '02',
-        name: 'Cryptographic Security & Handshake',
-        detail: 'Validates webhook challenge handshakes, permanent system tokens, and checks for replay attacks.'
-      },
-      {
-        number: '03',
-        name: 'Zero-Drop Asynchronous Queue',
-        detail: 'Payloads are enqueued into distributed Redis streams to guarantee zero dropped messages during peak traffic spikes.'
-      },
-      {
-        number: '04',
-        name: 'Media Hydration & Thread Binding',
-        detail: 'Images, voice notes, and document attachments are fetched securely from Meta CDN and linked to the active contact thread.'
-      }
-    ]
+    title: 'Step-by-Step WhatsApp Onboarding Guide',
+    description: 'Follow these video-verified steps to authenticate with Meta and activate your WhatsApp Cloud API integration.',
   },
   benefits: [
     {
-      title: 'Direct Official Meta Graph API (v20+)',
-      description: 'Cut out third-party SMS/WhatsApp brokers. Connect directly to Meta Cloud API for maximum delivery speed and lowest possible conversation cost.',
-      highlight: 'Zero middleman latency & markups'
+      title: '24/7 Autonomous AI Agent Reply',
+      description: 'Your AI agent instantly understands customer questions, references your business knowledge base, and replies in natural language — resolving inquiries, capturing leads, and booking appointments 24/7.',
+      highlight: 'Instant 24/7 AI Answers'
     },
     {
-      title: 'Full Rich Media & Attachment Support',
-      description: 'Send and receive WhatsApp interactive buttons, quick reply lists, voice notes, PDFs, images, and location pins natively.',
-      highlight: 'Audio, images, documents & buttons'
+      title: 'Visual Automation Flows & Triggers',
+      description: 'Design custom automation journeys that trigger automatically when customers message. Collect contact details, assign tags, send scheduled follow-ups, and route complex chats to team members.',
+      highlight: 'No-Code Automated Flows'
     },
     {
-      title: 'HMAC SHA-256 Webhook Security',
-      description: 'Strict cryptographic payload verification ensures only legitimate requests from Meta and Twilio servers are ever processed.',
-      highlight: 'Enterprise TLS 1.3 & payload verification'
+      title: 'Interactive WhatsApp Message Templates',
+      description: 'Send pre-approved Meta message templates for welcome notifications, order updates, reminders, and marketing broadcasts featuring interactive quick-reply buttons and clickable links.',
+      highlight: 'Rich Media & Quick Buttons'
     },
     {
-      title: 'Bidirectional CRM & Webhook Bridges',
-      description: 'Push conversation events and qualified lead data to HubSpot, Zapier, Make, or custom microservice endpoints instantly.',
-      highlight: 'Real-time outbound webhooks'
+      title: 'Direct Official Meta Connection',
+      description: 'Connect directly to WhatsApp through Meta\'s official Cloud API. Enjoy the lowest messaging costs with zero broker markups, maximum delivery speed, and official WhatsApp verified branding.',
+      highlight: 'Zero Middleman Fees'
     }
   ],
   setupSteps: [
     {
       step: 1,
-      title: 'Create Meta Business App & System User',
-      description: 'In Meta Business Manager, create a System User with Admin permissions. Generate a permanent access token with whatsapp_business_messaging and whatsapp_business_management scopes.',
-      screenshotPlaceholder: {
-        title: 'Meta Developer Console Token Generation',
-        description: 'Shows System User screen with permanent access token generation and assigned permissions.'
-      }
+      title: 'Channels Console & Initiate Connection',
+      description: 'In your dashboard, navigate to Channels & Integration. Locate the "WhatsApp Business (Meta Cloud API)" card and click the "Connect >" button to initiate Meta Embedded Signup.',
+      screenshot: '/images/docs/whatsapp-connect/step-1-channels-dashboard.png',
+      caption: 'Channels Dashboard — Click "Connect >" on the WhatsApp Business Meta Cloud API card.',
+      highlight: '1-Click Initiation',
+      uiElements: ['Channels Dashboard', 'WhatsApp Business card', 'Connect button']
     },
     {
       step: 2,
-      title: 'Configure Webhook Endpoint & Verify Token',
-      description: 'Copy your unique Orbion Webhook URL from Integrations > WhatsApp. In Meta App Dashboard, paste the URL and enter your Verification Secret token.',
-      screenshotPlaceholder: {
-        title: 'Meta Webhooks Configuration Panel',
-        description: 'Shows Callback URL and Verify Token fields with green "Verified" status checkmark.'
-      }
+      title: 'Meta Facebook Login for Business Window',
+      description: 'A secure popup window from Meta (Facebook Login for Business) opens displaying "Seamlessly connect your account to orbionagents". Review permissions and click "Continue" to authorize the integration.',
+      screenshot: '/images/docs/whatsapp-connect/step-2-meta-login-continue.png',
+      caption: 'Meta Facebook Login for Business modal — Review terms and click "Continue".',
+      highlight: 'Meta OIDC Auth',
+      uiElements: ['Facebook Login Modal', 'Permissions Overview', 'Continue Button']
     },
     {
       step: 3,
-      title: 'Subscribe to Messaging Webhook Fields',
-      description: 'In Meta Webhook subscriptions, check "messages", "messaging_postbacks", and "message_deliveries" to enable full two-way chat synchronization.',
-      screenshotPlaceholder: {
-        title: 'Webhook Field Subscription Matrix',
-        description: 'Shows checkboxes for messages, message_deliveries, and message_reads enabled.'
-      }
+      title: 'Select or Create Meta Business Portfolio',
+      description: 'Choose an existing Meta Business Portfolio or select "Create a business portfolio". Then select or create your WhatsApp Business Account and click "Next".',
+      screenshot: '/images/docs/whatsapp-connect/step-3-select-portfolio.png?v=2',
+      caption: 'Asset Selection — Select your Business Portfolio and WhatsApp Business Account.',
+      highlight: 'Portfolio Binding',
+      uiElements: ['Business portfolio dropdown', 'WhatsApp Business account dropdown', 'Next button']
     },
     {
       step: 4,
-      title: 'Send a Live Test Message & Verify Ingestion',
-      description: 'Send a WhatsApp message from your personal phone to your registered business number. Watch it appear instantly in the Omni-Channel Inbox.',
-      screenshotPlaceholder: {
-        title: 'Live Message Ingestion Confirmation',
-        description: 'Shows live inbound message reflected in the Omni-Channel Inbox within 200 milliseconds.'
-      }
-    }
-  ],
-  useCases: [
-    {
-      title: 'Global WhatsApp Customer Concierge',
-      scenario: 'International customers seeking support via WhatsApp in multiple countries and time zones.',
-      solution: 'Direct Meta Cloud API integration guarantees instant delivery anywhere in the world with 99.99% uptime.'
+      title: 'Enter Business Profile Information',
+      description: 'Enter your business profile details: Business Name, Official Email, Category (e.g. Professional services), Country (e.g. India), Website, and Time Zone (GMT+05:30 Asia/Kolkata), then click "Next".',
+      screenshot: '/images/docs/whatsapp-connect/step-4-business-information.png?v=2',
+      caption: 'Business Info Form — Fill in Name, Email, Category, Country, and Timezone.',
+      highlight: 'Profile Setup',
+      uiElements: ['Business Name', 'Category selector', 'Country & Timezone', 'Next button']
     },
     {
-      title: 'Instagram DM & Story Mention Engagement',
-      scenario: 'Influencers and buyers tagging the brand in Instagram stories and sending DMs asking for product links.',
-      solution: 'Orbion detects story mentions, auto-replies with thank-you messages and exclusive promo links in Instagram Direct.'
+      step: 5,
+      title: 'Add WhatsApp Phone Number & Display Name',
+      description: 'Provide your WhatsApp Business Display Name (adhering to Meta guidelines). Select country code (e.g. IN +91), enter your dedicated phone number, choose OTP verification method (Text message or Phone call), and click "Next".',
+      screenshot: '/images/docs/whatsapp-connect/step-5-phone-number-entry.png?v=2',
+      caption: 'Phone Registration — Input WhatsApp Display Name, Phone Number, and verification method.',
+      highlight: 'Dedicated Number',
+      uiElements: ['Display Name input', 'Country code selector', 'Phone number input', 'Text/Call verification radio']
     },
     {
-      title: 'Custom CRM Synchronization Webhooks',
-      scenario: 'Enterprise client using proprietary in-house ERP/CRM systems.',
-      solution: 'Configure custom outbound webhooks that trigger on lead updates, syncing full transcript JSON payloads to the ERP.'
+      step: 6,
+      title: 'Verify Phone Number via 6-Digit Code',
+      description: 'Check your mobile device for the 6-digit verification code sent by Meta via SMS or voice call. Enter the 6 digits into the verification input fields to confirm number ownership.',
+      screenshot: '/images/docs/whatsapp-connect/step-6-otp-verification.png',
+      caption: 'OTP Verification — Enter the 6-digit confirmation code received on your phone.',
+      highlight: 'Instant Verification',
+      uiElements: ['6-Digit OTP inputs', 'Resend code link', 'Code sent notification']
+    },
+    {
+      step: 7,
+      title: 'Finalize Permissions & Compliance Review',
+      description: 'The modal confirms "Your account is connected to orbionagents". Meta performs a brief compliance review against the WhatsApp Business Messaging Policy. Optionally add a payment method or click "Finish".',
+      screenshot: '/images/docs/whatsapp-connect/step-7-connection-complete.png',
+      caption: 'Connection Completed — Confirmation screen displaying account connected to orbionagents.',
+      highlight: 'Meta Compliant',
+      uiElements: ['Success Confirmation', 'Policy Compliance notice', 'Finish button']
     }
   ],
-  expectedOutcome: 'Direct, reliable multi-channel connectivity with sub-second delivery, zero third-party middleman markup, and comprehensive rich media support.',
+  activeConsoleScreenshot: '/images/docs/whatsapp-connect/step-8-connected-status.png',
+  expectedOutcome: 'Your official WhatsApp Business number is connected and active. Incoming customer messages automatically route to your 24/7 AI agent, trigger visual automation flows, and enable interactive template messaging.',
   troubleshooting: [
     {
-      question: 'Why did the Meta webhook verification fail with "Challenge mismatch"?',
-      answer: 'Ensure that the "Verify Token" entered in the Meta App Dashboard matches the exact secret token displayed in your Orbion Integration settings without any extra whitespace.'
+      question: "Why didn't I receive the 6-digit OTP verification code on my phone?",
+      answer: 'Ensure your phone number has active mobile network coverage and can receive SMS or voice calls. If SMS does not arrive within 60 seconds, choose the "Phone call" option to receive the OTP via an automated voice call. Also confirm the number is not currently registered on a personal WhatsApp or WhatsApp Business mobile app.'
     },
     {
-      question: 'What happens if Meta experiences an API outage or delivery delay?',
-      answer: 'Orbion automatically queues outgoing messages in a durable Redis queue with exponential backoff retries, ensuring messages are delivered as soon as connectivity resumes.'
+      question: 'Can I connect my existing personal or business WhatsApp number?',
+      answer: 'Yes! However, you must first delete your WhatsApp account from your mobile phone app (Open WhatsApp > Settings > Account > Delete my account) before connecting. Once deleted, the number is freed up for Meta Cloud API registration. Be sure to back up important chat history before deleting.'
     },
     {
-      question: 'Can I connect multiple WhatsApp business numbers to one workspace?',
-      answer: 'Yes! Orbion supports multi-number configurations. Each number can be assigned its own autonomous agent persona or routed to distinct team queues.'
+      question: 'How does the AI Agent know how to reply to my customers?',
+      answer: "Your AI agent automatically references your business knowledge base, uploaded product catalogs, FAQs, and workspace documents. You can customize the agent's prompt, tone of voice, and answering guidelines anytime in the AI Agent Settings."
+    },
+    {
+      question: 'Why are automated message templates not reaching customers?',
+      answer: 'WhatsApp requires business-initiated messages sent outside the 24-hour customer window to use pre-approved Meta message templates. Check your Templates tab in the admin dashboard to confirm your template is approved by Meta with an active status.'
+    },
+    {
+      question: 'Do I need to keep my computer or phone turned on for AI agent replies?',
+      answer: 'No. Orbion Agents operates 24/7 on high-availability cloud servers. Once connected, your AI agents and automated flows reply to customer inquiries instantly around the clock, even when your computer or phone is turned off.'
     }
   ]
 };

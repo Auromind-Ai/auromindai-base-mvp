@@ -5,6 +5,8 @@ import { getArticleBySlug } from '@/docs-data/articles';
 import { getFeatureDetailConfig } from '@/docs-data/feature-details';
 import FeatureDetailView from '@/components/docs/features/FeatureDetailView';
 import DynamicSectionRenderer from '@/components/docs/DynamicSectionRenderer';
+
+export const dynamic = 'force-dynamic';
 import {
   ArrowRight,
   ArrowLeft,

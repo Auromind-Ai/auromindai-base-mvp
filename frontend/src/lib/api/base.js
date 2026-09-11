@@ -169,7 +169,7 @@ export class APIClient {
       if (typeof window !== 'undefined') {
         removeToken();
         window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'expired' } }));
-        if (!window.location.pathname.startsWith('/login')) {
+        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/docs')) {
           window.location.replace('/login?session_expired=true');
         }
       }
@@ -319,7 +319,7 @@ export class APIClient {
           if (typeof window !== 'undefined') {
             removeToken();
             window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'expired' } }));
-            if (!window.location.pathname.startsWith('/login')) {
+            if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/docs')) {
               window.location.replace('/login?session_expired=true');
             }
           }
