@@ -157,14 +157,14 @@ export default function DocumentationVideo({
     }
   };
 
-  // GIF Mode: Continuous looping animated preview without any restrictive box or cropping
+  // GIF Mode: Continuous looping animated preview with responsive sizing and full-screen theater mode
   if (hasVideoUrl && asGif) {
     return (
       <div className={`w-full ${className}`}>
         <div
           ref={containerRef}
-          onClick={togglePlay}
-          className="relative w-full rounded-2xl overflow-hidden shadow-2xl group select-none cursor-pointer"
+          onClick={() => setIsExpanded(true)}
+          className="relative w-full rounded-2xl overflow-hidden border border-white/15 bg-[#090A10] shadow-2xl group select-none cursor-pointer aspect-[1548/686] flex items-center justify-center"
         >
           <video
             ref={videoRef}
@@ -174,37 +174,98 @@ export default function DocumentationVideo({
             muted
             playsInline
             preload="auto"
-            className={objectFit === 'contain'
-              ? "w-full h-auto object-contain block rounded-2xl"
-              : "w-full h-[320px] sm:h-[360px] lg:h-[390px] xl:h-[420px] object-cover object-[40%_center] block rounded-2xl"
-            }
+            className="w-full h-full object-contain block rounded-2xl transition-transform duration-500 group-hover:scale-[1.01]"
           />
 
-          {/* Minimal hover action for fullscreen */}
-          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-            <button
-              onClick={toggleFullscreen}
-              className="p-1.5 rounded-lg bg-black/70 backdrop-blur-md border border-white/15 text-zinc-300 hover:text-white transition-colors"
-              aria-label="Fullscreen"
-              title="Expand to Fullscreen"
-            >
-              <Maximize className="w-3.5 h-3.5" />
-            </button>
+          {/* Hover overlay with Expand badge */}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
+            <span className="px-3 py-1.5 rounded-xl bg-black/80 text-xs text-white flex items-center gap-2 backdrop-blur-md border border-white/20 shadow-xl">
+              <Maximize2 className="w-3.5 h-3.5 text-violet-300" aria-hidden="true" />
+              <span className="font-medium">Click for Full Screen Preview</span>
+            </span>
           </div>
 
-          {/* Subtle pause badge if clicked */}
-          {!isPlaying && (
-            <div className="absolute inset-0 m-auto w-12 h-12 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white flex items-center justify-center pointer-events-none shadow-xl">
-              <Play className="w-5 h-5 fill-white translate-x-0.5" />
-            </div>
-          )}
+          {/* Top-Right Quick Expand Button */}
+          <div className="absolute top-3 right-3 opacity-90 group-hover:opacity-100 transition-opacity z-10">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(true);
+              }}
+              className="px-2.5 py-1.5 rounded-xl bg-black/80 hover:bg-black backdrop-blur-md border border-white/20 text-white flex items-center gap-1.5 transition-all text-xs font-medium shadow-lg hover:border-violet-400/60 cursor-pointer"
+              aria-label="Expand to Fullscreen"
+              title="Expand to Fullscreen"
+            >
+              <Maximize2 className="w-3.5 h-3.5 text-violet-300" />
+              <span className="text-[11px] font-medium hidden sm:inline">Full Screen</span>
+            </button>
+          </div>
         </div>
 
         {videoData.caption && (
-          <p className="text-xs text-zinc-400 text-center flex items-center justify-center gap-1.5 mt-2">
+          <p className="text-xs text-zinc-400 text-center flex items-center justify-center gap-1.5 mt-2.5">
             <span className="w-1.5 h-1.5 rounded-full bg-violet-400/60" />
             <span>{videoData.caption}</span>
           </p>
+        )}
+
+        {/* EXPANDED FULLSCREEN THEATER LIGHTBOX MODAL FOR GIF */}
+        {isExpanded && (
+          <div
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-4 sm:p-8 animate-in fade-in duration-200"
+            onClick={() => setIsExpanded(false)}
+          >
+            {/* Top Bar with Title & Close button */}
+            <div
+              className="w-full max-w-7xl flex items-center justify-between pb-3 mb-3 border-b border-white/10 text-white z-50"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                  Full Screen Preview
+                </span>
+                <h3 className="text-sm sm:text-base font-bold text-white truncate max-w-md sm:max-w-xl">
+                  {videoData.title || 'Workflow Orchestration Walkthrough'}
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-mono text-zinc-400 hidden sm:inline">Press ESC to close</span>
+                <button
+                  onClick={() => setIsExpanded(false)}
+                  className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1.5 border border-white/15 text-xs font-medium cursor-pointer"
+                  aria-label="Close expanded video"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Close</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Expanded Video Container */}
+            <div
+              className="relative w-full max-w-7xl max-h-[85vh] h-full flex flex-col items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-full h-full max-h-[80vh] relative rounded-2xl overflow-hidden border border-white/20 bg-black shadow-2xl flex items-center justify-center">
+                <video
+                  src={videoData.url}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  controls
+                  className="w-full h-full object-contain bg-black"
+                />
+              </div>
+
+              {videoData.caption && (
+                <p className="mt-3 text-xs sm:text-sm text-zinc-400 text-center max-w-3xl">
+                  {videoData.caption}
+                </p>
+              )}
+            </div>
+          </div>
         )}
       </div>
     );
@@ -270,36 +331,39 @@ export default function DocumentationVideo({
             </button>
           )}
 
-          {/* Top Title Overlay */}
+          {/* Top Title & Full Screen Button Overlay */}
           <div
-            className={`absolute top-4 left-4 right-4 flex items-center justify-between text-xs text-white/90 pointer-events-none transition-opacity duration-300 ${
+            className={`absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between text-xs text-white/90 pointer-events-none transition-opacity duration-300 z-20 ${
               isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded bg-black/60 backdrop-blur-md border border-white/10 font-semibold text-[11px] text-violet-300">
+            <div className="flex items-center gap-2 pointer-events-auto">
+              <span className="px-2 py-0.5 rounded bg-black/70 backdrop-blur-md border border-white/10 font-semibold text-[11px] text-violet-300">
                 Tutorial
               </span>
-              <span className="font-medium drop-shadow truncate max-w-[240px] sm:max-w-sm">
+              <span className="font-medium drop-shadow truncate max-w-[200px] sm:max-w-xs">
                 {videoData.title || 'Video Walkthrough'}
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 pointer-events-auto">
               {videoData.duration && (
-                <span className="px-2 py-0.5 rounded bg-black/60 backdrop-blur-md border border-white/10 font-mono text-[11px] text-zinc-300">
+                <span className="px-2 py-0.5 rounded bg-black/70 backdrop-blur-md border border-white/10 font-mono text-[11px] text-zinc-300">
                   {videoData.duration}
                 </span>
               )}
-              {/* Top-right Quick Expand Button */}
+              {/* Top-right Quick Full Screen Button */}
               <button
-                onClick={openFullscreen}
-                className="px-2 py-1 rounded bg-black/70 hover:bg-black/90 backdrop-blur-md border border-white/15 text-white flex items-center gap-1.5 transition-all text-xs font-medium hover:border-violet-400/50 shadow-md"
-                title="Expand video (Theater Mode)"
-                aria-label="Expand video"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openFullscreen(e);
+                }}
+                className="px-2.5 py-1 rounded-xl bg-black/80 hover:bg-black/95 backdrop-blur-md border border-white/20 hover:border-violet-400 text-white flex items-center gap-1.5 transition-all text-xs font-semibold shadow-xl cursor-pointer"
+                title="Expand to Full Screen"
+                aria-label="Expand to Full Screen"
               >
-                <Maximize2 className="w-3.5 h-3.5" />
-                <span className="text-[11px] hidden sm:inline">Expand</span>
+                <Maximize2 className="w-3.5 h-3.5 text-violet-300" />
+                <span className="text-[11px] font-medium hidden sm:inline">Full Screen</span>
               </button>
             </div>
           </div>
@@ -307,49 +371,65 @@ export default function DocumentationVideo({
           {/* Bottom Custom Controls Bar */}
           <div
             onClick={(e) => e.stopPropagation()}
-            className="absolute bottom-3 left-3 right-3 flex items-center justify-between px-3 py-2 rounded-xl bg-black/75 backdrop-blur-md border border-white/10 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity z-20"
+            className="absolute bottom-3 left-3 right-3 flex items-center justify-between px-3 py-2 rounded-xl bg-black/80 backdrop-blur-md border border-white/15 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity z-20"
           >
             <div className="flex items-center gap-2">
               <button
                 onClick={togglePlay}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white"
+                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white cursor-pointer"
                 aria-label={isPlaying ? 'Pause' : 'Play'}
+                title={isPlaying ? 'Pause' : 'Play'}
               >
                 {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-white" />}
               </button>
               <button
                 onClick={restartVideo}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-zinc-300 hover:text-white"
+                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-zinc-300 hover:text-white cursor-pointer"
                 aria-label="Restart video"
+                title="Restart video"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={toggleMute}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
-                aria-label={isMuted ? 'Unmute' : 'Mute'}
+                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                aria-label={isMuted ? 'Unmute sound' : 'Mute sound'}
+                title={isMuted ? 'Unmute sound' : 'Mute sound'}
               >
-                {isMuted ? <VolumeX className="w-4 h-4 text-zinc-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+                {isMuted ? (
+                  <>
+                    <VolumeX className="w-4 h-4 text-zinc-400" />
+                    <span className="text-[10px] text-zinc-400 hidden sm:inline">Muted</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="w-4 h-4 text-emerald-400" />
+                    <span className="text-[10px] text-emerald-400 font-medium hidden sm:inline">Sound On</span>
+                  </>
+                )}
               </button>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-zinc-400 font-mono hidden sm:inline">HD 1080p</span>
+              <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-zinc-300 font-mono hidden sm:inline">
+                HD 1080p
+              </span>
               <button
                 onClick={toggleFullscreen}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-zinc-300 hover:text-white"
-                aria-label="Fullscreen"
+                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-zinc-300 hover:text-white cursor-pointer"
+                aria-label="Native Fullscreen"
+                title="Native Fullscreen"
               >
                 <Maximize className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={openFullscreen}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors flex items-center gap-1 text-zinc-300 hover:text-white"
-                title="Expand video (Theater Mode)"
-                aria-label="Expand video to theater modal"
+                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors flex items-center gap-1 text-violet-300 hover:text-white cursor-pointer"
+                title="Expand to Fullscreen Theater Modal"
+                aria-label="Expand to Fullscreen Theater Modal"
               >
                 <Maximize2 className="w-4 h-4" />
-                <span className="text-[11px] font-mono">Expand</span>
+                <span className="text-[11px] font-mono">Full Screen</span>
               </button>
             </div>
           </div>

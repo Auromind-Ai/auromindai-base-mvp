@@ -221,8 +221,7 @@ export default function DocsHomePage() {
 
               {/* Panel Header */}
               <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <div>
                   <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">
                     Orbion Platform Architecture
                   </span>

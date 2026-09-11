@@ -1,112 +1,4 @@
 export const ACCOUNT_AND_BILLING_ARTICLES = {
-  "account/workspace-management": {
-    slug: "account/workspace-management",
-    category: "Account & Governance",
-    title: "Workspaces & Team Permissions",
-    subtitle: "Manage multi-tenant organizations, invite team collaborators, and configure role-based access control.",
-    pageType: "settings",
-    sections: [
-      {
-        id: "overview",
-        title: "Overview",
-        type: "text",
-        content: "Workspace Management enables organization owners to administer isolated environments under a master tenant account. Team members can be invited with defined roles, separating customer conversations, knowledge collections, channel tokens, and operational settings across departments or client projects."
-      },
-      {
-        id: "what-this-manages",
-        title: "What this page manages",
-        type: "list",
-        items: [
-          { title: "Workspace Environments", description: "Create and switch between separate workspaces for different brands, branches, or client accounts." },
-          { title: "Team Collaborator Invitations", description: "Invite staff by business email address to collaborate on customer interactions." },
-          { title: "Role-Based Access Control (RBAC)", description: "Assign Admin, Agent, or Viewer permission tiers to restrict sensitive configuration areas." },
-          { title: "Member Revocation & Audit", description: "Instantly revoke workspace access and view active collaborators in the team table." }
-        ]
-      },
-      {
-        id: "prerequisites",
-        title: "Prerequisites",
-        type: "checklist",
-        items: [
-          "Workspace Owner or Admin privileges in your current organization.",
-          "Valid corporate email addresses for all team members being invited."
-        ]
-      },
-      {
-        id: "rbac-matrix",
-        title: "Role Permission Matrix",
-        type: "table",
-        headers: ["Role", "Omni-Inbox & Leads", "AI Studio & Wires", "Settings & Channels", "Billing & Profile"],
-        rows: [
-          ["Owner", "Full Access", "Full Access", "Full Access", "Full Access"],
-          ["Admin", "Full Access", "Full Access", "Full Access", "Full Access"],
-          ["Agent", "Read & Respond", "Test & View", "Read Only", "No Access"],
-          ["Viewer", "Read Only", "Read Only", "Read Only", "No Access"]
-        ]
-      },
-      {
-        id: "step-by-step",
-        title: "Configuring Workspaces & Inviting Members",
-        type: "steps",
-        steps: [
-          {
-            step: 1,
-            title: "Access Workspace Settings",
-            instruction: "Navigate to Settings in the lower-left navigation bar and select 'Workspaces'.",
-            uiElements: ["Sidebar Settings navigation", "'Workspaces' tab"]
-          },
-          {
-            step: 2,
-            title: "Add or Switch Workspaces",
-            instruction: "Click '+ Add Workspace' to initialize a new isolated tenant. Enter the workspace name and default operational timezone.",
-            uiElements: ["'+ Add Workspace' button", "'Workspace Name' input", "'Timezone' selector"]
-          },
-          {
-            step: 3,
-            title: "Invite a Team Member",
-            instruction: "In the 'Team & Members' panel, input the invitee's email address and select their role from the dropdown (Admin, Agent, or Viewer).",
-            uiElements: ["'Email Address' field", "'Role' selector", "'Send Invite' button"]
-          },
-          {
-            step: 4,
-            title: "Manage Active Collaborators",
-            instruction: "Review active collaborators in the team table. Click the revoke button to immediately remove access when an employee changes roles or leaves.",
-            uiElements: ["Collaborators table", "'Revoke' action button"]
-          }
-        ]
-      },
-      {
-        id: "expected-result",
-        title: "Expected Outcome",
-        type: "callout",
-        calloutTitle: "Security & Isolation Guarantee:",
-        calloutText: "Invited collaborators receive access strictly limited to their assigned role tier, ensuring API keys, billing configurations, and customer data remain protected."
-      },
-      {
-        id: "troubleshooting",
-        title: "Troubleshooting",
-        type: "troubleshooting",
-        items: [
-          {
-            issue: "Invited team member cannot access the workspace?",
-            cause: "The user may have registered with a different email address than the one invited.",
-            solution: "Verify that the user creates an account using the exact invited email. The platform links verified email addresses to the tenant on first sign in."
-          },
-          {
-            issue: "Agent cannot see the Billing or Channels tab?",
-            cause: "This is intentional RBAC security behavior.",
-            solution: "Only Owners and Admins have permission to modify payment methods and channel credentials. Upgrade the user's role to Admin if channel management is required."
-          }
-        ]
-      }
-    ],
-    seo: {
-      title: "Workspaces & Team Permissions | OrbionAgents",
-      description: "Manage multi-tenant workspaces, invite team members, and configure role-based access control in OrbionAgents.",
-      keywords: ["multi-tenant workspaces", "team permissions", "RBAC", "workspace setup"]
-    }
-  },
-
   "account/ai-governance": {
     slug: "account/ai-governance",
     category: "Account & Governance",
@@ -182,7 +74,7 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
         id: "overview",
         title: "Overview",
         type: "text",
-        content: "OrbionAgents operates on a transparent 3-tier subscription architecture engineered for rapid acquisition and enterprise scale: Free Starter (₹0 acquisition tier), Pro (₹199/month for growing businesses), and Enterprise (dedicated high-volume conversational AI infrastructure). Every plan bundles monthly AI credits, WhatsApp Conversation Credit (WCC) wallet balances, active automations, knowledge base document storage, and CRM capacity.",
+        content: "OrbionAgents operates on a transparent multi-tier subscription architecture designed for every stage of growth: Free Starter (for initial setup and sandbox testing), Pro (for growing businesses with active conversational automation), and Enterprise (dedicated high-volume conversational AI infrastructure with custom allowances). Every plan bundles monthly AI credits, WhatsApp Conversation Credit (WCC) wallet balances, active automations, knowledge base document storage, and CRM capacity.",
         uiPreview: "PricingPreview"
       },
       {
@@ -191,8 +83,8 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
         type: "list",
         items: [
           { title: "Subscription Status & Quotas", description: "Inspect your active workspace tier (Free Starter, Pro, or Enterprise), monthly renewal date, and active billing status." },
-          { title: "Monthly Quotas & Balances", description: "Track real-time burn against included AI credits (20K to 500K+), WhatsApp conversation wallets (₹50 to ₹500+), and flow limits." },
-          { title: "Plan Upgrades & Checkout", description: "Seamlessly upgrade from Free Starter to Pro or Enterprise via Razorpay checkout with instant zero-downtime quota provisioning." },
+          { title: "Monthly Quotas & Balances", description: "Track real-time usage against your plan's included AI credits, WhatsApp conversation wallet balances, and active flow execution limits." },
+          { title: "Plan Upgrades & Checkout", description: "Seamlessly upgrade or customize your workspace tier with instant zero-downtime quota provisioning." },
           { title: "On-Demand Add-on Top-ups", description: "Pro and Enterprise workspaces can recharge WhatsApp wallets, buy AI credit top-ups, and add flow packs without altering base plan tiers." }
         ]
       },
@@ -231,44 +123,6 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
         ]
       },
       {
-        id: "step-by-step",
-        title: "Managing Plans & Upgrading Tiers",
-        type: "steps",
-        steps: [
-          {
-            step: 1,
-            title: "Navigate to Billing or Plan Upgrade",
-            instruction: "Open your workspace dashboard and navigate to Billing (/user/admin/billing). Click the 'Upgrade plan' button to enter the plan portal at /user/admin/billing/payment.",
-            uiElements: ["Sidebar 'Billing' navigation link", "'Upgrade plan' button"]
-          },
-          {
-            step: 2,
-            title: "Review Monthly Pricing & Quotas",
-            instruction: "Inspect the monthly subscription fee and included allocations. The Pro tier is billed monthly at ₹199/month with instant quota activation.",
-            uiElements: ["Plan pricing card", "'₹199 / month' badge"]
-          },
-          {
-            step: 3,
-            title: "Select Desired Plan or Enterprise Consultation",
-            instruction: "Click 'Choose this plan' under the Pro tier to launch payment checkout, or select 'Schedule a call' / 'Let's Talk' to submit an Enterprise inquiry.",
-            uiElements: ["'Choose this plan' button", "'Let's Talk' consultation modal"]
-          },
-          {
-            step: 4,
-            title: "Complete Razorpay Checkout & Verification",
-            instruction: "Review the order summary modal including GST breakdown, enter your preferred payment credentials (UPI, Cards, NetBanking), and confirm payment.",
-            uiElements: ["Order Summary modal", "Razorpay Payment Gateway", "GST Breakdown"]
-          }
-        ]
-      },
-      {
-        id: "expected-result",
-        title: "Expected Outcome",
-        type: "callout",
-        calloutTitle: "Zero-Downtime Instant Quota Provisioning:",
-        calloutText: "Upon successful Razorpay payment confirmation, updated quotas for AI credits, WhatsApp WCC wallet, automations, and file storage are provisioned immediately in your workspace without server restart or session downtime."
-      },
-      {
         id: "troubleshooting",
         title: "Troubleshooting & Common Questions",
         type: "troubleshooting",
@@ -276,7 +130,7 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
           {
             issue: "Why are AI Credit top-ups and WCC wallet recharges disabled?",
             cause: "Your workspace is currently on the Free Starter tier. Standalone credit top-ups are restricted to paying Pro and Enterprise subscribers.",
-            solution: "Upgrade to the Pro tier (starting at ₹199/month). Pro tier unlocks on-demand AI credit top-ups, WhatsApp wallet recharges, and flow packs."
+            solution: "Upgrade to an active paid subscription tier (such as Pro or Enterprise). Upgrading unlocks on-demand AI credit top-ups, WhatsApp wallet recharges, and flow pack add-ons."
           },
           {
             issue: "Payment succeeded but quotas did not reflect immediately?",
@@ -309,7 +163,7 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
         id: "overview",
         title: "Overview",
         type: "text",
-        content: "The Billing Profile & Invoice console (/user/admin/billing) enables workspace administrators to maintain corporate billing profiles, validate Indian Goods and Services Tax Identification Numbers (GSTIN), and access official B2B tax invoice receipts. All subscription payments and wallet top-ups generate compliant tax invoices with sequential numbering (AUR/YYYY-YY/XXXXXX), itemized tax breakups (CGST + SGST for Tamil Nadu intra-state orders vs IGST for inter-state orders), and instant PDF downloads for corporate accounting and Input Tax Credit (ITC) filing.",
+        content: "The Billing Profile & Invoice console (/user/admin/billing) enables workspace administrators to maintain corporate billing profiles, validate Indian Goods and Services Tax Identification Numbers (GSTIN), and access official tax invoice receipts. All subscription payments and wallet top-ups generate compliant tax invoices with sequential numbering (AUR/YYYY-YY/XXXXXX), itemized tax breakups (CGST + SGST for Tamil Nadu intra-state orders vs IGST for inter-state orders), and instant PDF downloads for corporate accounting and Input Tax Credit (ITC) filing.",
         uiPreview: "GSTInvoicePreview"
       },
       {
@@ -319,7 +173,7 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
         items: [
           { title: "Corporate Billing Identity", description: "Registered legal business name, primary billing contact, notification email, phone number, and entity business type." },
           { title: "Physical Address & Place of Supply", description: "Registered corporate street address, city, state, postal code, and country used to determine Indian GST jurisdiction." },
-          { title: "15-Digit GSTIN Validation", description: "Official GSTIN format verification (2-digit state prefix + 10-character PAN + 1 entity code + 'Z' + 1 checksum digit) for B2B ITC claims." },
+          { title: "15-Digit GSTIN Validation", description: "Official GSTIN format verification (2-digit state prefix + 10-character PAN + 1 entity code + 'Z' + 1 checksum digit) for ITC claims." },
           { title: "Automated Tax Calculation Engine", description: "Dynamic derivation of 18% standard GST (9% CGST + 9% SGST for Tamil Nadu vs 18% IGST for interstate vs 0% Export)." },
           { title: "Payment History & PDF Receipts", description: "Downloadable ReportLab-compiled PDF tax invoices with verified sequential numbers for every completed transaction." }
         ]
@@ -330,8 +184,8 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
         type: "table",
         headers: ["Supply Jurisdiction", "Place of Supply", "CGST (Rate)", "SGST (Rate)", "IGST (Rate)", "Total GST", "ITC Eligibility"],
         rows: [
-          ["Intra-State (Within Tamil Nadu)", "Tamil Nadu (Code 33)", "9.0%", "9.0%", "0.0%", "18.0%", "Eligible for B2B Registered"],
-          ["Inter-State (Other Indian States)", "Rest of India (e.g. KA, MH, DL)", "0.0%", "0.0%", "18.0%", "18.0%", "Eligible for B2B Registered"],
+          ["Intra-State (Within Tamil Nadu)", "Tamil Nadu (Code 33)", "9.0%", "9.0%", "0.0%", "18.0%", "Eligible (Registered GSTIN)"],
+          ["Inter-State (Other Indian States)", "Rest of India (e.g. KA, MH, DL)", "0.0%", "0.0%", "18.0%", "18.0%", "Eligible (Registered GSTIN)"],
           ["Export / International", "Outside India (e.g. US, UK, UAE)", "0.0%", "0.0%", "0.0%", "0.0% (Zero-rated)", "Not Applicable"]
         ]
       },
@@ -348,57 +202,30 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
       },
       {
         id: "configure-profile",
-        title: "Configuring Billing Profile & GSTIN",
+        title: "Step-by-Step Configuration Guide",
         type: "steps",
         steps: [
           {
             step: 1,
-            title: "Navigate to Billing Console",
-            instruction: "Log in to your admin dashboard and open the Billing page at /user/admin/billing.",
-            uiElements: ["Sidebar 'Billing' navigation link", "'Billing Profile' card"]
+            title: "Access Billing Profile Console",
+            instruction: "Navigate to your admin dashboard and open the Billing console at /user/admin/billing. In the 'Billing Profile' card, review your current business name, billing contact, email, and GST registration status. Click 'Edit Profile' to launch the tax configuration modal.",
+            uiElements: ["Sidebar 'Billing' navigation", "'Billing Profile' card", "'Edit Profile' button", "GST registration status badge"],
+            screenshot: {
+              src: "/docs/screenshots/gst-billing-profile-card.png",
+              alt: "Billing Profile overview card interface",
+              caption: "Billing Profile card on /user/admin/billing: Review current GST registration status and click 'Edit Profile'."
+            }
           },
           {
             step: 2,
-            title: "Launch Profile Editor",
-            instruction: "On the Billing Profile card, click the 'Edit Profile' button to open the configuration modal.",
-            uiElements: ["'Edit Profile' button", "Billing Profile editor modal"]
-          },
-          {
-            step: 3,
-            title: "Enter Business & Address Details",
-            instruction: "Fill in Business Name (required), Contact Name, Billing Email, Phone, Address (required), City (required), State (required text field), Country (e.g. IN), and Postal Code.",
-            uiElements: ["'Business Name *' input", "'Address *' input", "'City *' & 'State *' text inputs", "'Country *' input"]
-          },
-          {
-            step: 4,
-            title: "Toggle GST Registration & Input GSTIN",
-            instruction: "Check 'I have a GST Registration'. Enter your 15-character uppercase GSTIN, optional Legal Business Name, and select your Business Type (Private Limited, LLP, Proprietorship, etc.).",
-            uiElements: ["'I have a GST Registration' checkbox", "'GSTIN *' uppercase field", "'Business Type' dropdown"]
-          },
-          {
-            step: 5,
-            title: "Save Changes",
-            instruction: "Click 'Save Changes'. If you attempt to cancel or close with unsaved edits, the system displays an Unsaved Changes confirmation modal.",
-            uiElements: ["'Save Changes' button", "'Unsaved Changes' confirmation safeguard"]
-          }
-        ]
-      },
-      {
-        id: "invoice-history",
-        title: "Viewing Payment History & Downloading Invoices",
-        type: "steps",
-        steps: [
-          {
-            step: 6,
-            title: "Inspect Payment History",
-            instruction: "Scroll down to the 'Payment History' section on /user/admin/billing to view all completed subscription renewals, AI credit purchases, and wallet recharges.",
-            uiElements: ["'Payment History' card", "Invoice number, date, amount, and status pill"]
-          },
-          {
-            step: 7,
-            title: "Download Invoice PDF",
-            instruction: "Click the 'PDF' download button on any completed transaction row. The platform streams a formatted, GST-compliant PDF receipt directly to your device.",
-            uiElements: ["'PDF' download button", "ReportLab-generated PDF file (%PDF)"]
+            title: "Configure Corporate Details & Validate 15-Digit GSTIN",
+            instruction: "In the Edit Billing Profile modal, enter your official Business Name, contact details, physical address, city, and state. Check 'I have a GST Registration', enter your 15-character uppercase GSTIN (e.g., 33ABCDE1234F1Z5), optional Legal Business Name, and select your Business Type (Private Limited, LLP, etc.). Click 'Save Changes' to update your workspace tax profile.",
+            uiElements: ["'Business Name *' input", "'Address *', 'City *' & 'State *'", "'I have a GST Registration' checkbox", "15-Digit 'GSTIN *' uppercase field", "'Save Changes' button"],
+            screenshot: {
+              src: "/docs/screenshots/gst-edit-billing-profile-modal.png",
+              alt: "Edit Billing Profile Modal with GSTIN configuration",
+              caption: "Edit Billing Profile modal: Check 'I have a GST Registration', enter 15-character GSTIN, and save changes."
+            }
           }
         ]
       },
@@ -407,7 +234,7 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
         title: "Expected Outcome",
         type: "callout",
         calloutTitle: "Verified Tax Invoice Compliance:",
-        calloutText: "All future subscription charges and wallet recharges automatically calculate correct intra-state or inter-state GST, record your corporate GSTIN on the invoice, and generate downloadable B2B tax receipts eligible for Input Tax Credit (ITC)."
+        calloutText: "All future subscription charges and wallet recharges automatically calculate correct intra-state or inter-state GST, record your corporate GSTIN on the invoice, and generate downloadable tax receipts eligible for Input Tax Credit (ITC)."
       },
       {
         id: "troubleshooting",
