@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { 
   ChevronRight, 
@@ -9,7 +9,10 @@ import {
   ArrowLeft, 
   HelpCircle, 
   Sparkles, 
-  Layers
+  Layers,
+  ListChecks,
+  Lightbulb,
+  Workflow
 } from 'lucide-react';
 import DocumentationVideo from '@/components/docs/DocumentationVideo';
 import DocumentationScreenshot from '@/components/docs/DocumentationScreenshot';
@@ -37,14 +40,18 @@ const VISUAL_COMPONENTS = {
 
 export default function FeatureDetailView({ config, prevArticle, nextArticle }) {
   const VisualComponent = VISUAL_COMPONENTS[config.visualKey] || null;
+  const [activeSubModule, setActiveSubModule] = useState(config?.subModules?.[0]?.id || null);
 
   return (
-    <article className="w-full min-w-0 space-y-16 lg:space-y-24 pb-20 font-sans">
+    <article
+      className="w-full min-w-0 space-y-16 lg:space-y-24 pb-20 font-['Poppins',sans-serif]"
+      style={{ fontFamily: "'Poppins', sans-serif" }}
+    >
       {/* SECTION 1: OVERVIEW & PRODUCT UI (Content Left | UI Right) */}
       <section id="overview" className="scroll-mt-24">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           {/* Left: Content */}
-          <div className="lg:col-span-6 space-y-5">
+          <div className={`${config.heroVideo ? 'lg:col-span-5' : 'lg:col-span-6'} space-y-5`}>
             {/* Breadcrumbs */}
             <nav className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium">
               <Link href="/docs" className="hover:text-white transition-colors">
@@ -63,9 +70,6 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30 uppercase tracking-wider font-mono">
                 Feature {config.featureNumber} • {config.category}
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
-                Verified Module
-              </span>
             </div>
 
             {/* Heading & Tagline */}
@@ -78,67 +82,71 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
               </p>
             </div>
 
-            {/* What is it? Box */}
-            <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-2">
-              <span className="text-[11px] font-mono uppercase tracking-widest text-violet-400 font-bold block">
-                What is it?
-              </span>
-              <p className="text-sm text-zinc-300 leading-relaxed">
-                {config.description}
-              </p>
-            </div>
+            {/* Description */}
+            <p className="text-base text-zinc-300 leading-relaxed font-normal">
+              {config.description}
+            </p>
           </div>
 
-          {/* Right: Product UI / Visual Component */}
-          <div className="lg:col-span-6">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Live Product UI &amp; Simulator
-                </span>
-                <span className="text-[10px] font-mono text-zinc-500">Console View</span>
-              </div>
-              {VisualComponent ? (
-                <div className="rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-black/40">
-                  <VisualComponent />
+          {/* Right: Product Video or UI / Visual Component */}
+          <div className={config.heroVideo ? 'lg:col-span-7' : 'lg:col-span-6'}>
+            {config.heroVideo ? (
+              <DocumentationVideo
+                url={config.heroVideo.url}
+                title={config.heroVideo.title || `${config.title} Walkthrough`}
+                duration={config.heroVideo.duration}
+                caption={config.heroVideo.caption}
+                asGif={config.heroVideo.asGif ?? true}
+                objectFit={config.heroVideo.objectFit ?? 'cover'}
+              />
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    Live Product UI &amp; Simulator
+                  </span>
+                  <span className="text-[10px] font-mono text-zinc-500">Console View</span>
                 </div>
-              ) : (
-                <DocumentationScreenshot
-                  alt={`${config.title} Product Interface`}
-                  caption={`Interactive console view for ${config.title}`}
-                  annotation="Live Interface"
-                />
-              )}
-            </div>
+                {VisualComponent ? (
+                  <div className="rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-black/40">
+                    <VisualComponent />
+                  </div>
+                ) : (
+                  <DocumentationScreenshot
+                    alt={`${config.title} Product Interface`}
+                    caption={`Interactive console view for ${config.title}`}
+                    annotation="Live Interface"
+                  />
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
 
-      {/* SECTION 2: WHY USE IT? (Video Left | Content Right) */}
+      {/* SECTION 2: WHY USE IT? (Photo Left | Content Right) */}
       <section id="benefits" className="scroll-mt-24 pt-4 border-t border-white/10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-          {/* Left: Product Video / Media */}
+          {/* Left: Photo / Screenshot Slot (Placeholder frame with image removed) */}
           <div className="lg:col-span-6 order-2 lg:order-1 space-y-2">
             <div className="flex items-center justify-between px-1">
               <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                Product Walkthrough Tour
+                Product Architecture &amp; Flow
               </span>
-              {config.videoPlaceholder?.duration && (
-                <span className="text-[10px] font-mono text-zinc-400">
-                  {config.videoPlaceholder.duration}
-                </span>
-              )}
+              <span className="text-[10px] font-mono text-cyan-400">Interactive Preview</span>
             </div>
-            <DocumentationVideo
-              title={config.videoPlaceholder?.title || `Touring ${config.title}`}
-              duration={config.videoPlaceholder?.duration}
-              caption={config.videoPlaceholder?.description}
+            <DocumentationScreenshot
+              src={config.benefitsPhoto?.src || (typeof config.benefitsPhoto === 'string' ? config.benefitsPhoto : null)}
+              alt={config.benefitsPhoto?.alt || `${config.title} Overview`}
+              caption={config.benefitsPhoto?.caption || `Visual node architecture and capability overview for ${config.title}`}
+              annotation={config.benefitsPhoto?.annotation || "Workflow Architecture"}
+              aspectRatio="aspect-[16/10]"
             />
           </div>
 
-          {/* Right: Content */}
+          {/* Right: Content (Why Use It?) */}
           <div className="lg:col-span-6 order-1 lg:order-2 space-y-4">
             <div>
               <span className="text-[11px] font-mono uppercase tracking-widest text-cyan-400 font-bold block mb-1">
@@ -184,83 +192,344 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
         </div>
       </section>
 
-      {/* SECTION 3: CONFIGURATION & PIPELINE (Content Left | Product UI Right) */}
-      <section id="configuration" className="scroll-mt-24 pt-4 border-t border-white/10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-          {/* Left: Content */}
-          <div className="lg:col-span-6 space-y-4">
+      {/* SECTION: BEFORE YOU START (PREREQUISITES) */}
+      {config.beforeYouStart && config.beforeYouStart.length > 0 && (
+        <section id="before-you-start" className="scroll-mt-24 pt-4 border-t border-white/10 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <span className="text-[11px] font-mono uppercase tracking-widest text-pink-400 font-bold block mb-1">
-                Configuration &amp; Workflow
+              <span className="text-[11px] font-mono uppercase tracking-widest text-amber-400 font-bold block mb-1">
+                Before You Start
               </span>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                {config.architecture.title}
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">
+                <ListChecks className="w-6 h-6 text-amber-400" />
+                Prerequisites &amp; Requirements
               </h2>
-              <p className="text-sm text-zinc-300 leading-relaxed mt-2">
-                {config.architecture.description}
-              </p>
             </div>
+            <span className="text-xs font-mono text-zinc-400 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/10 w-fit">
+              Checklist before using this feature
+            </span>
+          </div>
 
-            {/* Setup Steps */}
-            <div className="space-y-3 pt-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 block font-mono">
-                Configuration Milestones:
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {config.beforeYouStart.map((item, idx) => (
+              <div
+                key={idx}
+                className="p-4 rounded-xl border border-white/10 bg-slate-900/40 hover:border-amber-500/30 transition-all space-y-2"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-mono text-xs font-bold shrink-0">
+                    {idx + 1}
+                  </div>
+                  <h3 className="text-sm font-semibold text-white">
+                    {item.title}
+                  </h3>
+                </div>
+                <p className="text-xs text-zinc-400 leading-relaxed pl-8">
+                  {item.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* SECTION 3: STEP-BY-STEP GUIDE & PIPELINE (AiSensy Style Zig-Zag) */}
+      <section id="step-by-step-guide" className="scroll-mt-24 pt-8 border-t border-white/10 space-y-12 lg:space-y-16">
+        {/* Section Header */}
+        <div className="max-w-3xl space-y-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/25 text-violet-400 text-xs font-mono font-semibold">
+            <ListChecks className="w-3.5 h-3.5" />
+            <span>Step-by-Step Operational Guide</span>
+            {config.setupSteps?.length && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-bold">
+                {config.setupSteps.length} Steps
               </span>
-              {config.setupSteps.map((s) => (
+            )}
+          </div>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white tracking-tight">
+            {config.architecture?.title || "Step-by-Step Configuration Guide"}
+          </h2>
+          <p className="text-sm sm:text-base text-zinc-300 leading-relaxed">
+            {config.architecture?.description}
+          </p>
+        </div>
+
+        {/* Zig-Zag Alternating Steps Container */}
+        <div className="space-y-16 lg:space-y-24">
+          {config.setupSteps?.map((s, idx) => {
+            // Alternating zig-zag:
+            // Odd steps (1, 3, 5 / idx 0, 2, 4) -> Content Left, Image Right
+            // Even steps (2, 4, 6 / idx 1, 3, 5) -> Image Left, Content Right
+            const isReversed = idx % 2 === 1;
+            const stepImg = s.image || config.screenshotUrl;
+
+            return (
+              <div
+                key={s.step || idx}
+                className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center"
+              >
+                {/* Content Column */}
                 <div
-                  key={s.step}
-                  className="p-3.5 rounded-xl border border-white/10 bg-slate-900/40 space-y-1.5"
+                  className={`lg:col-span-6 space-y-4 ${
+                    isReversed ? 'order-1 lg:order-2' : 'order-1 lg:order-1'
+                  }`}
                 >
+                  {/* Step Badge */}
                   <div className="flex items-center gap-2.5">
-                    <span className="w-5 h-5 rounded-md bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400 font-mono text-xs">
-                      {s.step}
+                    <span className="px-3 py-1 rounded-md bg-[#814AC8] text-white font-mono text-xs font-bold shadow-md shadow-purple-900/30">
+                      {s.stage || `Step ${s.step}`}
                     </span>
-                    <h3 className="text-sm font-semibold text-white">
+                  </div>
+
+                  {/* Title & Subtitle */}
+                  <div>
+                    <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug">
                       {s.title}
                     </h3>
+                    {s.subtitle && (
+                      <p className="text-sm sm:text-base text-violet-300/90 font-medium mt-1">
+                        {s.subtitle}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-xs text-zinc-400 leading-relaxed pl-7">
+
+                  {/* Description */}
+                  <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">
                     {s.description}
+                  </p>
+
+                  {/* Action Checklist Items */}
+                  {s.actionItems && s.actionItems.length > 0 && (
+                    <div className="space-y-2 pt-2">
+                      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-bold block">
+                        Action Checklist:
+                      </span>
+                      <ul className="space-y-2">
+                        {s.actionItems.map((item, i) => (
+                          <li key={i} className="flex items-start gap-2.5 text-xs sm:text-sm text-zinc-300">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Additional details */}
+                  {s.details && (
+                    <p className="text-xs text-zinc-400 leading-relaxed italic border-l-2 border-violet-500/30 pl-3">
+                      {s.details}
+                    </p>
+                  )}
+
+                  {/* Link */}
+                  {s.linkText && (
+                    <div className="pt-2">
+                      <a
+                        href={s.linkUrl || '#'}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors group"
+                      >
+                        <span>{s.linkText}</span>
+                        <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                {/* Image Column */}
+                <div
+                  className={`lg:col-span-6 ${
+                    isReversed ? 'order-2 lg:order-1' : 'order-2 lg:order-2'
+                  }`}
+                >
+                  <div className="p-2 sm:p-3 rounded-2xl border border-white/10 bg-slate-900/40 shadow-xl shadow-black/40 hover:border-violet-500/30 transition-all">
+                    {stepImg ? (
+                      <DocumentationScreenshot
+                        src={stepImg}
+                        alt={s.title}
+                        stepNumber={s.step}
+                        caption={s.caption || `Step ${s.step}: ${s.title}`}
+                      />
+                    ) : (
+                      <div className="p-8 rounded-xl border border-white/10 bg-black/40 text-center">
+                        <span className="text-sm text-zinc-400">Step screenshot preview</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 4 Pipeline Stages Architecture Overview */}
+        {config.architecture?.stages && config.architecture.stages.length > 0 && (
+          <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] space-y-4 mt-10">
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-violet-400" />
+              <span className="text-xs font-mono uppercase tracking-widest text-zinc-300 font-bold">
+                Underlying Execution Pipeline Architecture:
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {config.architecture.stages.map((st) => (
+                <div key={st.number} className="p-3.5 rounded-xl border border-white/5 bg-black/40 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-violet-400 font-bold bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
+                      S{st.number}
+                    </span>
+                    <span className="text-xs font-semibold text-zinc-200 truncate">
+                      {st.name}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    {st.detail}
                   </p>
                 </div>
               ))}
             </div>
           </div>
-
-          {/* Right: Product UI / Screenshot & Pipeline Stages */}
-          <div className="lg:col-span-6 space-y-4">
-            <DocumentationScreenshot
-              alt={config.setupSteps?.[0]?.screenshotPlaceholder?.title || `${config.title} Configuration Screen`}
-              caption={config.setupSteps?.[0]?.screenshotPlaceholder?.description || `Configuration and operational console for ${config.title}`}
-              annotation="Console Configuration"
-            />
-
-            {/* 4 Pipeline Stages */}
-            <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-2.5">
-              <span className="text-[11px] font-mono uppercase tracking-widest text-zinc-400 block">
-                Execution Pipeline Stages:
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {config.architecture.stages.map((st) => (
-                  <div key={st.number} className="p-2.5 rounded-lg border border-white/5 bg-black/40 space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-mono text-violet-400 font-bold bg-violet-500/10 px-1.5 py-0.5 rounded">
-                        S{st.number}
-                      </span>
-                      <span className="text-xs font-semibold text-zinc-200 truncate">
-                        {st.name}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-zinc-400 line-clamp-2">
-                      {st.detail}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
       </section>
+
+      {/* SECTION: INTEGRATED SUB-MODULES / FLOW ENGINE TOOLS */}
+      {config.subModules && config.subModules.length > 0 && (
+        <section id="flow-tools" className="scroll-mt-24 pt-4 border-t border-white/10 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <span className="text-[11px] font-mono uppercase tracking-widest text-violet-400 font-bold block mb-1">
+                Integrated Toolset &amp; Capabilities
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">
+                <Workflow className="w-6 h-6 text-violet-400" />
+                Flow Builder Core Capabilities
+              </h2>
+              <p className="text-sm text-zinc-400 mt-1">
+                Explore the modular subsystems that power visual conversational automation.
+              </p>
+            </div>
+            <span className="text-xs font-mono text-zinc-400 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/10 w-fit">
+              {config.subModules.length} Integrated Modules
+            </span>
+          </div>
+
+          {/* Tab Navigation Buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            {config.subModules.map((mod, idx) => {
+              const isSelected = (activeSubModule || config.subModules[0].id) === mod.id;
+              return (
+                <button
+                  key={mod.id}
+                  onClick={() => setActiveSubModule(mod.id)}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer space-y-1.5 ${
+                    isSelected
+                      ? 'bg-violet-950/40 border-violet-500/60 ring-1 ring-violet-500/30 shadow-lg'
+                      : 'bg-white/[0.02] border-white/10 hover:border-white/20 hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-white/5 text-zinc-400">
+                      0{idx + 1}
+                    </span>
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                      isSelected ? 'bg-violet-500/20 text-violet-300' : 'text-zinc-500'
+                    }`}>
+                      {mod.badge}
+                    </span>
+                  </div>
+                  <h3 className={`text-xs font-bold truncate ${isSelected ? 'text-white' : 'text-zinc-300'}`}>
+                    {mod.title}
+                  </h3>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Sub-Module Display */}
+          {(() => {
+            const activeMod = config.subModules.find((m) => m.id === (activeSubModule || config.subModules[0].id)) || config.subModules[0];
+            return (
+              <div className="p-6 sm:p-8 rounded-2xl border border-violet-500/30 bg-gradient-to-br from-black/80 to-violet-950/20 shadow-2xl space-y-6">
+                <div className="space-y-2 pb-4 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30 uppercase tracking-wider">
+                      {activeMod.badge}
+                    </span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                    {activeMod.title}
+                  </h3>
+                  <p className="text-sm text-zinc-300">
+                    {activeMod.subtitle}
+                  </p>
+                </div>
+
+                <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
+                  {activeMod.description}
+                </p>
+
+                {/* 2-Column Split: Content Left (4 Points & Steps) | Photo Right */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start pt-2">
+                  {/* Left: 4 Core Features & Quick Steps */}
+                  <div className="lg:col-span-6 space-y-6">
+                    {/* 4 Core Points */}
+                    <div className="space-y-3">
+                      <span className="text-xs font-mono uppercase tracking-wider text-violet-300 font-semibold block">
+                        4 Core Capabilities &amp; Principles:
+                      </span>
+                      <div className="space-y-2.5">
+                        {activeMod.keyPoints?.map((pt, i) => (
+                          <div key={i} className="flex items-start gap-2.5 text-xs sm:text-sm text-zinc-300 p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-violet-500/20 transition-all">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                            <span className="leading-relaxed">{pt}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* How to Use Steps */}
+                    {activeMod.steps && activeMod.steps.length > 0 && (
+                      <div className="space-y-3">
+                        <span className="text-xs font-mono uppercase tracking-wider text-violet-300 font-semibold block">
+                          How to Use in Canvas:
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                          {activeMod.steps.map((st) => (
+                            <div key={st.step} className="p-3 rounded-xl border border-white/10 bg-slate-900/40 space-y-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-400 font-mono text-[10px] font-bold">
+                                  Step {st.step}
+                                </span>
+                                <h4 className="text-xs font-semibold text-white truncate">
+                                  {st.title}
+                                </h4>
+                              </div>
+                              <p className="text-[11px] text-zinc-400 leading-relaxed">
+                                {st.description}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right: Proper Feature Screenshot */}
+                  <div className="lg:col-span-6">
+                    <div className="p-2 sm:p-3 rounded-2xl border border-white/10 bg-slate-900/60 shadow-2xl hover:border-violet-500/30 transition-all">
+                      <DocumentationScreenshot
+                        src={activeMod.image || config.screenshotUrl}
+                        alt={activeMod.title}
+                        caption={activeMod.caption || `${activeMod.title} visual interface in Automation Wire`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </section>
+      )}
 
       {/* SECTION 4: RESULT & VERIFICATION (Media Left | Content Right) */}
       <section id="verification" className="scroll-mt-24 pt-4 border-t border-white/10">
@@ -285,13 +554,13 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
           <div className="lg:col-span-6 order-1 lg:order-2 space-y-4">
             <div>
               <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-400 font-bold block mb-1">
-                Result &amp; Verification
+                Expected Result
               </span>
               <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                Target Operational SLA &amp; Outcome
+                Expected Result &amp; Verification
               </h2>
               <p className="text-sm text-zinc-400 mt-1">
-                What to verify in your console after completing setup.
+                Clearly verify what you should see after completing this workflow.
               </p>
             </div>
 
@@ -369,6 +638,47 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
                     {uc.solution}
                   </p>
                 </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* SECTION: TIPS / BEST PRACTICES */}
+      {config.tips && config.tips.length > 0 && (
+        <section id="tips" className="scroll-mt-24 pt-4 border-t border-white/10 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <span className="text-[11px] font-mono uppercase tracking-widest text-violet-400 font-bold block mb-1">
+                Tips / Best Practices
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">
+                <Lightbulb className="w-6 h-6 text-violet-400" />
+                Recommendations &amp; Best Practices
+              </h2>
+            </div>
+            <span className="text-xs font-mono text-zinc-400 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/10 w-fit">
+              Field recommendations &amp; pro-tips
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {config.tips.map((tip, idx) => (
+              <div
+                key={idx}
+                className="p-4 rounded-xl border border-white/10 bg-slate-900/40 hover:border-violet-500/30 transition-all space-y-2"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 font-mono text-xs font-bold shrink-0">
+                    ★
+                  </div>
+                  <h3 className="text-sm font-semibold text-white">
+                    {tip.title}
+                  </h3>
+                </div>
+                <p className="text-xs text-zinc-400 leading-relaxed pl-8">
+                  {tip.description}
+                </p>
               </div>
             ))}
           </div>

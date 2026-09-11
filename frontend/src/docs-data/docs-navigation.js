@@ -33,43 +33,15 @@ export const DOCS_NAVIGATION = [
     items: [
       {
         slug: "features/ai-workspace",
-        title: "AI Workspace & Agent Studio",
-        description: "Interactive AI agent testing, real-time streaming, auto model routing, and tool-calling.",
+        title: "AI Workspace & Smart Copilot",
+        description: "Multi-model conversational workspace with real-time streaming, Brain RAG search, document analysis, and session history.",
         badge: "Video Included",
         hasVideo: true
       },
       {
         slug: "features/agentic-orchestrator",
         title: "Agentic Orchestrator (Flows)",
-        description: "Visual canvas for constructing automated conversational logic, triggers, and delay timers.",
-        badge: "Video Included",
-        hasVideo: true
-      },
-      {
-        slug: "features/flow-linking",
-        title: "Multi-Step Sequential Linking",
-        description: "Wiring sequential nodes, port routing, and validating graph health before deployment.",
-        badge: "Video Included",
-        hasVideo: true
-      },
-      {
-        slug: "features/magic-wire",
-        title: "Magic Wire (AI Flow Generation)",
-        description: "Generate complete production workflows directly from plain English prompts.",
-        badge: "Video Included",
-        hasVideo: true
-      },
-      {
-        slug: "features/conditional-logic",
-        title: "Conditional Logic & Decision Nodes",
-        description: "Branching workflows based on user intent, keywords, sentiment, or urgency detection.",
-        badge: "Video Included",
-        hasVideo: true
-      },
-      {
-        slug: "features/interactive-menus",
-        title: "Interactive Button Menus & Bots",
-        description: "E-Commerce catalog browsing, order lookups, and multi-choice button carousels.",
+        description: "Visual workflow canvas, Magic Wire AI generation, sequential linking, decision logic, and interactive button bots.",
         badge: "Video Included",
         hasVideo: true
       },
@@ -165,7 +137,7 @@ export const DOCS_NAVIGATION = [
       {
         slug: "troubleshooting/common-issues",
         title: "Common Issues & Resolutions",
-        description: "Fix Meta 24-hour window errors, webhook drops, RAG ingestion failures, and token limits."
+        description: "Guidance on customer care windows, webhook synchronization, knowledge base uploads, and credit safeguards."
       },
       {
         slug: "troubleshooting/faq",
@@ -178,6 +150,10 @@ export const DOCS_NAVIGATION = [
 
 export const ALL_DOC_SLUGS = [
   ...DOCS_NAVIGATION.flatMap(c => c.items.map(i => i.slug)),
+  "features/flow-linking",
+  "features/magic-wire",
+  "features/conditional-logic",
+  "features/interactive-menus",
   "features/automation",
   "features/ai-brain",
   "features/lead-intelligence",

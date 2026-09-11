@@ -60,42 +60,64 @@ export const leadsCrmDetail = {
       highlight: 'HubSpot, Salesforce & Webhook sync'
     }
   ],
+  beforeYouStart: [
+    {
+      title: 'Identify Qualification Criteria',
+      description: 'Define the key fields your sales team needs to capture (e.g. Budget, Decision Authority, Timeline, Company Size).'
+    },
+    {
+      title: 'Live Inbound Channel',
+      description: 'At least one messaging channel active so prospective leads can message your brand.'
+    },
+    {
+      title: 'External CRM Account (Optional)',
+      description: 'Connected HubSpot, Salesforce, or webhook destination if auto-syncing outside Orbion.'
+    }
+  ],
   setupSteps: [
     {
       step: 1,
-      title: 'Define Qualification Criteria & Custom Fields',
-      description: 'Navigate to AI CRM > Settings > Qualification Rules. Specify which parameters your business needs to extract (e.g., Annual Budget, Target Launch Date, Current Provider).',
-      screenshotPlaceholder: {
-        title: 'Lead Qualification Criteria Builder',
-        description: 'Shows customizable qualification rules with field data types (Currency, Date, Text) and scoring weights.'
-      }
+      stage: 'Step 1 — Open the feature',
+      title: 'Open Leads & CRM Dashboard',
+      description: 'From the main navigation sidebar, click "Leads / CRM" (/user/admin/crm) to access your prospect pipeline.'
     },
     {
       step: 2,
-      title: 'Configure Scoring Weights & Stage Thresholds',
-      description: 'Set score thresholds for Hot (e.g. >= 80), Warm (40-79), and Cold (< 40). Assign higher weight to immediate purchase timelines and verified budget figures.',
-      screenshotPlaceholder: {
-        title: 'Score Thresholds & Alert Triggers',
-        description: 'Shows slider controls for Hot/Warm/Cold ranges and notification checkbox for high-intent deals.'
-      }
+      stage: 'Step 2 — Configure the required information',
+      title: 'Configure Qualification Rules & Scoring Thresholds',
+      description: 'In CRM Settings, specify parameters to extract (Budget, Timeline, Seat Count) and configure scoring thresholds for Hot (>=80), Warm (40-79), and Cold (<40).'
     },
     {
       step: 3,
-      title: 'Connect CRM Destination (HubSpot / Salesforce / Webhook)',
-      description: 'Select your CRM integration under Settings > Integrations. Authorize OAuth access and map Orbion extracted parameters to corresponding CRM deal properties.',
-      screenshotPlaceholder: {
-        title: 'CRM Property Mapping Interface',
-        description: 'Shows side-by-side mapping between Orbion extracted variables and HubSpot Contact/Deal properties.'
-      }
+      stage: 'Step 3 — Perform the action',
+      title: 'Link CRM Destination or Webhook',
+      description: 'Click "Connect CRM" under Settings > Integrations. Authorize HubSpot/Salesforce or input your webhook endpoint and map extracted fields to CRM contact properties.'
     },
     {
       step: 4,
-      title: 'Track Pipeline & Review Extracted Lead Cards',
-      description: 'Open the Leads dashboard to view newly qualified prospects. Click any lead card to see the full qualification transcript, extracted metadata, and confidence score.',
-      screenshotPlaceholder: {
-        title: 'Pipeline Kanban Board with Active Leads',
-        description: 'Shows columns for New Inquiries, Qualified, Demo Booked, and Won Deals with lead contact badges.'
-      }
+      stage: 'Step 4 — Review',
+      title: 'Review Extracted Lead Cards & Confidence Scores',
+      description: 'Click any prospect card in the Kanban board. Verify the extracted contact details, conversation transcript snippet, and calculated qualification score.'
+    },
+    {
+      step: 5,
+      stage: 'Step 5 — Complete',
+      title: 'Assign Sales Rep & Transition Deal Stage',
+      description: 'Assign the lead to a sales rep or drag the deal card to "Demo Scheduled". Automatic notifications are dispatched to the assigned rep via WhatsApp/Slack.'
+    }
+  ],
+  tips: [
+    {
+      title: 'Real-Time Alert for Hot Deals',
+      description: 'Enable push or WhatsApp alerts for leads scored >80 so reps can call or message back while the prospect is still active.'
+    },
+    {
+      title: 'Automated Contact Deduplication',
+      description: 'Orbion automatically merges contacts based on verified email or phone number across WhatsApp and Instagram.'
+    },
+    {
+      title: 'Export Itemized CSV for Reports',
+      description: 'Click "Export Leads" to generate sanitized CSV summaries of captured prospect data for weekly revenue meetings.'
     }
   ],
   useCases: [

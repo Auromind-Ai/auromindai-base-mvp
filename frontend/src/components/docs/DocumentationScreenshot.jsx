@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Camera, Maximize2, X, Layers } from 'lucide-react';
+import { Camera, X, Layers } from 'lucide-react';
 
 export default function DocumentationScreenshot({
   src,
@@ -15,30 +15,28 @@ export default function DocumentationScreenshot({
 }) {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
-  // If a real screenshot exists, render the image container with optional lightbox
+  // If a real screenshot exists, render the image directly without a box border
   if (src) {
     return (
       <figure className={`space-y-2 group ${className}`}>
         <div
-          className={`relative rounded-xl overflow-hidden border border-white/10 bg-[#090A10] ${aspectRatio} cursor-pointer shadow-lg hover:border-violet-500/40 transition-all`}
+          className="relative w-full rounded-xl overflow-hidden cursor-zoom-in transition-opacity hover:opacity-95"
           onClick={() => setIsLightboxOpen(true)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setIsLightboxOpen(true)}
+          aria-label={`Expand ${alt}`}
         >
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src={src}
             alt={alt}
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 75vw, 60vw"
-            className="object-cover group-hover:scale-[1.01] transition-transform duration-300"
+            className="w-full h-auto rounded-xl object-contain block"
+            loading="lazy"
           />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-            <span className="px-2.5 py-1 rounded-lg bg-black/70 text-xs text-white flex items-center gap-1.5 backdrop-blur-sm border border-white/10">
-              <Maximize2 className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Expand Preview</span>
-            </span>
-          </div>
 
           {stepNumber && (
-            <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-[#814AC8] text-[11px] font-bold text-white shadow-md">
+            <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-[#814AC8] text-[11px] font-bold text-white shadow-md pointer-events-none">
               Step {stepNumber}
             </div>
           )}
@@ -65,12 +63,12 @@ export default function DocumentationScreenshot({
               <X className="w-6 h-6" />
             </button>
             <div className="relative max-w-5xl w-full max-h-[85vh] h-full flex flex-col items-center justify-center">
-              <div className="relative w-full h-full rounded-2xl overflow-hidden border border-white/20">
-                <Image
+              <div className="relative w-full max-h-[80vh] flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src={src}
                   alt={alt}
-                  fill
-                  className="object-contain"
+                  className="max-h-[80vh] w-auto max-w-full rounded-xl object-contain"
                 />
               </div>
               {caption && (

@@ -19,42 +19,42 @@ import {
 const CHANNELS = [
   {
     id: 'whatsapp',
-    name: 'WhatsApp Cloud API',
-    tag: 'Meta Direct',
+    name: 'WhatsApp Business Cloud',
+    tag: 'Meta Official',
     status: 'CONNECTED',
     latency: '34ms',
-    endpoint: 'https://api.orbion.ai/api/webhooks/whatsapp',
-    appId: '109482910481029',
+    endpoint: 'https://[your-workspace].orbion.ai/channels/whatsapp',
+    appId: 'Official Meta App ID',
     phoneId: '+1 (555) 019-8291',
-    authType: 'System User Permanent Access Token',
-    eventSubscriptions: ['messages', 'message_deliveries', 'message_reads', 'messaging_postbacks'],
-    security: 'HMAC SHA-256 Meta Signature Validation'
+    authType: 'Meta Official 1-Click Embedded Login',
+    eventSubscriptions: ['Incoming Messages', 'Delivery Receipts', 'Read Status', 'Quick Replies'],
+    security: 'Bank-Grade Enterprise Encryption'
   },
   {
     id: 'instagram',
     name: 'Instagram Direct & Mentions',
-    tag: 'Meta Graph API',
+    tag: 'Meta Official',
     status: 'CONNECTED',
     latency: '52ms',
-    endpoint: 'https://api.orbion.ai/api/webhooks/instagram',
-    appId: '109482910481029',
-    phoneId: '@orbion_official',
-    authType: 'Instagram Business Login OIDC',
-    eventSubscriptions: ['messages', 'messaging_postbacks', 'story_mentions', 'comments'],
-    security: 'X-Hub-Signature-256 Verified'
+    endpoint: 'https://[your-workspace].orbion.ai/channels/instagram',
+    appId: 'Official Meta App ID',
+    phoneId: '@your_brand_handle',
+    authType: 'Official Meta Instagram Business Login',
+    eventSubscriptions: ['Direct Messages', 'Story Mentions', 'Comments'],
+    security: 'End-to-End Enterprise Encryption'
   },
   {
     id: 'webhooks',
-    name: 'Custom Inbound & Outbound Webhooks',
-    tag: 'REST & CRM Dispatch',
+    name: 'CRM & Custom Webhooks',
+    tag: 'Zapier / HubSpot Bridge',
     status: 'ACTIVE',
     latency: '18ms',
-    endpoint: 'https://api.orbion.ai/api/webhooks/crm-bridge',
-    appId: 'WHK-SEC-89410',
+    endpoint: 'https://[your-workspace].orbion.ai/channels/crm-bridge',
+    appId: 'CRM-CONNECTOR',
     phoneId: 'HubSpot / Salesforce / Zapier Gateway',
-    authType: 'Bearer JWT & Custom Secret Header',
-    eventSubscriptions: ['lead.created', 'agent.handoff_requested', 'conversation.closed'],
-    security: 'TLS 1.3 Strict Mutual Authentication'
+    authType: 'API Key & Secure Webhook Secret',
+    eventSubscriptions: ['New Lead Created', 'Human Handoff Requested', 'Conversation Resolved'],
+    security: 'Enterprise TLS Encryption'
   }
 ];
 
@@ -196,7 +196,7 @@ export default function IntegrationsDetailVisual() {
               <span className="text-[10px] font-mono text-emerald-400">200 OK (Processed)</span>
             </div>
             <div className="p-3 rounded-lg bg-slate-950 border border-white/10 font-mono text-[11px] text-slate-300 space-y-1 overflow-x-auto leading-relaxed">
-              <div className="text-slate-500">// Hub Signature Check: VALID</div>
+              <div className="text-slate-500">Security Check: Verified ✓</div>
               <div>&#123;</div>
               <div className="pl-3 text-sky-300">&quot;object&quot;: &quot;whatsapp_business_account&quot;,</div>
               <div className="pl-3 text-amber-300">&quot;entry&quot;: [&#123;</div>

@@ -60,42 +60,64 @@ export const omniInboxDetail = {
       highlight: 'Private internal notes & assignments'
     }
   ],
+  beforeYouStart: [
+    {
+      title: 'Connected Messaging Channel',
+      description: 'At least one active channel (WhatsApp Business Cloud API or Instagram Direct) connected in Settings > Integrations.'
+    },
+    {
+      title: 'Agent Permissions & Role',
+      description: 'Workspace user account with Agent or Admin role assigned to access and reply in conversation queues.'
+    },
+    {
+      title: 'Knowledge Base Ready',
+      description: 'Verified documentation uploaded to AI Brain so the AI Copilot can generate accurate reply drafts.'
+    }
+  ],
   setupSteps: [
     {
       step: 1,
-      title: 'Connect WhatsApp Cloud API or Instagram Direct',
-      description: 'Navigate to Settings > Integrations and authenticate your Meta Business Account. Verify webhook verification tokens and verify phone number registration status.',
-      screenshotPlaceholder: {
-        title: 'Meta Channel Integration Setup Screen',
-        description: 'Shows webhook URL callback configuration and permanent system token validation.'
-      }
+      stage: 'Step 1 — Open the feature',
+      title: 'Open the Omni-Channel Inbox',
+      description: 'From the main navigation sidebar, click "Inbox" (/user/admin/inbox) to enter the live conversation console.'
     },
     {
       step: 2,
-      title: 'Configure Inbound Routing & Autonomous Default',
-      description: 'Define whether inbound threads start in Autonomous AI Mode or Human Triage Mode. Assign default agent groups for escalations when confidence falls below 75%.',
-      screenshotPlaceholder: {
-        title: 'Inbox Routing Rules & Assignment Settings',
-        description: 'Shows queue assignment rules, fallback agent selection, and confidence thresholds.'
-      }
+      stage: 'Step 2 — Configure the required information',
+      title: 'Filter Queues & Configure Routing Rules',
+      description: 'Select your preferred queue view (Unassigned, All Chats, WhatsApp, or Instagram). Adjust the AI confidence threshold slider and set auto-assignment preferences for team members.'
     },
     {
       step: 3,
-      title: 'Operate Live Conversations & Leverage AI Drafts',
-      description: 'Open the Inbox from the main navigation. Click any thread in the queue to inspect contact details, view the conversation history, and review AI copilot suggestions before sending.',
-      screenshotPlaceholder: {
-        title: 'Live Conversation View with AI Copilot Panel',
-        description: 'Shows active customer chat on the left, message composer with AI draft, and CRM sidebar on the right.'
-      }
+      stage: 'Step 3 — Perform the action',
+      title: 'Select Thread & Send or Approve Reply',
+      description: 'Click any active conversation thread in the queue. In the bottom composer, accept the AI Copilot draft suggestion or type your own response, then click "Send" (Ctrl + Enter).'
     },
     {
       step: 4,
-      title: 'Use Human Takeover for Complex Scenarios',
-      description: 'When an inquiry requires custom approval, flip the "AI Autonomous Mode" toggle to OFF. The AI agent enters standby mode and logs your manual responses into the customer audit trail.',
-      screenshotPlaceholder: {
-        title: 'Human Takeover Toggle & Audit Trail',
-        description: 'Shows the visual indicator switching from AI Agent to Support Operator with timestamp.'
-      }
+      stage: 'Step 4 — Review',
+      title: 'Inspect Customer Context & Citations',
+      description: 'Review the right-hand CRM sidebar to verify contact tags, conversation history, and the exact knowledge base chunks cited by the AI before proceeding.'
+    },
+    {
+      step: 5,
+      stage: 'Step 5 — Complete',
+      title: 'Resolve Thread or Toggle Human Takeover',
+      description: 'Mark the conversation as "Resolved" when finished, or toggle "AI Autonomous Mode" to OFF if manual intervention continues. The update is synced across all agent screens instantly.'
+    }
+  ],
+  tips: [
+    {
+      title: 'Internal Notes for Escalation',
+      description: 'Click the "Internal Note" tab (@mentions) in the composer to discuss complex tickets with colleagues without the customer seeing.'
+    },
+    {
+      title: 'Use AI Copilot in Draft Mode First',
+      description: 'Keep autonomous replies in Draft Review mode during your first week to verify suggested responses before switching to 100% autonomy.'
+    },
+    {
+      title: 'Speed Up with Keyboard Shortcuts',
+      description: 'Press Ctrl+Enter to send replies, Tab to cycle through AI suggestions, and Esc to return to the inbox queue.'
     }
   ],
   useCases: [

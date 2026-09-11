@@ -5,8 +5,9 @@ export const creditsWalletDetail = {
   category: 'Financial Infrastructure & Token Metering',
   title: 'Credits, Wallet & Token Metering',
   tagline: 'Deterministic per-token metering, Meta WCC conversation billing, transparent transaction ledgers, and zero-downtime auto-reload.',
-  description: 'Total financial transparency for your AI operations. The OrbionAgents Wallet provides real-time metering for AI token consumption across models (GPT-4o, Claude, Gemini) and transparently reconciles Meta WhatsApp Conversation Charges (WCC). Set automated balance reload triggers, monitor per-agent compute costs, and review an immutable transaction ledger down to the exact millicent.',
+  description: 'Total financial transparency for your AI operations. The OrbionAgents Wallet (/user/admin/credits) provides real-time metering for AI token consumption across models (GPT, Claude, Gemini) and transparently reconciles Meta WhatsApp Conversation Charges (WCC). Set automated balance reload triggers, monitor per-agent compute costs, and review an immutable transaction ledger down to individual turns.',
   visualKey: 'wallet',
+  screenshotUrl: '/docs/screenshots/dashboard-credits-wallet.png',
   videoPlaceholder: {
     title: 'Managing AI Credits & Meta Conversation Balance',
     description: 'Learn how token metering works, how to configure zero-downtime auto-reload rules, and how to export itemized monthly cost reports for accounting.',
@@ -34,7 +35,7 @@ export const creditsWalletDetail = {
       {
         number: '04',
         name: 'Auto-Reload & Threshold Guard',
-        detail: 'If credits fall below your configured safety buffer, Stripe auto-charges your card to guarantee zero service interruption.'
+        detail: 'If credits fall below your configured safety buffer, Razorpay auto-charges your saved payment method (Card/UPI) to guarantee zero service interruption.'
       }
     ]
   },
@@ -42,11 +43,11 @@ export const creditsWalletDetail = {
     {
       title: 'Deterministic Token Accounting',
       description: 'Know exactly what every customer interaction costs. Inspect prompt tokens, completion tokens, and tool overheads per conversation turn.',
-      highlight: 'Sub-cent accuracy across all LLMs'
+      highlight: 'Sub-token accuracy across all LLMs'
     },
     {
       title: 'Meta WhatsApp WCC Integration',
-      description: 'Direct pass-through billing for Meta 24-hour marketing and service conversation fees with no hidden markups.',
+      description: 'Direct pass-through billing for Meta 24-hour marketing, utility, and service conversation fees in Indian Rupees (₹ INR) with no hidden markups.',
       highlight: 'Official Meta pricing parity'
     },
     {
@@ -60,42 +61,69 @@ export const creditsWalletDetail = {
       highlight: 'Granular spending caps'
     }
   ],
+  beforeYouStart: [
+    {
+      title: 'Valid Payment Method',
+      description: 'Credit/Debit card, UPI, or Net Banking linked via Razorpay for billing and automated reloads.'
+    },
+    {
+      title: 'Understand Meta WCC vs AI Credits',
+      description: 'Recognize that AI Credits cover LLM generation tokens, while Meta WCC covers WhatsApp 24-hour service and marketing conversation charges.'
+    },
+    {
+      title: 'Billing Admin Permissions',
+      description: 'Workspace user account with Owner or Finance Admin privileges to modify spending caps.'
+    }
+  ],
   setupSteps: [
     {
       step: 1,
-      title: 'Access the Wallet & Review Current Balance',
-      description: 'Click "Wallet" in the main navigation. Review your AI Credits balance, Meta WCC reserves, and estimated remaining conversation days.',
+      stage: 'Step 1 — Open the feature',
+      title: 'Open Credits & Wallet Console',
+      description: 'From the main navigation sidebar, click "Credits" (/user/admin/credits) to open your financial overview.',
       screenshotPlaceholder: {
-        title: 'Wallet Balance Overview Cards',
-        description: 'Shows AI Token balance card, Meta WCC card, and 30-day spend trajectory graph.'
+        src: '/docs/screenshots/dashboard-credits-wallet.png',
+        title: 'Credits & Wallet Console',
+        description: 'Dual-tab wallet displaying AI Models token quota (250,991 remaining) and WhatsApp Conversation Wallet (₹3,000 balance).'
       }
     },
     {
       step: 2,
-      title: 'Set Up Automated Balance Top-Up',
-      description: 'Click "Auto-Reload Settings". Specify your minimum threshold (e.g. reload when balance drops below $25) and top-up amount (e.g. $100).',
-      screenshotPlaceholder: {
-        title: 'Auto-Reload Configuration Modal',
-        description: 'Shows threshold input field, reload amount selector, and linked credit card information.'
-      }
+      stage: 'Step 2 — Configure the required information',
+      title: 'Configure Auto-Reload & Spending Caps',
+      description: 'In "Auto-Reload Settings", set your trigger buffer (e.g. reload when balance drops below ₹500) and top-up amount (₹1,000 / ₹2,500). In "Agent Budgets", assign monthly token caps.'
     },
     {
       step: 3,
-      title: 'Configure Per-Agent Credit Allocation',
-      description: 'Under "Agent Spending Limits", set daily or monthly token budgets for each active agent to enforce predictable operational costs.',
-      screenshotPlaceholder: {
-        title: 'Agent Token Budget Matrix',
-        description: 'Shows active agent list with slider controls for monthly credit caps and alert thresholds.'
-      }
+      stage: 'Step 3 — Perform the action',
+      title: 'Save Payment Method & Enable Auto-Topup',
+      description: 'Link your billing card or UPI via Razorpay and toggle "Auto-Reload" to ON. You can also click "Recharge" to make an instant one-time wallet deposit in ₹ INR.'
     },
     {
       step: 4,
-      title: 'Audit Historical Usage & Export Invoices',
-      description: 'Inspect the Transaction Ledger to view itemized deductions by timestamp, model, and conversation ID. Click "Export CSV" for financial auditing.',
-      screenshotPlaceholder: {
-        title: 'Transaction History Ledger with Filter Controls',
-        description: 'Shows transaction table with date filter, transaction type selector, and one-click invoice download.'
-      }
+      stage: 'Step 4 — Review',
+      title: 'Review Real-Time Token Expenditure Ledger',
+      description: 'Inspect the Transaction Ledger. Verify per-conversation breakdowns, model-by-model token consumption (Claude vs Gemini), and Meta WCC deductions.'
+    },
+    {
+      step: 5,
+      stage: 'Step 5 — Complete',
+      title: 'Export Tax Invoices & Download PDF Receipts',
+      description: 'Click "Download Monthly Invoice" to get a GST-compliant tax receipt with itemized usage breakdowns for your accounting team.'
+    }
+  ],
+  tips: [
+    {
+      title: 'Enable Auto-Reload to Prevent Downtime',
+      description: 'Always keep an auto-reload buffer so your AI agents never drop customer messages during unpredicted traffic spikes.'
+    },
+    {
+      title: 'Route High-Volume Tasks to Gemini',
+      description: 'Use Claude or GPT for complex intent routing, but switch high-volume repetitive FAQ responses to Gemini to reduce inference costs by 70%.'
+    },
+    {
+      title: 'Set Low Balance Email Notifications',
+      description: 'Configure email alerts when your balance hits 20% to review consumption trends before automatic charges occur.'
     }
   ],
   useCases: [
@@ -112,7 +140,7 @@ export const creditsWalletDetail = {
     {
       title: 'Cost Optimization Across LLM Models',
       scenario: 'Engineering teams wanting to balance response quality against inference costs.',
-      solution: 'Review token ledger to identify simple FAQ tasks that can be migrated from GPT-4o to Gemini Flash, cutting costs by 70%.'
+      solution: 'Review token ledger to identify simple FAQ tasks that can be migrated to Gemini, cutting costs by 70%.'
     }
   ],
   expectedOutcome: 'Zero unexpected billing surprises, continuous 24/7 service availability, and complete financial auditability down to individual conversation turns.',
@@ -123,7 +151,11 @@ export const creditsWalletDetail = {
     },
     {
       question: 'What is the difference between AI Credits and Meta WCC?',
-      answer: 'AI Credits cover LLM inference tokens and platform storage. Meta WCC covers official WhatsApp 24-hour conversation window fees billed directly by Meta Business.'
+      answer: 'AI Credits cover LLM inference tokens and platform compute. Meta WCC covers official WhatsApp 24-hour conversation window fees (marketing, utility, service) billed directly by Meta Business in ₹ INR.'
+    },
+    {
+      question: 'What happens if my AI Credits reach zero?',
+      answer: 'OrbionAgents includes an automated Human Takeover fallback. When AI credits hit zero, active chats automatically transition to human support agents instead of dropping customer messages.'
     },
     {
       question: 'Can I set a hard spending cap to ensure I never exceed my budget?',

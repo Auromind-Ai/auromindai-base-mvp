@@ -60,42 +60,64 @@ export const brainRagDetail = {
       highlight: 'Role-based knowledge collections'
     }
   ],
+  beforeYouStart: [
+    {
+      title: 'Prepared Source Documents',
+      description: 'Ensure documentation files (PDF, DOCX, Markdown, or CSV) contain clean, text-extractable content (not flat scanned images without OCR).'
+    },
+    {
+      title: 'Admin / Manager Access',
+      description: 'Permissions to create and manage knowledge collections in your workspace.'
+    },
+    {
+      title: 'Available Vector Credits',
+      description: 'Adequate workspace credit balance for document parsing and high-dimensional vector embeddings.'
+    }
+  ],
   setupSteps: [
     {
       step: 1,
-      title: 'Create a Knowledge Collection',
-      description: 'Go to AI Brain in the sidebar. Click "Create Collection", give it a recognizable name (e.g. "Public Product Docs & Pricing"), and select the target agent workspace.',
-      screenshotPlaceholder: {
-        title: 'New Knowledge Collection Modal',
-        description: 'Shows collection name input, description field, and agent workspace selector dropdown.'
-      }
+      stage: 'Step 1 — Open the feature',
+      title: 'Navigate to AI Brain Console',
+      description: 'From the main navigation sidebar, click "AI Brain" (/user/admin/brain) to open the vector knowledge management console.'
     },
     {
       step: 2,
-      title: 'Upload Documents or Sync Web URLs',
-      description: 'Drag and drop your PDF manuals, FAQ sheets, or input your public documentation website URL for automated crawling. Watch the real-time ingestion status as chunks are vectorized.',
-      screenshotPlaceholder: {
-        title: 'Document Upload & Ingestion Queue',
-        description: 'Displays uploaded file list with status badges (Indexing, Vectorized, Active) and chunk counts.'
-      }
+      stage: 'Step 2 — Configure the required information',
+      title: 'Configure Collection Details & Threshold',
+      description: 'Click "Create Collection". Enter a descriptive name (e.g. "Product Pricing & FAQs"), select target agent access scope, and set your cosine similarity threshold (recommended: 0.75 - 0.85).'
     },
     {
       step: 3,
-      title: 'Run Interactive Test Inquiries',
-      description: 'Use the built-in RAG Query Simulator to ask sample questions. Review the retrieved chunk cards, cosine match percentages, and synthesized responses.',
-      screenshotPlaceholder: {
-        title: 'RAG Simulator & Vector Match Inspector',
-        description: 'Shows prompt input box, matched document chunks with similarity scores (e.g. 0.94), and generated test reply.'
-      }
+      stage: 'Step 3 — Perform the action',
+      title: 'Upload Documents or Add Website URLs',
+      description: 'Drag and drop your PDF/DOCX files into the upload zone or input your documentation website sitemap URL, then click "Start Ingestion & Embedding".'
     },
     {
       step: 4,
-      title: 'Attach Collection to Live Agent Studio',
-      description: 'Open your Agent Studio configuration. In the "Knowledge Sources" section, check your new collection to grant the agent instant retrieval access.',
-      screenshotPlaceholder: {
-        title: 'Agent Knowledge Attachment Settings',
-        description: 'Shows toggle switches enabling individual knowledge collections for specific agents.'
-      }
+      stage: 'Step 4 — Review',
+      title: 'Review Vectorized Chunks & Test Similarity',
+      description: 'Use the built-in RAG Query Simulator to ask sample questions. Inspect the retrieved chunk cards, cosine match scores (e.g. 0.92), and verified paragraph citations.'
+    },
+    {
+      step: 5,
+      stage: 'Step 5 — Complete',
+      title: 'Publish Collection & Bind to Agents',
+      description: 'Click "Bind to Agent" to link this collection to active Agent Studio personas. Newly ingested facts are immediately retrievable in live customer chats.'
+    }
+  ],
+  tips: [
+    {
+      title: 'Structure Headings Clearly',
+      description: 'Use standard H1, H2, and bullet formatting in your source documents; semantic chunking performs best when sections are clearly delimited.'
+    },
+    {
+      title: 'Isolate Public vs Internal Data',
+      description: 'Create separate collections for customer-facing FAQ manuals and internal team SOPs to prevent confidential internal policies from leaking.'
+    },
+    {
+      title: 'Periodic Re-indexing for URLs',
+      description: 'Set an automatic weekly re-crawl for live URLs so your AI bot never serves outdated pricing or discontinued terms.'
     }
   ],
   useCases: [

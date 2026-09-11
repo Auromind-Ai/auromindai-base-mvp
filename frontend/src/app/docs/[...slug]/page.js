@@ -1,9 +1,10 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ALL_DOC_SLUGS } from '@/docs-data/docs-navigation';
-import { getArticleBySlug } from '@/docs-data/articles';
+import { getArticleBySlug, SLUG_ALIASES } from '@/docs-data/articles';
 import { getFeatureDetailConfig } from '@/docs-data/feature-details';
 import FeatureDetailView from '@/components/docs/features/FeatureDetailView';
+import IntroductionDetailView from '@/components/docs/IntroductionDetailView';
 import DynamicSectionRenderer from '@/components/docs/DynamicSectionRenderer';
 import {
   ArrowRight,
@@ -19,7 +20,8 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await params;
-  const slug = resolvedParams.slug.join('/');
+  const rawSlug = resolvedParams.slug.join('/');
+  const slug = SLUG_ALIASES[rawSlug] || rawSlug;
   
   const featureConfig = getFeatureDetailConfig(slug);
   if (featureConfig) {
@@ -80,8 +82,13 @@ export async function generateMetadata({ params }) {
 
 export default async function DocsArticlePage({ params }) {
   const resolvedParams = await params;
-  const slug = resolvedParams.slug.join('/');
+  const rawSlug = resolvedParams.slug.join('/');
   
+  if (SLUG_ALIASES[rawSlug]) {
+    redirect(`/docs/${SLUG_ALIASES[rawSlug]}`);
+  }
+
+  const slug = rawSlug;
   const featureConfig = getFeatureDetailConfig(slug);
   const article = getArticleBySlug(slug);
 
@@ -138,6 +145,26 @@ export default async function DocsArticlePage({ params }) {
         <div className="w-full">
           <FeatureDetailView
             config={featureConfig}
+            prevArticle={prevArticle}
+            nextArticle={nextArticle}
+          />
+        </div>
+      </>
+    );
+  }
+
+  // 2. Dedicated introduction page experience
+  if (slug === 'getting-started/introduction') {
+    return (
+      <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        />
+
+        <div className="w-full">
+          <IntroductionDetailView
+            article={article}
             prevArticle={prevArticle}
             nextArticle={nextArticle}
           />
@@ -208,7 +235,10 @@ export default async function DocsArticlePage({ params }) {
       />
 
       <div className="w-full">
-        <article className="space-y-12 pb-16 font-sans">
+        <article
+          className="space-y-12 pb-16 font-['Poppins',sans-serif]"
+          style={{ fontFamily: "'Poppins', sans-serif" }}
+        >
           {/* Article Header & Breadcrumbs */}
           <header className="space-y-4 border-b border-white/10 pb-8">
             <nav className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium">

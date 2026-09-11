@@ -60,42 +60,64 @@ export const integrationsDetail = {
       highlight: 'Real-time outbound webhooks'
     }
   ],
+  beforeYouStart: [
+    {
+      title: 'Meta Business Manager Admin Access',
+      description: 'Admin access to your Meta Business portfolio to create apps and generate System User tokens.'
+    },
+    {
+      title: 'Dedicated Phone Number',
+      description: 'A clean phone number not currently registered to a personal WhatsApp account for WhatsApp Business Cloud API.'
+    },
+    {
+      title: 'Valid Business Documents',
+      description: 'Official business registration documents if lifting Meta tier messaging limits from 250 to 1,000+ chats/day.'
+    }
+  ],
   setupSteps: [
     {
       step: 1,
-      title: 'Create Meta Business App & System User',
-      description: 'In Meta Business Manager, create a System User with Admin permissions. Generate a permanent access token with whatsapp_business_messaging and whatsapp_business_management scopes.',
-      screenshotPlaceholder: {
-        title: 'Meta Developer Console Token Generation',
-        description: 'Shows System User screen with permanent access token generation and assigned permissions.'
-      }
+      stage: 'Step 1 — Open the feature',
+      title: 'Open Multi-Channel Integrations Console',
+      description: 'From the main navigation sidebar, click "Settings" > "Integrations" (/user/admin/integrations).'
     },
     {
       step: 2,
-      title: 'Configure Webhook Endpoint & Verify Token',
-      description: 'Copy your unique Orbion Webhook URL from Integrations > WhatsApp. In Meta App Dashboard, paste the URL and enter your Verification Secret token.',
-      screenshotPlaceholder: {
-        title: 'Meta Webhooks Configuration Panel',
-        description: 'Shows Callback URL and Verify Token fields with green "Verified" status checkmark.'
-      }
+      stage: 'Step 2 — Configure the required information',
+      title: 'Configure Channel Credentials & Tokens',
+      description: 'Select your channel (WhatsApp Cloud API or Instagram Direct). Paste your Meta Phone Number ID, WhatsApp Business Account (WABA) ID, and Permanent System User Access Token.'
     },
     {
       step: 3,
-      title: 'Subscribe to Messaging Webhook Fields',
-      description: 'In Meta Webhook subscriptions, check "messages", "messaging_postbacks", and "message_deliveries" to enable full two-way chat synchronization.',
-      screenshotPlaceholder: {
-        title: 'Webhook Field Subscription Matrix',
-        description: 'Shows checkboxes for messages, message_deliveries, and message_reads enabled.'
-      }
+      stage: 'Step 3 — Perform the action',
+      title: 'Register Webhook Callback URL & Verify Secret',
+      description: 'Copy your unique Orbion Webhook URL and Verification Token. In Meta App Dashboard, paste them and click "Verify and Save".'
     },
     {
       step: 4,
-      title: 'Send a Live Test Message & Verify Ingestion',
-      description: 'Send a WhatsApp message from your personal phone to your registered business number. Watch it appear instantly in the Omni-Channel Inbox.',
-      screenshotPlaceholder: {
-        title: 'Live Message Ingestion Confirmation',
-        description: 'Shows live inbound message reflected in the Omni-Channel Inbox within 200 milliseconds.'
-      }
+      stage: 'Step 4 — Review',
+      title: 'Subscribe to Events & Send Inbound Test Message',
+      description: 'Subscribe to "messages" and "messaging_postbacks" in Meta. Send a live test message from your mobile phone to your business number and verify that a green 200 OK webhook pulse appears.'
+    },
+    {
+      step: 5,
+      stage: 'Step 5 — Complete',
+      title: 'Verify Live Stream in Omni-Channel Inbox',
+      description: 'Open the Omni-Channel Inbox to confirm the incoming test chat is received and assigned. Channel connection is now verified and active 24/7.'
+    }
+  ],
+  tips: [
+    {
+      title: 'Always Use System User Tokens',
+      description: 'Never use temporary user tokens from Meta Graph Explorer, as they expire in 24 hours. Always generate a Permanent System User token.'
+    },
+    {
+      title: 'Keep Webhook Verification Secret Secure',
+      description: 'Store your verification secret safely. Orbion verifies every incoming payload using HMAC SHA-256 signatures to reject forged payloads.'
+    },
+    {
+      title: 'Monitor Meta Quality Rating',
+      description: 'Check your WhatsApp Quality Rating in the dashboard weekly to ensure high template approval rates and prevent temporary tier downgrades.'
     }
   ],
   useCases: [

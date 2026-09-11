@@ -23,7 +23,10 @@ export default function DocsLayout({ children }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#050508] text-white flex flex-col font-sans selection:bg-[#814AC8]/30 selection:text-white">
+    <div
+      className="min-h-screen bg-[#050508] text-white flex flex-col font-['Poppins',sans-serif] selection:bg-[#814AC8]/30 selection:text-white"
+      style={{ fontFamily: "'Poppins', sans-serif" }}
+    >
       {/* Top Header */}
       <DocsHeader
         onOpenMobile={() => setIsMobileMenuOpen(true)}

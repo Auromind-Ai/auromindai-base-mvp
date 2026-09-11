@@ -85,19 +85,19 @@ export const INTEGRATIONS_ARTICLES = {
         type: "troubleshooting",
         items: [
           {
-            issue: "Meta Webhook verification fails with challenge mismatch?",
-            cause: "The Verify Token string entered in Meta does not match the secret displayed in Orbion.",
-            solution: "Copy the Verify Token directly from the Orbion Channels configuration without any leading or trailing spaces."
+            issue: "Channel connection status needs a refresh?",
+            cause: "Facebook authentication session expired or permissions were modified in Meta Business Suite.",
+            solution: "Navigate to Channels (/user/admin/channels) and click 'Reconnect' to launch the official Meta login window and restore synchronization."
           },
           {
-            issue: "Outgoing messages fail with error code 131047?",
+            issue: "Why are outgoing messages paused after 24 hours?",
             cause: "More than 24 hours have passed since the customer's last inbound message.",
-            solution: "Outside the 24-hour service window, Meta requires using a pre-approved WhatsApp Template to initiate contact."
+            solution: "Outside the official 24-hour window, WhatsApp requires using a pre-approved Message Template to initiate contact."
           },
           {
             issue: "Messages stop delivering after several weeks?",
-            cause: "A temporary user token was used instead of a permanent System User access token.",
-            solution: "Generate a permanent System User token in Meta Business Manager and update the token in Orbion Channels."
+            cause: "A temporary user token was used instead of an official permanent channel connection.",
+            solution: "Click 'Reconnect' in Channels to establish a permanent channel authorization with Meta."
           }
         ]
       }
@@ -257,14 +257,14 @@ export const INTEGRATIONS_ARTICLES = {
         type: "troubleshooting",
         items: [
           {
-            issue: "Error 21608: 'The number is unverified'?",
-            cause: "Your Twilio account is in Trial Mode and can only send messages to verified numbers.",
-            solution: "Upgrade your Twilio project to a paid account or verify the recipient number in the Twilio Phone Numbers console."
+            issue: "Twilio test message fails to deliver to an unverified number?",
+            cause: "Your Twilio account is in Trial Mode and can only send test messages to verified phone numbers.",
+            solution: "Verify the test recipient phone number in Twilio Console > Verified Caller IDs, or upgrade your Twilio project to a paid live account."
           },
           {
             issue: "Inbound SMS not reflecting in queue?",
-            cause: "The webhook URL in Twilio may be configured as HTTP GET instead of HTTP POST.",
-            solution: "Ensure the method dropdown next to the Webhook URL in Twilio is set to HTTP POST."
+            cause: "The messaging webhook configuration needs to be refreshed.",
+            solution: "Ensure the Twilio phone number is correctly connected under Channels in your Orbion dashboard."
           }
         ]
       }
