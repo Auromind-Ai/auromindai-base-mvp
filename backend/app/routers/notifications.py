@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -7,6 +8,7 @@ from app.core.pagination import SkipLimitParams
 from app.routers.auth import get_current_user, CurrentUser
 from app.models.notification import Notification
 from app.schemas.notification import NotificationResponse, NotificationListResponse
+from app.services.notification_service import NotificationService
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -14,26 +16,18 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 @router.get("", response_model=NotificationListResponse)
 def get_notifications(
     pagination: SkipLimitParams = Depends(),
+    category: Optional[str] = Query(None, description="Filter notifications by category: all, unread, mentions, updates, system"),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    """Retrieve paginated notifications for the current user, ordered by newest first."""
-    query = db.query(Notification).filter(Notification.user_id == current_user.id)
-    
-    unread_count = query.filter(Notification.is_read == False).count()
-    
-    items = query.order_by(
-        Notification.created_at.desc()
-    ).offset(
-        pagination.skip
-    ).limit(
-        pagination.limit
-    ).all()
-
-    return {
-        "items": items,
-        "unread_count": unread_count
-    }
+    """Retrieve paginated notifications for the current user, optionally filtered by category tab."""
+    return NotificationService.get_user_notifications(
+        db=db,
+        user_id=current_user.id,
+        skip=pagination.skip,
+        limit=pagination.limit,
+        category=category,
+    )
 
     
 @router.patch("/{id}/read", response_model=NotificationResponse)

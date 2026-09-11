@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell,
@@ -11,9 +11,9 @@ import {
   Inbox,
   X,
   ChevronRight,
-  ArrowRight,
   Wallet,
   FileCheck,
+  Check,
 } from 'lucide-react';
 import api from '../lib/api';
 
@@ -22,6 +22,8 @@ const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [selectedNotification, setSelectedNotification] = useState(null);
+  const [activeTab, setActiveTab] = useState('all'); // all | unread | mentions | updates | system
+  const [serverCounts, setServerCounts] = useState(null);
 
   const dropdownRef = useRef(null);
   const buttonRef = useRef(null);
@@ -38,6 +40,9 @@ const NotificationBell = () => {
       if (res) {
         setNotifications(res.items || []);
         setUnreadCount(res.unread_count || 0);
+        if (res.counts) {
+          setServerCounts(res.counts);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
@@ -109,36 +114,12 @@ const NotificationBell = () => {
         );
 
         setUnreadCount((prev) => Math.max(0, prev - 1));
-      } catch (err) {
-        console.error(
-          'Failed to mark notification as read:',
-          err
+        setServerCounts((prev) =>
+          prev ? { ...prev, unread: Math.max(0, (prev.unread || 1) - 1) } : prev
         );
+      } catch (err) {
+        console.error('Failed to mark notification as read:', err);
       }
-    }
-  };
-
-  // Mark single notification as read
-  const handleMarkRead = async (id, e) => {
-    e.stopPropagation();
-
-    try {
-      await api.markNotificationRead(id);
-
-      setNotifications((prev) =>
-        prev.map((notification) =>
-          notification.id === id
-            ? { ...notification, is_read: true }
-            : notification
-        )
-      );
-
-      setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch (err) {
-      console.error(
-        'Failed to mark notification as read:',
-        err
-      );
     }
   };
 
@@ -155,11 +136,9 @@ const NotificationBell = () => {
       );
 
       setUnreadCount(0);
+      setServerCounts((prev) => (prev ? { ...prev, unread: 0 } : prev));
     } catch (err) {
-      console.error(
-        'Failed to mark all notifications as read:',
-        err
-      );
+      console.error('Failed to mark all notifications as read:', err);
     }
   };
 
@@ -239,9 +218,40 @@ const NotificationBell = () => {
     }
   };
 
+  // Category mapping helper
+  const matchesCategory = (item, tab) => {
+    if (tab === 'all') return true;
+    if (tab === 'unread') return !item.is_read;
+
+    // Backend-la category column irundha adhai direct-ah use pannum, illana type vachu route aagum
+    const category = item.category || (
+      ['lead_alert', 'mention'].includes(item.type) ? 'mentions' :
+      ['product_update', 'ai_credits', 'workflow_completed'].includes(item.type) ? 'updates' :
+      ['security_alert', 'payment_failed', 'workflow_failed', 'system'].includes(item.type) ? 'system' :
+      'updates'
+    );
+
+    return category === tab;
+  };
+
+  // Tab counts
+  const tabCounts = useMemo(() => {
+    return {
+      all: serverCounts?.all ?? notifications.length,
+      unread: unreadCount,
+      mentions: serverCounts?.mentions ?? notifications.filter((n) => matchesCategory(n, 'mentions')).length,
+      updates: serverCounts?.updates ?? notifications.filter((n) => matchesCategory(n, 'updates')).length,
+      system: serverCounts?.system ?? notifications.filter((n) => matchesCategory(n, 'system')).length,
+    };
+  }, [notifications, serverCounts, unreadCount]);
+
+  // Filtered Notifications List
+  const filteredNotifications = useMemo(() => {
+    return notifications.filter((item) => matchesCategory(item, activeTab));
+  }, [notifications, activeTab]);
+
   const isClient = typeof window !== 'undefined';
   const isMobile = isClient && window.innerWidth < 640;
-  // 375x667 dimension-ku mattum exact targeted check
   const is375 = isClient && window.innerWidth <= 380;
 
   const panelStyle = isMobile
@@ -274,10 +284,7 @@ const NotificationBell = () => {
           )}
         </div>
 
-        {/* =========================
-            Notification Dropdown
-        ========================== */}
-
+        {/* Notification Dropdown */}
         <AnimatePresence>
           {isOpen && (
             <>
@@ -289,36 +296,26 @@ const NotificationBell = () => {
 
               {/* Notification Panel */}
               <motion.div
-                initial={{
-                  opacity: 0,
-                  y: 10, 
-                  scale: 0.98
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                  scale: 1,
-                }}
-                exit={{
-                  opacity: 0,
-                  y: 10, 
-                  scale: 0.98 
-                }}
+                initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.98 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
                 style={panelStyle}
-                className={`fixed w-auto max-w-[343px] mx-auto sm:max-w-none sm:w-[410px] sm:mx-0 bg-[#0E0E15] border border-white/[0.08] rounded-2xl sm:rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.9)] z-[100] overflow-hidden flex flex-col font-sans transition-all`}
+                className="fixed w-auto max-w-[350px] mx-auto sm:max-w-none sm:w-[420px] sm:mx-0 bg-[#0E0E15] border border-white/[0.08] rounded-2xl sm:rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.9)] z-[100] overflow-hidden flex flex-col font-sans transition-all"
               >
                 {/* Header */}
-                <div className="flex items-center justify-between px-4 pt-4 pb-2.5 sm:px-5 sm:pt-5 sm:pb-3">
+                <div className="flex items-center justify-between px-4 pt-4 pb-2 sm:px-5 sm:pt-5 sm:pb-3">
                   <h3 className="font-semibold text-white text-[15px] sm:text-base tracking-tight">
                     Notifications
                   </h3>
 
-                  <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="flex items-center gap-3">
                     <button
                       onClick={handleMarkAllRead}
-                      className="text-xs text-[#9d62f2] hover:text-[#b784fc] flex items-center gap-1.5 transition-colors font-medium cursor-pointer"
+                      className="text-xs text-[#9d62f2] hover:text-[#b784fc] flex items-center gap-1 transition-colors font-medium cursor-pointer"
                     >
+                      <Check size={14} />
+                      Mark all as read
                     </button>
 
                     <button
@@ -331,22 +328,65 @@ const NotificationBell = () => {
                   </div>
                 </div>
 
-                {/* List */}
+                  {/* Filter Tabs */}
+                  <div className="flex items-center gap-4 px-4 pb-2 sm:px-5 border-b border-white/[0.06] overflow-x-auto no-scrollbar">
+                    {[
+                      { id: 'all', label: 'All' },
+                      { id: 'unread', label: 'Unread' },
+                      { id: 'mentions', label: 'Mentions' },
+                      { id: 'updates', label: 'Updates' },
+                      { id: 'system', label: 'System' },
+                    ].map((tab) => {
+                      const count = tabCounts[tab.id];
+                      const isActive = activeTab === tab.id;
+
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id)}
+                          className={`relative pb-2 flex items-center gap-1.5 text-xs font-medium transition-colors shrink-0 cursor-pointer ${
+                            isActive ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
+                          }`}
+                        >
+                          <span>{tab.label}</span>
+                          {count > 0 && (
+                            <span
+                              className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
+                                isActive
+                                  ? 'bg-[#814AC8] text-white'
+                                  : 'bg-white/10 text-zinc-400'
+                              }`}
+                            >
+                              {count}
+                            </span>
+                          )}
+                          {isActive && (
+                            <motion.div
+                              layoutId="activeTabUnderline"
+                              className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#814AC8]"
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                {/* Notifications List */}
                 <div className="max-h-[300px] sm:max-h-[380px] overflow-y-auto custom-scrollbar px-1.5 sm:px-2 divide-y divide-white/[0.04]">
-                  {notifications.length === 0 ? (
+                  {filteredNotifications.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-10 sm:py-12 px-4 text-center">
                       <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/5 mx-auto flex items-center justify-center text-zinc-500 mb-2">
                         <Inbox size={18} />
                       </div>
                       <p className="text-sm font-medium text-zinc-400">
-                        No notifications yet
+                        No notifications found
                       </p>
                       <p className="text-xs text-zinc-500 mt-1">
-                        We'll alert you when events happen.
+                        No items in this section right now.
                       </p>
                     </div>
                   ) : (
-                    notifications.map((item) => (
+                    filteredNotifications.map((item) => (
                       <div
                         key={item.id}
                         onClick={(e) => {
@@ -393,15 +433,6 @@ const NotificationBell = () => {
                       </div>
                     ))
                   )}
-                </div>
-
-                {/* Footer */}
-                <div className="p-2.5 sm:p-3 border-t border-white/[0.06] bg-[#0A0A10]/50 text-center">
-                  <button
-                    onClick={handleMarkAllRead}
-                    className="inline-flex items-center justify-center gap-2 text-xs font-semibold text-[#a855f7] hover:text-[#c084fc] transition-colors py-0.5 sm:py-1 cursor-pointer"
-                  >
-                  </button>
                 </div>
               </motion.div>
             </>

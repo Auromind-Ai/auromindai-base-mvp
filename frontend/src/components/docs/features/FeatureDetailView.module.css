@@ -1,0 +1,61 @@
+.poppins,
+.poppins * {
+  font-family: 'Poppins', sans-serif;
+}
+
+.screenshotFrames [data-screenshot-label] {
+  display: flex;
+}
+
+.screenshotFrames [data-screenshot-frame] {
+  border: 1px solid rgba(167, 139, 250, 0.6) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 0 18px rgba(139, 92, 246, 0.12) !important;
+}
+
+.screenshotFrames .framelessScreenshot [data-screenshot-frame] {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent;
+}
+
+.walletScreenshots,
+.walletScreenshots * {
+  font-family: 'Poppins', sans-serif !important;
+}
+
+.walletScreenshots [data-screenshot-label] {
+  display: flex;
+}
+
+.walletScreenshots [data-screenshot-frame] {
+  border: 1px solid var(--wallet-border) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 0 18px var(--wallet-glow) !important;
+}
+
+.walletScreenshots [data-wallet-image-card] {
+  border-color: var(--wallet-border);
+}
+
+.walletScreenshots [data-wallet-image-card] [data-screenshot-frame] {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  background: transparent;
+}
+
+.walletScreenshots [data-wallet-image-card] [data-screenshot-frame]:hover {
+  border-color: var(--wallet-glow) !important;
+}
+
+.screenshotFrames.inboxScreenshots [data-screenshot-frame] {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent;
+}
+
+.screenshotFrames.inboxScreenshots section[id='benefits'] [data-screenshot-frame] {
+  border: 1px solid rgba(52, 211, 153, 0.7) !important;
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.12) !important;
+}

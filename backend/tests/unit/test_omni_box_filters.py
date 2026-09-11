@@ -90,7 +90,19 @@ def test_closed_filter_immediate_and_24h_auto_close(db_session: Session, test_se
         updated_at=now - timedelta(hours=1),
     )
 
-    db_session.add_all([conv_closed_recent, conv_closed_old, conv_open_expired, conv_open_active])
+    # 5. Closed conversation with no messages, created 3 days ago, closed 1 hour ago -> MUST appear in CLOSED filter
+    conv_closed_today_old_contact = Conversation(
+        id=uuid.uuid4(),
+        workspace_id=ws_id,
+        phone="+12345678905",
+        channel=ChannelType.WHATSAPP,
+        status=ConversationStatus.CLOSED,
+        created_at=now - timedelta(days=3),
+        closed_at=now - timedelta(hours=1),
+        updated_at=now - timedelta(hours=1),
+    )
+
+    db_session.add_all([conv_closed_recent, conv_closed_old, conv_open_expired, conv_open_active, conv_closed_today_old_contact])
     db_session.flush()
 
     # Add user message 26 hours ago to expired conversation
@@ -112,6 +124,19 @@ def test_closed_filter_immediate_and_24h_auto_close(db_session: Session, test_se
     db_session.add_all([msg_expired, msg_active])
     db_session.commit()
 
+    # Test FOLLOW_UP filter
+    follow_up_results = ConversationService.list_conversations(
+        db_session,
+        workspace_id=ws_id,
+        channel="WHATSAPP",
+        status="FOLLOW_UP",
+    )
+    follow_up_ids = [c.id for c in follow_up_results]
+
+    assert conv_open_expired.id in follow_up_ids, "Open WhatsApp conversation with last message > 24h ago MUST auto-close to FOLLOW_UP"
+    assert conv_open_active.id not in follow_up_ids, "Active open WhatsApp conversation MUST NOT appear in FOLLOW_UP filter"
+    assert conv_closed_recent.id not in follow_up_ids, "Manually closed conversation MUST NOT appear in FOLLOW_UP filter"
+
     # Test CLOSED filter
     closed_results = ConversationService.list_conversations(
         db_session,
@@ -121,9 +146,10 @@ def test_closed_filter_immediate_and_24h_auto_close(db_session: Session, test_se
     )
     closed_ids = [c.id for c in closed_results]
 
-    assert conv_closed_recent.id not in closed_ids, "Conversation manually closed < 24h must NOT appear in Closed (>24h) filter yet"
-    assert conv_closed_old.id in closed_ids, "Conversation closed >= 24h MUST appear in CLOSED filter"
-    assert conv_open_expired.id in closed_ids, "Open WhatsApp conversation with last message > 24h ago MUST auto-close and appear in CLOSED filter"
+    assert conv_closed_recent.id in closed_ids, "Manually closed conversation MUST appear in CLOSED filter"
+    assert conv_closed_old.id in closed_ids, "Manually closed conversation MUST appear in CLOSED filter"
+    assert conv_closed_today_old_contact.id in closed_ids, "Manually closed conversation MUST appear in CLOSED filter"
+    assert conv_open_expired.id not in closed_ids, "Auto-expired conversation must be in FOLLOW_UP, not CLOSED"
     assert conv_open_active.id not in closed_ids, "Active open WhatsApp conversation MUST NOT appear in CLOSED filter"
 
     # Test OPEN filter
@@ -192,7 +218,27 @@ def test_converted_filter_accuracy(db_session: Session, test_setup):
         closed_at=datetime.now(timezone.utc) - timedelta(days=2),
     )
 
-    db_session.add_all([conv_open_only, conv_closed_only])
+    # 5. Closed conversation whose lead was converted -> MUST NOT appear in Converted filter
+    conv_closed_converted_lead = Conversation(
+        id=uuid.uuid4(),
+        workspace_id=ws_id,
+        phone="+19876543205",
+        channel=ChannelType.WHATSAPP,
+        status=ConversationStatus.CLOSED,
+        closed_at=datetime.now(timezone.utc) - timedelta(days=2),
+    )
+    db_session.add_all([conv_open_only, conv_closed_only, conv_closed_converted_lead])
+    db_session.flush()
+
+    lead_closed_converted = Lead(
+        id=uuid.uuid4(),
+        workspace_id=ws_id,
+        conversation_id=conv_closed_converted_lead.id,
+        name="Closed Converted Lead",
+        is_converted=True,
+        status="converted",
+    )
+    db_session.add(lead_closed_converted)
     db_session.commit()
 
     converted_results = ConversationService.list_conversations(
@@ -207,6 +253,7 @@ def test_converted_filter_accuracy(db_session: Session, test_setup):
     assert conv_with_lead.id in converted_ids, "Conversation with converted lead must appear in Converted filter"
     assert conv_open_only.id not in converted_ids, "Unconverted open conversation must NOT appear in Converted filter"
     assert conv_closed_only.id not in converted_ids, "Unconverted closed conversation must NOT appear in Converted filter"
+    assert conv_closed_converted_lead.id not in converted_ids, "Closed conversation with converted lead must NOT appear in Converted filter"
 
 
 def test_unread_filter(db_session: Session, test_setup):
@@ -270,10 +317,10 @@ def test_get_conversation_counts(db_session: Session, test_setup):
     c1 = Conversation(id=uuid.uuid4(), workspace_id=ws_id, phone="+17770001", channel=ChannelType.TWILIO, status=ConversationStatus.OPEN)
     # 2. Converted
     c2 = Conversation(id=uuid.uuid4(), workspace_id=ws_id, phone="+17770002", channel=ChannelType.TWILIO, status=ConversationStatus.CONVERTED)
-    # 3. Closed >= 24h
-    c3 = Conversation(id=uuid.uuid4(), workspace_id=ws_id, phone="+17770003", channel=ChannelType.TWILIO, status=ConversationStatus.CLOSED, closed_at=now - timedelta(hours=30))
-    # 4. Closed < 24h
-    c4 = Conversation(id=uuid.uuid4(), workspace_id=ws_id, phone="+17770004", channel=ChannelType.TWILIO, status=ConversationStatus.CLOSED, closed_at=now - timedelta(hours=5))
+    # 3. Follow Up
+    c3 = Conversation(id=uuid.uuid4(), workspace_id=ws_id, phone="+17770003", channel=ChannelType.TWILIO, status=ConversationStatus.FOLLOW_UP)
+    # 4. Closed
+    c4 = Conversation(id=uuid.uuid4(), workspace_id=ws_id, phone="+17770004", channel=ChannelType.TWILIO, status=ConversationStatus.CLOSED)
 
     db_session.add_all([c1, c2, c3, c4])
     db_session.flush()
@@ -291,8 +338,9 @@ def test_get_conversation_counts(db_session: Session, test_setup):
 
     assert counts["all"] == 4
     assert counts["open"] == 1
+    assert counts["follow_up"] == 1
     assert counts["converted"] == 1
-    assert counts["closed"] == 1  # Only c3 (closed >= 24h), c4 (< 24h) excluded until 24h
+    assert counts["closed"] == 1
     assert counts["unread"] == 1
 
 
@@ -402,19 +450,28 @@ def test_whatsapp_24h_auto_close_and_reopen(db_session: Session, test_setup):
     db_session.refresh(conv)
     db_session.refresh(lead)
 
-    assert conv.status == ConversationStatus.CLOSED
+    assert conv.status == ConversationStatus.FOLLOW_UP
     assert conv.closed_at is not None
-    assert lead.status == "closed"
+    assert lead.status == "follow_up"
     assert lead.lead_tier == "inactive"
 
-    # Verify listing in CLOSED filter
+    # Verify listing in FOLLOW_UP filter
+    follow_up_convs = ConversationService.list_conversations(
+        db_session,
+        workspace_id=ws_id,
+        channel="WHATSAPP",
+        status="FOLLOW_UP",
+    )
+    assert conv.id in [c.id for c in follow_up_convs]
+
+    # Verify NOT in CLOSED filter
     closed_convs = ConversationService.list_conversations(
         db_session,
         workspace_id=ws_id,
         channel="WHATSAPP",
         status="CLOSED",
     )
-    assert conv.id in [c.id for c in closed_convs]
+    assert conv.id not in [c.id for c in closed_convs]
 
     # Verify NOT in OPEN filter
     open_convs = ConversationService.list_conversations(
