@@ -166,7 +166,7 @@ export const logout = (options = {}) => {
         console.warn("API logout failed, performing fallback:", err?.message || err);
       })
       .finally(() => {
-        if (!window.location.pathname.startsWith('/login')) {
+        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/docs')) {
           window.location.replace(redirectUrl);
         }
       });

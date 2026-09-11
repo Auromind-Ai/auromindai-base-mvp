@@ -115,15 +115,73 @@ class WebhookService:
         return None
 
     @staticmethod
-    def verify_meta_signature(raw_body: bytes, signature_header: str | None, app_secret: str | None) -> bool:
-        if not app_secret:
-            return True
-        if not signature_header or not signature_header.startswith("sha256="):
+    def verify_meta_signature(
+        raw_body: bytes,
+        signature_header: str | None,
+        app_secret: str | list[str] | tuple[str, ...] | None,
+    ) -> bool:
+
+        if not signature_header:
+            logger.warning("[META WEBHOOK] x-hub-signature-256 header missing")
             return False
-        expected_sig = signature_header.split("sha256=", 1)[1].strip()
-        import hmac, hashlib
-        computed_sig = hmac.new(app_secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(expected_sig, computed_sig)
+
+        signature_header = signature_header.strip()
+
+        if not signature_header.startswith("sha256="):
+            logger.warning(
+                "[META WEBHOOK] Invalid signature format: %s",
+                signature_header[:30],
+            )
+            return False
+
+        received_signature = signature_header[len("sha256="):].strip()
+
+        import hmac
+        import hashlib
+
+        secrets: list[str] = []
+        if isinstance(app_secret, (list, tuple)):
+            secrets = [str(s).strip() for s in app_secret if s and str(s).strip()]
+        elif isinstance(app_secret, str) and app_secret.strip():
+            secrets = [app_secret.strip()]
+
+        if not secrets:
+            logger.warning("[META WEBHOOK] App secret is missing or empty")
+            return True
+
+        for secret in secrets:
+            expected_signature = hmac.new(
+                secret.encode("utf-8"),
+                raw_body,
+                hashlib.sha256,
+            ).hexdigest()
+
+            logger.info(
+                "[META SIGNATURE DEBUG] "
+                "received_prefix=%s expected_prefix=%s "
+                "received_len=%d expected_len=%d body_length=%d",
+                received_signature[:8],
+                expected_signature[:8],
+                len(received_signature),
+                len(expected_signature),
+                len(raw_body),
+            )
+
+            if hmac.compare_digest(
+                received_signature.lower(),
+                expected_signature.lower(),
+            ):
+                return True
+
+        logger.error(
+            "[META WEBHOOK] Signature mismatch | "
+            "body_length=%d received_signature_length=%d secrets_checked=%d",
+            len(raw_body),
+            len(received_signature),
+            len(secrets),
+        )
+
+        return False
 
     @staticmethod
     def verify_twilio_signature(url: str, params: dict, signature_header: str | None, auth_token: str | None) -> bool:

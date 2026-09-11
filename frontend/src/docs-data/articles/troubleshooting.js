@@ -3,68 +3,86 @@ export const TROUBLESHOOTING_ARTICLES = {
     slug: "troubleshooting/common-issues",
     category: "Troubleshooting & Support",
     title: "Common Issues & Resolutions",
-    subtitle: "Diagnostics and resolution matrix for Meta 24-hour windows, webhook delivery, RAG ingestion, and token limits.",
+    subtitle: "Simple guides on customer care windows, channel connections, document uploads, and credit safeguards.",
     pageType: "troubleshooting",
     sections: [
       {
         id: "overview",
         title: "Diagnostics & Resolution Matrix",
         type: "text",
-        content: "This operational guide catalogs the most common technical and configuration bottlenecks encountered across messaging channels, workflow execution, knowledge retrieval, and token metering. Use the diagnostics below to identify root causes and restore active operations."
+        uiPreview: "SystemDiagnosticsPreview",
+        content: "This guide explains the most common questions regarding channel connections, customer care windows, document uploads, and automated safeguards. Use the interactive console on the right to see how Orbion automatically handles these situations to protect your business.",
+        bullets: [
+          { label: "WhatsApp 24-Hour Rule", text: "How Orbion protects your account and helps you send friendly follow-up templates when customer sessions expire." },
+          { label: "1-Click Channel Connection", text: "Connecting WhatsApp and Instagram directly with official Meta login without manual technical setup." },
+          { label: "Twilio Testing & Live Setup", text: "Testing SMS with verified numbers and switching to global live delivery." },
+          { label: "Document Uploads & AI Memory", text: "Tips for uploading clear, readable PDFs so your AI agent learns your business facts accurately." },
+          { label: "Zero-Drop Customer Safeguard", text: "Automatic handover to your human support team if AI credits run low." }
+        ]
       },
       {
         id: "channel-diagnostics",
-        title: "Channel & Webhook Issues",
+        title: "Messaging Channels & Connection",
         type: "troubleshooting",
         items: [
           {
-            problem: "Meta WhatsApp Error 131047: Re-engagement message requires template",
-            cause: "More than 24 hours have elapsed since the customer's last inbound message. Meta restricts free-form messaging outside this 24-hour customer care window.",
-            solution: "You must dispatch an approved Meta Message Template (Marketing or Utility) to initiate contact. Once the customer replies, a new 24-hour free-form session begins."
+            problem: "Why can't I send a normal message to a customer after 24 hours?",
+            cause: "WhatsApp has an official 24-hour customer care rule to prevent spam. If 24 hours have passed since the customer's last reply, WhatsApp requires businesses to use an approved Message Template to reconnect.",
+            solution: "Orbion protects your business number automatically! Instead of failing your message, the platform prompts you to send an approved follow-up template. In your Omni-Inbox, simply choose a template from the quick actions menu. As soon as the customer answers, your normal conversation window re-opens immediately."
           },
           {
-            problem: "Inbound messages from WhatsApp or Instagram are not appearing in Omni-Inbox",
-            cause: "The Webhook Callback URL or Verify Token in Meta Developer Console is misconfigured, or messaging fields are unsubscribed.",
-            solution: "Navigate to Channels (/user/admin/channels). Copy the exact Webhook URL and Verify Token into your Meta App Dashboard > WhatsApp > Configuration. Ensure 'messages' and 'messaging_postbacks' are checked under Subscriptions."
+            problem: "New customer messages are not appearing in my Omni-Inbox",
+            cause: "The channel connection may have been interrupted or your Facebook login authorization needs a quick refresh.",
+            solution: "Navigate to Channels (/user/admin/channels). Under WhatsApp or Instagram, click 'Reconnect' to refresh your official Meta connection. Orbion automatically re-synchronizes all inbound and outbound messages in seconds."
           },
           {
-            problem: "Twilio Error 21608: The number is unverified",
-            cause: "The Twilio project is operating in Trial mode, which strictly restricts SMS sends to verified numbers.",
-            solution: "Upgrade your Twilio project with a credit card balance or verify the target recipient phone number in Twilio Console > Verified Caller IDs."
+            problem: "Twilio test message only delivers to my own phone number",
+            cause: "Your Twilio account is currently in Trial Mode, which telecom rules restrict to sending test messages only to phone numbers pre-registered in your account.",
+            solution: "Orbion detects trial accounts automatically. For testing, add your phone number in Twilio Console > Phone Numbers > Verified Caller IDs. When you're ready to launch, add a balance to your Twilio account to upgrade to Live mode and send to anyone worldwide."
+          },
+          {
+            problem: "Channel shows 'Disconnected' or needs reconnection",
+            cause: "Your Meta password was changed, or account permissions were updated in your Meta Business Suite.",
+            solution: "In Channels (/user/admin/channels), click 'Reconnect' to launch the official Meta login window. Log in and confirm permissions. Orbion will restore the connection instantly with all your chat history safe."
           }
         ]
       },
       {
         id: "brain-diagnostics",
-        title: "Knowledge Base & Agent Issues",
+        title: "Knowledge Base & Agent Uploads",
         type: "troubleshooting",
         items: [
           {
-            problem: "Document ingestion hangs in 'Processing' or 'Indexing' status",
-            cause: "The uploaded PDF may be an image-only scan without an embedded OCR text layer, or the file size exceeds workspace extraction limits.",
-            solution: "Ensure the PDF contains selectable text (not flattened scanned images). For large manuals (>20MB), split into smaller chapters or convert into clean Markdown."
+            problem: "Uploaded PDF stays in 'Processing' or AI cannot read it",
+            cause: "The uploaded document might be a scanned photocopy image without selectable text, or the file size is over 20MB.",
+            solution: "Ensure your PDF contains selectable text that you can highlight and copy with your mouse. If your document is a scanned image or photo, convert it to a Word document or text file before uploading in Agent Studio (/user/admin/ai). For large manuals over 20MB, split them into smaller chapters."
           },
           {
-            problem: "Agent answers with generic knowledge instead of company document facts",
-            cause: "The knowledge collection is not attached to the active agent in Agent Studio, or the similarity match threshold is set too high.",
-            solution: "Open Agent Studio (/user/admin/ai) > Knowledge Sources tab. Verify that your uploaded collection is checked. In collection settings, ensure the match threshold is around 0.75."
+            problem: "AI agent gives generic answers instead of using my company documents",
+            cause: "The uploaded document collection might not be turned on for that agent in your settings.",
+            solution: "Go to Agent Studio (/user/admin/ai) > Knowledge Sources tab. Verify that your document collection is checked. In settings, ensure the match threshold is set to 0.75 so the agent accurately finds the right facts."
           },
           {
-            problem: "AI Studio returns 401 Unauthorized during testing",
-            cause: "Your browser authentication token has expired.",
-            solution: "Log out and sign back in to refresh your JWT token, or open an Incognito window to verify credentials."
+            problem: "AI testing session shows 'Session Expired'",
+            cause: "Your login session in the browser has timed out.",
+            solution: "Log out and sign back in to refresh your active login session."
           }
         ]
       },
       {
         id: "wallet-diagnostics",
-        title: "Token & Financial Ledger Issues",
+        title: "Credits & Wallet Safeguards",
         type: "troubleshooting",
         items: [
           {
-            problem: "AI replies suddenly pause and conversations switch to Human Takeover",
-            cause: "Your AI compute credit balance has reached zero.",
-            solution: "Navigate to Wallet (/user/admin/credits). Add funds to your credit balance or configure Auto-Reload Settings so an automated top-up triggers when balance drops below your safety buffer."
+            problem: "Why did my AI agent stop replying and assign the chat to a team member?",
+            cause: "Your AI compute credit balance reached zero.",
+            solution: "This is a deliberate safety feature! Rather than leaving customers unanswered or dropping conversations, Orbion automatically forwards active chats to your human team in the Omni-Inbox. You can top up your balance anytime in Wallet (/user/admin/credits) or turn on Auto-Reload."
+          },
+          {
+            problem: "Broadcast campaign paused due to insufficient wallet balance",
+            cause: "The estimated cost to send the campaign to all recipients exceeds your current wallet balance.",
+            solution: "Orbion automatically checks your balance before sending a campaign to prevent partial deliveries. Top up your wallet in /user/admin/credits to cover the audience size before launching the campaign."
           }
         ]
       },
@@ -72,20 +90,20 @@ export const TROUBLESHOOTING_ARTICLES = {
         id: "support-escalation",
         title: "When to Contact Support",
         type: "checklist",
-        checklistTitle: "If an issue persists after following these diagnostics, gather the following details before opening a support ticket:",
+        checklistTitle: "If an issue persists after following these steps, gather the following details before opening a support ticket:",
         items: [
-          "Your Workspace ID (found under Settings > Workspaces).",
-          "The affected channel type and registered phone number or handle.",
-          "Exact error code or message received.",
-          "Timestamp of the failing interaction with recipient phone number.",
-          "Browser console error log screenshot if experiencing UI issues."
+          "Your Workspace ID (found under Settings > Workspaces or in your dashboard URL).",
+          "The affected channel (WhatsApp, Twilio, Instagram) and registered phone number.",
+          "A short description of what happened or what you saw on screen.",
+          "Approximate time the issue occurred along with the customer phone number.",
+          "A screenshot if you see an unexpected message on your screen."
         ]
       }
     ],
     seo: {
       title: "Common Issues & Resolutions | OrbionAgents",
-      description: "Step-by-step troubleshooting guide for Meta 24-hour window errors, webhook drops, RAG ingestion failures, and token limits.",
-      keywords: ["OrbionAgents troubleshooting", "WhatsApp webhook error", "Meta 24 hour window", "RAG ingestion failure"]
+      description: "User guide for resolving customer care window limits, webhook synchronization, knowledge base uploads, and credit safeguards.",
+      keywords: ["OrbionAgents troubleshooting", "WhatsApp customer care window", "webhook sync", "knowledge base ingestion", "human takeover safeguard"]
     }
   },
 
@@ -143,7 +161,7 @@ export const TROUBLESHOOTING_ARTICLES = {
         items: [
           {
             question: "What is the difference between AI Credits and Meta WCC?",
-            answer: "AI Credits cover LLM inference tokens (GPT-4o, Claude, Gemini). Meta WhatsApp Conversation Charges (WCC) cover Meta's official per-conversation rates billed directly for 24-hour service or marketing windows."
+            answer: "AI Credits cover LLM inference tokens (GPT, Claude, Gemini). Meta WhatsApp Conversation Charges (WCC) cover Meta's official per-conversation rates billed directly for 24-hour service or marketing windows."
           },
           {
             question: "Can I download GST-compliant invoice receipts?",

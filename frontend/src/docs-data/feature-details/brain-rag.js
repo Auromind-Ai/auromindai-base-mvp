@@ -7,6 +7,7 @@ export const brainRagDetail = {
   tagline: 'Multi-source document ingestion, semantic vector search, and grounded citations that eliminate AI hallucinations.',
   description: 'AI Brain is your business knowledge library. Add product guides, FAQs, policies, or website pages, then check their progress in Indexed Knowledge. Your content is split into smaller searchable passages called chunks. RAG means the AI looks up relevant passages to help answer a question.',
   visualKey: 'brain',
+  staticSetup: true,
   visualLabel: 'AI Brain Overview · Illustrative Screenshot',
   copy: {
     benefitsIntro: 'Give your AI the business information it needs to help your customers.',
@@ -43,6 +44,7 @@ export const brainRagDetail = {
       aspectRatio: 'aspect-[3/1] [&_img]:object-contain'
     },
     verification: {
+      frameless: true,
       src: '/images/doc-images/brain-indexed-knowledge.png',
       className: '[&>div:first-child]:border-0 [&>div:first-child]:rounded-none [&>div:first-child]:bg-transparent [&>div:first-child]:shadow-none',
       alt: 'Indexed Knowledge table showing website sources, file types, Completed statuses, and last updated dates',

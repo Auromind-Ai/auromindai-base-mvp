@@ -3,23 +3,37 @@ export const INTEGRATIONS_ARTICLES = {
     slug: "integrations/whatsapp-cloud-api",
     category: "Channels & Integrations",
     title: "WhatsApp Business Cloud API",
-    subtitle: "Connect your official WhatsApp Business number via Meta Cloud API with direct webhooks.",
+    subtitle: "Connect your official WhatsApp Business number to automate conversations, deploy 24/7 AI agents, and send interactive templates.",
     pageType: "integration",
     sections: [
       {
         id: "overview",
         title: "Overview",
         type: "text",
-        content: "The WhatsApp Business Cloud API connector establishes a direct integration between your workspace and Meta's official Graph API infrastructure. Inbound messages from customers are delivered via secure webhooks, while outbound responses are dispatched through Meta's verified API endpoints without third-party aggregator markups."
+        content: "The WhatsApp Cloud API integration connects your official WhatsApp Business account directly to orbionagents. Once connected, your platform automatically powers 24/7 AI agent replies, triggers visual automation flows, and broadcasts pre-approved interactive message templates with quick-reply buttons — all managed seamlessly in one unified console without expensive third-party tools."
+      },
+      {
+        id: "video-walkthrough",
+        title: "Official Video Walkthrough",
+        type: "video",
+        video: {
+          url: "/videos/IMG_3477.mp4",
+          fallbackUrl: "/videos/IMG_3477.MOV",
+          poster: "/images/docs/whatsapp-connect/step-1-channels-dashboard.png",
+          title: "Connecting WhatsApp Business via Meta Cloud API",
+          duration: "1:03 min walkthrough",
+          caption: "End-to-end video tutorial demonstrating the complete Meta Facebook Login for Business onboarding flow."
+        }
       },
       {
         id: "requirements",
-        title: "Requirements & Prerequisites",
+        title: "WhatsApp Connect Rules & Mandatory Prerequisites",
         type: "checklist",
+        checklistTitle: "Mandatory Requirements (Strict Meta Policy):",
         items: [
-          "A Meta for Developers account (developers.facebook.com).",
-          "A verified Meta Business Manager organization.",
-          "A dedicated business phone number capable of receiving SMS or voice verification codes (must not be active on a personal WhatsApp mobile app)."
+          "Rule 1 — New Dedicated WhatsApp Number: A fresh phone number with active SMS or voice call capability to receive the 6-digit OTP verification code. It must not be currently registered on personal WhatsApp or WhatsApp Business mobile app.",
+          "Rule 2 — Facebook Account Mandatory: An active personal Facebook account is strictly required to authenticate via Meta Facebook Login for Business and create/manage the Meta Business Portfolio.",
+          "Rule 3 — Existing Number? Delete WhatsApp Account First: If your phone number is currently active on personal WhatsApp or WhatsApp Business app on your mobile phone, you MUST delete the WhatsApp account from the mobile app (Settings > Account > Delete Account) before connecting, otherwise Meta verification will reject the number."
         ]
       },
       {
@@ -29,33 +43,52 @@ export const INTEGRATIONS_ARTICLES = {
         steps: [
           {
             step: 1,
-            title: "Create Meta Developer App",
-            instruction: "Log into developers.facebook.com, click 'Create App', choose 'Other' > 'Business', and add the 'WhatsApp' product to your app.",
-            uiElements: ["Meta App Dashboard", "'Add WhatsApp' product card", "'API Setup' tab"]
+            title: "Channels Console & Initiate Connection",
+            instruction: "In your dashboard, navigate to Channels & Integration. Locate the 'WhatsApp Business (Meta Cloud API)' card and click 'Connect >' to launch the Meta onboarding modal.",
+            screenshot: "/images/docs/whatsapp-connect/step-1-channels-dashboard.png",
+            uiElements: ["Channels Dashboard", "WhatsApp Business card", "'Connect >' button"]
           },
           {
             step: 2,
-            title: "Retrieve API Credentials",
-            instruction: "Navigate to WhatsApp > API Setup. Note down your Phone Number ID and WhatsApp Business Account ID (WABA ID). In System Users, create a permanent access token with whatsapp_business_messaging permissions.",
-            uiElements: ["'Phone Number ID' display", "'WABA ID' display", "Permanent Access Token generator"]
+            title: "Meta Facebook Login for Business Window",
+            instruction: "A popup from Meta (Facebook Login for Business) opens displaying 'Seamlessly connect your account to orbionagents'. Review permissions and click 'Continue'.",
+            screenshot: "/images/docs/whatsapp-connect/step-2-meta-login-continue.png",
+            uiElements: ["Facebook Login Modal", "Permissions Overview", "'Continue' button"]
           },
           {
             step: 3,
-            title: "Enter Credentials in Channels",
-            instruction: "In Orbion, navigate to Channels (/user/admin/channels). Click 'Connect' on WhatsApp Cloud API, paste your Phone Number ID, WABA ID, and Permanent Token.",
-            uiElements: ["Channels console", "'Connect WhatsApp' button", "Credentials form"]
+            title: "Select or Create Meta Business Portfolio",
+            instruction: "Choose your existing Meta Business Portfolio or select 'Create a business portfolio', then select or create your WhatsApp Business Account. Click 'Next'.",
+            screenshot: "/images/docs/whatsapp-connect/step-3-select-portfolio.png?v=2",
+            uiElements: ["Business portfolio dropdown", "WhatsApp Business account dropdown", "'Next' button"]
           },
           {
             step: 4,
-            title: "Configure Meta Webhook Callback",
-            instruction: "Copy your unique Orbion Webhook Callback URL and Verify Token. In Meta App Dashboard > WhatsApp > Configuration, click 'Edit' under Webhooks, paste the URL and Verify Token, then click 'Verify and Save'.",
-            uiElements: ["Orbion Webhook URL copy button", "Meta Webhook configuration panel", "'Verify and Save' button"]
+            title: "Enter Business Profile Information",
+            instruction: "Fill in your official business details: Business Name, Official Email, Category (e.g. Professional services), Country (e.g. India), Website, and Time Zone (Asia/Kolkata). Click 'Next'.",
+            screenshot: "/images/docs/whatsapp-connect/step-4-business-information.png?v=2",
+            uiElements: ["Business Name input", "Category selector", "Country dropdown", "'Next' button"]
           },
           {
             step: 5,
-            title: "Subscribe to Messaging Fields",
-            instruction: "Under Webhook fields, click 'Manage' and subscribe to 'messages', 'message_deliveries', and 'messaging_postbacks'.",
-            uiElements: ["Webhook field subscription checkboxes", "'Save' button"]
+            title: "Add WhatsApp Phone Number & Display Name",
+            instruction: "Enter your official WhatsApp Business Display Name, select your Country Code (+91), enter your dedicated Phone Number, choose verification method (Text message or Phone call), and click 'Next'.",
+            screenshot: "/images/docs/whatsapp-connect/step-5-phone-number-entry.png?v=2",
+            uiElements: ["Display Name field", "Country code selector", "Phone number input", "Verification method radio"]
+          },
+          {
+            step: 6,
+            title: "Verify Phone Number via 6-Digit Code",
+            instruction: "Check your phone for the 6-digit OTP verification code sent by Meta via SMS or phone call. Enter the 6 digits into the verification input fields to confirm number ownership.",
+            screenshot: "/images/docs/whatsapp-connect/step-6-otp-verification.png",
+            uiElements: ["6-Digit OTP inputs", "Resend code link", "Code sent notification"]
+          },
+          {
+            step: 7,
+            title: "Finalize Permissions & Compliance Review",
+            instruction: "The modal confirms 'Your account is connected to orbionagents'. Meta completes a brief WhatsApp Business Messaging Policy review. Optionally add a payment method and click 'Finish'.",
+            screenshot: "/images/docs/whatsapp-connect/step-7-connection-complete.png",
+            uiElements: ["Success Confirmation", "Policy compliance notice", "'Finish' button"]
           }
         ]
       },
@@ -67,8 +100,8 @@ export const INTEGRATIONS_ARTICLES = {
           {
             step: 6,
             title: "Send a Test Message",
-            instruction: "Send a WhatsApp message from any personal phone to your registered business number. Check that the message appears immediately in the Omni-Channel Inbox.",
-            uiElements: ["Personal WhatsApp phone app", "Orbion Omni-Channel Inbox"]
+            instruction: "Send a WhatsApp message from any personal phone to your registered business number. Check that your 24/7 AI Agent replies immediately in the Omni-Channel Inbox.",
+            uiElements: ["Personal WhatsApp phone app", "Omni-Channel Inbox"]
           }
         ]
       },
@@ -77,27 +110,37 @@ export const INTEGRATIONS_ARTICLES = {
         title: "Expected Result",
         type: "callout",
         calloutTitle: "Connection Verified:",
-        calloutText: "The WhatsApp channel card displays a green 'Connected' indicator. Customer inquiries route directly into the Omni-Channel Inbox and trigger active automated workflows."
+        calloutText: "The WhatsApp channel card displays a green '✓ Connected' indicator. Customer inquiries route directly into the Omni-Channel Inbox, triggering AI agent replies and automated workflows."
       },
       {
         id: "troubleshooting",
-        title: "Troubleshooting & Diagnostics",
+        title: "Troubleshooting & Common Questions",
         type: "troubleshooting",
         items: [
           {
-            issue: "Meta Webhook verification fails with challenge mismatch?",
-            cause: "The Verify Token string entered in Meta does not match the secret displayed in Orbion.",
-            solution: "Copy the Verify Token directly from the Orbion Channels configuration without any leading or trailing spaces."
+            issue: "Why didn't I receive the 6-digit OTP code on my phone?",
+            cause: "SMS carrier delays or phone number already tied to another WhatsApp profile.",
+            solution: "Ensure your phone has network reception. If the code doesn't arrive within 60 seconds, choose 'Phone call' for automated voice OTP, and verify the number is not active on mobile WhatsApp app."
           },
           {
-            issue: "Outgoing messages fail with error code 131047?",
-            cause: "More than 24 hours have passed since the customer's last inbound message.",
-            solution: "Outside the 24-hour service window, Meta requires using a pre-approved WhatsApp Template to initiate contact."
+            issue: "Can I connect an existing WhatsApp number?",
+            cause: "Meta Cloud API requires sole ownership of the phone number.",
+            solution: "Open WhatsApp on your phone > Settings > Account > Delete my account. Once deleted, the number is immediately eligible for Cloud API connection."
           },
           {
-            issue: "Messages stop delivering after several weeks?",
-            cause: "A temporary user token was used instead of a permanent System User access token.",
-            solution: "Generate a permanent System User token in Meta Business Manager and update the token in Orbion Channels."
+            issue: "How does the AI Agent know how to reply to customers?",
+            cause: "AI agent generates responses using your uploaded business knowledge base.",
+            solution: "Upload your product catalog, FAQs, and docs in the Brain & Knowledge Base section. You can customize instructions and tone of voice anytime."
+          },
+          {
+            issue: "Why are automated message templates not reaching customers?",
+            cause: "WhatsApp requires outbound messages outside the 24-hour window to use approved templates.",
+            solution: "Check the Templates dashboard to ensure your template status is 'Approved' by Meta before sending."
+          },
+          {
+            issue: "Do I need to leave my computer or phone turned on for AI replies?",
+            cause: "Cloud infrastructure question.",
+            solution: "No. Orbion Agents and Meta Cloud API operate 24/7 in the cloud. Incoming messages are answered automatically even when your devices are powered off."
           }
         ]
       }
@@ -112,25 +155,24 @@ export const INTEGRATIONS_ARTICLES = {
   "integrations/instagram": {
     slug: "integrations/instagram",
     category: "Channels & Integrations",
-    title: "Instagram Graph API Integration",
-    subtitle: "Connect your Instagram Professional account for direct messages and story mention handling.",
+    title: "Instagram Automation",
+    subtitle: "Connect your Instagram Professional account to automate direct messages, deploy 24/7 AI agents, and turn story mentions into leads.",
     pageType: "integration",
     sections: [
       {
         id: "overview",
         title: "Overview",
         type: "text",
-        content: "The Instagram Graph API connector links your Instagram Professional account to Orbion. Direct messages (DMs), story mentions, and post comment inquiries are captured into the Omni-Channel Inbox, enabling unified team response and automated AI triage."
+        content: "The Instagram Graph API integration connects your Instagram Business or Creator account directly to orbionagents. Once connected, your platform automatically powers 24/7 AI agent replies to direct messages (DMs), triggers visual automation flows when customers comment or mention you in stories, and routes qualified leads directly into the Omni-Channel Inbox — all managed in one unified console without third-party aggregator costs."
       },
       {
         id: "requirements",
         title: "Requirements & Prerequisites",
         type: "checklist",
         items: [
-          "An Instagram Professional account (Business or Creator tier).",
-          "A connected Facebook Page linked to your Instagram account.",
-          "Admin access to the Meta Business Manager hosting the Facebook Page.",
-          "Instagram mobile app setting: 'Allow Access to Messages' toggled ON."
+          "Business / Creator Account Only: Personal accounts are not supported by Meta's Graph API. You must switch to a Professional account (Business or Creator).",
+          "Facebook Business Page Mandatory: You must have an active Facebook Business Page with administrator privileges in your Meta Business Portfolio.",
+          "Instagram & Facebook Account Connected Mandatory: Your Instagram account must be linked directly to your Facebook Page in Page Settings or the Instagram app."
         ]
       },
       {
@@ -140,27 +182,39 @@ export const INTEGRATIONS_ARTICLES = {
         steps: [
           {
             step: 1,
-            title: "Enable Message Access in Instagram App",
-            instruction: "Open the Instagram app on mobile. Go to Settings > Privacy > Messages and ensure 'Allow Access to Messages' is switched ON.",
-            uiElements: ["Instagram mobile app", "'Privacy' menu", "'Allow Access to Messages' switch"]
+            title: "Channels Console & Initiate Instagram Connection",
+            instruction: "Navigate to Channels & Integration in orbionagents. Find the 'Instagram (Meta Business)' card and click 'Connect >' to start the Meta OAuth authorization.",
+            uiElements: ["Channels Dashboard", "Instagram card", "Connect > button"]
           },
           {
             step: 2,
-            title: "Connect via Meta OAuth in Channels",
-            instruction: "Navigate to Channels (/user/admin/channels) in Orbion. Click 'Connect' on the Instagram card and authenticate with your Meta Business user.",
-            uiElements: ["Channels dashboard", "'Connect Instagram' card", "Meta OAuth dialog"]
+            title: "Select Linked Facebook Business Page",
+            instruction: "In the Meta popup ('Choose the Pages you want orbionagents to access'), select the Facebook Page connected to your Instagram account and click 'Continue'.",
+            uiElements: ["Page selector radio", "Connected Facebook Page", "Continue button"]
           },
           {
             step: 3,
-            title: "Grant Required Permissions",
-            instruction: "Select your connected Facebook Page and Instagram account. Grant permissions for instagram_manage_messages, pages_manage_metadata, and pages_show_list.",
-            uiElements: ["Account selection checkboxes", "'Continue' authorization button"]
+            title: "Choose Meta Business Portfolio",
+            instruction: "Select the Meta Business Portfolio hosting your business assets, then click 'Continue' to advance to the Instagram account selector.",
+            uiElements: ["Business portfolio list", "Portfolio selection checkbox", "Continue button"]
           },
           {
             step: 4,
-            title: "Verify Ingestion",
-            instruction: "Send a direct message from a separate personal Instagram account to your business account to verify webhook reception.",
-            uiElements: ["Omni-Channel Inbox", "Live message stream"]
+            title: "Select Instagram Professional Account",
+            instruction: "Choose your target Instagram professional account handle (e.g., auromind_ai) and click 'Continue'.",
+            uiElements: ["Instagram account list", "Account checkbox", "Continue button"]
+          },
+          {
+            step: 5,
+            title: "Review & Grant Required Meta Permissions",
+            instruction: "Review and approve permissions for profile access, comment management, and messaging access, then click 'Save'.",
+            uiElements: ["Permissions checklist", "Messages access toggle", "Save button"]
+          },
+          {
+            step: 6,
+            title: "Confirm Authorization & Complete Connection",
+            instruction: "Click 'Got it' on the Meta confirmation modal. The popup will close and the Channels dashboard will reflect the connected Instagram channel.",
+            uiElements: ["Confirmation banner", "Got it button"]
           }
         ]
       },
@@ -169,7 +223,7 @@ export const INTEGRATIONS_ARTICLES = {
         title: "Expected Result",
         type: "callout",
         calloutTitle: "Channel Active:",
-        calloutText: "Instagram DMs route directly into the unified queue alongside WhatsApp threads, with support for text and image attachments."
+        calloutText: "Your official Instagram Professional account is connected and active. Direct messages, story mentions, and comment inquiries automatically route to your 24/7 AI agent and trigger visual automation flows in the Omni-Channel Inbox."
       },
       {
         id: "troubleshooting",
@@ -177,22 +231,27 @@ export const INTEGRATIONS_ARTICLES = {
         type: "troubleshooting",
         items: [
           {
-            issue: "Inbound DMs are not appearing in Orbion?",
-            cause: "'Allow Access to Messages' is likely disabled in the Instagram mobile app settings.",
-            solution: "Open Instagram on your phone > Settings > Privacy > Messages > toggle 'Allow Access to Messages' to ON."
+            issue: "Why doesn't my Instagram account appear in the Meta login list in Step 4?",
+            cause: "Personal Instagram accounts are not supported by Meta's Graph API, or the account is not linked to an active Facebook Page.",
+            solution: "Switch your Instagram account to Professional (Business/Creator) and link it to your Facebook Page in Settings > Linked Accounts."
           },
           {
-            issue: "OAuth handshake error 'No linked Facebook Page'?",
-            cause: "Your Instagram Business profile must be linked to a Facebook Page to use the Graph API.",
-            solution: "Open Meta Business Suite, navigate to Settings > Accounts > Instagram Accounts, and link a Facebook Page."
+            issue: "How do I enable the AI Agent to access Instagram Direct Messages?",
+            cause: "'Allow Access to Messages' may be turned off in your Instagram mobile app settings.",
+            solution: "Open the Instagram mobile app > Settings > Privacy > Messages > toggle 'Allow Access to Messages' to ON."
+          },
+          {
+            issue: "Can the AI Agent reply to Instagram Story mentions?",
+            cause: "Story mention events require webhook subscriptions.",
+            solution: "Yes! orbionagents automatically subscribes to mention webhooks to send instant thank-you DMs or offers."
           }
         ]
       }
     ],
     seo: {
-      title: "Instagram Graph API Setup | OrbionAgents",
+      title: "Instagram Automation | orbionagents Docs",
       description: "Connect Instagram Business accounts to automate direct messages and triage inquiries.",
-      keywords: ["Instagram Graph API", "Instagram automation", "Instagram DM bot"]
+      keywords: ["Instagram Graph API", "Instagram automation", "Instagram DM bot", "orbionagents Instagram"]
     }
   },
 
@@ -200,47 +259,66 @@ export const INTEGRATIONS_ARTICLES = {
     slug: "integrations/twilio",
     category: "Channels & Integrations",
     title: "Twilio SMS & WhatsApp Gateway",
-    subtitle: "Configure Account SID and Auth Tokens for international SMS delivery and carrier fallback.",
+    subtitle: "Power your WhatsApp and international SMS communications with our native Twilio bridge.",
     pageType: "integration",
     sections: [
       {
         id: "overview",
         title: "Overview",
         type: "text",
-        content: "The Twilio gateway connector enables two-way SMS messaging and carrier redundancy. When customers do not have WhatsApp or when emergency notifications must be delivered via telecom carrier networks, Twilio delivers outbound SMS with delivery receipts."
+        content: "The Twilio Gateway integration connects your Twilio account directly to orbionagents. Deploy 24/7 AI agents across global SMS and WhatsApp, build visual multi-channel workflows with automated SMS fallback, and test rapidly using Twilio Sandbox before launching dedicated business phone numbers."
       },
       {
         id: "requirements",
         title: "Requirements & Prerequisites",
         type: "checklist",
         items: [
-          "An active Twilio account (twilio.com).",
-          "Twilio Account SID and Auth Token from your Twilio Console.",
-          "An active Twilio SMS-enabled phone number or Messaging Service."
+          "Twilio Account SID: Found on the main Twilio Console dashboard (starts with 'AC...').",
+          "Twilio Auth Token: Secret API token under Account Info used to authenticate API requests.",
+          "Twilio Phone Number: Assigned Twilio Sandbox test number or a dedicated purchased business number.",
+          "Sandbox Webhook Configuration: Inbound URL (https://api.orbionagents.com/twilio/webhook) and Status callback URL (https://api.orbionagents.com/twilio/status-callback) saved in Twilio Sandbox settings."
         ]
       },
       {
         id: "connection-steps",
-        title: "Setup & Configuration",
+        title: "Connection Steps",
         type: "steps",
         steps: [
           {
             step: 1,
-            title: "Retrieve Twilio Console Credentials",
-            instruction: "Sign in to console.twilio.com. Under 'Account Info', copy your Account SID and Auth Token.",
-            uiElements: ["Twilio Console", "'Account SID' field", "'Auth Token' field"]
+            title: "Channels Console & Initiate Twilio Connection",
+            instruction: "Navigate to Channels & Integration in orbionagents. Locate the 'Twilio (Twilio Powered)' card and click 'Connect >' to launch the integration modal.",
+            uiElements: ["Channels Dashboard", "Twilio card", "Connect > button"]
           },
           {
             step: 2,
-            title: "Enter Credentials in Orbion Channels",
-            instruction: "In Channels (/user/admin/channels), locate the Twilio card and click 'Connect'. Paste your Account SID, Auth Token, and Twilio phone number.",
-            uiElements: ["'Connect Twilio' modal", "'Account SID' input", "'Auth Token' input", "'Sender Number' field"]
+            title: "Connect Twilio Modal & Open Twilio Console",
+            instruction: "In the 'Connect Twilio (Step 1 of 2: Get Your Credentials)' modal, click 'Open Twilio Console' to access console.twilio.com.",
+            uiElements: ["Step 1 of 2 modal", "Open Twilio Console button", "I Have My Credentials button"]
           },
           {
             step: 3,
-            title: "Configure Inbound Webhook in Twilio",
-            instruction: "In Twilio Console > Phone Numbers > Active Numbers > select your number. Under 'A Message Comes In', set the Webhook URL to your unique Orbion webhook endpoint with HTTP POST.",
-            uiElements: ["Twilio Phone Number configuration", "'A Message Comes In' field", "HTTP POST selector"]
+            title: "Twilio Console Dashboard — Copy Account SID & Auth Token",
+            instruction: "In Twilio Console > Account Info, copy your Account SID and Auth Token to your clipboard.",
+            uiElements: ["Account Info card", "Account SID copy button", "Auth Token copy button"]
+          },
+          {
+            step: 4,
+            title: "WhatsApp Sandbox Test Number vs Buying Dedicated Number",
+            instruction: "Go to Messaging > Try it out > Send a WhatsApp message to view your assigned Sandbox test number and unique join keyword, or navigate to Phone Numbers > Buy a number to purchase a permanent business number.",
+            uiElements: ["Sandbox test number", "Join code banner", "Buy a Number link"]
+          },
+          {
+            step: 5,
+            title: "Set Official Webhook URLs in Sandbox Settings",
+            instruction: "Under Try WhatsApp > Sandbox settings, set 'When a message comes in' to https://api.orbionagents.com/twilio/webhook (POST) and 'Status callback URL' to https://api.orbionagents.com/twilio/status-callback (POST). Click Save.",
+            uiElements: ["Sandbox settings tab", "When a message comes in URL", "Status callback URL", "Save button"]
+          },
+          {
+            step: 6,
+            title: "Enter Credentials & Complete Connection in Channels",
+            instruction: "Return to the orbionagents Channels modal, click 'I Have My Credentials >', paste your Twilio Account SID, Auth Token, and Phone Number, and click 'Connect >'.",
+            uiElements: ["TWILIO ACCOUNT SID field", "TWILIO AUTH TOKEN field", "TWILIO PHONE NUMBER field", "Connect > button"]
           }
         ]
       },
@@ -248,37 +326,37 @@ export const INTEGRATIONS_ARTICLES = {
         id: "expected-result",
         title: "Expected Result",
         type: "callout",
-        calloutTitle: "Carrier SMS Active:",
-        calloutText: "Outbound SMS messages can be dispatched through Automation Wires or agent responses, and customer inbound replies route directly into the Omni-Channel Inbox."
+        calloutTitle: "Twilio Gateway Active:",
+        calloutText: "Your Twilio SMS & WhatsApp Gateway is connected and active. Inbound messages route into the Omni-Channel Inbox, and your 24/7 AI agents and visual automation workflows respond instantly."
       },
       {
         id: "troubleshooting",
-        title: "Troubleshooting",
+        title: "Troubleshooting & Diagnostics",
         type: "troubleshooting",
         items: [
           {
-            issue: "Error 21608: 'The number is unverified'?",
-            cause: "Your Twilio account is in Trial Mode and can only send messages to verified numbers.",
-            solution: "Upgrade your Twilio project to a paid account or verify the recipient number in the Twilio Phone Numbers console."
+            issue: "Twilio test message fails to deliver to an unverified number?",
+            cause: "Your Twilio account is in Trial Mode and can only send test messages to verified phone numbers.",
+            solution: "Verify the test recipient phone number in Twilio Console > Verified Caller IDs, or upgrade your Twilio project to a paid live account."
           },
           {
             issue: "Inbound SMS not reflecting in queue?",
-            cause: "The webhook URL in Twilio may be configured as HTTP GET instead of HTTP POST.",
-            solution: "Ensure the method dropdown next to the Webhook URL in Twilio is set to HTTP POST."
+            cause: "The messaging webhook configuration needs to be refreshed.",
+            solution: "Ensure the Twilio phone number is correctly connected under Channels in your Orbion dashboard."
           }
         ]
       }
     ],
     seo: {
-      title: "Twilio SMS Integration | OrbionAgents",
-      description: "Connect Twilio SMS and WhatsApp gateway to OrbionAgents for international telecom messaging.",
-      keywords: ["Twilio SMS integration", "Twilio webhook", "carrier SMS automation"]
+      title: "Twilio SMS & WhatsApp Gateway | orbionagents Docs",
+      description: "Connect Twilio SMS and WhatsApp gateway to orbionagents for international messaging and AI automation.",
+      keywords: ["Twilio SMS integration", "Twilio WhatsApp gateway", "carrier SMS automation", "orbionagents Twilio"]
     }
   },
 
   "integrations/email-calendar": {
     slug: "integrations/email-calendar",
-    category: "Channels & Integrations",
+    category: "Omni-Gateway & Channel Connectivity",
     title: "Gmail & Google Calendar Sync",
     subtitle: "Automate email replies and synchronize real-time demo bookings with Google Calendar.",
     pageType: "integration",
@@ -287,77 +365,106 @@ export const INTEGRATIONS_ARTICLES = {
         id: "overview",
         title: "Overview",
         type: "text",
-        content: "The Google Calendar and Gmail connector enables conversational agents to inspect availability in real time and schedule appointments directly during WhatsApp or Instagram interactions without sending prospects to external booking pages."
+        content: "The Google Workspace integration connects your Gmail and Google Calendar directly to Orbion Agents. Your 24/7 AI agents inspect real-time calendar availability during customer chats on WhatsApp and Instagram, book consultations with automatic Google Meet links, and draft intelligent email replies without requiring external booking links.",
+        screenshot: "/images/docs/email-calendar/step_1.png"
       },
       {
         id: "requirements",
-        title: "Requirements & Prerequisites",
+        title: "Google Workspace Connect Rules & Requirements",
         type: "checklist",
         items: [
-          "A Google Workspace or personal Google account with Calendar access.",
-          "Admin access to approve OAuth scopes for calendar and email integration."
+          "Google Workspace or Personal Gmail Account: An active Google account with access to Calendar and Gmail.",
+          "Google OAuth 2.0 Security Consent: Secure Single Sign-On authentication directly managed by Google. Passwords are never shared.",
+          "Calendar & Email Permissions Grant: Approve calendar and email scopes so AI agents can check busy slots, prevent overlapping meetings, and send meeting invites."
         ]
       },
       {
         id: "setup-steps",
-        title: "Configuration Steps",
+        title: "Step-by-Step Google Workspace Onboarding Guide",
         type: "steps",
         steps: [
           {
             step: 1,
-            title: "Authorize Google OAuth",
-            instruction: "Navigate to Settings > Integrations in Orbion. Click 'Connect Google Calendar' and authenticate your Google account.",
-            uiElements: ["'Integrations' panel", "'Google Calendar' card", "Google OAuth consent screen"]
+            title: "Channels Hub & Initiate Google Connection",
+            instruction: "Navigate to Channels & Integration. Locate the Gmail or Google Calendar card and click 'Connect >' to launch Google OAuth.",
+            screenshot: "/images/docs/email-calendar/step_1.png",
+            uiElements: ["Channels Dashboard", "Google Calendar Card", "Connect > Button"]
           },
           {
             step: 2,
-            title: "Select Operational Calendars",
-            instruction: "Choose which primary calendar to inspect for conflicts and which calendar to write newly booked consultations into.",
-            uiElements: ["'Primary Calendar' dropdown", "'Default Duration' selector (e.g. 30 mins)"]
+            title: "Google Sign In & Select Your Account",
+            instruction: "Choose the Google Workspace or personal Google account you want your AI Agent to connect with.",
+            screenshot: "/images/docs/email-calendar/step_2.png",
+            uiElements: ["Google OAuth Screen", "Account Selector", "Workspace Account"]
           },
           {
             step: 3,
-            title: "Define Available Hours & Buffers",
-            instruction: "Set business meeting hours (e.g. 9:00 AM - 5:00 PM) and add a 15-minute buffer between meetings to prevent back-to-back overbooking.",
-            uiElements: ["Time range sliders", "'Meeting Buffer' field"]
+            title: "Grant Calendar & Email Permissions",
+            instruction: "Confirm access for Google Calendar (checking availability and scheduling events) and Gmail, then click 'Continue'.",
+            screenshot: "/images/docs/email-calendar/step_3.png",
+            uiElements: ["Google Calendar Scope", "Gmail Scope", "Continue Button"]
           },
           {
             step: 4,
-            title: "Attach Booking Tool to Agent",
-            instruction: "In Agent Studio, verify that the 'calendar.check_slots' and 'calendar.book_appointment' MCP tools are toggled ON.",
-            uiElements: ["Agent Studio Tools tab", "Calendar MCP toggle"]
+            title: "Secure Token Verification & Handshake",
+            instruction: "Orbion Agents securely exchanges the OAuth grant with Google, generates encrypted tokens, and verifies calendar read/write access in real time.",
+            screenshot: "/images/docs/email-calendar/step_4.png",
+            uiElements: ["OAuth Verification", "Encrypted Handshake", "Success Notification"]
+          },
+          {
+            step: 5,
+            title: "Channels Dashboard Shows Connected Status",
+            instruction: "Return to Channels & Integrations. Gmail and Google Calendar now display green '✓ Connected' badges with your connected email handle.",
+            screenshot: "/images/docs/email-calendar/step_5.png",
+            uiElements: ["✓ Connected Badges", "Connected Email Address", "Settings Gear Icon"]
           }
         ]
       },
       {
         id: "expected-result",
-        title: "Expected Result",
+        title: "Active Integration & Expected Outcome",
         type: "callout",
         calloutTitle: "Autonomous Booking Active:",
-        calloutText: "Agents converse with leads to identify suitable times, automatically reserve calendar events, and dispatch meeting invitations with Google Meet video links."
+        calloutText: "Your Gmail & Google Calendar accounts are active and synchronized. AI Agents can instantly check your real-time availability during customer chats on WhatsApp and Instagram, automatically schedule client meetings with Google Meet links, and draft professional email responses.",
+        screenshot: "/images/docs/email-calendar/verify.png"
       },
       {
         id: "troubleshooting",
-        title: "Troubleshooting",
+        title: "Feature Troubleshooting & Common Questions",
         type: "troubleshooting",
         items: [
           {
-            issue: "Agent books a meeting over an existing busy event?",
-            cause: "The busy event may be located on a secondary calendar not selected in the conflict-check list.",
-            solution: "Ensure all relevant calendars (personal + work) are selected under 'Calendars to check for conflicts'."
+            issue: "How does the AI Agent know when I am free for meetings?",
+            cause: "Availability verification",
+            solution: "The AI agent checks your connected Google Calendar in real time before proposing available time slots to customers on WhatsApp or Instagram, ensuring zero double bookings or overlaps."
           },
           {
-            issue: "Google Calendar token expired?",
-            cause: "OAuth access was revoked or refreshed by Google security policies.",
-            solution: "Click 'Reconnect Google' in Settings > Integrations to re-authenticate."
+            issue: "Can I connect both my personal Gmail and business Google Workspace accounts?",
+            cause: "Account compatibility",
+            solution: "Yes. You can authenticate any Google Workspace or personal Google account that has Google Calendar enabled."
+          },
+          {
+            issue: "Does the customer receive an automatic calendar invite with a Google Meet link?",
+            cause: "Meeting link delivery",
+            solution: "Yes. As soon as the customer confirms their preferred time slot in the chat, Orbion Agents automatically creates the event on your Google Calendar and sends a calendar invite with a Google Meet video link to the customer's email."
+          },
+          {
+            issue: "What happens if a customer wants to reschedule or cancel a meeting?",
+            cause: "Reschedule request",
+            solution: "The customer can simply message your AI Agent on WhatsApp or Instagram requesting a new time. The AI checks your updated calendar availability and reschedules the appointment automatically."
+          },
+          {
+            issue: "How do I disconnect or switch to a different Google account?",
+            cause: "Switching accounts",
+            solution: "In the Channels & Integrations page, click the Settings icon next to the connected Gmail or Google Calendar card, click 'Disconnect', and then reconnect using your new Google account."
           }
         ]
       }
     ],
     seo: {
-      title: "Google Calendar & Gmail Integration | OrbionAgents",
-      description: "Sync calendar availability and automate appointment bookings with OrbionAgents.",
-      keywords: ["Google Calendar integration", "appointment booking bot", "Gmail sync"]
+      title: "Gmail & Google Calendar Sync | Orbion Agents Documentation",
+      description: "Sync calendar availability and automate appointment bookings with Orbion Agents.",
+      keywords: ["Google Calendar integration", "appointment booking bot", "Gmail sync", "WhatsApp meeting booking"]
     }
   }
 };

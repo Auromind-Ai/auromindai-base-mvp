@@ -40,18 +40,18 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
   };
 
   return (
-    <aside className="w-full flex flex-col h-full bg-[#08080C] border-r border-white/10 select-none">
+    <aside className="w-full flex flex-col h-full bg-[#08080E] border-r border-white/[0.08] select-none">
       {/* Search trigger button */}
-      <div className="p-4 border-b border-white/10">
+      <div className="p-3.5 border-b border-white/[0.06]">
         <button
           onClick={onOpenSearch}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs text-zinc-400 hover:text-white transition-all shadow-inner group"
+          className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 hover:border-violet-500/40 text-xs text-zinc-400 hover:text-white transition-all shadow-inner group"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <Search className="w-3.5 h-3.5 text-violet-400 group-hover:text-violet-300 transition-colors" />
-            <span>Search docs...</span>
+            <span className="font-medium">Search docs...</span>
           </div>
-          <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white/5 border border-white/10 rounded text-zinc-400">
+          <kbd className="px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-white/5 border border-white/10 rounded-md text-zinc-400">
             ⌘K
           </kbd>
         </button>
@@ -68,11 +68,13 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
               {/* Category Header */}
               <button
                 onClick={() => toggleCategory(section.category)}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-400 hover:text-white hover:bg-white/[0.02] transition-colors"
+                className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold text-zinc-400 hover:text-white hover:bg-white/[0.03] transition-colors"
               >
-                <div className="flex items-center gap-2">
-                  <IconComponent className="w-4 h-4 text-violet-400" />
-                  <span className="tracking-wide uppercase text-[11px] font-bold text-zinc-300">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-6 h-6 rounded-md bg-violet-500/10 flex items-center justify-center text-violet-400">
+                    <IconComponent className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="tracking-wider uppercase text-[11px] font-bold text-zinc-300 font-mono">
                     {section.category}
                   </span>
                 </div>
@@ -85,7 +87,7 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
 
               {/* Items */}
               {!isCollapsed && (
-                <div className="pl-4 space-y-0.5 pt-1 border-l border-white/5 ml-3">
+                <div className="pl-3.5 space-y-0.5 pt-1 border-l border-white/[0.06] ml-3.5">
                   {section.items.map((item) => {
                     const itemUrl = `/docs/${item.slug}`;
                     const isActive = pathname === itemUrl;
@@ -95,16 +97,16 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
                         key={item.slug}
                         href={itemUrl}
                         onClick={onCloseMobile}
-                        className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-all ${
+                        className={`group flex items-center justify-between px-3 py-1.5 rounded-lg text-xs transition-all ${
                           isActive
-                            ? 'bg-[#814AC8]/25 text-white font-semibold border border-[#814AC8]/50 shadow-sm'
-                            : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03]'
+                            ? 'bg-gradient-to-r from-violet-500/25 to-purple-500/10 text-white font-semibold border border-violet-500/40 shadow-sm shadow-purple-950/40'
+                            : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.03]'
                         }`}
                       >
                         <span className="truncate">{item.title}</span>
                         {item.hasVideo && (
                           <span
-                            className={`shrink-0 ml-1.5 p-1 rounded ${
+                            className={`shrink-0 ml-1.5 p-1 rounded-md ${
                               isActive
                                 ? 'bg-violet-500 text-white'
                                 : 'bg-white/5 text-violet-400 group-hover:bg-violet-500/20'
@@ -125,10 +127,10 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
       </div>
 
       {/* Footer link to app */}
-      <div className="p-3 border-t border-white/10 bg-white/[0.01]">
+      <div className="p-3 border-t border-white/[0.06] bg-white/[0.01]">
         <Link
           href="/user/admin/dashboard"
-          className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+          className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-zinc-300 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 transition-all hover:border-violet-500/40"
         >
           <span>Open Orbion Platform</span>
           <ExternalLink className="w-3.5 h-3.5 text-violet-400" />
@@ -137,3 +139,4 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
     </aside>
   );
 }
+

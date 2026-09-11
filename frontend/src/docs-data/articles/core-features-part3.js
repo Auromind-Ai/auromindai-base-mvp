@@ -178,16 +178,18 @@ export const CORE_FEATURES_PART3 = {
         id: "overview",
         title: "Overview",
         type: "text",
-        content: "The Credits & Wallet console (/user/admin/credits) provides transparent metering for AI token consumption across foundation models (GPT-4o, Claude, Gemini) and reconciles Meta WhatsApp Conversation Charges (WCC). Monitor daily expenditure, inspect an itemized ledger, and configure auto-recharge rules."
+        content: "The Credits & Wallet console (/user/admin/credits) provides transparent metering for AI token consumption across foundation models (GPT, Claude, Gemini) and reconciles Meta WhatsApp Conversation Charges (WCC). Monitor daily expenditure, inspect an itemized ledger, and configure auto-recharge rules.",
+        uiPreview: "WalletPreview",
+        screenshot: "/docs/screenshots/dashboard-credits-wallet.png"
       },
       {
         id: "ledger-features",
         title: "Metering Architecture",
         type: "list",
         items: [
-          { title: "Deterministic Token Counting", description: "Captures exact prompt and completion tokens per inference turn with sub-cent accuracy." },
-          { title: "Meta WCC Cost Tracking", description: "Direct pass-through billing for Meta 24-hour service and marketing conversation windows." },
-          { title: "Auto-Reload Safety Buffer", description: "Automatically charges payment card when credit balance drops below your configured threshold." },
+          { title: "Deterministic Token Counting", description: "Captures exact prompt and completion tokens per inference turn with sub-token accuracy." },
+          { title: "Meta WCC Cost Tracking", description: "Direct pass-through billing for Meta 24-hour service and marketing conversation windows in Indian Rupees (₹ INR)." },
+          { title: "Auto-Reload Safety Buffer", description: "Automatically charges saved payment method when credit balance drops below your configured threshold." },
           { title: "Immutable Transaction History", description: "Audit trail logging timestamp, model used, conversation ID, and credit deduction." }
         ]
       },
@@ -205,7 +207,7 @@ export const CORE_FEATURES_PART3 = {
           {
             step: 2,
             title: "Configure Auto-Reload",
-            instruction: "Click 'Auto-Reload Settings'. Set minimum threshold (e.g. reload when balance drops below $20) and top-up amount.",
+            instruction: "Click 'Auto-Reload Settings'. Set minimum threshold (e.g. reload when balance drops below ₹500) and top-up amount (e.g. ₹1,000).",
             uiElements: ["Auto-reload toggle", "Threshold input field", "Top-up amount selector"]
           },
           {
@@ -231,7 +233,7 @@ export const CORE_FEATURES_PART3 = {
           {
             issue: "Auto-reload triggered sooner than anticipated?",
             cause: "A surge in high-token queries or large document RAG lookups increased token consumption.",
-            solution: "Inspect the Transaction Ledger to identify which agent drove the usage, and optimize temperature or switch simple FAQ tasks to Gemini Flash."
+            solution: "Inspect the Transaction Ledger to identify which agent drove the usage, and optimize temperature or switch simple FAQ tasks to Gemini."
           }
         ]
       }

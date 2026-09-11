@@ -211,7 +211,7 @@ const NavigationSection = () => {
                     </h4>
 
                     <p className="text-white/50 text-sm mt-3 leading-6">
-                      See how Auromind automates objections, nurtures leads and closes
+                      See how Orbionagents automates objections, nurtures leads and closes
                       sales.
                     </p>
                   </div>

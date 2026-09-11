@@ -10,19 +10,20 @@ export const leadsCrmDetail = {
   visualLabel: 'Leads & CRM Overview',
   visualFrameless: true,
   hideWorkflowStages: true,
+  staticSetup: true,
   screenshots: {
     benefits: {
-      src: '/images/doc-images/lead-channel-favorites-overview.png',
-      alt: 'Leads organised into All Leads, WhatsApp, Instagram, and Favorites views with scores and labels',
-      label: 'Find and Organise Leads',
-      caption: 'Filter leads by channel, Manual, or Favorites.',
-      aspectRatio: 'aspect-[1312/1199] [&_img]:object-contain',
+      src: '/images/doc-images/customer-conversation.png',
+      alt: 'Customer conversation showing message history and reply controls',
+      label: 'Understand the Customer',
+      caption: 'Review the conversation before following up. Click to expand.',
+      aspectRatio: 'h-[440px] [&_img]:object-contain',
       className: 'w-full max-w-[540px] mx-auto'
     },
     setup: {
-      src: '/images/doc-images/add-new-lead-form.png',
+      src: '/images/doc-images/leads-add-new-contact-form.png',
       alt: 'Add New Lead form with name, phone, source, optional budget and note',
-      caption: 'Name and phone are required. Budget and note are optional.',
+      caption: 'Enter a name and phone number, choose the source, and select Add Lead.',
       aspectRatio: 'aspect-[1305/1205] [&_img]:object-contain',
       className: 'w-full max-w-[540px] mx-auto'
     },
@@ -41,6 +42,23 @@ export const leadsCrmDetail = {
     { title: 'Labels', description: 'Labels such as Hot and Premium Lead help identify the lead at a glance.' },
     { title: 'Conversion Details', description: 'For converted leads, review the recorded revenue, product, date, and notes.' }
   ],
+  featureGuides: [{
+    title: 'Find Leads by Channel',
+    description: 'Open the All Leads menu to focus on one source or return to important contacts.',
+    screenshot: {
+      src: '/images/doc-images/leads-channel-filters-favorites.png',
+      alt: 'Lead filters for WhatsApp, Instagram, Twilio, Manual, and Favorites with sample contact lists',
+      caption: 'Choose a channel or Favorites to narrow your lead list. Click to expand.',
+      aspectRatio: 'aspect-[1312/1199] [&_img]:object-contain',
+      className: 'w-full max-w-[540px] mx-auto'
+    },
+    items: [
+      { title: 'WhatsApp Leads', description: 'Choose WhatsApp to see leads from that source. Select a contact to review their available messages, score, and labels.' },
+      { title: 'Instagram Leads', description: 'Choose Instagram to focus on Instagram enquiries and review each contact before following up.' },
+      { title: 'Twilio Leads', description: 'Choose Twilio to find leads from your Twilio source. Use Open in Inbox when a linked conversation is available.' },
+      { title: 'All Leads, Manual & Favorites', description: 'All Leads brings the sources together. Manual helps you find manually added contacts. Star important leads to find them again under Favorites.' }
+    ]
+  }],
   copy: {
     benefitsIntro: 'Know who needs attention and understand the conversation before following up.',
     setupLabel: 'Getting started',
@@ -75,7 +93,7 @@ export const leadsCrmDetail = {
     { title: 'Understand the Customer', description: 'Review messages, activity, and the score breakdown before following up, so you can continue with the right context.', highlight: 'Conversation history' },
     { title: 'Keep Important Leads Easy to Find', description: 'Star a lead for quick access through Favorites. Use labels and channel filters to organise your work.', highlight: 'Favorites & labels' }
   ],
-  setupSteps: [
+    setupSteps: [
     {
       step: 1,
       title: 'Find a Lead',

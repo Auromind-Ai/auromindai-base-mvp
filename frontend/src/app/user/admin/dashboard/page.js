@@ -835,12 +835,12 @@ function RecentActivityCard({ activities = [] }) {
         </button>
       </div>
       <div className="px-5 pb-2 pt-1 flex flex-col justify-start flex-1 recent-activity-list overflow-y-auto custom-scrollbar">
-        {activities.length === 0 ? (
+        {activities.length === 0 || (activities.length === 1 && activities[0]?.label === 'No recent activity') ? (
           <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 py-6 text-xs">
             No recent activity
           </div>
         ) : (
-          activities.map((a, i) => (
+          activities.filter(a => a.label !== 'No recent activity').map((a, i) => (
             <div
               key={i}
               ref={(el) => (itemRefs.current[i] = el)}
@@ -919,11 +919,11 @@ function RecentActivityCard({ activities = [] }) {
         onClose={() => setShowModal(false)}
         title="All Recent Activity"
       >
-        {activities.length === 0 ? (
+        {activities.length === 0 || (activities.length === 1 && activities[0]?.label === 'No recent activity') ? (
           <p className="text-sm text-zinc-500 text-center py-8">No activity found</p>
         ) : (
           <div className="space-y-1">
-            {activities.map((a, i) => (
+            {activities.filter(a => a.label !== 'No recent activity').map((a, i) => (
               <div key={i} className="flex items-center gap-3 py-3 border-b border-white/[0.06] last:border-0">
                 <span className="w-[9px] h-[9px] rounded-full border-2 border-purple-400/50 flex-shrink-0" />
                 <span className="flex-1 text-sm text-white/75">{a.label}</span>
@@ -1066,7 +1066,12 @@ function AIInsightsCard({ insights = [] }) {
         </button>
       </div>
       <div className="flex-1 px-4 py-3 space-y-2">
-        {insights.slice(0, 3).map((item, i) => {
+        {insights.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 py-6 text-xs">
+            No insights available
+          </div>
+        ) : (
+          insights.slice(0, 3).map((item, i) => {
           const Icon = iconMap[item.icon_type] || Sparkles;
           return (
             <div
@@ -1083,7 +1088,8 @@ function AIInsightsCard({ insights = [] }) {
               <ArrowRight size={14} className="text-white group-hover:text-purple-400 transition-colors flex-shrink-0" />
             </div>
           );
-        })}
+        })
+      )}
       </div>
       <ViewAllModal
         isOpen={showModal}
@@ -1609,7 +1615,7 @@ export default function DashboardPage() {
                   onClick={() => setRevenueRangeView('jan_jun')}
                   className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all cursor-pointer ${
                     revenueRangeView === 'jan_jun'
-                      ? 'bg-purple-600 text-white shadow-sm font-semibold'
+                      ? 'bg-[#814AC8] text-white shadow-sm font-semibold'
                       : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
                 >
@@ -1620,7 +1626,7 @@ export default function DashboardPage() {
                   onClick={() => setRevenueRangeView('jul_dec')}
                   className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all cursor-pointer ${
                     revenueRangeView === 'jul_dec'
-                      ? 'bg-purple-600 text-white shadow-sm font-semibold'
+                      ? 'bg-[#814AC8] text-white shadow-sm font-semibold'
                       : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
                 >

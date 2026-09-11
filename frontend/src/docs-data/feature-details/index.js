@@ -6,6 +6,10 @@ import { agenticOrchestratorDetail } from './agentic-orchestrator.js';
 import { aiGovernanceDetail } from './ai-governance.js';
 import { creditsWalletDetail } from './credits-wallet.js';
 import { integrationsDetail } from './integrations.js';
+import { instagramDetail } from './instagram.js';
+import { twilioDetail } from './twilio.js';
+import { emailCalendarDetail } from './email-calendar.js';
+import { templatesDetail } from './templates.js';
 
 export const ALL_FEATURE_DETAILS = [
   omniInboxDetail,
@@ -16,6 +20,10 @@ export const ALL_FEATURE_DETAILS = [
   aiGovernanceDetail,
   creditsWalletDetail,
   integrationsDetail,
+  instagramDetail,
+  twilioDetail,
+  emailCalendarDetail,
+  templatesDetail,
 ];
 
 export function getFeatureDetailConfig(slug) {

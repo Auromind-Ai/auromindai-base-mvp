@@ -91,6 +91,7 @@ export const omniInboxDetail = {
       highlight: 'Filters & labels',
     }
   ],
+ 
   setupSteps: [
     {
       step: 1,

@@ -435,6 +435,20 @@ class ChannelConnectionService:
         workspace.meta_ig_id = ig_id
         db.commit()
 
+        # Subscribe the Facebook Page to this app's webhooks for Instagram messaging
+        try:
+            sub_res = requests.post(
+                f"https://graph.facebook.com/v19.0/{page_id}/subscribed_apps",
+                params={
+                    "subscribed_fields": "messages,messaging_postbacks,message_reactions",
+                    "access_token": page_access_token,
+                },
+                timeout=10,
+            ).json()
+            logger.info("Instagram page subscribed_apps response: %s", sub_res)
+        except Exception as sub_err:
+            logger.warning("Failed to subscribe page to app webhooks: %s", sub_err)
+
         return {
             "status": "connected",
             "page_id": page_id,
