@@ -105,7 +105,7 @@ export function AuthProvider({ children }) {
           workspaceIdRef.current = null;
           setUser(null);
           setWorkspace(null);
-          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/docs')) {
             window.location.replace('/login?deactivated=true');
           }
         } else if (isAuthError) {
@@ -116,7 +116,7 @@ export function AuthProvider({ children }) {
           workspaceIdRef.current = null;
           setUser(null);
           setWorkspace(null);
-          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/docs')) {
             window.location.replace('/login?session_expired=true');
           }
         } else {
@@ -138,6 +138,7 @@ export function AuthProvider({ children }) {
 
     const isMarketingPage = (pathname) => {
       if (pathname === '/') return true;
+      if (pathname.startsWith('/docs')) return true;
       if (pathname.startsWith('/solutions/')) return true;
       if (pathname.startsWith('/product/')) return true;
       if (pathname.startsWith('/resources/')) return true;
@@ -205,7 +206,7 @@ export function AuthProvider({ children }) {
         ? '/login?session_expired=true'
         : (reason === 'deactivated' ? '/login?deactivated=true' : '/login');
 
-      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/docs')) {
         window.location.replace(redirectUrl);
       }
     }

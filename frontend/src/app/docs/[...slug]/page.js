@@ -6,6 +6,8 @@ import { getFeatureDetailConfig } from '@/docs-data/feature-details';
 import FeatureDetailView from '@/components/docs/features/FeatureDetailView';
 import IntroductionDetailView from '@/components/docs/IntroductionDetailView';
 import DynamicSectionRenderer from '@/components/docs/DynamicSectionRenderer';
+
+export const dynamic = 'force-dynamic';
 import {
   ArrowRight,
   ArrowLeft,
