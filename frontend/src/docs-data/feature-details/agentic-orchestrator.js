@@ -61,6 +61,7 @@ export const agenticOrchestratorDetail = {
       subtitle: 'Turn plain-English descriptions into complete production-ready node graphs instantly.',
       description: 'Magic Wire is an agentic workflow synthesis engine embedded inside the visual canvas. Instead of manually dragging, positioning, and configuring dozens of nodes, you provide a plain English prompt describing your desired customer journey, and Magic Wire generates the complete node graph automatically in seconds.',
       image: '/docs/screenshots/flow-tool-magic-wire.png',
+      video: '/docs/videos/magic-wire-demo.mp4',
       caption: 'Magic Wire AI generation: Generate complete, wired node graphs from natural language prompts.',
       keyPoints: [
         'Plain-English Flow Prompting: Type what you want the chatbot to do in simple conversational language (e.g. "Ask requirements, evaluate budget, route VIPs to support").',

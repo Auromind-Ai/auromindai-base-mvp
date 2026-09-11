@@ -90,7 +90,10 @@ export default function DocumentationVideo({
             muted
             playsInline
             preload="auto"
-            className="w-full h-[320px] sm:h-[360px] lg:h-[390px] xl:h-[420px] object-cover object-[40%_center] block rounded-2xl"
+            className={objectFit === 'contain'
+              ? "w-full h-auto object-contain block rounded-2xl"
+              : "w-full h-[320px] sm:h-[360px] lg:h-[390px] xl:h-[420px] object-cover object-[40%_center] block rounded-2xl"
+            }
           />
 
           {/* Minimal hover action for fullscreen */}
@@ -112,6 +115,13 @@ export default function DocumentationVideo({
             </div>
           )}
         </div>
+
+        {videoData.caption && (
+          <p className="text-xs text-zinc-400 text-center flex items-center justify-center gap-1.5 mt-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-violet-400/60" />
+            <span>{videoData.caption}</span>
+          </p>
+        )}
       </div>
     );
   }

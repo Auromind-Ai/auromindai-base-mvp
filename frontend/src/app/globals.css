@@ -6,6 +6,7 @@
 }
 
 :root {
+  --font-poppins: 'Poppins', sans-serif;
   --background: 0 0% 100%;
   --foreground: 240 10% 3.9%;
   --card: 0 0% 100%;
@@ -196,8 +197,9 @@ body {
 }
 
 @theme inline {
-  --font-sans: var(--font-poppins), sans-serif;
-  --font-display: var(--font-poppins), sans-serif;
+  --font-poppins: 'Poppins', sans-serif;
+  --font-sans: var(--font-poppins), 'Poppins', sans-serif;
+  --font-display: var(--font-poppins), 'Poppins', sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -515,4 +517,35 @@ input:-webkit-autofill:active {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* Poppins typography for Docs section */
+.font-poppins {
+  font-family: var(--font-poppins), 'Poppins', sans-serif;
+}
+
+.docs-section,
+.docs-section h1,
+.docs-section h2,
+.docs-section h3,
+.docs-section h4,
+.docs-section h5,
+.docs-section h6,
+.docs-section p,
+.docs-section span,
+.docs-section a,
+.docs-section button,
+.docs-section input,
+.docs-section textarea,
+.docs-section label,
+.docs-section li,
+.docs-section div {
+  font-family: var(--font-poppins), 'Poppins', sans-serif;
+}
+
+.docs-section code,
+.docs-section kbd,
+.docs-section pre,
+.docs-section .font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
 }

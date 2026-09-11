@@ -514,14 +514,25 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
                     )}
                   </div>
 
-                  {/* Right: Proper Feature Screenshot */}
+                  {/* Right: Feature Media (Animated GIF Video or Screenshot) */}
                   <div className="lg:col-span-6">
                     <div className="p-2 sm:p-3 rounded-2xl border border-white/10 bg-slate-900/60 shadow-2xl hover:border-violet-500/30 transition-all">
-                      <DocumentationScreenshot
-                        src={activeMod.image || config.screenshotUrl}
-                        alt={activeMod.title}
-                        caption={activeMod.caption || `${activeMod.title} visual interface in Automation Wire`}
-                      />
+                      {activeMod.video ? (
+                        <DocumentationVideo
+                          url={activeMod.video}
+                          title={activeMod.title}
+                          caption={activeMod.caption || `${activeMod.title} visual interface in Automation Wire`}
+                          asGif={true}
+                          objectFit="contain"
+                          className="rounded-xl overflow-hidden"
+                        />
+                      ) : (
+                        <DocumentationScreenshot
+                          src={activeMod.image || config.screenshotUrl}
+                          alt={activeMod.title}
+                          caption={activeMod.caption || `${activeMod.title} visual interface in Automation Wire`}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>

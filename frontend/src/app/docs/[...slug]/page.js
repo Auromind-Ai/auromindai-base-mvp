@@ -240,8 +240,8 @@ export default async function DocsArticlePage({ params }) {
           style={{ fontFamily: "'Poppins', sans-serif" }}
         >
           {/* Article Header & Breadcrumbs */}
-          <header className="space-y-4 border-b border-white/10 pb-8">
-            <nav className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium">
+          <header className="space-y-5 border-b border-white/[0.08] pb-10">
+            <nav className="flex items-center gap-2 text-xs text-zinc-400 font-medium px-3.5 py-1.5 rounded-full bg-white/[0.03] border border-white/5 w-fit">
               <Link href="/docs" className="hover:text-white transition-colors">
                 Docs
               </Link>
@@ -253,11 +253,11 @@ export default async function DocsArticlePage({ params }) {
               </span>
             </nav>
 
-            <div className="flex items-center gap-2 pt-1">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30 uppercase tracking-wider">
+            <div className="flex items-center gap-2.5 pt-1">
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-violet-500/15 text-violet-300 border border-violet-500/30 uppercase tracking-wider font-mono">
                 {article.category}
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono">
                 Official Guide
               </span>
             </div>
@@ -281,14 +281,14 @@ export default async function DocsArticlePage({ params }) {
             {prevArticle ? (
               <Link
                 href={`/docs/${prevArticle.slug}`}
-                className="w-full sm:w-auto p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-violet-500/40 flex items-center gap-3 transition-all group text-left"
+                className="w-full sm:w-auto p-4.5 rounded-2xl border border-white/[0.08] bg-[#080910]/80 hover:bg-[#0C0D18]/90 hover:border-violet-500/40 flex items-center gap-3.5 transition-all group text-left shadow-lg"
               >
                 <ArrowLeft className="w-4 h-4 text-violet-400 group-hover:-translate-x-1 transition-transform" aria-hidden="true" />
                 <div>
-                  <span className="text-[10px] uppercase font-mono text-zinc-400 block">
+                  <span className="text-[10px] uppercase font-mono text-zinc-400 block font-semibold">
                     Previous Guide
                   </span>
-                  <span className="text-xs font-semibold text-white group-hover:text-violet-300 transition-colors truncate max-w-[200px] block">
+                  <span className="text-xs font-bold text-white group-hover:text-violet-300 transition-colors truncate max-w-[220px] block">
                     {prevArticle.title}
                   </span>
                 </div>
@@ -300,13 +300,13 @@ export default async function DocsArticlePage({ params }) {
             {nextArticle && (
               <Link
                 href={`/docs/${nextArticle.slug}`}
-                className="w-full sm:w-auto p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-violet-500/40 flex items-center justify-between sm:justify-end gap-3 transition-all group text-right ml-auto"
+                className="w-full sm:w-auto p-4.5 rounded-2xl border border-white/[0.08] bg-[#080910]/80 hover:bg-[#0C0D18]/90 hover:border-violet-500/40 flex items-center justify-between sm:justify-end gap-3.5 transition-all group text-right ml-auto shadow-lg"
               >
                 <div>
-                  <span className="text-[10px] uppercase font-mono text-zinc-400 block">
+                  <span className="text-[10px] uppercase font-mono text-zinc-400 block font-semibold">
                     Next Guide
                   </span>
-                  <span className="text-xs font-semibold text-white group-hover:text-violet-300 transition-colors truncate max-w-[200px] block">
+                  <span className="text-xs font-bold text-white group-hover:text-violet-300 transition-colors truncate max-w-[220px] block">
                     {nextArticle.title}
                   </span>
                 </div>
@@ -319,3 +319,4 @@ export default async function DocsArticlePage({ params }) {
     </>
   );
 }
+
