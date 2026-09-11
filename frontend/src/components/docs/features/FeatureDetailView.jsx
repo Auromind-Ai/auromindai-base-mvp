@@ -261,6 +261,22 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   annotation="Live Interface"
                 />
               </div>
+            ) : config.visualKey === 'workspace' ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    {config.visualLabel || 'Live Product UI & Simulator'}
+                  </span>
+                  <span className="text-[10px] font-mono text-zinc-500">Console View</span>
+                </div>
+                <DocumentationScreenshot
+                  src={config.heroScreenshot || '/images/docs/workspace/workspace_hero.png'}
+                  alt={`${config.title} Product Interface`}
+                  caption={config.heroCaption || `Interactive console view for ${config.title}`}
+                  annotation="Live Interface"
+                />
+              </div>
             ) : (
               <div className="space-y-2">
                 {config.visualKey !== 'wallet' && (
@@ -292,8 +308,8 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
 
       {/* SECTION 2: WHY USE IT? */}
       <section id="benefits" className="scroll-mt-24 pt-4 border-t border-white/10">
-        {isIntegration || config.visualKey === 'governance' ? (
-          /* For Integrations (WhatsApp & Instagram) / Governance: Full-width 2-column grid of capabilities */
+        {isIntegration || config.visualKey === 'governance' || config.visualKey === 'workspace' ? (
+          /* For Integrations (WhatsApp & Instagram) / Governance / Workspace: Full-width 2-column grid of capabilities */
           <div className="space-y-6">
             <div className="max-w-2xl">
               <span className="text-[11px] font-mono uppercase tracking-widest text-cyan-400 font-bold block mb-1">
@@ -919,15 +935,15 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                     {config.architecture?.description || 'Follow these video-verified steps to authenticate with Meta and activate your WhatsApp Cloud API integration.'}
                   </p>
                 </div>
-                {isIntegration && (
+                {(isIntegration || config.visualKey === 'workspace' || config.useZigzagSteps) && (
                   <div className="self-start sm:self-auto px-3.5 py-1.5 rounded-full bg-pink-500/10 border border-pink-500/20 text-pink-300 text-xs font-mono font-semibold flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-pink-400 animate-pulse" />
-                    {config.setupSteps?.length || 0} Video-Verified Steps
+                    {config.stepsBadge || `${config.setupSteps?.length || 0} Video-Verified Steps`}
                   </div>
                 )}
               </div>
 
-              {isIntegration ? (
+              {(isIntegration || config.visualKey === 'workspace' || config.useZigzagSteps) ? (
                 /* Alternating Zigzag Layout: Image Left / Explain Right & Image Right / Explain Left */
                 <div className="space-y-8">
                   {config.setupSteps.map((s, idx) => {
@@ -985,7 +1001,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                           aspectRatio={s.aspectRatio || 'aspect-[16/9]'}
                           objectFit={s.objectFit || 'cover'}
                           className={s.className || ''}
-                          annotation={config.visualKey === 'email-calendar' ? 'Google Workspace' : 'Live Video Capture'}
+                          annotation={config.visualKey === 'email-calendar' ? 'Google Workspace' : config.visualKey === 'workspace' ? 'Live Workspace Console' : 'Live Video Capture'}
                         />
                       </div>
                     );
