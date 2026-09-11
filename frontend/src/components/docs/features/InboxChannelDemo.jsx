@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { Phone, Instagram, Search, CircleDot } from 'lucide-react';
@@ -11,7 +11,7 @@ const CHANNELS = {
 const PREVIEWS = {
   Open: ['Can I book a ride for this evening?', 'Do you offer airport transfers?', 'Please share your available times.', 'I would like to know the pricing.'],
   'Follow Up': ['Please call me tomorrow morning.', 'I will confirm the pickup time soon.', 'Can we discuss the booking later?', 'Waiting for the final passenger count.'],
-  Converted: ['Your booking is confirmed! ðŸŽ‰ We have reserved your ride.', 'Your appointment is confirmed! ðŸ—“ Schedule details sent.', 'Your reservation is confirmed! ðŸ¥‚ We look forward to it.', 'Your booking is confirmed! ðŸš• We have sent the details.'],
+  Converted: ['Your booking is confirmed! 🎉 We have reserved your ride.', 'Your appointment is confirmed! 📅 Schedule details sent.', 'Your reservation is confirmed! 🥂 We look forward to it.', 'Your booking is confirmed! 🚕 We have sent the details.'],
   Closed: ['Thank you for your help!', 'Everything is sorted. Thank you.', 'We have received the details.', 'Thanks, that answers my question.'],
 };
 
@@ -45,12 +45,12 @@ export default function InboxChannelDemo() {
         <div className="space-y-2" aria-live="polite">
           {rows.map((row) => <button type="button" key={row.id} aria-expanded={expanded === row.id} onClick={() => { setSelected(row.id); setExpanded(expanded === row.id ? null : row.id); }} className="w-full rounded-2xl border p-3 text-left transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" style={{ borderColor: selected === row.id ? data.color : '#26323b80', background: selected === row.id ? `linear-gradient(120deg,${data.color}20,#101a21)` : 'linear-gradient(135deg,#15202770,#0c121a)', boxShadow: selected === row.id ? `inset 3px 0 ${data.color}, 0 0 15px ${data.color}12` : 'none' }}>
             <div className="flex items-center gap-3"><span className="rounded-full w-10 h-10 shrink-0 flex items-center justify-center text-sm font-bold" style={{ background: `${data.color}12`, color: data.color }}>{channel === 'Instagram' ? row.name[0] : row.name.slice(-2)}</span><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><span className="text-sm font-bold text-white truncate">{row.name}</span><span className="text-[10px] text-slate-500 shrink-0">{row.id === 0 ? 'Yesterday' : `${row.id + 1} days ago`}</span></div><p className="mt-1.5 truncate text-xs text-slate-400">{PREVIEWS[row.status][row.id]}</p></div></div>
-            {expanded === row.id && <p className="mt-3 pt-3 border-t border-white/10 text-xs leading-relaxed text-slate-300"><strong style={{ color: data.color }}>{row.status} Â· </strong>{PREVIEWS[row.status][row.id]}</p>}
+            {expanded === row.id && <p className="mt-3 pt-3 border-t border-white/10 text-xs leading-relaxed text-slate-300"><strong style={{ color: data.color }}>{row.status} · </strong>{PREVIEWS[row.status][row.id]}</p>}
           </button>)}
           {!rows.length && <p className="py-8 text-center text-sm text-slate-400">No matches. Try another name or clear your search.</p>}
         </div>
       </div>
-      <p className="mt-3 text-center text-xs text-zinc-400">Interactive preview Â· Sample data. Switch channels, filter chats, or select a conversation.</p>
+      <p className="mt-3 text-center text-xs text-zinc-400">Interactive preview · Sample data. Switch channels, filter chats, or select a conversation.</p>
     </div>
   );
 }

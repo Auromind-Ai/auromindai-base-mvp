@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import styles from './FeatureDetailView.module.css';
 import { 
   ChevronRight, 
   CheckCircle2, 
@@ -48,7 +47,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
   const stretchBenefits = Boolean(config.screenshots?.benefits?.guideItems) || config.visualKey === 'leads';
 
   return (
-    <article style={config.visualKey === 'wallet' ? { '--wallet-border': walletType === 'ai' ? 'rgba(167, 139, 250, 0.6)' : 'rgba(52, 211, 153, 0.7)', '--wallet-glow': walletType === 'ai' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(16, 185, 129, 0.12)' } : undefined} className={`w-full min-w-0 space-y-16 lg:space-y-24 pb-20 ${alignPanels || config.visualKey === 'leads' ? `${styles.poppins} ${styles.screenshotFrames}` : config.visualKey === 'wallet' ? `${styles.poppins} ${styles.walletScreenshots}` : 'font-sans'} ${isInbox ? styles.inboxScreenshots : ''}`}>
+    <article className="w-full min-w-0 space-y-16 lg:space-y-24 pb-20 font-sans">
       {/* SECTION 1: OVERVIEW & PRODUCT UI (Content Left | UI Right) */}
       <section id="overview" className="scroll-mt-24">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
@@ -213,7 +212,8 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
       </section>
 
       {/* SECTION 3: CONFIGURATION & PIPELINE (Content Left | Product UI Right) */}
-      {!config.hideConfiguration && <section id="configuration" className="scroll-mt-24 pt-4 border-t border-white/10">
+      {!config.hideConfiguration && (
+      <section id="configuration" className="scroll-mt-24 pt-4 border-t border-white/10">
         <div className={`grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 ${alignPanels ? 'items-stretch' : 'items-start'}`}>
           {/* Left: Content */}
           <div className="lg:col-span-6 space-y-4">
@@ -290,10 +290,9 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
           </div>
         </div>
       </section>
-
-      }
+      )}
       {/* SECTION 4: RESULT & VERIFICATION (Media Left | Content Right) */}
-      {!config.hideVerification &&
+      {!config.hideVerification && (
       <section id="verification" className="scroll-mt-24 pt-4 border-t border-white/10">
         <div className={`grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 ${isInbox ? 'items-stretch' : 'items-center'}`}>
           {/* Left: Product Visual / Screenshot */}
@@ -369,8 +368,8 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
           </div>
         </div>
       </section>
+      )}
 
-      }
       {config.featureGuides?.map((guide) => (
         <section key={guide.title} className="pt-4 border-t border-white/10 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           {guide.screenshot && <DocumentationScreenshot {...guide.screenshot} />}
@@ -394,7 +393,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
               </div>
             ) : <dl className={guide.screenshot ? 'space-y-3' : 'grid gap-3 md:grid-cols-2'}>
               {guide.items.map((item) => (
-                <div key={item.title} data-wallet-image-card={config.visualKey === 'wallet' && item.screenshot ? '' : undefined} className={`p-4 rounded-xl border border-white/10 bg-white/[0.02] ${item.fullWidth ? 'md:col-span-2' : ''}`}>
+                <div key={item.title} className={`p-4 rounded-xl border ${config.visualKey === 'wallet' ? (walletType === 'ai' ? 'border-violet-500/30' : 'border-emerald-500/30') : 'border-white/10'} bg-white/[0.02] ${item.fullWidth ? 'md:col-span-2' : ''}`}>
                   <dt className="text-sm font-semibold text-white">{item.title}</dt>
                   <dd className="mt-1 text-xs text-zinc-400 leading-relaxed">{item.description}</dd>
                   {item.screenshot && <div className="mt-4"><DocumentationScreenshot {...item.screenshot} /></div>}

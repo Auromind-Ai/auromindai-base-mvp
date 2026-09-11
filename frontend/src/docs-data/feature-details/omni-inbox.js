@@ -7,32 +7,33 @@ export const omniInboxDetail = {
   tagline: 'Manage customer messages, write helpful replies, and keep track of conversations in one place.',
   description: 'The Omni-Channel Inbox brings messages from your connected WhatsApp, Instagram, and Twilio channels into one workspace. Choose a channel, open a conversation, and read the message history before replying. You can also view contact details and organise conversations using the available filters and labels.',
   visualKey: 'inbox',
-  visualLabel: 'Inbox Overview Â· Illustrative Screenshot',
+  visualLabel: 'Inbox Overview · Illustrative Screenshot',
   visualFrameless: true,
   screenshots: {
     benefits: {
       src: '/images/doc-images/customer-conversation.png',
       alt: 'Customer booking conversation with message history, Suggest Reply, attachments, and the reply composer',
-      label: 'Replying to Customers Â· Screenshot',
+      label: 'Replying to Customers · Screenshot',
       caption: 'Illustrative screenshot: review the conversation and write a reply. Click to expand.',
       aspectRatio: 'h-[420px] [&_img]:object-contain',
-      className: '[&>div:first-child]:border-0 [&>div:first-child]:bg-transparent [&>div:first-child]:shadow-none'
+      frameless: true
     },
     setup: {
       src: '/images/doc-images/whatsapp-conversation-filters.png',
       alt: 'WhatsApp channel tabs, conversation search, and Open, Follow Up, Converted, and Closed filters',
       caption: 'Illustrative screenshot: choose a channel and filter, then select a conversation. Click to expand.',
       aspectRatio: 'aspect-[1078/1459] [&_img]:object-contain',
-      className: '[&>div:first-child]:border-0 [&>div:first-child]:bg-transparent [&>div:first-child]:shadow-none'
+      frameless: true
     },
     verification: {
       src: '/images/doc-images/customer-contact-details.png',
       alt: 'Contact Details showing the Warm system tier, agent labels, conversation dates, and Converted status',
-      label: 'Contact Details Â· Screenshot',
+      label: 'Contact Details · Screenshot',
       statusLabel: 'Conversation Status',
       caption: 'Illustrative screenshot with example contact data. Converted is a conversation status; Warm is a system tier. Click to expand.',
       aspectRatio: 'aspect-[1070/1470] [&_img]:object-contain',
-      className: 'w-full max-w-[420px] mx-auto [&>div:first-child]:border-0 [&>div:first-child]:bg-transparent [&>div:first-child]:shadow-none'
+      frameless: true,
+      className: 'w-full max-w-[420px] mx-auto'
     }
   },
   contactGuide: [
