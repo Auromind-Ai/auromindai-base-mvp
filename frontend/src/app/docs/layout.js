@@ -1,10 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Poppins } from 'next/font/google';
 import DocsHeader from '@/components/docs/DocsHeader';
 import DocsSidebar from '@/components/docs/DocsSidebar';
 import DocsSearchModal from '@/components/docs/DocsSearchModal';
 import { X } from 'lucide-react';
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800'],
+  variable: '--font-poppins',
+  display: 'swap',
+});
 
 export default function DocsLayout({ children }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -23,33 +31,62 @@ export default function DocsLayout({ children }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#050508] text-white flex flex-col font-sans selection:bg-[#814AC8]/30 selection:text-white">
-      {/* Top Header */}
-      <DocsHeader
-        onOpenMobile={() => setIsMobileMenuOpen(true)}
-        onOpenSearch={() => setIsSearchOpen(true)}
-      />
+    <div
+      className={`${poppins.variable} ${poppins.className} docs-section font-poppins min-h-screen bg-[#040407] text-white flex flex-col selection:bg-[#814AC8]/40 selection:text-white relative overflow-x-hidden`}
+      style={{ fontFamily: 'var(--font-poppins), "Poppins", sans-serif' }}
+    >
+      {/* Premium Ambient Background Effects */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        {/* Top central purple/violet radial glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-[#814AC8]/15 via-violet-900/5 to-transparent blur-3xl opacity-80" />
+        
+        {/* Subtle architectural dot grid */}
+        <div
+          className="absolute inset-0 opacity-[0.035]"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.4) 1px, transparent 0)`,
+            backgroundSize: '32px 32px',
+          }}
+        />
 
-      {/* Main Body Grid */}
-      <div className="flex-1 flex w-full max-w-[1720px] mx-auto relative">
+        {/* Ambient subtle side glows */}
+        <div className="absolute top-1/3 -left-64 w-96 h-96 bg-cyan-600/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-2/3 -right-64 w-96 h-96 bg-purple-600/5 rounded-full blur-3xl pointer-events-none" />
+      </div>
+
+      {/* Top Header */}
+      <div className="relative z-40">
+        <DocsHeader
+          onOpenMobile={() => setIsMobileMenuOpen(true)}
+          onOpenSearch={() => setIsSearchOpen(true)}
+        />
+      </div>
+
+      {/* Main Body Grid - Expansive full-width container */}
+      <div className="flex-1 flex w-full max-w-[1680px] mx-auto relative z-10 px-3 sm:px-6 lg:px-8 xl:px-10">
         {/* On-Demand Slide-Out Navigation Drawer */}
         {isMobileMenuOpen && (
           <div className="fixed inset-0 z-50 flex">
             {/* Backdrop */}
             <div
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm"
+              className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity"
               onClick={() => setIsMobileMenuOpen(false)}
             />
 
             {/* Sidebar drawer panel */}
-            <div className="relative w-80 max-w-[85vw] h-full bg-[#08080C] shadow-2xl flex flex-col z-10 border-r border-white/10 animate-in slide-in-from-left duration-200">
-              <div className="p-4 flex items-center justify-between border-b border-white/10">
-                <span className="font-bold text-sm text-white">Documentation Menu</span>
+            <div className="relative w-84 max-w-[85vw] h-full bg-[#08080E] shadow-2xl flex flex-col z-10 border-r border-white/10 animate-in slide-in-from-left duration-200">
+              <div className="p-4 flex items-center justify-between border-b border-white/10 bg-white/[0.02]">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#814AC8] to-[#a855f7] flex items-center justify-center text-white font-bold text-xs shadow-md">
+                    O
+                  </div>
+                  <span className="font-bold text-sm text-white tracking-wide">Documentation Menu</span>
+                </div>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-1 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white"
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
               <div className="flex-1 overflow-hidden">
@@ -66,8 +103,8 @@ export default function DocsLayout({ children }) {
           </div>
         )}
 
-        {/* Central Content Area (Full-Width & Centered) */}
-        <main className="flex-1 min-w-0 px-4 sm:px-8 py-8 lg:py-12">
+        {/* Central Content Area (Full-Width & Generous Padding) */}
+        <main className="flex-1 min-w-0 py-6 sm:py-8 lg:py-10">
           {children}
         </main>
       </div>
@@ -80,3 +117,4 @@ export default function DocsLayout({ children }) {
     </div>
   );
 }
+

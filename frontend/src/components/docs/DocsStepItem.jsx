@@ -3,20 +3,20 @@ import DocumentationScreenshot from './DocumentationScreenshot';
 
 export default function DocsStepItem({ step, totalSteps }) {
   return (
-    <div className="relative pl-12 pb-10 last:pb-2 group">
+    <div className="relative pl-14 pb-12 last:pb-2 group">
       {/* Vertical line connecting steps */}
       {step.step < totalSteps && (
-        <div className="absolute left-[19px] top-9 bottom-0 w-0.5 bg-gradient-to-b from-[#814AC8]/60 to-white/10" />
+        <div className="absolute left-[21px] top-10 bottom-0 w-0.5 bg-gradient-to-b from-[#814AC8]/80 via-violet-500/30 to-white/10" />
       )}
 
       {/* Step Badge */}
-      <div className="absolute left-0 top-0.5 w-10 h-10 rounded-xl bg-[#814AC8]/20 border border-[#814AC8]/50 text-[#c49df5] font-bold text-sm flex items-center justify-center shadow-lg shadow-purple-950/30">
+      <div className="absolute left-0 top-0.5 w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#814AC8]/30 to-[#a855f7]/20 border border-[#814AC8]/60 text-white font-extrabold text-sm flex items-center justify-center shadow-xl shadow-purple-950/50">
         {step.step}
       </div>
 
       {/* Content */}
-      <div className="space-y-3">
-        <h4 className="text-base font-semibold text-white tracking-tight flex items-center gap-2">
+      <div className="space-y-3.5">
+        <h4 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
           <span>{step.title}</span>
         </h4>
 
@@ -26,14 +26,14 @@ export default function DocsStepItem({ step, totalSteps }) {
 
         {step.uiElements && step.uiElements.length > 0 && (
           <div className="pt-1">
-            <span className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5 mb-2">
-              <MousePointer className="w-3.5 h-3.5 text-violet-400" /> UI Elements &amp; Actions:
+            <span className="text-[11px] uppercase tracking-wider text-violet-400 font-bold font-mono flex items-center gap-1.5 mb-2.5">
+              <MousePointer className="w-3.5 h-3.5" /> UI Elements &amp; Actions:
             </span>
             <div className="flex flex-wrap gap-2">
               {step.uiElements.map((el, i) => (
                 <span
                   key={i}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono bg-white/[0.04] text-zinc-200 border border-white/10 shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono bg-white/[0.04] text-zinc-200 border border-white/10 shadow-sm"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
                   {el}
@@ -56,3 +56,4 @@ export default function DocsStepItem({ step, totalSteps }) {
     </div>
   );
 }
+

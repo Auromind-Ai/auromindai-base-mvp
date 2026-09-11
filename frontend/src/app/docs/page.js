@@ -2,19 +2,8 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { DOCS_NAVIGATION } from '@/docs-data/docs-navigation';
 import FeatureDiscoveryCard from '@/components/docs/FeatureDiscoveryCard';
-import {
-  InboxPreview,
-  AIBrainPreview,
-  AIWorkspacePreview,
-  LeadIntelligencePreview,
-  AutomationPreview,
-  AIGovernancePreview,
-  WalletPreview,
-  MultiChannelPreview,
-} from '@/components/docs/FeatureUIPreviews';
-import DocsVideoPlayer from '@/components/docs/DocsVideoPlayer';
+
 import {
   Rocket,
   Sparkles,
@@ -34,6 +23,11 @@ import {
   Cpu,
   Layers,
   Phone,
+  Terminal,
+  Activity,
+  ShieldCheck,
+  Flame,
+  Send,
 } from 'lucide-react';
 
 const ICONS_MAP = {
@@ -53,6 +47,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/features/agentic-orchestrator',
     tag: '5 min setup',
     icon: Workflow,
+    glowColor: 'bg-teal-500/25',
+    iconStyle: 'bg-teal-500/15 border-teal-500/30 text-teal-300 group-hover:bg-teal-500 group-hover:text-white',
+    accentBorder: 'group-hover:border-teal-500/50',
+    actionColor: 'text-teal-400 group-hover:text-teal-300',
   },
   {
     title: 'Connect WhatsApp Business Cloud API',
@@ -60,6 +58,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/integrations/whatsapp-cloud-api',
     tag: 'Enterprise Meta API',
     icon: Phone,
+    glowColor: 'bg-amber-500/25',
+    iconStyle: 'bg-amber-500/15 border-amber-500/30 text-amber-300 group-hover:bg-amber-500 group-hover:text-white',
+    accentBorder: 'group-hover:border-amber-500/50',
+    actionColor: 'text-amber-400 group-hover:text-amber-300',
   },
   {
     title: 'Ingest company PDFs into AI Brain',
@@ -67,6 +69,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/features/brain-rag',
     tag: 'RAG Knowledge',
     icon: Cpu,
+    glowColor: 'bg-rose-500/25',
+    iconStyle: 'bg-rose-500/15 border-rose-500/30 text-rose-300 group-hover:bg-rose-500 group-hover:text-white',
+    accentBorder: 'group-hover:border-rose-500/50',
+    actionColor: 'text-rose-400 group-hover:text-rose-300',
   },
   {
     title: 'Manage live customer conversations',
@@ -74,6 +80,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/features/omni-inbox',
     tag: 'Omni-Channel',
     icon: MessageSquare,
+    glowColor: 'bg-blue-500/25',
+    iconStyle: 'bg-blue-500/15 border-blue-500/30 text-blue-300 group-hover:bg-blue-500 group-hover:text-white',
+    accentBorder: 'group-hover:border-blue-500/50',
+    actionColor: 'text-blue-400 group-hover:text-blue-300',
   },
   {
     title: 'Qualify & score inbound leads',
@@ -81,6 +91,21 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/features/leads-crm',
     tag: 'CRM Pipeline',
     icon: Bot,
+    glowColor: 'bg-purple-500/25',
+    iconStyle: 'bg-purple-500/15 border-purple-500/30 text-purple-300 group-hover:bg-purple-500 group-hover:text-white',
+    accentBorder: 'group-hover:border-purple-500/50',
+    actionColor: 'text-purple-400 group-hover:text-purple-300',
+  },
+  {
+    title: 'Lead follow-ups with WhatsApp templates',
+    description: 'Trigger Meta-approved WhatsApp template notifications and automated follow-up sequences.',
+    href: '/docs/features/templates',
+    tag: 'WhatsApp Templates',
+    icon: Send,
+    glowColor: 'bg-emerald-500/25',
+    iconStyle: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 group-hover:bg-emerald-500 group-hover:text-white',
+    accentBorder: 'group-hover:border-emerald-500/50',
+    actionColor: 'text-emerald-400 group-hover:text-emerald-300',
   },
 ];
 
@@ -119,114 +144,194 @@ export default function DocsHomePage() {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto space-y-20 pb-20">
-      {/* 1. Hero Section */}
-      <section className="space-y-6 text-center sm:text-left pt-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-violet-500/30 bg-violet-500/10 text-xs font-semibold tracking-wider text-violet-300 uppercase">
-          <BookOpen className="w-3.5 h-3.5 text-violet-400" />
-          <span>OrbionAgents Documentation &amp; Architecture</span>
-        </div>
+    <div className="w-full space-y-24 sm:space-y-28 pb-28">
+      {/* 1. Hero Section - Expansive Balanced Grid */}
+      <section className="relative pt-2 sm:pt-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 xl:gap-12 items-center">
+          {/* Left Hero Content (7 Cols) */}
+          <div className="lg:col-span-7 space-y-6 text-left">
 
-        <div className="space-y-2 max-w-3xl">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
-            Build. Automate.{' '}
-            <span className="bg-gradient-to-r from-violet-400 via-purple-300 to-cyan-400 bg-clip-text text-transparent">
-              Understand. Convert.
-            </span>
-          </h1>
-          <p className="text-base sm:text-lg text-zinc-400 leading-relaxed pt-1">
-            One AI-native workspace for conversations, customers, knowledge, automation and revenue. Explore official guides, interactive UI previews, and production blueprints.
-          </p>
-        </div>
-
-        {/* Global Search Trigger Bar */}
-        <div className="max-w-xl pt-2">
-          <Link
-            href="#directory"
-            className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 text-sm text-zinc-400 hover:text-white transition-all shadow-inner group"
-          >
-            <div className="flex items-center gap-3">
-              <Search className="w-4 h-4 text-violet-400 group-hover:text-violet-300 transition-colors" />
-              <span>Search documentation, APIs, and workflows...</span>
+            {/* Main Headline */}
+            <div className="space-y-3">
+              <h1 className="text-4xl sm:text-5xl xl:text-6xl font-semibold tracking-tight text-white leading-[1.12]">
+                Build. Automate.{' '}
+                <span className="bg-gradient-to-r from-violet-400 via-purple-300 to-cyan-400 bg-clip-text text-transparent">
+                  Understand. Convert.
+                </span>
+              </h1>
+              <p className="text-[11px] sm:text-lg text-zinc-300 leading-relaxed max-w-2xl font-normal">
+                One AI-native workspace for conversations, customers, knowledge, automation and revenue. Explore official guides, interactive UI previews, and production blueprints.
+              </p>
             </div>
-            <kbd className="hidden sm:inline-block px-2 py-1 text-[11px] font-mono bg-white/5 border border-white/10 rounded text-zinc-400">
-              ⌘K
-            </kbd>
-          </Link>
-        </div>
 
-        {/* Quick Guide Fast-Track Pills */}
-        <div className="flex flex-wrap gap-2.5 pt-2">
-          <Link
-            href="/docs/getting-started/quickstart"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#814AC8] hover:bg-[#9255dd] text-xs font-semibold text-white shadow-lg shadow-violet-950/40 transition-all hover:-translate-y-0.5"
-          >
-            <Zap className="w-3.5 h-3.5" />
-            <span>5-Minute Quick Start</span>
-          </Link>
+            {/* Global Search Trigger Bar */}
+            <div className="w-full max-w-2xl pt-1">
+              <Link
+                href="#directory"
+                className="flex items-center justify-between px-5 py-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-violet-500/50 text-sm text-zinc-400 hover:text-white transition-all shadow-2xl group relative overflow-hidden backdrop-blur-md"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-all">
+                    <Search className="w-4 h-4" />
+                  </div>
+                  <span className="font-medium text-zinc-300 group-hover:text-white transition-colors">
+                    Search documentation, APIs, and workflows...
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2.5 py-1 text-xs font-mono font-semibold bg-white/[0.06] border border-white/10 rounded-lg text-zinc-300 shadow-inner">
+                    ⌘K
+                  </kbd>
+                </div>
+              </Link>
+            </div>
 
-          <Link
-            href="/docs/features/agentic-orchestrator"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-zinc-200 hover:text-white transition-all hover:-translate-y-0.5"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-            <span>Explore Visual Wires</span>
-          </Link>
+            {/* Quick Guide Fast-Track Action Pills */}
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <Link
+                href="/docs/getting-started/quickstart"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#814AC8] to-[#9333ea] hover:from-[#8d51db] hover:to-[#9f3ff2] text-xs font-semibold text-white shadow-lg shadow-purple-950/40 hover:shadow-purple-900/60 transition-all hover:-translate-y-0.5"
+              >
+                <Zap className="w-3.5 h-3.5 fill-white" />
+                <span>5-Minute Quick Start</span>
+              </Link>
 
-          <Link
-            href="/docs/integrations/whatsapp-cloud-api"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-zinc-200 hover:text-white transition-all hover:-translate-y-0.5"
-          >
-            <Share2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Connect WhatsApp</span>
-          </Link>
+              <Link
+                href="/docs/features/agentic-orchestrator"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-violet-500/40 text-xs font-semibold text-zinc-200 hover:text-white transition-all hover:-translate-y-0.5"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+                <span>Explore Visual Wires</span>
+              </Link>
+
+              <Link
+                href="/docs/integrations/whatsapp-cloud-api"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-emerald-500/40 text-xs font-semibold text-zinc-200 hover:text-white transition-all hover:-translate-y-0.5"
+              >
+                <Share2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Connect WhatsApp</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Right Hero Overview Panel (5 Cols) - Balances the wide layout */}
+          <div className="lg:col-span-5">
+            <div className="rounded-2xl border border-white/[0.08] bg-[#090A12]/80 backdrop-blur-xl p-5 sm:p-6 shadow-2xl shadow-black/80 space-y-4 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
+
+              {/* Panel Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                    Orbion Platform Architecture
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-violet-300 bg-violet-500/15 px-2 py-0.5 rounded border border-violet-500/30 font-semibold">
+                  v2.4 Production
+                </span>
+              </div>
+
+              {/* Mini Architecture Feature Chips */}
+              <div className="grid grid-cols-2 gap-2.5 text-xs font-mono">
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-violet-500/30 transition-colors">
+                  <span className="text-zinc-400 block text-[10px] uppercase">Engine</span>
+                  <span className="font-bold text-white text-xs">pgvector RAG</span>
+                </div>
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-violet-500/30 transition-colors">
+                  <span className="text-zinc-400 block text-[10px] uppercase">Latency</span>
+                  <span className="font-bold text-emerald-400 text-xs">&lt; 380ms E2E</span>
+                </div>
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-violet-500/30 transition-colors">
+                  <span className="text-zinc-400 block text-[10px] uppercase">Channels</span>
+                  <span className="font-bold text-cyan-300 text-xs">WhatsApp &bull; Insta</span>
+                </div>
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-violet-500/30 transition-colors">
+                  <span className="text-zinc-400 block text-[10px] uppercase">Governance</span>
+                  <span className="font-bold text-purple-300 text-xs">MCP Safeguards</span>
+                </div>
+              </div>
+
+              {/* Quick Prompt Terminal Snippet */}
+              <div className="p-3.5 rounded-xl bg-[#040407] border border-white/[0.06] space-y-2 font-mono text-[11px]">
+                <div className="flex items-center justify-between text-zinc-400 text-[10px]">
+                  <span className="flex items-center gap-1.5 text-violet-400 font-bold">
+                    <Terminal className="w-3 h-3" /> Live Agent Orchestrator
+                  </span>
+                  <span className="text-emerald-400">Online</span>
+                </div>
+                <p className="text-zinc-300 leading-relaxed">
+                  <span className="text-violet-400 font-bold">&gt;</span> Auto-routing multi-channel inbound messages to pgvector knowledge base &amp; CRM pipeline.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* 2. Popular Workflows Section */}
-      <section className="space-y-6 pt-4">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-violet-400">
-            Recommended Blueprints
-          </span>
-          <h2 className="text-2xl font-bold text-white mt-1">Popular Workflows</h2>
-          <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            Proven execution patterns designed for rapid production deployment.
-          </p>
+      {/* 2. Popular Workflows Section - Balanced 3x2 Grid */}
+      <section className="space-y-6 pt-4 border-t border-white/[0.08]">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+          <div>
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-violet-400 mb-1">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Recommended Blueprints</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+              Popular Workflows
+            </h2>
+            <p className="text-xs sm:text-sm text-white/60 mt-1">
+              Proven execution patterns designed for rapid production deployment.
+            </p>
+          </div>
+          <span className="text-xs text-zinc-400 hidden sm:block">6 Ready-to-use Blueprints</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {POPULAR_WORKFLOWS.map((wf, idx) => {
             const Icon = wf.icon;
             return (
               <Link
                 key={idx}
                 href={wf.href}
-                className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-violet-500/40 transition-all group flex flex-col justify-between"
+                className={`p-6 sm:p-7 rounded-[26px] border border-white/[0.08] bg-[#16161a]/95 hover:bg-[#191920] ${wf.accentBorder} transition-all duration-300 group flex flex-col justify-between shadow-2xl shadow-black/70 hover:-translate-y-1 relative overflow-hidden min-h-[250px] backdrop-blur-xl`}
               >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-colors">
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-300">
-                      {wf.tag}
-                    </span>
-                  </div>
+                {/* Atmospheric Ambient Glow */}
+                <div
+                  className={`absolute -top-12 -right-12 w-48 h-48 ${wf.glowColor} rounded-full blur-3xl pointer-events-none opacity-40 group-hover:opacity-75 transition-opacity duration-500`}
+                />
+                <div
+                  className={`absolute -bottom-12 -left-12 w-36 h-36 ${wf.glowColor} rounded-full blur-3xl pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity duration-500`}
+                />
 
-                  <div>
-                    <h3 className="text-sm font-bold text-white group-hover:text-violet-300 transition-colors">
-                      {wf.title}
-                    </h3>
-                    <p className="text-xs text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
-                      {wf.description}
-                    </p>
+                {/* TOP ROW: Icon Container & Tag Pill */}
+                <div className="flex items-center justify-between relative z-10 mb-4">
+                  <div
+                    className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all duration-300 shadow-md ${wf.iconStyle}`}
+                  >
+                    <Icon className="w-5 h-5" />
                   </div>
+                  <span className="text-[10px] sm:text-xs font-semibold px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/10 text-zinc-300 shadow-inner">
+                    {wf.tag}
+                  </span>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs font-semibold text-violet-400 group-hover:text-violet-300">
+                {/* MIDDLE: Title & Description */}
+                <div className="relative z-10 mb-4 flex-1">
+                  <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight leading-snug group-hover:text-white transition-colors">
+                    {wf.title}
+                  </h3>
+                  <p className="text-xs sm:text-[13px] text-zinc-400 leading-relaxed line-clamp-2 font-normal mt-2">
+                    {wf.description}
+                  </p>
+                </div>
+
+                {/* BOTTOM: Action Guide Link */}
+                <div
+                  className={`pt-3.5 border-t border-white/[0.06] flex items-center justify-between text-xs font-semibold ${wf.actionColor} relative z-10 transition-colors`}
+                >
                   <span>Start Guide</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1.5 transition-transform" />
                 </div>
               </Link>
             );
@@ -234,34 +339,37 @@ export default function DocsHomePage() {
         </div>
       </section>
 
-      {/* 3. Feature Discovery Section (The 10 Visual Showcase Cards) */}
-      <section id="features-discovery" className="space-y-6 pt-4 border-t border-white/10">
+      {/* 3. Feature Discovery Section (The 8 Rich Visual Showcase Cards) */}
+      <section id="features-discovery" className="space-y-6 pt-4 border-t border-white/[0.08]">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-violet-400">
-              Interactive Product Showcase
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-1">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-violet-400 mb-1">
+              <Layers className="w-3.5 h-3.5" />
+              <span>Interactive Product Showcase</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
               Core Capabilities &amp; Architecture
             </h2>
-            <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-2xl">
+            <p className="text-xs sm:text-sm text-white/60 mt-1 max-w-3xl">
               Miniature visual representations of actual Orbion surfaces. Click any card to enter the full step-by-step walkthrough.
             </p>
           </div>
-          <span className="text-xs font-mono text-zinc-400">8 Core Modules Available</span>
+          <span className="text-xs text-white/90 bg-[#814AC8]/50 px-3 py-1 rounded-full border border-white/10 font-medium w-fit">
+            8 Core Modules Available
+          </span>
         </div>
 
-        {/* The 8 Rich Visual Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+        {/* The 8 Rich Visual Cards Grid - Spacious 2-Column Responsive Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 pt-2">
           {/* 01: Omni-Channel Inbox */}
           <FeatureDiscoveryCard
             number="01"
             title="Omni-Channel Inbox"
             category="Conversations"
             badge="Live Sync"
-            description="Unite WhatsApp, Instagram, Twilio SMS, and Webchat in a single collaborative inbox with automated AI handoffs."
+            description="Unite WhatsApp, Instagram, Twilio SMS, and Webchat in a single collaborative inbox with automated AI handoffs. Manage all conversations, track contact details, and convert leads — from one powerful interface."
             href="/docs/features/omni-inbox"
-            previewComponent={InboxPreview}
+            imageSrc="/images/Docs/Docs_OmniInbox.png"
           />
 
           {/* 02: AI Brain */}
@@ -272,7 +380,7 @@ export default function DocsHomePage() {
             badge="pgvector"
             description="Ingest company PDFs, dynamic URLs, and sitemaps. Generate strictly grounded answers with exact source citations."
             href="/docs/features/brain-rag"
-            previewComponent={AIBrainPreview}
+            imageSrc="/images/Docs/Docs_AI_Brain.png"
           />
 
           {/* 03: AI Workspace */}
@@ -283,7 +391,7 @@ export default function DocsHomePage() {
             badge="Multi-Model"
             description="Test live prompt variations with token-by-token streaming, intent scoring, and dynamic tool-calling inspection."
             href="/docs/features/ai-workspace"
-            previewComponent={AIWorkspacePreview}
+            imageSrc="/images/Docs/Docs_AiWorkspace.png"
           />
 
           {/* 04: AI Lead Intelligence */}
@@ -294,7 +402,7 @@ export default function DocsHomePage() {
             badge="Scoring Engine"
             description="Dynamically categorize conversations into Hot, Warm, and Cold tiers with automated contact extraction."
             href="/docs/features/leads-crm"
-            previewComponent={LeadIntelligencePreview}
+            imageSrc="/images/Docs/Docs_Lead_CRM.png?v=2"
           />
 
           {/* 05: Automation Wire */}
@@ -305,7 +413,7 @@ export default function DocsHomePage() {
             badge="Showcase Hero"
             description="Visual canvas for constructing multi-step logic, intent triggers, delay timers, and human handoff conditions."
             href="/docs/features/agentic-orchestrator"
-            previewComponent={AutomationPreview}
+            imageSrc="/images/Docs/Docs_Automation.png"
           />
 
           {/* 06: AI Governance */}
@@ -316,7 +424,7 @@ export default function DocsHomePage() {
             badge="Deterministic"
             description="Enforce Model Context Protocol policies, PII redaction, blacklisted competitor terms, and human escalations."
             href="/docs/account/ai-governance"
-            previewComponent={AIGovernancePreview}
+            imageSrc="/images/Docs/Docs_AI_Governance.png"
           />
 
           {/* 07: Wallet & Credits */}
@@ -327,7 +435,7 @@ export default function DocsHomePage() {
             badge="Orbion Fuel"
             description="Track real-time token expenditure, WhatsApp conversation credits (WCC), and configure auto-recharge triggers."
             href="/docs/features/credits-wallet"
-            previewComponent={WalletPreview}
+            imageSrc="/images/Docs/Docs_Credits.png"
           />
 
           {/* 08: Multi-Channel Architecture */}
@@ -338,130 +446,11 @@ export default function DocsHomePage() {
             badge="Meta Certified"
             description="Direct infrastructure connectors uniting Meta Cloud API, Instagram Graph API, Twilio, and Gmail in one stack."
             href="/docs/integrations/whatsapp-cloud-api"
-            previewComponent={MultiChannelPreview}
+            imageSrc="/images/Docs/Docs_Channels.png"
           />
-        </div>
-      </section>
-
-      {/* 4. Featured Video Tutorials Showcase */}
-      <section className="space-y-6 pt-6 border-t border-white/10">
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-violet-400">
-              Interactive Media
-            </span>
-            <h2 className="text-2xl font-bold text-white mt-1">Video Tutorials &amp; Overviews</h2>
-          </div>
-          <span className="text-xs text-zinc-400">Official HD Walkthroughs</span>
-        </div>
-
-        {/* Primary Featured Hero Video */}
-        <DocsVideoPlayer
-          video={{
-            url: '/docs/videos/meet-orbion.mp4',
-            title: 'Meet OrbionAgents: Complete System Walkthrough',
-            duration: '0:40',
-            caption: 'High-level overview covering AI Workspaces, Unified Inbox, Visual Automations, and Brain Knowledge Base.',
-          }}
-        />
-
-        {/* Video Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {featuredVideos.map((v) => (
-            <Link
-              key={v.slug}
-              href={`/docs/${v.slug}`}
-              className="p-4 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-violet-500/40 transition-all group"
-            >
-              <div className="flex items-start justify-between">
-                <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/30 flex items-center justify-center text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-all">
-                  <Film className="w-4 h-4" />
-                </div>
-                <span className="text-[11px] font-mono text-zinc-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">
-                  {v.duration}
-                </span>
-              </div>
-              <h3 className="text-sm font-semibold text-white mt-3 group-hover:text-violet-300 transition-colors">
-                {v.title}
-              </h3>
-              <p className="text-xs text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
-                {v.desc}
-              </p>
-              <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-violet-400 group-hover:translate-x-1 transition-transform">
-                <span>Watch video &amp; read guide</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* 5. Categorized Documentation Directory Explorer */}
-      <section id="directory" className="space-y-8 pt-8 border-t border-white/10">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-violet-400">
-            Browse By Category
-          </span>
-          <h2 className="text-2xl font-bold text-white mt-1">Documentation Directory</h2>
-          <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            Complete technical references, API guides, and governance standards.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {DOCS_NAVIGATION.map((cat) => {
-            const IconComponent = ICONS_MAP[cat.icon] || BookOpen;
-
-            return (
-              <div
-                key={cat.category}
-                className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center gap-2.5 mb-3">
-                    <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
-                      <IconComponent className="w-4 h-4" />
-                    </div>
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wide">
-                      {cat.category}
-                    </h3>
-                  </div>
-
-                  <ul className="space-y-2 mt-4">
-                    {cat.items.map((item) => (
-                      <li key={item.slug}>
-                        <Link
-                          href={`/docs/${item.slug}`}
-                          className="text-xs text-zinc-400 hover:text-white flex items-center justify-between group py-0.5"
-                        >
-                          <span className="truncate group-hover:text-violet-300 transition-colors">
-                            {item.title}
-                          </span>
-                          {item.hasVideo && (
-                            <span className="p-0.5 text-violet-400" title="Includes video">
-                              <Film className="w-3 h-3" />
-                            </span>
-                          )}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="pt-4 mt-4 border-t border-white/5">
-                  <Link
-                    href={`/docs/${cat.items[0]?.slug}`}
-                    className="text-xs font-semibold text-violet-400 hover:text-violet-300 flex items-center gap-1"
-                  >
-                    <span>View all {cat.category} guides</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
         </div>
       </section>
     </div>
   );
 }
+
