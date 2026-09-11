@@ -25,15 +25,75 @@ export default function DocumentationVideo({
   const videoRef = useRef(null);
   const containerRef = useRef(null);
 
+  const playPromiseRef = useRef(null);
+
+  const safePlay = () => {
+    const vid = videoRef.current;
+    if (!vid) return;
+
+    try {
+      const promise = vid.play();
+      if (promise !== undefined) {
+        playPromiseRef.current = promise;
+        promise
+          .then(() => {
+            setIsPlaying(true);
+          })
+          .catch((err) => {
+            // AbortError is expected when pause() interrupts an in-flight play()
+            // NotAllowedError is expected when browser blocks autoplay
+            if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+              console.warn('Video playback warning:', err);
+            }
+            setIsPlaying(false);
+          })
+          .finally(() => {
+            playPromiseRef.current = null;
+          });
+      } else {
+        setIsPlaying(true);
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+        console.warn('Video play exception:', err);
+      }
+      setIsPlaying(false);
+    }
+  };
+
+  const safePause = () => {
+    const vid = videoRef.current;
+    if (!vid) return;
+
+    if (playPromiseRef.current) {
+      playPromiseRef.current
+        .then(() => {
+          if (videoRef.current) {
+            videoRef.current.pause();
+            setIsPlaying(false);
+          }
+        })
+        .catch(() => {
+          if (videoRef.current) {
+            videoRef.current.pause();
+            setIsPlaying(false);
+          }
+        });
+    } else {
+      try {
+        vid.pause();
+      } catch (_) {}
+      setIsPlaying(false);
+    }
+  };
+
   useEffect(() => {
     if (asGif && videoRef.current) {
-      videoRef.current.play().catch(() => {
-        if (videoRef.current) {
-          videoRef.current.muted = true;
-          videoRef.current.play().catch(() => {});
-        }
-      });
+      safePlay();
     }
+    return () => {
+      safePause();
+    };
   }, [asGif]);
 
   useEffect(() => {
@@ -54,34 +114,33 @@ export default function DocumentationVideo({
     };
   }, [isExpanded]);
 
-  const togglePlay = () => {
+  const togglePlay = (e) => {
+    e?.stopPropagation?.();
     if (!videoRef.current) return;
     if (isPlaying) {
-      videoRef.current.pause();
-      setIsPlaying(false);
+      safePause();
     } else {
-      videoRef.current.play();
-      setIsPlaying(true);
+      safePlay();
     }
   };
 
   const toggleMute = (e) => {
-    e?.stopPropagation();
+    e?.stopPropagation?.();
     if (!videoRef.current) return;
     videoRef.current.muted = !isMuted;
     setIsMuted(!isMuted);
   };
 
   const restartVideo = (e) => {
-    e?.stopPropagation();
+    e?.stopPropagation?.();
     if (!videoRef.current) return;
     videoRef.current.currentTime = 0;
-    videoRef.current.play();
-    setIsPlaying(true);
+    safePlay();
   };
 
   const openFullscreen = (e) => {
-    e?.stopPropagation();
+    e?.stopPropagation?.();
+    safePause();
     setIsExpanded(true);
   };
 
@@ -165,13 +224,30 @@ export default function DocumentationVideo({
         >
           <video
             ref={videoRef}
+            src={effectiveUrl}
             poster={videoData.poster}
             muted={isMuted}
             playsInline
             preload="metadata"
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
             onEnded={() => setIsPlaying(false)}
             className="w-full h-full object-contain bg-black"
-          />
+          >
+            {effectiveUrl && (
+              <source
+                src={effectiveUrl}
+                type={effectiveUrl.toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4'}
+              />
+            )}
+            {effectiveFallback && (
+              <source
+                src={effectiveFallback}
+                type={effectiveFallback.toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4'}
+              />
+            )}
+            Your browser does not support HTML5 video playback.
+          </video>
 
           {/* Overlay Gradient (only visible on hover or when paused) */}
           <div
@@ -266,10 +342,6 @@ export default function DocumentationVideo({
               >
                 <Maximize className="w-3.5 h-3.5" />
               </button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span className="text-[11px] text-zinc-400 font-mono hidden sm:inline">HD 1080p</span>
               <button
                 onClick={openFullscreen}
                 className="p-1.5 hover:bg-white/10 rounded-lg transition-colors flex items-center gap-1 text-zinc-300 hover:text-white"

@@ -61,6 +61,8 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
     ? config.setupSteps[selectedStepIndex] 
     : (config.setupSteps?.[0] || null);
 
+  const isFlowPage = config.slug === 'agentic-orchestrator' || config.visualKey === 'agentic-orchestrator' || config.featureNumber === '05';
+
   return (
     <article
       className="w-full min-w-0 space-y-16 lg:space-y-24 pb-20 font-['Poppins',sans-serif]"
@@ -443,161 +445,163 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
         </section>
       )}
 
-      {/* SECTION 3: STEP-BY-STEP GUIDE & PIPELINE (AiSensy Style Zig-Zag) */}
-      <section id="step-by-step-guide" className="scroll-mt-24 pt-8 border-t border-white/10 space-y-12 lg:space-y-16">
-        {/* Section Header */}
-        <div className="max-w-3xl space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/25 text-violet-400 text-xs font-mono font-semibold">
-            <ListChecks className="w-3.5 h-3.5" />
-            <span>Step-by-Step Operational Guide</span>
-            {config.setupSteps?.length && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-bold">
-                {config.setupSteps.length} Steps
-              </span>
-            )}
+      {/* SECTION 3: STEP-BY-STEP GUIDE & PIPELINE (AiSensy Style Zig-Zag for Flow Builder) */}
+      {isFlowPage && config.setupSteps && config.setupSteps.length > 0 && (
+        <section id="step-by-step-guide" className="scroll-mt-24 pt-8 border-t border-white/10 space-y-12 lg:space-y-16">
+          {/* Section Header */}
+          <div className="max-w-3xl space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/25 text-violet-400 text-xs font-mono font-semibold">
+              <ListChecks className="w-3.5 h-3.5" />
+              <span>Step-by-Step Operational Guide</span>
+              {config.setupSteps?.length && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-bold">
+                  {config.setupSteps.length} Steps
+                </span>
+              )}
+            </div>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white tracking-tight">
+              {config.architecture?.title || "Step-by-Step Configuration Guide"}
+            </h2>
+            <p className="text-sm sm:text-base text-zinc-300 leading-relaxed">
+              {config.architecture?.description}
+            </p>
           </div>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white tracking-tight">
-            {config.architecture?.title || "Step-by-Step Configuration Guide"}
-          </h2>
-          <p className="text-sm sm:text-base text-zinc-300 leading-relaxed">
-            {config.architecture?.description}
-          </p>
-        </div>
 
-        {/* Zig-Zag Alternating Steps Container */}
-        <div className="space-y-16 lg:space-y-24">
-          {config.setupSteps?.map((s, idx) => {
-            const isReversed = idx % 2 === 1;
-            const stepImg = s.image || config.screenshotUrl;
+          {/* Zig-Zag Alternating Steps Container */}
+          <div className="space-y-16 lg:space-y-24">
+            {config.setupSteps?.map((s, idx) => {
+              const isReversed = idx % 2 === 1;
+              const stepImg = s.image || s.screenshot || config.screenshotUrl;
 
-            return (
-              <div
-                key={s.step || idx}
-                className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center"
-              >
-                {/* Content Column */}
+              return (
                 <div
-                  className={`lg:col-span-6 space-y-4 ${
-                    isReversed ? 'order-1 lg:order-2' : 'order-1 lg:order-1'
-                  }`}
+                  key={s.step || idx}
+                  className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center"
                 >
-                  {/* Step Badge */}
-                  <div className="flex items-center gap-2.5">
-                    <span className="px-3 py-1 rounded-md bg-[#814AC8] text-white font-mono text-xs font-bold shadow-md shadow-purple-900/30">
-                      {s.stage || `Step ${s.step}`}
-                    </span>
-                  </div>
+                  {/* Content Column */}
+                  <div
+                    className={`lg:col-span-6 space-y-4 ${
+                      isReversed ? 'order-1 lg:order-2' : 'order-1 lg:order-1'
+                    }`}
+                  >
+                    {/* Step Badge */}
+                    <div className="flex items-center gap-2.5">
+                      <span className="px-3 py-1 rounded-md bg-[#814AC8] text-white font-mono text-xs font-bold shadow-md shadow-purple-900/30">
+                        {s.stage || `Step ${s.step}`}
+                      </span>
+                    </div>
 
-                  {/* Title & Subtitle */}
-                  <div>
-                    <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug">
-                      {s.title}
-                    </h3>
-                    {s.subtitle && (
-                      <p className="text-sm sm:text-base text-violet-300/90 font-medium mt-1">
-                        {s.subtitle}
+                    {/* Title & Subtitle */}
+                    <div>
+                      <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug">
+                        {s.title}
+                      </h3>
+                      {s.subtitle && (
+                        <p className="text-sm sm:text-base text-violet-300/90 font-medium mt-1">
+                          {s.subtitle}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Description */}
+                    <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">
+                      {s.description}
+                    </p>
+
+                    {/* Action Checklist Items */}
+                    {s.actionItems && s.actionItems.length > 0 && (
+                      <div className="space-y-2 pt-2">
+                        <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-bold block">
+                          Action Checklist:
+                        </span>
+                        <ul className="space-y-2">
+                          {s.actionItems.map((item, i) => (
+                            <li key={i} className="flex items-start gap-2.5 text-xs sm:text-sm text-zinc-300">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Additional details */}
+                    {s.details && (
+                      <p className="text-xs text-zinc-400 leading-relaxed italic border-l-2 border-violet-500/30 pl-3">
+                        {s.details}
                       </p>
                     )}
-                  </div>
 
-                  {/* Description */}
-                  <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">
-                    {s.description}
-                  </p>
-
-                  {/* Action Checklist Items */}
-                  {s.actionItems && s.actionItems.length > 0 && (
-                    <div className="space-y-2 pt-2">
-                      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-bold block">
-                        Action Checklist:
-                      </span>
-                      <ul className="space-y-2">
-                        {s.actionItems.map((item, i) => (
-                          <li key={i} className="flex items-start gap-2.5 text-xs sm:text-sm text-zinc-300">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Additional details */}
-                  {s.details && (
-                    <p className="text-xs text-zinc-400 leading-relaxed italic border-l-2 border-violet-500/30 pl-3">
-                      {s.details}
-                    </p>
-                  )}
-
-                  {/* Link */}
-                  {s.linkText && (
-                    <div className="pt-2">
-                      <a
-                        href={s.linkUrl || '#'}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors group"
-                      >
-                        <span>{s.linkText}</span>
-                        <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
-                      </a>
-                    </div>
-                  )}
-                </div>
-
-                {/* Image Column */}
-                <div
-                  className={`lg:col-span-6 ${
-                    isReversed ? 'order-2 lg:order-1' : 'order-2 lg:order-2'
-                  }`}
-                >
-                  <div className="p-2 sm:p-3 rounded-2xl border border-white/10 bg-slate-900/40 shadow-xl shadow-black/40 hover:border-violet-500/30 transition-all">
-                    {stepImg ? (
-                      <DocumentationScreenshot
-                        src={stepImg}
-                        alt={s.title}
-                        stepNumber={s.step}
-                        caption={s.caption || `Step ${s.step}: ${s.title}`}
-                      />
-                    ) : (
-                      <div className="p-8 rounded-xl border border-white/10 bg-black/40 text-center">
-                        <span className="text-sm text-zinc-400">Step screenshot preview</span>
+                    {/* Link */}
+                    {s.linkText && (
+                      <div className="pt-2">
+                        <a
+                          href={s.linkUrl || '#'}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors group"
+                        >
+                          <span>{s.linkText}</span>
+                          <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+                        </a>
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
 
-        {/* 4 Pipeline Stages Architecture Overview */}
-        {config.architecture?.stages && config.architecture.stages.length > 0 && (
-          <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] space-y-4 mt-10">
-            <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-violet-400" />
-              <span className="text-xs font-mono uppercase tracking-widest text-zinc-300 font-bold">
-                Underlying Execution Pipeline Architecture:
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {config.architecture.stages.map((st) => (
-                <div key={st.number} className="p-3.5 rounded-xl border border-white/5 bg-black/40 space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-violet-400 font-bold bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
-                      S{st.number}
-                    </span>
-                    <span className="text-xs font-semibold text-zinc-200 truncate">
-                      {st.name}
-                    </span>
+                  {/* Image Column */}
+                  <div
+                    className={`lg:col-span-6 ${
+                      isReversed ? 'order-2 lg:order-1' : 'order-2 lg:order-2'
+                    }`}
+                  >
+                    <div className="p-2 sm:p-3 rounded-2xl border border-white/10 bg-slate-900/40 shadow-xl shadow-black/40 hover:border-violet-500/30 transition-all">
+                      {stepImg ? (
+                        <DocumentationScreenshot
+                          src={stepImg}
+                          alt={s.title}
+                          stepNumber={s.step}
+                          caption={s.caption || `Step ${s.step}: ${s.title}`}
+                        />
+                      ) : (
+                        <div className="p-8 rounded-xl border border-white/10 bg-black/40 text-center">
+                          <span className="text-sm text-zinc-400">Step screenshot preview</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-[11px] text-zinc-400 leading-relaxed">
-                    {st.detail}
-                  </p>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        )}
-      </section>
+
+          {/* 4 Pipeline Stages Architecture Overview */}
+          {config.architecture?.stages && config.architecture.stages.length > 0 && (
+            <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] space-y-4 mt-10">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-violet-400" />
+                <span className="text-xs font-mono uppercase tracking-widest text-zinc-300 font-bold">
+                  Underlying Execution Pipeline Architecture:
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {config.architecture.stages.map((st) => (
+                  <div key={st.number} className="p-3.5 rounded-xl border border-white/5 bg-black/40 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono text-violet-400 font-bold bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
+                        S{st.number}
+                      </span>
+                      <span className="text-xs font-semibold text-zinc-200 truncate">
+                        {st.name}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      {st.detail}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* SECTION: INTEGRATED SUB-MODULES / FLOW ENGINE TOOLS */}
       {config.subModules && config.subModules.length > 0 && (
@@ -911,7 +915,7 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
       )}
 
       {/* SECTION 3: CONFIGURATION & GUIDED SETUP */}
-      {config.setupSteps && config.setupSteps.length > 0 && (
+      {!isFlowPage && config.setupSteps && config.setupSteps.length > 0 && (
         <section id="configuration" className="scroll-mt-24 pt-4 border-t border-white/10 space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -1095,6 +1099,35 @@ export default function FeatureDetailView({ config, prevArticle, nextArticle }) 
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Underlying Execution Pipeline Architecture */}
+        {config.architecture?.stages && config.architecture.stages.length > 0 && (
+          <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] space-y-4 mt-8">
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-violet-400" />
+              <span className="text-xs font-mono uppercase tracking-widest text-zinc-300 font-bold">
+                Underlying Execution Pipeline Architecture:
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {config.architecture.stages.map((st) => (
+                <div key={st.number} className="p-3.5 rounded-xl border border-white/5 bg-black/40 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-violet-400 font-bold bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
+                      S{st.number}
+                    </span>
+                    <span className="text-xs font-semibold text-zinc-200 truncate">
+                      {st.name}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    {st.detail}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         )}

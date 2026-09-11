@@ -31,15 +31,67 @@ export default function DocsVideoPlayer({ video }) {
     };
   }, []);
 
-  const togglePlay = () => {
+  const playPromiseRef = useRef(null);
+
+  const safePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      const promise = v.play();
+      if (promise !== undefined) {
+        playPromiseRef.current = promise;
+        promise
+          .then(() => setIsPlaying(true))
+          .catch((err) => {
+            if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+              console.warn('Playback error:', err);
+            }
+            setIsPlaying(false);
+          })
+          .finally(() => {
+            playPromiseRef.current = null;
+          });
+      } else {
+        setIsPlaying(true);
+      }
+    } catch (_) {
+      setIsPlaying(false);
+    }
+  };
+
+  const safePause = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (playPromiseRef.current) {
+      playPromiseRef.current
+        .then(() => {
+          if (videoRef.current) {
+            videoRef.current.pause();
+            setIsPlaying(false);
+          }
+        })
+        .catch(() => {
+          if (videoRef.current) {
+            videoRef.current.pause();
+            setIsPlaying(false);
+          }
+        });
+    } else {
+      try {
+        v.pause();
+      } catch (_) {}
+      setIsPlaying(false);
+    }
+  };
+
+  const togglePlay = (e) => {
+    e?.stopPropagation?.();
     const v = videoRef.current;
     if (!v) return;
     if (isPlaying) {
-      v.pause();
-      setIsPlaying(false);
+      safePause();
     } else {
-      v.play();
-      setIsPlaying(true);
+      safePlay();
     }
   };
 

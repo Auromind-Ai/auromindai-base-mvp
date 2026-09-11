@@ -10,6 +10,7 @@ export const agenticOrchestratorDetail = {
   ],
   featureNumber: '05',
   category: 'Visual Workflow Automation',
+  visualKey: 'agentic-orchestrator',
   title: 'Automation Wire (Flow Builder)',
   tagline: 'Visual drag-and-drop orchestration canvas connecting triggers, AI intent classifiers, decision branches, and automated actions.',
   description: 'Design multi-step customer journeys without writing code. Connect inbound triggers, AI classification gates, conditional logic, and automated WhatsApp or webhook actions seamlessly on an interactive canvas.',
