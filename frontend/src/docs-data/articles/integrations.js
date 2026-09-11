@@ -335,19 +335,14 @@ export const INTEGRATIONS_ARTICLES = {
         type: "troubleshooting",
         items: [
           {
-            issue: "Why am I not receiving messages when testing with the Twilio WhatsApp Sandbox?",
-            cause: "Twilio Sandbox requires an opt-in keyword from your mobile phone before forwarding messages.",
-            solution: "Send 'join <sandbox-keyword>' from your WhatsApp to the assigned Twilio Sandbox test number."
+            issue: "Twilio test message fails to deliver to an unverified number?",
+            cause: "Your Twilio account is in Trial Mode and can only send test messages to verified phone numbers.",
+            solution: "Verify the test recipient phone number in Twilio Console > Verified Caller IDs, or upgrade your Twilio project to a paid live account."
           },
           {
-            issue: "What is the difference between Sandbox and a Dedicated Twilio Number?",
-            cause: "Sandbox is shared for developer testing; dedicated numbers are exclusive to your business with no join code.",
-            solution: "For production, purchase a dedicated phone number in Twilio Console under Phone Numbers > Buy a number."
-          },
-          {
-            issue: "Why are inbound messages not reaching orbionagents?",
-            cause: "Sandbox webhook URLs may not be saved or may have incorrect methods.",
-            solution: "Verify that 'When a message comes in' is set to https://api.orbionagents.com/twilio/webhook with Method POST."
+            issue: "Inbound SMS not reflecting in queue?",
+            cause: "The messaging webhook configuration needs to be refreshed.",
+            solution: "Ensure the Twilio phone number is correctly connected under Channels in your Orbion dashboard."
           }
         ]
       }

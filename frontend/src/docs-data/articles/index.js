@@ -18,6 +18,10 @@ export const DOCS_ARTICLES = {
 
 export const SLUG_ALIASES = {
   'features/automation': 'features/agentic-orchestrator',
+  'features/flow-linking': 'features/agentic-orchestrator',
+  'features/magic-wire': 'features/agentic-orchestrator',
+  'features/conditional-logic': 'features/agentic-orchestrator',
+  'features/interactive-menus': 'features/agentic-orchestrator',
   'features/ai-brain': 'features/brain-rag',
   'features/lead-intelligence': 'features/leads-crm',
   'features/wallet': 'features/credits-wallet',

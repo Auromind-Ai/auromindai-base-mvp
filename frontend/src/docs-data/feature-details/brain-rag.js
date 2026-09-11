@@ -109,6 +109,20 @@ export const brainRagDetail = {
       highlight: 'Easier maintenance'
     }
   ],
+  beforeYouStart: [
+    {
+      title: 'Prepared Source Documents',
+      description: 'Ensure documentation files (PDF, DOCX, Markdown, or CSV) contain clean, text-extractable content (not flat scanned images without OCR).'
+    },
+    {
+      title: 'Admin / Manager Access',
+      description: 'Permissions to create and manage knowledge collections in your workspace.'
+    },
+    {
+      title: 'Available Vector Credits',
+      description: 'Adequate workspace credit balance for document parsing and high-dimensional vector embeddings.'
+    }
+  ],
   setupSteps: [
     {
       step: 1,

@@ -10,14 +10,14 @@ export const CORE_FEATURES_PART1 = {
         id: "overview",
         title: "Overview",
         type: "text",
-        content: "The AI Workspace (/user/admin/ai) provides an interactive development and testing environment where you configure agent system prompts, select foundation LLMs (GPT-4o, Claude 3.5 Sonnet, Gemini Flash), inspect real-time token streaming, and debug tool execution payloads before publishing live."
+        content: "The AI Workspace (/user/admin/ai) provides an interactive development and testing environment where you configure agent system prompts, select foundation LLMs (GPT, Claude, Gemini), inspect real-time token streaming, and debug tool execution payloads before publishing live."
       },
       {
         id: "capabilities",
         title: "Key Capabilities",
         type: "list",
         items: [
-          { title: "Multi-Model Selection", description: "Switch between GPT-4o for complex reasoning, Claude 3.5 Sonnet for document synthesis, and Gemini Flash for fast triage." },
+          { title: "Multi-Model Selection", description: "Switch between GPT for complex reasoning, Claude for document synthesis, and Gemini for fast triage." },
           { title: "MCP Tool Attachments", description: "Bind external tools (database lookups, order tracking, calendar booking) via standardized Model Context Protocol schemas." },
           { title: "Interactive Studio Debugger", description: "Simulate multi-turn dialogues with token streaming inspector and JSON tool invocation displays." },
           { title: "Knowledge Source Binding", description: "Attach specific vector collections from AI Brain to ground agent responses with paragraph citations." }
@@ -157,9 +157,23 @@ export const CORE_FEATURES_PART1 = {
       }
     ],
     seo: {
-      title: "Agentic Orchestrator & Visual Flow Builder | OrbionAgents",
-      description: "Visual node graph editor for automated customer journeys, triggers, delay timers, and Flow Health validation.",
-      keywords: ["visual bot builder", "Agentic Orchestrator", "conversational flows", "WhatsApp bot editor", "Wires automation"]
+      title: "Agentic Orchestrator (Flows) | OrbionAgents Documentation",
+      description: "Visual node graph editor, Magic Wire AI generation, sequential linking, decision logic, and WhatsApp interactive buttons.",
+      keywords: [
+        "visual bot builder",
+        "Agentic Orchestrator",
+        "conversational flows",
+        "WhatsApp bot editor",
+        "Wires automation",
+        "flow linking",
+        "Magic Wire",
+        "AI flow generator",
+        "conditional logic",
+        "decision nodes",
+        "interactive button menus",
+        "WhatsApp buttons",
+        "list pickers"
+      ]
     }
   },
 

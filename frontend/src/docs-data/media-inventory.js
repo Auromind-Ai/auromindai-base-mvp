@@ -42,7 +42,7 @@ export const MEDIA_INVENTORY = {
     notes: "High-DPI slot ready for PDF upload and pgvector chunk inspection screenshot."
   },
   "features/ai-workspace": {
-    featureName: "AI Workspace & Agent Studio",
+    featureName: "AI Workspace & Smart Copilot",
     featureSlug: "features/ai-workspace",
     videoAvailable: false,
     videoVersion: null,
@@ -56,7 +56,7 @@ export const MEDIA_INVENTORY = {
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
-    notes: "Covers real-time streaming tokens and dynamic tool invocation."
+    notes: "Covers real-time streaming tokens, multi-model selection (Auto, Groq, Sonnet, Opus, Gemini), Brain RAG source scoping, and document analysis."
   },
   "features/leads-crm": {
     featureName: "Leads & CRM Pipeline",
@@ -77,18 +77,19 @@ export const MEDIA_INVENTORY = {
   "features/agentic-orchestrator": {
     featureName: "Agentic Orchestrator (Wires)",
     featureSlug: "features/agentic-orchestrator",
-    videoAvailable: false,
-    videoVersion: null,
-    videoUrl: "/docs/videos/agentic-orchestrator.mp4",
-    videoDuration: "0:18",
-    screenshotAvailable: false,
-    screenshotVersion: null,
+    videoAvailable: true,
+    videoVersion: "v2.4.0",
+    videoUrl: "/docs/videos/Screen Recording 2026-09-11 104247.mp4",
+    videoDuration: "Walkthrough Demo",
+    screenshotAvailable: true,
+    screenshotVersion: "v2.4.0",
     screenshotUrls: [
+      "/docs/screenshots/flow-verification-active.png",
       "/docs/screenshots/orchestrator-canvas.png"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
-    notes: "Node construction, wire ports, and Flow Health validation."
+    notes: "Active production screenshot of verified active flows and video walkthrough demonstrating the visual workflow canvas."
   },
   "features/campaigns": {
     featureName: "WhatsApp Campaigns & Broadcasts",

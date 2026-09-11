@@ -75,6 +75,20 @@ export const leadsCrmDetail = {
     { title: 'Understand the Customer', description: 'Review messages, activity, and the score breakdown before following up, so you can continue with the right context.', highlight: 'Conversation history' },
     { title: 'Keep Important Leads Easy to Find', description: 'Star a lead for quick access through Favorites. Use labels and channel filters to organise your work.', highlight: 'Favorites & labels' }
   ],
+  beforeYouStart: [
+    {
+      title: 'Identify Qualification Criteria',
+      description: 'Define the key fields your sales team needs to capture (e.g. Budget, Decision Authority, Timeline, Company Size).'
+    },
+    {
+      title: 'Live Inbound Channel',
+      description: 'At least one messaging channel active so prospective leads can message your brand.'
+    },
+    {
+      title: 'External CRM Account (Optional)',
+      description: 'Connected HubSpot, Salesforce, or webhook destination if auto-syncing outside Orbion.'
+    }
+  ],
   setupSteps: [
     {
       step: 1,

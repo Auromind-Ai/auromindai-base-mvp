@@ -175,66 +175,89 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
     slug: "billing/plans-pricing",
     category: "Billing & Subscriptions",
     title: "Subscription Plans & Add-ons",
-    subtitle: "Manage subscription tiers, channel allowances, automation quotas, and add-on packs.",
+    subtitle: "Compare platform tiers, monthly AI token quotas, WhatsApp conversation allowances, and add-on packs.",
     pageType: "billing",
     sections: [
       {
         id: "overview",
         title: "Overview",
         type: "text",
-        content: "OrbionAgents provides structured subscription tiers designed for creators, growing teams, and high-volume enterprises. Plans bundle active messaging channels, Automation Wire limits, Knowledge Brain storage, and included compute credits."
+        content: "OrbionAgents operates on a transparent 3-tier subscription architecture engineered for rapid acquisition and enterprise scale: Free Starter (₹0 acquisition tier), Pro (₹199/month for growing businesses), and Enterprise (dedicated high-volume conversational AI infrastructure). Every plan bundles monthly AI credits, WhatsApp Conversation Credit (WCC) wallet balances, active automations, knowledge base document storage, and CRM capacity.",
+        uiPreview: "PricingPreview"
       },
       {
         id: "what-this-manages",
-        title: "What this page manages",
+        title: "What this console manages",
         type: "list",
         items: [
-          { title: "Current Subscription Status", description: "View your active plan, renewal date, and billing cycle (Monthly or Yearly)." },
-          { title: "Quota & Allowance Monitoring", description: "Track utilization of connected channels, active wires, and knowledge base capacity." },
-          { title: "Plan Upgrades & Downgrades", description: "Switch between Starter, Pro, and Enterprise tiers as your business scales." },
-          { title: "Individual Add-on Packs", description: "Purchase standalone extra channel slots or wire quotas without upgrading the whole plan tier." }
+          { title: "Subscription Status & Quotas", description: "Inspect your active workspace tier (Free Starter, Pro, or Enterprise), monthly renewal date, and active billing status." },
+          { title: "Monthly Quotas & Balances", description: "Track real-time burn against included AI credits (20K to 500K+), WhatsApp conversation wallets (₹50 to ₹500+), and flow limits." },
+          { title: "Plan Upgrades & Checkout", description: "Seamlessly upgrade from Free Starter to Pro or Enterprise via Razorpay checkout with instant zero-downtime quota provisioning." },
+          { title: "On-Demand Add-on Top-ups", description: "Pro and Enterprise workspaces can recharge WhatsApp wallets, buy AI credit top-ups, and add flow packs without altering base plan tiers." }
         ]
       },
       {
         id: "tier-matrix",
-        title: "Plan Comparison Matrix",
+        title: "Official Plan Entitlements & Pricing Matrix",
         type: "table",
-        headers: ["Feature Tier", "Starter", "Pro", "Enterprise"],
+        headers: ["Platform Metric / Quota", "Free Starter", "Pro (Most Popular)", "Enterprise"],
         rows: [
-          ["Connected Channels", "1 Channel (WhatsApp or IG)", "Up to 3 Channels", "Unlimited Custom Channels"],
-          ["Automation Wires", "5 Active Wires", "25 Active Wires", "Unlimited Wires"],
-          ["Brain Collections", "2 Collections (50MB)", "10 Collections (500MB)", "Custom pgvector Namespaces"],
-          ["AI Copilot & Inbox", "Standard Queue", "Unified Queue + Copilot", "Dedicated Agent Pools + Priority SLA"]
+          ["Subscription Price", "₹0 / month", "₹199 / month", "₹24,999 / month or Custom Quote"],
+          ["Monthly AI Credits", "20,000 Credits", "250,000 Credits", "500,000+ Credits"],
+          ["WhatsApp Wallet (WCC)", "₹50 (~45 messages)", "₹500 (~450 messages)", "₹500+ (Custom Enterprise Wallet)"],
+          ["Active Automations (Wires)", "2 Active Automations", "50 Active Automations", "Unlimited Automations"],
+          ["Flow Executions / month", "2 Executions / month", "10 Executions / month", "Unlimited Executions"],
+          ["Knowledge Base Documents", "5 Documents", "100 Documents", "1,000 Documents"],
+          ["Brain File Storage", "100 MB Storage", "5 GB File Storage", "100 GB Dedicated Storage"],
+          ["Leads & CRM Limit", "50 Active Leads", "100 Active Leads", "Unlimited Leads"],
+          ["Meetings Scheduled / month", "10 Meetings / month", "500 Meetings / month", "Unlimited Meetings"],
+          ["Gmail Connections", "1 Connection", "5 Connections", "Unlimited Connections"],
+          ["Team Members", "1 Member", "10 Members", "50 Members"],
+          ["AI Credit Top-ups", "Locked (Upgrade required)", "Enabled", "Enabled"],
+          ["WhatsApp Wallet Recharge", "Locked (Upgrade required)", "Enabled", "Enabled"],
+          ["Flow Pack Add-ons", "Locked (Upgrade required)", "Enabled", "Enabled"]
+        ]
+      },
+      {
+        id: "addon-policy",
+        title: "Add-on Packs & Top-up Policy",
+        type: "checklist",
+        checklistTitle: "Add-on Purchase & Wallet Entitlement Rules:",
+        items: [
+          "Free Starter workspaces operate in sandbox acquisition mode: wallet recharges and credit top-up packs require upgrading to Pro or Enterprise.",
+          "Pro & Enterprise workspaces can perform on-demand WhatsApp WCC wallet recharges and buy AI credit top-ups directly under /user/admin/credits.",
+          "Included plan AI credits and WhatsApp wallet allowances reset on your monthly renewal date following the workspace EXPIRE policy.",
+          "Purchased top-up credits never expire during an active subscription and roll over continuously until consumed."
         ]
       },
       {
         id: "step-by-step",
-        title: "Managing Plans & Purchasing Add-ons",
+        title: "Managing Plans & Upgrading Tiers",
         type: "steps",
         steps: [
           {
             step: 1,
-            title: "Navigate to Billing Dashboard",
-            instruction: "Open the admin dashboard and navigate to Billing (/user/admin/billing).",
-            uiElements: ["Sidebar Billing icon", "'Plans & Add-ons' section"]
+            title: "Navigate to Billing or Plan Upgrade",
+            instruction: "Open your workspace dashboard and navigate to Billing (/user/admin/billing). Click the 'Upgrade plan' button to enter the plan portal at /user/admin/billing/payment.",
+            uiElements: ["Sidebar 'Billing' navigation link", "'Upgrade plan' button"]
           },
           {
             step: 2,
-            title: "Select Billing Cadence",
-            instruction: "Toggle between Monthly and Yearly billing. Yearly plans include a 20% discount on base platform subscription charges.",
-            uiElements: ["Monthly / Yearly toggle switch"]
+            title: "Review Monthly Pricing & Quotas",
+            instruction: "Inspect the monthly subscription fee and included allocations. The Pro tier is billed monthly at ₹199/month with instant quota activation.",
+            uiElements: ["Plan pricing card", "'₹199 / month' badge"]
           },
           {
             step: 3,
-            title: "Choose Target Plan or Add-on",
-            instruction: "Click 'Upgrade' under your desired tier, or scroll to 'Add-ons' to select additional channel seats or wire packs.",
-            uiElements: ["'Upgrade' button", "'Add-on Packs' selector"]
+            title: "Select Desired Plan or Enterprise Consultation",
+            instruction: "Click 'Choose this plan' under the Pro tier to launch payment checkout, or select 'Schedule a call' / 'Let's Talk' to submit an Enterprise inquiry.",
+            uiElements: ["'Choose this plan' button", "'Let's Talk' consultation modal"]
           },
           {
             step: 4,
-            title: "Complete Checkout",
-            instruction: "Review the order summary modal and complete secure payment. The updated quotas take effect immediately.",
-            uiElements: ["Order Summary modal", "Payment confirmation"]
+            title: "Complete Razorpay Checkout & Verification",
+            instruction: "Review the order summary modal including GST breakdown, enter your preferred payment credentials (UPI, Cards, NetBanking), and confirm payment.",
+            uiElements: ["Order Summary modal", "Razorpay Payment Gateway", "GST Breakdown"]
           }
         ]
       },
@@ -242,23 +265,28 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
         id: "expected-result",
         title: "Expected Outcome",
         type: "callout",
-        calloutTitle: "Instant Quota Provisioning:",
-        calloutText: "Upgraded limits for channels, wires, and storage are applied instantly to your workspace without requiring server restart or downtime."
+        calloutTitle: "Zero-Downtime Instant Quota Provisioning:",
+        calloutText: "Upon successful Razorpay payment confirmation, updated quotas for AI credits, WhatsApp WCC wallet, automations, and file storage are provisioned immediately in your workspace without server restart or session downtime."
       },
       {
         id: "troubleshooting",
-        title: "Troubleshooting",
+        title: "Troubleshooting & Common Questions",
         type: "troubleshooting",
         items: [
           {
-            issue: "Payment failed during plan checkout?",
-            cause: "Card may have international or recurring billing restrictions enabled by the issuing bank.",
-            solution: "Verify that international online transactions are enabled on your card, or choose an alternate payment method in the checkout modal."
+            issue: "Why are AI Credit top-ups and WCC wallet recharges disabled?",
+            cause: "Your workspace is currently on the Free Starter tier. Standalone credit top-ups are restricted to paying Pro and Enterprise subscribers.",
+            solution: "Upgrade to the Pro tier (starting at ₹199/month). Pro tier unlocks on-demand AI credit top-ups, WhatsApp wallet recharges, and flow packs."
           },
           {
-            issue: "Quota did not reflect immediately after payment?",
-            cause: "Webhook confirmation from payment gateway may experience slight network delay.",
-            solution: "Refresh the billing page after 15 seconds. If the issue persists, contact support with the transaction reference ID."
+            issue: "Payment succeeded but quotas did not reflect immediately?",
+            cause: "Payment gateway webhooks may experience slight network latency (5 to 15 seconds) before synchronizing with your workspace state.",
+            solution: "Wait 15 seconds and refresh the billing page. If quotas still do not reflect, check your transaction ID under Payment History in /user/admin/billing."
+          },
+          {
+            issue: "Card payment was declined during plan checkout?",
+            cause: "Issuing banks often require international or recurring e-mandate transaction permissions to be enabled on your debit or credit card.",
+            solution: "Enable online transactions in your banking app, or complete the payment seamlessly using UPI (Google Pay, PhonePe, Paytm) inside the Razorpay modal."
           }
         ]
       }
@@ -273,139 +301,138 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
   "billing/gst-invoices": {
     slug: "billing/gst-invoices",
     category: "Billing & Subscriptions",
-    title: "GST Compliance & Invoices",
-    subtitle: "Manage your billing profile, GST details, and available invoice records from Orbion billing.",
+    title: "GST Compliance & Tax Invoices",
+    subtitle: "Configure corporate billing profiles, 15-digit GSTIN validation, automated CGST/SGST/IGST tax breakdowns, and PDF invoice receipts.",
     pageType: "gst",
     sections: [
       {
         id: "overview",
         title: "Overview",
         type: "text",
-        content: "The Billing Profile & Invoice console (/user/admin/billing) allows workspace administrators to configure corporate billing information, add an official Goods and Services Tax Identification Number (GSTIN), and access historical transaction invoice receipts for record-keeping."
+        content: "The Billing Profile & Invoice console (/user/admin/billing) enables workspace administrators to maintain corporate billing profiles, validate Indian Goods and Services Tax Identification Numbers (GSTIN), and access official B2B tax invoice receipts. All subscription payments and wallet top-ups generate compliant tax invoices with sequential numbering (AUR/YYYY-YY/XXXXXX), itemized tax breakups (CGST + SGST for Tamil Nadu intra-state orders vs IGST for inter-state orders), and instant PDF downloads for corporate accounting and Input Tax Credit (ITC) filing.",
+        uiPreview: "GSTInvoicePreview"
       },
       {
         id: "what-this-manages",
-        title: "What this page manages",
+        title: "What this console manages",
         type: "list",
         items: [
-          { title: "Billing Profile", description: "Primary billing contact name, notification email, and direct telephone number." },
-          { title: "Business Information", description: "Registered legal business name, street address, city, state, postal code, and country." },
-          { title: "GST Details", description: "Official 15-digit GSTIN registration number and GST status toggle." },
-          { title: "Invoice & Payment History", description: "Chronological table of completed subscription charges, top-ups, and transaction references." },
-          { title: "Invoice Documents", description: "Downloadable PDF invoice receipts associated with past billing transactions." }
+          { title: "Corporate Billing Identity", description: "Registered legal business name, primary billing contact, notification email, phone number, and entity business type." },
+          { title: "Physical Address & Place of Supply", description: "Registered corporate street address, city, state, postal code, and country used to determine Indian GST jurisdiction." },
+          { title: "15-Digit GSTIN Validation", description: "Official GSTIN format verification (2-digit state prefix + 10-character PAN + 1 entity code + 'Z' + 1 checksum digit) for B2B ITC claims." },
+          { title: "Automated Tax Calculation Engine", description: "Dynamic derivation of 18% standard GST (9% CGST + 9% SGST for Tamil Nadu vs 18% IGST for interstate vs 0% Export)." },
+          { title: "Payment History & PDF Receipts", description: "Downloadable ReportLab-compiled PDF tax invoices with verified sequential numbers for every completed transaction." }
+        ]
+      },
+      {
+        id: "gst-matrix",
+        title: "GST Rate & Tax Jurisdiction Matrix",
+        type: "table",
+        headers: ["Supply Jurisdiction", "Place of Supply", "CGST (Rate)", "SGST (Rate)", "IGST (Rate)", "Total GST", "ITC Eligibility"],
+        rows: [
+          ["Intra-State (Within Tamil Nadu)", "Tamil Nadu (Code 33)", "9.0%", "9.0%", "0.0%", "18.0%", "Eligible for B2B Registered"],
+          ["Inter-State (Other Indian States)", "Rest of India (e.g. KA, MH, DL)", "0.0%", "0.0%", "18.0%", "18.0%", "Eligible for B2B Registered"],
+          ["Export / International", "Outside India (e.g. US, UK, UAE)", "0.0%", "0.0%", "0.0%", "0.0% (Zero-rated)", "Not Applicable"]
         ]
       },
       {
         id: "prerequisites",
-        title: "Before You Start",
+        title: "Prerequisites",
         type: "checklist",
+        checklistTitle: "Requirements Before Configuring Billing Profile:",
         items: [
           "Workspace Admin or Owner role in your Orbion organization.",
-          "Your company's official registered legal business name and corporate address.",
-          "Your valid 15-digit GSTIN (e.g. 27AAPFU0939F1ZV) if registered under Indian GST."
+          "Your company's official registered business name and complete physical street address.",
+          "A valid 15-character Indian GSTIN (e.g., 33ABCDE1234F1Z5) where the initial 2 digits strictly match your state code."
         ]
       },
       {
         id: "configure-profile",
-        title: "Configure Billing Profile",
+        title: "Configuring Billing Profile & GSTIN",
         type: "steps",
         steps: [
           {
             step: 1,
-            title: "Navigate to Billing Settings",
-            instruction: "Log in to the dashboard and open the Billing page at /user/admin/billing.",
+            title: "Navigate to Billing Console",
+            instruction: "Log in to your admin dashboard and open the Billing page at /user/admin/billing.",
             uiElements: ["Sidebar 'Billing' navigation link", "'Billing Profile' card"]
           },
           {
             step: 2,
-            title: "Open Profile Editor",
-            instruction: "Locate the 'Billing Profile' section and click the 'Edit Profile' button to enable editing fields.",
-            uiElements: ["'Edit Profile' button"]
+            title: "Launch Profile Editor",
+            instruction: "On the Billing Profile card, click the 'Edit Profile' button to open the configuration modal.",
+            uiElements: ["'Edit Profile' button", "Billing Profile editor modal"]
           },
           {
             step: 3,
-            title: "Fill Business & Contact Details",
-            instruction: "Input your Legal Business Name, Contact Name, Billing Email, Phone Number, Street Address, City, State, Postal Code, and Country.",
-            uiElements: [
-              "'Legal Business Name' input",
-              "'Billing Contact Name' input",
-              "'Billing Email' input",
-              "'State' dropdown selector",
-              "'Postal Code' input"
-            ]
-          }
-        ]
-      },
-      {
-        id: "add-gst",
-        title: "Add GST Details",
-        type: "steps",
-        steps: [
+            title: "Enter Business & Address Details",
+            instruction: "Fill in Business Name (required), Contact Name, Billing Email, Phone, Address (required), City (required), State (required text field), Country (e.g. IN), and Postal Code.",
+            uiElements: ["'Business Name *' input", "'Address *' input", "'City *' & 'State *' text inputs", "'Country *' input"]
+          },
           {
             step: 4,
-            title: "Enable GST Registration",
-            instruction: "Toggle 'I have a GST Registration' to the ON position. This reveals the GSTIN entry input.",
-            uiElements: ["'I have a GST Registration' toggle switch"]
+            title: "Toggle GST Registration & Input GSTIN",
+            instruction: "Check 'I have a GST Registration'. Enter your 15-character uppercase GSTIN, optional Legal Business Name, and select your Business Type (Private Limited, LLP, Proprietorship, etc.).",
+            uiElements: ["'I have a GST Registration' checkbox", "'GSTIN *' uppercase field", "'Business Type' dropdown"]
           },
           {
             step: 5,
-            title: "Input 15-Digit GSTIN",
-            instruction: "Enter your official 15-character GSTIN. Verify that the two-digit state prefix matches the state selected in your address.",
-            uiElements: ["'GSTIN' input field", "15-character uppercase format"]
-          },
-          {
-            step: 6,
-            title: "Save Profile",
-            instruction: "Click 'Save Billing Profile'. Your saved details will be recorded for future invoice generation.",
-            uiElements: ["'Save Billing Profile' button", "Success confirmation message"]
+            title: "Save Changes",
+            instruction: "Click 'Save Changes'. If you attempt to cancel or close with unsaved edits, the system displays an Unsaved Changes confirmation modal.",
+            uiElements: ["'Save Changes' button", "'Unsaved Changes' confirmation safeguard"]
           }
         ]
       },
       {
         id: "invoice-history",
-        title: "Review Invoice History & Download",
+        title: "Viewing Payment History & Downloading Invoices",
         type: "steps",
         steps: [
           {
-            step: 7,
-            title: "Inspect Payment History Table",
-            instruction: "Scroll down to the 'Invoice & Payment History' section. Review the date, transaction description, amount, and payment status.",
-            uiElements: ["'Invoice & Payment History' table", "Transaction date and status columns"]
+            step: 6,
+            title: "Inspect Payment History",
+            instruction: "Scroll down to the 'Payment History' section on /user/admin/billing to view all completed subscription renewals, AI credit purchases, and wallet recharges.",
+            uiElements: ["'Payment History' card", "Invoice number, date, amount, and status pill"]
           },
           {
-            step: 8,
+            step: 7,
             title: "Download Invoice PDF",
-            instruction: "Click the download action icon on any completed transaction row to save the invoice receipt PDF to your device.",
-            uiElements: ["Download PDF button / icon", "Browser file download prompt"]
+            instruction: "Click the 'PDF' download button on any completed transaction row. The platform streams a formatted, GST-compliant PDF receipt directly to your device.",
+            uiElements: ["'PDF' download button", "ReportLab-generated PDF file (%PDF)"]
           }
         ]
       },
       {
         id: "expected-result",
-        title: "Expected Result",
+        title: "Expected Outcome",
         type: "callout",
-        calloutTitle: "Verified Product Behavior:",
-        calloutText: "Your corporate billing address and GSTIN are stored with your workspace profile, and all completed transactions in your payment history table can be downloaded as PDF receipts."
+        calloutTitle: "Verified Tax Invoice Compliance:",
+        calloutText: "All future subscription charges and wallet recharges automatically calculate correct intra-state or inter-state GST, record your corporate GSTIN on the invoice, and generate downloadable B2B tax receipts eligible for Input Tax Credit (ITC)."
       },
       {
         id: "troubleshooting",
-        title: "Troubleshooting",
+        title: "Troubleshooting & Common Questions",
         type: "troubleshooting",
         items: [
           {
-            issue: "GSTIN fails to save or shows an error?",
-            cause: "A GSTIN must follow the exact 15-character alphanumeric format: 2 digits (State Code) + 10 characters (PAN) + 1 entity code + 'Z' + 1 checksum digit.",
-            solution: "Double-check your GST certificate for exact spelling and ensure no trailing spaces or special characters were pasted."
+            issue: "Why does my GSTIN show a validation error?",
+            cause: "A GSTIN must strictly follow the 15-character format: 2-digit state code + 10-character PAN + 1 entity number + 'Z' + 1 checksum digit, with no spaces or symbols.",
+            solution: "Check your GST certificate. Ensure the first 2 digits match your billing state (e.g., 33 for Tamil Nadu, 29 for Karnataka, 27 for Maharashtra)."
           },
           {
-            issue: "Invoice PDF download does not start?",
-            cause: "Browser popup blocker may be suppressing the download trigger.",
-            solution: "Allow popups for the Orbion application URL in your browser settings and click the download button again."
+            issue: "Why is IGST charged instead of CGST + SGST?",
+            cause: "Orbion Agents operates from Tamil Nadu. Any customer state outside Tamil Nadu is classified as an Inter-State supply subject to 18% IGST.",
+            solution: "If your corporate business operates within Tamil Nadu, ensure 'Tamil Nadu' is entered in your billing state to apply 9% CGST + 9% SGST."
           },
           {
-            issue: "A past invoice does not show updated GST details?",
-            cause: "Billing profile updates apply to transactions generated after saving the profile.",
-            solution: "Past finalized transactions reflect the billing profile active at transaction time. If you need a previous invoice updated for accounting, contact billing support with the invoice ID."
+            issue: "Invoice PDF download does not start or opens a blank window?",
+            cause: "Browser popup blockers or download restrictions may intercept the PDF file stream.",
+            solution: "Allow popups and file downloads for the Orbion domain in your browser settings, then click 'PDF' again."
+          },
+          {
+            issue: "Will updating my GSTIN update past invoice receipts?",
+            cause: "Tax invoices are immutable legal documents recorded at the time of payment transaction.",
+            solution: "Saved GST details apply automatically to all subsequent transactions. For accounting corrections on older invoices, contact support with the invoice reference ID."
           }
         ]
       }

@@ -90,6 +90,20 @@ export const omniInboxDetail = {
       highlight: 'Filters & labels',
     }
   ],
+  beforeYouStart: [
+    {
+      title: 'Connected Messaging Channel',
+      description: 'At least one active channel (WhatsApp Business Cloud API or Instagram Direct) connected in Settings > Integrations.'
+    },
+    {
+      title: 'Agent Permissions & Role',
+      description: 'Workspace user account with Agent or Admin role assigned to access and reply in conversation queues.'
+    },
+    {
+      title: 'Knowledge Base Ready',
+      description: 'Verified documentation uploaded to AI Brain so the AI Copilot can generate accurate reply drafts.'
+    }
+  ],
   setupSteps: [
     {
       step: 1,
