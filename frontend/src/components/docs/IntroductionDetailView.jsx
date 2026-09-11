@@ -38,6 +38,10 @@ import {
   MoreVertical,
   ChevronLeft,
   CheckCheck,
+  ShoppingBag,
+  TrendingUp,
+  Code2,
+  Truck,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -942,9 +946,137 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
       </header>
 
       {/* ─────────────────────────────────────────────────────────────
+          1.7. WHO IS ORBIONAGENTS FOR? (6 Comprehensive Target Personas)
+          ───────────────────────────────────────────────────────────── */}
+      <section id="target-audience" className="space-y-6 scroll-mt-24 pt-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-400">
+            <Users className="w-3.5 h-3.5" />
+            <span>Target Personas &amp; Teams</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            Who is OrbionAgents Built For?
+          </h2>
+          <p className="text-xs sm:text-sm text-zinc-400">
+            Tailored solutions designed for fast-growing sales teams, high-volume support desks, e-commerce stores, and modern developers.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Card 1: Sales & Revenue */}
+          <div className="p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-emerald-500/30 transition-all space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <Target className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-mono text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                Revenue
+              </span>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Inbound Sales &amp; Revenue Teams</h3>
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                Qualify inbound leads 24/7, parse buyer budget and timeline, auto-score Hot/Warm/Cold leads, and book Google Calendar meetings instantly in chat.
+              </p>
+            </div>
+          </div>
+
+          {/* Card 2: Customer Support */}
+          <div className="p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-cyan-500/30 transition-all space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                <Headphones className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-mono text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                Support
+              </span>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Support &amp; Success Desks</h3>
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                Automate 70%+ of Tier-1 customer tickets, answer complex policy questions with exact document citations, and smoothly escalate edge cases to human reps.
+              </p>
+            </div>
+          </div>
+
+          {/* Card 3: E-Commerce & DTC */}
+          <div className="p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-amber-500/30 transition-all space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <ShoppingBag className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-mono text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                E-Commerce
+              </span>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">E-Commerce &amp; DTC Brands</h3>
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                Deploy interactive WhatsApp product catalogs, automated order tracking lookups, return label generation, and abandoned cart re-engagement flows.
+              </p>
+            </div>
+          </div>
+
+          {/* Card 4: Marketing & Growth */}
+          <div className="p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-pink-500/30 transition-all space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-mono text-pink-300 bg-pink-500/10 px-2 py-0.5 rounded border border-pink-500/20">
+                Marketing
+              </span>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Marketing &amp; Growth Teams</h3>
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                Send Meta-verified WhatsApp Cloud API broadcasts with 98% open rates, launch VIP drops, and automate Click-to-WhatsApp ad conversational funnels.
+              </p>
+            </div>
+          </div>
+
+          {/* Card 5: Operations & Logistics */}
+          <div className="p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-purple-500/30 transition-all space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                <Truck className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-mono text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                Operations
+              </span>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Operations &amp; Logistics</h3>
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                Query ERP/database backends, generate automated PDF receipts and invoices, and dispatch real-time Slack/SMS operational alerts to fulfillment teams.
+              </p>
+            </div>
+          </div>
+
+          {/* Card 6: Developers & IT */}
+          <div className="p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-violet-500/30 transition-all space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
+                <Code2 className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-mono text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
+                Developers
+              </span>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Developers &amp; IT Architects</h3>
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                Build on visual node canvases, integrate webhooks and REST endpoints, switch between top LLMs (OpenAI, Gemini, Anthropic), and enforce PII data masking.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─────────────────────────────────────────────────────────────
           2. HOW ORBIONAGENTS WORKS (Conceptual Runtime Lifecycle)
           ───────────────────────────────────────────────────────────── */}
-      <section id="how-it-works" className="space-y-6 scroll-mt-24 pt-2">
+      <section id="how-it-works" className="space-y-6 scroll-mt-24 border-t border-white/10 pt-10">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-400">
             <Activity className="w-3.5 h-3.5" />

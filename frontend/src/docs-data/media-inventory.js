@@ -161,6 +161,23 @@ export const MEDIA_INVENTORY = {
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
     notes: "Official 1-click Meta Facebook Login for Business onboarding with 8-step visual walkthrough."
+  },
+  "billing/gst-invoices": {
+    featureName: "GST Compliance & Tax Invoices",
+    featureSlug: "billing/gst-invoices",
+    videoAvailable: false,
+    videoVersion: null,
+    videoUrl: null,
+    videoDuration: null,
+    screenshotAvailable: true,
+    screenshotVersion: "v2.4.0",
+    screenshotUrls: [
+      "/docs/screenshots/gst-billing-profile-card.png",
+      "/docs/screenshots/gst-edit-billing-profile-modal.png"
+    ],
+    documentationStatus: "Complete",
+    currentProductVersion: "v2.4.0",
+    notes: "Production UI screenshots for Billing Profile Card and Edit Billing Profile Modal with GSTIN configuration."
   }
 };
 

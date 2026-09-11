@@ -339,7 +339,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
               <div className="flex items-center justify-between px-1">
                 <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                  {config.screenshots?.benefits?.label || (config.benefitsPhoto ? 'Product Architecture & Flow' : 'Product Walkthrough Tour')}
+                  {config.screenshots?.benefits?.label || config.videoPlaceholder?.label || (config.benefitsPhoto ? 'Product Architecture & Flow' : 'Flow Walkthrough Tour')}
                 </span>
                 {!config.screenshots?.benefits && config.videoPlaceholder?.duration && (
                   <span className="text-[10px] font-mono text-zinc-400">
@@ -359,6 +359,16 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                 />
               ) : (
                 <DocumentationVideo
+                  video={{
+                    url: config.videoPlaceholder?.url || config.videoUrl || (typeof config.video === 'string' ? config.video : config.video?.url),
+                    fallbackUrl: config.videoPlaceholder?.fallbackUrl || config.videoFallbackUrl,
+                    poster: config.videoPlaceholder?.poster || config.video?.poster,
+                    title: config.videoPlaceholder?.title || `Touring ${config.title}`,
+                    duration: config.videoPlaceholder?.duration || config.video?.duration,
+                    caption: config.videoPlaceholder?.description || config.video?.caption,
+                  }}
+                  url={config.videoPlaceholder?.url || config.videoUrl}
+                  fallbackUrl={config.videoPlaceholder?.fallbackUrl || config.videoFallbackUrl}
                   title={config.videoPlaceholder?.title || `Touring ${config.title}`}
                   duration={config.videoPlaceholder?.duration}
                   caption={config.videoPlaceholder?.description}

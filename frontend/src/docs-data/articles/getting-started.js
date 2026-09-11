@@ -347,14 +347,14 @@ export const GETTING_STARTED_ARTICLES = {
     slug: "getting-started/quickstart",
     category: "Getting Started",
     title: "5-Minute Quick Start Guide",
-    subtitle: "Fast-track guide to connect your first messaging channel and deploy a grounded AI agent.",
+    subtitle: "Fast-track guide to build a lead agent flow, connect messaging channels, and go live.",
     pageType: "onboarding",
     sections: [
       {
         id: "overview",
         title: "Quick Start Overview",
         type: "text",
-        content: "This guide walks through the four essential steps to get your first autonomous AI agent live: ingesting your business knowledge, testing responses instantly in the AI Workspace without any external setup, connecting your messaging channels, and monitoring live customer chats with human takeover in the Omni-Inbox."
+        content: "This guide walks through the four essential steps to get your first autonomous AI lead qualification agent live: creating a visual flow, configuring the Lead Agent parameters to capture essential prospect data, connecting WhatsApp Business or Instagram, and monitoring real-time customer chats with lead capture in the Omni-Inbox."
       },
       {
         id: "prerequisites",
@@ -362,8 +362,8 @@ export const GETTING_STARTED_ARTICLES = {
         type: "checklist",
         items: [
           "An active OrbionAgents account with administrative access.",
-          "At least one business document (PDF, DOCX, TXT) or a live website URL.",
-          "Meta WhatsApp Business account or an active Instagram account (needed for Step 3)."
+          "Meta WhatsApp Business account or an active Instagram account (needed for Step 3).",
+          "Defined lead qualification requirements (e.g., name, email, phone, budget)."
         ]
       },
       {
@@ -373,27 +373,47 @@ export const GETTING_STARTED_ARTICLES = {
         steps: [
           {
             step: 1,
-            title: "Ingest Business Knowledge in AI Brain",
-            instruction: "Navigate to Brain (/user/admin/brain) from the sidebar. Upload your company FAQ or product PDF, or paste your website URL to initiate instant web crawling. The Brain automatically parses, chunks, and indexes the content for zero-hallucination grounding.",
-            uiElements: ["Brain console (/user/admin/brain)", "'Upload Document' zone", "'Crawl Website' input", "Indexed chunks counter"]
+            title: "Navigate to Flows & Click \"+ Create Flow\"",
+            instruction: "Open the Flows dashboard from the left sidebar navigation. Click the '+ Create Flow' button in the upper right to launch a fresh visual automation canvas.",
+            uiElements: ["Flows dashboard", "'+ Create Flow' button", "Flow Quota Usage indicator"],
+            screenshot: {
+              src: "/docs/screenshots/quickstart-step-1-create-flow.png",
+              alt: "Click + Create Flow on Flows Dashboard",
+              caption: "Navigate to Flows and click '+ Create Flow' to start building your agent workflow."
+            }
           },
           {
             step: 2,
-            title: "Test Grounding in AI Workspace (Instant Test)",
-            instruction: "Open AI Workspace (/user/admin/ai). You do not need to connect WhatsApp yet! All documents and URLs indexed in your Brain are immediately active across your workspace. Type a question regarding your business, products, or pricing into the chat prompt to verify that the AI returns accurate, grounded responses in real time. You can also switch models via the Skills (Model) menu.",
-            uiElements: ["AI Workspace (/user/admin/ai)", "Interactive Chat Prompt ('How can I help you today?')", "Skills (Model) menu (e.g. Auto, GPT)", "Zero-setup verification"]
+            title: "Configure AI Lead Agent on Visual Canvas",
+            instruction: "On the flow builder canvas, connect the initial Trigger to an AI Reply Action node. In the Configuration sidebar on the right, set Action Type to 'AI Reply (Brain)', select Agent Type as 'LEAD', choose your Business Type (e.g. 'SaaS'), and enter the Lead Fields you want to collect (such as 'name,email,phone,budget'). You can also enable options like Demo Booking.",
+            uiElements: ["Init Trigger node", "AI Reply (Action) node", "Agent Type: LEAD", "Business Type (SaaS)", "Lead Fields (name,email,phone,budget)", "Enable Demo Booking"],
+            screenshot: {
+              src: "/docs/screenshots/quickstart-step-2-lead-agent.png",
+              alt: "AI Reply Configuration with Lead Agent and Fields",
+              caption: "Configure your AI Lead Agent with Business Type and specific Lead Fields to automatically extract customer details."
+            }
           },
           {
             step: 3,
-            title: "Connect WhatsApp Business or Instagram",
-            instruction: "Once you are satisfied with the AI's responses, connect your customer channels. Open Channels (/user/admin/channels), select WhatsApp Business (Meta Cloud API) or Instagram, and click 'Connect'.",
-            uiElements: ["Channels console (/user/admin/channels)", "'Connect' modal", "Green 'Connected' status pill"]
+            title: "Connect WhatsApp Business or Instagram Channel",
+            instruction: "Navigate to Channels from the sidebar. Under Messaging Channels, select WhatsApp Business (Meta Cloud API) or Instagram, and click 'Connect' to authenticate your business account and link incoming messages to your active AI agent flow.",
+            uiElements: ["Channels console", "WhatsApp Business (Meta Cloud API)", "Instagram (Meta Business)", "'Connected' status pill"],
+            screenshot: {
+              src: "/docs/screenshots/quickstart-step-3-channels.png",
+              alt: "Channels Dashboard with WhatsApp Business Connected",
+              caption: "Connect WhatsApp Business or Instagram so inbound conversations are routed to your configured AI Lead agent."
+            }
           },
           {
             step: 4,
-            title: "Go Live & Monitor in Omni-Inbox",
-            instruction: "Inbound customer queries from your connected channels now stream live into the Omni-Inbox (/user/admin/inbox). The AI automatically replies using your Brain knowledge. You can monitor the live conversation and toggle Human Takeover at any time if an agent needs to reply manually.",
-            uiElements: ["Omni-Inbox (/user/admin/inbox)", "Live message stream", "'Human Takeover' control toggle"]
+            title: "Go Live & Track Qualified Leads in Omni-Inbox",
+            instruction: "Once your flow is synced and your channel is connected, your AI Lead agent is live 24/7! Inbound customer chats on WhatsApp or Instagram stream directly into the Omni-Inbox. The AI engages prospects, answers questions, gathers their name, email, phone, and budget, and logs the qualified lead into your CRM. You can monitor live conversations and take over with human intervention anytime.",
+            uiElements: ["Omni-Inbox", "Live message stream", "Contact Details & Lead tags", "'Human Takeover' control toggle"],
+            screenshot: {
+              src: "/docs/screenshots/quickstart-step-4-live-inbox.png",
+              alt: "Omni-Inbox Live WhatsApp Conversation & Lead Qualification",
+              caption: "Inbound customer chats stream live into the Omni-Inbox where AI handles inquiries and captures qualified leads."
+            }
           }
         ]
       },
@@ -401,8 +421,8 @@ export const GETTING_STARTED_ARTICLES = {
         id: "expected-result",
         title: "Expected Outcome",
         type: "callout",
-        calloutTitle: "Live Agent Operational:",
-        calloutText: "Your connected messaging channel automatically routes inbound customer queries to your grounded agent, answering with zero manual intervention while preserving immediate human takeover capability."
+        calloutTitle: "Live AI Lead Agent Operational:",
+        calloutText: "Your connected WhatsApp / Instagram channel automatically routes inbound customer inquiries to your configured Lead Agent flow, extracting buyer information, scoring leads, and streaming conversations into the Omni-Inbox with instant human takeover capability."
       },
       {
         id: "troubleshooting",
@@ -410,22 +430,22 @@ export const GETTING_STARTED_ARTICLES = {
         type: "troubleshooting",
         items: [
           {
-            issue: "AI answering with generic responses instead of your uploaded data?",
-            cause: "The document is still processing or has not finished chunking and embedding.",
-            solution: "Open Brain (/user/admin/brain) and verify that the status badge indicates 'Indexed' and displays positive chunk counts."
+            issue: "Lead fields (name, email, phone, budget) not being collected?",
+            cause: "The AI Reply node is not set to 'LEAD' Agent Type or the lead fields comma-separated string is missing in configuration.",
+            solution: "Open your Flow canvas, click the AI Reply node, and verify that Agent Type is set to 'LEAD' and Lead Fields are defined."
           },
           {
-            issue: "Inbound WhatsApp messages not appearing in Omni-Inbox?",
-            cause: "Meta webhook callback URL or Verify Token is not properly configured in Meta Developer Console.",
-            solution: "Confirm that your Webhook URL and Verify Token in the Meta App Developer Portal match your Channels settings."
+            issue: "Inbound WhatsApp messages not triggering the flow?",
+            cause: "Flow is not synced / active, or Meta webhook callback URL is not connected in Channels.",
+            solution: "Ensure you clicked 'Sync Wire' and enabled the flow status toggle on the Flows page, and check Channels for a green 'Connected' badge."
           }
         ]
       }
     ],
     seo: {
       title: "5-Minute Quick Start Guide | OrbionAgents",
-      description: "Fast-track guide to connect messaging channels, ingest knowledge into AI Brain, and deploy grounded AI agents in minutes.",
-      keywords: ["Orbion quickstart", "fast track AI bot", "deploy WhatsApp AI", "AI Brain RAG", "Omni-Inbox human takeover"]
+      description: "Fast-track guide to create a visual Lead Agent flow, connect WhatsApp & Instagram channels, and go live with AI lead qualification in Omni-Inbox.",
+      keywords: ["Orbion quickstart", "Lead agent setup", "WhatsApp flow automation", "Meta Cloud API", "Omni-Inbox live chat", "AI lead capture"]
     }
   },
 
