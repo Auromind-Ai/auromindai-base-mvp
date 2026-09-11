@@ -99,17 +99,17 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
 
             {/* Badges */}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30 uppercase tracking-wider font-mono">
-                Feature {config.featureNumber} &bull; {config.category}
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30 font-poppins">
+                {config.category}
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-poppins">
                 Verified Module
               </span>
             </div>
 
             {/* Heading & Tagline */}
             <div className="space-y-2">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-white leading-tight">
                 {config.title}
               </h1>
               <p className="text-base sm:text-lg text-violet-200/90 font-medium leading-relaxed">
@@ -141,14 +141,14 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
 
             {/* Badges */}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30 uppercase tracking-wider font-mono">
-                Feature {config.featureNumber} &bull; {config.category}
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30 font-poppins">
+                {config.category}
               </span>
             </div>
 
             {/* Heading & Tagline */}
             <div className="space-y-2">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-white leading-tight">
                 {config.title}
               </h1>
               <p className="text-base sm:text-lg text-violet-200/90 font-medium leading-relaxed">

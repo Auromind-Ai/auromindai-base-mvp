@@ -8,12 +8,12 @@ export default function DocsHeader({ onOpenMobile, onOpenMenu, onOpenSearch, bre
 
   return (
     <header className="sticky top-0 z-40 w-full bg-[#050508]/85 backdrop-blur-xl border-b border-white/[0.08] transition-all">
-      <div className="w-full max-w-[1680px] mx-auto h-16 px-4 sm:px-6 lg:px-8 xl:px-10 flex items-center justify-between">
+      <div className="w-full h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         {/* Left: Hamburger & Brand */}
         <div className="flex items-center gap-3.5">
           <button
             onClick={handleOpenMenu}
-            className="p-2 rounded-xl hover:bg-white/[0.08] bg-white/[0.03] border border-white/5 text-zinc-300 hover:text-white transition-all focus:outline-none"
+            className="p-2 rounded-xl hover:bg-white/[0.08] bg-white/[0.03] border border-white/5 text-zinc-300 hover:text-white transition-all focus:outline-none lg:hidden"
             aria-label="Open documentation menu"
           >
             <Menu className="w-4 h-4" />

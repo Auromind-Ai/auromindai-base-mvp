@@ -256,15 +256,15 @@ export default async function DocsArticlePage({ params }) {
             </nav>
 
             <div className="flex items-center gap-2.5 pt-1">
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-violet-500/15 text-violet-300 border border-violet-500/30 uppercase tracking-wider font-mono">
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-violet-500/15 text-violet-300 border border-violet-500/30 font-poppins">
                 {article.category}
               </span>
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono">
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-poppins">
                 Official Guide
               </span>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-white leading-tight">
               {article.title}
             </h1>
 

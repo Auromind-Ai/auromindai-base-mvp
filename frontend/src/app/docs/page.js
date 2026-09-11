@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import FeatureDiscoveryCard from '@/components/docs/FeatureDiscoveryCard';
+import DocsHeroVideoCard from '@/components/docs/DocsHeroVideoCard';
 
 import {
   Rocket,
@@ -154,9 +155,9 @@ export default function DocsHomePage() {
             {/* Main Headline */}
             <div className="space-y-3">
               <h1 className="text-4xl sm:text-5xl xl:text-6xl font-semibold tracking-tight text-white leading-[1.12]">
-                Build. Automate.{' '}
+                Build Smarter.{' '}
                 <span className="bg-gradient-to-r from-violet-400 via-purple-300 to-cyan-400 bg-clip-text text-transparent">
-                  Understand. Convert.
+                  Ship Faster.
                 </span>
               </h1>
               <p className="text-[11px] sm:text-lg text-zinc-300 leading-relaxed max-w-2xl font-normal">
@@ -214,57 +215,9 @@ export default function DocsHomePage() {
             </div>
           </div>
 
-          {/* Right Hero Overview Panel (5 Cols) - Balances the wide layout */}
-          <div className="lg:col-span-5">
-            <div className="rounded-2xl border border-white/[0.08] bg-[#090A12]/80 backdrop-blur-xl p-5 sm:p-6 shadow-2xl shadow-black/80 space-y-4 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
-
-              {/* Panel Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                    Orbion Platform Architecture
-                  </span>
-                </div>
-                <span className="text-[10px] font-mono text-violet-300 bg-violet-500/15 px-2 py-0.5 rounded border border-violet-500/30 font-semibold">
-                  v2.4 Production
-                </span>
-              </div>
-
-              {/* Mini Architecture Feature Chips */}
-              <div className="grid grid-cols-2 gap-2.5 text-xs font-mono">
-                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-violet-500/30 transition-colors">
-                  <span className="text-zinc-400 block text-[10px] uppercase">Engine</span>
-                  <span className="font-bold text-white text-xs">pgvector RAG</span>
-                </div>
-                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-violet-500/30 transition-colors">
-                  <span className="text-zinc-400 block text-[10px] uppercase">Latency</span>
-                  <span className="font-bold text-emerald-400 text-xs">&lt; 380ms E2E</span>
-                </div>
-                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-violet-500/30 transition-colors">
-                  <span className="text-zinc-400 block text-[10px] uppercase">Channels</span>
-                  <span className="font-bold text-cyan-300 text-xs">WhatsApp &bull; Insta</span>
-                </div>
-                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-violet-500/30 transition-colors">
-                  <span className="text-zinc-400 block text-[10px] uppercase">Governance</span>
-                  <span className="font-bold text-purple-300 text-xs">MCP Safeguards</span>
-                </div>
-              </div>
-
-              {/* Quick Prompt Terminal Snippet */}
-              <div className="p-3.5 rounded-xl bg-[#040407] border border-white/[0.06] space-y-2 font-mono text-[11px]">
-                <div className="flex items-center justify-between text-zinc-400 text-[10px]">
-                  <span className="flex items-center gap-1.5 text-violet-400 font-bold">
-                    <Terminal className="w-3 h-3" /> Live Agent Orchestrator
-                  </span>
-                  <span className="text-emerald-400">Online</span>
-                </div>
-                <p className="text-zinc-300 leading-relaxed">
-                  <span className="text-violet-400 font-bold">&gt;</span> Auto-routing multi-channel inbound messages to pgvector knowledge base &amp; CRM pipeline.
-                </p>
-              </div>
-            </div>
+          {/* Right Hero Video Panel (5 Cols) - Blank Card with Centered Play Icon */}
+          <div className="lg:col-span-5 h-full flex items-center">
+            <DocsHeroVideoCard />
           </div>
         </div>
       </section>
@@ -361,9 +314,8 @@ export default function DocsHomePage() {
 
         {/* The 8 Rich Visual Cards Grid - Spacious 2-Column Responsive Layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 pt-2">
-          {/* 01: Omni-Channel Inbox */}
+          {/* Omni-Channel Inbox */}
           <FeatureDiscoveryCard
-            number="01"
             title="Omni-Channel Inbox"
             category="Conversations"
             badge="Live Sync"
@@ -372,9 +324,8 @@ export default function DocsHomePage() {
             imageSrc="/images/Docs/Docs_OmniInbox.png"
           />
 
-          {/* 02: AI Brain */}
+          {/* AI Brain */}
           <FeatureDiscoveryCard
-            number="02"
             title="AI Brain (RAG Knowledge Base)"
             category="Intelligence"
             badge="pgvector"
@@ -383,9 +334,8 @@ export default function DocsHomePage() {
             imageSrc="/images/Docs/Docs_AI_Brain.png"
           />
 
-          {/* 03: AI Workspace */}
+          {/* AI Workspace */}
           <FeatureDiscoveryCard
-            number="03"
             title="AI Workspace & Agent Studio"
             category="Execution"
             badge="Multi-Model"
@@ -394,9 +344,8 @@ export default function DocsHomePage() {
             imageSrc="/images/Docs/Docs_AiWorkspace.png"
           />
 
-          {/* 04: AI Lead Intelligence */}
+          {/* AI Lead Intelligence */}
           <FeatureDiscoveryCard
-            number="04"
             title="AI Lead Intelligence & CRM"
             category="Pipeline"
             badge="Scoring Engine"
@@ -405,9 +354,8 @@ export default function DocsHomePage() {
             imageSrc="/images/Docs/Docs_Lead_CRM.png?v=2"
           />
 
-          {/* 05: Automation Wire */}
+          {/* Automation Wire */}
           <FeatureDiscoveryCard
-            number="05"
             title="Automation Wire (Flow Builder)"
             category="Automations"
             badge="Showcase Hero"
@@ -416,9 +364,8 @@ export default function DocsHomePage() {
             imageSrc="/images/Docs/Docs_Automation.png"
           />
 
-          {/* 06: AI Governance */}
+          {/* AI Governance */}
           <FeatureDiscoveryCard
-            number="06"
             title="AI Governance & Safeguards (MCP)"
             category="Safety"
             badge="Deterministic"
@@ -427,9 +374,8 @@ export default function DocsHomePage() {
             imageSrc="/images/Docs/Docs_AI_Governance.png"
           />
 
-          {/* 07: Wallet & Credits */}
+          {/* Wallet & Credits */}
           <FeatureDiscoveryCard
-            number="07"
             title="Credits, Wallet & Token Metering"
             category="Operations"
             badge="Orbion Fuel"
@@ -438,9 +384,8 @@ export default function DocsHomePage() {
             imageSrc="/images/Docs/Docs_Credits.png"
           />
 
-          {/* 08: Multi-Channel Architecture */}
+          {/* Multi-Channel Architecture */}
           <FeatureDiscoveryCard
-            number="08"
             title="Multi-Channel Integrations Architecture"
             category="Infrastructure"
             badge="Meta Certified"

@@ -209,9 +209,7 @@ export default function HeroShowcaseSection() {
       {/* Container matching standard 1280px desktop grid */}
       <div className="relative z-10 max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* ========================================================================= */}
-        {/* TOP HERO HEADER CONTENT                                                   */}
-        {/* ========================================================================= */}
+        {/* TOP HERO HEADER CONTENT */}
         <div className="flex flex-col items-center text-center max-w-[920px] mx-auto">
           
           {/* Top Pill Badge */}
