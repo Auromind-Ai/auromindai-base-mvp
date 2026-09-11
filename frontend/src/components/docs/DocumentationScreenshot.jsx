@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { Camera, X, Layers } from 'lucide-react';
 
 export default function DocumentationScreenshot({
@@ -32,9 +31,7 @@ export default function DocumentationScreenshot({
           <img
             src={src}
             alt={alt}
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 75vw, 60vw"
-            className={`${objectFit === 'contain' ? 'object-contain' : 'object-cover'} group-hover:scale-[1.01] transition-transform duration-300`}
+            className={`w-full h-full ${objectFit === 'contain' ? 'object-contain' : 'object-cover'} group-hover:scale-[1.01] transition-transform duration-300`}
           />
 
           {stepNumber && (
