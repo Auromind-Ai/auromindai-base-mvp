@@ -4,61 +4,76 @@ export const leadsCrmDetail = {
   featureNumber: '04',
   category: 'Revenue Operations & Lead Scoring',
   title: 'AI Lead Intelligence & CRM',
-  tagline: 'Autonomous prospect qualification, real-time intent extraction, and automated CRM pipeline syncing.',
-  description: 'Turn casual WhatsApp and Instagram chats into high-value revenue pipelines. OrbionAgents AI Lead Intelligence scans inbound conversations in real time, extracts qualifying parameters (budget, timeline, company size, decision authority), assigns a dynamic lead score, and immediately synchronizes updated profiles to your CRM.',
+  tagline: 'Find promising leads, understand their interest, and keep customer details in one place.',
+  description: 'Leads & CRM brings your contacts, conversation history, and lead scores together. Select a lead to review their messages and Lead Overview. Use channel filters, labels, and favorites to organise your list, or add a lead manually with New Lead.',
   visualKey: 'leads',
+  visualLabel: 'Leads & CRM Overview',
+  visualFrameless: true,
+  hideWorkflowStages: true,
+  screenshots: {
+    benefits: {
+      src: '/images/doc-images/lead-channel-favorites-overview.png',
+      alt: 'Leads organised into All Leads, WhatsApp, Instagram, and Favorites views with scores and labels',
+      label: 'Find and Organise Leads',
+      caption: 'Filter leads by channel, Manual, or Favorites.',
+      aspectRatio: 'aspect-[1312/1199] [&_img]:object-contain',
+      className: 'w-full max-w-[540px] mx-auto'
+    },
+    setup: {
+      src: '/images/doc-images/add-new-lead-form.png',
+      alt: 'Add New Lead form with name, phone, source, optional budget and note',
+      caption: 'Name and phone are required. Budget and note are optional.',
+      aspectRatio: 'aspect-[1305/1205] [&_img]:object-contain',
+      className: 'w-full max-w-[540px] mx-auto'
+    },
+    verification: {
+      src: '/images/doc-images/lead-overview-summary.png',
+      alt: 'Lead Overview with Converted status, activity, conversion details, score breakdown, and labels',
+      label: 'Lead Overview',
+      statusLabel: 'Score & Conversion Details',
+      caption: 'Illustrative overview showing activity, conversion details, score breakdown, and labels.',
+      aspectRatio: 'aspect-[1672/941] [&_img]:object-contain',
+      className: 'w-full'
+    }
+  },
+  contactGuide: [
+    { title: 'Lead Score', description: 'A rating to help prioritise enquiries. Review the breakdown and conversation together.' },
+    { title: 'Labels', description: 'Labels such as Hot and Premium Lead help identify the lead at a glance.' },
+    { title: 'Conversion Details', description: 'For converted leads, review the recorded revenue, product, date, and notes.' }
+  ],
+  copy: {
+    benefitsIntro: 'Know who needs attention and understand the conversation before following up.',
+    setupLabel: 'Getting started',
+    stepsLabel: 'Manage your leads:',
+    stagesLabel: 'Your lead workflow:',
+    verificationTitle: 'Review Scores and Conversion Details',
+    outcomeLabel: 'What you should see:',
+    useCasesLabel: 'Examples',
+    useCasesTitle: 'When to Use Leads & CRM',
+    useCasesIntro: 'Keep enquiries organised from the first message to the final outcome.',
+    troubleshootingTitle: 'Common Questions',
+    troubleshootingIntro: 'Simple checks for finding and reviewing your leads.',
+    answerLabel: 'Answer:'
+  },
   videoPlaceholder: {
-    title: 'Managing Leads & Automated Qualification',
-    description: 'See how the AI detects buying signals during a WhatsApp conversation, extracts budget and timeline details, calculates a Hot/Warm/Cold score, and alerts the sales team.',
-    duration: '3:40 min walkthrough'
+    title: 'Find and Review a Lead',
+    description: 'View the lead list, open a conversation, and review the score and contact details.'
   },
   architecture: {
-    title: 'Natural Language Intent Extraction & Scoring Pipeline',
-    description: 'Every interaction is analyzed using structured information extraction models that detect BANT (Budget, Authority, Need, Timeline) signals and compute a weighted qualification index.',
+    title: 'Find, Add, and Review Leads',
+    description: 'Open Leads & CRM to view your contacts. Search for a lead, choose a filter, or select New Lead to add someone manually.',
     stages: [
-      {
-        number: '01',
-        name: 'Conversational Ingestion',
-        detail: 'Inbound customer chat stream is parsed for entity tokens, product mentions, and explicit commercial inquiries.'
-      },
-      {
-        number: '02',
-        name: 'Entity & Parameter Extraction',
-        detail: 'Extracts structured fields: estimated budget, purchase timeline, company name, team seats, and key blockers.'
-      },
-      {
-        number: '03',
-        name: 'Weighted Lead Scoring Algorithm',
-        detail: 'Calculates a 0-100 score based on intent urgency, budget alignment, and decision maker status (Hot > 75, Warm 40-74, Cold < 40).'
-      },
-      {
-        number: '04',
-        name: 'CRM Sync & Rep Dispatch',
-        detail: 'Dispatches webhook or native sync to HubSpot/Salesforce, creating contact records and notifying sales reps via Slack/WhatsApp.'
-      }
+      { number: '01', name: 'Find a lead', detail: 'Search your list or filter by channel, Manual, or Favorites.' },
+      { number: '02', name: 'Read the conversation', detail: 'Select a lead to review their available message history.' },
+      { number: '03', name: 'Review the overview', detail: 'Check the score, labels, activity, and conversion details where available.' },
+      { number: '04', name: 'Follow up', detail: 'Use Open in Inbox when the lead has a linked conversation.' }
     ]
   },
   benefits: [
-    {
-      title: 'Zero Manual CRM Data Entry',
-      description: 'Never force sales reps to spend hours manually typing notes or copy-pasting phone numbers. Orbion auto-populates CRM fields directly from the dialogue.',
-      highlight: 'Automated contact & entity extraction'
-    },
-    {
-      title: 'Actionable Hot / Warm / Cold Scoring',
-      description: 'Prioritize team focus on deals ready to close today. Hot leads trigger instant notifications so sales reps can jump in within 60 seconds.',
-      highlight: 'Dynamic 0-100 qualification scoring'
-    },
-    {
-      title: 'Transparent Pipeline Kanban Board',
-      description: 'Visualize your entire sales funnel from "Inbound Discovered" to "Demo Scheduled" and "Proposal Sent" in an intuitive drag-and-drop board.',
-      highlight: 'Visual deal stage management'
-    },
-    {
-      title: 'Bi-Directional CRM Synchronization',
-      description: 'Integrate directly with HubSpot, Salesforce, Pipedrive, Zoho CRM, or custom webhooks. Changes in your CRM update Orbion lead cards instantly.',
-      highlight: 'HubSpot, Salesforce & Webhook sync'
-    }
+    { title: 'Keep Leads in One Place', description: 'View contacts from different channels alongside manually added leads, without keeping separate lists.', highlight: 'One contact list' },
+    { title: 'Focus on Promising Enquiries', description: 'Use the lead score and tier to help decide who to review first. Read the conversation to understand their needs.', highlight: 'Lead scores & tiers' },
+    { title: 'Understand the Customer', description: 'Review messages, activity, and the score breakdown before following up, so you can continue with the right context.', highlight: 'Conversation history' },
+    { title: 'Keep Important Leads Easy to Find', description: 'Star a lead for quick access through Favorites. Use labels and channel filters to organise your work.', highlight: 'Favorites & labels' }
   ],
   beforeYouStart: [
     {
@@ -77,79 +92,45 @@ export const leadsCrmDetail = {
   setupSteps: [
     {
       step: 1,
-      stage: 'Step 1 — Open the feature',
-      title: 'Open Leads & CRM Dashboard',
-      description: 'From the main navigation sidebar, click "Leads / CRM" (/user/admin/crm) to access your prospect pipeline.'
+      title: 'Find a Lead',
+      description: 'Use Search leads or open the All Leads menu. Choose WhatsApp, Instagram, Twilio, Manual, or Favorites to narrow the list.',
+      screenshotPlaceholder: { title: 'Lead Filters', description: 'Channel, manual, and favorite filters in the lead list.' }
     },
     {
       step: 2,
-      stage: 'Step 2 — Configure the required information',
-      title: 'Configure Qualification Rules & Scoring Thresholds',
-      description: 'In CRM Settings, specify parameters to extract (Budget, Timeline, Seat Count) and configure scoring thresholds for Hot (>=80), Warm (40-79), and Cold (<40).'
+      title: 'Add a Lead Manually',
+      description: 'Click New Lead. Enter the required name and phone number, choose a source, and add an optional budget or note. Select Add Lead to save.',
+      screenshotPlaceholder: { title: 'Add New Lead', description: 'Name, phone, source, optional budget, and note fields.' }
     },
     {
       step: 3,
-      stage: 'Step 3 — Perform the action',
-      title: 'Link CRM Destination or Webhook',
-      description: 'Click "Connect CRM" under Settings > Integrations. Authorize HubSpot/Salesforce or input your webhook endpoint and map extracted fields to CRM contact properties.'
+      title: 'Review the Lead Overview',
+      description: 'Select a lead to read the conversation and view their score. Lead Overview shows interest, engagement, activity, labels, and conversion details when available.',
+      screenshotPlaceholder: { title: 'Lead Overview', description: 'Lead rating, activity, score breakdown, and labels.' }
     },
     {
       step: 4,
-      stage: 'Step 4 — Review',
-      title: 'Review Extracted Lead Cards & Confidence Scores',
-      description: 'Click any prospect card in the Kanban board. Verify the extracted contact details, conversation transcript snippet, and calculated qualification score.'
-    },
-    {
-      step: 5,
-      stage: 'Step 5 — Complete',
-      title: 'Assign Sales Rep & Transition Deal Stage',
-      description: 'Assign the lead to a sales rep or drag the deal card to "Demo Scheduled". Automatic notifications are dispatched to the assigned rep via WhatsApp/Slack.'
+      title: 'Save or Continue the Conversation',
+      description: 'Click the star to add a lead to Favorites. Use Open in Inbox to reply when a conversation is linked; the message preview on this page is read-only.',
+      screenshotPlaceholder: { title: 'Lead Actions', description: 'Favorite and Open in Inbox controls beside the selected lead.' }
     }
   ],
-  tips: [
-    {
-      title: 'Real-Time Alert for Hot Deals',
-      description: 'Enable push or WhatsApp alerts for leads scored >80 so reps can call or message back while the prospect is still active.'
-    },
-    {
-      title: 'Automated Contact Deduplication',
-      description: 'Orbion automatically merges contacts based on verified email or phone number across WhatsApp and Instagram.'
-    },
-    {
-      title: 'Export Itemized CSV for Reports',
-      description: 'Click "Export Leads" to generate sanitized CSV summaries of captured prospect data for weekly revenue meetings.'
-    }
+  verificationChecklist: [
+    'Find the lead in the list and confirm the name, phone number, and source.',
+    'Open the lead and check that the available conversation belongs to that contact.',
+    'Star the lead and confirm it appears under Favorites.',
+    'For a converted lead, review the recorded product, revenue, date, and notes.'
   ],
+  expectedOutcome: 'Your lead appears in the correct list with their available messages and overview. Favorites help you return to important contacts, and linked conversations can be opened in the Inbox.',
   useCases: [
-    {
-      title: 'Real Estate Buyer & Tenant Pre-Screening',
-      scenario: 'High volume of inquiries on WhatsApp asking for property viewings.',
-      solution: 'AI asks preferred neighborhood, budget bracket, and move-in date. If criteria match active listings, an agent is scheduled to host a tour.'
-    },
-    {
-      title: 'B2B SaaS Sales Qualification',
-      scenario: 'Website visitors chatting on WhatsApp asking about enterprise pricing.',
-      solution: 'AI clarifies company size, current tech stack, and primary pain point. If company has >50 employees, it assigns a "Hot" rating and routes to account executives.'
-    },
-    {
-      title: 'Automotive Dealership Test Drives',
-      scenario: 'Prospective car buyers inquiring about vehicle availability and financing.',
-      solution: 'AI extracts preferred model, trade-in status, and down payment budget, booking a test drive appointment directly into the showroom CRM.'
-    }
+    { title: 'Review New Enquiries', scenario: 'Several people have contacted your business through different channels.', solution: 'Filter the list, compare lead scores, and read each conversation to decide who needs attention.' },
+    { title: 'Record an Offline Contact', scenario: 'Someone contacts your team by phone or at an event.', solution: 'Use New Lead to save their contact information and an optional note.' },
+    { title: 'Review a Successful Enquiry', scenario: 'Your team needs the details of a lead already marked Converted.', solution: 'Open Lead Overview to review the recorded product, revenue, conversion date, and notes.' }
   ],
-  expectedOutcome: '3x faster sales response time to high-intent leads, complete contact data hygiene without manual admin work, and higher pipeline conversion rates.',
   troubleshooting: [
-    {
-      question: 'Why did a lead receive a lower score than expected?',
-      answer: 'Check the qualification rules. If a customer expressed high enthusiasm but did not state a concrete budget or timeline, the algorithm marks those criteria as incomplete. You can adjust the scoring weight in Settings > Qualification Rules.'
-    },
-    {
-      question: 'How do I prevent duplicates if a contact messages from both WhatsApp and Instagram?',
-      answer: 'Orbion automatically merges contacts based on verified email or phone number. When a contact shares their email in Instagram chat, the profile is linked to their existing phone record.'
-    },
-    {
-      question: 'Can I manually override an AI-assigned lead score?',
-      answer: 'Yes. In the Lead Details panel, click the lead status badge to manually set it to Hot, Warm, or Cold, or drag the card to a different pipeline column.'
-    }
+    { question: 'Why can I not find a lead?', answer: 'Clear the search field and choose All Leads. Check the current workspace. Manually added contacts can also be found through the Manual filter.' },
+    { question: 'What does the lead score mean?', answer: 'It helps you prioritise enquiries. Review Score Breakdown for the displayed behavioral, intent, and label contributions. A high score does not guarantee a purchase.' },
+    { question: 'Why is Open in Inbox unavailable?', answer: 'The lead may not have a linked conversation. You can still review the saved contact information.' },
+    { question: 'What does Converted mean?', answer: 'The enquiry has been marked successful. Review the saved conversion details; this status alone is not proof of payment.' }
   ]
 };

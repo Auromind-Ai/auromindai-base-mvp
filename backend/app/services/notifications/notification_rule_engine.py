@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.notification_rule import NotificationRule
 from app.models.email_delivery_log import EmailDeliveryLog
 from app.models.notification import Notification
+from app.services.notifications.category_resolver import resolve_notification_category
 from app.models.workspace import Workspace
 from app.core.security import to_uuid
 from app.core.config import settings
@@ -159,11 +160,13 @@ class NotificationRuleEngine:
                 # 8. Create in-app notification if channel includes in_app and user_id is present
                 channels = rule.channels or ["email"]
                 if ("in_app" in channels or "both" in channels) and rec.user_id:
+                    assigned_type = event_name.replace(".", "_")
                     in_app_notif = Notification(
                         id=uuid.uuid4(),
                         user_id=rec.user_id,
                         workspace_id=ws_id,
-                        type=event_name.replace(".", "_"),
+                        type=assigned_type,
+                        category=resolve_notification_category(event_name),
                         title=rendered_title,
                         message=rendered_message,
                         is_read=False

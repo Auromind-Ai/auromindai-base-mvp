@@ -237,7 +237,7 @@ export const CORE_FEATURES_PART2 = {
     slug: "features/omni-inbox",
     category: "Core Features",
     title: "Omni-Inbox & Human Takeover",
-    subtitle: "Single unified console for WhatsApp, Instagram, Twilio & Web chat with real-time AI copilot and one-click human takeover.",
+    subtitle: "Manage customer messages, write helpful replies, and keep track of conversations in one place.",
     pageType: "inbox",
     sections: [
       {

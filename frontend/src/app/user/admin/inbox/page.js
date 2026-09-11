@@ -65,7 +65,12 @@ const CHANNELS = [
     { id: 'twilio', label: 'Twilio', icon: TwilioIcon, color: '#F22F46', gradient: null },
 ];
 
-const STATUS_FILTERS = ['Open', 'Converted', 'Closed', 'All'];
+const STATUS_FILTERS_WHATSAPP = ['Open', 'Follow Up', 'Converted', 'Closed'];
+const STATUS_FILTERS_INSTAGRAM = ['Open', 'Converted', 'Closed', 'All'];
+
+function getStatusFilters(channelId) {
+    return channelId === 'instagram' ? STATUS_FILTERS_INSTAGRAM : STATUS_FILTERS_WHATSAPP;
+}
 
 const CARD_BG = '#15161C';
 const CARD_BORDER = 'rgba(255,255,255,0.07)';
@@ -381,6 +386,7 @@ function ConversationSidebar({ ch, conversations = [], lead, activeFilter, onFil
     const [searchQuery, setSearchQuery] = useState('');
     const containerRef = useRef(null);
     const isInstagram = ch.id === 'instagram';
+    const statusFilters = getStatusFilters(ch.id);
 
     useEffect(() => {
         if (lead?.id && containerRef.current) {
@@ -464,9 +470,9 @@ function ConversationSidebar({ ch, conversations = [], lead, activeFilter, onFil
                     />
                 </div>
 
-                <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-                    {STATUS_FILTERS.map((f, i) => {
-                        const filterKey = f.toLowerCase();
+                <div className="grid grid-cols-4 gap-1 w-full"> 
+                    {statusFilters.map((f, i) => {
+                        const filterKey = f === 'Follow Up' ? 'follow_up' : f.toLowerCase();
                         const isCurrentActive = activeFilter === i;
 
                         const count = isCurrentActive
@@ -477,14 +483,14 @@ function ConversationSidebar({ ch, conversations = [], lead, activeFilter, onFil
                             <button
                                 key={f}
                                 onClick={() => onFilterChange(i)}
-                                className="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all border flex items-center gap-1.5 cursor-pointer"
+                                className="w-full px-1 py-1.5 rounded-lg text-[11px] sm:text-[12px] font-medium transition-all border flex items-center justify-center gap-1 cursor-pointer min-w-0"
                                 style={isCurrentActive
                                     ? { backgroundColor: `${ch.color}20`, color: ch.color, borderColor: `${ch.color}40` }
                                     : { backgroundColor: 'transparent', color: '#666', borderColor: 'rgba(255,255,255,0.07)' }
                                 }
                             >
-                                <span>{f}</span>
-                                <span className="text-[11px] opacity-75 font-normal">
+                                <span className="truncate">{f}</span>
+                                <span className="text-[10px] sm:text-[11px] opacity-75 font-normal shrink-0">
                                     {count}
                                 </span>
                             </button>
@@ -500,20 +506,22 @@ function ConversationSidebar({ ch, conversations = [], lead, activeFilter, onFil
                             <Inbox size={20} className="text-[#444]" />
                         </div>
                         <p className="text-center text-[#555] text-[13px] font-medium">
-                            {STATUS_FILTERS[activeFilter] === 'Open'
+                            {statusFilters[activeFilter] === 'Open'
                                 ? 'No open conversations'
-                                : STATUS_FILTERS[activeFilter] === 'Converted'
+                                : statusFilters[activeFilter] === 'Follow Up'
+                                ? 'No follow up conversations'
+                                : statusFilters[activeFilter] === 'Converted'
                                 ? 'No converted conversations'
-                                : STATUS_FILTERS[activeFilter] === 'Closed'
-                                ? 'No closed conversations (>24h)'
-                                : STATUS_FILTERS[activeFilter] === 'Unread'
-                                ? 'No unread conversations'
+                                : statusFilters[activeFilter] === 'Closed'
+                                ? 'No closed conversations'
+                                : statusFilters[activeFilter] === 'All'
+                                ? 'No conversations found'
                                 : 'No conversations found'}
                         </p>
                         <p className="text-center text-[#3a3a3a] text-[11px]">
-                            {STATUS_FILTERS[activeFilter] === 'Open' ? 'All caught up! ✨' : 'Try a different filter'}
+                            {statusFilters[activeFilter] === 'Open' ? 'All caught up! ✨' : 'Try a different filter'}
                         </p>
-                    </div>
+                    </div>  
                 )}
                 {filtered.map((l) => {
                     const sel = lead?.id === l.id;
@@ -614,9 +622,26 @@ function getConversationStats(conversation, messages) {
     };
 }
 
-function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, messages, onCloseConversation, onConvertClick, leadDetail, setLeadDetail }) {
+function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, messages, onCloseConversation, onConvertClick, leadDetail, setLeadDetail, activeFilter }) {
     const isInstagram = ch.id === 'instagram';
     const stats = getConversationStats(lead, messages);
+
+    const convertedFilterIdx = isInstagram ? 1 : 2;
+    const closedFilterIdx = isInstagram ? 2 : 3;
+
+    const isClosed =
+        activeFilter === closedFilterIdx ||
+        lead?.status?.toUpperCase() === 'CLOSED' ||
+        leadDetail?.status === 'closed';
+
+    const isConverted =
+        activeFilter === convertedFilterIdx ||
+        (!isClosed && (
+            lead?.status?.toUpperCase() === 'CONVERTED' ||
+            leadDetail?.is_converted === true ||
+            leadDetail?.status === 'converted' ||
+            lead?.is_converted === true
+        ));
 
     const handleLabelClick = async (leadId, label) => {
         if (!leadId) return;
@@ -762,25 +787,29 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                         ))}
                     </div>
 
-                    <div>
-                        <p className="text-[16px] font-regular text-white/90 tracking-wider mb-4 mt-10">Quick Actions</p>
-                        <div className="space-y-2">
-                            <button
-                                onClick={onConvertClick}
-                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] border text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/10 cursor-pointer transition-colors"
-                                style={{ backgroundColor: 'rgba(16,185,129,0.05)' }}>
-                                <Check size={15} strokeWidth={2} />
-                                Convert Conversation
-                            </button>
-                            <button
-                                onClick={() => onCloseConversation(lead?.id)}
-                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] text-red-400 border border-red-500/20 hover:bg-red-500/10 transition-colors cursor-pointer"
-                                style={{ backgroundColor: 'rgba(239,68,68,0.05)' }}>
-                                <XCircle size={15} strokeWidth={2} />
-                                Close Conversation
-                            </button>
+                    {!isConverted && (
+                        <div>
+                            <p className="text-[16px] font-regular text-white/90 tracking-wider mb-4 mt-10">Quick Actions</p>
+                            <div className="space-y-2">
+                                <button
+                                    onClick={onConvertClick}
+                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] border text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/10 cursor-pointer transition-colors"
+                                    style={{ backgroundColor: 'rgba(16,185,129,0.05)' }}>
+                                    <Check size={15} strokeWidth={2} />
+                                    Convert Conversation
+                                </button>
+                                {!isClosed && (
+                                    <button
+                                        onClick={() => onCloseConversation(lead?.id)}
+                                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] text-red-400 border border-red-500/20 hover:bg-red-500/10 transition-colors cursor-pointer"
+                                        style={{ backgroundColor: 'rgba(239,68,68,0.05)' }}>
+                                        <XCircle size={15} strokeWidth={2} />
+                                        Close Conversation
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </>
             )}
         </div>
@@ -1651,7 +1680,7 @@ function InboxContent() {
         activeFilterRef.current = activeFilter;
     }, [activeFilter]);
     const reqIdRef = useRef(0);
-    const [filterCounts, setFilterCounts] = useState({ all: 0, open: 0, unread: 0, converted: 0, closed: 0 });
+    const [filterCounts, setFilterCounts] = useState({ all: 0, open: 0, follow_up: 0, unread: 0, converted: 0, closed: 0 });
 
     const [conversations, setConversations] = useState([]);
     const [messages, setMessages] = useState([]);
@@ -1860,15 +1889,19 @@ function InboxContent() {
         }
     }, [hasMoreMessages, isLoadingOlder, messages]);
 
-    const getStatusParam = useCallback((filterIdx) => {
-        return { 0: 'OPEN', 1: 'CONVERTED', 2: 'CLOSED', 3: 'ALL' }[filterIdx] || 'OPEN';
-    }, []);
+    const getStatusParam = useCallback((filterIdx, channelId = null) => {
+        const activeChannelId = channelId || channelRef.current?.id || ch?.id;
+        if (activeChannelId === 'instagram') {
+            return { 0: 'OPEN', 1: 'CONVERTED', 2: 'CLOSED', 3: 'ALL' }[filterIdx] || 'OPEN';
+        }
+        return { 0: 'OPEN', 1: 'FOLLOW_UP', 2: 'CONVERTED', 3: 'CLOSED' }[filterIdx] || 'OPEN';
+    }, [ch?.id]);
 
     const fetchConversations = useCallback(async ({ selectFirst = false, statusOverride = null, filterIdx = null, reqId = null } = {}) => {
         if (!workspace?.id) return;
         const targetFilterIdx = filterIdx !== null ? filterIdx : activeFilterRef.current;
-        const statusParam = statusOverride || getStatusParam(targetFilterIdx);
         const currentChannel = ch.id;
+        const statusParam = statusOverride || getStatusParam(targetFilterIdx, currentChannel);
 
         try {
             const [data, counts] = await Promise.all([
@@ -1897,6 +1930,7 @@ function InboxContent() {
                 setFilterCounts({
                     all: counts.all ?? 0,
                     open: counts.open ?? 0,
+                    follow_up: counts.follow_up ?? 0,
                     unread: counts.unread ?? 0,
                     converted: counts.converted ?? 0,
                     closed: counts.closed ?? 0,
@@ -2012,6 +2046,8 @@ function InboxContent() {
 
     useEffect(() => {
         setDesktopDrawerOpen(false);
+        setActiveFilter(0);
+        activeFilterRef.current = 0;
         reqIdRef.current += 1;
         const currentReqId = reqIdRef.current;
         setLead(null);
@@ -2019,7 +2055,7 @@ function InboxContent() {
         leadRef.current = null;
         setMessages([]);
         setConversations([]);
-        fetchConversations({ selectFirst: true, reqId: currentReqId });
+        fetchConversations({ filterIdx: 0, selectFirst: true, reqId: currentReqId });
     }, [ch.id, fetchConversations]);
 
     useEffect(() => {
@@ -2227,9 +2263,39 @@ function InboxContent() {
         setClosingConversation(true);
         try {
             await api.post(`/api/conversations/${closeTargetId}/close`);
-            removeConversationFromList(closeTargetId);
+            const isInstagram = ch?.id === 'instagram';
+            const closedFilterIdx = isInstagram ? 2 : 3;
+            const allFilterIdx = isInstagram ? 3 : null;
+
+            if (activeFilterRef.current === closedFilterIdx || (allFilterIdx !== null && activeFilterRef.current === allFilterIdx)) {
+                // If in "Closed" or "All" tab, update conversation status to CLOSED in place
+                setConversations(prev => prev.map(c => c.id === closeTargetId ? { ...c, status: 'CLOSED' } : c));
+                setLead(prev => prev?.id === closeTargetId ? { ...prev, status: 'CLOSED' } : prev);
+            } else {
+                // Remove from active "Open" or "Follow Up" tab list
+                removeConversationFromList(closeTargetId);
+            }
             setShowCloseModal(false);
             setCloseTargetId(null);
+            showToast('Conversation closed');
+
+            // Refresh filter counts so tab badges immediately reflect changes
+            if (workspace?.id && ch?.id) {
+                api.get(`/api/conversations/counts?workspace_id=${workspace.id}&channel=${ch.id}`)
+                    .then(counts => {
+                        if (counts && typeof counts === 'object') {
+                            setFilterCounts({
+                                all: counts.all ?? 0,
+                                open: counts.open ?? 0,
+                                follow_up: counts.follow_up ?? 0,
+                                unread: counts.unread ?? 0,
+                                converted: counts.converted ?? 0,
+                                closed: counts.closed ?? 0,
+                            });
+                        }
+                    })
+                    .catch(() => {});
+            }
         } catch (e) {
             console.error('Failed to close conversation:', e);
         } finally {
@@ -2238,8 +2304,45 @@ function InboxContent() {
     }
 
     function handleConvertSuccess() {
-        if (!lead?.id) return;
-        removeConversationFromList(lead.id);
+        setShowConvertModal(false);
+        const isInstagram = ch?.id === 'instagram';
+        const targetConvertedIdx = isInstagram ? 1 : 2;
+
+        // Switch to "Converted" tab and refresh
+        setActiveFilter(targetConvertedIdx);
+        activeFilterRef.current = targetConvertedIdx;
+        reqIdRef.current += 1;
+        const currentReqId = reqIdRef.current;
+
+        setConversations([]);
+        setLead(null);
+        setResolvedLeadId(null);
+        setMessages([]);
+        leadRef.current = null;
+
+        fetchConversations({
+            filterIdx: targetConvertedIdx,
+            selectFirst: true,
+            reqId: currentReqId,
+        });
+
+        // Also refresh counts so tab badges update
+        if (workspace?.id && ch?.id) {
+            api.get(`/api/conversations/counts?workspace_id=${workspace.id}&channel=${ch.id}`)
+                .then(counts => {
+                    if (counts && typeof counts === 'object') {
+                        setFilterCounts({
+                            all: counts.all ?? 0,
+                            open: counts.open ?? 0,
+                            follow_up: counts.follow_up ?? 0,
+                            unread: counts.unread ?? 0,
+                            converted: counts.converted ?? 0,
+                            closed: counts.closed ?? 0,
+                        });
+                    }
+                })
+                .catch(() => {});
+        }
     }
 
     function handleLeadSelectTablet(l) {
@@ -2296,6 +2399,7 @@ function InboxContent() {
         onCloseConversation: promptCloseConversation,
         onConvertClick: () => setShowConvertModal(true),
         leadDetail, setLeadDetail,
+        activeFilter,
     };
 
     return (

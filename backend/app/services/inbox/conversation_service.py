@@ -10,6 +10,10 @@ from app.models.conversation import ChannelType, Conversation, ConversationStatu
 from app.models.workspace import Workspace
 from app.core.security import to_uuid
 from datetime import datetime, timezone, timedelta
+from sqlalchemy import func, or_, case
+from app.models.message import Message, SenderType
+from app.models.ai_action import Lead
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import func, or_
 from app.models.message import Message, SenderType
 from app.models.ai_action import Lead
@@ -152,7 +156,7 @@ class ConversationService:
                 if last_user_ts.tzinfo is None:
                     last_user_ts = last_user_ts.replace(tzinfo=timezone.utc)
                 if last_user_ts <= cutoff:
-                    conv.status = ConversationStatus.CLOSED
+                    conv.status = ConversationStatus.FOLLOW_UP
                     conv.closed_at = last_user_ts
                     closed_conv_ids.append(conv.id)
             else:
@@ -161,7 +165,7 @@ class ConversationService:
                     if ref_time.tzinfo is None:
                         ref_time = ref_time.replace(tzinfo=timezone.utc)
                     if ref_time <= cutoff:
-                        conv.status = ConversationStatus.CLOSED
+                        conv.status = ConversationStatus.FOLLOW_UP
                         conv.closed_at = ref_time
                         closed_conv_ids.append(conv.id)
 
@@ -177,7 +181,7 @@ class ConversationService:
                 .all()
             )
             for lead in leads:
-                lead.status = "closed"
+                lead.status = "follow_up"
                 lead.lead_tier = "inactive"
 
             db.commit()
@@ -209,8 +213,11 @@ class ConversationService:
             st = status.upper().strip()
             if st == "OPEN":
                 query = query.filter(Conversation.status == ConversationStatus.OPEN)
+            elif st == "FOLLOW_UP":
+                query = query.filter(Conversation.status == ConversationStatus.FOLLOW_UP)
             elif st == "CONVERTED":
                 query = query.outerjoin(Lead, Lead.conversation_id == Conversation.id).filter(
+                    Conversation.status != ConversationStatus.CLOSED,
                     or_(
                         Conversation.status == ConversationStatus.CONVERTED,
                         Lead.is_converted == True,
@@ -218,28 +225,7 @@ class ConversationService:
                     )
                 ).distinct()
             elif st == "CLOSED":
-                cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
-                latest_msg_subq = (
-                    db.query(
-                        Message.conversation_id,
-                        func.max(Message.timestamp).label("latest_msg_time"),
-                    )
-                    .group_by(Message.conversation_id)
-                    .subquery()
-                )
-                query = query.outerjoin(
-                    latest_msg_subq,
-                    latest_msg_subq.c.conversation_id == Conversation.id,
-                ).filter(
-                    Conversation.status == ConversationStatus.CLOSED,
-                    func.coalesce(
-                        latest_msg_subq.c.latest_msg_time,
-                        Conversation.closed_at,
-                        Conversation.last_message_at,
-                        Conversation.updated_at,
-                        Conversation.created_at,
-                    ) <= cutoff,
-                )
+                query = query.filter(Conversation.status == ConversationStatus.CLOSED)
             elif st == "UNREAD":
                 unread_conv_subq = (
                     db.query(Message.conversation_id)
@@ -319,11 +305,6 @@ class ConversationService:
         workspace_id: str | UUID,
         channel: str | ChannelType | None = None,
     ) -> dict[str, int]:
-        from datetime import datetime, timezone, timedelta
-        from sqlalchemy import func, or_
-        from app.models.message import Message, SenderType
-        from app.models.ai_action import Lead
-
         ws_uuid = to_uuid(workspace_id)
         
         # Auto-close expired WhatsApp conversations before calculating counts
@@ -341,10 +322,14 @@ class ConversationService:
         # 2. Open
         open_count = base_query.filter(Conversation.status == ConversationStatus.OPEN).count()
 
-        # 3. Converted
+        # 3. Follow Up (auto-expired after 24h of inactivity)
+        follow_up_count = base_query.filter(Conversation.status == ConversationStatus.FOLLOW_UP).count()
+
+        # 4. Converted
         converted_count = (
             base_query.outerjoin(Lead, Lead.conversation_id == Conversation.id)
             .filter(
+                Conversation.status != ConversationStatus.CLOSED,
                 or_(
                     Conversation.status == ConversationStatus.CONVERTED,
                     Lead.is_converted == True,
@@ -355,35 +340,10 @@ class ConversationService:
             .count()
         )
 
-        # 4. Closed (closed and last message was >= 24 hours ago)
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
-        latest_msg_subq = (
-            db.query(
-                Message.conversation_id,
-                func.max(Message.timestamp).label("latest_msg_time"),
-            )
-            .group_by(Message.conversation_id)
-            .subquery()
-        )
-        closed_count = (
-            base_query.outerjoin(
-                latest_msg_subq,
-                latest_msg_subq.c.conversation_id == Conversation.id,
-            )
-            .filter(
-                Conversation.status == ConversationStatus.CLOSED,
-                func.coalesce(
-                    latest_msg_subq.c.latest_msg_time,
-                    Conversation.closed_at,
-                    Conversation.last_message_at,
-                    Conversation.updated_at,
-                    Conversation.created_at,
-                ) <= cutoff,
-            )
-            .count()
-        )
+        # 5. Closed (manually closed)
+        closed_count = base_query.filter(Conversation.status == ConversationStatus.CLOSED).count()
 
-        # 5. Unread
+        # 6. Unread
         unread_conv_subq = (
             db.query(Message.conversation_id)
             .filter(
@@ -397,6 +357,7 @@ class ConversationService:
         return {
             "all": all_count,
             "open": open_count,
+            "follow_up": follow_up_count,
             "unread": unread_count,
             "converted": converted_count,
             "closed": closed_count,
