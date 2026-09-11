@@ -75,27 +75,27 @@ export default function FeatureDiscoveryCard({
           )}
 
           {/* Feature Title */}
-          <h3 className="text-xl sm:text-2xl font-medium text-white group-hover:text-emerald-200 transition-colors tracking-tight">
+          <h3 className="text-base sm:text-lg font-semibold text-white group-hover:text-emerald-200 transition-colors tracking-tight">
             {title}
           </h3>
 
-          {/* Description with Opacity styling for high readability */}
-          <p className="text-sm sm:text-base text-zinc-300/80 group-hover:text-zinc-200/90 transition-colors mt-3 leading-relaxed font-[10px]">
+          {/* Description */}
+          <p className="text-xs sm:text-sm text-zinc-300/80 group-hover:text-zinc-200/90 transition-colors mt-2 leading-relaxed font-normal">
             {description}
           </p>
         </div>
 
         {/* View Feature Documentation Link at bottom ONLY */}
-        <div className="pt-4 mt-5 flex items-center justify-between">
+        <div className="pt-3 mt-4 flex items-center justify-between">
           <Link
             href={href}
-            className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-emerald-400 hover:text-emerald-300 transition-all group/btn"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-all group/btn"
           >
             <span>View feature documentation</span>
-            <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover/btn:translate-x-1.5" />
+            <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover/btn:translate-x-1" />
           </Link>
 
-          <span className="text-[10px] text-white/60 group-hover:text-zinc-400 transition-colors">
+          <span className="text-[10px] text-white/50 group-hover:text-zinc-400 transition-colors font-mono">
             Docs &bull; Blueprint
           </span>
         </div>
