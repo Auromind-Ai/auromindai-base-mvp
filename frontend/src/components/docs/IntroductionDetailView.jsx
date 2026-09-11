@@ -922,10 +922,10 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
 
         {/* Category & Status Badges */}
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30 uppercase tracking-wider font-mono">
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30 font-poppins">
             Getting Started • Platform Overview
           </span>
-          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 font-poppins">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             Production Architecture
           </span>
@@ -933,7 +933,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
 
         {/* Hero Title & 2-Line Overview */}
         <div className="space-y-2 w-full">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-white leading-tight">
             Introduction to OrbionAgents
           </h1>
           <p className="text-base sm:text-lg text-zinc-300 leading-relaxed font-normal">
@@ -1103,7 +1103,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
                   onClick={() => setActiveStage(sIdx)}
                   className={`p-3 rounded-xl border text-left transition-all relative overflow-hidden ${
                     isSelected
-                      ? 'border-violet-500 bg-violet-500/10 text-white shadow-lg shadow-violet-950/40'
+                      ? "bg-gradient-to-br from-[#6730e6]/35 to-[#221253]/15 border-r-white/[0.1]"
                       : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
