@@ -81,14 +81,15 @@ export const MEDIA_INVENTORY = {
     videoVersion: "v2.4.0",
     videoUrl: "/docs/videos/Screen Recording 2026-09-11 104247.mp4",
     videoDuration: "Walkthrough Demo",
-    screenshotAvailable: false,
-    screenshotVersion: null,
+    screenshotAvailable: true,
+    screenshotVersion: "v2.4.0",
     screenshotUrls: [
+      "/docs/screenshots/flow-verification-active.png",
       "/docs/screenshots/orchestrator-canvas.png"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
-    notes: "Active production video walkthrough demonstrating the visual workflow canvas in action."
+    notes: "Active production screenshot of verified active flows and video walkthrough demonstrating the visual workflow canvas."
   },
   "features/campaigns": {
     featureName: "WhatsApp Campaigns & Broadcasts",

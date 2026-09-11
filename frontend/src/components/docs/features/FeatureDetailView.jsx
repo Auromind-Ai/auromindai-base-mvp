@@ -429,7 +429,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
       </section>
 
       {/* SECTION: BEFORE YOU START (PREREQUISITES) */}
-      {config.beforeYouStart && config.beforeYouStart.length > 0 && (
+      {!config.connectionRules && config.beforeYouStart && config.beforeYouStart.length > 0 && (
         <section id="before-you-start" className="scroll-mt-24 pt-4 border-t border-white/10 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
@@ -797,11 +797,11 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-bold text-violet-400">
+                    <span className="text-xs font-mono font-bold text-violet-400 shrink-0">
                       0{idx + 1}
                     </span>
                     <span className="text-xs font-semibold text-white truncate">
-                      {mod.name}
+                      {mod.name || mod.title || mod.badge}
                     </span>
                   </div>
                 </button>
@@ -819,7 +819,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   <div className="lg:col-span-6 space-y-4">
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-1 rounded-lg bg-violet-500/20 text-violet-300 font-mono text-xs font-bold border border-violet-500/30">
-                        Module: {activeMod.name}
+                        Module: {activeMod.badge || activeMod.name || activeMod.title}
                       </span>
                     </div>
 
@@ -875,6 +875,8 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                           src={activeMod.image || config.screenshotUrl}
                           alt={activeMod.title}
                           caption={activeMod.caption || `${activeMod.title} visual interface in Automation Wire`}
+                          objectFit="contain"
+                          aspectRatio="aspect-[16/9]"
                         />
                       )}
                     </div>

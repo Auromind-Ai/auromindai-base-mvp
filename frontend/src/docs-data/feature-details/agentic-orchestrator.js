@@ -22,9 +22,22 @@ export const agenticOrchestratorDetail = {
     caption: 'Visual workflow orchestration: drag-and-drop triggers, AI classification nodes, and decision branches in action.',
   },
   visualKey: 'automation',
+  screenshots: {
+    verification: {
+      src: '/docs/screenshots/flow-verification-active.png',
+      alt: 'Flows dashboard verification console showing active status switch',
+      label: 'Live Verification & State Audit',
+      statusLabel: 'Status: Active',
+      annotation: 'Flow Status: Active',
+      caption: 'Verified active status toggle switch in Flows dashboard confirming the chatbot flow is live 24/7.',
+      aspectRatio: 'aspect-[1024/567] [&_img]:object-contain',
+      className: 'w-full'
+    }
+  },
   subModules: [
     {
       id: 'flow-linking',
+      name: 'Sequential Linking',
       badge: 'Visual Graph & Cable Routing',
       title: 'Multi-Step Sequential Linking',
       subtitle: 'Connect graph nodes via directional bezier cables and validate execution path health.',
@@ -57,6 +70,7 @@ export const agenticOrchestratorDetail = {
     },
     {
       id: 'magic-wire',
+      name: 'Magic Wire AI',
       badge: 'AI Flow Generation',
       title: 'Magic Wire (AI Flow Generation)',
       subtitle: 'Turn plain-English descriptions into complete production-ready node graphs instantly.',
@@ -90,6 +104,7 @@ export const agenticOrchestratorDetail = {
     },
     {
       id: 'conditional-logic',
+      name: 'Conditional Logic',
       badge: 'Logic & Decision Engine',
       title: 'Conditional Logic & Decision Nodes',
       subtitle: 'Dynamic branching based on customer input keywords, urgency, sentiment, and qualification rules.',
@@ -122,6 +137,7 @@ export const agenticOrchestratorDetail = {
     },
     {
       id: 'interactive-menus',
+      name: 'Interactive Buttons',
       badge: 'Native Mobile UX',
       title: 'Interactive Button Menus & Bots',
       subtitle: 'Deliver native WhatsApp interactive quick-reply buttons and multi-choice list pickers.',

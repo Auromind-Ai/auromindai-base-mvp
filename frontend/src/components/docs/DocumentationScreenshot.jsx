@@ -10,7 +10,7 @@ export default function DocumentationScreenshot({
   stepNumber,
   annotation,
   aspectRatio = 'aspect-[16/9]',
-  objectFit = 'cover',
+  objectFit = 'contain',
   className = '',
   scrollPreview,
 }) {

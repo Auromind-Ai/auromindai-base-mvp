@@ -69,20 +69,6 @@ export const integrationsDetail = {
       highlight: 'Zero Middleman Fees'
     }
   ],
-  beforeYouStart: [
-    {
-      title: 'Meta Business Manager Admin Access',
-      description: 'Admin access to your Meta Business portfolio to create apps and generate System User tokens.'
-    },
-    {
-      title: 'Dedicated Phone Number',
-      description: 'A clean phone number not currently registered to a personal WhatsApp account for WhatsApp Business Cloud API.'
-    },
-    {
-      title: 'Valid Business Documents',
-      description: 'Official business registration documents if lifting Meta tier messaging limits from 250 to 1,000+ chats/day.'
-    }
-  ],
   setupSteps: [
     {
       step: 1,
