@@ -8,7 +8,7 @@ export default function DocsHeader({ onOpenMobile, onOpenMenu, onOpenSearch, bre
   const handleOpenMenu = onOpenMenu || onOpenMobile;
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-[#050508]/85 backdrop-blur-xl border-b border-white/[0.08] transition-all">
+    <header className="sticky top-0 z-40 w-full bg-black/90 backdrop-blur-xl border-b border-white/[0.08] transition-all">
       <div className="w-full h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         {/* Left: Hamburger & Brand */}
         <div className="flex items-center gap-3.5">

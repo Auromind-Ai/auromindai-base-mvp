@@ -19,21 +19,30 @@ export default function DocsLayout({ children }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Global hotkey listener for Cmd+K / Ctrl+K
+  // Global hotkey listener for Cmd+K / Ctrl+K and custom open event
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
         setIsSearchOpen((prev) => !prev);
       }
     };
+
+    const handleOpenCustomEvent = () => {
+      setIsSearchOpen(true);
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('open-docs-search', handleOpenCustomEvent);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('open-docs-search', handleOpenCustomEvent);
+    };
   }, []);
 
   return (
     <div
-      className={`${poppins.variable} ${poppins.className} docs-section font-poppins min-h-screen bg-[#040407] text-white flex flex-col selection:bg-[#814AC8]/40 selection:text-white relative overflow-x-hidden`}
+      className={`${poppins.variable} ${poppins.className} docs-section font-poppins min-h-screen bg-black text-white flex flex-col selection:bg-[#814AC8]/40 selection:text-white relative overflow-x-hidden`}
       style={{ fontFamily: 'var(--font-poppins), "Poppins", sans-serif' }}
     >
       {/* Premium Ambient Background Effects */}
@@ -56,7 +65,7 @@ export default function DocsLayout({ children }) {
       </div>
 
       {/* Mobile-Only Top Bar (< lg) */}
-      <div className="lg:hidden sticky top-0 z-40 w-full bg-[#08080E]/90 backdrop-blur-md border-b border-white/10 px-4 py-3 flex items-center justify-between">
+      <div className="lg:hidden sticky top-0 z-40 w-full bg-black/90 backdrop-blur-md border-b border-white/10 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsMobileMenuOpen(true)}
@@ -104,7 +113,7 @@ export default function DocsLayout({ children }) {
             />
 
             {/* Sidebar drawer panel */}
-            <div className="relative w-84 max-w-[85vw] h-full bg-[#08080E] shadow-2xl flex flex-col z-10 border-r border-white/10 animate-in slide-in-from-left duration-200">
+            <div className="relative w-84 max-w-[85vw] h-full bg-black shadow-2xl flex flex-col z-10 border-r border-white/10 animate-in slide-in-from-left duration-200">
               <div className="p-4 flex items-center justify-between border-b border-white/10 bg-white/[0.02]">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#814AC8] to-[#a855f7] flex items-center justify-center text-white font-bold text-xs shadow-md">

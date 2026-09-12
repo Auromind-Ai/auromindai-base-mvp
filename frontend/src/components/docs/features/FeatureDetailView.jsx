@@ -948,7 +948,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   </p>
                 </div>
                 {(isIntegration || config.visualKey === 'workspace' || config.useZigzagSteps) && (
-                  <div className="self-start sm:self-auto px-3.5 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-mono font-semibold flex items-center gap-1.5">
+                  <div className="self-start sm:self-auto px-3.5 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-semibold flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
                     {config.stepsBadge || `${config.setupSteps?.length || 0} Video-Verified Steps`}
                   </div>
@@ -1134,7 +1134,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                 {/* Left: Content */}
                 <div className="lg:col-span-6 space-y-4">
                   <div>
-                    <span className="text-[11px] font-mono uppercase tracking-widest text-violet-400 font-bold block mb-1">
+                    <span className="text-[11px] tracking-widest text-violet-400 font-bold block mb-1">
                       {config.copy?.setupLabel || 'Configuration & Workflow'}
                     </span>
                     <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">

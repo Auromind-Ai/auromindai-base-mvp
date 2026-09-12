@@ -50,7 +50,7 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
   };
 
   return (
-    <aside className="w-full flex flex-col h-full bg-[#08080E] border-r border-white/[0.08] select-none font-poppins">
+    <aside className="w-full flex flex-col h-full bg-black border-r border-white/[0.08] select-none font-poppins">
       {/* Brand Header */}
       <div className="p-4 border-b border-white/[0.06]">
         <Link href="/" className="flex items-center gap-2.5 group hover:opacity-95 transition-opacity">
@@ -76,8 +76,15 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
       {/* Search trigger button */}
       <div className="p-3.5 border-b border-white/[0.06]">
         <button
-          onClick={onOpenSearch}
-          className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 hover:border-violet-500/40 text-xs text-zinc-300 hover:text-white transition-all duration-200 shadow-inner group"
+          type="button"
+          onClick={() => {
+            if (onOpenSearch) {
+              onOpenSearch();
+            } else if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('open-docs-search'));
+            }
+          }}
+          className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 hover:border-violet-500/40 text-xs text-zinc-300 hover:text-white transition-all duration-200 shadow-inner group cursor-pointer"
         >
           <div className="flex items-center gap-2.5">
             <Search className="w-3.5 h-3.5 text-violet-400 group-hover:text-violet-300 transition-colors" />

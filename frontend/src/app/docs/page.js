@@ -167,9 +167,14 @@ export default function DocsHomePage() {
 
             {/* Global Search Trigger Bar */}
             <div className="w-full max-w-xl">
-              <Link
-                href="#directory"
-                className="flex items-center justify-between px-4 py-2.5 sm:py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-violet-500/50 text-xs sm:text-sm text-zinc-400 hover:text-white transition-all shadow-xl group relative overflow-hidden backdrop-blur-md"
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('open-docs-search'));
+                  }
+                }}
+                className="w-full flex items-center justify-between px-4 py-2.5 sm:py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-violet-500/50 text-xs sm:text-sm text-zinc-400 hover:text-white transition-all shadow-xl group relative overflow-hidden backdrop-blur-md cursor-pointer text-left"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-all">
@@ -184,7 +189,7 @@ export default function DocsHomePage() {
                     ⌘K
                   </kbd>
                 </div>
-              </Link>
+              </button>
             </div>
 
             {/* Quick Guide Fast-Track Action Pills */}

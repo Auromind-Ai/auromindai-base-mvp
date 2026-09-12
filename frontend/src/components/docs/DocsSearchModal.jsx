@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, X, Film, BookOpen, CornerDownLeft } from 'lucide-react';
 import { getSearchIndex } from '@/docs-data/articles';
@@ -27,23 +27,70 @@ export default function DocsSearchModal({ isOpen, onClose }) {
     }
   }, [isOpen]);
 
-  const filteredResults = query.trim() === ''
-    ? searchData.slice(0, 6)
-    : searchData.filter((item) => {
-        const q = query.toLowerCase();
-        return (
-          item.title.toLowerCase().includes(q) ||
-          item.subtitle?.toLowerCase().includes(q) ||
-          item.category.toLowerCase().includes(q) ||
-          item.whatIsIt?.toLowerCase().includes(q) ||
-          item.keywords?.some((k) => k.toLowerCase().includes(q)) ||
-          item.troubleshooting?.some((t) => t.toLowerCase().includes(q))
-        );
-      }).slice(0, 8);
+  const filteredResults = useMemo(() => {
+    const raw = query.trim().toLowerCase();
+    if (!raw) return searchData.slice(0, 8);
+
+    const tokens = raw.split(/\s+/).filter(Boolean);
+
+    const scored = searchData
+      .map((item) => {
+        let score = 0;
+        const title = (item.title || '').toLowerCase();
+        const subtitle = (item.subtitle || '').toLowerCase();
+        const category = (item.category || '').toLowerCase();
+        const whatIsIt = (item.whatIsIt || '').toLowerCase();
+        const slug = (item.slug || '').toLowerCase();
+        const keywords = Array.isArray(item.keywords) ? item.keywords.map((k) => String(k).toLowerCase()) : [];
+        const steps = Array.isArray(item.steps) ? item.steps.map((s) => String(s).toLowerCase()) : [];
+        const troubleshooting = Array.isArray(item.troubleshooting) ? item.troubleshooting.map((t) => String(t).toLowerCase()) : [];
+
+        // Check if all tokens match anywhere
+        const allTokensMatch = tokens.every((tok) => {
+          return (
+            title.includes(tok) ||
+            subtitle.includes(tok) ||
+            category.includes(tok) ||
+            whatIsIt.includes(tok) ||
+            slug.includes(tok) ||
+            keywords.some((k) => k.includes(tok)) ||
+            steps.some((s) => s.includes(tok)) ||
+            troubleshooting.some((t) => t.includes(tok))
+          );
+        });
+
+        if (!allTokensMatch) return null;
+
+        // Exact & prefix bonus
+        if (title === raw) score += 200;
+        else if (title.startsWith(raw)) score += 100;
+        else if (title.includes(raw)) score += 60;
+
+        if (category === raw) score += 50;
+        else if (category.includes(raw)) score += 25;
+
+        tokens.forEach((tok) => {
+          if (title.includes(tok)) score += 30;
+          if (keywords.some((k) => k.includes(tok))) score += 20;
+          if (subtitle.includes(tok)) score += 15;
+          if (whatIsIt.includes(tok)) score += 10;
+          if (steps.some((s) => s.includes(tok))) score += 8;
+          if (troubleshooting.some((t) => t.includes(tok))) score += 5;
+        });
+
+        return { item, score };
+      })
+      .filter(Boolean);
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.map((s) => s.item).slice(0, 10);
+  }, [query, searchData]);
 
   const handleSelect = (slug) => {
+    if (!slug) return;
     onClose();
-    router.push(`/docs/${slug}`);
+    const cleanSlug = slug.replace(/^\/+/, '');
+    router.push(`/docs/${cleanSlug}`);
   };
 
   const handleKeyDown = (e) => {
@@ -67,12 +114,12 @@ export default function DocsSearchModal({ isOpen, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-black/80 backdrop-blur-md transition-opacity docs-section font-poppins"
+      className="fixed inset-0 z-[100] flex items-start justify-center pt-16 sm:pt-20 px-4 bg-black/80 backdrop-blur-md transition-opacity docs-section font-poppins"
       style={{ fontFamily: 'var(--font-poppins), "Poppins", sans-serif' }}
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-2xl rounded-2xl border border-white/15 bg-[#0A0B12] shadow-2xl shadow-black overflow-hidden animate-in fade-in zoom-in-95 duration-150 font-poppins"
+        className="relative w-full max-w-2xl rounded-2xl border border-white/15 bg-[#0c1224] shadow-2xl shadow-black/90 overflow-hidden animate-in fade-in zoom-in-95 duration-150 font-poppins"
         style={{ fontFamily: 'var(--font-poppins), "Poppins", sans-serif' }}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
@@ -105,7 +152,7 @@ export default function DocsSearchModal({ isOpen, onClose }) {
         </div>
 
         {/* Results List */}
-        <div className="max-h-[60vh] overflow-y-auto p-2 divide-y divide-white/[0.04]">
+        <div className="max-h-[60vh] overflow-y-auto p-2 divide-y divide-white/[0.04] custom-scrollbar">
           {filteredResults.length === 0 ? (
             <div className="py-12 text-center text-sm text-zinc-400">
               No matching documentation pages found for <span className="text-white font-medium">&quot;{query}&quot;</span>
@@ -120,7 +167,7 @@ export default function DocsSearchModal({ isOpen, onClose }) {
                   onMouseEnter={() => setSelectedIndex(index)}
                   className={`flex items-start justify-between p-3.5 rounded-xl cursor-pointer transition-all ${
                     isSelected
-                      ? 'bg-[#814AC8]/20 border border-[#814AC8]/40 text-white shadow-sm'
+                      ? 'bg-[#814AC8]/25 border border-[#814AC8]/40 text-white shadow-sm'
                       : 'hover:bg-white/[0.03] text-zinc-300'
                   }`}
                 >
