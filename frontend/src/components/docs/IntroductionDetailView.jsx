@@ -343,11 +343,11 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
 
   return (
     <article
-      className="w-full min-w-0 space-y-12 sm:space-y-16 pb-14 font-['Poppins',sans-serif] select-text"
+      className="w-full min-w-0 space-y-6 sm:space-y-8 pb-14 font-['Poppins',sans-serif] select-text"
       style={{ fontFamily: "'Poppins', sans-serif" }}
     >
       {/* 1. HERO SECTION */}
-      <header className="space-y-4 border-b border-white/10 pb-8 pt-1">
+      <header className="space-y-4 border-b border-white/10 pb-5 pt-1">
         {/* Breadcrumb Navigation */}
         <nav className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium" aria-label="Breadcrumb">
           <Link href="/docs" className="hover:text-white transition-colors">
@@ -385,7 +385,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
       {/* ─────────────────────────────────────────────────────────────
           2. WHO IS ORBIONAGENTS FOR? (6 Comprehensive Target Personas)
           ───────────────────────────────────────────────────────────── */}
-      <section id="target-audience" className="space-y-6 scroll-mt-24 pt-6">
+      <section id="target-audience" className="space-y-4 scroll-mt-24 pt-0">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-400">
             <Users className="w-3.5 h-3.5" />
