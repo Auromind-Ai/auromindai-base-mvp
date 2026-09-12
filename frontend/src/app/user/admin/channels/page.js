@@ -341,7 +341,7 @@ function TwilioOnboardingModal({
                                         placeholder="ACxxxxxxxx..."
                                         value={twilioForm.sid}
                                         onChange={e => setTwilioForm(prev => ({ ...prev, sid: e.target.value }))}
-                                        className="w-full rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-[13px] placeholder:text-white/40 outline-none font-mono transition-all duration-200 bg-white/[0.03] border border-white/[0.09] focus:border-[#F22F46]/40 focus:ring-2 focus:ring-[#F22F46]/10"
+                                        className="w-full rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-[13px] placeholder:text-white/40 outline-none transition-all duration-200 bg-white/[0.03] border border-white/[0.09] focus:border-[#F22F46]/40 focus:ring-2 focus:ring-[#F22F46]/10"
                                     />
                                 </div>
 
@@ -355,7 +355,7 @@ function TwilioOnboardingModal({
                                             placeholder="Your Twilio Auth Token"
                                             value={twilioForm.token}
                                             onChange={e => setTwilioForm(prev => ({ ...prev, token: e.target.value }))}
-                                            className="w-full rounded-xl pl-3 sm:pl-4 pr-10 sm:pr-11 py-2 sm:py-2.5 text-white text-xs sm:text-[13px] placeholder:text-white/40 outline-none font-mono transition-all duration-200 bg-white/[0.03] border border-white/[0.09] focus:border-[#F22F46]/40 focus:ring-2 focus:ring-[#F22F46]/10"
+                                            className="w-full rounded-xl pl-3 sm:pl-4 pr-10 sm:pr-11 py-2 sm:py-2.5 text-white text-xs sm:text-[13px] placeholder:text-white/40 outline-none transition-all duration-200 bg-white/[0.03] border border-white/[0.09] focus:border-[#F22F46]/40 focus:ring-2 focus:ring-[#F22F46]/10"
                                         />
                                         <button
                                             type="button"
@@ -376,7 +376,7 @@ function TwilioOnboardingModal({
                                         placeholder="+1234567890"
                                         value={twilioForm.phone}
                                         onChange={e => setTwilioForm(prev => ({ ...prev, phone: e.target.value }))}
-                                        className="w-full rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-[13px] placeholder:text-white/40 outline-none font-mono transition-all duration-200 bg-white/[0.03] border border-white/[0.09] focus:border-[#F22F46]/40 focus:ring-2 focus:ring-[#F22F46]/10"
+                                        className="w-full rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-[13px] placeholder:text-white/40 outline-none transition-all duration-200 bg-white/[0.03] border border-white/[0.09] focus:border-[#F22F46]/40 focus:ring-2 focus:ring-[#F22F46]/10"
                                     />
                                     <p className="text-[10px] text-white/45 mt-1">Use a WhatsApp-enabled number</p>
                                 </div>
@@ -520,7 +520,7 @@ function ChannelDetailsModal({
                                     Account SID
                                 </label>
                                 <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-                                    <span className="font-mono text-xs sm:text-[13px] text-white/90 truncate">
+                                    <span className="text-xs sm:text-[13px] text-white/90 truncate">
                                         {twilioForm.sid || (info ? "Configured in Workspace" : "AC••••••••••••••••••••••••••••••••")}
                                     </span>
                                     {(twilioForm.sid || info) && (
@@ -541,7 +541,7 @@ function ChannelDetailsModal({
                                     Auth Token
                                 </label>
                                 <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-                                    <span className="font-mono text-xs sm:text-[13px] text-white/90 truncate">
+                                    <span className="text-xs sm:text-[13px] text-white/90 truncate">
                                         {detailsRevealedSecrets.twilio_token
                                             ? (twilioForm.token || "••••••••••••••••••••••••••••••••")
                                             : "••••••••••••••••••••••••••••••••"}
@@ -576,7 +576,7 @@ function ChannelDetailsModal({
                                     WhatsApp Phone Number
                                 </label>
                                 <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-                                    <span className="font-mono text-xs sm:text-[13px] text-green-400 font-medium truncate">
+                                    <span className="text-xs sm:text-[13px] text-green-400 font-medium truncate">
                                         {info || twilioForm.phone || "Connected"}
                                     </span>
                                     {(info || twilioForm.phone) && (
@@ -601,7 +601,7 @@ function ChannelDetailsModal({
                                     WhatsApp Business Number
                                 </label>
                                 <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-                                    <span className="font-mono text-xs sm:text-[13px] text-green-400 font-medium truncate">
+                                    <span className="text-xs sm:text-[13px] text-green-400 font-medium truncate">
                                         {info || "Connected"}
                                     </span>
                                     {info && info !== "Connected" && (
@@ -623,7 +623,7 @@ function ChannelDetailsModal({
                                         Phone Number ID
                                     </label>
                                     <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-                                        <span className="font-mono text-xs sm:text-[13px] text-white/90 truncate" title={whatsappPhoneId}>
+                                        <span className="text-xs sm:text-[13px] text-white/90 truncate" title={whatsappPhoneId}>
                                             {whatsappPhoneId}
                                         </span>
                                         <button
@@ -644,7 +644,7 @@ function ChannelDetailsModal({
                                         WhatsApp Business Account ID (WABA ID)
                                     </label>
                                     <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-                                        <span className="font-mono text-xs sm:text-[13px] text-white/90 truncate" title={whatsappWabaId}>
+                                        <span className="text-xs sm:text-[13px] text-white/90 truncate" title={whatsappWabaId}>
                                             {whatsappWabaId}
                                         </span>
                                         <button
@@ -677,7 +677,7 @@ function ChannelDetailsModal({
                                     Connected Account
                                 </label>
                                 <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-                                    <span className="font-mono text-xs sm:text-[13px] text-pink-400 font-medium truncate">
+                                    <span className="text-xs sm:text-[13px] text-pink-400 font-medium truncate">
                                         {info || "Connected"}
                                     </span>
                                     {info && info !== "Connected" && (
@@ -711,7 +711,7 @@ function ChannelDetailsModal({
                                     Connected Email Address
                                 </label>
                                 <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-                                    <span className="font-mono text-xs sm:text-[13px] text-yellow-400 font-medium truncate">
+                                    <span className="text-xs sm:text-[13px] text-yellow-400 font-medium truncate">
                                         {info || "Connected"}
                                     </span>
                                     {info && info !== "Connected" && (
@@ -745,7 +745,7 @@ function ChannelDetailsModal({
                                     Connected Calendar Account
                                 </label>
                                 <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-                                    <span className="font-mono text-xs sm:text-[13px] text-blue-400 font-medium truncate">
+                                    <span className="text-xs sm:text-[13px] text-blue-400 font-medium truncate">
                                         {info || "Connected"}
                                     </span>
                                     {info && info !== "Connected" && (

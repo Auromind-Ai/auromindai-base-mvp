@@ -795,7 +795,7 @@ export default function WorkspaceTab({
                       {creditLogs.map((log) => (
                         <tr key={log.id} className="hover:bg-white/[0.01] transition-colors">
                           <td className="py-2 text-gray-500">{new Date(log.created_at).toLocaleString()}</td>
-                          <td className="py-2 font-mono text-[10px]">{log.entry_type}</td>
+                          <td className="py-2 text-[10px]">{log.entry_type}</td>
                           <td className="py-2">
                             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                               log.balance_source === "INCLUDED" ? "bg-indigo-900/30 text-indigo-300" : "bg-purple-900/30 text-purple-300"

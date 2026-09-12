@@ -315,7 +315,7 @@ export default function DashboardView({
                   {/* Middle: Created by */}
                   <div className="mt-3">
                     <span className="text-[11px] text-zinc-500 block font-medium">Created by</span>
-                    <span className="text-xs text-zinc-400 font-mono mt-0.5 block truncate">
+                    <span className="text-xs text-zinc-400 mt-0.5 block truncate">
                       {currentUser?.email || 'zixcommerce'}
                     </span>
                   </div>
@@ -400,7 +400,7 @@ export default function DashboardView({
                             {flow.name}
                           </span>
                         </td>
-                        <td className="px-2.5 sm:px-3 lg:px-6 py-3 sm:py-3.5 lg:py-4 text-white/40 font-mono text-[11px]">
+                        <td className="px-2.5 sm:px-3 lg:px-6 py-3 sm:py-3.5 lg:py-4 text-white/40 text-[11px]">
                           <span className="truncate block max-w-[110px] sm:max-w-[140px] lg:max-w-none" title={currentUser?.email || 'zixcommerce'}>
                             {currentUser?.email || 'zixcommerce'}
                           </span>

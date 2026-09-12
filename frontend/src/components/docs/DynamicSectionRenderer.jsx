@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   CheckCircle2, 
   AlertCircle, 
@@ -15,7 +15,8 @@ import {
   Database,
   Eye,
   Lightbulb,
-  BarChart3
+  BarChart3,
+  ChevronDown
 } from 'lucide-react';
 import DocsStepItem from './DocsStepItem';
 import DocumentationScreenshot from './DocumentationScreenshot';
@@ -24,13 +25,66 @@ import DocsAlert from './DocsAlert';
 import * as Previews from './FeatureUIPreviews';
 import DocsDynamicTierMatrix from './DocsDynamicTierMatrix';
 
+function DocsFaqItem({ item, isOpen, onToggle }) {
+  return (
+    <div
+      onClick={onToggle}
+      className={`rounded-xl border transition-all duration-200 cursor-pointer overflow-hidden ${
+        isOpen
+          ? 'border-violet-500/50 bg-violet-950/20 shadow-lg shadow-purple-950/30'
+          : 'border-white/10 bg-slate-900/40 hover:bg-slate-900/70 hover:border-violet-500/40'
+      }`}
+    >
+      <div className="p-4 flex items-center justify-between gap-3 select-none">
+        <div className="flex items-center gap-2.5 text-white font-semibold text-xs sm:text-sm">
+          <div className={`p-1.5 rounded-lg transition-colors ${isOpen ? 'bg-violet-500/20 text-violet-300' : 'bg-white/5 text-violet-400'}`}>
+            <HelpCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+          </div>
+          <span className="text-white">{item.question}</span>
+        </div>
+        <div className={`p-1 rounded-md transition-transform duration-200 ${isOpen ? 'rotate-180 text-violet-300' : 'text-zinc-500'}`}>
+          <ChevronDown className="w-4 h-4" />
+        </div>
+      </div>
+      {isOpen && (
+        <div className="px-4 pb-4 pt-1 border-t border-white/5">
+          <p className="text-xs sm:text-sm text-zinc-200 pl-8 leading-relaxed font-normal">
+            {item.answer}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DocsFaqSection({ items }) {
+  const [openIndex, setOpenIndex] = useState(0);
+
+  const toggleItem = (idx) => {
+    setOpenIndex((prev) => (prev === idx ? null : idx));
+  };
+
+  return (
+    <div className="space-y-2.5 pt-1">
+      {items.map((item, itemIdx) => (
+        <DocsFaqItem
+          key={itemIdx}
+          item={item}
+          isOpen={openIndex === itemIdx}
+          onToggle={() => toggleItem(itemIdx)}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function DynamicSectionRenderer({ sections = [] }) {
   if (!sections || !Array.isArray(sections) || sections.length === 0) {
     return null;
   }
 
   return (
-    <div className="w-full space-y-16">
+    <div className="w-full space-y-10 sm:space-y-12">
       {sections.map((section, idx) => {
         if (!section || !section.id) return null;
 
@@ -54,7 +108,7 @@ export default function DynamicSectionRenderer({ sections = [] }) {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-violet-400 shrink-0" />
-                      <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                      <h3 className="text-sm sm:text-base font-semibold text-white tracking-tight">
                         {item.title}
                       </h3>
                     </div>
@@ -65,7 +119,7 @@ export default function DynamicSectionRenderer({ sections = [] }) {
                     )}
                   </div>
                   {item.badge && (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30 font-mono">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30">
                       {item.badge}
                     </span>
                   )}
@@ -76,7 +130,7 @@ export default function DynamicSectionRenderer({ sections = [] }) {
                   {/* Dimension 1: What Data Is It */}
                   {item.whatItIs && (
                     <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-3 space-y-1">
-                      <span className="text-[11px] font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="text-[11px] font-semibold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
                         <Database className="w-3.5 h-3.5 text-cyan-400" /> What Data Is It?
                       </span>
                       <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed pl-5">
@@ -88,7 +142,7 @@ export default function DynamicSectionRenderer({ sections = [] }) {
                   {/* Dimension 2: Visual on Dashboard */}
                   {item.visual && (
                     <div className="rounded-xl border border-violet-500/20 bg-violet-950/20 p-3 space-y-1">
-                      <span className="text-[11px] font-bold text-violet-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="text-[11px] font-semibold text-violet-300 uppercase tracking-wider flex items-center gap-1.5">
                         <Eye className="w-3.5 h-3.5 text-violet-400" /> Visual on Dashboard
                       </span>
                       <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed pl-5">
@@ -99,9 +153,9 @@ export default function DynamicSectionRenderer({ sections = [] }) {
 
                   {/* Dimension 3: Why It's Helpful */}
                   {item.whyHelpful && (
-                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-3 space-y-1">
-                      <span className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <Lightbulb className="w-3.5 h-3.5 text-emerald-400" /> Why It&apos;s Helpful
+                    <div className="rounded-xl border border-violet-500/20 bg-violet-950/20 p-3 space-y-1">
+                      <span className="text-[11px] font-semibold text-violet-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <Lightbulb className="w-3.5 h-3.5 text-violet-400" /> Why It&apos;s Helpful
                       </span>
                       <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed pl-5">
                         {item.whyHelpful}
@@ -119,7 +173,7 @@ export default function DynamicSectionRenderer({ sections = [] }) {
           <div className="space-y-4">
             {sectionTitle && (
               <div className="border-b border-white/10 pb-2">
-                <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+                <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-violet-400" aria-hidden="true" />
                   <span>{sectionTitle}</span>
                 </h2>
@@ -174,7 +228,7 @@ export default function DynamicSectionRenderer({ sections = [] }) {
                     key={itemIdx}
                     className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all flex items-start gap-2.5"
                   >
-                    <div className="w-5 h-5 rounded-md bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0 mt-0.5 font-mono text-xs">
+                    <div className="w-5 h-5 rounded-md bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0 mt-0.5 text-xs">
                       {itemIdx + 1}
                     </div>
                     <div>
@@ -202,8 +256,8 @@ export default function DynamicSectionRenderer({ sections = [] }) {
                   {section.checklistTitle || 'Requirements & Prerequisites:'}
                 </span>
                 {section.items.map((item, itemIdx) => (
-                  <div key={itemIdx} className="flex items-start gap-2.5 text-xs sm:text-sm text-zinc-300">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
+                  <div key={itemIdx} className="flex items-start gap-2.5 text-xs sm:text-sm text-zinc-200">
+                    <CheckCircle2 className="w-4 h-4 text-violet-400 shrink-0 mt-0.5" aria-hidden="true" />
                     <span>{item}</span>
                   </div>
                 ))}
@@ -211,10 +265,10 @@ export default function DynamicSectionRenderer({ sections = [] }) {
             )}
 
             {sectionType === 'callout' && (
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4.5 flex gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
-                <div className="text-xs sm:text-sm text-emerald-200 leading-relaxed">
-                  <span className="font-semibold block text-emerald-300 mb-1">
+              <div className="rounded-xl border border-[#814AC8]/30 bg-violet-950/20 p-4.5 flex gap-3">
+                <CheckCircle2 className="w-5 h-5 text-violet-400 shrink-0 mt-0.5" aria-hidden="true" />
+                <div className="text-xs sm:text-sm text-white leading-relaxed">
+                  <span className="font-semibold block text-white mb-1">
                     {section.calloutTitle || 'Verified Expected Outcome:'}
                   </span>
                   {section.calloutText || section.content}
@@ -227,25 +281,29 @@ export default function DynamicSectionRenderer({ sections = [] }) {
                 {section.items.map((item, itemIdx) => (
                   <div
                     key={itemIdx}
-                    className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-2.5"
+                    className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-2.5 hover:border-violet-500/40 transition-all"
                   >
-                    <div className="flex items-start gap-2 text-amber-300 font-semibold text-xs sm:text-sm">
-                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" aria-hidden="true" />
+                    <div className="flex items-start gap-2 text-white font-semibold text-xs sm:text-sm">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-violet-400" aria-hidden="true" />
                       <span>{item.issue || item.problem}</span>
                     </div>
                     {item.cause && (
-                      <p className="text-xs text-zinc-400 pl-6 leading-relaxed">
-                        <strong className="text-zinc-300 font-medium">Root Cause: </strong>
+                      <p className="text-xs text-zinc-300 pl-6 leading-relaxed">
+                        <strong className="text-violet-300 font-medium">Root Cause: </strong>
                         {item.cause}
                       </p>
                     )}
-                    <p className="text-xs text-zinc-300 pl-6 leading-relaxed">
-                      <strong className="text-emerald-400 font-medium">Resolution: </strong>
+                    <p className="text-xs text-white pl-6 leading-relaxed">
+                      <strong className="text-violet-400 font-medium">Resolution: </strong>
                       {item.solution || item.resolution}
                     </p>
                   </div>
                 ))}
               </div>
+            )}
+
+            {sectionType === 'faq' && section.items && (
+              <DocsFaqSection items={section.items} />
             )}
           </div>
         );
@@ -299,7 +357,7 @@ export default function DynamicSectionRenderer({ sections = [] }) {
           <section key={sectionId || idx} id={sectionId} className="space-y-4 scroll-mt-24">
             {sectionTitle && (
               <div className="border-b border-white/10 pb-2">
-                <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+                <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-violet-400" aria-hidden="true" />
                   <span>{sectionTitle}</span>
                 </h2>
@@ -354,7 +412,7 @@ export default function DynamicSectionRenderer({ sections = [] }) {
                     key={itemIdx}
                     className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all flex items-start gap-2.5"
                   >
-                    <div className="w-5 h-5 rounded-md bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0 mt-0.5 font-mono text-xs">
+                    <div className="w-5 h-5 rounded-md bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0 mt-0.5 text-xs">
                       {itemIdx + 1}
                     </div>
                     <div>
@@ -382,8 +440,8 @@ export default function DynamicSectionRenderer({ sections = [] }) {
                   {section.checklistTitle || 'Requirements & Prerequisites:'}
                 </span>
                 {section.items.map((item, itemIdx) => (
-                  <div key={itemIdx} className="flex items-start gap-2.5 text-xs sm:text-sm text-zinc-300">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
+                  <div key={itemIdx} className="flex items-start gap-2.5 text-xs sm:text-sm text-zinc-200">
+                    <CheckCircle2 className="w-4 h-4 text-violet-400 shrink-0 mt-0.5" aria-hidden="true" />
                     <span>{item}</span>
                   </div>
                 ))}
@@ -432,10 +490,10 @@ export default function DynamicSectionRenderer({ sections = [] }) {
             )}
 
             {sectionType === 'callout' && (
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4.5 flex gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
-                <div className="text-xs sm:text-sm text-emerald-200 leading-relaxed">
-                  <span className="font-semibold block text-emerald-300 mb-1">
+              <div className="rounded-xl border border-[#814AC8]/30 bg-violet-950/20 p-4.5 flex gap-3">
+                <CheckCircle2 className="w-5 h-5 text-violet-400 shrink-0 mt-0.5" aria-hidden="true" />
+                <div className="text-xs sm:text-sm text-white leading-relaxed">
+                  <span className="font-semibold block text-white mb-1">
                     {section.calloutTitle || 'Verified Expected Outcome:'}
                   </span>
                   {section.calloutText || section.content}
@@ -448,20 +506,20 @@ export default function DynamicSectionRenderer({ sections = [] }) {
                 {section.items.map((item, itemIdx) => (
                   <div
                     key={itemIdx}
-                    className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-2.5"
+                    className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-2.5 hover:border-violet-500/40 transition-all"
                   >
-                    <div className="flex items-start gap-2 text-amber-300 font-semibold text-xs sm:text-sm">
-                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" aria-hidden="true" />
+                    <div className="flex items-start gap-2 text-white font-semibold text-xs sm:text-sm">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-violet-400" aria-hidden="true" />
                       <span>{item.issue || item.problem}</span>
                     </div>
                     {item.cause && (
-                      <p className="text-xs text-zinc-400 pl-6 leading-relaxed">
-                        <strong className="text-zinc-300 font-medium">Root Cause: </strong>
+                      <p className="text-xs text-zinc-300 pl-6 leading-relaxed">
+                        <strong className="text-violet-300 font-medium">Root Cause: </strong>
                         {item.cause}
                       </p>
                     )}
-                    <p className="text-xs text-zinc-300 pl-6 leading-relaxed">
-                      <strong className="text-emerald-400 font-medium">Resolution: </strong>
+                    <p className="text-xs text-white pl-6 leading-relaxed">
+                      <strong className="text-violet-400 font-medium">Resolution: </strong>
                       {item.solution || item.resolution}
                     </p>
                   </div>
@@ -470,22 +528,7 @@ export default function DynamicSectionRenderer({ sections = [] }) {
             )}
 
             {sectionType === 'faq' && section.items && (
-              <div className="space-y-3 pt-1">
-                {section.items.map((item, itemIdx) => (
-                  <div
-                    key={itemIdx}
-                    className="p-4 rounded-xl border border-white/10 bg-slate-900/40 space-y-2"
-                  >
-                    <div className="flex items-start gap-2 text-white font-semibold text-xs sm:text-sm">
-                      <HelpCircle className="w-4 h-4 shrink-0 mt-0.5 text-violet-400" aria-hidden="true" />
-                      <span>{item.question}</span>
-                    </div>
-                    <p className="text-xs text-zinc-300 pl-6 leading-relaxed">
-                      {item.answer}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              <DocsFaqSection items={section.items} />
             )}
 
             {sectionType === 'tips' && section.items && (

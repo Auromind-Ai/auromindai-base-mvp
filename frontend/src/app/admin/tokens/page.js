@@ -186,27 +186,27 @@ export default function TokenUsagePage() {
                           </td>
 
                           <td className="py-4 px-4 text-xs text-gray-300">
-                            <div className="font-mono">
+                            <div className="">
                               <span className="text-indigo-400 font-semibold">{totalCr.toLocaleString()}</span> credits
                             </div>
-                            <div className="text-[10px] text-gray-500 font-mono">
+                            <div className="text-[10px] text-gray-500">
                               {incCr.toLocaleString()} inc {purCr > 0 ? `+ ${purCr.toLocaleString()} top-up` : ''}
                             </div>
                           </td>
 
                           <td className="py-4 px-4 text-right">
-                            <div className="font-mono text-white font-semibold">
+                            <div className="text-white font-semibold">
                               {tokensUsed.toLocaleString()}
                             </div>
                             {creditsUsed > 0 && (
-                              <div className="text-[10px] text-gray-500 font-mono">
+                              <div className="text-[10px] text-gray-500">
                                 {creditsUsed.toLocaleString()} Cr spent
                               </div>
                             )}
                           </td>
 
                           <td className="py-4 px-4 text-right">
-                            <div className="font-mono text-gray-200 font-semibold">
+                            <div className="text-gray-200 font-semibold">
                               {limit.toLocaleString()}
                             </div>
                           </td>
@@ -229,7 +229,7 @@ export default function TokenUsagePage() {
                                   />
                                 </div>
 
-                                <span className="text-xs font-mono text-gray-400 w-12 text-right">
+                                <span className="text-xs text-gray-400 w-12 text-right">
                                   {usagePercent}%
                                 </span>
                               </div>
@@ -265,7 +265,7 @@ function StatCard({ icon: Icon, label, value, sub }) {
         {label}
       </p>
 
-      <p className="text-white text-xl font-bold font-mono">
+      <p className="text-white text-xl font-bold">
         {value}
       </p>
 

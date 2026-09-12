@@ -148,7 +148,7 @@ function SalesQualificationVisual() {
           <CheckCircle2 className="w-3.5 h-3.5 text-[#25d366]" />
           <span>Auto-Qualified: 🔥 Hot Lead ($18k • 96 pts)</span>
         </div>
-        <span className="font-mono text-[10px] text-zinc-400">Synced to CRM</span>
+        <span className="text-[10px] text-zinc-400">Synced to CRM</span>
       </div>
     </div>
   );
@@ -275,7 +275,7 @@ function WhatsAppAutomationVisual() {
           <div className="w-full sm:max-w-[90%] rounded-2xl rounded-tl-none bg-[#202c33] text-[#e9edef] overflow-hidden shadow-lg border border-white/[0.04]">
             {/* Header Media Banner (clean dark luxury card) */}
             <div className="h-20 bg-gradient-to-r from-zinc-900 via-neutral-900 to-stone-900 border-b border-white/10 p-3 flex flex-col justify-end relative">
-              <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-black/60 text-[#25d366] text-[10px] font-mono font-medium border border-white/10">
+              <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-black/60 text-[#25d366] text-[10px] font-medium border border-white/10">
                 VIP Early Access
               </div>
               <span className="font-bold text-white text-xs sm:text-sm">Summer 2026 Collection ☀️</span>
@@ -285,7 +285,7 @@ function WhatsAppAutomationVisual() {
             {/* Message Body */}
             <div className="p-3 space-y-1.5">
               <p className="leading-relaxed text-xs text-[#e9edef]">
-                Hello Priya! Your VIP access code <span className="font-mono text-[#25d366] font-bold bg-[#005c4b]/30 px-1 py-0.5 rounded border border-[#005c4b]">[VIP-SUMMER25]</span> is active. Tap below to browse or track your orders:
+                Hello Priya! Your VIP access code <span className="text-[#25d366] font-bold bg-[#005c4b]/30 px-1 py-0.5 rounded border border-[#005c4b]">[VIP-SUMMER25]</span> is active. Tap below to browse or track your orders:
               </p>
               <div className="flex justify-end text-[10px] text-[#8696a0]">11:30 AM</div>
             </div>
@@ -343,7 +343,7 @@ function WhatsAppAutomationVisual() {
       {/* Meta API Status Footer */}
       <div className="px-3.5 py-2 bg-[#111b21] border-t border-[#202c33] flex items-center justify-between text-[11px] text-[#8696a0]">
         <span className="text-emerald-400 font-medium">⚡ 98% Open Rate • Meta Cloud API</span>
-        <span className="font-mono text-[10px] text-zinc-400">Automated Dispatch</span>
+        <span className="text-[10px] text-zinc-400">Automated Dispatch</span>
       </div>
     </div>
   );
@@ -361,12 +361,12 @@ function KnowledgeBaseVisual() {
           <div>
             <div className="flex items-center gap-1.5">
               <span className="font-semibold text-white text-xs">Enterprise Knowledge Copilot</span>
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono">pgvector RAG</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">pgvector RAG</span>
             </div>
             <span className="text-[10px] text-slate-400 block leading-none mt-0.5">Strict Grounding • Zero Guesswork</span>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 text-emerald-400 text-[10px] font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+        <div className="flex items-center gap-1.5 text-emerald-400 text-[10px] bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           <span>Synced &amp; Verified</span>
         </div>
@@ -397,15 +397,15 @@ function KnowledgeBaseVisual() {
                 <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
                 <div>
                   <div className="text-[11px] font-semibold text-white">Enterprise_SLA_2026.pdf</div>
-                  <div className="text-[9px] text-slate-400 font-mono">Page 14 • Cosine Similarity: 0.96</div>
+                  <div className="text-[9px] text-slate-400">Page 14 • Cosine Similarity: 0.96</div>
                 </div>
               </div>
-              <span className="text-[9px] font-mono text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30 font-semibold">
+              <span className="text-[9px] text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30 font-semibold">
                 Strict Citation
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-0.5">
+            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
               <span className="text-emerald-400 flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" /> PII Redacted
               </span>
@@ -427,7 +427,7 @@ function KnowledgeBaseVisual() {
       </div>
 
       {/* Latency & Grounding Footer */}
-      <div className="px-4 py-2 bg-[#0b1120] border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+      <div className="px-4 py-2 bg-[#0b1120] border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-400">
         <span>Embeddings: text-embedding-3-large</span>
         <span className="text-indigo-300">Latency: 142ms • Zero Hallucination</span>
       </div>
@@ -447,12 +447,12 @@ function LeadManagementVisual() {
           <div>
             <div className="flex items-center gap-1.5">
               <span className="font-semibold text-white text-xs">AI Lead Intelligence &amp; CRM Sync</span>
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">Live Extraction</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Live Extraction</span>
             </div>
             <span className="text-[10px] text-zinc-400 block leading-none mt-0.5">Unstructured WhatsApp &rarr; Structured CRM</span>
           </div>
         </div>
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-emerald-300 bg-emerald-500/10 border border-emerald-500/20">
+        <span className="px-2 py-0.5 rounded-full text-[10px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20">
           100% Fidelity
         </span>
       </div>
@@ -473,7 +473,7 @@ function LeadManagementVisual() {
         </div>
 
         {/* Sync Transition Indicator */}
-        <div className="flex items-center justify-center gap-2 py-0.5 text-[10px] font-mono text-emerald-400">
+        <div className="flex items-center justify-center gap-2 py-0.5 text-[10px] text-emerald-400">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
           <span>Extracted Entities &amp; Qualified Automatically</span>
         </div>
@@ -497,26 +497,26 @@ function LeadManagementVisual() {
 
           <div className="grid grid-cols-2 gap-2 text-[11px]">
             <div className="p-2 rounded-lg bg-[#0d1117] border border-zinc-800">
-              <span className="text-zinc-500 block text-[9px] font-mono">Deal Value</span>
+              <span className="text-zinc-500 block text-[9px]">Deal Value</span>
               <span className="font-bold text-emerald-400 text-xs">₹1,50,000</span>
             </div>
             <div className="p-2 rounded-lg bg-[#0d1117] border border-zinc-800">
-              <span className="text-zinc-500 block text-[9px] font-mono">Pipeline Stage</span>
+              <span className="text-zinc-500 block text-[9px]">Pipeline Stage</span>
               <span className="font-medium text-amber-300">Qualified Lead</span>
             </div>
             <div className="p-2 rounded-lg bg-[#0d1117] border border-zinc-800">
-              <span className="text-zinc-500 block text-[9px] font-mono">Work Email</span>
+              <span className="text-zinc-500 block text-[9px]">Work Email</span>
               <span className="font-medium text-zinc-200 truncate block">vikram@skylinelog.com</span>
             </div>
             <div className="p-2 rounded-lg bg-[#0d1117] border border-zinc-800">
-              <span className="text-zinc-500 block text-[9px] font-mono">Requirement</span>
+              <span className="text-zinc-500 block text-[9px]">Requirement</span>
               <span className="font-medium text-zinc-200 truncate block">20x GPS Trackers</span>
             </div>
           </div>
 
           <div className="w-full py-1.5 px-3 rounded-lg bg-[#0d1117] border border-zinc-800 flex items-center justify-between text-[10px]">
             <span className="text-zinc-400">Assigned: <strong className="text-zinc-200">Rohit (Senior AE)</strong></span>
-            <span className="text-emerald-400 font-mono flex items-center gap-1">
+            <span className="text-emerald-400 flex items-center gap-1">
               <Check className="w-3 h-3" /> Synced to CRM &amp; HubSpot
             </span>
           </div>
@@ -538,12 +538,12 @@ function WorkflowAutomationVisual() {
           <div>
             <div className="flex items-center gap-1.5">
               <span className="font-semibold text-white text-xs">Automation Wire Canvas</span>
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono">Visual Graph</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">Visual Graph</span>
             </div>
             <span className="text-[10px] text-zinc-400 block leading-none mt-0.5">Event-driven Webhooks &amp; Orchestration</span>
           </div>
         </div>
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-emerald-300 bg-emerald-500/10 border border-emerald-500/20">
+        <span className="px-2 py-0.5 rounded-full text-[10px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20">
           ⚡ 124ms SLA
         </span>
       </div>
@@ -558,10 +558,10 @@ function WorkflowAutomationVisual() {
             </div>
             <div>
               <span className="font-semibold text-white text-xs block">Trigger: Inbound WhatsApp Message</span>
-              <span className="text-[10px] text-zinc-400 font-mono">Condition: &quot;Track Order #ORB-8821&quot;</span>
+              <span className="text-[10px] text-zinc-400">Condition: &quot;Track Order #ORB-8821&quot;</span>
             </div>
           </div>
-          <span className="text-[9px] font-mono text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+          <span className="text-[9px] text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
             Webhook Event
           </span>
         </div>
@@ -579,10 +579,10 @@ function WorkflowAutomationVisual() {
             </div>
             <div>
               <span className="font-semibold text-white text-xs block">Orbion AI: Intent &amp; Entity Parser</span>
-              <span className="text-[10px] text-zinc-400 font-mono">Parsed Order ID: #ORB-8821 (Confidence: 0.99)</span>
+              <span className="text-[10px] text-zinc-400">Parsed Order ID: #ORB-8821 (Confidence: 0.99)</span>
             </div>
           </div>
-          <span className="text-[9px] font-mono text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+          <span className="text-[9px] text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
             LLM 42ms
           </span>
         </div>
@@ -600,10 +600,10 @@ function WorkflowAutomationVisual() {
             </div>
             <div>
               <span className="font-semibold text-white text-xs block">API Action: Query Shopify Store</span>
-              <span className="text-[10px] text-zinc-400 font-mono">GET /orders/8821 → Status: &quot;Out for Delivery&quot;</span>
+              <span className="text-[10px] text-zinc-400">GET /orders/8821 → Status: &quot;Out for Delivery&quot;</span>
             </div>
           </div>
-          <span className="text-[9px] font-mono text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+          <span className="text-[9px] text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
             HTTP 200 OK
           </span>
         </div>
@@ -616,11 +616,11 @@ function WorkflowAutomationVisual() {
         {/* Branching Parallel Dispatch */}
         <div className="grid grid-cols-2 gap-2 pt-1">
           <div className="p-2.5 rounded-xl bg-[#161b22] border border-emerald-500/40 space-y-1">
-            <span className="text-[9px] font-mono text-emerald-400 block font-bold">Branch A: WhatsApp Reply</span>
+            <span className="text-[9px] text-emerald-400 block font-bold">Branch A: WhatsApp Reply</span>
             <span className="text-[11px] text-zinc-200 block leading-tight">Dispatched live courier tracking link</span>
           </div>
           <div className="p-2.5 rounded-xl bg-[#161b22] border border-purple-500/40 space-y-1">
-            <span className="text-[9px] font-mono text-purple-400 block font-bold">Branch B: Slack Alert</span>
+            <span className="text-[9px] text-purple-400 block font-bold">Branch B: Slack Alert</span>
             <span className="text-[11px] text-zinc-200 block leading-tight">Notified VIP Account Manager</span>
           </div>
         </div>
@@ -830,6 +830,64 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
     WorkflowAutomationVisual,
   ];
 
+  // Target Personas for Section 1.7 (Styled identical to Popular Workflows)
+  const TARGET_PERSONAS = [
+    {
+      title: 'Inbound Sales & Revenue Teams',
+      description: 'Qualify inbound leads 24/7, parse buyer budget and timeline, auto-score Hot/Warm/Cold leads, and book Google Calendar meetings instantly in chat.',
+      tag: 'Revenue',
+      icon: Target,
+      glowColor: 'bg-emerald-500/25',
+      iconStyle: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 group-hover:bg-emerald-500 group-hover:text-white',
+      accentBorder: 'group-hover:border-emerald-500/50',
+    },
+    {
+      title: 'Support & Success Desks',
+      description: 'Automate 70%+ of Tier-1 customer tickets, answer complex policy questions with exact document citations, and smoothly escalate edge cases to human reps.',
+      tag: 'Support',
+      icon: Headphones,
+      glowColor: 'bg-cyan-500/25',
+      iconStyle: 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300 group-hover:bg-cyan-500 group-hover:text-white',
+      accentBorder: 'group-hover:border-cyan-500/50',
+    },
+    {
+      title: 'E-Commerce & DTC Brands',
+      description: 'Deploy interactive WhatsApp product catalogs, automated order tracking lookups, return label generation, and abandoned cart re-engagement flows.',
+      tag: 'E-Commerce',
+      icon: ShoppingBag,
+      glowColor: 'bg-amber-500/25',
+      iconStyle: 'bg-amber-500/15 border-amber-500/30 text-amber-300 group-hover:bg-amber-500 group-hover:text-white',
+      accentBorder: 'group-hover:border-amber-500/50',
+    },
+    {
+      title: 'Marketing & Growth Teams',
+      description: 'Send Meta-verified WhatsApp Cloud API broadcasts with 98% open rates, launch VIP drops, and automate Click-to-WhatsApp ad conversational funnels.',
+      tag: 'Marketing',
+      icon: TrendingUp,
+      glowColor: 'bg-pink-500/25',
+      iconStyle: 'bg-pink-500/15 border-pink-500/30 text-pink-300 group-hover:bg-pink-500 group-hover:text-white',
+      accentBorder: 'group-hover:border-pink-500/50',
+    },
+    {
+      title: 'Operations & Logistics',
+      description: 'Query ERP/database backends, generate automated PDF receipts and invoices, and dispatch real-time Slack/SMS operational alerts to fulfillment teams.',
+      tag: 'Operations',
+      icon: Truck,
+      glowColor: 'bg-purple-500/25',
+      iconStyle: 'bg-purple-500/15 border-purple-500/30 text-purple-300 group-hover:bg-purple-500 group-hover:text-white',
+      accentBorder: 'group-hover:border-purple-500/50',
+    },
+    {
+      title: 'Developers & IT Architects',
+      description: 'Build on visual node canvases, integrate webhooks and REST endpoints, switch between top LLMs (OpenAI, Gemini, Anthropic), and enforce PII data masking.',
+      tag: 'Developers',
+      icon: Code2,
+      glowColor: 'bg-violet-500/25',
+      iconStyle: 'bg-violet-500/15 border-violet-500/30 text-violet-300 group-hover:bg-violet-500 group-hover:text-white',
+      accentBorder: 'group-hover:border-violet-500/50',
+    },
+  ];
+
   // Explore OrbionAgents Links for Section 6
   const EXPLORE_LINKS = [
     {
@@ -900,13 +958,11 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
 
   return (
     <article
-      className="w-full min-w-0 space-y-20 pb-20 font-['Poppins',sans-serif] select-text"
+      className="w-full min-w-0 space-y-12 sm:space-y-16 pb-14 font-['Poppins',sans-serif] select-text"
       style={{ fontFamily: "'Poppins', sans-serif" }}
     >
-      {/* ─────────────────────────────────────────────────────────────
-          1. HERO SECTION
-          ───────────────────────────────────────────────────────────── */}
-      <header className="space-y-6 border-b border-white/10 pb-12 pt-2">
+      {/* 1. HERO SECTION */}
+      <header className="space-y-4 border-b border-white/10 pb-8 pt-1">
         {/* Breadcrumb Navigation */}
         <nav className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium" aria-label="Breadcrumb">
           <Link href="/docs" className="hover:text-white transition-colors">
@@ -925,15 +981,11 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30 font-poppins">
             Getting Started • Platform Overview
           </span>
-          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 font-poppins">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Production Architecture
-          </span>
         </div>
 
         {/* Hero Title & 2-Line Overview */}
         <div className="space-y-2 w-full">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-white leading-tight">
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white leading-tight">
             Introduction to OrbionAgents
           </h1>
           <p className="text-base sm:text-lg text-zinc-300 leading-relaxed font-normal">
@@ -945,16 +997,14 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
         </div>
       </header>
 
-      {/* ─────────────────────────────────────────────────────────────
-          1.7. WHO IS ORBIONAGENTS FOR? (6 Comprehensive Target Personas)
-          ───────────────────────────────────────────────────────────── */}
-      <section id="target-audience" className="space-y-6 scroll-mt-24 pt-6">
+      {/* 1.7. WHO IS ORBIONAGENTS FOR? (6 Comprehensive Target Personas) */}
+      <section id="target-audience" className="space-y-6 scroll-mt-24 pt-4">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-400">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-400">
             <Users className="w-3.5 h-3.5" />
             <span>Target Personas &amp; Teams</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
             Who is OrbionAgents Built For?
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400">
@@ -962,127 +1012,57 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Card 1: Sales & Revenue */}
-          <div className="p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-emerald-500/30 transition-all space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                <Target className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] font-mono text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                Revenue
-              </span>
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Inbound Sales &amp; Revenue Teams</h3>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                Qualify inbound leads 24/7, parse buyer budget and timeline, auto-score Hot/Warm/Cold leads, and book Google Calendar meetings instantly in chat.
-              </p>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {TARGET_PERSONAS.map((persona, idx) => {
+            const Icon = persona.icon;
+            return (
+              <div
+                key={idx}
+                className={`p-6 sm:p-7 rounded-[26px] border border-white/[0.08] bg-[#16161a]/95 hover:bg-[#191920] ${persona.accentBorder} transition-all duration-300 group flex flex-col justify-between shadow-2xl shadow-black/70 hover:-translate-y-1 relative overflow-hidden min-h-[250px] backdrop-blur-xl`}
+              >
+                {/* Atmospheric Ambient Glow */}
+                <div
+                  className={`absolute -top-12 -right-12 w-48 h-48 ${persona.glowColor} rounded-full blur-3xl pointer-events-none opacity-40 group-hover:opacity-75 transition-opacity duration-500`}
+                />
+                <div
+                  className={`absolute -bottom-12 -left-12 w-36 h-36 ${persona.glowColor} rounded-full blur-3xl pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity duration-500`}
+                />
 
-          {/* Card 2: Customer Support */}
-          <div className="p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-cyan-500/30 transition-all space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-                <Headphones className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] font-mono text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
-                Support
-              </span>
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Support &amp; Success Desks</h3>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                Automate 70%+ of Tier-1 customer tickets, answer complex policy questions with exact document citations, and smoothly escalate edge cases to human reps.
-              </p>
-            </div>
-          </div>
+                {/* TOP ROW: Icon Container & Tag Pill */}
+                <div className="flex items-center justify-between relative z-10 mb-4">
+                  <div
+                    className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all duration-300 shadow-md ${persona.iconStyle}`}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <span className="text-[10px] sm:text-xs font-semibold px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/10 text-zinc-300 shadow-inner">
+                    {persona.tag}
+                  </span>
+                </div>
 
-          {/* Card 3: E-Commerce & DTC */}
-          <div className="p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-amber-500/30 transition-all space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-                <ShoppingBag className="w-4 h-4" />
+                {/* MIDDLE: Title & Description */}
+                <div className="relative z-10 flex-1">
+                  <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight leading-snug group-hover:text-white transition-colors">
+                    {persona.title}
+                  </h3>
+                  <p className="text-xs sm:text-[13px] text-zinc-400 leading-relaxed font-normal mt-2">
+                    {persona.description}
+                  </p>
+                </div>
               </div>
-              <span className="text-[10px] font-mono text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                E-Commerce
-              </span>
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">E-Commerce &amp; DTC Brands</h3>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                Deploy interactive WhatsApp product catalogs, automated order tracking lookups, return label generation, and abandoned cart re-engagement flows.
-              </p>
-            </div>
-          </div>
-
-          {/* Card 4: Marketing & Growth */}
-          <div className="p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-pink-500/30 transition-all space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="w-8 h-8 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400">
-                <TrendingUp className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] font-mono text-pink-300 bg-pink-500/10 px-2 py-0.5 rounded border border-pink-500/20">
-                Marketing
-              </span>
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Marketing &amp; Growth Teams</h3>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                Send Meta-verified WhatsApp Cloud API broadcasts with 98% open rates, launch VIP drops, and automate Click-to-WhatsApp ad conversational funnels.
-              </p>
-            </div>
-          </div>
-
-          {/* Card 5: Operations & Logistics */}
-          <div className="p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-purple-500/30 transition-all space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                <Truck className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] font-mono text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
-                Operations
-              </span>
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Operations &amp; Logistics</h3>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                Query ERP/database backends, generate automated PDF receipts and invoices, and dispatch real-time Slack/SMS operational alerts to fulfillment teams.
-              </p>
-            </div>
-          </div>
-
-          {/* Card 6: Developers & IT */}
-          <div className="p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-violet-500/30 transition-all space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
-                <Code2 className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] font-mono text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
-                Developers
-              </span>
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Developers &amp; IT Architects</h3>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                Build on visual node canvases, integrate webhooks and REST endpoints, switch between top LLMs (OpenAI, Gemini, Anthropic), and enforce PII data masking.
-              </p>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </section>
 
-      {/* ─────────────────────────────────────────────────────────────
-          2. HOW ORBIONAGENTS WORKS (Conceptual Runtime Lifecycle)
-          ───────────────────────────────────────────────────────────── */}
-      <section id="how-it-works" className="space-y-6 scroll-mt-24 border-t border-white/10 pt-10">
+      {/* 2. HOW ORBIONAGENTS WORKS (Conceptual Runtime Lifecycle) */}
+      <section id="how-it-works" className="space-y-6 scroll-mt-24 border-t border-white/10 pt-8">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-400">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-400">
             <Activity className="w-3.5 h-3.5" />
             <span>AI Conversation Flow</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
             How AI Conversations Flow
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400">
@@ -1108,14 +1088,14 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-white/5 border border-white/10">
+                    <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-white/5 border border-white/10">
                       {stg.number}
                     </span>
                     <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-violet-400' : 'text-zinc-500'}`} />
                   </div>
-                  <strong className="text-xs font-bold block truncate text-white">
+                  <span className="text-xs font-semibold block truncate text-white">
                     {stg.title}
-                  </strong>
+                  </span>
                   <span className="text-[10px] text-zinc-400 block truncate mt-0.5">
                     {stg.badge}
                   </span>
@@ -1134,15 +1114,15 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-bold text-violet-400">
+                      <span className="text-xs font-semibold text-violet-400">
                         Stage {RUNTIME_STAGES[activeStage].number} of 05
                       </span>
                       <span className="text-zinc-600">•</span>
-                      <span className="text-xs font-mono text-zinc-400">
+                      <span className="text-xs text-white/50">
                         {RUNTIME_STAGES[activeStage].badge}
                       </span>
                     </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-white">
+                    <h3 className="text-lg sm:text-xl font-semibold text-white">
                       {RUNTIME_STAGES[activeStage].title} — {RUNTIME_STAGES[activeStage].subtitle}
                     </h3>
                   </div>
@@ -1172,7 +1152,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
 
               {/* Key Capabilities at this Stage */}
               <div className="pt-2">
-                <span className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold block mb-2.5">
+                <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold block mb-2.5">
                   What Happens at this Stage:
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1193,16 +1173,11 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
         </div>
       </section>
 
-      {/* ─────────────────────────────────────────────────────────────
-          3. WHAT YOU CAN BUILD (6 Real-World Outcomes / Use Cases)
-          ───────────────────────────────────────────────────────────── */}
-      <section id="what-you-can-build" className="space-y-8 scroll-mt-24 border-t border-white/10 pt-10">
+      {/*3. WHAT YOU CAN BUILD (6 Real-World Outcomes / Use Cases)*/}
+      <section id="what-you-can-build" className="space-y-6 scroll-mt-24 border-t border-white/10 pt-8">
         <div className="space-y-3.5 w-full">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-400">
-            <Flame className="w-3.5 h-3.5" />
-            <span>Outcomes &amp; Production Blueprints</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
+
+          <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
             What You Can Build
           </h2>
           <p className="text-base sm:text-lg text-zinc-300 leading-relaxed font-normal">
@@ -1214,10 +1189,6 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
 
           {/* Quick Blueprint Pillar Pills */}
           <div className="flex flex-wrap items-center gap-2.5 pt-1">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/10 text-xs text-zinc-300 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span>Revenue Operations &amp; Lead Scoring</span>
-            </div>
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/10 text-xs text-zinc-300 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
               <span>Autonomous Tier-1 Customer Support</span>
@@ -1243,7 +1214,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
             return (
               <div
                 key={ucIdx}
-                className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center py-12 sm:py-16 first:pt-4 last:pb-4"
+                className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center py-8 sm:py-10 first:pt-4 last:pb-4"
               >
                 {/* Content Column (Left on even, Right on odd) */}
                 <div
@@ -1251,21 +1222,15 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
                     isEven ? 'lg:col-span-6 lg:order-1' : 'lg:col-span-6 lg:order-2'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider px-2.5 py-0.5 rounded bg-white/5 border border-white/10 font-semibold">
-                      {uc.category}
-                    </span>
+                  <div className="flex items-center gap-2">                    
                   </div>
 
                   <div>
-                    <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                    <h3 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
                       {uc.title}
                     </h3>
                     <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/20 font-mono">
+                      <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/20 ">
                         {uc.outcomeMetric}
                       </span>
                       <span className="text-xs text-zinc-400">
@@ -1292,7 +1257,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
 
                   {/* Target Industries */}
                   <div className="pt-3 border-t border-white/5 flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest font-semibold mr-1">
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-semibold mr-1">
                       Ideal For:
                     </span>
                     {uc.targetIndustries.map((ind, iIdx) => (
@@ -1320,17 +1285,15 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
         </div>
       </section>
 
-      {/* ─────────────────────────────────────────────────────────────
-          6. EXPLORE ORBIONAGENTS (Capability Cards -> Respective Docs)
-          ───────────────────────────────────────────────────────────── */}
-      <section id="explore-orbionagents" className="space-y-6 scroll-mt-24 border-t border-white/10 pt-10">
+      {/* 6. EXPLORE ORBIONAGENTS (Capability Cards -> Respective Docs)*/}
+      <section id="explore-orbionagents" className="space-y-6 scroll-mt-24 border-t border-white/10 pt-8">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-400">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-400">
               <Globe className="w-3.5 h-3.5" />
               <span>Documentation Directory</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">
+            <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight mt-1">
               Explore OrbionAgents
             </h2>
             <p className="text-xs sm:text-sm text-zinc-400 mt-1">
@@ -1361,13 +1324,13 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
                     <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-colors">
                       <Icon className="w-3.5 h-3.5" />
                     </div>
-                    <span className="text-[10px] font-mono text-zinc-400 px-1.5 py-0.5 rounded bg-white/5 border border-white/10">
+                    <span className="text-[10px] text-zinc-400 px-1.5 py-0.5 rounded bg-white/5 border border-white/10">
                       {link.badge}
                     </span>
                   </div>
 
                   <div>
-                    <h3 className="text-xs sm:text-sm font-bold text-white group-hover:text-violet-300 transition-colors">
+                    <h3 className="text-xs sm:text-sm font-semibold text-white group-hover:text-violet-300 transition-colors">
                       {link.title}
                     </h3>
                     <p className="text-[11px] text-zinc-400 leading-relaxed mt-1 line-clamp-2">
@@ -1386,10 +1349,8 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
         </div>
       </section>
 
-      {/* ─────────────────────────────────────────────────────────────
-          ARTICLE PAGINATION FOOTER (Prev / Next Links)
-          ───────────────────────────────────────────────────────────── */}
-      <footer className="pt-10 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+      {/* 6. ARTICLE PAGINATION FOOTER (Prev / Next Links)*/}
+      <footer className="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
         {/* Previous link (Docs Directory) */}
         <Link
           href="/docs"
@@ -1397,10 +1358,10 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
         >
           <ArrowLeft className="w-4 h-4 text-violet-400 group-hover:-translate-x-1 transition-transform" />
           <div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+            <span className="text-[10px] uppercase tracking-wider text-zinc-400 block font-medium">
               Previous Page
             </span>
-            <span className="text-xs sm:text-sm font-bold text-white group-hover:text-violet-300 transition-colors">
+            <span className="text-xs sm:text-sm font-semibold text-white group-hover:text-violet-300 transition-colors">
               Documentation Home
             </span>
           </div>
@@ -1412,10 +1373,10 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
           className="w-full sm:w-auto p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] transition-all flex items-center justify-end gap-3 text-right group sm:ml-auto"
         >
           <div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+            <span className="text-[10px] uppercase tracking-wider text-zinc-400 block font-medium">
               Next Step
             </span>
-            <span className="text-xs sm:text-sm font-bold text-white group-hover:text-violet-300 transition-colors">
+            <span className="text-xs sm:text-sm font-semibold text-white group-hover:text-violet-300 transition-colors">
               Creating an Account &amp; Setup
             </span>
           </div>

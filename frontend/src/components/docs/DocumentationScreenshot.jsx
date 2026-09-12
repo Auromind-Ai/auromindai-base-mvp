@@ -132,7 +132,7 @@ export default function DocumentationScreenshot({
           )}
 
           {stepNumber && (
-            <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-[#814AC8] text-[11px] font-bold text-white shadow-md pointer-events-none">
+            <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-[#814AC8] text-[11px] font-semibold text-white shadow-md pointer-events-none">
               Step {stepNumber}
             </div>
           )}
@@ -182,7 +182,7 @@ export default function DocumentationScreenshot({
               </div>
 
               {caption && (
-                <p className="mt-3 text-sm text-zinc-300 font-medium text-center">
+                <p className="mt-3 text-xs sm:text-sm text-zinc-300 font-normal text-center">
                   {caption}
                 </p>
               )}
@@ -215,7 +215,7 @@ export default function DocumentationScreenshot({
             <span className="w-2 h-2 rounded-full bg-emerald-500/40" />
 
             {stepNumber && (
-              <span className="ml-2 text-[10px] font-mono text-zinc-400 font-semibold">
+              <span className="ml-2 text-[10px] text-zinc-400 font-semibold">
                 Step {stepNumber}
               </span>
             )}
@@ -247,12 +247,8 @@ export default function DocumentationScreenshot({
         </div>
 
         <div className="mt-3 flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-white/5 border border-white/10 text-zinc-400">
-            <Layers
-              className="w-3 h-3 text-violet-400"
-              aria-hidden="true"
-            />
-
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px]  bg-white/5 border border-white/10 text-zinc-400">
+            <Layers className="w-3 3-4 text-violet-400" aria-hidden="true" />
             <span>Product Console</span>
           </span>
         </div>

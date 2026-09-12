@@ -55,7 +55,7 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
       <div className="p-4 border-b border-white/[0.06]">
         <Link href="/" className="flex items-center gap-2.5 group hover:opacity-90 transition-opacity">
           <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-[#814AC8] via-[#9333ea] to-[#a855f7] flex items-center justify-center p-1 shadow-md shadow-purple-900/40 group-hover:scale-105 transition-transform">
-            <span className="font-extrabold text-white text-xs tracking-tighter">O</span>
+            <span className="font-bold text-white text-xs tracking-tighter">O</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="font-bold text-sm tracking-tight text-white group-hover:text-violet-300 transition-colors">
@@ -78,7 +78,7 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
             <Search className="w-3.5 h-3.5 text-violet-400 group-hover:text-violet-300 transition-colors" />
             <span className="font-medium">Search docs...</span>
           </div>
-          <kbd className="px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-white/5 border border-white/10 rounded-md text-zinc-400">
+          <kbd className="px-1.5 py-0.5 text-[10px] font-semibold bg-white/5 border border-white/10 rounded-md text-zinc-400">
             ⌘K
           </kbd>
         </button>

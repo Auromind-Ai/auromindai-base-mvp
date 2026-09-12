@@ -113,7 +113,7 @@ export default function AISettingsPage() {
                         onChange={(e) => handleValueChange("temperature", parseFloat(e.target.value))}
                         className="flex-1"
                       />
-                      <span className="text-white font-mono w-12">{(config.temperature || 0.7).toFixed(1)}</span>
+                      <span className="text-white w-12">{(config.temperature || 0.7).toFixed(1)}</span>
                     </div>
                   </ConfigItem>
                   <ConfigItem label="Max Tokens">

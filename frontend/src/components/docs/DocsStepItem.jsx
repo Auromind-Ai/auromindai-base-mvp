@@ -3,20 +3,20 @@ import DocumentationScreenshot from './DocumentationScreenshot';
 
 export default function DocsStepItem({ step, totalSteps }) {
   return (
-    <div className="relative pl-14 pb-12 last:pb-2 group">
+    <div className="relative pl-14 pb-8 last:pb-2 group">
       {/* Vertical line connecting steps */}
       {step.step < totalSteps && (
         <div className="absolute left-[21px] top-10 bottom-0 w-0.5 bg-gradient-to-b from-[#814AC8]/80 via-violet-500/30 to-white/10" />
       )}
 
       {/* Step Badge */}
-      <div className="absolute left-0 top-0.5 w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#814AC8]/30 to-[#a855f7]/20 border border-[#814AC8]/60 text-white font-extrabold text-sm flex items-center justify-center shadow-xl shadow-purple-950/50">
+      <div className="absolute left-0 top-0.5 w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#814AC8]/30 to-[#a855f7]/20 border border-[#814AC8]/60 text-white font-semibold text-sm flex items-center justify-center shadow-xl shadow-purple-950/50">
         {step.step}
       </div>
 
       {/* Content */}
       <div className="space-y-3.5">
-        <h4 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+        <h4 className="text-base sm:text-lg font-semibold text-white tracking-tight flex items-center gap-2">
           <span>{step.title}</span>
         </h4>
 
@@ -36,7 +36,7 @@ export default function DocsStepItem({ step, totalSteps }) {
                   {step.uiElements.map((el, i) => (
                     <span
                       key={i}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono bg-white/[0.04] text-zinc-200 border border-white/10 shadow-sm"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs bg-white/[0.04] text-zinc-200 border border-white/10 shadow-sm"
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
                       {el}

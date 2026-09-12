@@ -393,7 +393,7 @@ export default function NodeInspector({
                           />
                           <p className="text-[10px] text-zinc-500 mt-1.5 font-medium">
                             When user taps a button, its label will be saved in{' '}
-                            <span className="text-violet-400 font-mono font-semibold">
+                            <span className="text-violet-400 font-semibold">
                               &#123;&#123;{activeNode.config?.variable_name || 'variable_name'}&#125;&#125;
                             </span>
                           </p>
@@ -651,7 +651,7 @@ export default function NodeInspector({
                              <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Attached Knowledge</label>
                              {(activeNode.config?.entry_ids || []).map((id) => (
                                 <div key={id} className="flex items-center justify-between px-3 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-lg">
-                                   <span className="text-xs text-indigo-300 font-mono truncate max-w-[200px]">Doc {id.substring(0,8)}</span>
+                                   <span className="text-xs text-indigo-300 truncate max-w-[200px]">Doc {id.substring(0,8)}</span>
                                    <button onClick={() => removeSalesEntry(id)} className="text-rose-400 hover:text-rose-300 p-1">
                                       <X size={14} />
                                    </button>
@@ -776,7 +776,7 @@ export default function NodeInspector({
 
                     <section className="p-4 rounded-2xl border border-indigo-500/10 bg-indigo-500/5">
                       <p className="text-[10px] font-black uppercase tracking-[2px] text-indigo-400 mb-1">Condition Preview</p>
-                      <p className="text-xs text-zinc-300 font-mono">
+                      <p className="text-xs text-zinc-300">
                         IF <span className="text-indigo-300">{activeNode.config?.field || 'user_input'}</span>{' '}
                         <span className="text-amber-300">{(activeNode.config?.operator || 'equals').replace('_', ' ')}</span>{' '}
                         {activeNode.config?.operator !== 'is_empty' && <span className="text-emerald-300">&quot;{activeNode.config?.compare_value || '...'}&quot;</span>}

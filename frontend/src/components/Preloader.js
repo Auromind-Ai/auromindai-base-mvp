@@ -49,10 +49,10 @@ export default function Preloader() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.6 }}
             >
-              <span className="text-white/60 text-xs font-mono uppercase tracking-[0.2em]">
+              <span className="text-white/60 text-xs uppercase tracking-[0.2em]">
                 {appName}
               </span>
-              <span className="text-white text-xs font-mono uppercase tracking-[0.2em] font-bold">
+              <span className="text-white text-xs uppercase tracking-[0.2em] font-bold">
                 AI
               </span>
             </motion.div>

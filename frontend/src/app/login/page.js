@@ -655,7 +655,7 @@ function LoginContent() {
                                                     disabled={siteKeyMissing}
                                                     value={otp}
                                                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                                                    className="w-full bg-transparent py-3 px-2 text-white placeholder:text-white/10 focus:outline-none text-xl font-mono tracking-[0.3em]"
+                                                    className="w-full bg-transparent py-3 px-2 text-white placeholder:text-white/10 focus:outline-none text-xl tracking-[0.3em]"
                                                     placeholder="000000"
                                                     autoFocus
                                                 />
@@ -717,7 +717,7 @@ function LoginContent() {
                                                     maxLength={6}
                                                     value={totpCode}
                                                     onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
-                                                    className="w-full bg-transparent py-3 px-2 text-white placeholder:text-white/10 focus:outline-none text-xl font-mono tracking-[0.3em]"
+                                                    className="w-full bg-transparent py-3 px-2 text-white placeholder:text-white/10 focus:outline-none text-xl tracking-[0.3em]"
                                                     placeholder="000000"
                                                     autoFocus
                                                 />

@@ -978,7 +978,7 @@ export default function CreateTemplatePage() {
                   <div className="space-y-2">
                     {sampleVars.map(({ key, label }) => (
                       <div key={key} className="flex items-center justify-between border-b border-[#1A0B2E] pb-2">
-                        <span className="text-[#814AC8] text-[10px] sm:text-xs font-mono">{key}</span>
+                        <span className="text-[#814AC8] text-[10px] sm:text-xs">{key}</span>
                         <span className="text-[#B7B3C7] text-[10px] sm:text-xs font-normal">{label}</span>
                       </div>
                     ))}

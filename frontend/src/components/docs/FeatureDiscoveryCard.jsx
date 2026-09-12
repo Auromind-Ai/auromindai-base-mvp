@@ -18,7 +18,7 @@ export default function FeatureDiscoveryCard({
 }) {
   return (
     <div
-      className={`rounded-3xl border border-white/15 bg-[#07080E]/95 hover:bg-[#090B14] hover:border-emerald-500/40 p-5 sm:p-7 flex flex-col justify-between transition-all duration-300 group shadow-2xl shadow-black/80 hover:shadow-emerald-950/20 hover:-translate-y-1 relative overflow-hidden backdrop-blur-md ${className}`}
+      className={`rounded-3xl border border-white/15 bg-[#07080E]/95 hover:bg-[#090B14] hover:border-emerald-500/40 p-5 sm:p-6 flex flex-col justify-between transition-all duration-300 group shadow-2xl shadow-black/80 hover:shadow-emerald-950/20 hover:-translate-y-1 relative overflow-hidden backdrop-blur-md ${className}`}
     >
       {/* Ambient hover top gradient line */}
       <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/0 group-hover:via-emerald-500/60 to-transparent transition-all duration-500" />
@@ -55,19 +55,19 @@ export default function FeatureDiscoveryCard({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 {number && (
-                  <span className="font-mono text-xs font-bold text-violet-300 bg-violet-500/15 px-2.5 py-0.5 rounded-lg border border-violet-500/30 shadow-sm">
+                  <span className="text-xs font-bold text-violet-300 bg-violet-500/15 px-2.5 py-0.5 rounded-lg border border-violet-500/30 shadow-sm">
                     {number}
                   </span>
                 )}
                 {category && (
-                  <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider font-mono">
+                  <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
                     {category}
                   </span>
                 )}
               </div>
 
               {badge && (
-                <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/25 shadow-sm font-mono flex items-center gap-1.5">
+                <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/25 shadow-sm flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   {badge}
                 </span>
@@ -96,7 +96,7 @@ export default function FeatureDiscoveryCard({
             <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover/btn:translate-x-1" />
           </Link>
 
-          <span className="text-[10px] text-white/50 group-hover:text-zinc-400 transition-colors font-mono">
+          <span className="text-[10px] text-white/50 group-hover:text-zinc-500 transition-colors">
             Docs &bull; Blueprint
           </span>
         </div>

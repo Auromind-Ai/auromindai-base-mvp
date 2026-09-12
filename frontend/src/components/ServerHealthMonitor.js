@@ -156,7 +156,7 @@ export default function ServerHealthMonitor() {
               <p className="text-xs sm:text-sm font-semibold text-white/95 truncate">
                 System Maintenance / Reconnecting
               </p>
-              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0 hidden sm:inline-block">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0 hidden sm:inline-block">
                 Retrying in {countdown}s
               </span>
             </div>

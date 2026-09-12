@@ -129,7 +129,7 @@ export default function ScoreBreakdown({ breakdown, score }) {
                 {signal.snippet && (
                   <div className="ml-5 mt-1.5 p-2 rounded-lg bg-zinc-950/40 border border-white/5 space-y-1 relative">
                     <p className="text-[9px] uppercase font-semibold text-zinc-500 tracking-wider">Snippet</p>
-                    <p className="text-[11px] font-mono text-zinc-300 bg-white/[0.01] px-1.5 py-0.5 rounded leading-relaxed select-all">
+                    <p className="text-[11px] text-zinc-300 bg-white/[0.01] px-1.5 py-0.5 rounded leading-relaxed select-all">
                       "{signal.snippet}"
                     </p>
                     {signal.reasoning && (

@@ -74,7 +74,7 @@ export default function TwoFactorDisableModal({ onSuccess, onClose }) {
               className="
                 w-full h-12 rounded-xl px-4 text-center
                 bg-white/5 border border-[rgba(157,157,157,0.43)]
-                text-white text-2xl font-mono tracking-[0.4em]
+                text-white text-2xl tracking-[0.4em]
                 placeholder:text-white/20 placeholder:tracking-[0.2em]
                 focus:outline-none focus:border-red-500/60
                 transition-colors

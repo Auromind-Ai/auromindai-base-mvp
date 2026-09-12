@@ -62,7 +62,7 @@ export function InboxPreview() {
             </button>
           ))}
         </div>
-        <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+        <span className="text-[10px] text-emerald-400 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           Live Stream
         </span>
@@ -80,7 +80,7 @@ export function InboxPreview() {
               </span>
             </div>
           </div>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">
             AI Active
           </span>
         </div>
@@ -95,14 +95,14 @@ export function InboxPreview() {
               </span>
             </div>
           </div>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
             Agent Handoff
           </span>
         </div>
       </div>
 
       {/* Telemetry Bar */}
-      <div className="grid grid-cols-3 gap-1 text-center pt-2 border-t border-white/10 font-mono text-[10px]">
+      <div className="grid grid-cols-3 gap-1 text-center pt-2 border-t border-white/10 text-[10px]">
         <div className="p-1 rounded bg-white/[0.02]">
           <span className="text-zinc-400 block">Active</span>
           <span className="font-bold text-white">24 Chats</span>
@@ -125,7 +125,7 @@ export function AIBrainPreview() {
   return (
     <div className="rounded-xl border border-white/10 bg-[#090A10] p-4 text-xs font-sans select-none shadow-inner space-y-3">
       {/* Knowledge Base Metrics */}
-      <div className="grid grid-cols-4 gap-1.5 text-center font-mono text-[10px] pb-2.5 border-b border-white/10">
+      <div className="grid grid-cols-4 gap-1.5 text-center text-[10px] pb-2.5 border-b border-white/10">
         <div className="p-1.5 rounded bg-white/[0.02] border border-white/5">
           <span className="text-zinc-400 block">Docs</span>
           <span className="font-bold text-white text-xs">128</span>
@@ -148,7 +148,7 @@ export function AIBrainPreview() {
       <div className="space-y-2">
         <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/10 text-zinc-300 text-[11px]">
           <Search className="w-3.5 h-3.5 text-violet-400 shrink-0" />
-          <span className="font-mono text-white">
+          <span className="text-white">
             &ldquo;What is your refund policy?&rdquo;
           </span>
         </div>
@@ -158,14 +158,14 @@ export function AIBrainPreview() {
             <span className="font-bold uppercase tracking-wider text-violet-300 flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-violet-400" /> Grounded AI Answer
             </span>
-            <span className="font-mono text-zinc-400">pgvector cosine: 0.94</span>
+            <span className=" text-zinc-400">pgvector cosine: 0.94</span>
           </div>
           <p className="text-[11px] text-zinc-200 leading-relaxed">
             Customers can request a refund within 14 days of subscription renewal.
             Annual plans are eligible for prorated credits.
           </p>
           <div className="pt-1 flex items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-black/40 border border-white/10 text-[10px] font-mono text-zinc-300">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-black/40 border border-white/10 text-[10px] text-zinc-300">
               <FileText className="w-3 h-3 text-violet-400" />
               Source: Refund_Policy_2026.pdf [Page 4]
             </span>
@@ -200,12 +200,12 @@ export function AIWorkspacePreview() {
             <span className="font-bold text-[11px] text-violet-300">
               Orbion Intent Engine
             </span>
-            <span className="font-mono text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
+            <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
               High Priority
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+          <div className="grid grid-cols-2 gap-2 text-[10px]">
             <div>
               <span className="text-zinc-400">Intent:</span>
               <span className="font-bold text-white ml-1">Purchase 3BHK</span>
@@ -245,19 +245,19 @@ export function LeadIntelligencePreview() {
           <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider block">
             Hot
           </span>
-          <span className="text-sm font-bold text-white font-mono">128</span>
+          <span className="text-sm font-bold text-white ">128</span>
         </div>
         <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
           <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
             Warm
           </span>
-          <span className="text-sm font-bold text-white font-mono">342</span>
+          <span className="text-sm font-bold text-white ">342</span>
         </div>
         <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
           <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block">
             Cold
           </span>
-          <span className="text-sm font-bold text-white font-mono">891</span>
+          <span className="text-sm font-bold text-white ">891</span>
         </div>
       </div>
 
@@ -267,11 +267,11 @@ export function LeadIntelligencePreview() {
           <span className="text-[10px] uppercase tracking-wider text-zinc-400 block font-semibold">
             Average Lead Quality
           </span>
-          <span className="text-2xl font-extrabold text-white font-mono">87</span>
+          <span className="text-2xl font-bold text-white">87</span>
           <span className="text-[10px] text-zinc-400 block">High Closing Probability</span>
         </div>
 
-        <div className="w-20 h-20 rounded-full border-4 border-violet-500/20 border-t-violet-400 border-r-violet-400 flex items-center justify-center font-mono text-sm font-bold text-violet-300">
+        <div className="w-20 h-20 rounded-full border-4 border-violet-500/20 border-t-violet-400 border-r-violet-400 flex items-center justify-center text-sm font-bold text-violet-300">
           87%
         </div>
       </div>
@@ -281,7 +281,7 @@ export function LeadIntelligencePreview() {
         <div>
           <div className="flex justify-between mb-1 text-zinc-400">
             <span>Purchase Intent Confidence</span>
-            <span className="text-violet-300 font-mono">92%</span>
+            <span className="text-violet-300">92%</span>
           </div>
           <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
             <div className="h-full bg-violet-400 rounded-full w-[92%]" />
@@ -291,7 +291,7 @@ export function LeadIntelligencePreview() {
         <div>
           <div className="flex justify-between mb-1 text-zinc-400">
             <span>Conversation Engagement Rate</span>
-            <span className="text-cyan-300 font-mono">78%</span>
+            <span className="text-cyan-300">78%</span>
           </div>
           <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
             <div className="h-full bg-cyan-400 rounded-full w-[78%]" />
@@ -307,17 +307,17 @@ export function AutomationPreview() {
   return (
     <div className="rounded-xl border border-white/10 bg-[#090A10] p-4 text-xs font-sans select-none shadow-inner space-y-2.5">
       <div className="flex items-center justify-between border-b border-white/10 pb-2">
-        <span className="text-[10px] font-mono uppercase tracking-wider text-violet-300 flex items-center gap-1.5">
+        <span className="text-[10px] uppercase tracking-wider text-violet-300 flex items-center gap-1.5">
           <GitBranch className="w-3.5 h-3.5 text-violet-400" />
           Interactive Wire Canvas
         </span>
-        <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-mono">
+        <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px]">
           State: Active
         </span>
       </div>
 
       {/* Mini Visual Flow Nodes */}
-      <div className="space-y-2 pt-1 font-mono text-[10px]">
+      <div className="space-y-2 pt-1 text-[10px]">
         {/* Step 1 */}
         <div className="p-2 rounded-lg bg-white/5 border border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -385,13 +385,13 @@ export function CampaignPreview() {
           </span>
           <span className="text-[10px] text-zinc-400">Meta Cloud API • Approved</span>
         </div>
-        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-mono border border-emerald-500/20">
+        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] border border-emerald-500/20">
           98.2% Delivered
         </span>
       </div>
 
       {/* AiSensy Benchmark Telemetry Matrix */}
-      <div className="grid grid-cols-4 gap-1.5 text-center font-mono text-[10px]">
+      <div className="grid grid-cols-4 gap-1.5 text-center text-[10px]">
         <div className="p-1.5 rounded bg-white/[0.02] border border-white/5">
           <span className="text-zinc-400 block text-[9px]">Audience</span>
           <span className="font-bold text-white">12,840</span>
@@ -414,11 +414,11 @@ export function CampaignPreview() {
       <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/5 flex items-center justify-between text-[11px]">
         <div>
           <span className="text-zinc-400 block text-[10px]">Qualified Pipeline</span>
-          <span className="font-bold text-white font-mono">326 Leads</span>
+          <span className="font-bold text-white">326 Leads</span>
         </div>
         <div className="text-right">
           <span className="text-zinc-400 block text-[10px]">Closed Sales</span>
-          <span className="font-bold text-emerald-400 font-mono">48 Deals</span>
+          <span className="font-bold text-emerald-400">48 Deals</span>
         </div>
       </div>
     </div>
@@ -437,16 +437,16 @@ export function Customer360Preview() {
           </div>
           <div>
             <h4 className="font-bold text-white text-[12px]">Rahul Kumar</h4>
-            <span className="text-[10px] text-zinc-400 font-mono">+91 98401 •••••</span>
+            <span className="text-[10px] text-zinc-400">+91 98401 •••••</span>
           </div>
         </div>
-        <span className="px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-[10px] font-bold">
+        <span className="px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/30 text-red-400 font-bold">
           Score 91 • Hot
         </span>
       </div>
 
       {/* Channels Verified */}
-      <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-300">
+      <div className="flex items-center gap-2 text-[10px] text-zinc-300">
         <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
           WhatsApp ✓
         </span>
@@ -470,7 +470,7 @@ export function Customer360Preview() {
       </div>
 
       {/* Activity Counters */}
-      <div className="grid grid-cols-3 gap-1 text-center font-mono text-[10px] text-zinc-400 pt-1">
+      <div className="grid grid-cols-3 gap-1 text-center text-[10px] text-zinc-400 pt-1">
         <div className="p-1 rounded bg-white/[0.02]">
           <span className="block text-white font-bold">24</span> Conversations
         </div>
@@ -490,7 +490,7 @@ export function AIGovernancePreview() {
   return (
     <div className="rounded-xl border border-white/10 bg-[#090A10] p-4 text-xs font-sans select-none shadow-inner space-y-2.5">
       {/* Telemetry Actions */}
-      <div className="grid grid-cols-3 gap-1.5 text-center font-mono text-[10px] pb-2 border-b border-white/10">
+      <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] pb-2 border-b border-white/10">
         <div className="p-1 rounded bg-emerald-500/10 border border-emerald-500/20">
           <span className="text-emerald-400 font-bold block">1,842</span>
           <span className="text-zinc-400 text-[9px]">Allowed</span>
@@ -509,12 +509,12 @@ export function AIGovernancePreview() {
       <div className="p-3 rounded-lg bg-black/40 border border-white/10 space-y-2">
         <div className="flex items-center justify-between text-[11px]">
           <span className="font-semibold text-white">AI Request: Send Broadcast</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30">
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30">
             BLOCKED
           </span>
         </div>
 
-        <div className="space-y-1 font-mono text-[10px]">
+        <div className="space-y-1 text-[10px]">
           <div className="flex items-center justify-between text-zinc-300">
             <span>Workspace Policy Compliance</span>
             <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -578,7 +578,7 @@ export function WalletPreview() {
       {tab === 'ai' ? (
         <div className="space-y-2.5 animate-in fade-in duration-200">
           <div>
-            <div className="flex justify-between items-baseline mb-1 font-mono">
+            <div className="flex justify-between items-baseline mb-1">
               <span className="text-[10px] text-zinc-400">LLM Inference Quota</span>
               <span className="text-purple-300 text-[11px] font-bold">250,991 / 251,000 (99.9%)</span>
             </div>
@@ -587,7 +587,7 @@ export function WalletPreview() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-1.5 text-center font-mono text-[10px] pt-1">
+          <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] pt-1">
             <div className="p-1.5 rounded bg-white/[0.02] border border-white/5">
               <span className="text-zinc-400 block text-[9px]">Claude</span>
               <span className="font-bold text-white">Active</span>
@@ -605,7 +605,7 @@ export function WalletPreview() {
       ) : (
         <div className="space-y-2.5 animate-in fade-in duration-200">
           <div>
-            <div className="flex justify-between items-baseline mb-1 font-mono">
+            <div className="flex justify-between items-baseline mb-1">
               <span className="text-[10px] text-zinc-400">Meta WCC Balance</span>
               <span className="text-emerald-400 text-[11px] font-bold">₹3,000.00 (Healthy)</span>
             </div>
@@ -616,7 +616,7 @@ export function WalletPreview() {
               <div className="w-1/4 h-full bg-[#16a34a]" />
               <div className="w-1/4 h-full bg-[#e5e5d8]" />
             </div>
-            <div className="flex justify-between text-[8px] font-mono text-zinc-500 mt-0.5">
+            <div className="flex justify-between text-[8px] text-zinc-500 mt-0.5">
               <span>Empty</span>
               <span>Low</span>
               <span className="text-emerald-400 font-bold">Healthy (82%)</span>
@@ -624,7 +624,7 @@ export function WalletPreview() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-1.5 text-center font-mono text-[10px] pt-1">
+          <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] pt-1">
             <div className="p-1.5 rounded bg-white/[0.02] border border-white/5">
               <span className="text-zinc-400 block text-[9px]">Marketing</span>
               <span className="font-bold text-emerald-400">₹0.82/msg</span>
@@ -650,7 +650,7 @@ export function MultiChannelPreview() {
     <div className="rounded-xl border border-white/10 bg-[#090A10] p-4 text-xs font-sans select-none shadow-inner space-y-2.5">
       {/* Top Origin */}
       <div className="text-center">
-        <span className="px-3 py-1 rounded-md bg-[#814AC8]/20 border border-[#814AC8]/40 text-white font-mono text-[11px] font-bold">
+        <span className="px-3 py-1 rounded-md bg-[#814AC8]/20 border border-[#814AC8]/40 text-white text-[11px] font-bold">
           ORBION AGENTS CORE
         </span>
       </div>
@@ -658,7 +658,7 @@ export function MultiChannelPreview() {
       <div className="w-0.5 h-3 bg-violet-500/50 mx-auto" />
 
       {/* Channel Nodes */}
-      <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-mono">
+      <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
         <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 flex items-center justify-center gap-1">
           <Phone className="w-3 h-3" />
           <span>WhatsApp</span>
@@ -676,7 +676,7 @@ export function MultiChannelPreview() {
       <div className="w-0.5 h-3 bg-violet-500/50 mx-auto" />
 
       {/* Central Processing & CRM */}
-      <div className="p-2.5 rounded-lg bg-black/50 border border-white/10 text-center font-mono text-[10px] space-y-1">
+      <div className="p-2.5 rounded-lg bg-black/50 border border-white/10 text-center text-[10px] space-y-1">
         <span className="text-violet-300 font-bold block">
           AI Brain &amp; Vector Embeddings
         </span>
@@ -709,11 +709,11 @@ export function DashboardPreview() {
       {/* Top Telemetry Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-mono">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px]">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span>WhatsApp Meta API: Connected</span>
           </div>
-          <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-white/[0.03] border border-white/10 text-zinc-300 text-[10px] font-mono">
+          <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-white/[0.03] border border-white/10 text-zinc-300 text-[10px]">
             <Coins className="w-3 h-3 text-amber-400" />
             <span>Fuel: 82%</span>
           </div>
@@ -728,7 +728,7 @@ export function DashboardPreview() {
                 e.preventDefault();
                 setActiveRange(r);
               }}
-              className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+              className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
                 activeRange === r
                   ? 'bg-violet-600 text-white font-bold'
                   : 'text-zinc-400 hover:text-white'
@@ -751,10 +751,10 @@ export function DashboardPreview() {
               {m.label}
             </span>
             <div className="my-1 flex items-baseline gap-1.5">
-              <span className="text-sm sm:text-base font-bold text-white font-mono">
+              <span className="text-sm sm:text-base font-bold text-white ">
                 {m.value}
               </span>
-              <span className="text-[10px] text-emerald-400 font-mono font-semibold">
+              <span className="text-[10px] text-emerald-400 font-semibold">
                 {m.change}
               </span>
             </div>
@@ -772,7 +772,7 @@ export function DashboardPreview() {
             <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
             <span className="font-semibold text-white">Monthly Revenue Trajectory</span>
           </div>
-          <div className="flex items-center gap-2 text-[9px] font-mono">
+          <div className="flex items-center gap-2 text-[9px]">
             <span className="flex items-center gap-1 text-emerald-400">
               <span className="w-2 h-0.5 bg-[#39ff7e] rounded" /> 2026 (Neon)
             </span>
@@ -810,7 +810,7 @@ export function DashboardPreview() {
             <circle cx="400" cy="8" r="2.5" fill="#39ff7e" />
           </svg>
         </div>
-        <div className="flex justify-between text-[9px] font-mono text-zinc-500 pt-0.5 border-t border-white/5">
+        <div className="flex justify-between text-[9px] text-zinc-500 pt-0.5 border-t border-white/5">
           <span>Jan</span>
           <span>Feb</span>
           <span>Mar</span>
@@ -954,13 +954,13 @@ export function PricingPreview() {
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-[11px] font-mono">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-[11px]">
             <Sparkles className="w-3.5 h-3.5 text-violet-400" />
             <span>Interactive Tier Simulator</span>
           </div>
         </div>
 
-        <div className="px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/10 text-zinc-300 text-[10px] font-mono">
+        <div className="px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/10 text-zinc-300 text-[10px]">
           Billing: Monthly Cadence
         </div>
       </div>
@@ -987,7 +987,7 @@ export function PricingPreview() {
                 <div className="flex items-center justify-between gap-1 mb-1.5">
                   <span className="font-bold text-white text-[12px] truncate">{p.name}</span>
                   <span
-                    className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full border ${
+                    className={`text-[9px] px-1.5 py-0.2 rounded-full border ${
                       p.featured
                         ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
                         : 'bg-white/5 border-white/10 text-zinc-400'
@@ -998,11 +998,11 @@ export function PricingPreview() {
                 </div>
 
                 <div className="flex items-baseline gap-1 my-1">
-                  <span className="text-base font-bold text-white font-mono">{p.price}</span>
+                  <span className="text-base font-bold text-white">{p.price}</span>
                   {p.period && <span className="text-[10px] text-zinc-400">{p.period}</span>}
                 </div>
 
-                <div className="space-y-1 text-[10px] pt-2 border-t border-white/10 font-mono text-zinc-300">
+                <div className="space-y-1 text-[10px] pt-2 border-t border-white/10 text-zinc-300">
                   <div className="flex items-center gap-1.5">
                     <Check className="w-3 h-3 text-violet-400 shrink-0" />
                     <span>{p.credits} Credits</span>
@@ -1039,7 +1039,7 @@ export function PricingPreview() {
       </div>
 
       {/* Live Selected Plan Entitlement Telemetry */}
-      <div className="p-2.5 rounded-lg bg-black/40 border border-white/10 flex items-center justify-between text-[10px] font-mono text-zinc-400">
+      <div className="p-2.5 rounded-lg bg-black/40 border border-white/10 flex items-center justify-between text-[10px] text-zinc-400">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <span>Provisioning: Instant via Razorpay</span>
@@ -1089,13 +1089,13 @@ export function GSTInvoicePreview() {
     <div className="rounded-xl border border-white/10 bg-[#070012] p-4 text-xs font-sans select-none shadow-2xl space-y-3.5">
       {/* Top Header with Location Selector */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-mono">
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px]">
           <FileText className="w-3.5 h-3.5 text-emerald-400" />
           <span>GST Tax Breakdown &amp; Invoice Preview</span>
         </div>
 
         {/* Supply Selector Tabs */}
-        <div className="flex items-center gap-1 p-0.5 rounded-lg bg-black/50 border border-white/10 text-[10px] font-mono">
+        <div className="flex items-center gap-1 p-0.5 rounded-lg bg-black/50 border border-white/10 text-[10px]">
           <button
             type="button"
             onClick={() => setSupplyType('intra')}
@@ -1138,21 +1138,21 @@ export function GSTInvoicePreview() {
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-white text-[12px] font-mono">AUR/2026-27/000042</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[9px] font-mono">
+              <span className="font-bold text-white text-[12px]">AUR/2026-27/000042</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[9px]">
                 Tax Invoice
               </span>
             </div>
             <span className="text-[10px] text-zinc-400 block mt-0.5">Supplier: Orbion Agents Pvt Ltd (Chennai, TN)</span>
           </div>
-          <div className="text-right font-mono text-[10px]">
+          <div className="text-right text-[10px]">
             <span className="text-zinc-400 block">Supplier GSTIN:</span>
             <span className="text-zinc-200 font-semibold">33ABCDE1234F1Z5</span>
           </div>
         </div>
 
         {/* Customer & Place of Supply */}
-        <div className="grid grid-cols-2 gap-2 text-[10px] font-mono p-2 rounded-lg bg-black/40 border border-white/5">
+        <div className="grid grid-cols-2 gap-2 text-[10px] p-2 rounded-lg bg-black/40 border border-white/5">
           <div>
             <span className="text-zinc-500 block uppercase text-[9px]">Customer Business</span>
             <span className="text-white font-bold block truncate">Acme Tech Solutions</span>
@@ -1170,7 +1170,7 @@ export function GSTInvoicePreview() {
         </div>
 
         {/* Itemized Calculation Breakdown */}
-        <div className="space-y-1.5 font-mono text-[11px] pt-1">
+        <div className="space-y-1.5 text-[11px] pt-1">
           <div className="flex justify-between text-zinc-300">
             <span>Pro Plan Subscription (Taxable Base)</span>
             <span className="text-white font-semibold">₹{baseAmount.toFixed(2)}</span>
@@ -1201,12 +1201,12 @@ export function GSTInvoicePreview() {
 
           <div className="flex justify-between text-white font-bold pt-2 border-t border-white/10 text-xs">
             <span>Total Payable Amount</span>
-            <span className="text-emerald-400 font-mono text-sm">₹{totalAmount.toFixed(2)}</span>
+            <span className="text-emerald-400 text-sm">₹{totalAmount.toFixed(2)}</span>
           </div>
         </div>
 
         {/* Action Button: Download PDF Receipt */}
-        <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px] font-mono">
+        <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px]">
           <span className="text-zinc-400">PDF compiled with ReportLab Engine</span>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/30 text-violet-300 font-semibold cursor-pointer transition-colors">
             <Download className="w-3 h-3 text-violet-400" />
@@ -1399,7 +1399,7 @@ export function SystemDiagnosticsPreview() {
               <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/10 space-y-2">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-white font-medium">Reconnect with 1-Click:</span>
-                  <span className="text-violet-400 font-mono text-[10px]">Pre-Approved Template</span>
+                  <span className="text-violet-400 text-[10px]">Pre-Approved Template</span>
                 </div>
                 <p className="text-zinc-400 text-[10px] leading-relaxed">
                   Send a friendly pre-approved follow-up message. When the customer replies, your regular conversation window re-opens immediately:
