@@ -65,7 +65,7 @@ export default function DynamicSectionRenderer({ sections = [] }) {
                     )}
                   </div>
                   {item.badge && (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30 font-mono">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/30">
                       {item.badge}
                     </span>
                   )}
@@ -174,7 +174,7 @@ export default function DynamicSectionRenderer({ sections = [] }) {
                     key={itemIdx}
                     className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all flex items-start gap-2.5"
                   >
-                    <div className="w-5 h-5 rounded-md bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0 mt-0.5 font-mono text-xs">
+                    <div className="w-5 h-5 rounded-md bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0 mt-0.5 text-xs">
                       {itemIdx + 1}
                     </div>
                     <div>
@@ -354,7 +354,7 @@ export default function DynamicSectionRenderer({ sections = [] }) {
                     key={itemIdx}
                     className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all flex items-start gap-2.5"
                   >
-                    <div className="w-5 h-5 rounded-md bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0 mt-0.5 font-mono text-xs">
+                    <div className="w-5 h-5 rounded-md bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0 mt-0.5 text-xs">
                       {itemIdx + 1}
                     </div>
                     <div>

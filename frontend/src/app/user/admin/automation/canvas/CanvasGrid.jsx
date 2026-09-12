@@ -317,7 +317,7 @@ function CanvasGrid({
                       {/* Condition summary */}
                       <div className="rounded-2xl border border-indigo-500/10 bg-indigo-500/5 px-3 py-2 mb-2">
                         <p className="text-[9px] font-black uppercase tracking-[2px] text-indigo-400 mb-1">Condition</p>
-                        <p className="text-[10px] text-zinc-300 font-mono truncate">
+                        <p className="text-[10px] text-zinc-300 truncate">
                           IF {node.config?.field || 'user_input'} {(node.config?.operator || 'equals').replace('_', ' ')} {node.config?.operator !== 'is_empty' ? `"${node.config?.compare_value || '...'}"` : ''}
                         </p>
                       </div>

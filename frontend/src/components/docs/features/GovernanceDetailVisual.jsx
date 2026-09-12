@@ -150,7 +150,7 @@ export default function GovernanceDetailVisual() {
                 <Terminal className="w-3.5 h-3.5 text-sky-400" />
                 <span>Customer Input Prompt</span>
               </div>
-              <p className="text-xs text-slate-200 font-mono leading-relaxed bg-slate-950 p-2.5 rounded border border-white/5">
+              <p className="text-xs text-slate-200 leading-relaxed bg-slate-950 p-2.5 rounded border border-white/5">
                 &ldquo;{selectedScenario.input}&rdquo;
               </p>
             </div>
@@ -161,19 +161,19 @@ export default function GovernanceDetailVisual() {
               AI Action & Safety Verification
             </span>
             <div className="mt-2 p-3 rounded-lg bg-slate-900 border border-white/10 space-y-2">
-              <div className="flex items-center justify-between text-xs font-mono">
+              <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-400">Channel:</span>
                 <span className="text-sky-300 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
                   {selectedScenario.channel}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs font-mono">
+              <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-400">AI Action:</span>
                 <span className="text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
                   {selectedScenario.action}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs font-mono">
+              <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-400">Safety Check:</span>
                 <span className={`text-[11px] px-2 py-0.5 rounded font-semibold ${
                   selectedScenario.safetyStatus === 'SAFE & CLEAN' 
@@ -192,7 +192,7 @@ export default function GovernanceDetailVisual() {
           <div className="p-3 rounded-lg bg-slate-900/60 border border-white/5 space-y-2">
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-slate-400">Safety Confidence Score</span>
-              <span className="font-mono font-bold text-white">{selectedScenario.guardScore} / 100</span>
+              <span className="font-bold text-white">{selectedScenario.guardScore} / 100</span>
             </div>
             <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
               <div 
@@ -231,11 +231,11 @@ export default function GovernanceDetailVisual() {
                   )}
                   <div>
                     <div className="font-medium text-slate-200">{rule.name}</div>
-                    <div className="text-[11px] text-slate-400 font-mono">{rule.detail}</div>
+                    <div className="text-[11px] text-slate-400">{rule.detail}</div>
                   </div>
                 </div>
 
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded font-mono ${
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
                   rule.status === 'PASS' 
                     ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' 
                     : rule.status === 'CHALLENGE' || rule.status === 'PENDING'
@@ -259,7 +259,7 @@ export default function GovernanceDetailVisual() {
           </div>
 
           {/* Bottom Audit */}
-          <div className="pt-2 flex items-center justify-between text-[10px] text-slate-400 font-mono border-t border-white/5">
+          <div className="pt-2 flex items-center justify-between text-[10px] text-slate-400 border-t border-white/5">
             <span className="flex items-center gap-1.5">
               <Lock className="w-3 h-3 text-emerald-400" />
               Safeguard Engine: Active & Verified

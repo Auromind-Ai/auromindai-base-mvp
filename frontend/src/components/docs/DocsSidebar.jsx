@@ -78,7 +78,7 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
             <Search className="w-3.5 h-3.5 text-violet-400 group-hover:text-violet-300 transition-colors" />
             <span className="font-medium">Search docs...</span>
           </div>
-          <kbd className="px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-white/5 border border-white/10 rounded-md text-zinc-400">
+          <kbd className="px-1.5 py-0.5 text-[10px] font-semibold bg-white/5 border border-white/10 rounded-md text-zinc-400">
             ⌘K
           </kbd>
         </button>

@@ -183,12 +183,12 @@ export default function FlowPacksTab({
                             onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
                             className="p-1.5 bg-black border border-white/10 rounded-lg text-white w-full max-w-[180px] focus:outline-none"
                           />
-                          <div className="text-[10px] text-gray-500 font-mono">{pack.pack_id}</div>
+                          <div className="text-[10px] text-gray-500">{pack.pack_id}</div>
                         </div>
                       ) : (
                         <div>
                           <div>{pack.name}</div>
-                          <div className="text-[10px] text-gray-500 font-mono mt-0.5">{pack.pack_id}</div>
+                          <div className="text-[10px] text-gray-500 mt-0.5">{pack.pack_id}</div>
                         </div>
                       )}
                     </td>
@@ -274,7 +274,7 @@ export default function FlowPacksTab({
                           className="p-1.5 bg-black border border-white/10 rounded-lg text-white text-center w-16 focus:outline-none"
                         />
                       ) : (
-                        <span className="font-mono text-gray-400">
+                        <span className="text-gray-400">
                           {pack.display_order}
                         </span>
                       )}

@@ -79,7 +79,7 @@ export default function DocumentationWorkflowVisualizer({ className = '' }) {
             Event-Driven Execution Flow
           </h3>
         </div>
-        <div className="text-xs text-zinc-400 font-mono flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-lg border border-white/10 w-fit">
+        <div className="text-xs text-zinc-400 flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-lg border border-white/10 w-fit">
           <Clock className="w-3.5 h-3.5 text-violet-400" aria-hidden="true" />
           <span>Continuous State Engine</span>
         </div>
@@ -103,7 +103,7 @@ export default function DocumentationWorkflowVisualizer({ className = '' }) {
             >
               <div className="flex items-center justify-between w-full mb-2">
                 <span
-                  className={`text-[10px] font-mono font-bold ${
+                  className={`text-[10px] font-bold ${
                     isActive ? 'text-violet-300' : 'text-zinc-400'
                   }`}
                 >
@@ -156,7 +156,7 @@ export default function DocumentationWorkflowVisualizer({ className = '' }) {
 
       {/* Miniature Visual Logic Flowchart */}
       <div className="mt-5 pt-5 border-t border-white/10">
-        <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider block mb-3">
+        <span className="text-[11px] text-zinc-400 uppercase tracking-wider block mb-3">
           Runtime Node Execution Graph
         </span>
 
@@ -164,7 +164,7 @@ export default function DocumentationWorkflowVisualizer({ className = '' }) {
           {/* Node 1 */}
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white w-full md:w-auto justify-center">
             <Send className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="font-mono">Inbound Message</span>
+            <span className="font-poppins">Inbound Message</span>
           </div>
 
           <ChevronRight className="w-4 h-4 text-zinc-400 hidden md:block" />
@@ -172,17 +172,17 @@ export default function DocumentationWorkflowVisualizer({ className = '' }) {
           {/* Node 2 */}
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white w-full md:w-auto justify-center">
             <Database className="w-3.5 h-3.5 text-violet-400" />
-            <span className="font-mono">RAG Vector Query</span>
+            <span className="font-poppins">RAG Vector Query</span>
           </div>
 
           <ChevronRight className="w-4 h-4 text-zinc-400 hidden md:block" />
 
           {/* Node 3: Decision */}
           <div className="flex flex-col items-center gap-1 w-full md:w-auto">
-            <div className="px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-mono text-center">
+            <div className="px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-center">
               Score &gt; 75?
             </div>
-            <div className="flex items-center gap-2 text-[10px] text-zinc-400 font-mono">
+            <div className="flex items-center gap-2 text-[10px] text-zinc-400">
               <span className="text-emerald-400">Yes: Lead</span>
               <span>|</span>
               <span className="text-zinc-400">No: FAQ</span>
@@ -194,7 +194,7 @@ export default function DocumentationWorkflowVisualizer({ className = '' }) {
           {/* Node 4: Action */}
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#814AC8]/20 border border-[#814AC8]/40 text-violet-200 w-full md:w-auto justify-center">
             <UserCheck className="w-3.5 h-3.5 text-violet-400" />
-            <span className="font-mono">Assign Rep + Reply</span>
+            <span className="font-poppins">Assign Rep + Reply</span>
           </div>
         </div>
       </div>

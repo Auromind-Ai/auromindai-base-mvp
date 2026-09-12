@@ -145,7 +145,7 @@ export default function DocsVideoPlayer({ video }) {
           </div>
           <div>
             <h4 className="text-sm font-bold text-white tracking-tight">{video.title}</h4>
-            <span className="text-[11px] text-zinc-400 font-mono">Duration: {video.duration || 'Video Walkthrough'}</span>
+            <span className="text-[11px] text-zinc-400 ">Duration: {video.duration || 'Video Walkthrough'}</span>
           </div>
         </div>
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/25 shadow-sm">
@@ -180,7 +180,7 @@ export default function DocsVideoPlayer({ video }) {
       <div className="px-5 py-3.5 bg-[#090A12] border-t border-white/[0.06] flex flex-col gap-2.5">
         {/* Progress Bar */}
         <div className="flex items-center gap-3">
-          <span className="text-xs text-zinc-400 font-mono w-10 text-right font-medium">{formatTime(currentTime)}</span>
+          <span className="text-xs text-zinc-400 w-10 text-right font-medium">{formatTime(currentTime)}</span>
           <input
             type="range"
             min="0"
@@ -190,7 +190,7 @@ export default function DocsVideoPlayer({ video }) {
             onChange={handleSeek}
             className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-[#814AC8]"
           />
-          <span className="text-xs text-zinc-400 font-mono w-10 font-medium">{formatTime(duration)}</span>
+          <span className="text-xs text-zinc-400 w-10 font-medium">{formatTime(duration)}</span>
         </div>
 
         {/* Control Buttons */}
@@ -218,7 +218,7 @@ export default function DocsVideoPlayer({ video }) {
             <div className="relative">
               <button
                 onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-                className="px-2.5 py-1 rounded-lg text-xs font-mono font-semibold text-zinc-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-colors"
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-zinc-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-colors"
               >
                 {playbackRate}x
               </button>
@@ -229,7 +229,7 @@ export default function DocsVideoPlayer({ video }) {
                     <button
                       key={r}
                       onClick={() => changeSpeed(r)}
-                      className={`px-3 py-1.5 text-xs text-left hover:bg-white/10 font-mono ${
+                      className={`px-3 py-1.5 text-xs text-left hover:bg-white/10 ${
                         playbackRate === r ? 'text-[#a855f7] font-bold' : 'text-zinc-300'
                       }`}
                     >

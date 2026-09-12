@@ -25,7 +25,7 @@ export default function AutomationDetailVisual() {
           <Workflow className="w-4 h-4 text-violet-400" />
           <span className="font-bold text-white text-sm">Visual Automation Wire &amp; Flow Canvas</span>
         </div>
-        <div className="flex items-center gap-2 text-[10px] font-mono">
+        <div className="flex items-center gap-2 text-[10px]">
           <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
             Graph Status: Validated
           </span>
@@ -36,7 +36,7 @@ export default function AutomationDetailVisual() {
       <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[420px]">
         {/* Left: Interactive Wire Canvas (8 cols) */}
         <div className="lg:col-span-8 p-6 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:16px_16px] bg-[#06070B] flex flex-col items-center justify-center relative">
-          <div className="w-full max-w-md space-y-4 font-mono text-[11px]">
+          <div className="w-full max-w-md space-y-4 text-[11px]">
             {/* Node 1: Trigger */}
             <div
               onClick={() => setSelectedNode('trigger')}
@@ -134,7 +134,7 @@ export default function AutomationDetailVisual() {
         {/* Right: Node Properties Inspector (4 cols) */}
         <div className="lg:col-span-4 p-4 border-t lg:border-t-0 lg:border-l border-white/10 bg-[#080A10] space-y-4">
           <div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block mb-1">
+            <span className="text-[10px] uppercase tracking-wider text-zinc-400 block mb-1">
               Node Configuration Inspector
             </span>
             <h4 className="text-sm font-bold text-white capitalize">
@@ -142,7 +142,7 @@ export default function AutomationDetailVisual() {
             </h4>
           </div>
 
-          <div className="space-y-3 font-mono text-[11px]">
+          <div className="space-y-3 text-[11px]">
             <div>
               <label className="text-[10px] text-zinc-400 block mb-1">Trigger Event</label>
               <div className="p-2 rounded-lg bg-black/40 border border-white/10 text-white">

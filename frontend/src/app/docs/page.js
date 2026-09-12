@@ -145,42 +145,42 @@ export default function DocsHomePage() {
   ];
 
   return (
-    <div className="w-full space-y-24 sm:space-y-28 pb-28">
+    <div className="w-full space-y-16 sm:space-y-20 pb-24">
       {/* 1. Hero Section - Expansive Balanced Grid */}
-      <section className="relative pt-2 sm:pt-4">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 xl:gap-12 items-center">
+      <section className="relative pt-0 sm:pt-1">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-8 items-center">
           {/* Left Hero Content (7 Cols) */}
-          <div className="lg:col-span-7 space-y-6 text-left">
+          <div className="lg:col-span-7 space-y-4 text-left">
 
             {/* Main Headline */}
-            <div className="space-y-3">
-              <h1 className="text-4xl sm:text-5xl xl:text-6xl font-semibold tracking-tight text-white leading-[1.12]">
+            <div className="space-y-2">
+              <h1 className="text-3xl sm:text-4xl xl:text-[42px] font-semibold tracking-tight text-white leading-tight">
                 Build Smarter.{' '}
                 <span className="bg-gradient-to-r from-violet-400 via-purple-300 to-cyan-400 bg-clip-text text-transparent">
                   Ship Faster.
                 </span>
               </h1>
-              <p className="text-[11px] sm:text-lg text-zinc-300 leading-relaxed max-w-2xl font-normal">
+              <p className="text-xs sm:text-[14px] text-zinc-400 leading-relaxed max-w-xl font-normal">
                 One AI-native workspace for conversations, customers, knowledge, automation and revenue. Explore official guides, interactive UI previews, and production blueprints.
               </p>
             </div>
 
             {/* Global Search Trigger Bar */}
-            <div className="w-full max-w-2xl pt-1">
+            <div className="w-full max-w-xl">
               <Link
                 href="#directory"
-                className="flex items-center justify-between px-5 py-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-violet-500/50 text-sm text-zinc-400 hover:text-white transition-all shadow-2xl group relative overflow-hidden backdrop-blur-md"
+                className="flex items-center justify-between px-4 py-2.5 sm:py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-violet-500/50 text-xs sm:text-sm text-zinc-400 hover:text-white transition-all shadow-xl group relative overflow-hidden backdrop-blur-md"
               >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-all">
-                    <Search className="w-4 h-4" />
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-all">
+                    <Search className="w-3.5 h-3.5" />
                   </div>
-                  <span className="font-medium text-zinc-300 group-hover:text-white transition-colors">
+                  <span className="font-normal text-zinc-400 group-hover:text-white transition-colors text-xs sm:text-[13px]">
                     Search documentation, APIs, and workflows...
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2.5 py-1 text-xs font-mono font-semibold bg-white/[0.06] border border-white/10 rounded-lg text-zinc-300 shadow-inner">
+                  <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 text-[11px] font-medium bg-white/[0.06] border border-white/10 rounded-md text-zinc-400 shadow-inner">
                     ⌘K
                   </kbd>
                 </div>
@@ -188,10 +188,10 @@ export default function DocsHomePage() {
             </div>
 
             {/* Quick Guide Fast-Track Action Pills */}
-            <div className="flex flex-wrap items-center gap-3 pt-1">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
               <Link
                 href="/docs/getting-started/quickstart"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#814AC8] to-[#9333ea] hover:from-[#8d51db] hover:to-[#9f3ff2] text-xs font-semibold text-white shadow-lg shadow-purple-950/40 hover:shadow-purple-900/60 transition-all hover:-translate-y-0.5"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-gradient-to-r from-[#814AC8] to-[#9333ea] hover:from-[#8d51db] hover:to-[#9f3ff2] text-xs font-medium text-white shadow-md shadow-purple-950/40 hover:shadow-purple-900/60 transition-all hover:-translate-y-0.5"
               >
                 <Zap className="w-3.5 h-3.5 fill-white" />
                 <span>5-Minute Quick Start</span>
@@ -199,7 +199,7 @@ export default function DocsHomePage() {
 
               <Link
                 href="/docs/features/agentic-orchestrator"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-violet-500/40 text-xs font-semibold text-zinc-200 hover:text-white transition-all hover:-translate-y-0.5"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-violet-500/40 text-xs font-medium text-zinc-300 hover:text-white transition-all hover:-translate-y-0.5"
               >
                 <Sparkles className="w-3.5 h-3.5 text-violet-400" />
                 <span>Explore Visual Wires</span>
@@ -207,7 +207,7 @@ export default function DocsHomePage() {
 
               <Link
                 href="/docs/integrations/whatsapp-cloud-api"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-emerald-500/40 text-xs font-semibold text-zinc-200 hover:text-white transition-all hover:-translate-y-0.5"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-emerald-500/40 text-xs font-medium text-zinc-300 hover:text-white transition-all hover:-translate-y-0.5"
               >
                 <Share2 className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Connect WhatsApp</span>
@@ -226,7 +226,7 @@ export default function DocsHomePage() {
       <section className="space-y-6 pt-4 border-t border-white/[0.08]">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-violet-400 mb-1">
+            <div className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider text-violet-400 mb-1">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Recommended Blueprints</span>
             </div>
@@ -237,7 +237,7 @@ export default function DocsHomePage() {
               Proven execution patterns designed for rapid production deployment.
             </p>
           </div>
-          <span className="text-xs text-zinc-400 hidden sm:block">6 Ready-to-use Blueprints</span>
+          <span className="text-xs text-white/60 hidden sm:block">6 Ready-to-use Blueprints</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -296,9 +296,9 @@ export default function DocsHomePage() {
       <section id="features-discovery" className="space-y-6 pt-4 border-t border-white/[0.08]">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-violet-400 mb-1">
+            <div className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider text-violet-400 mb-1">
               <Layers className="w-3.5 h-3.5" />
-              <span>Interactive Product Showcase</span>
+              <span>Product Showcase</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
               Core Capabilities &amp; Architecture

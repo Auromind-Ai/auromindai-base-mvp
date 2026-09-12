@@ -189,7 +189,7 @@ export default function LeadDetail({ lead, loading, onMobileBack }) {
                 )}
                 {/* Phone */}
                 {localLead.phone && (
-                  <span className="text-[10px] text-zinc-500 font-mono">
+                  <span className="text-[10px] text-zinc-500 ">
                     {localLead.phone}
                   </span>
                 )}

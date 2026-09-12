@@ -64,7 +64,7 @@ export default function DiagnosticsTab({
             renderItem={(item) => (
               <div key={item.id} className="flex justify-between items-center p-2.5 bg-black/35 rounded-xl text-xs">
                 <div>
-                  <span className="text-gray-500">Log ID:</span> <span className="font-mono text-white mr-4">{item.id}</span>
+                  <span className="text-gray-500">Log ID:</span> <span className="text-white mr-4">{item.id}</span>
                   <span className="text-gray-500">Workspace:</span> <span className="text-indigo-400 font-medium mr-4">{item.workspace_id}</span>
                   <span className="text-gray-500">Amount:</span> <span className="text-white font-bold">₹{Number(item.amount ?? 0).toFixed(2)}</span>
                 </div>
@@ -85,7 +85,7 @@ export default function DiagnosticsTab({
             renderItem={(item) => (
               <div key={item.id} className="flex justify-between items-center p-2.5 bg-black/35 rounded-xl text-xs">
                 <div>
-                  <span className="text-gray-500">Payment ID:</span> <span className="font-mono text-white mr-4">{item.id}</span>
+                  <span className="text-gray-500">Payment ID:</span> <span className="text-white mr-4">{item.id}</span>
                   <span className="text-gray-500">Workspace:</span> <span className="text-indigo-400 font-medium mr-4">{item.workspace_id}</span>
                   <span className="text-gray-500">Amount:</span> <span className="text-white font-bold">₹{Number(item.amount ?? 0).toFixed(2)}</span>
                 </div>
@@ -106,7 +106,7 @@ export default function DiagnosticsTab({
             renderItem={(item) => (
               <div key={item.id} className="flex justify-between items-center p-2.5 bg-black/35 rounded-xl text-xs">
                 <div>
-                  <span className="text-gray-500">Payment ID:</span> <span className="font-mono text-white mr-4">{item.id}</span>
+                  <span className="text-gray-500">Payment ID:</span> <span className="text-white mr-4">{item.id}</span>
                   <span className="text-gray-500">Workspace:</span> <span className="text-indigo-400 font-medium mr-4">{item.workspace_id}</span>
                   <span className="text-gray-500">Amount:</span> <span className="text-white font-bold">₹{Number(item.amount ?? 0).toFixed(2)}</span>
                 </div>
@@ -127,7 +127,7 @@ export default function DiagnosticsTab({
             renderItem={(item) => (
               <div key={item.id} className="flex justify-between items-center p-2.5 bg-black/35 rounded-xl text-xs">
                 <div>
-                  <span className="text-gray-500">Event ID:</span> <span className="font-mono text-white mr-4">{item.id}</span>
+                  <span className="text-gray-500">Event ID:</span> <span className="text-white mr-4">{item.id}</span>
                   <span className="text-gray-500">Provider:</span> <span className="text-white mr-4 font-bold uppercase">{item.provider}</span>
                   <span className="text-gray-500">Event:</span> <span className="text-indigo-400 font-medium">{item.event_type}</span>
                 </div>
@@ -148,7 +148,7 @@ export default function DiagnosticsTab({
             renderItem={(item) => (
               <div key={item.reference_key} className="flex justify-between items-center p-2.5 bg-black/35 rounded-xl text-xs">
                 <div>
-                  <span className="text-gray-500">Ref Key:</span> <span className="font-mono text-white mr-4">{item.reference_key}</span>
+                  <span className="text-gray-500">Ref Key:</span> <span className="text-white mr-4">{item.reference_key}</span>
                   <span className="text-gray-500">Copies:</span> <span className="text-red-400 font-bold mr-4">{item.count}</span>
                   <span className="text-gray-500">Desc:</span> <span className="text-gray-400">{item.description}</span>
                 </div>
@@ -191,7 +191,7 @@ export default function DiagnosticsTab({
               <div key={item.workspace_id} className="flex justify-between items-center p-2.5 bg-black/35 rounded-xl text-xs">
                 <div>
                   <span className="text-white font-medium mr-4">{item.workspace_name}</span>
-                  <span className="text-gray-500">ID:</span> <span className="font-mono text-gray-500">{item.workspace_id}</span>
+                  <span className="text-gray-500">ID:</span> <span className="text-gray-500">{item.workspace_id}</span>
                 </div>
                 <button
                   onClick={() => handleRepairIssue("missing_subscription", item.workspace_id)}
@@ -211,7 +211,7 @@ export default function DiagnosticsTab({
               <div key={item.workspace_id} className="flex justify-between items-center p-2.5 bg-black/35 rounded-xl text-xs">
                 <div>
                   <span className="text-white font-medium mr-4">{item.workspace_name}</span>
-                  <span className="text-gray-500">Sub ID:</span> <span className="font-mono text-gray-500">{item.subscription_id}</span>
+                  <span className="text-gray-500">Sub ID:</span> <span className="text-gray-500">{item.subscription_id}</span>
                 </div>
                 <button
                   onClick={() => handleRepairIssue("missing_entitlement", item.workspace_id)}
@@ -231,7 +231,7 @@ export default function DiagnosticsTab({
               <div key={item.workspace_id} className="flex justify-between items-center p-2.5 bg-black/35 rounded-xl text-xs">
                 <div>
                   <span className="text-white font-medium mr-4">{item.workspace_name}</span>
-                  <span className="text-gray-500">ID:</span> <span className="font-mono text-gray-500">{item.workspace_id}</span>
+                  <span className="text-gray-500">ID:</span> <span className="text-gray-500">{item.workspace_id}</span>
                 </div>
                 <button
                   onClick={() => handleRepairIssue("missing_wallet", item.workspace_id)}
@@ -251,7 +251,7 @@ export default function DiagnosticsTab({
               <div key={item.workspace_id} className="flex justify-between items-center p-2.5 bg-black/35 rounded-xl text-xs">
                 <div>
                   <span className="text-white font-medium mr-4">{item.workspace_name}</span>
-                  <span className="text-gray-500">ID:</span> <span className="font-mono text-gray-500">{item.workspace_id}</span>
+                  <span className="text-gray-500">ID:</span> <span className="text-gray-500">{item.workspace_id}</span>
                 </div>
                 <button
                   onClick={() => handleRepairIssue("missing_token_ledger", item.workspace_id)}

@@ -239,8 +239,8 @@ export default function BillingDashboardPage() {
                 <div className="max-h-[96px] overflow-y-auto pr-1 space-y-1.5 scrollbar-thin scrollbar-thumb-white/10">
                   {Object.entries(subs.plan_breakdown || {}).map(([planName, cnt]) => (
                     <div key={planName} className="flex justify-between items-center text-[11px] bg-white/5 border border-white/10 px-2 py-1 rounded-md">
-                      <span className="text-gray-300 font-mono">{planName.toUpperCase()}</span>
-                      <span className="text-gray-400 font-mono font-semibold">{cnt}</span>
+                      <span className="text-gray-300 ">{planName.toUpperCase()}</span>
+                      <span className="text-gray-400 font-semibold">{cnt}</span>
                     </div>
                   ))}
                   {Object.keys(subs.plan_breakdown || {}).length === 0 && (
@@ -289,7 +289,7 @@ export default function BillingDashboardPage() {
                     {flows.top_packs.map((p) => (
                       <div key={p.name} className="flex justify-between items-center text-[11px] bg-white/5 border border-white/10 px-2 py-1 rounded-md">
                         <span className="text-gray-300 truncate max-w-[120px]">{p.name}</span>
-                        <span className="text-gray-400 font-mono">{p.sales} sales ({formatCurrency(p.revenue)})</span>
+                        <span className="text-gray-400 ">{p.sales} sales ({formatCurrency(p.revenue)})</span>
                       </div>
                     ))}
                   </div>
@@ -387,7 +387,7 @@ export default function BillingDashboardPage() {
                   {recentTx.map((tx) => (
                     <tr key={tx.id} className="hover:bg-white/[0.02] transition">
                       <td className="py-3 px-4 font-semibold text-white">{tx.workspace_name}</td>
-                      <td className="py-3 px-4 text-gray-400 font-mono text-[11px]">{tx.payment_id}</td>
+                      <td className="py-3 px-4 text-gray-400 text-[11px]">{tx.payment_id}</td>
                       <td className="py-3 px-4 text-right font-bold text-white">{formatCurrency(tx.amount)}</td>
                       <td className="py-3 px-4">
                         <span className="uppercase text-[10px] font-bold text-gray-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">
@@ -457,7 +457,7 @@ function StatRow({ label, value, badge, highlight }) {
           {value}
         </span>
       ) : (
-        <span className="font-semibold text-white font-mono">{value}</span>
+        <span className="font-semibold text-white ">{value}</span>
       )}
     </div>
   )

@@ -55,12 +55,12 @@ export default function AuditLogsTab({
                   <tr key={log.id} className="hover:bg-white/[0.01] transition-colors">
                     <td className="py-3 text-gray-500">{new Date(log.created_at).toLocaleString()}</td>
                     <td className="py-3 font-semibold text-white">{log.admin_user_id}</td>
-                    <td className="py-3 font-mono text-[10px]">
+                    <td className="py-3 text-[10px]">
                       <span className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-lg">
                         {log.action}
                       </span>
                     </td>
-                    <td className="py-3 font-mono text-[10px] text-gray-500">{log.workspace_id || "Global"}</td>
+                    <td className="py-3 text-[10px] text-gray-500">{log.workspace_id || "Global"}</td>
                     <td className="py-3 text-gray-500">{log.ip_address}</td>
                     <td className="py-3 pl-4 text-gray-400 max-w-xs truncate" title={log.reason}>{log.reason}</td>
                   </tr>

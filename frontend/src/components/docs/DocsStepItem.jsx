@@ -36,7 +36,7 @@ export default function DocsStepItem({ step, totalSteps }) {
                   {step.uiElements.map((el, i) => (
                     <span
                       key={i}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono bg-white/[0.04] text-zinc-200 border border-white/10 shadow-sm"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs bg-white/[0.04] text-zinc-200 border border-white/10 shadow-sm"
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
                       {el}

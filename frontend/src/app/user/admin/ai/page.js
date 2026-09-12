@@ -1497,8 +1497,8 @@ export default function AuromindAIPage() {
                                                                                     ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-4 space-y-1.5 text-white/75" {...props} />,
                                                                                     li: ({ node, ...props }) => <li className="leading-relaxed text-white/75" {...props} />,
                                                                                     strong: ({ node, ...props }) => <strong className="font-bold text-white" {...props} />,
-                                                                                    code: ({ node, ...props }) => <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm font-mono text-white" {...props} />,
-                                                                                    pre: ({ node, ...props }) => <pre className="bg-white/5 p-4 rounded-lg overflow-x-auto font-mono text-sm border border-white/10 my-4 text-white" {...props} />,
+                                                                                    code: ({ node, ...props }) => <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm text-white" {...props} />,
+                                                                                    pre: ({ node, ...props }) => <pre className="bg-white/5 p-4 rounded-lg overflow-x-auto text-sm border border-white/10 my-4 text-white" {...props} />,
                                                                                     blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-purple-500 pl-4 italic my-4 text-white/75" {...props} />,
                                                                                     hr: ({ node, ...props }) => <hr className="border-t border-white/50 my-6" {...props} />,
                                                                                 }}

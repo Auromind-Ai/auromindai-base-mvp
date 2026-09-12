@@ -96,7 +96,7 @@ export default function DocsSearchModal({ isOpen, onClose }) {
               <X className="w-4 h-4" />
             </button>
           )}
-          <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-mono font-semibold text-zinc-400 bg-white/5 border border-white/10 rounded-md">
+          <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-semibold text-zinc-400 bg-white/5 border border-white/10 rounded-md">
             ESC
           </kbd>
         </div>
@@ -131,7 +131,7 @@ export default function DocsSearchModal({ isOpen, onClose }) {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-violet-400 uppercase tracking-wider font-mono">
+                        <span className="text-[10px] font-bold text-violet-400 uppercase tracking-wider">
                           {item.category}
                         </span>
                         {item.hasVideo && (
@@ -147,7 +147,7 @@ export default function DocsSearchModal({ isOpen, onClose }) {
 
                   <div className="flex items-center self-center pl-2">
                     {isSelected && (
-                      <span className="flex items-center gap-1 text-[11px] text-violet-300 font-mono font-semibold">
+                      <span className="flex items-center gap-1 text-[11px] text-violet-300 font-semibold">
                         Open <CornerDownLeft className="w-3 h-3" />
                       </span>
                     )}
@@ -159,7 +159,7 @@ export default function DocsSearchModal({ isOpen, onClose }) {
         </div>
 
         {/* Footer shortcuts */}
-        <div className="px-4.5 py-3 bg-white/[0.02] border-t border-white/[0.06] flex items-center justify-between text-[11px] text-zinc-500 font-mono">
+        <div className="px-4.5 py-3 bg-white/[0.02] border-t border-white/[0.06] flex items-center justify-between text-[11px] text-zinc-500">
           <div className="flex items-center gap-3">
             <span><kbd className="bg-white/5 px-1.5 py-0.5 rounded border border-white/10 text-zinc-400">↑</kbd> <kbd className="bg-white/5 px-1.5 py-0.5 rounded border border-white/10 text-zinc-400">↓</kbd> to navigate</span>
             <span><kbd className="bg-white/5 px-1.5 py-0.5 rounded border border-white/10 text-zinc-400">↵</kbd> to select</span>

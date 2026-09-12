@@ -550,7 +550,7 @@ export default function FlowConversationPreviewModal({
                                 <div className="text-[10px] text-purple-300/70 pt-1 border-t border-purple-500/20">
                                   <span className="font-semibold block mb-0.5">Preview Memory Context:</span>
                                   {Object.entries(msg.contextVars).map(([k, v]) => (
-                                    <span key={k} className="inline-block mr-2 font-mono bg-purple-900/40 px-1.5 py-0.5 rounded">
+                                    <span key={k} className="inline-block mr-2 bg-purple-900/40 px-1.5 py-0.5 rounded">
                                       {k}: {String(v)}
                                     </span>
                                   ))}

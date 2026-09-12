@@ -287,7 +287,7 @@ export default async function DocsArticlePage({ params }) {
               >
                 <ArrowLeft className="w-4 h-4 text-violet-400 group-hover:-translate-x-1 transition-transform" aria-hidden="true" />
                 <div>
-                  <span className="text-[10px] uppercase font-mono text-zinc-400 block font-semibold">
+                  <span className="text-[10px] uppercase text-zinc-400 block font-semibold">
                     Previous Guide
                   </span>
                   <span className="text-xs font-bold text-white group-hover:text-violet-300 transition-colors truncate max-w-[220px] block">
@@ -305,7 +305,7 @@ export default async function DocsArticlePage({ params }) {
                 className="w-full sm:w-auto p-4.5 rounded-2xl border border-white/[0.08] bg-[#080910]/80 hover:bg-[#0C0D18]/90 hover:border-violet-500/40 flex items-center justify-between sm:justify-end gap-3.5 transition-all group text-right ml-auto shadow-lg"
               >
                 <div>
-                  <span className="text-[10px] uppercase font-mono text-zinc-400 block font-semibold">
+                  <span className="text-[10px] text-zinc-400 block font-semibold">
                     Next Guide
                   </span>
                   <span className="text-xs font-bold text-white group-hover:text-violet-300 transition-colors truncate max-w-[220px] block">

@@ -56,14 +56,14 @@ export default function WorkspaceDetailVisual() {
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-white text-sm">AI Workspace</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-400">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-400">
                 /user/admin/ai
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-[11px] font-mono">
+        <div className="flex items-center gap-2 text-[11px] ">
           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             Live NDJSON Streaming
@@ -84,7 +84,7 @@ export default function WorkspaceDetailVisual() {
 
             {/* Sessions List */}
             <div className="space-y-1.5">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block px-1">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500 block px-1">
                 Recent Sessions
               </span>
 
@@ -95,7 +95,7 @@ export default function WorkspaceDetailVisual() {
                   <p className="font-semibold truncate text-[11px]">
                     Enterprise SLA &amp; Refund Audit
                   </p>
-                  <p className="text-[10px] text-violet-300/80 font-mono">
+                  <p className="text-[10px] text-violet-300/80 ">
                     Active • 2m ago
                   </p>
                 </div>
@@ -120,7 +120,7 @@ export default function WorkspaceDetailVisual() {
           </div>
 
           {/* Bottom Credits Telemetry */}
-          <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 space-y-1 font-mono text-[10px]">
+          <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 space-y-1 text-[10px]">
             <div className="flex items-center justify-between text-zinc-400">
               <span className="flex items-center gap-1">
                 <Zap className="w-3 h-3 text-amber-400" />
@@ -140,7 +140,7 @@ export default function WorkspaceDetailVisual() {
           <div className="space-y-2 pb-2.5 border-b border-white/10">
             {/* Model Pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-              <span className="text-[10px] font-mono text-zinc-500 shrink-0 mr-1 uppercase">
+              <span className="text-[10px]  text-zinc-500 shrink-0 mr-1 uppercase">
                 Model:
               </span>
               {MODELS.map((m) => (
@@ -160,7 +160,7 @@ export default function WorkspaceDetailVisual() {
 
             {/* Source Filter Tabs */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-              <span className="text-[10px] font-mono text-zinc-500 shrink-0 mr-1 uppercase">
+              <span className="text-[10px] text-zinc-500 shrink-0 mr-1 uppercase">
                 Source:
               </span>
               {SOURCES.map((s) => {
@@ -193,7 +193,7 @@ export default function WorkspaceDetailVisual() {
                   What is our standard enterprise SLA uptime and refund policy for 50+ seats on annual billing?
                 </div>
                 {/* File Attachment Pill */}
-                <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-zinc-300 font-mono">
+                <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-zinc-300">
                   <Paperclip className="w-3 h-3 text-violet-400" />
                   <span>enterprise-agreement-2026.pdf</span>
                   <span className="text-zinc-500 text-[9px]">• 1.4 MB</span>
@@ -211,7 +211,7 @@ export default function WorkspaceDetailVisual() {
               </div>
               <div className="p-3 rounded-2xl rounded-tl-none bg-slate-900/60 border border-white/10 text-zinc-200 text-xs leading-relaxed space-y-2 flex-1 max-w-[92%]">
                 {/* Citation Pill */}
-                <div className="flex items-center gap-1.5 text-[10px] font-mono text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 w-fit">
+                <div className="flex items-center gap-1.5 text-[10px] text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 w-fit">
                   <FileText className="w-3 h-3 text-cyan-400" />
                   <span>Grounding: Brain RAG • enterprise-agreement-2026.pdf (p.14)</span>
                 </div>
@@ -229,7 +229,7 @@ export default function WorkspaceDetailVisual() {
                 </ul>
 
                 {/* Footer Telemetry & Actions */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5 text-[10px] font-mono text-zinc-400">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5 text-[10px] text-zinc-400">
                   <div className="flex items-center gap-1.5">
                     <Sparkles className="w-3 h-3 text-violet-400" />
                     <span>Sonnet • 112 tok • 185ms</span>

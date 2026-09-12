@@ -187,7 +187,7 @@ export default function GstSettingsTab({ setError, setSuccess, setActionLoading 
                   value={settings.supplier_gstin}
                   onChange={(e) => setSettings({ ...settings, supplier_gstin: e.target.value })}
                   placeholder="e.g. 33ABCDE1234F1Z5"
-                  className="w-full bg-[#070709] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition font-mono uppercase"
+                  className="w-full bg-[#070709] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition"
                 />
               </div>
             </div>
@@ -237,7 +237,7 @@ export default function GstSettingsTab({ setError, setSuccess, setActionLoading 
                   required
                   value={settings.gst_rate}
                   onChange={(e) => setSettings({ ...settings, gst_rate: e.target.value })}
-                  className="w-full bg-[#070709] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition font-mono"
+                  className="w-full bg-[#070709] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition"
                 />
               </div>
 
@@ -305,15 +305,15 @@ export default function GstSettingsTab({ setError, setSuccess, setActionLoading 
             <div className="space-y-2 pt-2 border-t border-white/5 text-xs text-gray-400">
               <div className="flex justify-between">
                 <span>Supplier State:</span>
-                <span className="text-white font-mono">{settings.supplier_state}</span>
+                <span className="text-white">{settings.supplier_state}</span>
               </div>
               <div className="flex justify-between">
                 <span>Applied Tax Rate:</span>
-                <span className="text-white font-mono">{settings.gst_rate}%</span>
+                <span className="text-white">{settings.gst_rate}%</span>
               </div>
               <div className="flex justify-between">
                 <span>Pricing Mode:</span>
-                <span className="text-white font-mono uppercase">{settings.gst_tax_type}</span>
+                <span className="text-white uppercase">{settings.gst_tax_type}</span>
               </div>
             </div>
           </div>
@@ -396,26 +396,26 @@ export default function GstSettingsTab({ setError, setSuccess, setActionLoading 
                         <span className="text-xs font-bold text-white">
                           {new Date(2000, sum.month - 1).toLocaleString('default', { month: 'long' })}
                         </span>
-                        <span className="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/10 px-2 py-0.5 rounded-md font-mono">
+                        <span className="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/10 px-2 py-0.5 rounded-md">
                           GST Collected
                         </span>
                       </div>
                       <div className="space-y-1.5 text-[11px] text-gray-400 mt-2">
                         <div className="flex justify-between">
                           <span>Taxable Value:</span>
-                          <span className="text-white font-mono">{formatCurrency(sum.total_subtotal)}</span>
+                          <span className="text-white">{formatCurrency(sum.total_subtotal)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>CGST:</span>
-                          <span className="text-white font-mono">{formatCurrency(sum.total_cgst)}</span>
+                          <span className="text-white">{formatCurrency(sum.total_cgst)}</span>
                         </div>
-                        <div className="flex justify-between font-mono">
+                        <div className="flex justify-between">
                           <span>SGST:</span>
-                          <span className="text-white font-mono">{formatCurrency(sum.total_sgst)}</span>
+                          <span className="text-white">{formatCurrency(sum.total_sgst)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>IGST:</span>
-                          <span className="text-white font-mono">{formatCurrency(sum.total_igst)}</span>
+                          <span className="text-white">{formatCurrency(sum.total_igst)}</span>
                         </div>
                         <div className="flex justify-between pt-1.5 border-t border-white/5 font-bold text-white">
                           <span>Total Collected:</span>
@@ -455,7 +455,7 @@ export default function GstSettingsTab({ setError, setSuccess, setActionLoading 
                     {salesRegister.length > 0 ? (
                       salesRegister.map((inv) => (
                         <tr key={inv.invoice_number} className="hover:bg-white/[0.01] transition-all text-gray-300">
-                          <td className="py-3 px-4 font-mono font-bold text-white text-[11px]">{inv.invoice_number}</td>
+                          <td className="py-3 px-4 font-bold text-white text-[11px]">{inv.invoice_number}</td>
                           <td className="py-3 px-4 text-[11px]">
                             {new Date(inv.issued_at).toLocaleDateString("en-IN", {
                               day: "2-digit",
@@ -465,13 +465,13 @@ export default function GstSettingsTab({ setError, setSuccess, setActionLoading 
                           </td>
                           <td className="py-3 px-4">
                             <div className="font-medium text-white">{inv.customer_name}</div>
-                            <div className="text-[10px] text-gray-500 font-mono">{inv.customer_gstin || "B2C / Unregistered"}</div>
+                            <div className="text-[10px] text-gray-500">{inv.customer_gstin || "B2C / Unregistered"}</div>
                           </td>
                           <td className="py-3 px-4 text-gray-400">{inv.place_of_supply}</td>
-                          <td className="py-3 px-4 text-right font-mono">{formatCurrency(inv.subtotal)}</td>
-                          <td className="py-3 px-4 text-right font-mono">{inv.gst_rate}%</td>
-                          <td className="py-3 px-4 text-right font-mono text-indigo-400">{formatCurrency(inv.gst_amount)}</td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-white">{formatCurrency(inv.total_amount)}</td>
+                          <td className="py-3 px-4 text-right">{formatCurrency(inv.subtotal)}</td>
+                          <td className="py-3 px-4 text-right">{inv.gst_rate}%</td>
+                          <td className="py-3 px-4 text-right text-indigo-400">{formatCurrency(inv.gst_amount)}</td>
+                          <td className="py-3 px-4 text-righ font-bold text-white">{formatCurrency(inv.total_amount)}</td>
                           <td className="py-3 px-4 text-center">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
                               inv.status === "paid" 

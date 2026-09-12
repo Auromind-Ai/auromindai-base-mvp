@@ -42,7 +42,7 @@ export default function DocsAlert({ type = 'note', children, title }) {
     <div className={`my-6 rounded-2xl border ${current.border} ${current.bg} p-5 flex gap-4 backdrop-blur-md shadow-lg shadow-black/40`}>
       {current.icon}
       <div className="flex flex-col gap-1 text-sm leading-relaxed">
-        <span className={`font-bold tracking-wide font-mono text-xs uppercase ${current.titleColor}`}>
+        <span className={`font-bold tracking-wide text-xs uppercase ${current.titleColor}`}>
           {title || current.defaultTitle}
         </span>
         <div className={`${current.text} font-normal`}>{children}</div>

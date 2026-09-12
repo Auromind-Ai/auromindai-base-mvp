@@ -204,7 +204,7 @@ const ProductDemoSection = () => {
                   </div>
                   
                   {/* Title Bar */}
-                  <div className="text-[10px] font-mono tracking-wider text-white/30 uppercase max-w-[180px] truncate">
+                  <div className="text-[10px] tracking-wider text-white/30 uppercase max-w-[180px] truncate">
                     {tabs[activeTab].title.toLowerCase()}.orbionagents.com
                   </div>
                   
@@ -403,7 +403,7 @@ const ProductDemoSection = () => {
                           </div>
                           
                           {/* Chart Labels */}
-                          <div className="flex justify-between text-[8px] text-white/30 font-mono mt-2 pt-2 border-t border-white/[0.03]">
+                          <div className="flex justify-between text-[8px] text-white/30 mt-2 pt-2 border-t border-white/[0.03]">
                             <span>09:00 AM</span>
                             <span>12:00 PM</span>
                             <span>03:00 PM</span>
@@ -426,11 +426,11 @@ const ProductDemoSection = () => {
                         <div className="bg-[#050507] border border-white/5 rounded-2xl p-4 flex-1 flex flex-col min-h-[220px] max-h-[220px] sm:min-h-[300px] sm:max-h-[300px] overflow-hidden">
                           {/* Terminal Header */}
                           <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-3">
-                            <span className="text-[9px] font-mono text-white/40 flex items-center gap-1.5">
+                            <span className="text-[9px] text-white/40 flex items-center gap-1.5">
                               <Activity size={10} className="text-emerald-400 animate-pulse" />
                               orbion-runtime-v1.4.log
                             </span>
-                            <span className="text-[8px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-mono">
+                            <span className="text-[8px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded ">
                               STREAMING
                             </span>
                           </div>
@@ -438,7 +438,7 @@ const ProductDemoSection = () => {
                           {/* Terminal output */}
                           <div 
                             ref={terminalContainerRef}
-                            className="flex-1 overflow-y-auto space-y-2.5 font-mono text-[10px] leading-relaxed scrollbar-thin pr-1 text-left"
+                            className="flex-1 overflow-y-auto space-y-2.5 text-[10px] leading-relaxed scrollbar-thin pr-1 text-left"
                           >
                             {terminalLogs.length === 0 ? (
                               <div className="text-white/20 italic text-[10px]">Initializing log listener...</div>

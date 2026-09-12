@@ -663,7 +663,7 @@ export default function BillingHistoryPage() {
               <div className="flex justify-between py-1 border-b border-white/[0.04]">
                 <span className="text-zinc-400 font-medium">GST:</span>
                 {profile.has_gst_registration && profile.billing_gstin ? (
-                  <span className="text-emerald-400 font-semibold font-mono text-[11px] text-right">
+                  <span className="text-emerald-400 font-semibold text-[11px] text-right">
                     Registered ✓
                   </span>
                 ) : (
@@ -791,7 +791,7 @@ export default function BillingHistoryPage() {
                         <span className="w-7 h-7 rounded-lg bg-purple-500/15 border border-purple-500/25 flex items-center justify-center text-purple-400 shrink-0">
                           <FileText size={14} />
                         </span>
-                        <span className="font-mono text-white text-xs font-semibold truncate">
+                        <span className="text-white text-xs font-semibold truncate">
                           {payment.invoice_number || "—"}
                         </span>
                       </div>
@@ -859,7 +859,7 @@ export default function BillingHistoryPage() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2.5">
-                          <span className="font-mono text-white text-xs sm:text-[13px] font-semibold truncate">
+                          <span className="text-white text-xs sm:text-[13px] font-semibold truncate">
                             {payment.invoice_number || "—"}
                           </span>
                           <StatusPill status={payment.status} />
@@ -922,7 +922,7 @@ export default function BillingHistoryPage() {
                         }}
                         className="hover:bg-white/[0.025] transition-colors cursor-pointer"
                       >
-                        <td className="p-4 text-white font-semibold font-mono">
+                        <td className="p-4 text-white font-semibold">
                           {payment.invoice_number || "—"}
                         </td>
                         <td className="p-4 text-zinc-300">{formatBillingDate(payment.date, true)}</td>
@@ -988,7 +988,7 @@ export default function BillingHistoryPage() {
           {
             key: "invoice_number",
             label: "Invoice No",
-            render: (r) => <span className="font-mono text-white font-semibold">{r.invoice_number || "—"}</span>
+            render: (r) => <span className="text-white font-semibold">{r.invoice_number || "—"}</span>
           },
           {
             key: "date",
@@ -1049,7 +1049,7 @@ export default function BillingHistoryPage() {
             <div className="flex justify-between items-center p-5 border-b border-white/5">
               <div>
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Invoice Details</h3>
-                <p className="text-lg font-bold text-white mt-1 font-mono">{selectedInvoice.invoice_number || "Draft / Pending"}</p>
+                <p className="text-lg font-bold text-white mt-1">{selectedInvoice.invoice_number || "Draft / Pending"}</p>
               </div>
               <button
                 onClick={() => setSelectedInvoice(null)}
@@ -1074,7 +1074,7 @@ export default function BillingHistoryPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <span className="text-zinc-500 block mb-0.5 font-semibold">Payment / Ref ID</span>
-                  <span className="text-zinc-300 font-mono font-medium">{selectedInvoice.payment_id || "N/A"}</span>
+                  <span className="text-zinc-300 font-medium">{selectedInvoice.payment_id || "N/A"}</span>
                 </div>
                 <div>
                   <span className="text-zinc-500 block mb-0.5 font-semibold">Product Type</span>
@@ -1090,15 +1090,15 @@ export default function BillingHistoryPage() {
               <div className="border-t border-white/5 pt-4 space-y-2.5">
                 <div className="flex justify-between text-zinc-400 text-xs">
                   <span>Subtotal (Taxable Value):</span>
-                  <span className="font-mono font-medium">{formatBillingAmount(selectedInvoice.taxable_amount || (selectedInvoice.amount - (selectedInvoice.gst_amount || 0)))}</span>
+                  <span className="font-medium">{formatBillingAmount(selectedInvoice.taxable_amount || (selectedInvoice.amount - (selectedInvoice.gst_amount || 0)))}</span>
                 </div>
                 <div className="flex justify-between text-zinc-400 text-xs">
                   <span>GST (18%):</span>
-                  <span className="font-mono font-medium">{formatBillingAmount(selectedInvoice.gst_amount || 0)}</span>
+                  <span className="font-medium">{formatBillingAmount(selectedInvoice.gst_amount || 0)}</span>
                 </div>
                 <div className="flex justify-between text-white text-sm font-bold border-t border-white/10 pt-2.5">
                   <span>Grand Total:</span>
-                  <span className="font-mono font-bold text-emerald-400">{formatBillingAmount(selectedInvoice.total_amount || selectedInvoice.amount)}</span>
+                  <span className="font-bold text-emerald-400">{formatBillingAmount(selectedInvoice.total_amount || selectedInvoice.amount)}</span>
                 </div>
               </div>
             </div>
@@ -1284,7 +1284,7 @@ export default function BillingHistoryPage() {
                         value={formProfile.billing_gstin || ""}
                         onChange={(e) => setFormProfile({ ...formProfile, billing_gstin: e.target.value.toUpperCase() })}
                         placeholder="e.g. 33ABCDE1234F1Z5"
-                        className="w-full bg-[#070012] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition font-mono uppercase"
+                        className="w-full bg-[#070012] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition uppercase"
                       />
                     </div>
 
