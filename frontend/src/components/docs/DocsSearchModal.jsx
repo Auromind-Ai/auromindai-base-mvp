@@ -20,7 +20,10 @@ export default function DocsSearchModal({ isOpen, onClose }) {
       }, 50);
       return () => clearTimeout(timer);
     } else {
-      setQuery('');
+      const timer = setTimeout(() => {
+        setQuery('');
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
@@ -140,7 +143,7 @@ export default function DocsSearchModal({ isOpen, onClose }) {
                           </span>
                         )}
                       </div>
-                      <h4 className="text-sm font-bold text-white mt-0.5">{item.title}</h4>
+                      <h4 className="text-sm font-semibold text-white mt-0.5">{item.title}</h4>
                       <p className="text-xs text-zinc-400 line-clamp-1 mt-0.5 leading-relaxed">{item.subtitle}</p>
                     </div>
                   </div>

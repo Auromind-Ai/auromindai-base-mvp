@@ -160,7 +160,7 @@ const walletVariants = {
         "alt": "WhatsApp wallet balance, category rates, audience size, estimated cost, balance check and recharge amount",
         "label": "WhatsApp balance, cost estimate & recharge",
         "caption": "Illustrative screenshot. Amounts and available options depend on your workspace.",
-        "aspectRatio": "aspect-[1655/952] [&_img]:object-contain"
+        "aspectRatio": "aspect-[1024/341] [&_img]:object-contain"
       }
     },
     "benefits": [

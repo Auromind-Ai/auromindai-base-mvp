@@ -103,11 +103,6 @@ export const DOCS_NAVIGATION = [
     icon: "Shield",
     items: [
       {
-        slug: "account/workspace-management",
-        title: "Workspaces & Team Permissions",
-        description: "Multi-tenant workspace configuration, member invitations, and role-based access control."
-      },
-      {
         slug: "account/ai-governance",
         title: "AI Governance & Safeguards (MCP)",
         description: "Model Context Protocol guardrails, sensitive topic blocking, and PII masking."
@@ -126,7 +121,7 @@ export const DOCS_NAVIGATION = [
       {
         slug: "billing/gst-invoices",
         title: "GST Compliance & Invoices",
-        description: "Add your GSTIN, generate B2B tax invoices with CGST/SGST, and download PDFs."
+        description: "Add your GSTIN, generate tax invoices with CGST/SGST, and download PDFs."
       }
     ]
   },

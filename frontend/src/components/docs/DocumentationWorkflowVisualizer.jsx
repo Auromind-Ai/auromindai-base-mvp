@@ -75,7 +75,7 @@ export default function DocumentationWorkflowVisualizer({ className = '' }) {
             <Zap className="w-3 h-3 text-violet-400" aria-hidden="true" />
             <span>Workflow Pipeline</span>
           </div>
-          <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+          <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight">
             Event-Driven Execution Flow
           </h3>
         </div>
@@ -103,7 +103,7 @@ export default function DocumentationWorkflowVisualizer({ className = '' }) {
             >
               <div className="flex items-center justify-between w-full mb-2">
                 <span
-                  className={`text-[10px] font-bold ${
+                  className={`text-[10px] font-semibold ${
                     isActive ? 'text-violet-300' : 'text-zinc-400'
                   }`}
                 >
@@ -121,7 +121,7 @@ export default function DocumentationWorkflowVisualizer({ className = '' }) {
               </div>
               <div>
                 <p
-                  className={`text-xs font-bold tracking-tight ${
+                  className={`text-xs font-semibold tracking-tight ${
                     isActive ? 'text-white' : 'text-zinc-300'
                   }`}
                 >
@@ -144,7 +144,7 @@ export default function DocumentationWorkflowVisualizer({ className = '' }) {
           <Sparkles className="w-4 h-4" />
         </div>
         <div>
-          <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+          <h4 className="text-xs font-semibold text-white uppercase tracking-wider">
             Step {WORKFLOW_STEPS[activeStep].step} — {WORKFLOW_STEPS[activeStep].title} (
             {WORKFLOW_STEPS[activeStep].sub})
           </h4>

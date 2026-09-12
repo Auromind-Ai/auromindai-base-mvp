@@ -22,7 +22,7 @@ export default function DocsHeader({ onOpenMobile, onOpenMenu, onOpenSearch, bre
           <Link href="/docs" className="flex items-center gap-3 group">
             <div className="relative">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#814AC8] via-[#9333ea] to-[#a855f7] flex items-center justify-center p-1.5 shadow-lg shadow-purple-900/40 group-hover:shadow-purple-700/50 transition-all group-hover:scale-105">
-                <span className="font-extrabold text-white text-sm tracking-tighter">O</span>
+                <span className="font-bold text-white text-sm tracking-tighter">O</span>
               </div>
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-[#050508]" />
             </div>
@@ -66,7 +66,7 @@ export default function DocsHeader({ onOpenMobile, onOpenMenu, onOpenSearch, bre
           >
             <Search className="w-3.5 h-3.5 text-violet-400 group-hover:text-violet-300 transition-colors" />
             <span className="hidden sm:inline font-medium">Search docs...</span>
-            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px]font-semibold bg-white/5 border border-white/10 rounded-md text-zinc-400">
+            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold bg-white/5 border border-white/10 rounded-md text-zinc-400">
               ⌘K
             </kbd>
           </button>

@@ -18,13 +18,26 @@ export const agenticOrchestratorDetail = {
     url: '/docs/videos/Screen Recording 2026-09-11 104247.mp4',
     title: 'Automation Wire (Flow Builder) Walkthrough',
     asGif: true,
-    objectFit: 'cover',
+    objectFit: 'contain',
     caption: 'Visual workflow orchestration: drag-and-drop triggers, AI classification nodes, and decision branches in action.',
   },
   visualKey: 'automation',
+  screenshots: {
+    verification: {
+      src: '/docs/screenshots/flow-verification-active.png',
+      alt: 'Flows dashboard verification console showing active status switch',
+      label: 'Live Verification & State Audit',
+      statusLabel: 'Status: Active',
+      annotation: 'Flow Status: Active',
+      caption: 'Verified active status toggle switch in Flows dashboard confirming the chatbot flow is live 24/7.',
+      aspectRatio: 'aspect-[1024/567] [&_img]:object-contain',
+      className: 'w-full'
+    }
+  },
   subModules: [
     {
       id: 'flow-linking',
+      name: 'Sequential Linking',
       badge: 'Visual Graph & Cable Routing',
       title: 'Multi-Step Sequential Linking',
       subtitle: 'Connect graph nodes via directional bezier cables and validate execution path health.',
@@ -57,6 +70,7 @@ export const agenticOrchestratorDetail = {
     },
     {
       id: 'magic-wire',
+      name: 'Magic Wire AI',
       badge: 'AI Flow Generation',
       title: 'Magic Wire (AI Flow Generation)',
       subtitle: 'Turn plain-English descriptions into complete production-ready node graphs instantly.',
@@ -90,6 +104,7 @@ export const agenticOrchestratorDetail = {
     },
     {
       id: 'conditional-logic',
+      name: 'Conditional Logic',
       badge: 'Logic & Decision Engine',
       title: 'Conditional Logic & Decision Nodes',
       subtitle: 'Dynamic branching based on customer input keywords, urgency, sentiment, and qualification rules.',
@@ -122,6 +137,7 @@ export const agenticOrchestratorDetail = {
     },
     {
       id: 'interactive-menus',
+      name: 'Interactive Buttons',
       badge: 'Native Mobile UX',
       title: 'Interactive Button Menus & Bots',
       subtitle: 'Deliver native WhatsApp interactive quick-reply buttons and multi-choice list pickers.',
@@ -154,9 +170,15 @@ export const agenticOrchestratorDetail = {
     }
   ],
   videoPlaceholder: {
-    title: 'Building Multi-Branch Workflows in Automation Wire',
-    description: 'Watch how to drag and drop an Inbound Trigger node, wire it into an AI Intent Classifier, create conditional forks for VIP vs Standard routing, and trigger automated webhook actions.',
-    duration: '4:45 min walkthrough'
+    url: '/docs/videos/agentic-orchestrator-walkthrough.mp4',
+    fallbackUrl: '/docs/videos/agentic-orchestrator-walkthrough.mov',
+    label: 'Flow Walkthrough Tour',
+    title: 'Building & Testing Chatbot Flows in Visual Canvas',
+    description: 'Watch how to drag and drop conversational nodes, configure smart AI intent routing, and test your chatbot flows in real time.',
+    duration: '1:40 min walkthrough'
+  },
+  copy: {
+    benefitsIntro: 'Build, test, and deploy intelligent WhatsApp automation with zero coding.'
   },
   architecture: {
     title: 'Build Drag-and-Drop Chatbot Flows in 6 Simple Steps',
@@ -186,24 +208,24 @@ export const agenticOrchestratorDetail = {
   },
   benefits: [
     {
-      title: 'No-Code Visual Node Canvas',
-      description: 'Drag, connect, and re-wire triggers, AI evaluation nodes, and actions. Clear visual connectors make multi-step workflows easy to audit and understand.',
-      highlight: 'Interactive drag-and-drop graph editor'
+      title: 'No-Code Visual Canvas',
+      description: 'Drag, connect, and re-wire triggers, AI decisions, and WhatsApp replies on a clean visual canvas.',
+      highlight: 'Interactive drag-and-drop flow builder'
     },
     {
-      title: 'AI Intent-Based Routing Gates',
-      description: 'Move beyond rigid keyword matching. Let AI understand the underlying goal of the customer to intelligently route them down the right path.',
-      highlight: 'Semantic intent classification'
+      title: 'Smart AI Intent Understanding',
+      description: 'Move beyond rigid keyword matching. Let AI understand what your customer really wants and route them to the right step automatically.',
+      highlight: 'Intelligent AI routing'
     },
     {
-      title: 'Deterministic Retry & Fallback Safe-guards',
-      description: 'If a third-party API or webhook fails, Automation Wire executes configured fallback paths or alerts an on-call agent automatically.',
-      highlight: 'Automatic error handling & retries'
+      title: 'Zero-Fail Fallbacks & Error Recovery',
+      description: 'If a third-party CRM, payment link, or API ever fails, Automation Wire safely triggers backup paths and alerts your team instantly without dropping the customer.',
+      highlight: 'Automatic fallback recovery'
     },
     {
-      title: 'Live Flow Testing & Step-Through Debugger',
-      description: 'Simulate workflow runs with mock payloads before publishing. Watch nodes illuminate in green as data traverses each branch.',
-      highlight: 'Visual step-by-step debugger'
+      title: 'Live Interactive Flow Simulator',
+      description: 'Test and preview your entire chatbot journey in real time with visual step-by-step indicators before publishing it live on WhatsApp.',
+      highlight: 'Real-time step-by-step simulation'
     }
   ],
   beforeYouStart: [

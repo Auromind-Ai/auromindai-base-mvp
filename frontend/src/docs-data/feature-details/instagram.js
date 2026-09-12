@@ -3,7 +3,7 @@ export const instagramDetail = {
   aliasSlugs: ['features/instagram', 'instagram'],
   featureNumber: '09',
   category: 'Omni-Gateway & Channel Connectivity',
-  title: 'Instagram Direct & Story Automation',
+  title: 'Instagram Automation',
   tagline: 'Connect your Instagram Professional account to automate direct messages, deploy 24/7 AI agents, and turn story mentions into leads.',
   description: 'The Instagram Graph API integration connects your Instagram Business or Creator account directly to orbionagents. Once connected, your platform automatically powers 24/7 AI agent replies to direct messages (DMs), triggers visual automation flows when customers comment or mention you in stories, and routes qualified leads directly into the Omni-Channel Inbox — all managed in one unified console without third-party aggregator costs.',
   visualKey: 'instagram',

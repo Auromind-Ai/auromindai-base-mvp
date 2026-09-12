@@ -267,7 +267,7 @@ export function LeadIntelligencePreview() {
           <span className="text-[10px] uppercase tracking-wider text-zinc-400 block font-semibold">
             Average Lead Quality
           </span>
-          <span className="text-2xl font-extrabold text-white">87</span>
+          <span className="text-2xl font-bold text-white">87</span>
           <span className="text-[10px] text-zinc-400 block">High Closing Probability</span>
         </div>
 
@@ -1165,7 +1165,7 @@ export function GSTInvoicePreview() {
             <span className="text-emerald-400 font-bold block">
               {supplyType === 'intra' ? 'Tamil Nadu (Code 33)' : supplyType === 'inter' ? 'Karnataka (Code 29)' : 'Outside India'}
             </span>
-            <span className="text-zinc-400 text-[9px]">ITC Eligible: {supplyType === 'export' ? 'No' : 'Yes (B2B)'}</span>
+            <span className="text-zinc-400 text-[9px]">ITC Eligible: {supplyType === 'export' ? 'No' : 'Yes (Registered GSTIN)'}</span>
           </div>
         </div>
 

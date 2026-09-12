@@ -38,6 +38,10 @@ import {
   MoreVertical,
   ChevronLeft,
   CheckCheck,
+  ShoppingBag,
+  TrendingUp,
+  Code2,
+  Truck,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -826,6 +830,64 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
     WorkflowAutomationVisual,
   ];
 
+  // Target Personas for Section 1.7 (Styled identical to Popular Workflows)
+  const TARGET_PERSONAS = [
+    {
+      title: 'Inbound Sales & Revenue Teams',
+      description: 'Qualify inbound leads 24/7, parse buyer budget and timeline, auto-score Hot/Warm/Cold leads, and book Google Calendar meetings instantly in chat.',
+      tag: 'Revenue',
+      icon: Target,
+      glowColor: 'bg-emerald-500/25',
+      iconStyle: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 group-hover:bg-emerald-500 group-hover:text-white',
+      accentBorder: 'group-hover:border-emerald-500/50',
+    },
+    {
+      title: 'Support & Success Desks',
+      description: 'Automate 70%+ of Tier-1 customer tickets, answer complex policy questions with exact document citations, and smoothly escalate edge cases to human reps.',
+      tag: 'Support',
+      icon: Headphones,
+      glowColor: 'bg-cyan-500/25',
+      iconStyle: 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300 group-hover:bg-cyan-500 group-hover:text-white',
+      accentBorder: 'group-hover:border-cyan-500/50',
+    },
+    {
+      title: 'E-Commerce & DTC Brands',
+      description: 'Deploy interactive WhatsApp product catalogs, automated order tracking lookups, return label generation, and abandoned cart re-engagement flows.',
+      tag: 'E-Commerce',
+      icon: ShoppingBag,
+      glowColor: 'bg-amber-500/25',
+      iconStyle: 'bg-amber-500/15 border-amber-500/30 text-amber-300 group-hover:bg-amber-500 group-hover:text-white',
+      accentBorder: 'group-hover:border-amber-500/50',
+    },
+    {
+      title: 'Marketing & Growth Teams',
+      description: 'Send Meta-verified WhatsApp Cloud API broadcasts with 98% open rates, launch VIP drops, and automate Click-to-WhatsApp ad conversational funnels.',
+      tag: 'Marketing',
+      icon: TrendingUp,
+      glowColor: 'bg-pink-500/25',
+      iconStyle: 'bg-pink-500/15 border-pink-500/30 text-pink-300 group-hover:bg-pink-500 group-hover:text-white',
+      accentBorder: 'group-hover:border-pink-500/50',
+    },
+    {
+      title: 'Operations & Logistics',
+      description: 'Query ERP/database backends, generate automated PDF receipts and invoices, and dispatch real-time Slack/SMS operational alerts to fulfillment teams.',
+      tag: 'Operations',
+      icon: Truck,
+      glowColor: 'bg-purple-500/25',
+      iconStyle: 'bg-purple-500/15 border-purple-500/30 text-purple-300 group-hover:bg-purple-500 group-hover:text-white',
+      accentBorder: 'group-hover:border-purple-500/50',
+    },
+    {
+      title: 'Developers & IT Architects',
+      description: 'Build on visual node canvases, integrate webhooks and REST endpoints, switch between top LLMs (OpenAI, Gemini, Anthropic), and enforce PII data masking.',
+      tag: 'Developers',
+      icon: Code2,
+      glowColor: 'bg-violet-500/25',
+      iconStyle: 'bg-violet-500/15 border-violet-500/30 text-violet-300 group-hover:bg-violet-500 group-hover:text-white',
+      accentBorder: 'group-hover:border-violet-500/50',
+    },
+  ];
+
   // Explore OrbionAgents Links for Section 6
   const EXPLORE_LINKS = [
     {
@@ -896,11 +958,11 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
 
   return (
     <article
-      className="w-full min-w-0 space-y-20 pb-20 font-['Poppins',sans-serif] select-text"
+      className="w-full min-w-0 space-y-12 sm:space-y-16 pb-14 font-['Poppins',sans-serif] select-text"
       style={{ fontFamily: "'Poppins', sans-serif" }}
     >
       {/* 1. HERO SECTION */}
-      <header className="space-y-6 border-b border-white/10 pb-12 pt-2">
+      <header className="space-y-4 border-b border-white/10 pb-8 pt-1">
         {/* Breadcrumb Navigation */}
         <nav className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium" aria-label="Breadcrumb">
           <Link href="/docs" className="hover:text-white transition-colors">
@@ -923,7 +985,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
 
         {/* Hero Title & 2-Line Overview */}
         <div className="space-y-2 w-full">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-white leading-tight">
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white leading-tight">
             Introduction to OrbionAgents
           </h1>
           <p className="text-base sm:text-lg text-zinc-300 leading-relaxed font-normal">
@@ -935,14 +997,72 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
         </div>
       </header>
 
-      {/* 2. HOW ORBIONAGENTS WORKS (Conceptual Runtime Lifecycle) */}
-      <section id="how-it-works" className="space-y-6 scroll-mt-24 pt-2">
+      {/* 1.7. WHO IS ORBIONAGENTS FOR? (6 Comprehensive Target Personas) */}
+      <section id="target-audience" className="space-y-6 scroll-mt-24 pt-4">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-400">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-400">
+            <Users className="w-3.5 h-3.5" />
+            <span>Target Personas &amp; Teams</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+            Who is OrbionAgents Built For?
+          </h2>
+          <p className="text-xs sm:text-sm text-zinc-400">
+            Tailored solutions designed for fast-growing sales teams, high-volume support desks, e-commerce stores, and modern developers.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {TARGET_PERSONAS.map((persona, idx) => {
+            const Icon = persona.icon;
+            return (
+              <div
+                key={idx}
+                className={`p-6 sm:p-7 rounded-[26px] border border-white/[0.08] bg-[#16161a]/95 hover:bg-[#191920] ${persona.accentBorder} transition-all duration-300 group flex flex-col justify-between shadow-2xl shadow-black/70 hover:-translate-y-1 relative overflow-hidden min-h-[250px] backdrop-blur-xl`}
+              >
+                {/* Atmospheric Ambient Glow */}
+                <div
+                  className={`absolute -top-12 -right-12 w-48 h-48 ${persona.glowColor} rounded-full blur-3xl pointer-events-none opacity-40 group-hover:opacity-75 transition-opacity duration-500`}
+                />
+                <div
+                  className={`absolute -bottom-12 -left-12 w-36 h-36 ${persona.glowColor} rounded-full blur-3xl pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity duration-500`}
+                />
+
+                {/* TOP ROW: Icon Container & Tag Pill */}
+                <div className="flex items-center justify-between relative z-10 mb-4">
+                  <div
+                    className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all duration-300 shadow-md ${persona.iconStyle}`}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <span className="text-[10px] sm:text-xs font-semibold px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/10 text-zinc-300 shadow-inner">
+                    {persona.tag}
+                  </span>
+                </div>
+
+                {/* MIDDLE: Title & Description */}
+                <div className="relative z-10 flex-1">
+                  <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight leading-snug group-hover:text-white transition-colors">
+                    {persona.title}
+                  </h3>
+                  <p className="text-xs sm:text-[13px] text-zinc-400 leading-relaxed font-normal mt-2">
+                    {persona.description}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 2. HOW ORBIONAGENTS WORKS (Conceptual Runtime Lifecycle) */}
+      <section id="how-it-works" className="space-y-6 scroll-mt-24 border-t border-white/10 pt-8">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-400">
             <Activity className="w-3.5 h-3.5" />
             <span>AI Conversation Flow</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
             How AI Conversations Flow
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400">
@@ -968,14 +1088,14 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-white/5 border border-white/10">
+                    <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-white/5 border border-white/10">
                       {stg.number}
                     </span>
                     <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-violet-400' : 'text-zinc-500'}`} />
                   </div>
-                  <strong className="text-xs font-bold block truncate text-white">
+                  <span className="text-xs font-semibold block truncate text-white">
                     {stg.title}
-                  </strong>
+                  </span>
                   <span className="text-[10px] text-zinc-400 block truncate mt-0.5">
                     {stg.badge}
                   </span>
@@ -994,7 +1114,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-violet-400">
+                      <span className="text-xs font-semibold text-violet-400">
                         Stage {RUNTIME_STAGES[activeStage].number} of 05
                       </span>
                       <span className="text-zinc-600">•</span>
@@ -1002,7 +1122,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
                         {RUNTIME_STAGES[activeStage].badge}
                       </span>
                     </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-white">
+                    <h3 className="text-lg sm:text-xl font-semibold text-white">
                       {RUNTIME_STAGES[activeStage].title} — {RUNTIME_STAGES[activeStage].subtitle}
                     </h3>
                   </div>
@@ -1054,10 +1174,10 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
       </section>
 
       {/*3. WHAT YOU CAN BUILD (6 Real-World Outcomes / Use Cases)*/}
-      <section id="what-you-can-build" className="space-y-8 scroll-mt-24 border-t border-white/10 pt-10">
+      <section id="what-you-can-build" className="space-y-6 scroll-mt-24 border-t border-white/10 pt-8">
         <div className="space-y-3.5 w-full">
 
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
             What You Can Build
           </h2>
           <p className="text-base sm:text-lg text-zinc-300 leading-relaxed font-normal">
@@ -1094,7 +1214,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
             return (
               <div
                 key={ucIdx}
-                className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center py-12 sm:py-16 first:pt-4 last:pb-4"
+                className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center py-8 sm:py-10 first:pt-4 last:pb-4"
               >
                 {/* Content Column (Left on even, Right on odd) */}
                 <div
@@ -1166,14 +1286,14 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
       </section>
 
       {/* 6. EXPLORE ORBIONAGENTS (Capability Cards -> Respective Docs)*/}
-      <section id="explore-orbionagents" className="space-y-6 scroll-mt-24 border-t border-white/10 pt-10">
+      <section id="explore-orbionagents" className="space-y-6 scroll-mt-24 border-t border-white/10 pt-8">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-400">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-400">
               <Globe className="w-3.5 h-3.5" />
               <span>Documentation Directory</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">
+            <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight mt-1">
               Explore OrbionAgents
             </h2>
             <p className="text-xs sm:text-sm text-zinc-400 mt-1">
@@ -1210,7 +1330,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
                   </div>
 
                   <div>
-                    <h3 className="text-xs sm:text-sm font-bold text-white group-hover:text-violet-300 transition-colors">
+                    <h3 className="text-xs sm:text-sm font-semibold text-white group-hover:text-violet-300 transition-colors">
                       {link.title}
                     </h3>
                     <p className="text-[11px] text-zinc-400 leading-relaxed mt-1 line-clamp-2">
@@ -1230,7 +1350,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
       </section>
 
       {/* 6. ARTICLE PAGINATION FOOTER (Prev / Next Links)*/}
-      <footer className="pt-10 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <footer className="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
         {/* Previous link (Docs Directory) */}
         <Link
           href="/docs"
@@ -1238,10 +1358,10 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
         >
           <ArrowLeft className="w-4 h-4 text-violet-400 group-hover:-translate-x-1 transition-transform" />
           <div>
-            <span className="text-[10px] uppercase tracking-wider text-zinc-400 block">
+            <span className="text-[10px] uppercase tracking-wider text-zinc-400 block font-medium">
               Previous Page
             </span>
-            <span className="text-xs sm:text-sm font-bold text-white group-hover:text-violet-300 transition-colors">
+            <span className="text-xs sm:text-sm font-semibold text-white group-hover:text-violet-300 transition-colors">
               Documentation Home
             </span>
           </div>
@@ -1253,10 +1373,10 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
           className="w-full sm:w-auto p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] transition-all flex items-center justify-end gap-3 text-right group sm:ml-auto"
         >
           <div>
-            <span className="text-[10px] uppercase tracking-wider text-zinc-400 block">
+            <span className="text-[10px] uppercase tracking-wider text-zinc-400 block font-medium">
               Next Step
             </span>
-            <span className="text-xs sm:text-sm font-bold text-white group-hover:text-violet-300 transition-colors">
+            <span className="text-xs sm:text-sm font-semibold text-white group-hover:text-violet-300 transition-colors">
               Creating an Account &amp; Setup
             </span>
           </div>

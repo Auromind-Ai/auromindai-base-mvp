@@ -8,10 +8,9 @@ export const TROUBLESHOOTING_ARTICLES = {
     sections: [
       {
         id: "overview",
-        title: "Diagnostics & Resolution Matrix",
+        title: "Diagnostics & Resolution Overview",
         type: "text",
-        uiPreview: "SystemDiagnosticsPreview",
-        content: "This guide explains the most common questions regarding channel connections, customer care windows, document uploads, and automated safeguards. Use the interactive console on the right to see how Orbion automatically handles these situations to protect your business.",
+        content: "This guide provides quick solutions for common questions regarding channel connections, customer care windows, document uploads, and automated credit safeguards. Browse the dedicated categories below for detailed diagnostic steps.",
         bullets: [
           { label: "WhatsApp 24-Hour Rule", text: "How Orbion protects your account and helps you send friendly follow-up templates when customer sessions expire." },
           { label: "1-Click Channel Connection", text: "Connecting WhatsApp and Instagram directly with official Meta login without manual technical setup." },

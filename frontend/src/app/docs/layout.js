@@ -9,9 +9,10 @@ import { Menu, Search, X } from 'lucide-react';
 
 const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '800'],
+  weight: ['400', '500', '600', '700'],
   variable: '--font-poppins',
   display: 'swap',
+  preload: false,
 });
 
 export default function DocsLayout({ children }) {

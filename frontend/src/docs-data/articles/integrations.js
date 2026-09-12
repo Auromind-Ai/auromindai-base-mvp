@@ -155,7 +155,7 @@ export const INTEGRATIONS_ARTICLES = {
   "integrations/instagram": {
     slug: "integrations/instagram",
     category: "Channels & Integrations",
-    title: "Instagram Direct & Story Automation",
+    title: "Instagram Automation",
     subtitle: "Connect your Instagram Professional account to automate direct messages, deploy 24/7 AI agents, and turn story mentions into leads.",
     pageType: "integration",
     sections: [
@@ -249,7 +249,7 @@ export const INTEGRATIONS_ARTICLES = {
       }
     ],
     seo: {
-      title: "Instagram Direct & Story Automation | orbionagents Docs",
+      title: "Instagram Automation | orbionagents Docs",
       description: "Connect Instagram Business accounts to automate direct messages and triage inquiries.",
       keywords: ["Instagram Graph API", "Instagram automation", "Instagram DM bot", "orbionagents Instagram"]
     }

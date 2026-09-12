@@ -124,8 +124,8 @@ export default function DocsDynamicTierMatrix({ initialHeaders, initialRows }) {
     <div className="space-y-2.5">
       {/* Live sync badge */}
       <div className="flex items-center justify-between text-[11px] text-zinc-400 pb-1">
-        <span className="flex items-center gap-1.5 text-emerald-400">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        <span className="flex items-center gap-1.5 text-violet-400">
+          <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
           <span>{isLive ? 'Live Database Entitlements Sync Active' : 'Connecting to Live Database...'}</span>
         </span>
         <span className="text-zinc-500 text-[10px]">Auto-synchronizes when database entitlements change</span>

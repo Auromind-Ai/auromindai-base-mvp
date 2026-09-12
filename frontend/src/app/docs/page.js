@@ -145,7 +145,7 @@ export default function DocsHomePage() {
   ];
 
   return (
-    <div className="w-full space-y-16 sm:space-y-20 pb-24">
+    <div className="w-full space-y-12 sm:space-y-14 pb-16">
       {/* 1. Hero Section - Expansive Balanced Grid */}
       <section className="relative pt-0 sm:pt-1">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-8 items-center">
@@ -154,13 +154,13 @@ export default function DocsHomePage() {
 
             {/* Main Headline */}
             <div className="space-y-2">
-              <h1 className="text-3xl sm:text-4xl xl:text-[42px] font-semibold tracking-tight text-white leading-tight">
+              <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white leading-tight">
                 Build Smarter.{' '}
                 <span className="bg-gradient-to-r from-violet-400 via-purple-300 to-cyan-400 bg-clip-text text-transparent">
                   Ship Faster.
                 </span>
               </h1>
-              <p className="text-xs sm:text-[14px] text-zinc-400 leading-relaxed max-w-xl font-normal">
+              <p className="text-sm text-zinc-400 leading-relaxed max-w-xl font-normal">
                 One AI-native workspace for conversations, customers, knowledge, automation and revenue. Explore official guides, interactive UI previews, and production blueprints.
               </p>
             </div>
@@ -233,11 +233,11 @@ export default function DocsHomePage() {
             <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
               Popular Workflows
             </h2>
-            <p className="text-xs sm:text-sm text-white/60 mt-1">
+            <p className="text-xs sm:text-sm text-zinc-400 mt-1">
               Proven execution patterns designed for rapid production deployment.
             </p>
           </div>
-          <span className="text-xs text-white/60 hidden sm:block">6 Ready-to-use Blueprints</span>
+          <span className="text-xs text-zinc-400 hidden sm:block">6 Ready-to-use Blueprints</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -303,7 +303,7 @@ export default function DocsHomePage() {
             <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
               Core Capabilities &amp; Architecture
             </h2>
-            <p className="text-xs sm:text-sm text-white/60 mt-1 max-w-3xl">
+            <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-3xl">
               Miniature visual representations of actual Orbion surfaces. Click any card to enter the full step-by-step walkthrough.
             </p>
           </div>
@@ -321,7 +321,8 @@ export default function DocsHomePage() {
             badge="Live Sync"
             description="Unite WhatsApp, Instagram, Twilio SMS, and Webchat in a single collaborative inbox with automated AI handoffs. Manage all conversations, track contact details, and convert leads — from one powerful interface."
             href="/docs/features/omni-inbox"
-            imageSrc="/images/Docs/Docs_OmniInbox.png"
+            imageSrc="/images/docs/Docs_OmniInbox.png"
+            priority={true}
           />
 
           {/* AI Brain */}
@@ -331,7 +332,8 @@ export default function DocsHomePage() {
             badge="pgvector"
             description="Ingest company PDFs, dynamic URLs, and sitemaps. Generate strictly grounded answers with exact source citations."
             href="/docs/features/brain-rag"
-            imageSrc="/images/Docs/Docs_AI_Brain.png"
+            imageSrc="/images/docs/Docs_AI_Brain.png"
+            priority={true}
           />
 
           {/* AI Workspace */}
@@ -341,7 +343,7 @@ export default function DocsHomePage() {
             badge="Multi-Model"
             description="Test live prompt variations with token-by-token streaming, intent scoring, and dynamic tool-calling inspection."
             href="/docs/features/ai-workspace"
-            imageSrc="/images/Docs/Docs_AiWorkspace.png"
+            imageSrc="/images/docs/Docs_AiWorkspace.png"
           />
 
           {/* AI Lead Intelligence */}
@@ -351,7 +353,7 @@ export default function DocsHomePage() {
             badge="Scoring Engine"
             description="Dynamically categorize conversations into Hot, Warm, and Cold tiers with automated contact extraction."
             href="/docs/features/leads-crm"
-            imageSrc="/images/Docs/Docs_Lead_CRM.png?v=2"
+            imageSrc="/images/docs/Docs_Lead_CRM.png?v=2"
           />
 
           {/* Automation Wire */}
@@ -361,7 +363,7 @@ export default function DocsHomePage() {
             badge="Showcase Hero"
             description="Visual canvas for constructing multi-step logic, intent triggers, delay timers, and human handoff conditions."
             href="/docs/features/agentic-orchestrator"
-            imageSrc="/images/Docs/Docs_Automation.png"
+            imageSrc="/images/docs/Docs_Automation.png"
           />
 
           {/* AI Governance */}
@@ -371,7 +373,7 @@ export default function DocsHomePage() {
             badge="Deterministic"
             description="Enforce Model Context Protocol policies, PII redaction, blacklisted competitor terms, and human escalations."
             href="/docs/account/ai-governance"
-            imageSrc="/images/Docs/Docs_AI_Governance.png"
+            imageSrc="/images/docs/Docs_AI_Governance.png"
           />
 
           {/* Wallet & Credits */}
@@ -381,7 +383,7 @@ export default function DocsHomePage() {
             badge="Orbion Fuel"
             description="Track real-time token expenditure, WhatsApp conversation credits (WCC), and configure auto-recharge triggers."
             href="/docs/features/credits-wallet"
-            imageSrc="/images/Docs/Docs_Credits.png"
+            imageSrc="/images/docs/Docs_Credits.png"
           />
 
           {/* Multi-Channel Architecture */}
@@ -391,7 +393,7 @@ export default function DocsHomePage() {
             badge="Meta Certified"
             description="Direct infrastructure connectors uniting Meta Cloud API, Instagram Graph API, Twilio, and Gmail in one stack."
             href="/docs/integrations/whatsapp-cloud-api"
-            imageSrc="/images/Docs/Docs_Channels.png"
+            imageSrc="/images/docs/Docs_Channels.png"
           />
         </div>
       </section>

@@ -137,7 +137,7 @@ export default function AutomationDetailVisual() {
             <span className="text-[10px] uppercase tracking-wider text-zinc-400 block mb-1">
               Node Configuration Inspector
             </span>
-            <h4 className="text-sm font-bold text-white capitalize">
+            <h4 className="text-sm font-semibold text-white capitalize">
               Selected: {selectedNode} Node
             </h4>
           </div>

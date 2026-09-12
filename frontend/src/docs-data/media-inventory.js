@@ -81,14 +81,15 @@ export const MEDIA_INVENTORY = {
     videoVersion: "v2.4.0",
     videoUrl: "/docs/videos/Screen Recording 2026-09-11 104247.mp4",
     videoDuration: "Walkthrough Demo",
-    screenshotAvailable: false,
-    screenshotVersion: null,
+    screenshotAvailable: true,
+    screenshotVersion: "v2.4.0",
     screenshotUrls: [
+      "/docs/screenshots/flow-verification-active.png",
       "/docs/screenshots/orchestrator-canvas.png"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
-    notes: "Active production video walkthrough demonstrating the visual workflow canvas in action."
+    notes: "Active production screenshot of verified active flows and video walkthrough demonstrating the visual workflow canvas."
   },
   "features/campaigns": {
     featureName: "WhatsApp Campaigns & Broadcasts",
@@ -160,6 +161,23 @@ export const MEDIA_INVENTORY = {
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
     notes: "Official 1-click Meta Facebook Login for Business onboarding with 8-step visual walkthrough."
+  },
+  "billing/gst-invoices": {
+    featureName: "GST Compliance & Tax Invoices",
+    featureSlug: "billing/gst-invoices",
+    videoAvailable: false,
+    videoVersion: null,
+    videoUrl: null,
+    videoDuration: null,
+    screenshotAvailable: true,
+    screenshotVersion: "v2.4.0",
+    screenshotUrls: [
+      "/docs/screenshots/gst-billing-profile-card.png",
+      "/docs/screenshots/gst-edit-billing-profile-modal.png"
+    ],
+    documentationStatus: "Complete",
+    currentProductVersion: "v2.4.0",
+    notes: "Production UI screenshots for Billing Profile Card and Edit Billing Profile Modal with GSTIN configuration."
   }
 };
 

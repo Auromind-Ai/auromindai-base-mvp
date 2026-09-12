@@ -144,7 +144,7 @@ export default function DocsVideoPlayer({ video }) {
             <Film className="w-4 h-4 text-violet-300" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-white tracking-tight">{video.title}</h4>
+            <h4 className="text-sm font-semibold text-white tracking-tight">{video.title}</h4>
             <span className="text-[11px] text-zinc-400 ">Duration: {video.duration || 'Video Walkthrough'}</span>
           </div>
         </div>
