@@ -837,54 +837,54 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
       description: 'Qualify inbound leads 24/7, parse buyer budget and timeline, auto-score Hot/Warm/Cold leads, and book Google Calendar meetings instantly in chat.',
       tag: 'Revenue',
       icon: Target,
-      glowColor: 'bg-emerald-500/25',
-      iconStyle: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 group-hover:bg-emerald-500 group-hover:text-white',
-      accentBorder: 'group-hover:border-emerald-500/50',
+      glowColor: 'bg-[#0f8b6c]/20',
+      iconStyle: 'bg-[#0f8b6c] text-white shadow-[0_0_24px_rgba(15,139,108,0.65)]',
+      accentBorder: 'border-white/[0.08]',
     },
     {
       title: 'Support & Success Desks',
       description: 'Automate 70%+ of Tier-1 customer tickets, answer complex policy questions with exact document citations, and smoothly escalate edge cases to human reps.',
       tag: 'Support',
       icon: Headphones,
-      glowColor: 'bg-cyan-500/25',
-      iconStyle: 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300 group-hover:bg-cyan-500 group-hover:text-white',
-      accentBorder: 'group-hover:border-cyan-500/50',
+      glowColor: 'bg-[#245bb5]/20',
+      iconStyle: 'bg-[#245bb5] text-white shadow-[0_0_24px_rgba(36,91,181,0.65)]',
+      accentBorder: 'border-white/[0.08]',
     },
     {
       title: 'E-Commerce & DTC Brands',
       description: 'Deploy interactive WhatsApp product catalogs, automated order tracking lookups, return label generation, and abandoned cart re-engagement flows.',
       tag: 'E-Commerce',
       icon: ShoppingBag,
-      glowColor: 'bg-amber-500/25',
-      iconStyle: 'bg-amber-500/15 border-amber-500/30 text-amber-300 group-hover:bg-amber-500 group-hover:text-white',
-      accentBorder: 'group-hover:border-amber-500/50',
+      glowColor: 'bg-[#a45422]/20',
+      iconStyle: 'bg-[#a45422] text-white shadow-[0_0_24px_rgba(164,84,34,0.65)]',
+      accentBorder: 'border-white/[0.08]',
     },
     {
       title: 'Marketing & Growth Teams',
       description: 'Send Meta-verified WhatsApp Cloud API broadcasts with 98% open rates, launch VIP drops, and automate Click-to-WhatsApp ad conversational funnels.',
       tag: 'Marketing',
       icon: TrendingUp,
-      glowColor: 'bg-pink-500/25',
-      iconStyle: 'bg-pink-500/15 border-pink-500/30 text-pink-300 group-hover:bg-pink-500 group-hover:text-white',
-      accentBorder: 'group-hover:border-pink-500/50',
+      glowColor: 'bg-[#9f1239]/20',
+      iconStyle: 'bg-[#9f1239] text-white shadow-[0_0_20px_rgba(159,18,57,0.5)]',
+      accentBorder: 'border-white/[0.08]',
     },
     {
       title: 'Operations & Logistics',
       description: 'Query ERP/database backends, generate automated PDF receipts and invoices, and dispatch real-time Slack/SMS operational alerts to fulfillment teams.',
       tag: 'Operations',
       icon: Truck,
-      glowColor: 'bg-purple-500/25',
-      iconStyle: 'bg-purple-500/15 border-purple-500/30 text-purple-300 group-hover:bg-purple-500 group-hover:text-white',
-      accentBorder: 'group-hover:border-purple-500/50',
+      glowColor: 'bg-[#5851ea]/20',
+      iconStyle: 'bg-[#5851ea] text-white shadow-[0_0_24px_rgba(88,81,234,0.65)]',
+      accentBorder: 'border-white/[0.08]',
     },
     {
       title: 'Developers & IT Architects',
       description: 'Build on visual node canvases, integrate webhooks and REST endpoints, switch between top LLMs (OpenAI, Gemini, Anthropic), and enforce PII data masking.',
       tag: 'Developers',
       icon: Code2,
-      glowColor: 'bg-violet-500/25',
-      iconStyle: 'bg-violet-500/15 border-violet-500/30 text-violet-300 group-hover:bg-violet-500 group-hover:text-white',
-      accentBorder: 'group-hover:border-violet-500/50',
+      glowColor: 'bg-[#7c3aed]/20',
+      iconStyle: 'bg-[#7c3aed] text-white shadow-[0_0_24px_rgba(124,58,237,0.65)]',
+      accentBorder: 'border-white/[0.08]',
     },
   ];
 
@@ -1004,7 +1004,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
             <Users className="w-3.5 h-3.5" />
             <span>Target Personas &amp; Teams</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
             Who is OrbionAgents Built For?
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400">
@@ -1018,20 +1018,20 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
             return (
               <div
                 key={idx}
-                className={`p-6 sm:p-7 rounded-[26px] border border-white/[0.08] bg-[#16161a]/95 hover:bg-[#191920] ${persona.accentBorder} transition-all duration-300 group flex flex-col justify-between shadow-2xl shadow-black/70 hover:-translate-y-1 relative overflow-hidden min-h-[250px] backdrop-blur-xl`}
+                className="p-6 sm:p-7 rounded-[26px] border border-white/[0.08] bg-[#16161a]/95 transition-colors duration-200 flex flex-col justify-between shadow-2xl shadow-black/70 relative overflow-hidden min-h-[250px] backdrop-blur-xl"
               >
                 {/* Atmospheric Ambient Glow */}
                 <div
-                  className={`absolute -top-12 -right-12 w-48 h-48 ${persona.glowColor} rounded-full blur-3xl pointer-events-none opacity-40 group-hover:opacity-75 transition-opacity duration-500`}
+                  className={`absolute -top-12 -right-12 w-48 h-48 ${persona.glowColor} rounded-full blur-3xl pointer-events-none opacity-40`}
                 />
                 <div
-                  className={`absolute -bottom-12 -left-12 w-36 h-36 ${persona.glowColor} rounded-full blur-3xl pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity duration-500`}
+                  className={`absolute -bottom-12 -left-12 w-36 h-36 ${persona.glowColor} rounded-full blur-3xl pointer-events-none opacity-20`}
                 />
 
                 {/* TOP ROW: Icon Container & Tag Pill */}
                 <div className="flex items-center justify-between relative z-10 mb-4">
                   <div
-                    className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all duration-300 shadow-md ${persona.iconStyle}`}
+                    className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-md ${persona.iconStyle}`}
                   >
                     <Icon className="w-5 h-5" />
                   </div>
@@ -1042,7 +1042,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
 
                 {/* MIDDLE: Title & Description */}
                 <div className="relative z-10 flex-1">
-                  <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight leading-snug group-hover:text-white transition-colors">
+                  <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight leading-snug">
                     {persona.title}
                   </h3>
                   <p className="text-xs sm:text-[13px] text-zinc-400 leading-relaxed font-normal mt-2">
@@ -1062,7 +1062,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
             <Activity className="w-3.5 h-3.5" />
             <span>AI Conversation Flow</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
             How AI Conversations Flow
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400">
@@ -1177,7 +1177,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
       <section id="what-you-can-build" className="space-y-6 scroll-mt-24 border-t border-white/10 pt-8">
         <div className="space-y-3.5 w-full">
 
-          <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
             What You Can Build
           </h2>
           <p className="text-base sm:text-lg text-zinc-300 leading-relaxed font-normal">
@@ -1226,7 +1226,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
                   </div>
 
                   <div>
-                    <h3 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
+                    <h3 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
                       {uc.title}
                     </h3>
                     <div className="mt-2.5 flex flex-wrap items-center gap-2">
@@ -1293,7 +1293,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
               <Globe className="w-3.5 h-3.5" />
               <span>Documentation Directory</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight mt-1">
+            <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight mt-1">
               Explore OrbionAgents
             </h2>
             <p className="text-xs sm:text-sm text-zinc-400 mt-1">

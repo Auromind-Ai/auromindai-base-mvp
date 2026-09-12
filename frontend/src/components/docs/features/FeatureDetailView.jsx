@@ -83,7 +83,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
         <section key={guide.title} className="pt-4 border-t border-white/10 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           {guide.screenshot && <DocumentationScreenshot {...guide.screenshot} />}
           <div className={`space-y-4 ${guide.screenshot ? '' : 'lg:col-span-2'}`}>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">{guide.title}</h2>
+            <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">{guide.title}</h2>
             <p className="text-sm text-zinc-400 leading-relaxed">{guide.description}</p>
             {guide.layout === 'alternating' ? (
               <div className="space-y-8 lg:space-y-10">
@@ -94,7 +94,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                     </div>
                     <div className={`mx-auto w-full max-w-[680px] space-y-3 md:px-5 lg:px-10 ${index % 2 ? 'md:order-1' : ''}`}>
                       <span className="text-[11px] font-semibold uppercase tracking-wider text-violet-400">Step {index + 1}</span>
-                      <h3 className="text-xl sm:text-2xl font-semibold text-white">{item.title.replace(/^\d+\.\s*/, '')}</h3>
+                      <h3 className="text-lg sm:text-xl font-semibold text-white">{item.title.replace(/^\d+\.\s*/, '')}</h3>
                       <p className="max-w-xl text-sm leading-relaxed text-zinc-400">{item.description}</p>
                     </div>
                   </div>
@@ -351,7 +351,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
               <span className="text-[11px] uppercase tracking-widest text-cyan-400 font-bold block mb-1">
                 Why use it?
               </span>
-              <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
                 Core Capabilities &amp; Value
               </h2>
               <p className="text-sm text-zinc-400 mt-1">
@@ -453,7 +453,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                 <span className="text-[11px] uppercase tracking-widest text-cyan-400 font-bold block mb-1">
                   Why use it?
                 </span>
-                <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+                <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
                   Core Capabilities &amp; Value
                 </h2>
                 <p className="text-sm text-zinc-400 mt-1">
@@ -502,7 +502,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
               <span className="text-[11px] uppercase tracking-widest text-violet-400 font-bold block mb-1">
                 Before You Start
               </span>
-              <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight flex items-center gap-2.5">
+              <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight flex items-center gap-2.5">
                 <ListChecks className="w-6 h-6 text-violet-400" />
                 Prerequisites &amp; Requirements
               </h2>
@@ -554,7 +554,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   )}
                 </span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight mt-1">
+              <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight mt-1">
                 {config.rulesTitle || (
                   config.visualKey === 'twilio'
                     ? 'Twilio Connect Rules & Requirements'
@@ -659,7 +659,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                     </span>
                   )}
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+                <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
                   {config.architecture?.title || "Step-by-Step Configuration Guide"}
                 </h2>
                 <p className="text-sm sm:text-base text-zinc-300 leading-relaxed">
@@ -693,7 +693,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
 
                         {/* Title & Subtitle */}
                         <div>
-                          <h3 className="text-xl sm:text-2xl font-semibold text-white tracking-tight leading-snug">
+                          <h3 className="text-lg sm:text-xl font-semibold text-white tracking-tight leading-snug">
                             {s.title}
                           </h3>
                           {s.subtitle && (
@@ -811,7 +811,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   <span className="text-[11px] font-mono uppercase tracking-widest text-violet-400 font-bold block mb-1">
                     Integrated Toolset &amp; Capabilities
                   </span>
-                  <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight flex items-center gap-2.5">
+                  <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight flex items-center gap-2.5">
                     <Workflow className="w-6 h-6 text-violet-400" />
                     Flow Builder Core Capabilities
                   </h2>
@@ -938,7 +938,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   <span className="text-[11px] font-mono uppercase tracking-widest text-pink-400 font-bold block mb-1">
                     {config.copy?.setupLabel || 'Configuration & Guided Setup'}
                   </span>
-                  <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+                  <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
                     {config.architecture?.title || 'Step-by-Step WhatsApp Onboarding Guide'}
                   </h2>
                   <p className="text-sm text-zinc-300 leading-relaxed mt-1">
@@ -972,7 +972,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                           )}
                         </div>
 
-                        <h3 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
+                        <h3 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
                           {s.title}
                         </h3>
 
@@ -1130,7 +1130,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                     <span className="text-[11px] font-mono uppercase tracking-widest text-pink-400 font-bold block mb-1">
                       {config.copy?.setupLabel || 'Configuration & Workflow'}
                     </span>
-                    <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+                    <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
                       {config.architecture?.title}
                     </h2>
                     <p className="text-sm text-zinc-300 leading-relaxed mt-2">
@@ -1239,7 +1239,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
               <span className="text-[11px] font-mono uppercase tracking-widest text-violet-400 font-bold block mb-1">
                 Result &amp; Verification
               </span>
-              <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
                 {config.copy?.verificationTitle || (isIntegration ? 'Active Integration & Expected Outcome' : 'Target Operational SLA & Outcome')}
               </h2>
               <p className="text-sm text-zinc-400 mt-1">
@@ -1304,7 +1304,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
         <section id="tips" className="scroll-mt-24 pt-4 border-t border-white/10 space-y-6">
           <div className="flex items-center gap-2">
             <Lightbulb className="w-5 h-5 text-violet-400" />
-            <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
               Best Practices &amp; Operational Tips
             </h2>
           </div>
@@ -1334,7 +1334,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
             <span className="text-[11px] tracking-widest text-violet-400 font-bold block">
               FAQ &amp; Troubleshooting
             </span>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
               {config.copy?.troubleshootingTitle || 'Feature Troubleshooting & Common Questions'}
             </h2>
             <p className="text-sm text-zinc-400">

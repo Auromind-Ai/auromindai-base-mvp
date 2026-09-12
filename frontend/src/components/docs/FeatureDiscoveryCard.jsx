@@ -18,11 +18,8 @@ export default function FeatureDiscoveryCard({
 }) {
   return (
     <div
-      className={`rounded-3xl border border-white/15 bg-[#07080E]/95 hover:bg-[#090B14] hover:border-emerald-500/40 p-5 sm:p-6 flex flex-col justify-between transition-all duration-300 group shadow-2xl shadow-black/80 hover:shadow-emerald-950/20 hover:-translate-y-1 relative overflow-hidden backdrop-blur-md ${className}`}
+      className={`rounded-3xl border border-white/10 bg-[#07080E]/95 p-5 sm:p-6 flex flex-col justify-between shadow-2xl shadow-black/80 group relative overflow-hidden backdrop-blur-md ${className}`}
     >
-      {/* Ambient hover top gradient line */}
-      <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/0 group-hover:via-emerald-500/60 to-transparent transition-all duration-500" />
-
       {/* TOP: Image / Visual Showcase (NO internal border around the image) */}
       <div className="w-full relative overflow-hidden rounded-2xl mb-5">
         {imageSrc ? (
@@ -32,7 +29,7 @@ export default function FeatureDiscoveryCard({
               alt={title}
               width={1200}
               height={675}
-              className="w-full h-auto object-contain rounded-2xl transition-transform duration-500 group-hover:scale-[1.015]"
+              className="w-full h-auto object-contain rounded-2xl"
               priority={priority}
             />
             {/* Smooth bottom opacity gradient fade for seamless transition */}
@@ -76,12 +73,12 @@ export default function FeatureDiscoveryCard({
           )}
 
           {/* Feature Title */}
-          <h3 className="text-base sm:text-lg font-semibold text-white group-hover:text-emerald-200 transition-colors tracking-tight">
+          <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight">
             {title}
           </h3>
 
           {/* Description */}
-          <p className="text-xs sm:text-sm text-zinc-300/80 group-hover:text-zinc-200/90 transition-colors mt-2 leading-relaxed font-normal">
+          <p className="text-xs sm:text-sm text-zinc-400 mt-2 leading-relaxed font-normal">
             {description}
           </p>
         </div>
@@ -90,10 +87,10 @@ export default function FeatureDiscoveryCard({
         <div className="pt-3 mt-4 flex items-center justify-between">
           <Link
             href={href}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-all group/btn"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 group-hover:text-emerald-300 transition-all"
           >
             <span>View feature documentation</span>
-            <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover/btn:translate-x-1" />
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1.5 transition-transform duration-200" />
           </Link>
 
           <span className="text-[10px] text-white/50 group-hover:text-zinc-500 transition-colors">

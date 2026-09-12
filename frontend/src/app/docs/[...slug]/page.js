@@ -350,9 +350,6 @@ export default async function DocsArticlePage({ params }) {
               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-violet-500/15 text-violet-300 border border-violet-500/30 font-poppins">
                 {article.category}
               </span>
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-poppins">
-                Official Guide
-              </span>
             </div>
 
             <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white leading-tight">
@@ -360,7 +357,7 @@ export default async function DocsArticlePage({ params }) {
             </h1>
 
             {article.subtitle && (
-              <p className="text-base sm:text-lg text-zinc-300 leading-relaxed font-normal">
+              <p className="text-sm sm:text-base text-zinc-400 leading-relaxed font-normal max-w-3xl">
                 {article.subtitle}
               </p>
             )}

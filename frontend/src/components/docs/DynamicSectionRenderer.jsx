@@ -29,26 +29,28 @@ function DocsFaqItem({ item, isOpen, onToggle }) {
   return (
     <div
       onClick={onToggle}
-      className={`rounded-xl border transition-all duration-200 cursor-pointer overflow-hidden ${
+      className={`rounded-2xl border bg-[#0c1224] transition-all duration-200 cursor-pointer overflow-hidden backdrop-blur-xl ${
         isOpen
-          ? 'border-violet-500/50 bg-violet-950/20 shadow-lg shadow-purple-950/30'
-          : 'border-white/10 bg-slate-900/40 hover:bg-slate-900/70 hover:border-violet-500/40'
+          ? 'border-violet-500/50 shadow-xl shadow-purple-950/20'
+          : 'border-white/[0.08] hover:border-violet-500/40'
       }`}
     >
-      <div className="p-4 flex items-center justify-between gap-3 select-none">
-        <div className="flex items-center gap-2.5 text-white font-semibold text-xs sm:text-sm">
-          <div className={`p-1.5 rounded-lg transition-colors ${isOpen ? 'bg-violet-500/20 text-violet-300' : 'bg-white/5 text-violet-400'}`}>
+      <div className="p-4.5 sm:p-5 flex items-center justify-between gap-3 select-none">
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-xl border transition-all ${isOpen ? 'bg-violet-500/20 border-violet-500/30 text-violet-300' : 'bg-white/[0.04] border-white/10 text-violet-400'}`}>
             <HelpCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
           </div>
-          <span className="text-white">{item.question}</span>
+          <h3 className="text-sm sm:text-base font-semibold text-white tracking-tight leading-snug">
+            {item.question}
+          </h3>
         </div>
-        <div className={`p-1 rounded-md transition-transform duration-200 ${isOpen ? 'rotate-180 text-violet-300' : 'text-zinc-500'}`}>
+        <div className={`p-1 rounded-lg transition-transform duration-200 ${isOpen ? 'rotate-180 text-violet-300' : 'text-zinc-500'}`}>
           <ChevronDown className="w-4 h-4" />
         </div>
       </div>
       {isOpen && (
-        <div className="px-4 pb-4 pt-1 border-t border-white/5">
-          <p className="text-xs sm:text-sm text-zinc-200 pl-8 leading-relaxed font-normal">
+        <div className="px-5 pb-5 pt-2 border-t border-white/[0.06]">
+          <p className="text-xs sm:text-[13px] text-zinc-400 pl-9 leading-relaxed font-normal">
             {item.answer}
           </p>
         </div>
@@ -58,7 +60,7 @@ function DocsFaqItem({ item, isOpen, onToggle }) {
 }
 
 function DocsFaqSection({ items }) {
-  const [openIndex, setOpenIndex] = useState(0);
+  const [openIndex, setOpenIndex] = useState(null);
 
   const toggleItem = (idx) => {
     setOpenIndex((prev) => (prev === idx ? null : idx));
@@ -172,13 +174,16 @@ export default function DynamicSectionRenderer({ sections = [] }) {
         const renderContent = () => (
           <div className="space-y-4">
             {sectionTitle && (
-              <div className="border-b border-white/10 pb-2">
-                <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-violet-400" aria-hidden="true" />
+              <div className="border-b border-white/[0.08] pb-3 mb-2">
+                <div className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider text-violet-400 mb-1">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{sectionType === 'faq' ? 'Questions & Answers' : sectionType === 'troubleshooting' ? 'Diagnostics & Fixes' : 'Guide Section'}</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight flex items-center gap-2.5">
                   <span>{sectionTitle}</span>
                 </h2>
                 {section.subtitle && (
-                  <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+                  <p className="text-xs sm:text-sm text-zinc-400 mt-1 font-normal">
                     {section.subtitle}
                   </p>
                 )}
@@ -186,7 +191,7 @@ export default function DynamicSectionRenderer({ sections = [] }) {
             )}
 
             {section.content && (
-              <div className="text-sm sm:text-base text-zinc-300 leading-relaxed space-y-3 font-normal">
+              <div className="text-xs sm:text-sm text-zinc-400 leading-relaxed space-y-3 font-normal">
                 {Array.isArray(section.content) ? (
                   section.content.map((p, pIdx) => (
                     <p key={pIdx}>{p}</p>
@@ -277,24 +282,26 @@ export default function DynamicSectionRenderer({ sections = [] }) {
             )}
 
             {(sectionType === 'troubleshooting' || sectionType === 'diagnostics') && section.items && (
-              <div className="space-y-3 pt-1">
+              <div className="space-y-4 pt-1">
                 {section.items.map((item, itemIdx) => (
                   <div
                     key={itemIdx}
-                    className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-2.5 hover:border-violet-500/40 transition-all"
+                    className="p-5 sm:p-6 rounded-2xl border border-white/[0.08] bg-[#16161a]/95 hover:bg-[#191920] space-y-3 hover:border-violet-500/40 transition-all duration-300 shadow-xl shadow-black/40 backdrop-blur-xl"
                   >
-                    <div className="flex items-start gap-2 text-white font-semibold text-xs sm:text-sm">
-                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-violet-400" aria-hidden="true" />
-                      <span>{item.issue || item.problem}</span>
+                    <div className="flex items-start gap-3 text-white font-semibold text-sm sm:text-base tracking-tight">
+                      <div className="p-2 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 shrink-0 mt-0.5">
+                        <AlertCircle className="w-4 h-4" aria-hidden="true" />
+                      </div>
+                      <h3 className="leading-snug pt-0.5">{item.issue || item.problem}</h3>
                     </div>
                     {item.cause && (
-                      <p className="text-xs text-zinc-300 pl-6 leading-relaxed">
-                        <strong className="text-violet-300 font-medium">Root Cause: </strong>
+                      <p className="text-xs sm:text-[13px] text-zinc-400 pl-11 leading-relaxed font-normal">
+                        <strong className="text-violet-300 font-semibold">Root Cause: </strong>
                         {item.cause}
                       </p>
                     )}
-                    <p className="text-xs text-white pl-6 leading-relaxed">
-                      <strong className="text-violet-400 font-medium">Resolution: </strong>
+                    <p className="text-xs sm:text-[13px] text-zinc-300 pl-11 leading-relaxed font-normal">
+                      <strong className="text-violet-400 font-semibold">Resolution: </strong>
                       {item.solution || item.resolution}
                     </p>
                   </div>
@@ -356,13 +363,16 @@ export default function DynamicSectionRenderer({ sections = [] }) {
         return (
           <section key={sectionId || idx} id={sectionId} className="space-y-4 scroll-mt-24">
             {sectionTitle && (
-              <div className="border-b border-white/10 pb-2">
-                <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-violet-400" aria-hidden="true" />
+              <div className="border-b border-white/[0.08] pb-3 mb-2">
+                <div className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider text-violet-400 mb-1">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{sectionType === 'faq' ? 'Questions & Answers' : sectionType === 'troubleshooting' ? 'Diagnostics & Fixes' : 'Guide Section'}</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight flex items-center gap-2.5">
                   <span>{sectionTitle}</span>
                 </h2>
                 {section.subtitle && (
-                  <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+                  <p className="text-xs sm:text-sm text-zinc-400 mt-1 font-normal">
                     {section.subtitle}
                   </p>
                 )}
@@ -370,7 +380,7 @@ export default function DynamicSectionRenderer({ sections = [] }) {
             )}
 
             {section.content && (
-              <div className="text-sm sm:text-base text-zinc-300 leading-relaxed space-y-3 font-normal">
+              <div className="text-xs sm:text-sm text-zinc-400 leading-relaxed space-y-3 font-normal">
                 {Array.isArray(section.content) ? (
                   section.content.map((p, pIdx) => (
                     <p key={pIdx}>{p}</p>
@@ -502,24 +512,26 @@ export default function DynamicSectionRenderer({ sections = [] }) {
             )}
 
             {(sectionType === 'troubleshooting' || sectionType === 'diagnostics') && section.items && (
-              <div className="space-y-3 pt-1">
+              <div className="space-y-4 pt-1">
                 {section.items.map((item, itemIdx) => (
                   <div
                     key={itemIdx}
-                    className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-2.5 hover:border-violet-500/40 transition-all"
+                    className="p-5 sm:p-6 rounded-2xl border border-white/[0.08] bg-[#16161a]/95 hover:bg-[#191920] space-y-3 hover:border-violet-500/40 transition-all duration-300 shadow-xl shadow-black/40 backdrop-blur-xl"
                   >
-                    <div className="flex items-start gap-2 text-white font-semibold text-xs sm:text-sm">
-                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-violet-400" aria-hidden="true" />
-                      <span>{item.issue || item.problem}</span>
+                    <div className="flex items-start gap-3 text-white font-semibold text-sm sm:text-base tracking-tight">
+                      <div className="p-2 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 shrink-0 mt-0.5">
+                        <AlertCircle className="w-4 h-4" aria-hidden="true" />
+                      </div>
+                      <h3 className="leading-snug pt-0.5">{item.issue || item.problem}</h3>
                     </div>
                     {item.cause && (
-                      <p className="text-xs text-zinc-300 pl-6 leading-relaxed">
-                        <strong className="text-violet-300 font-medium">Root Cause: </strong>
+                      <p className="text-xs sm:text-[13px] text-zinc-400 pl-11 leading-relaxed font-normal">
+                        <strong className="text-violet-300 font-semibold">Root Cause: </strong>
                         {item.cause}
                       </p>
                     )}
-                    <p className="text-xs text-white pl-6 leading-relaxed">
-                      <strong className="text-violet-400 font-medium">Resolution: </strong>
+                    <p className="text-xs sm:text-[13px] text-zinc-300 pl-11 leading-relaxed font-normal">
+                      <strong className="text-violet-400 font-semibold">Resolution: </strong>
                       {item.solution || item.resolution}
                     </p>
                   </div>
