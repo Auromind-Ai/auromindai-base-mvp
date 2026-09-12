@@ -1,12 +1,14 @@
 export const templatesDetail = {
   slug: 'features/templates',
-  aliasSlugs: ['templates', 'whatsapp-templates', 'features/whatsapp-templates'],
-  featureNumber: '05',
+  aliasSlugs: ['templates', 'template', 'features/template', 'whatsapp-templates', 'features/whatsapp-templates'],
+  featureNumber: '12',
   category: 'Channel Automation & Messaging',
   title: 'WhatsApp Message Templates & AI Studio',
   tagline: 'Design, preview, and dispatch Meta-approved WhatsApp broadcast and transactional templates with AI assistance.',
   description: 'The WhatsApp Message Template Studio in Orbion Agents enables businesses to compose, customize, and submit Meta-compliant message templates for official approval. Powered by built-in AI copy generation, dynamic variable injection ({{1}}, {{2}}), and interactive CTA buttons, your team can easily initiate customer conversations outside the standard 24-hour service window and launch high-converting marketing or transactional campaigns directly from the Omni-Channel Inbox.',
   visualKey: 'templates',
+  useZigzagSteps: true,
+  stepsBadge: '13-Step Visual Guide',
   heroScreenshot: '/images/docs/whatsapp_template/wt_step_1.png',
   activeConsoleScreenshot: '/images/docs/whatsapp_template/wt_step_11.png',
 

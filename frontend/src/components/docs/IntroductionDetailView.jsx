@@ -708,7 +708,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
       title: 'Action / Human',
       subtitle: 'Delivers Resolution or Handoff',
       icon: Send,
-      color: 'from-rose-500/20 to-pink-500/20 text-pink-400 border-pink-500/30',
+      color: 'from-rose-500/20 to-pink-500/20 text-violet-400 border-pink-500/30',
       badge: 'Resolution',
       description:
         'Delivers an instant, helpful response to the customer, records the lead in your CRM, triggers connected business tools, or smoothly transfers to a human team member.',

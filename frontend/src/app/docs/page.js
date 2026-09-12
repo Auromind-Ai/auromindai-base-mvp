@@ -148,9 +148,9 @@ export default function DocsHomePage() {
     <div className="w-full space-y-12 sm:space-y-14 pb-16">
       {/* 1. Hero Section - Expansive Balanced Grid */}
       <section className="relative pt-0 sm:pt-1">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-8 items-center">
-          {/* Left Hero Content (7 Cols) */}
-          <div className="lg:col-span-7 space-y-4 text-left">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
+          {/* Left Hero Content (6 Cols) */}
+          <div className="lg:col-span-6 space-y-4 text-left">
 
             {/* Main Headline */}
             <div className="space-y-2">
@@ -215,9 +215,9 @@ export default function DocsHomePage() {
             </div>
           </div>
 
-          {/* Right Hero Video Panel (5 Cols) - Blank Card with Centered Play Icon */}
-          <div className="lg:col-span-5 h-full flex items-center">
-            <DocsHeroVideoCard />
+          {/* Right Hero Video Panel (6 Cols) - Interactive Documentation Video */}
+          <div className="lg:col-span-6 h-full flex items-center justify-start">
+            <DocsHeroVideoCard src="/videos/docs.mov" title="OrbionAgents Platform Tour" />
           </div>
         </div>
       </section>

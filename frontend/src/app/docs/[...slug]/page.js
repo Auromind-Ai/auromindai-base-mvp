@@ -113,12 +113,7 @@ export async function generateMetadata({ params }) {
 export default async function DocsArticlePage({ params }) {
   const resolvedParams = await params;
   const rawSlug = resolvedParams.slug.join('/');
-
-  if (SLUG_ALIASES[rawSlug]) {
-    redirect(`/docs/${SLUG_ALIASES[rawSlug]}`);
-  }
-
-  const slug = rawSlug;
+  const slug = SLUG_ALIASES[rawSlug] || rawSlug;
 
   const featureConfig = getFeatureDetailConfig(slug);
   const article = getArticleBySlug(slug);

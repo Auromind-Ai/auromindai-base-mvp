@@ -42,7 +42,7 @@ const steps = [
     ],
     image: '/images/StepTwo.webp',
     accent: '#EC4899',
-    icon: <Cpu size={14} className="text-pink-400" />,
+    icon: <Cpu size={14} className="text-violet-400" />,
   },
   {
     step: '03',

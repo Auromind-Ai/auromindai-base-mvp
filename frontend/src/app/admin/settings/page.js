@@ -1664,7 +1664,7 @@ export default function SettingsPage() {
                       type="button"
                       disabled={testing.meta}
                       onClick={() => handleTest("meta")}
-                      className="px-4 py-2 border border-white/10 hover:border-pink-500/30 hover:bg-pink-500/5 text-pink-400 disabled:text-pink-400/50 disabled:border-white/5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
+                      className="px-4 py-2 border border-white/10 hover:border-pink-500/30 hover:bg-pink-500/5 text-violet-400 disabled:text-violet-400/50 disabled:border-white/5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
                     >
                       {testing.meta ? (
                         <>

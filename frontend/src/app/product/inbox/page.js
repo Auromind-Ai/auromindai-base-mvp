@@ -58,7 +58,7 @@ export default function InboxPage() {
       description: "AI reads the client's message, reviews database resources, and drafts answers for your staff with one click."
     },
     {
-      icon: <Users className="w-5 h-5 text-pink-400" />,
+      icon: <Users className="w-5 h-5 text-violet-400" />,
       title: "Seamless Agent Handover",
       description: "Let the AI qualify the lead. If a human agent needs to step in, they can intercept instantly without losing context."
     },

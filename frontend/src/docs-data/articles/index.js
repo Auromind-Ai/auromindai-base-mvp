@@ -27,6 +27,8 @@ export const SLUG_ALIASES = {
   'features/wallet': 'features/credits-wallet',
   'features/ai-governance': 'account/ai-governance',
   'features/integrations': 'integrations/whatsapp-cloud-api',
+  'features/template': 'features/templates',
+  'template': 'features/templates',
   'account/workspace-management': 'account/ai-governance',
 };
 

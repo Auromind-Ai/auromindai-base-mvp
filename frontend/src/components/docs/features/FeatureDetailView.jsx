@@ -73,7 +73,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
     : (config.setupSteps?.[0] || null);
 
   // Flags used across sections (merged from both branches)
-  const isFlowPage = config.slug === 'agentic-orchestrator' || config.visualKey === 'agentic-orchestrator' || config.featureNumber === '05';
+  const isFlowPage = config.slug === 'agentic-orchestrator' || config.visualKey === 'agentic-orchestrator' || (config.featureNumber === '05' && config.slug?.includes('orchestrator'));
   const isInbox = config.visualKey === 'inbox';
   const alignPanels = config.visualKey === 'brain' || isInbox;
   const stretchBenefits = Boolean(config.screenshots?.benefits?.guideItems) || config.visualKey === 'leads';
@@ -240,7 +240,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                     <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
                     Official Channel Integration
                   </span>
-                  <span className="text-[10px] text-pink-400 font-semibold">Meta Business</span>
+                  <span className="text-[10px] text-violet-400 font-semibold">Meta Business</span>
                 </div>
                 <DocumentationScreenshot
                   src={config.heroScreenshot || '/images/docs/whatsapp-connect/instagram/step_1.png'}
@@ -363,7 +363,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
               {config.benefits.map((b, idx) => (
                 <div
                   key={idx}
-                  className="p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all flex items-start gap-3"
+                  className="p-4 rounded-xl border border-white/15 bg-[#0c1224] hover:border-violet-500/30 transition-all flex items-start gap-3 shadow-md backdrop-blur-sm"
                 >
                   <div className="w-7 h-7 rounded-md bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-xs shrink-0 mt-0.5 font-bold">
                     {idx + 1}
@@ -516,7 +516,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
             {config.beforeYouStart.map((item, idx) => (
               <div
                 key={idx}
-                className="p-4 rounded-xl border border-white/10 bg-slate-900/40 hover:border-violet-500/40 transition-all space-y-2"
+                className="p-4 rounded-xl border border-white/15 bg-[#0c1224] hover:border-violet-500/40 transition-all space-y-2 shadow-lg backdrop-blur-sm"
               >
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-md bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-300 text-xs font-bold shrink-0">
@@ -599,7 +599,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
               return (
                 <div
                   key={idx}
-                  className="p-5 rounded-2xl border border-white/10 bg-slate-900/40 hover:border-violet-500/40 transition-all space-y-3"
+                  className="p-5 rounded-2xl border border-white/15 bg-[#0c1224] hover:border-violet-500/40 transition-all space-y-3 shadow-lg backdrop-blur-sm"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -752,7 +752,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                           isReversed ? 'order-2 lg:order-1' : 'order-2 lg:order-2'
                         }`}
                       >
-                        <div className="p-2 sm:p-3 rounded-2xl border border-white/10 bg-slate-900/40 shadow-xl shadow-black/40 hover:border-violet-500/30 transition-all">
+                        <div className="p-2 sm:p-3 rounded-2xl border border-white/15 bg-[#0c1224] shadow-2xl shadow-black/50 hover:border-violet-500/40 transition-all">
                           {stepImg ? (
                             <DocumentationScreenshot
                               src={stepImg}
@@ -935,7 +935,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
             <section id="configuration" className="scroll-mt-24 pt-4 border-t border-white/10 space-y-8">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <span className="text-[11px] font-mono uppercase tracking-widest text-pink-400 font-bold block mb-1">
+                  <span className="text-[11px] font-mono uppercase tracking-widest text-violet-400 font-bold block mb-1">
                     {config.copy?.setupLabel || 'Configuration & Guided Setup'}
                   </span>
                   <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
@@ -946,8 +946,8 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   </p>
                 </div>
                 {(isIntegration || config.visualKey === 'workspace' || config.useZigzagSteps) && (
-                  <div className="self-start sm:self-auto px-3.5 py-1.5 rounded-full bg-pink-500/10 border border-pink-500/20 text-pink-300 text-xs font-mono font-semibold flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-pink-400 animate-pulse" />
+                  <div className="self-start sm:self-auto px-3.5 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-mono font-semibold flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
                     {config.stepsBadge || `${config.setupSteps?.length || 0} Video-Verified Steps`}
                   </div>
                 )}
@@ -961,16 +961,13 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
 
                     const textBlock = (
                       <div className="space-y-4">
-                        <div className="flex items-center gap-2.5">
-                          <span className="px-2.5 py-1 rounded-lg bg-pink-500/15 border border-pink-500/30 text-pink-300 font-mono text-xs font-bold">
-                            STEP {s.step < 10 ? `0${s.step}` : s.step}
-                          </span>
-                          {s.highlight && (
+                        {s.highlight && (
+                          <div className="flex items-center gap-2.5">
                             <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-zinc-300 font-mono text-xs">
                               {s.highlight}
                             </span>
-                          )}
-                        </div>
+                          </div>
+                        )}
 
                         <h3 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
                           {s.title}
@@ -1011,7 +1008,15 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                           aspectRatio={s.aspectRatio || 'aspect-[16/9]'}
                           objectFit={s.objectFit || 'cover'}
                           className={s.className || ''}
-                          annotation={config.visualKey === 'email-calendar' ? 'Google Workspace' : config.visualKey === 'workspace' ? 'Live Workspace Console' : 'Live Video Capture'}
+                          annotation={
+                            config.visualKey === 'email-calendar'
+                              ? 'Google Workspace'
+                              : config.visualKey === 'workspace'
+                              ? 'Live Workspace Console'
+                              : config.visualKey === 'templates'
+                              ? 'Template Studio Console'
+                              : 'Live Video Capture'
+                          }
                         />
                       </div>
                     );
@@ -1019,7 +1024,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                     return (
                       <div
                         key={s.step}
-                        className="p-6 sm:p-8 rounded-2xl border border-white/10 bg-slate-900/40 hover:border-violet-500/30 transition-all shadow-xl backdrop-blur-sm"
+                        className="p-6 sm:p-8 rounded-2xl border border-white/15 bg-[#0c1224] hover:border-violet-500/40 transition-all shadow-2xl shadow-black/40 backdrop-blur-md"
                       >
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
                           {/* Left Column on Desktop */}
@@ -1052,7 +1057,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                           className={`p-3.5 rounded-xl border transition-all cursor-pointer space-y-1.5 ${
                             isSelected
                               ? 'border-pink-500/60 bg-gradient-to-r from-pink-500/15 via-violet-500/10 to-slate-900/60 shadow-lg shadow-pink-950/20'
-                              : 'border-white/10 bg-slate-900/40 hover:bg-slate-900/70 hover:border-white/20'
+                              : 'border-white/15 bg-[#0c1224] hover:border-white/25'
                           }`}
                         >
                           <div className="flex items-center justify-between">
@@ -1061,7 +1066,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                                 className={`w-6 h-6 rounded-md border flex items-center justify-center font-mono text-xs font-bold ${
                                   isSelected
                                     ? 'bg-pink-500 text-white border-pink-400'
-                                    : 'bg-pink-500/10 border-pink-500/20 text-pink-400'
+                                    : 'bg-pink-500/10 border-pink-500/20 text-violet-400'
                                 }`}
                               >
                                 {s.step}
@@ -1127,7 +1132,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                 {/* Left: Content */}
                 <div className="lg:col-span-6 space-y-4">
                   <div>
-                    <span className="text-[11px] font-mono uppercase tracking-widest text-pink-400 font-bold block mb-1">
+                    <span className="text-[11px] font-mono uppercase tracking-widest text-violet-400 font-bold block mb-1">
                       {config.copy?.setupLabel || 'Configuration & Workflow'}
                     </span>
                     <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
@@ -1150,7 +1155,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                           className="p-3.5 rounded-xl border border-white/10 bg-slate-900/40 space-y-1.5"
                         >
                           <div className="flex items-center gap-2.5">
-                            <span className="w-5 h-5 rounded-md bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400 font-mono text-xs">
+                            <span className="w-5 h-5 rounded-md bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-violet-400 font-mono text-xs">
                               {s.step}
                             </span>
                             <h3 className="text-sm font-semibold text-white">
@@ -1346,7 +1351,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
             {config.troubleshooting.map((item, i) => (
               <div
                 key={i}
-                className="p-4 rounded-xl border border-white/10 bg-slate-900/40 space-y-2 hover:border-violet-500/40 transition-all"
+                className="p-4 rounded-xl border border-white/15 bg-[#0c1224] space-y-2 hover:border-violet-500/40 transition-all shadow-md backdrop-blur-sm"
               >
                 <div className="flex items-start gap-2 text-white font-semibold text-xs sm:text-sm">
                   <HelpCircle className="w-4 h-4 shrink-0 mt-0.5 text-violet-400" />

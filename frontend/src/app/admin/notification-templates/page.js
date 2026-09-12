@@ -683,7 +683,7 @@ export default function NotificationManagerPage() {
       case "payments & credits":
       case "billing": return <CreditCard className="w-4 h-4 text-purple-400" />;
       case "lead management":
-      case "crm": return <Users className="w-4 h-4 text-pink-400" />;
+      case "crm": return <Users className="w-4 h-4 text-violet-400" />;
       case "broadcast & workflow":
       case "workflow": return <GitMerge className="w-4 h-4 text-blue-400" />;
       case "reports": return <Gauge className="w-4 h-4 text-amber-400" />;

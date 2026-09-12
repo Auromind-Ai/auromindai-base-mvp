@@ -92,7 +92,7 @@ const CHANNELS_DATA = [
         id: 'instagram',
         name: 'Instagram',
         subHeader: 'Meta Business',
-        badgeColor: 'bg-pink-500/20 text-pink-400 border border-pink-500/30',
+        badgeColor: 'bg-pink-500/20 text-violet-400 border border-pink-500/30',
         description: 'Sync DMs and comments from Instagram to your Unified Inbox.',
         iconBg: 'from-pink-500 via-red-500 to-yellow-500',
         cardBorderClass: 'border border-[#C7368D]',
@@ -677,7 +677,7 @@ function ChannelDetailsModal({
                                     Connected Account
                                 </label>
                                 <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-                                    <span className="text-xs sm:text-[13px] text-pink-400 font-medium truncate">
+                                    <span className="text-xs sm:text-[13px] text-violet-400 font-medium truncate">
                                         {info || "Connected"}
                                     </span>
                                     {info && info !== "Connected" && (
