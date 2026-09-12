@@ -259,7 +259,7 @@ export const GETTING_STARTED_ARTICLES = {
             instruction: "Navigate to https://orbionagents.com/signup or click 'Get Started Free' on the main navigation header.",
             uiElements: ["'Get Started Free' button", "Signup Portal (/signup)"],
             screenshot: {
-              src: "/docs/screenshots/account-step-1-landing.png",
+              src: "/images/docs/screenshots/account-step-1-landing.png",
               alt: "OrbionAgents Landing Page Hero",
               caption: "OrbionAgents Landing Page: Click 'Get Started Free' or visit /signup to start onboarding."
             }
@@ -270,7 +270,7 @@ export const GETTING_STARTED_ARTICLES = {
             instruction: "Enter your Full Name and Work Email, then click 'Create Account'. Alternatively, click 'Continue with Google' for instantaneous 1-click authentication without manual form entry.",
             uiElements: ["'Full Name' input", "'Work Email' input", "'Continue with Google' button"],
             screenshot: {
-              src: "/docs/screenshots/account-step-2-signup.png",
+              src: "/images/docs/screenshots/account-step-2-signup.png",
               alt: "Create Account Signup Form",
               caption: "Select your signup method: 1-Click Google OAuth or passwordless Email OTP."
             }
@@ -281,7 +281,7 @@ export const GETTING_STARTED_ARTICLES = {
             instruction: "Check your email inbox for the verification message from Orbion. Enter the 6-digit OTP code on the verification screen and click 'Verify OTP'.",
             uiElements: ["'Enter OTP' screen", "6-digit OTP field", "'Verify OTP' button"],
             screenshot: {
-              src: "/docs/screenshots/account-step-3-otp.png",
+              src: "/images/docs/screenshots/account-step-3-otp.png",
               alt: "Enter 6-Digit OTP Code verification screen",
               caption: "Check your inbox and enter the 6-digit OTP to securely verify your email."
             }
@@ -292,7 +292,7 @@ export const GETTING_STARTED_ARTICLES = {
             instruction: "Upon successful OTP verification, your session token is saved, your workspace is provisioned with Owner permissions, and you land directly on the Admin Dashboard (/user/admin/dashboard).",
             uiElements: ["Admin Dashboard (/user/admin/dashboard)", "Omni-Inbox & AI Brain access"],
             screenshot: {
-              src: "/docs/screenshots/account-step-4-dashboard.png",
+              src: "/images/docs/screenshots/account-step-4-dashboard.png",
               alt: "Admin Dashboard launch interface",
               caption: "Automated workspace launch into the Admin Dashboard with Owner privileges."
             }
@@ -377,7 +377,7 @@ export const GETTING_STARTED_ARTICLES = {
             instruction: "Open the Flows dashboard from the left sidebar navigation. Click the '+ Create Flow' button in the upper right to launch a fresh visual automation canvas.",
             uiElements: ["Flows dashboard", "'+ Create Flow' button", "Flow Quota Usage indicator"],
             screenshot: {
-              src: "/docs/screenshots/quickstart-step-1-create-flow.png",
+              src: "/images/docs/screenshots/quickstart-step-1-create-flow.png",
               alt: "Click + Create Flow on Flows Dashboard",
               caption: "Navigate to Flows and click '+ Create Flow' to start building your agent workflow."
             }
@@ -388,7 +388,7 @@ export const GETTING_STARTED_ARTICLES = {
             instruction: "On the flow builder canvas, connect the initial Trigger to an AI Reply Action node. In the Configuration sidebar on the right, set Action Type to 'AI Reply (Brain)', select Agent Type as 'LEAD', choose your Business Type (e.g. 'SaaS'), and enter the Lead Fields you want to collect (such as 'name,email,phone,budget'). You can also enable options like Demo Booking.",
             uiElements: ["Init Trigger node", "AI Reply (Action) node", "Agent Type: LEAD", "Business Type (SaaS)", "Lead Fields (name,email,phone,budget)", "Enable Demo Booking"],
             screenshot: {
-              src: "/docs/screenshots/quickstart-step-2-lead-agent.png",
+              src: "/images/docs/screenshots/quickstart-step-2-lead-agent.png",
               alt: "AI Reply Configuration with Lead Agent and Fields",
               caption: "Configure your AI Lead Agent with Business Type and specific Lead Fields to automatically extract customer details."
             }
@@ -399,7 +399,7 @@ export const GETTING_STARTED_ARTICLES = {
             instruction: "Navigate to Channels from the sidebar. Under Messaging Channels, select WhatsApp Business (Meta Cloud API) or Instagram, and click 'Connect' to authenticate your business account and link incoming messages to your active AI agent flow.",
             uiElements: ["Channels console", "WhatsApp Business (Meta Cloud API)", "Instagram (Meta Business)", "'Connected' status pill"],
             screenshot: {
-              src: "/docs/screenshots/quickstart-step-3-channels.png",
+              src: "/images/docs/screenshots/quickstart-step-3-channels.png",
               alt: "Channels Dashboard with WhatsApp Business Connected",
               caption: "Connect WhatsApp Business or Instagram so inbound conversations are routed to your configured AI Lead agent."
             }
@@ -410,7 +410,7 @@ export const GETTING_STARTED_ARTICLES = {
             instruction: "Once your flow is synced and your channel is connected, your AI Lead agent is live 24/7! Inbound customer chats on WhatsApp or Instagram stream directly into the Omni-Inbox. The AI engages prospects, answers questions, gathers their name, email, phone, and budget, and logs the qualified lead into your CRM. You can monitor live conversations and take over with human intervention anytime.",
             uiElements: ["Omni-Inbox", "Live message stream", "Contact Details & Lead tags", "'Human Takeover' control toggle"],
             screenshot: {
-              src: "/docs/screenshots/quickstart-step-4-live-inbox.png",
+              src: "/images/docs/screenshots/quickstart-step-4-live-inbox.png",
               alt: "Omni-Inbox Live WhatsApp Conversation & Lead Qualification",
               caption: "Inbound customer chats stream live into the Omni-Inbox where AI handles inquiries and captures qualified leads."
             }
@@ -477,7 +477,7 @@ export const GETTING_STARTED_ARTICLES = {
           }
         ],
         screenshot: {
-          src: "/docs/screenshots/dashboard-full-preview.png",
+          src: "/images/docs/screenshots/dashboard-full-preview.png",
           alt: "Executive Dashboard Full Overview",
           caption: "Full panoramic view of the Executive Dashboard (/user/admin/dashboard)",
           annotation: "Dashboard Console",
@@ -505,7 +505,7 @@ export const GETTING_STARTED_ARTICLES = {
           }
         ],
         screenshot: {
-          src: "/docs/screenshots/dashboard-credits-wallet.png",
+          src: "/images/docs/screenshots/dashboard-credits-wallet.png",
           alt: "AI Models Usage & WhatsApp Wallet Card",
           caption: "AI Models token meter (99.9% Left) and WhatsApp messaging wallet balance (₹3,000)",
           annotation: "Credits & Wallet",
@@ -533,7 +533,7 @@ export const GETTING_STARTED_ARTICLES = {
           }
         ],
         screenshot: {
-          src: "/docs/screenshots/dashboard-bento-kpis.png",
+          src: "/images/docs/screenshots/dashboard-bento-kpis.png",
           alt: "4 Bento Performance Metric Cards",
           caption: "4 Bento KPI cards: Total Revenue (₹0), Active Leads (0), Conversion Rate (0.0%), Avg. Response Time (< 1m)",
           annotation: "Core Bento Metrics",
@@ -543,9 +543,9 @@ export const GETTING_STARTED_ARTICLES = {
       {
         id: "activity-feed",
         title: "Real-Time Recent Activity Feed",
-        subtitle: "Live chronological audit trail of workspace events",
+        subtitle: "Live chronological timeline of inbound chats, qualification events, and deals",
         type: "text",
-        content: "Streams every customer interaction, captured lead, AI qualification update, scheduled demo, and closed sale across all channels in real time.",
+        content: "A continuous live telemetry log detailing customer engagements as they happen across all linked messaging touchpoints.",
         bullets: [
           { 
             label: "What is it? (What Data Is In It?)", 
@@ -561,7 +561,7 @@ export const GETTING_STARTED_ARTICLES = {
           }
         ],
         screenshot: {
-          src: "/docs/screenshots/dashboard-recent-activity.png",
+          src: "/images/docs/screenshots/dashboard-recent-activity.png",
           alt: "Real-Time Recent Activity Feed Widget",
           caption: "Chronological activity audit: Inbound messages, lead captures, hot scoring (88 pts), and won deals (₹85,000)",
           annotation: "Audit Stream",
@@ -589,7 +589,7 @@ export const GETTING_STARTED_ARTICLES = {
           }
         ],
         screenshot: {
-          src: "/docs/screenshots/dashboard-ai-insights.png",
+          src: "/images/docs/screenshots/dashboard-ai-insights.png",
           alt: "AI Insights & Recommendations Widget",
           caption: "Autonomous AI Insights: Hot Leads Ready to Convert, Human Attention Required, and AI Booked Meetings",
           annotation: "Intelligence Engine",
@@ -617,7 +617,7 @@ export const GETTING_STARTED_ARTICLES = {
           }
         ],
         screenshot: {
-          src: "/docs/screenshots/dashboard-monthly-revenue.png",
+          src: "/images/docs/screenshots/dashboard-monthly-revenue.png",
           alt: "Monthly Revenue Comparative Spline Chart",
           caption: "Monthly comparative revenue line chart (2026 Neon Green vs 2025 Purple)",
           annotation: "Revenue Analytics",
@@ -645,7 +645,7 @@ export const GETTING_STARTED_ARTICLES = {
           }
         ],
         screenshot: {
-          src: "/docs/screenshots/dashboard-quick-actions.png",
+          src: "/images/docs/screenshots/dashboard-quick-actions.png",
           alt: "Top-Bar Telemetry & Quick Action Buttons",
           caption: "Quick Action buttons: New workflow, Broadcast, Add Lead, and Connect Channel",
           annotation: "Operational Controls",

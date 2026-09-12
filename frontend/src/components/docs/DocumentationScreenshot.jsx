@@ -19,31 +19,22 @@ export default function DocumentationScreenshot({
   scrollPreview,
 }) {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [fallbackSrc, setFallbackSrc] = useState(null);
   const [hasError, setHasError] = useState(false);
-  const [lastSrc, setLastSrc] = useState(src);
 
-  // If src changed from parent, reset fallbackSrc and error during render
-  if (src !== lastSrc) {
-    setLastSrc(src);
-    setFallbackSrc(null);
+  // Always normalize any incoming path so it strictly uses the actual lowercase folder: /images/docs/
+  const normalizedSrc = typeof src === "string" ? src.replace(/\/images\/Docs\//g, "/images/docs/") : src;
+  const [lastSrc, setLastSrc] = useState(normalizedSrc);
+
+  // If src changed from parent, reset error during render
+  if (normalizedSrc !== lastSrc) {
+    setLastSrc(normalizedSrc);
     setHasError(false);
   }
 
-  const currentSrc = fallbackSrc || src;
+  const currentSrc = normalizedSrc;
 
   const handleImageError = () => {
-    if (!fallbackSrc && src) {
-      if (src.includes('/images/docs/')) {
-        setFallbackSrc(src.replace('/images/docs/', '/images/Docs/'));
-      } else if (src.includes('/images/Docs/')) {
-        setFallbackSrc(src.replace('/images/Docs/', '/images/docs/'));
-      } else {
-        setHasError(true);
-      }
-    } else {
-      setHasError(true);
-    }
+    setHasError(true);
   };
 
   // If a real screenshot exists, render the image directly

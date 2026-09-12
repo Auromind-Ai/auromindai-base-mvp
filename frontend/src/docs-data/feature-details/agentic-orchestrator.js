@@ -15,7 +15,7 @@ export const agenticOrchestratorDetail = {
   tagline: 'Visual drag-and-drop orchestration canvas connecting triggers, AI intent classifiers, decision branches, and automated actions.',
   description: 'Design multi-step customer journeys without writing code. Connect inbound triggers, AI classification gates, conditional logic, and automated WhatsApp or webhook actions seamlessly on an interactive canvas.',
   heroVideo: {
-    url: '/docs/videos/Screen Recording 2026-09-11 104247.mp4',
+    url: '/images/docs/videos/Screen Recording 2026-09-11 104247.mp4',
     title: 'Automation Wire (Flow Builder) Walkthrough',
     asGif: true,
     objectFit: 'contain',
@@ -24,7 +24,7 @@ export const agenticOrchestratorDetail = {
   visualKey: 'automation',
   screenshots: {
     verification: {
-      src: '/docs/screenshots/flow-verification-active.png',
+      src: '/images/docs/screenshots/flow-verification-active.png',
       alt: 'Flows dashboard verification console showing active status switch',
       label: 'Live Verification & State Audit',
       statusLabel: 'Status: Active',
@@ -42,7 +42,7 @@ export const agenticOrchestratorDetail = {
       title: 'Multi-Step Sequential Linking',
       subtitle: 'Connect graph nodes via directional bezier cables and validate execution path health.',
       description: 'Multi-step sequential linking defines the flow of execution from one node to the next in the visual canvas. Nodes communicate through circular output ports connected via directional bezier cables to input ports on subsequent steps, forming a deterministic directed acyclic execution graph.',
-      image: '/docs/screenshots/flow-tool-linking.png',
+      image: '/images/docs/screenshots/flow-tool-linking.png',
       caption: 'Multi-step sequential linking: Connect nodes using directional bezier cables to form an execution path.',
       keyPoints: [
         'Drag-and-Drop Cable Routing: Click the circular output handle (right side) of any node and drag a purple bezier cable to the input port (left side) of the target node.',
@@ -75,8 +75,8 @@ export const agenticOrchestratorDetail = {
       title: 'Magic Wire (AI Flow Generation)',
       subtitle: 'Turn plain-English descriptions into complete production-ready node graphs instantly.',
       description: 'Magic Wire is an agentic workflow synthesis engine embedded inside the visual canvas. Instead of manually dragging, positioning, and configuring dozens of nodes, you provide a plain English prompt describing your desired customer journey, and Magic Wire generates the complete node graph automatically in seconds.',
-      image: '/docs/screenshots/flow-tool-magic-wire.png',
-      video: '/docs/videos/magic-wire-demo.mp4',
+      image: '/images/docs/screenshots/flow-tool-magic-wire.png',
+      video: '/images/docs/videos/magic-wire-demo.mp4',
       caption: 'Magic Wire AI generation: Generate complete, wired node graphs from natural language prompts.',
       keyPoints: [
         'Plain-English Flow Prompting: Type what you want the chatbot to do in simple conversational language (e.g. "Ask requirements, evaluate budget, route VIPs to support").',
@@ -109,7 +109,7 @@ export const agenticOrchestratorDetail = {
       title: 'Conditional Logic & Decision Nodes',
       subtitle: 'Dynamic branching based on customer input keywords, urgency, sentiment, and qualification rules.',
       description: 'Decision Nodes are conditional branching splitters inside the visual canvas. When a customer sends a message or responds to a prompt, the Decision Node evaluates rules (e.g. contains keyword, matches regex, sentiment threshold, or lead score value) and immediately routes execution down the matching branch with sub-second latency.',
-      image: '/docs/screenshots/flow-tool-conditional.png',
+      image: '/images/docs/screenshots/flow-tool-conditional.png',
       caption: 'Conditional Logic & Decision Nodes: Evaluate rules to split execution down True and False paths.',
       keyPoints: [
         'Smart Rule Evaluation: Split customer journeys based on user input, keywords, numeric thresholds (e.g. budget > 5000), or sentiment tags.',
@@ -142,7 +142,7 @@ export const agenticOrchestratorDetail = {
       title: 'Interactive Button Menus & Bots',
       subtitle: 'Deliver native WhatsApp interactive quick-reply buttons and multi-choice list pickers.',
       description: 'Interactive menus replace manual text typing with structured WhatsApp and Instagram UI elements. By sending native quick-reply buttons (up to 3 per message) or multi-choice list pickers (up to 10 options), customers tap to choose their intent, drastically reducing response friction and typos.',
-      image: '/docs/screenshots/flow-tool-interactive.png',
+      image: '/images/docs/screenshots/flow-tool-interactive.png',
       caption: 'Interactive Button Menus: WhatsApp Quick Replies and structured List Pickers with dedicated output ports.',
       keyPoints: [
         'WhatsApp Quick-Reply Buttons: Present up to 3 high-contrast clickable buttons for instant one-touch choices without manual typing.',
@@ -170,8 +170,8 @@ export const agenticOrchestratorDetail = {
     }
   ],
   videoPlaceholder: {
-    url: '/docs/videos/agentic-orchestrator-walkthrough.mp4',
-    fallbackUrl: '/docs/videos/agentic-orchestrator-walkthrough.mov',
+    url: '/images/docs/videos/agentic-orchestrator-walkthrough.mp4',
+    fallbackUrl: '/images/docs/videos/agentic-orchestrator-walkthrough.mov',
     label: 'Flow Walkthrough Tour',
     title: 'Building & Testing Chatbot Flows in Visual Canvas',
     description: 'Watch how to drag and drop conversational nodes, configure smart AI intent routing, and test your chatbot flows in real time.',
@@ -256,7 +256,7 @@ export const agenticOrchestratorDetail = {
       ],
       linkText: 'Explore Flow Templates',
       linkUrl: '/user/admin/flows',
-      image: '/docs/screenshots/flow-step-1.png',
+      image: '/images/docs/screenshots/flow-step-1.png',
       caption: 'Step 1: Flows dashboard with "+ Create Flow" button to initialize a new chatbot flow.'
     },
     {
@@ -272,7 +272,7 @@ export const agenticOrchestratorDetail = {
       ],
       linkText: 'About Triggers & Channels',
       linkUrl: '#flow-tools',
-      image: '/docs/screenshots/flow-step-2.png',
+      image: '/images/docs/screenshots/flow-step-2.png',
       caption: 'Step 2: Configuring inbound trigger messages and keyword conditions.'
     },
     {
@@ -288,7 +288,7 @@ export const agenticOrchestratorDetail = {
       ],
       linkText: 'Designing Interactive Messages',
       linkUrl: '#flow-tools',
-      image: '/docs/screenshots/flow-step-3.png',
+      image: '/images/docs/screenshots/flow-step-3.png',
       caption: 'Step 3: Connecting the Trigger node to interactive greeting and message blocks.'
     },
     {
@@ -304,7 +304,7 @@ export const agenticOrchestratorDetail = {
       ],
       linkText: 'Variables & User Attributes',
       linkUrl: '#flow-tools',
-      image: '/docs/screenshots/flow-step-4.png',
+      image: '/images/docs/screenshots/flow-step-4.png',
       caption: 'Step 4: Using the Ask Question node to capture customer input into variables.'
     },
     {
@@ -322,7 +322,7 @@ export const agenticOrchestratorDetail = {
       ],
       linkText: 'Conditional Routing & Decision Gates',
       linkUrl: '#flow-tools',
-      image: '/docs/screenshots/flow-step-5.png',
+      image: '/images/docs/screenshots/flow-step-5.png',
       caption: 'Step 5: If / Else branching node splitting the flow into True and False paths.'
     },
     {
@@ -338,7 +338,7 @@ export const agenticOrchestratorDetail = {
       ],
       linkText: 'Testing & Simulator Tools',
       linkUrl: '#verification',
-      image: '/docs/screenshots/flow-step-6.png',
+      image: '/images/docs/screenshots/flow-step-6.png',
       caption: 'Step 6: Click "Sync Wire" in the top bar to save and sync your complete workflow.'
     }
   ],

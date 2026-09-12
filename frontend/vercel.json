@@ -2,5 +2,19 @@
     "installCommand": "npm install --legacy-peer-deps",
     "regions": [
         "iad1"
+    ],
+    "rewrites": [
+        {
+            "source": "/images/Docs/:match*",
+            "destination": "/images/docs/:match*"
+        },
+        {
+            "source": "/docs/screenshots/:match*",
+            "destination": "/images/docs/screenshots/:match*"
+        },
+        {
+            "source": "/docs/videos/:match*",
+            "destination": "/images/docs/videos/:match*"
+        }
     ]
 }

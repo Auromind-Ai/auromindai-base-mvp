@@ -124,6 +124,14 @@ const nextConfig = {
                 destination: '/images/docs/:path*',
             },
             {
+                source: '/docs/screenshots/:path*',
+                destination: '/images/docs/screenshots/:path*',
+            },
+            {
+                source: '/docs/videos/:path*',
+                destination: '/images/docs/videos/:path*',
+            },
+            {
                 source: '/api/:path*',
                 destination: `${BACKEND_URL}/:path*`,
             },
