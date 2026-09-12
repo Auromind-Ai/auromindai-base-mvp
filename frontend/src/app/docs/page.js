@@ -48,10 +48,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/features/agentic-orchestrator',
     tag: '5 min setup',
     icon: Workflow,
-    glowColor: 'bg-teal-500/25',
-    iconStyle: 'bg-teal-500/15 border-teal-500/30 text-teal-300 group-hover:bg-teal-600 group-hover:border-teal-500 group-hover:text-white',
-    accentBorder: 'group-hover:border-teal-500/50',
-    actionColor: 'text-teal-400 group-hover:text-teal-300',
+    glowColor: 'bg-[#0f8b6c]/20',
+    iconStyle: 'bg-[#0f8b6c] text-white shadow-[0_0_24px_rgba(15,139,108,0.65)]',
+    accentBorder: 'border-white/[0.08]',
+    hoverColor: 'group-hover:text-[#0f8b6c]',
   },
   {
     title: 'Connect WhatsApp Business Cloud API',
@@ -59,10 +59,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/integrations/whatsapp-cloud-api',
     tag: 'Enterprise Meta API',
     icon: Phone,
-    glowColor: 'bg-amber-500/25',
-    iconStyle: 'bg-amber-500/15 border-amber-500/30 text-amber-300 group-hover:bg-amber-600 group-hover:border-amber-500 group-hover:text-white',
-    accentBorder: 'group-hover:border-amber-500/50',
-    actionColor: 'text-amber-400 group-hover:text-amber-300',
+    glowColor: 'bg-[#a45422]/20',
+    iconStyle: 'bg-[#a45422] text-white shadow-[0_0_24px_rgba(164,84,34,0.65)]',
+    accentBorder: 'border-white/[0.08]',
+    hoverColor: 'group-hover:text-[#a45422]',
   },
   {
     title: 'Ingest company PDFs into AI Brain',
@@ -70,10 +70,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/features/brain-rag',
     tag: 'RAG Knowledge',
     icon: Cpu,
-    glowColor: 'bg-rose-500/25',
-    iconStyle: 'bg-rose-500/15 border-rose-500/30 text-rose-300 group-hover:bg-rose-600 group-hover:border-rose-500 group-hover:text-white',
-    accentBorder: 'group-hover:border-rose-500/50',
-    actionColor: 'text-rose-400 group-hover:text-rose-300',
+    glowColor: 'bg-[#9f1239]/20',
+    iconStyle: 'bg-[#9f1239] text-white shadow-[0_0_20px_rgba(159,18,57,0.5)]',
+    accentBorder: 'border-white/[0.08]',
+    hoverColor: 'group-hover:text-rose-400',
   },
   {
     title: 'Manage live customer conversations',
@@ -81,10 +81,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/features/omni-inbox',
     tag: 'Omni-Channel',
     icon: MessageSquare,
-    glowColor: 'bg-blue-500/25',
-    iconStyle: 'bg-blue-500/15 border-blue-500/30 text-blue-300 group-hover:bg-blue-600 group-hover:border-blue-500 group-hover:text-white',
-    accentBorder: 'group-hover:border-blue-500/50',
-    actionColor: 'text-blue-400 group-hover:text-blue-300',
+    glowColor: 'bg-[#245bb5]/20',
+    iconStyle: 'bg-[#245bb5] text-white shadow-[0_0_24px_rgba(36,91,181,0.65)]',
+    accentBorder: 'border-white/[0.08]',
+    hoverColor: 'group-hover:text-[#245bb5]',
   },
   {
     title: 'Qualify & score inbound leads',
@@ -92,10 +92,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/features/leads-crm',
     tag: 'CRM Pipeline',
     icon: Bot,
-    glowColor: 'bg-purple-500/25',
-    iconStyle: 'bg-purple-500/15 border-purple-500/30 text-purple-300 group-hover:bg-purple-600 group-hover:border-purple-500 group-hover:text-white',
-    accentBorder: 'group-hover:border-purple-500/50',
-    actionColor: 'text-purple-400 group-hover:text-purple-300',
+    glowColor: 'bg-[#5851ea]/20',
+    iconStyle: 'bg-[#5851ea] text-white shadow-[0_0_24px_rgba(88,81,234,0.65)]',
+    accentBorder: 'border-white/[0.08]',
+    hoverColor: 'group-hover:text-[#5851ea]',
   },
   {
     title: 'Lead follow-ups with WhatsApp templates',
@@ -103,10 +103,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/features/templates',
     tag: 'WhatsApp Templates',
     icon: Send,
-    glowColor: 'bg-emerald-500/25',
-    iconStyle: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 group-hover:bg-emerald-600 group-hover:border-emerald-500 group-hover:text-white',
-    accentBorder: 'group-hover:border-emerald-500/50',
-    actionColor: 'text-emerald-400 group-hover:text-emerald-300',
+    glowColor: 'bg-[#0f8b6c]/20',
+    iconStyle: 'bg-[#0f8b6c] text-white shadow-[0_0_24px_rgba(15,139,108,0.65)]',
+    accentBorder: 'border-white/[0.08]',
+    hoverColor: 'group-hover:text-[#0f8b6c]',
   },
 ];
 
@@ -230,7 +230,7 @@ export default function DocsHomePage() {
               <Sparkles className="w-3.5 h-3.5" />
               <span>Recommended Blueprints</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
               Popular Workflows
             </h2>
             <p className="text-xs sm:text-sm text-zinc-400 mt-1">
@@ -247,20 +247,20 @@ export default function DocsHomePage() {
               <Link
                 key={idx}
                 href={wf.href}
-                className={`p-6 sm:p-7 rounded-[26px] border border-white/[0.08] bg-[#16161a]/95 hover:bg-[#191920] ${wf.accentBorder} transition-all duration-300 group flex flex-col justify-between shadow-2xl shadow-black/70 hover:-translate-y-1 relative overflow-hidden min-h-[250px] backdrop-blur-xl`}
+                className="p-6 sm:p-7 rounded-[26px] border border-white/[0.08] bg-[#16161a]/95 transition-colors duration-200 group flex flex-col justify-between shadow-2xl shadow-black/70 relative overflow-hidden min-h-[250px] backdrop-blur-xl"
               >
                 {/* Atmospheric Ambient Glow */}
                 <div
-                  className={`absolute -top-12 -right-12 w-48 h-48 ${wf.glowColor} rounded-full blur-3xl pointer-events-none opacity-40 group-hover:opacity-75 transition-opacity duration-500`}
+                  className={`absolute -top-12 -right-12 w-48 h-48 ${wf.glowColor} rounded-full blur-3xl pointer-events-none opacity-40`}
                 />
                 <div
-                  className={`absolute -bottom-12 -left-12 w-36 h-36 ${wf.glowColor} rounded-full blur-3xl pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity duration-500`}
+                  className={`absolute -bottom-12 -left-12 w-36 h-36 ${wf.glowColor} rounded-full blur-3xl pointer-events-none opacity-20`}
                 />
 
                 {/* TOP ROW: Icon Container & Tag Pill */}
                 <div className="flex items-center justify-between relative z-10 mb-4">
                   <div
-                    className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all duration-300 shadow-md ${wf.iconStyle}`}
+                    className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-md ${wf.iconStyle}`}
                   >
                     <Icon className="w-5 h-5" />
                   </div>
@@ -271,7 +271,7 @@ export default function DocsHomePage() {
 
                 {/* MIDDLE: Title & Description */}
                 <div className="relative z-10 mb-4 flex-1">
-                  <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight leading-snug group-hover:text-white transition-colors">
+                  <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight leading-snug">
                     {wf.title}
                   </h3>
                   <p className="text-xs sm:text-[13px] text-zinc-400 leading-relaxed line-clamp-2 font-normal mt-2">
@@ -281,10 +281,10 @@ export default function DocsHomePage() {
 
                 {/* BOTTOM: Action Guide Link */}
                 <div
-                  className={`pt-3.5 border-t border-white/[0.06] flex items-center justify-between text-xs font-semibold ${wf.actionColor} relative z-10 transition-colors`}
+                  className="pt-3.5 border-t border-white/[0.06] flex items-center justify-between text-xs font-semibold text-white relative z-10"
                 >
-                  <span>Start Guide</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1.5 transition-transform" />
+                  <span className={`transition-colors duration-200 ${wf.hoverColor}`}>Start Guide</span>
+                  <ArrowRight className={`w-3.5 h-3.5 transition-all duration-200 group-hover:translate-x-1.5 ${wf.hoverColor}`} />
                 </div>
               </Link>
             );
@@ -300,7 +300,7 @@ export default function DocsHomePage() {
               <Layers className="w-3.5 h-3.5" />
               <span>Product Showcase</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
               Core Capabilities &amp; Architecture
             </h2>
             <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-3xl">
