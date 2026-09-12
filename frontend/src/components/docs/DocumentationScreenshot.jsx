@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 import { Camera, Maximize2, X, Layers } from "lucide-react";
 
@@ -19,21 +19,28 @@ export default function DocumentationScreenshot({
   scrollPreview,
 }) {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [currentSrc, setCurrentSrc] = useState(src);
+  const [fallbackSrc, setFallbackSrc] = useState(null);
   const [hasError, setHasError] = useState(false);
+  const [lastSrc, setLastSrc] = useState(src);
 
-  useEffect(() => {
-    setCurrentSrc(src);
+  // If src changed from parent, reset fallbackSrc and error during render
+  if (src !== lastSrc) {
+    setLastSrc(src);
+    setFallbackSrc(null);
     setHasError(false);
-  }, [src]);
+  }
+
+  const currentSrc = fallbackSrc || src;
 
   const handleImageError = () => {
-    if (currentSrc && currentSrc.includes('/images/docs/')) {
-      // Fallback from /images/docs/ to /images/Docs/
-      setCurrentSrc(currentSrc.replace('/images/docs/', '/images/Docs/'));
-    } else if (currentSrc && currentSrc.includes('/images/Docs/')) {
-      // Fallback from /images/Docs/ to /images/docs/
-      setCurrentSrc(currentSrc.replace('/images/Docs/', '/images/docs/'));
+    if (!fallbackSrc && src) {
+      if (src.includes('/images/docs/')) {
+        setFallbackSrc(src.replace('/images/docs/', '/images/Docs/'));
+      } else if (src.includes('/images/Docs/')) {
+        setFallbackSrc(src.replace('/images/Docs/', '/images/docs/'));
+      } else {
+        setHasError(true);
+      }
     } else {
       setHasError(true);
     }

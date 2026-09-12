@@ -122,6 +122,20 @@ const nextConfig = {
             {
                 source: '/images/Docs/:path*',
                 destination: '/images/docs/:path*',
+                source: '/images/docs/workspace/:path*',
+                destination: '/images/Docs/workspace/:path*',
+            },
+            {
+                source: '/images/Docs/email-calendar/:path*',
+                destination: '/images/docs/email-calendar/:path*',
+            },
+            {
+                source: '/images/Docs/whatsapp-connect/:path*',
+                destination: '/images/docs/whatsapp-connect/:path*',
+            },
+            {
+                source: '/images/Docs/whatsapp_template/:path*',
+                destination: '/images/docs/whatsapp_template/:path*',
             },
             {
                 source: '/api/:path*',

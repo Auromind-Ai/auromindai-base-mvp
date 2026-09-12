@@ -307,7 +307,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   <span className="text-[10px] font-mono text-zinc-500">Console View</span>
                 </div>
                 <DocumentationScreenshot
-                  src={config.heroScreenshot || '/images/docs/workspace/workspace_hero.png'}
+                  src={config.heroScreenshot || '/images/Docs/workspace/workspace_hero.png'}
                   alt={`${config.title} Product Interface`}
                   caption={config.heroCaption || `Interactive console view for ${config.title}`}
                   annotation="Live Interface"
