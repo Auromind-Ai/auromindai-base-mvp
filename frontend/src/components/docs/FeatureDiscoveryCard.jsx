@@ -23,24 +23,24 @@ export default function FeatureDiscoveryCard({
       {/* Ambient hover top gradient line */}
       <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/0 group-hover:via-emerald-500/60 to-transparent transition-all duration-500" />
 
-      {/* TOP: Image / Visual Showcase (NO internal border around the image) */}
-      <div className="w-full relative overflow-hidden rounded-2xl mb-5">
+      {/* TOP: Image / Visual Showcase (Uniform aspect ratio ensures identical vertical alignment across all cards) */}
+      <div className="w-full relative overflow-hidden rounded-2xl mb-5 bg-[#05060A]/60">
         {imageSrc ? (
-          <div className="relative w-full overflow-hidden rounded-2xl flex items-center justify-center">
+          <div className="relative w-full aspect-[16/10] overflow-hidden rounded-2xl flex items-center justify-center">
             <Image
               src={imageSrc}
               alt={title}
-              width={1200}
-              height={675}
-              className="w-full h-auto object-contain rounded-2xl transition-transform duration-500 group-hover:scale-[1.015]"
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-contain rounded-2xl transition-transform duration-500 group-hover:scale-[1.02]"
               priority={priority}
             />
             {/* Smooth bottom opacity gradient fade for seamless transition */}
-            <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#07080E] via-[#07080E]/30 to-transparent pointer-events-none" />
+            <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#07080E] via-[#07080E]/30 to-transparent pointer-events-none z-10" />
           </div>
         ) : (
           PreviewComponent && (
-            <div className="w-full rounded-2xl bg-[#030306]/90 p-2 sm:p-3 overflow-hidden relative">
+            <div className="w-full aspect-[16/10] rounded-2xl bg-[#030306]/90 p-2 sm:p-3 overflow-hidden relative flex items-center justify-center">
               <PreviewComponent />
             </div>
           )

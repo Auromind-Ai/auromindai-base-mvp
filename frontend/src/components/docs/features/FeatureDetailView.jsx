@@ -300,11 +300,11 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
             ) : config.visualKey === 'workspace' ? (
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-[11px] text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
                     {config.visualLabel || 'Live Product UI & Simulator'}
                   </span>
-                  <span className="text-[10px] font-mono text-zinc-500">Console View</span>
+                  <span className="text-[10px] text-zinc-500">Console View</span>
                 </div>
                 <DocumentationScreenshot
                   src={config.heroScreenshot || '/images/docs/workspace/workspace_hero.png'}
@@ -348,7 +348,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
           /* For Integrations (WhatsApp & Instagram) / Governance / Workspace: Full-width 2-column grid of capabilities */
           <div className="space-y-6">
             <div className="max-w-2xl">
-              <span className="text-[11px] uppercase tracking-widest text-cyan-400 font-bold block mb-1">
+              <span className="text-[11px] uppercase tracking-widest text-violet-400 font-bold block mb-1">
                 Why use it?
               </span>
               <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
@@ -365,7 +365,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   key={idx}
                   className="p-4 rounded-xl border border-white/15 bg-[#0c1224] hover:border-violet-500/30 transition-all flex items-start gap-3 shadow-md backdrop-blur-sm"
                 >
-                  <div className="w-7 h-7 rounded-md bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-xs shrink-0 mt-0.5 font-bold">
+                  <div className="w-7 h-7 rounded-md bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 text-xs shrink-0 mt-0.5 font-bold">
                     {idx + 1}
                   </div>
                   <div className="space-y-1">
@@ -374,7 +374,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                         {b.title}
                       </h3>
                       {b.highlight && (
-                        <span className="text-[10px] text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                        <span className="text-[10px] text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
                           {b.highlight}
                         </span>
                       )}
@@ -392,17 +392,19 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
           <div className={`grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 ${stretchBenefits ? 'items-stretch' : config.visualKey === 'leads' ? 'items-start' : 'items-center'}`}>
             {/* Left: Product Video / Media */}
             <div className="lg:col-span-6 order-2 lg:order-1 space-y-2">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-[11px] text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                  {config.screenshots?.benefits?.label || config.videoPlaceholder?.label || (config.benefitsPhoto ? 'Product Architecture & Flow' : 'Flow Walkthrough Tour')}
-                </span>
-                {!config.screenshots?.benefits && config.videoPlaceholder?.duration && (
-                  <span className="text-[10px] text-zinc-400">
-                    {config.videoPlaceholder.duration}
+              {(config.screenshots?.benefits?.label || (!config.screenshots?.benefits && (config.videoPlaceholder?.label || config.benefitsPhoto || config.videoUrl || config.videoPlaceholder))) ? (
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[11px] text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-violet-400" />
+                    {config.screenshots?.benefits?.label || config.videoPlaceholder?.label || (config.benefitsPhoto ? 'Product Architecture & Flow' : 'Flow Walkthrough Tour')}
                   </span>
-                )}
-              </div>
+                  {!config.screenshots?.benefits && config.videoPlaceholder?.duration && (
+                    <span className="text-[10px] text-zinc-400">
+                      {config.videoPlaceholder.duration}
+                    </span>
+                  )}
+                </div>
+              ) : null}
               {config.screenshots?.benefits ? (
                 <DocumentationScreenshot {...config.screenshots.benefits} />
               ) : config.benefitsPhoto ? (
@@ -450,7 +452,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
             {/* Right: Content */}
             <div className={`lg:col-span-6 order-1 lg:order-2 ${stretchBenefits ? 'flex flex-col gap-4' : 'space-y-4'} ${config.visualKey === 'leads' ? 'lg:pt-11 lg:pb-6' : ''}`}>
               <div>
-                <span className="text-[11px] uppercase tracking-widest text-cyan-400 font-bold block mb-1">
+                <span className="text-[11px] uppercase tracking-widest text-violet-400 font-bold block mb-1">
                   Why use it?
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
@@ -468,7 +470,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                     key={idx}
                     className="p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all flex items-start gap-3"
                   >
-                    <div className="w-7 h-7 rounded-md bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-bold text-xs shrink-0 mt-0.5">
+                    <div className="w-7 h-7 rounded-md bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 font-bold text-xs shrink-0 mt-0.5">
                       {idx + 1}
                     </div>
                     <div className="space-y-1">
@@ -477,7 +479,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                           {b.title}
                         </h3>
                         {b.highlight && (
-                          <span className="text-[10px] text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                          <span className="text-[10px] text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
                             {b.highlight}
                           </span>
                         )}
@@ -650,7 +652,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
             <section id="step-by-step-guide" className="scroll-mt-24 pt-8 border-t border-white/10 space-y-12 lg:space-y-16">
               {/* Section Header */}
               <div className="max-w-3xl space-y-3">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/25 text-violet-400 text-xs font-mono font-semibold">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/25 text-violet-400 text-xs font-semibold">
                   <ListChecks className="w-3.5 h-3.5" />
                   <span>Step-by-Step Operational Guide</span>
                   {config.setupSteps?.length && (
@@ -686,7 +688,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                       >
                         {/* Step Badge */}
                         <div className="flex items-center gap-2.5">
-                          <span className="px-3 py-1 rounded-md bg-[#814AC8] text-white font-mono text-xs font-bold shadow-md shadow-purple-900/30">
+                          <span className="px-3 py-1 rounded-md bg-[#814AC8] text-white text-xs font-bold shadow-md shadow-purple-900/30">
                             {s.stage || `Step ${s.step}`}
                           </span>
                         </div>
@@ -711,7 +713,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                         {/* Action Checklist Items */}
                         {s.actionItems && s.actionItems.length > 0 && (
                           <div className="space-y-2 pt-2">
-                            <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-bold block">
+                            <span className="text-[11px] uppercase tracking-wider text-zinc-400 font-bold block">
                               Action Checklist:
                             </span>
                             <ul className="space-y-2">
@@ -777,7 +779,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                 <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] space-y-4 mt-10">
                   <div className="flex items-center gap-2">
                     <Layers className="w-4 h-4 text-violet-400" />
-                    <span className="text-xs font-mono uppercase tracking-widest text-zinc-300 font-bold">
+                    <span className="text-xs tracking-widest text-zinc-300 font-bold">
                       Underlying Execution Pipeline Architecture:
                     </span>
                   </div>
@@ -785,7 +787,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                     {config.architecture.stages.map((st) => (
                       <div key={st.number} className="p-3.5 rounded-xl border border-white/5 bg-black/40 space-y-1.5">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono text-violet-400 font-bold bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
+                          <span className="text-[10px] text-violet-400 font-bold bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
                             S{st.number}
                           </span>
                           <span className="text-xs font-semibold text-zinc-200 truncate">
@@ -808,7 +810,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
             <section id="flow-tools" className="scroll-mt-24 pt-4 border-t border-white/10 space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <span className="text-[11px] font-mono uppercase tracking-widest text-violet-400 font-bold block mb-1">
+                  <span className="text-[11px] tracking-widest text-violet-400 font-bold block mb-1">
                     Integrated Toolset &amp; Capabilities
                   </span>
                   <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight flex items-center gap-2.5">
@@ -819,7 +821,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                     Explore the modular subsystems that power visual conversational automation.
                   </p>
                 </div>
-                <span className="text-xs font-mono text-zinc-400 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/10 w-fit">
+                <span className="text-xs text-zinc-400 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/10 w-fit">
                   {config.subModules.length} Integrated Modules
                 </span>
               </div>
@@ -839,7 +841,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-violet-400 shrink-0">
+                        <span className="text-xs font-bold text-violet-400 shrink-0">
                           0{idx + 1}
                         </span>
                         <span className="text-xs font-semibold text-white truncate">
@@ -860,7 +862,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                       {/* Left: Sub-Module Description & Steps */}
                       <div className="lg:col-span-6 space-y-4">
                         <div className="flex items-center gap-2">
-                          <span className="px-2.5 py-1 rounded-lg bg-violet-500/20 text-violet-300 font-mono text-xs font-bold border border-violet-500/30">
+                          <span className="px-2.5 py-1 rounded-lg bg-violet-500/20 text-violet-300 text-xs font-bold border border-violet-500/30">
                             Module: {activeMod.badge || activeMod.name || activeMod.title}
                           </span>
                         </div>
@@ -876,14 +878,14 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                         {/* Actionable Sub-Steps within module */}
                         {activeMod.steps && activeMod.steps.length > 0 && (
                           <div className="space-y-2 pt-2">
-                            <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-bold block">
+                            <span className="text-[11px] uppercase tracking-wider text-zinc-400 font-bold block">
                               How It Works:
                             </span>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                               {activeMod.steps.map((st) => (
                                 <div key={st.step} className="p-3 rounded-xl border border-white/10 bg-slate-900/40 space-y-1">
                                   <div className="flex items-center gap-1.5">
-                                    <span className="px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-400 font-mono text-[10px] font-bold">
+                                    <span className="px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px] font-bold">
                                       Step {st.step}
                                     </span>
                                     <h4 className="text-xs font-semibold text-white truncate">
@@ -935,7 +937,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
             <section id="configuration" className="scroll-mt-24 pt-4 border-t border-white/10 space-y-8">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <span className="text-[11px] font-mono uppercase tracking-widest text-violet-400 font-bold block mb-1">
+                  <span className="text-[11px] tracking-widest text-violet-400 font-bold block mb-1">
                     {config.copy?.setupLabel || 'Configuration & Guided Setup'}
                   </span>
                   <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
@@ -963,7 +965,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                       <div className="space-y-4">
                         {s.highlight && (
                           <div className="flex items-center gap-2.5">
-                            <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-zinc-300 font-mono text-xs">
+                            <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-zinc-300 text-xs">
                               {s.highlight}
                             </span>
                           </div>
@@ -979,14 +981,14 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
 
                         {s.uiElements && s.uiElements.length > 0 && (
                           <div className="pt-2 space-y-2">
-                            <span className="text-[11px] font-mono uppercase tracking-widest text-zinc-400 font-semibold block">
+                            <span className="text-[11px] tracking-widest text-zinc-400 font-semibold block">
                               Key Actions on Screen:
                             </span>
                             <div className="flex flex-wrap gap-1.5">
                               {s.uiElements.map((elem, eIdx) => (
                                 <span
                                   key={eIdx}
-                                  className="px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-xs text-zinc-300 font-mono flex items-center gap-1.5"
+                                  className="px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-xs text-zinc-300 flex items-center gap-1.5"
                                 >
                                   <CheckCircle2 className="w-3 h-3 text-violet-400 shrink-0" />
                                   {elem}
@@ -1045,7 +1047,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                 /* Default Layout for other features: clickable milestone list + sticky preview */
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
                   <div className="lg:col-span-6 space-y-2.5">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 block font-mono mb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 block mb-2">
                       Setup Milestones (Click to Inspect Screen):
                     </span>
                     {config.setupSteps.map((s, idx) => {
@@ -1063,7 +1065,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5">
                               <span
-                                className={`w-6 h-6 rounded-md border flex items-center justify-center font-mono text-xs font-bold ${
+                                className={`w-6 h-6 rounded-md border flex items-center justify-center text-xs font-bold ${
                                   isSelected
                                     ? 'bg-pink-500 text-white border-pink-400'
                                     : 'bg-pink-500/10 border-pink-500/20 text-violet-400'
@@ -1076,7 +1078,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                               </h3>
                             </div>
                             {s.highlight && (
-                              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-400 hidden sm:inline-block">
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-400 hidden sm:inline-block">
                                 {s.highlight}
                               </span>
                             )}
@@ -1095,11 +1097,11 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                         <div className="flex items-center justify-between px-1">
                           <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-pink-400 animate-pulse" />
-                            <span className="text-xs font-mono text-pink-300 font-semibold uppercase tracking-wider">
+                            <span className="text-xs text-pink-300 font-semibold uppercase tracking-wider">
                               Step {activeStep.step} of {config.setupSteps.length}: {activeStep.title}
                             </span>
                           </div>
-                          <span className="text-[10px] font-mono text-zinc-500">Click image to expand</span>
+                          <span className="text-[10px] text-zinc-500">Click image to expand</span>
                         </div>
 
                         {activeStep.screenshot ? (
@@ -1146,7 +1148,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   {/* Setup Steps */}
                   {config.setupSteps && config.setupSteps.length > 0 && (
                     <div className="space-y-3 pt-2">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 block font-mono">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 block">
                         {config.copy?.stepsLabel || 'Configuration Milestones:'}
                       </span>
                       {config.setupSteps.map((s) => (
@@ -1155,7 +1157,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                           className="p-3.5 rounded-xl border border-white/10 bg-slate-900/40 space-y-1.5"
                         >
                           <div className="flex items-center gap-2.5">
-                            <span className="w-5 h-5 rounded-md bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-violet-400 font-mono text-xs">
+                            <span className="w-5 h-5 rounded-md bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-violet-400 text-xs">
                               {s.step}
                             </span>
                             <h3 className="text-sm font-semibold text-white">
@@ -1183,14 +1185,14 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   {/* Pipeline Stages */}
                   {!isInbox && !config.hideWorkflowStages && config.architecture?.stages && (
                     <div className={`p-4 rounded-xl border border-white/10 bg-white/[0.02] ${alignPanels ? 'flex flex-col gap-3 lg:flex-1' : 'space-y-2.5'}`}>
-                      <span className="text-[11px] font-mono uppercase tracking-widest text-zinc-400 block">
+                      <span className="text-[11px] tracking-widest text-zinc-400 block">
                         {config.copy?.stagesLabel || 'Execution Pipeline Stages:'}
                       </span>
                       <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 ${alignPanels ? 'lg:flex-1 auto-rows-fr' : ''}`}>
                         {config.architecture.stages.map((st) => (
                           <div key={st.number} className="p-2.5 rounded-lg border border-white/5 bg-black/40 space-y-1">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-mono text-violet-400 font-bold bg-violet-500/10 px-1.5 py-0.5 rounded">
+                              <span className="text-[10px] text-violet-400 font-bold bg-violet-500/10 px-1.5 py-0.5 rounded">
                                 S{st.number}
                               </span>
                               <span className="text-xs font-semibold text-zinc-200 truncate">
@@ -1221,11 +1223,11 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
           {/* Left: Product Visual / Screenshot */}
           <div className={`${isInbox ? 'lg:col-span-5' : 'lg:col-span-6'} order-2 ${config.visualKey === 'leads' ? 'lg:order-2' : 'lg:order-1'} space-y-2`}>
             <div className="flex items-center justify-between px-1">
-              <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="text-[11px] text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-violet-400" />
                 {config.screenshots?.verification?.label || 'Live Verification & State Audit'}
               </span>
-              <span className="text-[10px] font-mono text-violet-400">
+              <span className="text-[10px] text-violet-400">
                 {config.screenshots?.verification?.statusLabel || (config.screenshots?.verification ? 'Source Status' : 'Status: Active')}
               </span>
             </div>
@@ -1241,7 +1243,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
           {/* Right: Content */}
           <div className={`${isInbox ? 'lg:col-span-7 flex flex-col gap-4' : 'lg:col-span-6 space-y-4'} order-1 ${config.visualKey === 'leads' ? 'lg:order-1' : 'lg:order-2'}`}>
             <div>
-              <span className="text-[11px] font-mono uppercase tracking-widest text-violet-400 font-bold block mb-1">
+              <span className="text-[11px] tracking-widest text-violet-400 font-bold block mb-1">
                 Result &amp; Verification
               </span>
               <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
@@ -1265,7 +1267,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
 
             {/* Verification Checklist */}
             <div className={`p-4 rounded-xl border border-white/10 bg-white/[0.02] ${isInbox ? 'flex flex-col gap-3' : 'space-y-2'}`}>
-              <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider block font-mono">
+              <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider block">
                 Verification Checklist:
               </span>
               <div className={`${isInbox ? 'grid gap-4' : 'space-y-2'} text-xs sm:text-sm text-zinc-300`}>

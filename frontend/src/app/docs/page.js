@@ -49,7 +49,7 @@ const POPULAR_WORKFLOWS = [
     tag: '5 min setup',
     icon: Workflow,
     glowColor: 'bg-teal-500/25',
-    iconStyle: 'bg-teal-500/15 border-teal-500/30 text-teal-300 group-hover:bg-teal-500 group-hover:text-white',
+    iconStyle: 'bg-teal-500/15 border-teal-500/30 text-teal-300 group-hover:bg-teal-600 group-hover:border-teal-500 group-hover:text-white',
     accentBorder: 'group-hover:border-teal-500/50',
     actionColor: 'text-teal-400 group-hover:text-teal-300',
   },
@@ -60,7 +60,7 @@ const POPULAR_WORKFLOWS = [
     tag: 'Enterprise Meta API',
     icon: Phone,
     glowColor: 'bg-amber-500/25',
-    iconStyle: 'bg-amber-500/15 border-amber-500/30 text-amber-300 group-hover:bg-amber-500 group-hover:text-white',
+    iconStyle: 'bg-amber-500/15 border-amber-500/30 text-amber-300 group-hover:bg-amber-600 group-hover:border-amber-500 group-hover:text-white',
     accentBorder: 'group-hover:border-amber-500/50',
     actionColor: 'text-amber-400 group-hover:text-amber-300',
   },
@@ -71,7 +71,7 @@ const POPULAR_WORKFLOWS = [
     tag: 'RAG Knowledge',
     icon: Cpu,
     glowColor: 'bg-rose-500/25',
-    iconStyle: 'bg-rose-500/15 border-rose-500/30 text-rose-300 group-hover:bg-rose-500 group-hover:text-white',
+    iconStyle: 'bg-rose-500/15 border-rose-500/30 text-rose-300 group-hover:bg-rose-600 group-hover:border-rose-500 group-hover:text-white',
     accentBorder: 'group-hover:border-rose-500/50',
     actionColor: 'text-rose-400 group-hover:text-rose-300',
   },
@@ -82,7 +82,7 @@ const POPULAR_WORKFLOWS = [
     tag: 'Omni-Channel',
     icon: MessageSquare,
     glowColor: 'bg-blue-500/25',
-    iconStyle: 'bg-blue-500/15 border-blue-500/30 text-blue-300 group-hover:bg-blue-500 group-hover:text-white',
+    iconStyle: 'bg-blue-500/15 border-blue-500/30 text-blue-300 group-hover:bg-blue-600 group-hover:border-blue-500 group-hover:text-white',
     accentBorder: 'group-hover:border-blue-500/50',
     actionColor: 'text-blue-400 group-hover:text-blue-300',
   },
@@ -93,7 +93,7 @@ const POPULAR_WORKFLOWS = [
     tag: 'CRM Pipeline',
     icon: Bot,
     glowColor: 'bg-purple-500/25',
-    iconStyle: 'bg-purple-500/15 border-purple-500/30 text-purple-300 group-hover:bg-purple-500 group-hover:text-white',
+    iconStyle: 'bg-purple-500/15 border-purple-500/30 text-purple-300 group-hover:bg-purple-600 group-hover:border-purple-500 group-hover:text-white',
     accentBorder: 'group-hover:border-purple-500/50',
     actionColor: 'text-purple-400 group-hover:text-purple-300',
   },
@@ -104,7 +104,7 @@ const POPULAR_WORKFLOWS = [
     tag: 'WhatsApp Templates',
     icon: Send,
     glowColor: 'bg-emerald-500/25',
-    iconStyle: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 group-hover:bg-emerald-500 group-hover:text-white',
+    iconStyle: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 group-hover:bg-emerald-600 group-hover:border-emerald-500 group-hover:text-white',
     accentBorder: 'group-hover:border-emerald-500/50',
     actionColor: 'text-emerald-400 group-hover:text-emerald-300',
   },
@@ -188,7 +188,7 @@ export default function DocsHomePage() {
             </div>
 
             {/* Quick Guide Fast-Track Action Pills */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pt-4 sm:pt-6">
               <Link
                 href="/docs/getting-started/quickstart"
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-gradient-to-r from-[#814AC8] to-[#9333ea] hover:from-[#8d51db] hover:to-[#9f3ff2] text-xs font-medium text-white shadow-md shadow-purple-950/40 hover:shadow-purple-900/60 transition-all hover:-translate-y-0.5"
@@ -319,7 +319,7 @@ export default function DocsHomePage() {
             title="Omni-Channel Inbox"
             category="Conversations"
             badge="Live Sync"
-            description="Unite WhatsApp, Instagram, Twilio SMS, and Webchat in a single collaborative inbox with automated AI handoffs. Manage all conversations, track contact details, and convert leads — from one powerful interface."
+            description="Unite WhatsApp, Instagram, Twilio SMS, and Webchat in a single collaborative inbox with automated AI handoffs."
             href="/docs/features/omni-inbox"
             imageSrc="/images/docs/Docs_OmniInbox.png"
             priority={true}
@@ -353,7 +353,7 @@ export default function DocsHomePage() {
             badge="Scoring Engine"
             description="Dynamically categorize conversations into Hot, Warm, and Cold tiers with automated contact extraction."
             href="/docs/features/leads-crm"
-            imageSrc="/images/docs/Docs_Lead_CRM.png?v=2"
+            imageSrc="/images/docs/Docs_Lead_CRM.png"
           />
 
           {/* Automation Wire */}
