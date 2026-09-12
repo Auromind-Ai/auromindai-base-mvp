@@ -13,6 +13,7 @@ export default function FeatureDiscoveryCard({
   imageSrc,
   previewComponent: PreviewComponent,
   badge,
+  priority = false,
   className = '',
 }) {
   return (
@@ -32,7 +33,7 @@ export default function FeatureDiscoveryCard({
               width={1200}
               height={675}
               className="w-full h-auto object-contain rounded-2xl transition-transform duration-500 group-hover:scale-[1.015]"
-              priority
+              priority={priority}
             />
             {/* Smooth bottom opacity gradient fade for seamless transition */}
             <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#07080E] via-[#07080E]/30 to-transparent pointer-events-none" />

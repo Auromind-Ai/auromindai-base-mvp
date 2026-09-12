@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { Camera, Maximize2, X, Layers } from "lucide-react";
 
@@ -19,10 +19,29 @@ export default function DocumentationScreenshot({
   scrollPreview,
 }) {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [currentSrc, setCurrentSrc] = useState(src);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setCurrentSrc(src);
+    setHasError(false);
+  }, [src]);
+
+  const handleImageError = () => {
+    if (currentSrc && currentSrc.includes('/images/docs/')) {
+      // Fallback from /images/docs/ to /images/Docs/
+      setCurrentSrc(currentSrc.replace('/images/docs/', '/images/Docs/'));
+    } else if (currentSrc && currentSrc.includes('/images/Docs/')) {
+      // Fallback from /images/Docs/ to /images/docs/
+      setCurrentSrc(currentSrc.replace('/images/Docs/', '/images/docs/'));
+    } else {
+      setHasError(true);
+    }
+  };
 
   // If a real screenshot exists, render the image directly
   // with optional scroll preview and lightbox support.
-  if (src) {
+  if (currentSrc && !hasError) {
     const defaultFrameStyle = frameless
       ? "border-0 rounded-none bg-transparent shadow-none"
       : "border border-white/10 bg-[#090A10] shadow-lg hover:border-violet-500/40";
@@ -80,8 +99,9 @@ export default function DocumentationScreenshot({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={src}
+            src={currentSrc}
             alt={alt}
+            onError={handleImageError}
             width={scrollPreview?.width}
             height={scrollPreview?.height}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 75vw, 60vw"
@@ -156,8 +176,9 @@ export default function DocumentationScreenshot({
               <div className="relative w-full max-h-[80vh] flex items-center justify-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={src}
+                  src={currentSrc}
                   alt={alt}
+                  onError={handleImageError}
                   className="max-h-[80vh] w-auto max-w-full rounded-xl object-contain"
                 />
               </div>
