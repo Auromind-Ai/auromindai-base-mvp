@@ -29,11 +29,7 @@ export default function WalletDetailVisual({ selected = 'ai', onSelect }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-zinc-400 font-mono">
-          <span className={`h-2 w-2 rounded-full ${selected === 'ai' ? 'bg-violet-400' : 'bg-emerald-400'}`} />
-          Live Product UI &amp; Simulator
-        </span>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div role="group" aria-label="Choose wallet overview" className="flex rounded-xl border border-white/10 bg-[#0d0e14] p-1">
           {WALLETS.map(({ id, label, icon: Icon }) => (
             <button
@@ -43,7 +39,7 @@ export default function WalletDetailVisual({ selected = 'ai', onSelect }) {
               aria-controls="wallet-overview-preview"
               onClick={() => onSelect?.(id)}
               className={`flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${selected === id
-                ? id === 'ai' ? 'bg-violet-600 text-white' : 'bg-emerald-500 text-black'
+                ? id === 'ai' ? 'bg-[#814AC8] text-white' : 'bg-emerald-500 text-black'
                 : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}
             >
               <Icon className="h-4 w-4" aria-hidden="true" />

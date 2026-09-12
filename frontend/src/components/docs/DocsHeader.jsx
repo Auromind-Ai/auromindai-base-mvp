@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Menu, Search, ArrowRight, Sparkles } from 'lucide-react';
 
 export default function DocsHeader({ onOpenMobile, onOpenMenu, onOpenSearch, breadcrumb }) {
@@ -19,20 +20,22 @@ export default function DocsHeader({ onOpenMobile, onOpenMenu, onOpenSearch, bre
             <Menu className="w-4 h-4" />
           </button>
 
-          <Link href="/docs" className="flex items-center gap-3 group">
-            <div className="relative">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#814AC8] via-[#9333ea] to-[#a855f7] flex items-center justify-center p-1.5 shadow-lg shadow-purple-900/40 group-hover:shadow-purple-700/50 transition-all group-hover:scale-105">
-                <span className="font-bold text-white text-sm tracking-tighter">O</span>
-              </div>
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-[#050508]" />
-            </div>
+          <Link href="/docs" className="flex items-center gap-2.5 group">
+            <Image
+              src="/logo.png"
+              alt="OrbionAgents"
+              width={30}
+              height={30}
+              className="w-7 h-7 object-contain group-hover:scale-105 transition-transform duration-200"
+              priority
+            />
             
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-sm tracking-tight text-white group-hover:text-violet-300 transition-colors">
+                <span className="font-semibold text-sm tracking-tight text-white group-hover:text-violet-300 transition-colors">
                   OrbionAgents
                 </span>
-                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wider bg-violet-500/15 text-violet-300 border border-violet-500/30 uppercase">
+                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-semibold tracking-wider bg-violet-500/15 text-violet-300 border border-violet-500/30 uppercase">
                   DOCS
                 </span>
               </div>

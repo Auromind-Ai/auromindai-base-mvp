@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   Rocket,
@@ -11,7 +12,6 @@ import {
   CreditCard,
   HelpCircle,
   Search,
-  ChevronDown,
   ChevronRight,
   Film,
   ExternalLink,
@@ -53,15 +53,20 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
     <aside className="w-full flex flex-col h-full bg-[#08080E] border-r border-white/[0.08] select-none font-poppins">
       {/* Brand Header */}
       <div className="p-4 border-b border-white/[0.06]">
-        <Link href="/" className="flex items-center gap-2.5 group hover:opacity-90 transition-opacity">
-          <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-[#814AC8] via-[#9333ea] to-[#a855f7] flex items-center justify-center p-1 shadow-md shadow-purple-900/40 group-hover:scale-105 transition-transform">
-            <span className="font-bold text-white text-xs tracking-tighter">O</span>
-          </div>
+        <Link href="/" className="flex items-center gap-2.5 group hover:opacity-95 transition-opacity">
+          <Image
+            src="/logo.png"
+            alt="OrbionAgents"
+            width={28}
+            height={28}
+            className="w-7 h-7 object-contain group-hover:scale-105 transition-transform duration-200"
+            priority
+          />
           <div className="flex items-center gap-2">
-            <span className="font-bold text-sm tracking-tight text-white group-hover:text-violet-300 transition-colors">
+            <span className="font-semibold text-sm tracking-tight text-white group-hover:text-violet-300 transition-colors">
               OrbionAgents
             </span>
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-violet-500/15 text-violet-300 border border-violet-500/30 uppercase">
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wider bg-violet-500/15 text-violet-300 border border-violet-500/30 uppercase">
               DOCS
             </span>
           </div>
@@ -72,7 +77,7 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
       <div className="p-3.5 border-b border-white/[0.06]">
         <button
           onClick={onOpenSearch}
-          className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 hover:border-violet-500/40 text-xs text-zinc-400 hover:text-white transition-all duration-200 shadow-inner group"
+          className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 hover:border-violet-500/40 text-xs text-zinc-300 hover:text-white transition-all duration-200 shadow-inner group"
         >
           <div className="flex items-center gap-2.5">
             <Search className="w-3.5 h-3.5 text-violet-400 group-hover:text-violet-300 transition-colors" />
@@ -95,9 +100,9 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
               {/* Category Header */}
               <button
                 onClick={() => toggleCategory(section.category)}
-                className="group w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-zinc-300 hover:text-white hover:bg-white/[0.04] border border-transparent hover:border-white/[0.06] transition-all duration-200 cursor-pointer"
+                className="group w-full flex items-center justify-between px-3 py-2 rounded-xl text-zinc-300 hover:text-white hover:bg-white/[0.04] border border-transparent hover:border-white/[0.06] transition-all duration-200 cursor-pointer select-none"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-500/20 group-hover:border-violet-500/35 group-hover:text-violet-300 transition-all duration-200 shadow-sm">
                     <IconComponent className="w-3.5 h-3.5" />
                   </div>
@@ -106,20 +111,20 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
                   </span>
                 </div>
                 <ChevronRight
-                  className={`w-3.5 h-3.5 transition-transform duration-300 ease-out ${
+                  className={`w-3.5 h-3.5 transition-transform duration-300 ease-in-out ${
                     isOpen ? 'rotate-90 text-violet-400' : 'text-zinc-500 group-hover:text-zinc-300'
                   }`}
                 />
               </button>
 
-              {/* Collapsible Items with Smooth Transition */}
+              {/* Collapsible Items with Smooth CSS Grid Transition */}
               <div
-                className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
-                  isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+                  isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 pointer-events-none'
                 }`}
               >
-                <div className="overflow-hidden">
-                  <div className="pl-3 space-y-1 pt-1.5 pb-1 border-l border-white/[0.08] ml-4.5 my-1">
+                <div className="overflow-hidden min-h-0">
+                  <div className="pl-3.5 space-y-1 pt-1 pb-1 border-l border-white/10 ml-4 my-1">
                     {section.items.map((item) => {
                       const itemUrl = `/docs/${item.slug}`;
                       const isActive = pathname === itemUrl;
@@ -129,19 +134,19 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
                           key={item.slug}
                           href={itemUrl}
                           onClick={onCloseMobile}
-                          className={`group/item flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all duration-200 ${
+                          className={`group/item flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all duration-200 ease-out ${
                             isActive
-                              ? 'bg-gradient-to-r from-violet-500/20 via-purple-500/10 to-transparent text-white font-medium border border-violet-500/40 shadow-sm shadow-purple-950/30'
-                              : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04]'
+                              ? 'bg-gradient-to-r from-violet-500/25 via-purple-500/15 to-violet-500/5 text-white font-semibold border border-violet-500/50 shadow-sm shadow-purple-950/40'
+                              : 'text-zinc-200 hover:text-white hover:bg-white/[0.08] hover:translate-x-0.5'
                           }`}
                         >
                           <span className="truncate">{item.title}</span>
                           {item.hasVideo && (
                             <span
-                              className={`shrink-0 ml-1.5 p-1 rounded-md transition-colors ${
+                              className={`shrink-0 ml-1.5 p-1 rounded-md transition-colors duration-200 ${
                                 isActive
                                   ? 'bg-violet-500 text-white'
-                                  : 'bg-white/5 text-violet-400 group-hover/item:bg-violet-500/20'
+                                  : 'bg-white/5 text-violet-400 group-hover/item:bg-violet-500/20 group-hover/item:text-violet-300'
                               }`}
                               title="Video walkthrough available"
                             >
