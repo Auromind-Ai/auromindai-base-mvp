@@ -349,6 +349,7 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
     },
   ];
 
+  const visiblePlans = plans.filter(plan => plan.key !== 'free');
   return (
     <section className="relative overflow-hidden bg-[#050507] min-h-screen py-16 md:py-24 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center">
       {/* Background radial glow */}
@@ -377,7 +378,7 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
           viewport={{ once: true, amount: 0.1 }}
           className="w-full flex flex-wrap min-[1350px]:flex-nowrap justify-center items-stretch gap-6 lg:gap-8"
         >
-          {plans.map((plan, index) => (
+          {visiblePlans.map((plan, index) => (
             <PricingCard
               key={plan.key}
               plan={plan}

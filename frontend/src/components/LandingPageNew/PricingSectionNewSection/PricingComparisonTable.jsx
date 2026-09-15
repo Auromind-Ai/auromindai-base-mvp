@@ -77,7 +77,8 @@ export default function PricingComparisonTable({
     }
   }, [propPlans]);
 
-  const activePlans = (propPlans && propPlans.length > 0) ? propPlans : loadedPlans;
+  const activePlans = ((propPlans && propPlans.length > 0) ? propPlans : loadedPlans)
+  .filter(plan => plan.key !== 'free');
 
   const handleAction = (planKey) => {
     if (onSelectPlan) {

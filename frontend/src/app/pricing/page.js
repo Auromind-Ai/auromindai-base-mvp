@@ -239,7 +239,7 @@ export default function PricingPage() {
   const dynamicPlans =
     settings?.plans && Array.isArray(settings.plans) && settings.plans.length > 0
       ? settings.plans
-          .filter((p) => p.key !== 'solo') // Show 3 columns (Free, Pro, Enterprise) as in Image 1
+          .filter((p) => p.key !== 'free' && p.key !== 'solo')
           .map((p) => {
             const isYearly = billing === 'annual';
             const rawPrice = isYearly ? p.yearly_price : p.monthly_price;
@@ -273,25 +273,25 @@ export default function PricingPage() {
             };
           })
       : [
-          {
-            key: 'free',
-            name: settings?.free_plan_name || 'Free Starter',
-            icon: '🚀',
-            price: (settings?.free_plan_price ?? 0) === 0 ? 'Free' : `₹${settings?.free_plan_price}`,
-            description: settings?.free_plan_desc || 'A controlled top-of-funnel acquisition tier.',
-            features: settings?.free_plan_features || [
-              '20,000 AI Credits / month',
-              '₹50 WhatsApp Wallet (~45 messages)',
-              '2 Flow Executions / month',
-              '2 Active Automations',
-              '5 Knowledge Base Documents',
-              '100 MB Brain File Storage',
-              '50 Leads & CRM',
-              '10 Meetings / month',
-            ],
-            buttonText: 'Choose this plan',
-            featured: false,
-          },
+          // {
+          //   key: 'free',
+          //   name: settings?.free_plan_name || 'Free Starter',
+          //   icon: '🚀',
+          //   price: (settings?.free_plan_price ?? 0) === 0 ? 'Free' : `₹${settings?.free_plan_price}`,
+          //   description: settings?.free_plan_desc || 'A controlled top-of-funnel acquisition tier.',
+          //   features: settings?.free_plan_features || [
+          //     '20,000 AI Credits / month',
+          //     '₹50 WhatsApp Wallet (~45 messages)',
+          //     '2 Flow Executions / month',
+          //     '2 Active Automations',
+          //     '5 Knowledge Base Documents',
+          //     '100 MB Brain File Storage',
+          //     '50 Leads & CRM',
+          //     '10 Meetings / month',
+          //   ],
+          //   buttonText: 'Choose this plan',
+          //   featured: false,
+          // },
           {
             key: 'pro',
             name: settings?.pro_plan_name || 'Pro',
@@ -375,7 +375,9 @@ export default function PricingPage() {
 
         {/* Detailed Plan Comparison Section */}
         <div ref={compareRef} className="mt-12 md:mt-20">
-          <PricingComparisonTable />
+          <PricingComparisonTable
+            plans={(settings?.plans || []).filter((p) => !['free', 'solo'].includes(p.key))}
+          />
         </div>
       </div>
 
