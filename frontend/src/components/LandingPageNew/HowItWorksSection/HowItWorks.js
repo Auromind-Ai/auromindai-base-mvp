@@ -123,7 +123,7 @@ export default function HowItWorks() {
             <Activity size={12} className="text-purple-400 animate-pulse" />
             Seamless Onboarding
           </div>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight leading-tight">
             Launch in Three Simple Steps
           </h2>
           <p className="mt-4 text-base sm:text-lg text-zinc-400 max-w-xl mx-auto leading-relaxed">
@@ -227,7 +227,7 @@ export default function HowItWorks() {
                   <span>Phase {activeItem.step}</span>
                 </div>
 
-                <h3 className="text-3xl sm:text-4xl font-bold text-white tracking-tight leading-tight">
+                <h3 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight leading-tight">
                   {activeItem.title}
                 </h3>
 

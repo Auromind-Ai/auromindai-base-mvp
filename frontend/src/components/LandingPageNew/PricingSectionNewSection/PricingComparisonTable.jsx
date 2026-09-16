@@ -30,7 +30,7 @@ function ValueCell({ value, isFeatured = false }) {
     return <span className="text-zinc-600 font-medium text-xs md:text-sm">—</span>;
   }
   return (
-    <span className={`text-[11px] sm:text-xs md:text-sm ${isFeatured ? 'text-white font-extrabold' : 'text-zinc-300 font-medium'}`}>
+    <span className={`text-[11px] sm:text-xs md:text-sm ${isFeatured ? 'text-white font-bold' : 'text-zinc-300 font-medium'}`}>
       {value}
     </span>
   );
@@ -212,7 +212,7 @@ export default function PricingComparisonTable({
       {/* Header with Title and Monthly/Yearly Toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 md:mb-8">
         <div className="text-center sm:text-left">
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-wider uppercase">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white tracking-wider">
             COMPARE PLANS
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1">
@@ -299,7 +299,7 @@ export default function PricingComparisonTable({
             >
               <div>
                 {isFeatured ? (
-                  <span className="inline-block bg-purple-500/30 text-purple-200 border border-purple-400/40 rounded-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-widest mb-1">
+                  <span className="inline-block bg-purple-500/30 text-purple-200 border border-purple-400/40 rounded-full px-3 py-0.5 text-[10px] font-bold uppercase tracking-widest mb-1">
                     • POPULAR
                   </span>
                 ) : (
@@ -308,7 +308,7 @@ export default function PricingComparisonTable({
                   </div>
                 )}
                 {isFeatured && (
-                  <div className="text-xs font-extrabold tracking-widest uppercase text-purple-200">
+                  <div className="text-xs font-bold tracking-widest uppercase text-purple-200">
                     {plan.display_name || plan.name}
                   </div>
                 )}
@@ -328,7 +328,7 @@ export default function PricingComparisonTable({
                 onClick={() => handleAction(plan.key)}
                 className={`mt-4 w-full py-2.5 px-4 rounded-xl text-xs font-semibold transition cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${
                   isFeatured
-                    ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white font-extrabold shadow-[0_0_25px_rgba(124,58,237,0.7)] hover:brightness-110'
+                    ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white font-bold shadow-[0_0_25px_rgba(124,58,237,0.7)] hover:brightness-110'
                     : 'border border-white/15 bg-white/5 hover:bg-white/10 text-white'
                 }`}
               >
@@ -366,7 +366,7 @@ export default function PricingComparisonTable({
                     >
                       <div className="flex items-center gap-2">
                         <CategoryIcon size={13} className="text-purple-400 shrink-0" />
-                        <span className="text-[10px] sm:text-[11px] font-extrabold tracking-wider uppercase text-purple-300">
+                        <span className="text-[10px] sm:text-[11px] font-bold tracking-wider uppercase text-purple-300">
                           {catGroup.category}
                         </span>
                       </div>
@@ -440,7 +440,7 @@ export default function PricingComparisonTable({
               onClick={() => handleAction(plan.key)}
               className={`w-full py-3 px-4 rounded-xl text-xs font-semibold text-center transition cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${
                 isFeatured
-                  ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white font-extrabold shadow-[0_0_25px_rgba(124,58,237,0.7)] hover:brightness-110'
+                  ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white font-bold shadow-[0_0_25px_rgba(124,58,237,0.7)] hover:brightness-110'
                   : 'border border-white/15 bg-white/5 hover:bg-white/10 text-white'
               }`}
             >

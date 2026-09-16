@@ -543,10 +543,10 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] uppercase tracking-widest text-violet-400 font-bold block">
+                <span className="text-[11px] text-violet-400 font-semibold block">
                   Mandatory Prerequisites
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-500/10 text-violet-300 border border-violet-500/30">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-violet-500/10 text-violet-300 border border-violet-500/30">
                   {config.rulesPolicyBadge || (
                     config.visualKey === 'twilio'
                       ? 'Twilio Gateway Policy'
@@ -656,7 +656,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   <ListChecks className="w-3.5 h-3.5" />
                   <span>Step-by-Step Operational Guide</span>
                   {config.setupSteps?.length && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-bold">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-medium">
                       {config.setupSteps.length} Steps
                     </span>
                   )}

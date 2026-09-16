@@ -317,13 +317,13 @@
   height: 680px;
   border-radius: 48px;
   background: linear-gradient(180deg, #1a1a1b 0%, #0b0b0c 100%);
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
   box-shadow:
     0 0 0 8px #0d0d0e,
-    0 0 0 9.5px rgba(255, 255, 255, 0.05),
+    0 0 0 9.5px rgba(255, 255, 255, 0.22),
     0 52px 110px rgba(0, 0, 0, 0.9),
     0 0 70px rgba(129, 74, 200, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   overflow: hidden;
   position: relative;
   transform: rotate(-3deg);
@@ -365,7 +365,7 @@
 }
 
 .statusTime {
-  color: #fff;
+  color: #ffffff;
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
@@ -373,18 +373,18 @@
   align-items: center;
 }
 
-/* CHANGED: icons row — tighter, vertically centered */
+/* Icons row — tighter, vertically centered */
 .statusIcons {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-/* CHANGED: phone screen — richer dark gradient to feel like WhatsApp dark */
+/* Phone screen — WhatsApp Light Theme */
 .phoneScreen {
   width: 100%;
   height: 100%;
-  background: #0d0d0d;
+  background: #efeae2;
   border-radius: 48px;
   overflow: hidden;
   display: flex;
@@ -392,24 +392,25 @@
 }
 
 /* =====
-   WhatsApp UI
+   WhatsApp UI — Dark Green Header
   */
-/* CHANGED: darker header, matches reference exactly */
 .waHeader {
-  background: #1b1b1d;
+  background: #008069;
   padding: 44px 10px 10px;
   display: flex;
   align-items: center;
   gap: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  z-index: 5;
 }
 
 .waBack {
   background: transparent;
   border: none;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.75);
+  color: #ffffff;
   display: flex;
   align-items: center;
   padding: 0 2px;
@@ -420,170 +421,806 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #c9b3ff, #7da9ff);
+  background: linear-gradient(135deg, #a78bfa, #818cf8);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
-  color: #fff;
+  color: #ffffff;
   position: relative;
   flex-shrink: 0;
 }
 
 .waOnlineDot {
   position: absolute;
-  bottom: 1px;
-  right: 1px;
-  width: 8px;
-  height: 8px;
+  bottom: 0px;
+  right: 0px;
+  width: 9px;
+  height: 9px;
   background: #25d366;
   border-radius: 50%;
-  border: 2px solid #1f2c34;
+  border: 2px solid #008069;
 }
 
 .waInfo {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin-left: 2px;
 }
 
-/* CHANGED: brighter name, slightly larger */
-.waName {
-  color: #e9edef;
-  font-size: 13.5px;
-  font-weight: 600;
-  line-height: 1;
-  margin-bottom: 3px;
-}
-
-.waStatus {
-  color: #25d366;
-  font-size: 10px;
-  font-weight: 400;
-}
-
-/* CHANGED: only video + phone icons, no 3-dot, tighter gap */
-.waActions {
+.waNameRow {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 4px;
+}
+
+.waVerified {
+  display: inline-flex;
+  vertical-align: middle;
   flex-shrink: 0;
 }
 
+.waName {
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.waStatus {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.waActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  color: #ffffff;
+  margin-left: auto;
+}
+
+.waActionBtn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.waActionBtn svg {
+  display: block;
+}
+
 /* =====
-   Chat body — WhatsApp dark wallpaper
+   Chat body — WhatsApp light wallpaper
   */
-/* CHANGED: dark WhatsApp wallpaper with subtle doodle pattern */
 .waBody {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 10px 10px 6px;
+  padding: 10px 8px 6px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  background: #111214;
+  gap: 7px;
+  background: #efeae2;
   position: relative;
-  scroll-behavior: smooth;
 }
 
 .waBody::-webkit-scrollbar {
   width: 0;
 }
 
-/* CHANGED: WhatsApp-style doodle wallpaper pattern, dark and subtle */
 .waBg {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
 
-  background-color: #0b0b0d;
-  background-image:
-    linear-gradient(
-      rgba(8, 8, 10, 0.22),
-      rgba(8, 8, 10, 0.22)
-    ),
-    url("/images/WABackGround.webp");
-
-  background-size: cover;
+  background-color: #efeae2;
+  background-image: url("/images/WABackGround.webp");
+  background-size: 320px auto;
   background-position: center;
   background-repeat: repeat;
-  opacity: 0.42;
+  opacity: 0.10;
+  mix-blend-mode: multiply;
 }
 
 /* Messages */
-/* CHANGED: wider bubbles, better max-width */
 .msgRow {
   display: flex;
   flex-direction: column;
-  max-width: 88%;
+  max-width: 92%;
   position: relative;
   z-index: 1;
+  will-change: transform, opacity;
 }
 
-.msgLeft  { align-self: flex-start; }
-.msgRight { align-self: flex-end; }
+.msgLeft  { align-self: flex-start; width: 100%; max-width: 94%; }
+.msgRight { align-self: flex-end; max-width: 82%; }
 
 .bubble {
-  padding: 8px 12px;
-  border-radius: 10px;
+  padding: 6px 9px 6px 10px;
+  border-radius: 8px;
   font-size: 11.5px;
-  line-height: 1.5;
-  color: #e9edef;
+  line-height: 1.45;
+  color: #111b21;
   word-break: break-word;
+  position: relative;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
 
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: geometricPrecision;
 }
 
-/* CHANGED: softer left bubble matching reference — slightly lighter than bg */
 .bubbleLeft {
-  background: #070707;
-  color: #ffffff;
-  border-radius: 0 10px 10px 10px;
-  border: 1px solid rgba(255,255,255,0.03);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.42);
+  background: #ffffff;
+  color: #111b21;
+  border-top-left-radius: 0;
 }
 
-/* CHANGED: rich purple right bubble, slightly softer glow */
 .bubbleRight {
-  background: #814AC8 !important;
-  color: #ffffff;
-  border-radius: 10px 0 10px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow:
-    0 6px 18px rgba(129, 74, 200, 0.28),
-    0 0 10px rgba(129, 74, 200, 0.14);
+  background: #d9fdd3 !important;
+  color: #111b21;
+  border-top-right-radius: 0;
 }
 
 .bubbleAi {
-  background: linear-gradient(135deg, rgba(37, 211, 102, 0.22), rgba(125, 169, 255, 0.18)) !important;
-  border: 1px solid rgba(125, 169, 255, 0.28);
-  box-shadow: 0 0 18px rgba(125, 169, 255, 0.18), 0 0 6px rgba(37, 211, 102, 0.1);
+  background: #d9fdd3 !important;
+  color: #111b21;
+}
+
+.bubbleText {
+  color: #111b21;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.chatLink {
+  color: #027eb5;
+  text-decoration: underline;
+  word-break: break-all;
 }
 
 .msgMeta {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 4px 0;
-  align-self: flex-start;
+  float: right;
+  margin-left: 7px;
+  margin-top: 4px;
+  position: relative;
+  bottom: -2px;
 }
 
 .msgMetaRight {
-  align-self: flex-end;
+  float: right;
 }
 
 .msgTime {
   font-size: 9px;
-  color: rgba(255, 255, 255, 0.36);
+  color: #667781;
+  white-space: nowrap;
 }
 
 .ticks {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* =====
+   SunGlow Skincare Rich Cards & WhatsApp Interactive Modules
+  */
+.waWelcomeCard {
+  background: #ffffff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 1px rgba(11, 20, 26, 0.14);
+  width: 100%;
+  border-top-left-radius: 0;
+}
+
+.bannerHeroPhoto {
+  position: relative;
+  width: 100%;
+  height: 105px;
+  overflow: hidden;
+  background: #fcefe7;
+}
+
+.bannerImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+
+.bannerOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.05) 0%, rgba(30, 15, 8, 0.72) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 8px 10px;
+}
+
+.bannerTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 7.5px;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(212, 77, 120, 0.92);
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-bottom: 3px;
+  letter-spacing: 0.4px;
+  width: fit-content;
+  text-transform: uppercase;
+}
+
+.bannerTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+  margin: 0 0 1px;
+  font-family: "Poppins", sans-serif;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.bannerSub {
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.92);
+  line-height: 1.2;
+  margin: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.waCardBody {
+  padding: 8px 9px 6px;
+  position: relative;
+}
+
+.cardGreeting {
+  font-size: 11px;
+  line-height: 1.45;
+  color: #111b21;
+}
+
+.waActionList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.waListBtn {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  padding: 6px 9px;
+  background: #ffffff;
+  border: 1px solid #e7e2d8;
+  border-radius: 7px;
+  color: #d44d78;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: default;
+  transition: all 0.2s;
+}
+
+.waListBtnSelected {
+  background: #fdf2f4;
+  border-color: #d44d78;
+  color: #d44d78;
+}
+
+.waBtnLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.waBtnArrow {
+  font-size: 14px;
+  font-weight: 700;
+  color: #d44d78;
+  line-height: 1;
+}
+
+/* Generic Rich Card Wrapper */
+.waRichCard {
+  background: #ffffff;
+  border-radius: 10px;
+  border-top-left-radius: 0;
+  overflow: hidden;
+  box-shadow: 0 1px 1px rgba(11, 20, 26, 0.14);
+  width: 100%;
+}
+
+/* Skin Type 2x2 Photo Grid */
+.skinPhotoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.skinPhotoTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #ffffff;
+  border: 1.5px solid #e8e3da;
+  border-radius: 8px;
+  overflow: hidden;
+  text-align: center;
+  cursor: default;
+  transition: all 0.2s;
+}
+
+.skinPhotoTileSelected {
+  border-color: #d44d78;
+  box-shadow: 0 0 0 1px #d44d78 inset;
+}
+
+.skinTileImg {
+  width: 100%;
+  height: 50px;
+  object-fit: cover;
+  display: block;
+}
+
+.skinTileLabel {
+  padding: 3px 2px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #3b3a36;
+  line-height: 1;
+}
+
+.skinPhotoTileSelected .skinTileLabel {
+  color: #d44d78;
+  font-weight: 700;
+}
+
+.waOutlineActionBtn {
+  margin-top: 6px;
+  padding: 5px 8px;
+  border: 1px dashed #d44d78;
+  background: #fffafa;
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #d44d78;
+  text-align: center;
+}
+
+/* Concern 2x3 Grid */
+.concernGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4.5px;
+  margin-top: 7px;
+}
+
+.concernChip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5.5px 7px;
+  background: #fbf9f6;
+  border: 1px solid #e8e3da;
+  border-radius: 7px;
+  font-size: 9.5px;
+  font-weight: 500;
+  color: #3b3a36;
+}
+
+.concernChipSelected {
+  background: #fdf2f4;
+  border-color: #d44d78;
+  color: #d44d78;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px #d44d78 inset;
+}
+
+.concernIcon {
+  font-size: 11px;
+}
+
+.skipBtnRow {
+  display: flex;
+  justify-content: center;
+  margin-top: 5px;
+}
+
+.skipText {
+  font-size: 9.5px;
+  color: #8696a0;
+  text-decoration: underline;
+  cursor: default;
+}
+
+/* Product Card */
+.productCard {
+  background: #ffffff;
+  border-radius: 9px;
+  overflow: hidden;
+  border: 1px solid #e7e3dc;
+  margin-top: 7px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.productPhotoBox {
+  position: relative;
+  width: 100%;
+  height: 100px;
+  background: #fdfbf7;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #ede7de;
+}
+
+.productPhotoImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.bestsellerBadge {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  background: #ff6b35;
+  color: #ffffff;
+  font-size: 7.5px;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.3px;
+  z-index: 2;
+}
+
+.discountBadge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: #d44d78;
+  color: #ffffff;
+  font-size: 7.5px;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 3px;
+  z-index: 2;
+}
+
+.productDetails {
+  padding: 7px 8px 8px;
+}
+
+.productTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: #111b21;
+  margin: 0 0 3px;
+  line-height: 1.25;
+}
+
+.productPriceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.productPrice {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #111b21;
+}
+
+.productPriceOld {
+  font-size: 9.5px;
+  color: #8696a0;
+  text-decoration: line-through;
+}
+
+.productSave {
+  font-size: 8px;
+  font-weight: 700;
+  color: #008069;
+  background: #e8f7f2;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.productDesc {
+  font-size: 9px;
+  color: #54656f;
+  margin: 0 0 5px;
+  line-height: 1.35;
+}
+
+.productKeyPoints {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5px;
+  margin-bottom: 7px;
+  background: #faf8f5;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid #f0eae1;
+}
+
+.pointItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 8.5px;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.pointIcon {
+  font-size: 9px;
+}
+
+.btnPrimaryPink {
+  width: 100%;
+  padding: 6px 8px;
+  background: #d44d78;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: default;
+  box-shadow: 0 1px 2px rgba(212, 77, 120, 0.28);
+}
+
+.btnOutlinePink {
+  width: 100%;
+  padding: 4.5px 8px;
+  background: transparent;
+  color: #d44d78;
+  border: 1px solid #d44d78;
+  border-radius: 6px;
+  font-size: 9.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: default;
+  margin-top: 4px;
+}
+
+/* Cart Card */
+.cartCard {
+  background: #faf8f5;
+  border-radius: 8px;
+  border: 1px solid #e8e3da;
+  padding: 7px 8px;
+  margin-top: 6px;
+}
+
+.cartItemRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #ded7cc;
+}
+
+.cartThumb {
+  width: 32px;
+  height: 32px;
+  background: #ffffff;
+  border-radius: 5px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid #e8e3da;
+}
+
+.cartThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cartItemInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.cartItemName {
+  font-size: 10px;
+  font-weight: 600;
+  color: #111b21;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cartItemPrice {
+  font-size: 9.5px;
+  color: #667781;
+}
+
+.cartQtyBadge {
+  font-size: 9px;
+  font-weight: 700;
+  background: #ffffff;
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: #3b3a36;
+  border: 1px solid #ded7cc;
+}
+
+.cartTotalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0 7px;
+}
+
+.cartTotalLabel {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #54656f;
+}
+
+.cartTotalValue {
+  font-size: 12px;
+  font-weight: 800;
+  color: #111b21;
+}
+
+/* Payment Options */
+.paymentRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.paymentPill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 3px;
+  background: #fbf9f6;
+  border: 1px solid #e8e3da;
+  border-radius: 7px;
+  gap: 2px;
+  text-align: center;
+}
+
+.paymentPillActive {
+  background: #fdf2f4;
+  border-color: #d44d78;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px #d44d78 inset;
+}
+
+.paymentIcon {
+  font-size: 13px;
+}
+
+.paymentName {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #111b21;
+}
+
+.paymentSub {
+  font-size: 7.5px;
+  color: #8696a0;
+  line-height: 1.1;
+}
+
+/* Order Confirmed */
+.orderSuccessHeader {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #008069;
+  font-size: 11.5px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.orderCheck {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #008069;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5px;
+  font-weight: 800;
+}
+
+.orderBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e8f7f2;
+  color: #008069;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2.5px 6px;
+  border-radius: 4px;
+  margin-bottom: 5px;
+}
+
+.orderSuccessText {
+  font-size: 9.5px;
+  line-height: 1.4;
+  color: #3b3a36;
+  margin: 0 0 6px;
+}
+
+.orderDeliveryNote {
+  background: #fbf9f6;
+  border: 1px solid #e8e3da;
+  padding: 4px 6px;
+  border-radius: 5px;
+  font-size: 8.5px;
+  font-weight: 600;
+  color: #54656f;
+  margin-bottom: 6px;
+}
+
+.orderTrackBtn {
+  width: 100%;
+  padding: 6px 8px;
+  background: #008069;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: default;
+  box-shadow: 0 1px 2px rgba(0, 128, 105, 0.28);
 }
 
 /* Typing indicator */
@@ -591,10 +1228,11 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  background: #202c33;
-  padding: 9px 14px;
-  border-radius: 0 10px 10px 10px;
+  background: #ffffff;
+  padding: 8px 12px;
+  border-radius: 0 8px 8px 8px;
   width: fit-content;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
 }
 
 .typingDot {
@@ -602,59 +1240,62 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.45);
+  background: #8696a0;
 }
-
-/* Message Bottom to top animate  */
-/* .waBody {
-  justify-content: flex-end;
-} */
 
 /* Input bar */
 .waInputBar {
-  background: #1b1b1d;
-  padding: 7px 10px;
+  background: #f0f2f5;
+  padding: 6px 8px 8px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 6px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
   flex-shrink: 0;
+  z-index: 5;
 }
 
 .waInputField {
   flex: 1;
-  background: rgba(255,255,255,0.06);
-  border-radius: 22px;
-  padding: 7px 14px;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 6px 10px;
   font-size: 11px;
-  min-height: 30px;
+  min-height: 32px;
   display: flex;
   align-items: center;
+  gap: 8px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+}
+
+.waInputIcon {
+  flex-shrink: 0;
+  cursor: pointer;
 }
 
 .waInputPlaceholder {
-  color: rgba(255, 255, 255, 0.28);
+  color: #8696a0;
   font-family: 'Poppins', sans-serif;
   font-size: 11px;
+  flex: 1;
 }
 
 .waSendBtn {
-  width: 30px;
-  height: 30px;
-  background: #814AC8;
+  width: 32px;
+  height: 32px;
+  background: #00a884;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(129, 74, 200, 0.35);
+  box-shadow: 0 2px 4px rgba(0, 168, 132, 0.35);
 }
 
 /* =====
    Feature Card internals
   */
-/* CHANGED: icon + title on same row, description underneath — matches reference rows */
 .cardHeader {
   display: flex;
   align-items: center;
@@ -662,7 +1303,6 @@
   margin-bottom: 4px;
 }
 
-/* CHANGED: smaller icon, no background box — just the icon itself */
 .cardIcon {
   width: 28px;
   height: 28px;
@@ -674,7 +1314,6 @@
   margin: 0;
 }
 
-/* CHANGED: slightly smaller, dimmer to match reference */
 .cardTitle {
   color: rgba(255, 255, 255, 0.88);
   font-size: 12.5px;
@@ -683,7 +1322,6 @@
   margin: 0;
 }
 
-/* CHANGED: indented under icon column */
 .cardDesc {
   margin-left: 38px;
   color: rgba(255, 255, 255, 0.4);
@@ -759,7 +1397,6 @@
   }
 }
 
-
 .badge {
   display: inline-flex;
   align-items: center;
@@ -780,9 +1417,10 @@
   text-align: center;
   max-width: 480px;
   margin: 28px auto 0;
+}
 
-  /* Mobile */
-  @media (max-width: 768px) {
+@media (max-width: 768px) {
+  .subheading {
     font-size: 0.9rem;
     max-width: 90%;
   }

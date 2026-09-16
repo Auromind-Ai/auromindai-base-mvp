@@ -75,9 +75,9 @@ export function IphoneMockup({ rotateX, rotateY }) {
           className={styles.phone}
           animate={{
             boxShadow: [
-              "0 0 0 8px #0d0d0e, 0 0 0 9.5px rgba(255,255,255,0.05), 0 52px 110px rgba(0,0,0,0.88), 0 0 70px rgba(129,74,200,0.10)",
-              "0 0 0 8px #0d0d0e, 0 0 0 9.5px rgba(255,255,255,0.05), 0 64px 130px rgba(0,0,0,0.94), 0 0 90px rgba(129,74,200,0.16)",
-              "0 0 0 8px #0d0d0e, 0 0 0 9.5px rgba(255,255,255,0.05), 0 52px 110px rgba(0,0,0,0.88), 0 0 70px rgba(129,74,200,0.10)",
+              "0 0 0 8px #0d0d0e, 0 0 0 9.5px rgba(255,255,255,0.22), 0 52px 110px rgba(0,0,0,0.88), 0 0 70px rgba(129,74,200,0.10)",
+              "0 0 0 8px #0d0d0e, 0 0 0 9.5px rgba(255,255,255,0.26), 0 64px 130px rgba(0,0,0,0.94), 0 0 90px rgba(129,74,200,0.16)",
+              "0 0 0 8px #0d0d0e, 0 0 0 9.5px rgba(255,255,255,0.22), 0 52px 110px rgba(0,0,0,0.88), 0 0 70px rgba(129,74,200,0.10)",
             ],
           }}
           transition={{
@@ -92,7 +92,7 @@ export function IphoneMockup({ rotateX, rotateY }) {
           <div className={styles.phoneScreen}>
             {/* WA Header */}
             <div className={styles.waHeader}>
-              <button className={styles.waBack}>
+              <button className={styles.waBack} aria-label="Back">
                 <svg width="9" height="16" viewBox="0 0 10 17" fill="none">
                   <path
                     d="M9 1L1.5 8.5L9 16"
@@ -105,37 +105,46 @@ export function IphoneMockup({ rotateX, rotateY }) {
               </button>
 
               <div className={styles.waAvatar}>
-                <span>A</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3a9 9 0 0 0 0 18 9 9 0 0 0 0-18z" fill="rgba(255,255,255,0.15)"/>
+                  <circle cx="12" cy="12" r="3" fill="white"/>
+                  <path d="M12 6v2m0 8v2M6 12h2m8 0h2"/>
+                </svg>
                 <span className={styles.waOnlineDot} />
               </div>
- 
+
               <div className={styles.waInfo}>
-                <div className={styles.waName}>Amit Sharma</div>
-                <div className={styles.waStatus}>online</div>
+                <div className={styles.waNameRow}>
+                  <span className={styles.waName}>SunGlow</span>
+                  <svg className={styles.waVerified} width="12" height="12" viewBox="0 0 24 24" fill="#25D366">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1.2 14.2l-3.5-3.5 1.4-1.4 2.1 2.1 5.7-5.7 1.4 1.4-7.1 7.1z" />
+                  </svg>
+                </div>
+                <div className={styles.waStatus}>Online</div>
               </div>
 
-              {/* CHANGED: only video + phone icons, matching reference */}
               <div className={styles.waActions}>
                 {/* Video call icon */}
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.899L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
-                    stroke="rgba(255,255,255,0.72)"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+                <button type="button" className={styles.waActionBtn} aria-label="Video Call">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="23 7 16 12 23 17 23 7" fill="currentColor" stroke="none" />
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" fill="currentColor" stroke="none" />
+                  </svg>
+                </button>
                 {/* Phone call icon */}
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 11.5 19.79 19.79 0 01.08 2.83 2 2 0 012.07 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"
-                    stroke="rgba(255,255,255,0.72)"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+                <button type="button" className={styles.waActionBtn} aria-label="Voice Call">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-2.2 2.2a15.045 15.045 0 01-6.59-6.59l2.2-2.21a.96.96 0 00.25-1A11.36 11.36 0 018.5 3.9c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.5c0-.55-.45-1-.99-1.02z" />
+                  </svg>
+                </button>
+                {/* 3-dots icon */}
+                <button type="button" className={styles.waActionBtn} aria-label="More Options">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="5" r="1.8" />
+                    <circle cx="12" cy="12" r="1.8" />
+                    <circle cx="12" cy="19" r="1.8" />
+                  </svg>
+                </button>
               </div>
             </div>
 
@@ -145,17 +154,29 @@ export function IphoneMockup({ rotateX, rotateY }) {
             {/* Input bar */}
             <div className={styles.waInputBar}>
               <div className={styles.waInputField}>
+                {/* Emoji / Smiley Icon */}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={styles.waInputIcon}>
+                  <circle cx="12" cy="12" r="9.5" stroke="#8696a0" strokeWidth="1.75" />
+                  <circle cx="8.5" cy="9.5" r="1" fill="#8696a0" />
+                  <circle cx="15.5" cy="9.5" r="1" fill="#8696a0" />
+                  <path d="M8 14.5c1.2 1.5 2.5 2 4 2s2.8-.5 4-2" stroke="#8696a0" strokeWidth="1.75" strokeLinecap="round" />
+                </svg>
                 <span className={styles.waInputPlaceholder}>Message</span>
+                {/* Paperclip / Attachment Icon */}
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" className={styles.waInputIcon}>
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" stroke="#8696a0" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {/* Camera Icon */}
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" className={styles.waInputIcon}>
+                  <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke="#8696a0" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                  <circle cx="12" cy="13" r="3.75" stroke="#8696a0" strokeWidth="1.75" />
+                </svg>
               </div>
               <div className={styles.waSendBtn}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"
-                    stroke="white"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
+                {/* WhatsApp Green Microphone Icon */}
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" fill="white" />
+                  <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
             </div>
