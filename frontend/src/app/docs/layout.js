@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Poppins } from 'next/font/google';
 import Link from 'next/link';
+
 import DocsSidebar from '@/components/docs/DocsSidebar';
 import DocsSearchModal from '@/components/docs/DocsSearchModal';
 import { Menu, Search, X } from 'lucide-react';
@@ -18,6 +19,18 @@ const poppins = Poppins({
 export default function DocsLayout({ children }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Lock background body scroll when mobile menu drawer is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileMenuOpen]);
 
   // Global hotkey listener for Cmd+K / Ctrl+K and custom open event
   useEffect(() => {
@@ -65,7 +78,7 @@ export default function DocsLayout({ children }) {
       </div>
 
       {/* Mobile-Only Top Bar (< lg) */}
-      <div className="lg:hidden sticky top-0 z-40 w-full bg-black/90 backdrop-blur-md border-b border-white/10 px-4 py-3 flex items-center justify-between">
+      <div className="md:max-xl:flex md:max-xl:px-6 xl:hidden sticky top-0 z-40 w-full bg-black/90 backdrop-blur-md border-b border-white/10 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsMobileMenuOpen(true)}
@@ -95,17 +108,17 @@ export default function DocsLayout({ children }) {
       </div>
 
       {/* Desktop Left Sidebar (Fixed & Docked to Left Edge, from top-0, h-screen) */}
-      <div className="hidden lg:block fixed top-0 left-0 w-72 h-screen z-30">
+      <div className="md:max-xl:hidden hidden xl:block fixed top-0 left-0 w-72 h-screen z-30">
         <DocsSidebar
           onOpenSearch={() => setIsSearchOpen(true)}
         />
       </div>
 
       {/* Main Body Grid */}
-      <div className="flex-1 flex w-full relative z-10 lg:pl-72">
+      <div className="md:max-xl:pl-0 flex-1 flex w-full relative z-10 xl:pl-72">
         {/* On-Demand Slide-Out Navigation Drawer (Mobile) */}
         {isMobileMenuOpen && (
-          <div className="fixed inset-0 z-50 flex lg:hidden">
+          <div className="md:max-xl:flex fixed inset-0 z-50 flex xl:hidden">
             {/* Backdrop */}
             <div
               className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity"
@@ -113,7 +126,7 @@ export default function DocsLayout({ children }) {
             />
 
             {/* Sidebar drawer panel */}
-            <div className="relative w-84 max-w-[85vw] h-full bg-black shadow-2xl flex flex-col z-10 border-r border-white/10 animate-in slide-in-from-left duration-200">
+            <div className="relative w-80 max-w-[85vw] h-full bg-black shadow-2xl flex flex-col z-10 border-r border-white/10 animate-in slide-in-from-left duration-200">
               <div className="p-4 flex items-center justify-between border-b border-white/10 bg-white/[0.02]">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#814AC8] to-[#a855f7] flex items-center justify-center text-white font-bold text-xs shadow-md">
@@ -143,7 +156,7 @@ export default function DocsLayout({ children }) {
         )}
 
         {/* Central Content Area (Full-Width & Expansive) */}
-        <main className="flex-1 min-w-0 py-6 sm:py-8 lg:py-10 px-4 sm:px-6 lg:px-8 xl:px-10 w-full">
+        <main className="md:max-xl:py-7 md:max-xl:px-6 flex-1 min-w-0 py-6 sm:py-8 xl:py-10 px-4 sm:px-6 xl:px-10 w-full">
           {children}
         </main>
       </div>

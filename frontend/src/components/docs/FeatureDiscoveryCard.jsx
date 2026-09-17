@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+
 import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 
@@ -18,12 +19,12 @@ export default function FeatureDiscoveryCard({
 }) {
   return (
     <div
-      className={`rounded-3xl border border-white/10 bg-[#07080E]/95 p-5 sm:p-6 flex flex-col justify-between shadow-2xl shadow-black/80 group relative overflow-hidden backdrop-blur-md ${className}`}
+      className={`md:max-xl:min-w-0 md:max-xl:p-5 h-full rounded-3xl border border-white/10 bg-[#07080E]/95 p-5 sm:p-6 flex flex-col justify-between shadow-2xl shadow-black/80 group relative overflow-hidden backdrop-blur-md ${className}`}
     >
       {/* TOP: Image / Visual Showcase (NO internal border around the image) */}
       <div className="w-full relative overflow-hidden rounded-2xl mb-5">
         {imageSrc ? (
-          <div className="relative w-full aspect-[16/10] overflow-hidden rounded-2xl flex items-center justify-center">
+          <div className="md:max-xl:aspect-video relative w-full aspect-[16/10] overflow-hidden rounded-2xl flex items-center justify-center">
             <Image
               src={imageSrc}
               alt={title}
@@ -84,7 +85,7 @@ export default function FeatureDiscoveryCard({
         </div>
 
         {/* View Feature Documentation Link at bottom ONLY */}
-        <div className="pt-3 mt-4 flex items-center justify-between">
+        <div className="md:max-xl:flex-wrap md:max-xl:gap-x-4 md:max-xl:gap-y-2.5 md:max-xl:[&_a]:min-w-0 md:max-xl:[&_svg]:shrink-0 pt-3 mt-4 flex items-center justify-between">
           <Link
             href={href}
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 group-hover:text-emerald-300 transition-all"

@@ -382,14 +382,12 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
         </div>
       </header>
 
-      {/* ─────────────────────────────────────────────────────────────
-          2. WHO IS ORBIONAGENTS FOR? (6 Comprehensive Target Personas)
-          ───────────────────────────────────────────────────────────── */}
+      {/* 2. WHO IS ORBIONAGENTS FOR? (6 Comprehensive Target Personas)*/}
       <section id="target-audience" className="space-y-4 scroll-mt-24 pt-0">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-400">
+          <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-violet-400">
             <Users className="w-3.5 h-3.5" />
-            <span>Target Personas &amp; Teams</span>
+            <span>Built For Teams &amp; Roles</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
             Who is OrbionAgents Built For?
@@ -475,10 +473,10 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
                       : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
-                  <span className="text-xs font-semibold block truncate text-white">
+                  <span className="text-sm font-medium block truncate text-white">
                     {stg.title}
                   </span>
-                  <span className="text-[10px] text-zinc-400 block truncate mt-0.5">
+                  <span className="text-[11px] text-white/60 block truncate mt-0.5">
                     {stg.badge}
                   </span>
                 </button>
@@ -604,7 +602,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
                       <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/20 ">
                         {uc.outcomeMetric}
                       </span>
-                      <span className="text-xs text-zinc-400">
+                      <span className="text-xs text-white/60">
                         {uc.outcomeSub}
                       </span>
                     </div>
@@ -683,7 +681,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
           </div>
           <Link
             href="/docs/getting-started/quickstart"
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-xs font-semibold text-white transition-colors self-start sm:self-auto shadow-lg shadow-violet-950/40"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#814AC8] hover:bg-violet-500 text-xs font-medium text-white transition-colors self-start sm:self-auto shadow-lg shadow-violet-950/40"
           >
             <Zap className="w-3.5 h-3.5" />
             <span>5-Min Quickstart</span>
@@ -705,16 +703,16 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
                     <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-colors">
                       <Icon className="w-3.5 h-3.5" />
                     </div>
-                    <span className="text-[10px] text-zinc-400 px-1.5 py-0.5 rounded bg-white/5 border border-white/10">
+                    <span className="text-[10px] text-white/60 px-1.5 py-0.5 rounded bg-white/5 border border-white/10">
                       {link.badge}
                     </span>
                   </div>
 
                   <div>
-                    <h3 className="text-xs sm:text-sm font-semibold text-white group-hover:text-violet-300 transition-colors">
+                    <h3 className="text-xs sm:text-sm font-medium text-white group-hover:text-violet-300 transition-colors">
                       {link.title}
                     </h3>
-                    <p className="text-[11px] text-zinc-400 leading-relaxed mt-1 line-clamp-2">
+                    <p className="text-[11px] text-white/60 leading-relaxed mt-1 line-clamp-2">
                       {link.description}
                     </p>
                   </div>

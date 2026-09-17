@@ -256,8 +256,8 @@ export default function NeuroHero() {
             <div key={stage} className="animate-textIn">
               <h1
                 className="
-                  font-bold tracking-tight text-white
-                  text-[26px]
+                  font-semibold tracking-tight text-white
+                  text-[20px]
                   max-md:text-[2rem] max-md:leading-[1.08]
                   md:max-lg:text-4xl md:max-lg:leading-[1.08]
                   lg:text-[2.25rem] lg:leading-[1.12]
@@ -270,7 +270,7 @@ export default function NeuroHero() {
 
               <p
                 className="
-                  text-[#E3E3E3]
+                  text-white/80
                   font-normal
                   tracking-normal
                   max-md:text-[16px] max-md:mt-3 max-md:leading-[1.2]

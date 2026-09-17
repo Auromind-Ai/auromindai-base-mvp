@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+
 import { useState } from 'react';
 import FeatureDiscoveryCard from '@/components/docs/FeatureDiscoveryCard';
 import DocsHeroVideoCard from '@/components/docs/DocsHeroVideoCard';
@@ -145,12 +146,12 @@ export default function DocsHomePage() {
   ];
 
   return (
-    <div className="w-full space-y-12 sm:space-y-14 pb-16">
+    <div className="md:max-xl:pb-8 md:max-xl:space-y-9 w-full space-y-12 sm:space-y-14 pb-16">
       {/* 1. Hero Section - Expansive Balanced Grid */}
       <section className="relative pt-0 sm:pt-1">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
+        <div className="md:max-xl:gap-6 md:max-xl:[&>div]:min-w-0 lg:max-xl:grid-cols-2 lg:max-xl:[&>div]:col-auto grid grid-cols-1 xl:grid-cols-12 gap-6 xl:gap-8 items-center">
           {/* Left Hero Content (6 Cols) */}
-          <div className="lg:col-span-6 space-y-4 text-left">
+          <div className="xl:col-span-6 space-y-4 text-left">
 
             {/* Main Headline */}
             <div className="space-y-2">
@@ -176,11 +177,11 @@ export default function DocsHomePage() {
                 }}
                 className="w-full flex items-center justify-between px-4 py-2.5 sm:py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-violet-500/50 text-xs sm:text-sm text-zinc-400 hover:text-white transition-all shadow-xl group relative overflow-hidden backdrop-blur-md cursor-pointer text-left"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-all">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-all shrink-0">
                     <Search className="w-3.5 h-3.5" />
                   </div>
-                  <span className="font-normal text-zinc-400 group-hover:text-white transition-colors text-xs sm:text-[13px]">
+                  <span className="font-normal text-zinc-400 group-hover:text-white transition-colors text-xs sm:text-[13px] truncate">
                     Search documentation, APIs, and workflows...
                   </span>
                 </div>
@@ -221,7 +222,7 @@ export default function DocsHomePage() {
           </div>
 
           {/* Right Hero Video Panel (6 Cols) - Interactive Documentation Video */}
-          <div className="lg:col-span-6 h-full flex items-center justify-start">
+          <div className="md:max-xl:max-w-[640px] md:max-xl:justify-self-center md:max-xl:[&>div]:w-full xl:col-span-6 w-full flex items-center justify-center lg:justify-start">
             <DocsHeroVideoCard src="/videos/docs.mov" title="OrbionAgents Platform Tour" />
           </div>
         </div>
@@ -229,7 +230,7 @@ export default function DocsHomePage() {
 
       {/* 2. Popular Workflows Section - Balanced 3x2 Grid */}
       <section className="space-y-6 pt-4 border-t border-white/[0.08]">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+        <div className="md:max-xl:flex-wrap md:max-xl:gap-x-6 md:max-xl:gap-y-3 md:max-xl:items-start md:max-xl:[&>div]:flex-[1_1_440px] md:max-xl:[&>div]:min-w-0 md:max-xl:[&>span]:shrink-0 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
             <div className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider text-violet-400 mb-1">
               <Sparkles className="w-3.5 h-3.5" />
@@ -245,7 +246,7 @@ export default function DocsHomePage() {
           <span className="text-xs text-zinc-400 hidden sm:block">6 Ready-to-use Blueprints</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="md:max-xl:grid-cols-2 md:max-xl:auto-rows-fr md:max-xl:gap-5 md:max-xl:[&>a]:min-w-0 md:max-xl:[&>a]:min-h-0 md:max-xl:[&>a]:p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {POPULAR_WORKFLOWS.map((wf, idx) => {
             const Icon = wf.icon;
             return (
@@ -263,7 +264,7 @@ export default function DocsHomePage() {
                 />
 
                 {/* TOP ROW: Icon Container & Tag Pill */}
-                <div className="flex items-center justify-between relative z-10 mb-4">
+                <div className="md:max-xl:gap-3 md:max-xl:[&>div]:shrink-0 md:max-xl:[&>span]:text-right flex items-center justify-between relative z-10 mb-4">
                   <div
                     className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-md ${wf.iconStyle}`}
                   >
@@ -299,7 +300,7 @@ export default function DocsHomePage() {
 
       {/* 3. Feature Discovery Section (The 8 Rich Visual Showcase Cards) */}
       <section id="features-discovery" className="space-y-6 pt-4 border-t border-white/[0.08]">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+        <div className="md:max-xl:flex-wrap md:max-xl:gap-x-6 md:max-xl:gap-y-3 md:max-xl:items-start md:max-xl:[&>div]:flex-[1_1_440px] md:max-xl:[&>div]:min-w-0 md:max-xl:[&>span]:shrink-0 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
             <div className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider text-violet-400 mb-1">
               <Layers className="w-3.5 h-3.5" />
@@ -318,7 +319,7 @@ export default function DocsHomePage() {
         </div>
 
         {/* The 8 Rich Visual Cards Grid - Spacious 2-Column Responsive Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 pt-2">
+        <div className="md:max-xl:grid-cols-2 md:max-xl:auto-rows-fr md:max-xl:gap-5 grid grid-cols-1 md:grid-cols-2 gap-6 xl:gap-8 pt-2">
           {/* Omni-Channel Inbox */}
           <FeatureDiscoveryCard
             title="Omni-Channel Inbox"

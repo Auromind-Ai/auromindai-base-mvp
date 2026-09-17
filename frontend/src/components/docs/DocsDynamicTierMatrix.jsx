@@ -128,7 +128,7 @@ export default function DocsDynamicTierMatrix({ initialHeaders, initialRows }) {
           <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
           <span>{isLive ? 'Live Database Entitlements Sync Active' : 'Connecting to Live Database...'}</span>
         </span>
-        <span className="text-zinc-500 text-[10px]">Auto-synchronizes when database entitlements change</span>
+        <span className="text-white/50 text-[10px]">Auto-synchronizes when database entitlements change</span>
       </div>
 
       <div className="rounded-xl border border-white/10 overflow-hidden bg-white/[0.01]">

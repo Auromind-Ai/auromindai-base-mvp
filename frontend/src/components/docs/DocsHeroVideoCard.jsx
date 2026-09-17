@@ -93,17 +93,31 @@ export default function DocsHeroVideoCard({
     vid.currentTime = seekPercent * vid.duration;
   };
 
-  const handleFullscreen = (e) => {
+  const handleFullscreen = async (e) => {
     e?.stopPropagation();
-    const container = containerRef.current || videoRef.current;
-    if (!container) return;
+    const container = containerRef.current;
+    const video = videoRef.current;
+    if (!container || !video) return;
 
-    if (document.fullscreenElement) {
-      document.exitFullscreen?.().catch(console.warn);
-    } else if (container.requestFullscreen) {
-      container.requestFullscreen().catch(console.warn);
-    } else if (videoRef.current?.webkitEnterFullscreen) {
-      videoRef.current.webkitEnterFullscreen();
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (document.webkitFullscreenElement) {
+        await document.webkitExitFullscreen();
+      } else if (video.webkitDisplayingFullscreen) {
+        video.webkitExitFullscreen();
+      } else if (video.webkitEnterFullscreen && window.matchMedia('(max-width: 1279px)').matches) {
+        // iPhone Safari uses the video's native player for fullscreen.
+        video.webkitEnterFullscreen();
+      } else if (container.requestFullscreen) {
+        await container.requestFullscreen();
+      } else if (container.webkitRequestFullscreen) {
+        await container.webkitRequestFullscreen();
+      } else if (video.webkitEnterFullscreen) {
+        video.webkitEnterFullscreen();
+      }
+    } catch (error) {
+      console.warn('Could not change video fullscreen mode:', error);
     }
   };
 
@@ -112,19 +126,20 @@ export default function DocsHeroVideoCard({
       ref={containerRef}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`w-[75%] mx-auto relative rounded-2xl border border-white/15 bg-[#0c1224] shadow-2xl shadow-black/80 overflow-hidden group select-none transition-all ${className}`}
+      className={`group/hero-video [&:is(:fullscreen,:-webkit-full-screen)]:w-full [&:is(:fullscreen,:-webkit-full-screen)]:h-full [&:is(:fullscreen,:-webkit-full-screen)]:max-w-none [&:is(:fullscreen,:-webkit-full-screen)]:border-0 [&:is(:fullscreen,:-webkit-full-screen)]:rounded-none [&:is(:fullscreen,:-webkit-full-screen)]:bg-black [&:is(:fullscreen,:-webkit-full-screen)]:transition-none w-full lg:w-[95%] xl:w-full h-fit relative rounded-2xl border border-white/15 bg-[#0c1224] shadow-2xl shadow-black/80 overflow-hidden group select-none transition-all ${className}`}
     >
-      <div className="relative w-full aspect-[16/9] overflow-hidden flex items-center justify-center bg-black/40">
+      <div className="group-[:is(:fullscreen,:-webkit-full-screen)]/hero-video:w-full group-[:is(:fullscreen,:-webkit-full-screen)]/hero-video:h-full group-[:is(:fullscreen,:-webkit-full-screen)]/hero-video:aspect-auto group-[:is(:fullscreen,:-webkit-full-screen)]/hero-video:bg-black relative w-full aspect-[16/9] overflow-hidden flex items-center justify-center bg-black/40">
 
         <video
           ref={videoRef}
+          aria-label={title}
           playsInline
           muted={isMuted}
           autoPlay
           loop
           preload="auto"
           onClick={togglePlay}
-          className="w-full h-full object-cover cursor-pointer"
+          className="w-full h-full object-cover cursor-pointer group-[:is(:fullscreen,:-webkit-full-screen)]/hero-video:object-contain group-[:is(:fullscreen,:-webkit-full-screen)]/hero-video:object-center"
         >
           <source src={src} type="video/mp4" />
           <source src={src} type="video/quicktime" />
@@ -183,7 +198,7 @@ export default function DocsHeroVideoCard({
 
         {/* Bottom Floating Scrubber & Controls */}
         <div
-          className={`absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/85 via-black/50 to-transparent transition-opacity duration-300 z-20 flex flex-col gap-2 ${
+          className={`[@media(hover:none)]:group-[:is(:fullscreen,:-webkit-full-screen)]/hero-video:opacity-100 [@media(hover:none)]:group-[:is(:fullscreen,:-webkit-full-screen)]/hero-video:pointer-events-auto absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/85 via-black/50 to-transparent transition-opacity duration-300 z-20 flex flex-col gap-2 ${
             isHovered || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         >

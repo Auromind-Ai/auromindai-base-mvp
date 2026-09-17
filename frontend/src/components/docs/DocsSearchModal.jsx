@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Search, X, Film, BookOpen, CornerDownLeft } from 'lucide-react';
 import { getSearchIndex } from '@/docs-data/articles';
 
+
 export default function DocsSearchModal({ isOpen, onClose }) {
   const router = useRouter();
   const inputRef = useRef(null);
@@ -114,12 +115,12 @@ export default function DocsSearchModal({ isOpen, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center pt-16 sm:pt-20 px-4 bg-black/80 backdrop-blur-md transition-opacity docs-section font-poppins"
+      className="md:max-xl:py-8 fixed inset-0 z-[100] flex items-start justify-center pt-6 sm:pt-20 px-4 bg-black/80 backdrop-blur-md transition-opacity docs-section font-poppins"
       style={{ fontFamily: 'var(--font-poppins), "Poppins", sans-serif' }}
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-2xl rounded-2xl border border-white/15 bg-[#0c1224] shadow-2xl shadow-black/90 overflow-hidden animate-in fade-in zoom-in-95 duration-150 font-poppins"
+        className="md:max-xl:max-h-[calc(100dvh-64px)] md:max-xl:flex md:max-xl:flex-col md:max-xl:[&>div:first-child]:shrink-0 md:max-xl:[&>div:last-child]:shrink-0 relative w-full max-w-2xl rounded-2xl border border-white/15 bg-[#0c1224] shadow-2xl shadow-black/90 overflow-hidden animate-in fade-in zoom-in-95 duration-150 font-poppins"
         style={{ fontFamily: 'var(--font-poppins), "Poppins", sans-serif' }}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
@@ -152,7 +153,7 @@ export default function DocsSearchModal({ isOpen, onClose }) {
         </div>
 
         {/* Results List */}
-        <div className="max-h-[60vh] overflow-y-auto p-2 divide-y divide-white/[0.04] custom-scrollbar">
+        <div className="md:max-xl:flex-auto md:max-xl:min-h-0 md:max-xl:overscroll-contain max-h-[60vh] overflow-y-auto p-2 divide-y divide-white/[0.04] custom-scrollbar">
           {filteredResults.length === 0 ? (
             <div className="py-12 text-center text-sm text-zinc-400">
               No matching documentation pages found for <span className="text-white font-medium">&quot;{query}&quot;</span>

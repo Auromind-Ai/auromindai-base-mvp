@@ -1,9 +1,23 @@
 "use client";
 
 import { motion } from "framer-motion";
-import styles from "./Section.module.css";
 
 export const FEATURES = [
+  {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M18 20V10M12 20V4M6 20v-6"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+    title: "Analytics & Response Time",
+    desc: "Track performance, response speed and conversion rates across all conversations.",
+  },
   {
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -97,54 +111,57 @@ export const FEATURES = [
     title: "Priority Lead Detection",
     desc: "Detect high-intent leads instantly and surface them to the top of your inbox.",
   },
-  {
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M18 20V10M12 20V4M6 20v-6"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
-    title: "Analytics & Response Time",
-    desc: "Track performance, response speed and conversion rates across all conversations.",
-  },
 ];
 
 export function FeatureScroller() {
   const doubled = [...FEATURES, ...FEATURES];
 
   return (
-    <div className={styles.scrollerOuter}>
-      {/* Badge row sits inside the container box, above the scroller */}
-      <div className={styles.badgeRow}>
-        <span className={styles.badge}>Features</span>
-        <span className={styles.badgeSub}>Ready for Review</span>
+    <div className="w-[432px] max-w-full bg-[#0e0e14]/90 border border-white/[0.09] rounded-2xl overflow-hidden flex flex-col shadow-2xl">
+      {/* Badge row */}
+      <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.08] bg-[#0b0b0f]/50">
+        <span className="text-white text-sm font-bold tracking-wide">
+          Features
+        </span>
+        <span className="text-white/90 text-sm font-medium">
+          Ready for Review
+        </span>
       </div>
 
-      <div className={styles.scrollerMask}>
-        <div className={styles.scrollerTrack}>
+      {/* Scroller Mask with bottom gradient fade */}
+      <div className="w-full h-[480px] overflow-hidden relative group after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[220px] after:bg-gradient-to-b after:from-transparent after:via-[#0b0b0f]/85 after:to-[#0b0b0f] after:pointer-events-none">
+        <div className="flex flex-col gap-0 animate-[scrollUp_28s_linear_infinite] group-hover:[animation-play-state:paused]">
           {doubled.map((f, i) => (
             <motion.div
               key={i}
-              className={styles.featureCard}
-              whileHover={{
-                backgroundColor: "rgba(255,255,255,0.04)",
-                transition: { duration: 0.2, ease: "easeOut" },
-              }}
+              className="bg-transparent border-b border-white/[0.06] last:border-b-0 p-4 cursor-pointer transition-colors duration-200 shrink-0 w-full hover:bg-white/[0.04]"
             >
-              <div className={styles.cardHeader}>
-                <div className={styles.cardIcon}>{f.icon}</div>
-                <div className={styles.cardTitle}>{f.title}</div>
+              <div className="flex items-center gap-3 mb-1.5">
+                <div className="w-6 h-6 shrink-0 flex items-center justify-center text-white/60">
+                  {f.icon}
+                </div>
+                <div className="text-white text-sm font-bold leading-snug">
+                  {f.title}
+                </div>
               </div>
-              <div className={styles.cardDesc}>{f.desc}</div>
+              <div className="ml-9 text-slate-400 text-xs leading-relaxed">
+                {f.desc}
+              </div>
             </motion.div>
           ))}
         </div>
       </div>
+
+      <style jsx global>{`
+        @keyframes scrollUp {
+          0% {
+            transform: translateY(0);
+          }
+          100% {
+            transform: translateY(-50%);
+          }
+        }
+      `}</style>
     </div>
   );
 }
