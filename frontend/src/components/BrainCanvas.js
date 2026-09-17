@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-export default function BrainCanvas({ progress }) {
+export default function BrainCanvas({ progress = 1, size = 340 }) {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
   const rotationRef = useRef(0);
@@ -11,18 +11,18 @@ export default function BrainCanvas({ progress }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    const SIZE = 340;
+    const SIZE = size;
     canvas.width = SIZE;
     canvas.height = SIZE;
 
     const cx = SIZE / 2;
     const cy = SIZE / 2;
-    const R = 120;
+    const R = SIZE * 0.35;
     const RINGS = 10;
     const SEGMENTS = 32;
 
     function projectPoint(x, y, z) {
-      const fov = 600;
+      const fov = 500;
       const scale = fov / (fov + z);
       return {
         x: cx + x * scale,
@@ -72,8 +72,8 @@ export default function BrainCanvas({ progress }) {
         ctx.beginPath();
         ring.forEach((p, idx) => {
           const alpha = Math.max(0, (p.z + R) / (2 * R));
-          ctx.strokeStyle = `rgba(76, 201, 240, ${0.15 + alpha * 0.55})`;
-          ctx.lineWidth = 0.8;
+          ctx.strokeStyle = `rgba(130, 210, 255, ${0.12 + alpha * 0.6})`;
+          ctx.lineWidth = 0.9;
           if (idx === 0) ctx.moveTo(p.x, p.y);
           else ctx.lineTo(p.x, p.y);
         });
@@ -81,14 +81,8 @@ export default function BrainCanvas({ progress }) {
       });
     }
 
-    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-
     function animate() {
-      if (isMobile) {
-        drawSphere(rotationRef.current);
-        return; // Draw once and skip active animation loop on mobile
-      }
-      rotationRef.current += 0.008;
+      rotationRef.current += 0.007;
       drawSphere(rotationRef.current);
       animRef.current = requestAnimationFrame(animate);
     }
@@ -98,18 +92,18 @@ export default function BrainCanvas({ progress }) {
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, []);
+  }, [size]);
 
   return (
     <canvas
       ref={canvasRef}
       style={{
-        opacity: progress,
+        opacity: typeof progress === "number" ? Math.max(0.2, progress) : 1,
         width: "100%",
         height: "100%",
         display: "block",
-        transition: "opacity 0.3s",
+        transition: "opacity 0.3s ease",
       }}
     />
   );
-}
+}

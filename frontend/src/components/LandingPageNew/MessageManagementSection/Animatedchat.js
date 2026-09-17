@@ -11,7 +11,7 @@ const MESSAGES = [
     id: 1,
     side: "right",
     type: "text",
-    text: "Hi, I need a sunscreen",
+    text: "Hi",
     time: "9:41 AM",
     ticks: true,
   },
@@ -669,4 +669,4 @@ export function AnimatedChat() {
       </AnimatePresence>
     </div>
   );
-}
+}

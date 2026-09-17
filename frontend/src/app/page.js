@@ -18,6 +18,11 @@ const MessageManagementSection = dynamic(
   { ssr: true, loading: () => <div className="min-h-[300px]" /> }
 );
 
+const SalesJourneySection = dynamic(
+  () => import('../components/LandingPageNew/SalesJourneySection/SalesJourneySection'),
+  { ssr: true, loading: () => <div className="min-h-[300px]" /> }
+);
+
 const BeforeAfterSection = dynamic(
   () => import('../components/LandingPageNew/BeforeAfterSection/BeforeAfterSection'),
   { ssr: true, loading: () => <div className="min-h-[300px]" /> }
@@ -107,6 +112,10 @@ export default function LandingPage() {
 
         <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">MessageManagement Error</div>}>
           <MessageManagementSection />
+        </ErrorBoundary>
+
+        <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">SalesJourney Error</div>}>
+          <SalesJourneySection />
         </ErrorBoundary>
 
         <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">WhatsAppShowcase Error</div>}>
