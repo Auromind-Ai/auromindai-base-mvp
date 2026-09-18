@@ -6,6 +6,12 @@ import json
 from uuid import UUID
 from datetime import datetime, timezone
 
+from pydantic import ValidationError
+from fastapi.responses import StreamingResponse
+from app.schemas.crm_filters import LeadFilters, LeadExportRequest
+from app.services.crm.lead_query import lead_query, source_expression
+from app.services.crm import lead_reporting
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from sqlalchemy.orm import Session
@@ -24,11 +30,80 @@ from app.services.billing.entitlement_service import EntitlementService
 from app.models.message import Message, SenderType, MessageStatus
 from app.models.conversation import ChannelType, ConversationStatus
 from app.services.inbox.conversation_service import ConversationService
+from app.services.analytics.realtime_service import publish_to_workspace
+from app.models.workspace import WorkspaceMember
+from app.models.lead_scoring import LeadScoreHistory
 from app.models.user import User
 
 
 router = APIRouter(prefix="/lead-scoring", tags=["lead-scoring"])
+ALLOWED_LABELS = {"Interested", "High Priority", "Premium Lead", "Follow Up"}
 
+
+
+def parse_lead_filters(raw: str | None) -> LeadFilters:
+    try:
+        filters = LeadFilters.model_validate_json(raw) if raw else LeadFilters()
+        if any(key not in get_scoring_config().get_weights() for key in filters.intents):
+            raise ValueError("Unknown buying intent filter")
+        return filters
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Invalid lead filters. Check ranges and values.") from exc
+
+
+@router.get("/filter-options")
+def filter_options(workspace_id: str | None = None, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    from app.models.workspace import WorkspaceMember
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    base = db.query(Lead).filter(Lead.workspace_id == wid)
+    agents = db.query(User.id, User.full_name, User.email).join(WorkspaceMember, WorkspaceMember.user_id == User.id).filter(WorkspaceMember.workspace_id == wid).all()
+    return {
+        "sources": sorted(set(["whatsapp", "instagram", "twilio", "gmail", "email", "manual", "web"] + [r[0] for r in base.with_entities(source_expression()).distinct().all()])),
+        "statuses": sorted(set(["new", "active", "converted", "lost"] + [r[0] for r in base.with_entities(Lead.status).distinct().all() if r[0]])),
+        "tiers": ["hot", "warm", "cold"],
+        "labels": sorted(ALLOWED_LABELS),
+        "intents": list(get_scoring_config().get_weights()),
+        "agents": [{"id": str(a.id), "name": a.full_name or a.email} for a in agents],
+        "columns": lead_reporting.EXPORT_COLUMNS,
+        "tier_ranges": [{"tier": tier, "min": min(scores), "max": max(scores)} for tier in ("cold", "warm", "hot") if (scores := [i for i in range(101) if get_scoring_config().get_tier(i) == tier])],
+    }
+
+
+@router.get("/analytics")
+def lead_analytics(workspace_id: str | None = None, filters: str | None = Query(None, max_length=16000), db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    return lead_reporting.analytics(db, wid, parse_lead_filters(filters), current_user.id)
+
+
+@router.get("/history")
+def workspace_lead_history(workspace_id: str | None = None, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    from app.models.lead_scoring import LeadScoreHistory
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    q = db.query(LeadScoreHistory, Lead.name).join(Lead, Lead.id == LeadScoreHistory.lead_id).filter(Lead.workspace_id == wid)
+    total = q.count()
+    rows = q.order_by(LeadScoreHistory.created_at.desc(), LeadScoreHistory.id.desc()).offset(offset).limit(limit).all()
+    return {"total": total, "items": [{"id": str(h.id), "lead_id": str(h.lead_id), "name": name, "reason": h.reason, "score_before": h.score_before, "score_after": h.score_after, "created_at": h.created_at} for h, name in rows]}
+
+
+@router.post("/export")
+def export_leads(body: LeadExportRequest, workspace_id: str | None = None, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    try:
+        filters = body.filters if body.scope == "filtered" else LeadFilters()
+        q = lead_query(db, wid, filters, current_user.id)
+        if body.scope == "selected":
+            q = q.filter(Lead.id.in_(body.selected_ids))
+        output = lead_reporting.export_file(q, body.columns, body.format)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    def chunks():
+        try:
+            while chunk := output.read(65536):
+                yield chunk
+        finally:
+            output.close()
+    media = "text/csv" if body.format == "csv" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    return StreamingResponse(chunks(), media_type=media, headers={"Content-Disposition": f'attachment; filename="leads.{body.format}"', "Cache-Control": "no-store"})
 
 
 # 1. Stateless score preview (no DB write)
@@ -93,7 +168,6 @@ async def recalculate_lead(
     )
 
     # Realtime pubsub (Task 7)
-    from app.services.analytics.realtime_service import publish_to_workspace
     publish_to_workspace(
         workspace_id=str(wid),
         event_type="lead.score.updated",
@@ -149,7 +223,6 @@ async def update_lead_labels(
         )
 
     # Validate labels
-    ALLOWED_LABELS = {"Interested", "High Priority", "Premium Lead", "Follow Up"}
     for label in body.labels:
         if label not in ALLOWED_LABELS:
             raise HTTPException(
@@ -468,6 +541,7 @@ async def list_leads_with_scores(
     min_score: int | None = Query(default=None, ge=0, le=100),
     max_score: int | None = Query(default=None, ge=0, le=100),
     search: str | None = Query(default=None, description="Search term for name or phone"),
+    filters: str | None = Query(default=None, max_length=16000),
     sort_by: str = Query(
         default="score_desc",
         description="Sort: score_desc, score_asc, recent",
@@ -482,6 +556,8 @@ async def list_leads_with_scores(
     result = lead_scoring_service.get_workspace_lead_scores(
         workspace_id=wid,
         db=db,
+        filters=parse_lead_filters(filters),
+        user_id=current_user.id,
         status_filter=status_filter,
         min_score=min_score,
         max_score=max_score,
@@ -772,11 +848,16 @@ async def assign_lead(
         raise HTTPException(status_code=404, detail="Lead not found")
 
     if body.assigned_to:
-        target_user = db.query(User).filter(User.id == body.assigned_to).first()
+       
+        target_user = db.query(WorkspaceMember).filter(WorkspaceMember.user_id == body.assigned_to, WorkspaceMember.workspace_id == wid).first()
         if not target_user:
-            raise HTTPException(status_code=400, detail="Assigned user does not exist")
+            raise HTTPException(status_code=400, detail="Assigned agent must belong to this workspace")
 
     old_assigned = lead.assigned_to
+    if old_assigned != body.assigned_to:
+       
+        db.add(LeadScoreHistory(lead_id=lead.id, score_before=lead.score or 0, score_after=lead.score or 0,
+               reason="assignment_changed", event_type="assignment_changed"))
     lead.assigned_to = body.assigned_to
     db.commit()
     db.refresh(lead)

@@ -8,6 +8,9 @@ from uuid import UUID
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
+from app.schemas.crm_filters import LeadFilters
+from app.services.crm.lead_query import lead_query
+
 from app.models.ai_action import Lead
 from app.models.lead_scoring import LeadScoreHistory, TemplateLog
 
@@ -468,25 +471,21 @@ def get_workspace_lead_scores(
     sort_by: str = "score_desc",
     limit: int = 100,
     offset: int = 0,
+    filters=None,
+    user_id=None,
 ) -> dict[str, Any]:
     
-    query = db.query(Lead).filter(Lead.workspace_id == workspace_id)
 
+    effective = (filters or LeadFilters()).model_copy(deep=True)
     if status_filter:
-        query = query.filter(Lead.status == status_filter)
+        effective.statuses = [status_filter]
     if min_score is not None:
-        query = query.filter(Lead.score >= min_score)
+        effective.min_score = min_score
     if max_score is not None:
-        query = query.filter(Lead.score <= max_score)
-    if search and search.strip():
-        search_term = f"%{search.strip()}%"
-        from sqlalchemy import or_
-        query = query.filter(
-            or_(
-                Lead.name.ilike(search_term),
-                Lead.phone.ilike(search_term),
-            )
-        )
+        effective.max_score = max_score
+    if search:
+        effective.search = search
+    query = lead_query(db, workspace_id, effective, user_id)
 
     # Total count (before pagination)
     total = query.count()
@@ -501,12 +500,18 @@ def get_workspace_lead_scores(
     else:
         query = query.order_by(Lead.score.desc().nullsfirst())
 
-    leads = query.offset(offset).limit(limit).all()
+    leads = query.order_by(Lead.id).offset(offset).limit(limit).all()
+    responses_by_lead = {}
+    if leads:
+        for lead_id, response in db.query(TemplateLog.lead_id, TemplateLog.response_type).filter(
+            TemplateLog.lead_id.in_([lead.id for lead in leads]), TemplateLog.response_type.isnot(None)
+        ).all():
+            responses_by_lead.setdefault(lead_id, []).append(response)
 
     items = []
     for lead in leads:
         days = _days_inactive(lead)
-        responses = _template_responses(lead.id, db)
+        responses = responses_by_lead.get(lead.id, [])
         intent_signals = getattr(lead, "intent_signals", None)
         breakdown = calculate_score_breakdown(
             current_node=lead.current_node or 0,
@@ -530,6 +535,8 @@ def get_workspace_lead_scores(
             "lead_id": str(lead.id),
             "name": lead.name,
             "phone": lead.phone,
+            "email": lead.email,
+            "created_at": lead.created_at,
             "source": lead.source,
             "channel": lead.source,
             "status": lead.status,

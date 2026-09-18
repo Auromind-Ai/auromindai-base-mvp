@@ -168,6 +168,8 @@ class LeadScoreListItem(BaseModel):
     lead_id: UUID
     name: Optional[str] = None
     phone: Optional[str] = None
+    email: Optional[str] = None
+    created_at: Optional[datetime] = None
     source: Optional[str] = None
     channel: Optional[str] = None
     status: Optional[str] = None
