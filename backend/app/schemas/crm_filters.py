@@ -66,3 +66,20 @@ class LeadExportRequest(BaseModel):
         if self.scope == "selected" and not self.selected_ids:
             raise ValueError("Select at least one lead")
         return self
+
+
+class CrmSavedViewCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(..., min_length=1, max_length=100)
+    filters: LeadFilters | dict = Field(default_factory=dict)
+
+
+class CrmSavedViewResponse(BaseModel):
+    id: UUID
+    workspace_id: UUID
+    user_id: UUID
+    name: str
+    filters: dict
+    created_at: datetime
+    updated_at: datetime | None = None
+

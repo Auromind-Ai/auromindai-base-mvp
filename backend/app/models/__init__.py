@@ -30,7 +30,7 @@ from .flow_execution import FlowExecutionState, FlowExecutionTrace
 from .media import MediaFile
 from .outbound_message import OutboundMessage
 from .scheduled_resume import ScheduledResume
-from .lead_scoring import LeadScoreHistory, TemplateLog
+from .lead_scoring import LeadScoreHistory, TemplateLog, CrmSavedView
 from .user_session import UserSession
 from .notification import Notification
 from .admin_audit_log import AdminAuditLog

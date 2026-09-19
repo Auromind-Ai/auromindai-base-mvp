@@ -388,11 +388,19 @@ export class APIClient {
 
   async request(endpoint, options = {}) {
     const response = await this.requestRaw(endpoint, options);
+    if (response.status === 204) {
+      return {};
+    }
     const contentType = response.headers.get("content-type");
     let data = null;
 
     if (contentType && contentType.indexOf("application/json") !== -1) {
-      data = await response.json();
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
+      }
     }
 
     return data !== null ? data : {};

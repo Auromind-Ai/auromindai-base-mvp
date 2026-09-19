@@ -94,6 +94,7 @@ class IntentDetail(FactorDetail):
 
 
 class ScoreBreakdown(BaseModel):
+    lead_tier: Optional[str] = None
     total: int
     behavioral_score: int
     semantic_intent_score: int

@@ -3,51 +3,57 @@
 import { Target, CheckCircle2, XCircle, Zap, ShieldAlert, Sparkles, Clock, MapPin, Phone } from 'lucide-react';
 
 const INTENT_MAPPINGS = {
-  has_pricing: { label: 'Pricing intent detected', points: '+20', positive: true, icon: Sparkles },
-  has_urgency: { label: 'Urgency detected', points: '+20', positive: true, icon: Zap },
-  shared_contact: { label: 'Shared contact details', points: '+15', positive: true, icon: MapPin },
-  is_specific: { label: 'Specific query', points: '+10', positive: true, icon: Target },
-  has_number: { label: 'Budget mentioned', points: '+15', positive: true, icon: Target },
-  has_question: { label: 'Asked a clear question', points: '+5', positive: true, icon: Target },
-  callback_request: { label: 'Callback request', points: '+25', positive: true, icon: Phone },
-  pincode_shared: { label: 'Pincode shared', points: '+15', positive: true, icon: MapPin },
-  delivery_interest: { label: 'Delivery interest', points: '+15', positive: true, icon: Clock },
-  is_vague: { label: 'Vague communication', points: '-10', positive: false, icon: ShieldAlert },
-  negative_intent: { label: 'Negative intent', points: '-20', positive: false, icon: XCircle },
-  pricing_intent: { label: 'Pricing conversation', points: '+15', positive: true, icon: Sparkles },
-  payment_intent: { label: 'Payment intent', points: '+20', positive: true, icon: CheckCircle2 },
-  budget_acceptance: { label: 'Budget accepted', points: '+25', positive: true, icon: CheckCircle2 },
+  has_pricing: { label: 'Pricing intent detected', positive: true, icon: Sparkles },
+  has_urgency: { label: 'Urgency detected', positive: true, icon: Zap },
+  shared_contact: { label: 'Shared contact details', positive: true, icon: MapPin },
+  is_specific: { label: 'Specific query', positive: true, icon: Target },
+  has_number: { label: 'Budget mentioned', positive: true, icon: Target },
+  has_question: { label: 'Asked a clear question', positive: true, icon: Target },
+  callback_request: { label: 'Callback request', positive: true, icon: Phone },
+  pincode_shared: { label: 'Pincode shared', positive: true, icon: MapPin },
+  delivery_interest: { label: 'Delivery interest', positive: true, icon: Clock },
+  is_vague: { label: 'Vague communication', positive: false, icon: ShieldAlert },
+  negative_intent: { label: 'Negative intent', positive: false, icon: XCircle },
+  pricing_intent: { label: 'Pricing conversation', positive: true, icon: Sparkles },
+  payment_intent: { label: 'Payment intent', positive: true, icon: CheckCircle2 },
+  budget_acceptance: { label: 'Budget accepted', positive: true, icon: CheckCircle2 },
 };
 
-function getScoreColorClass(score) {
-  if (score >= 75) return 'text-red-500';
-  if (score >= 40) return 'text-amber-400';
+function getScoreColorClass(tier) {
+  if (tier === 'hot') return 'text-red-500';
+  if (tier === 'warm') return 'text-amber-400';
   return 'text-sky-400';
 }
 
-function getScoreGlow(score) {
-  if (score >= 75) return 'drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]';
-  if (score >= 40) return 'drop-shadow-[0_0_15px_rgba(251,191,36,0.3)]';
+function getScoreGlow(tier) {
+  if (tier === 'hot') return 'drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]';
+  if (tier === 'warm') return 'drop-shadow-[0_0_15px_rgba(251,191,36,0.3)]';
   return 'drop-shadow-[0_0_15px_rgba(56,189,248,0.2)]';
 }
 
-export default function ScoreBreakdown({ breakdown, score }) {
+export default function ScoreBreakdown({ breakdown, score, leadTier }) {
   if (!breakdown) return null;
 
-  const { behavioral_score, intent, recency, engagement, progress, total } = breakdown;
+  const { behavioral_score, intent, recency } = breakdown;
+  const tier = leadTier || breakdown.lead_tier;
+  const tierLabel = tier ? `${tier.charAt(0).toUpperCase()}${tier.slice(1)}` : 'Unclassified';
 
   // Gather active deterministic signals
   const activeIntents = [];
   if (intent?.signals) {
     Object.entries(intent.signals).forEach(([key, val]) => {
       const isActive = val === true || (val && typeof val === 'object' && val.value === true);
-      if (isActive && INTENT_MAPPINGS[key]) {
+      if (isActive) {
+        const mapping = INTENT_MAPPINGS[key] || { label: key.replaceAll('_', ' '), positive: true };
+        const weight = typeof val?.weight === 'number' ? val.weight : null;
         const snippet = val && typeof val === 'object' ? val.snippet : null;
         const reasoning = val && typeof val === 'object' ? val.reasoning : null;
-        const explanation = val && typeof val === 'object' ? val.explanation : INTENT_MAPPINGS[key].label;
+        const explanation = val && typeof val === 'object' ? val.explanation : mapping.label;
         activeIntents.push({
           key,
-          ...INTENT_MAPPINGS[key],
+          ...mapping,
+          positive: weight === null ? mapping.positive : weight >= 0,
+          points: weight === null ? null : `${weight >= 0 ? '+' : ''}${weight}`,
           snippet,
           reasoning,
           explanation
@@ -64,17 +70,17 @@ export default function ScoreBreakdown({ breakdown, score }) {
       {/*  REALTIME SCORE  */}
       <div className="rounded-2xl bg-[#121218] border border-white/5 p-6 relative overflow-hidden flex flex-col items-center justify-center text-center">
         {/* Ambient background glow based on score */}
-        <div className={`absolute inset-0 opacity-20 ${score >= 75 ? 'bg-red-500' : score >= 40 ? 'bg-amber-400' : 'bg-sky-400'} blur-3xl`} />
+        <div className={`absolute inset-0 opacity-20 ${tier === 'hot' ? 'bg-red-500' : tier === 'warm' ? 'bg-amber-400' : 'bg-sky-400'} blur-3xl`} />
         
         <h3 className="text-[10px] font-semibold tracking-[0.15em] text-zinc-500 uppercase mb-2 relative z-10">
           Realtime Score
         </h3>
         
-        <div className={`text-6xl font-black tabular-nums transition-all duration-500 ${getScoreColorClass(score)} ${getScoreGlow(score)} relative z-10`}>
+        <div className={`text-6xl font-black tabular-nums transition-all duration-500 ${getScoreColorClass(tier)} ${getScoreGlow(tier)} relative z-10`}>
           {score ?? 0}
         </div>
         <div className="mt-2 text-xs font-medium uppercase tracking-widest text-white/50 relative z-10">
-          {score >= 75 ? '🔥 Hot Lead' : score >= 40 ? '⚡ Warm Lead' : '❄️ Cold Lead'}
+          {tierLabel} Lead
         </div>
       </div>
 
@@ -94,7 +100,7 @@ export default function ScoreBreakdown({ breakdown, score }) {
       {/*  INTELLIGENCE CHECKLIST  */}
       <div className="rounded-2xl bg-[#121218] border border-white/5 p-5">
         <h3 className="text-[10px] font-semibold tracking-[0.15em] text-zinc-500 uppercase mb-4">
-          Why this lead is {score >= 75 ? 'Hot' : score >= 40 ? 'Warm' : 'Cold'}
+          Why this lead is {tierLabel}
         </h3>
 
         <div className="space-y-3">
@@ -113,9 +119,9 @@ export default function ScoreBreakdown({ breakdown, score }) {
                       {signal.label}
                     </p>
                   </div>
-                  <span className={`text-[10px] font-black tracking-wide px-1.5 py-0.5 rounded ${signal.positive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                  {signal.points !== null && <span className={`text-[10px] font-black tracking-wide px-1.5 py-0.5 rounded ${signal.positive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
                     {signal.points}
-                  </span>
+                  </span>}
                 </div>
                 
                 {/* Signal explanation */}
@@ -130,7 +136,7 @@ export default function ScoreBreakdown({ breakdown, score }) {
                   <div className="ml-5 mt-1.5 p-2 rounded-lg bg-zinc-950/40 border border-white/5 space-y-1 relative">
                     <p className="text-[9px] uppercase font-semibold text-zinc-500 tracking-wider">Snippet</p>
                     <p className="text-[11px] text-zinc-300 bg-white/[0.01] px-1.5 py-0.5 rounded leading-relaxed select-all">
-                      "{signal.snippet}"
+                      &quot;{signal.snippet}&quot;
                     </p>
                     {signal.reasoning && (
                       <div className="pt-1 border-t border-white/5 flex items-center gap-1">

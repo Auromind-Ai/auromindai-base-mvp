@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Filter, Download, X } from "lucide-react";
+import { Filter, Download, X, Bookmark, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import api from "@/lib/api";
 import { getUser, getWorkspaceIdFromToken } from "@/lib/auth";
 
@@ -131,6 +131,7 @@ export default function CrmControls({
   quickFilter,
   onClear,
   onRestore,
+  workspaceId,
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState({});
@@ -149,25 +150,85 @@ export default function CrmControls({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [views, setViews] = useState([]);
+  const [viewsLoading, setViewsLoading] = useState(false);
+  const [savingView, setSavingView] = useState(false);
   const [viewName, setViewName] = useState("");
   const [saveOpen, setSaveOpen] = useState(false);
-  const storageKey = `crm-views:${getWorkspaceIdFromToken()}:${getUser()?.id || "current"}`;
-  useEffect(() => {
+  const [selectedViewId, setSelectedViewId] = useState("");
+  const [viewToDelete, setViewToDelete] = useState(null);
+  const [deletingView, setDeletingView] = useState(false);
+
+  const activeWsId = workspaceId || getWorkspaceIdFromToken();
+
+  const loadViews = useCallback(async () => {
+    if (!activeWsId) return;
+    setViewsLoading(true);
     try {
-      const stored = JSON.parse(localStorage.getItem(storageKey) || "[]");
-      setViews(Array.isArray(stored) ? stored : []);
-    } catch {
-      setViews([]);
+      const data = await api.get(`/lead-scoring/views?workspace_id=${activeWsId}`);
+      setViews(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.warn("Failed to load saved views from server, checking local fallback:", err);
+      try {
+        const stored = JSON.parse(localStorage.getItem(`crm-views:${activeWsId}`) || "[]");
+        setViews(Array.isArray(stored) ? stored : []);
+      } catch {
+        setViews([]);
+      }
+    } finally {
+      setViewsLoading(false);
     }
-  }, [storageKey]);
-  const persistViews = (next) => {
+  }, [activeWsId]);
+
+  useEffect(() => {
+    loadViews();
+  }, [loadViews]);
+
+  const handleSaveView = async (e) => {
+    e.preventDefault();
+    const name = viewName.trim();
+    if (!name) return;
+    if (!activeWsId) {
+      setError("Workspace is required to save views.");
+      return;
+    }
+    setSavingView(true);
+    setError("");
     try {
-      localStorage.setItem(storageKey, JSON.stringify(next));
-      setViews(next);
-    } catch {
-      setError("Saved views could not be stored in this browser.");
+      const created = await api.post(`/lead-scoring/views?workspace_id=${activeWsId}`, {
+        name,
+        filters: effective,
+      });
+      setViews((prev) => [created, ...prev.filter((v) => v.id !== created.id)]);
+      setViewName("");
+      setSaveOpen(false);
+    } catch (err) {
+      setError(err?.message || "Failed to save view. Please try again.");
+    } finally {
+      setSavingView(false);
     }
   };
+
+  const handleDeleteView = async (viewId) => {
+    if (!activeWsId || !viewId) return;
+    setDeletingView(true);
+    setError("");
+    try {
+      await api.delete(`/lead-scoring/views/${viewId}?workspace_id=${activeWsId}`);
+      setViews((prev) => prev.filter((v) => String(v.id) !== String(viewId)));
+      if (selectedViewId === String(viewId)) setSelectedViewId("");
+    } catch (err) {
+      if (err?.status === 404 || err?.message?.toLowerCase().includes("not found")) {
+        // Already removed or deleted from backend, remove from UI state
+        setViews((prev) => prev.filter((v) => String(v.id) !== String(viewId)));
+        if (selectedViewId === String(viewId)) setSelectedViewId("");
+      } else {
+        setError(err?.message || "Failed to delete saved view.");
+      }
+    } finally {
+      setDeletingView(false);
+    }
+  };
+
   const set = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
   const select = (key, label, items) => (
     <label className="flex flex-col gap-1 text-sm text-zinc-400">
@@ -204,6 +265,15 @@ export default function CrmControls({
   const effective = cleanFilters({ ...filters, ...(search ? { search } : {}) });
   if (quickFilter === "favorites") effective.favorite = true;
   else if (quickFilter !== "all") effective.sources = [quickFilter];
+  // A saved-view name only applies while its stored filters match the query.
+  const filterSignature = (value) => JSON.stringify(
+    Object.entries(cleanFilters(value || {}))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => [key, Array.isArray(value) ? [...value].sort() : value]),
+  );
+  const selectedView = views.find(view => String(view.id) === String(selectedViewId));
+  const activeViewId = selectedView && filterSignature(selectedView.filters) === filterSignature(effective)
+    ? selectedViewId : "";
   const exportLeads = async () => {
     setBusy(true);
     setError("");
@@ -290,22 +360,31 @@ export default function CrmControls({
           <Download size={14} className="inline mr-2" />
           Export
         </button>
-        <button className={crmControl} onClick={() => setSaveOpen(true)}>
+        <button
+          className={crmControl}
+          onClick={() => {
+            setError("");
+            setSaveOpen(true);
+          }}
+        >
+          <Bookmark size={14} className="inline mr-2" />
           Save view
         </button>
-        {!!views.length && (
+        {views.length > 0 && (
           <select
             aria-label="Open saved view"
             className={crmControl}
-            value=""
+            value={activeViewId}
             onChange={(e) => {
-              const v = views[Number(e.target.value)];
+              const val = e.target.value;
+              setSelectedViewId(val);
+              const v = views.find((item) => String(item.id) === String(val));
               if (v) onRestore(v.filters);
             }}
           >
-            <option value="">Saved views</option>
-            {views.map((v, i) => (
-              <option value={i} key={i}>
+            <option value="">Saved views ({views.length})</option>
+            {views.map((v) => (
+              <option value={v.id} key={v.id}>
                 {v.name}
               </option>
             ))}
@@ -661,60 +740,151 @@ export default function CrmControls({
       <Modal
         title="Saved Views"
         open={saveOpen}
-        onClose={() => setSaveOpen(false)}
+        onClose={() => {
+          if (!savingView && !deletingView) {
+            setSaveOpen(false);
+            setViewToDelete(null);
+            setError("");
+          }
+        }}
       >
         <p className="text-sm text-zinc-400">
-          Views are saved in this browser for your account and workspace.
+          Save your current filter configuration to quickly access it anytime.
         </p>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (viewName.trim()) {
-              persistViews([
-                ...views,
-                { name: viewName.trim(), filters: effective },
-              ]);
-              setViewName("");
-            }
-          }}
-          className="flex gap-2"
-        >
+        <form onSubmit={handleSaveView} className="flex gap-2">
           <input
             required
             maxLength={80}
             aria-label="View name"
-            placeholder="View name"
+            placeholder="e.g. High Priority WhatsApp"
             className={`${crmControl} min-w-0 flex-1`}
             value={viewName}
             onChange={(e) => setViewName(e.target.value)}
+            disabled={savingView}
           />
-          <button className={crmControl}>Save</button>
+          <button
+            type="submit"
+            className={`${crmControl} bg-violet-600 hover:bg-violet-500 font-medium px-4 flex items-center justify-center gap-1.5`}
+            disabled={savingView || !viewName.trim()}
+          >
+            {savingView ? <Loader2 size={14} className="animate-spin" /> : null}
+            Save
+          </button>
         </form>
-        <div className="overflow-y-auto">
-          {views.map((v, i) => (
-            <div
-              className="flex justify-between py-3 border-b border-white/10"
-              key={i}
-            >
-              <button
-                onClick={() => {
-                  onRestore(v.filters);
-                  setSaveOpen(false);
-                }}
+        <div className="overflow-y-auto space-y-2 max-h-[320px] pr-1 mt-1">
+          {viewsLoading ? (
+            <div className="flex items-center justify-center py-6 text-zinc-400 text-sm gap-2">
+              <Loader2 size={16} className="animate-spin" /> Loading views...
+            </div>
+          ) : views.length === 0 ? (
+            <div className="text-center py-6 text-zinc-500 text-sm">
+              No saved views yet. Enter a name above to save the current filter view.
+            </div>
+          ) : (
+            views.map((v) => (
+              <div
+                className="flex items-center justify-between p-3 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05] hover:border-violet-500/30 transition-all group"
+                key={v.id}
               >
-                {v.name}
+                <button
+                  type="button"
+                  className="text-left font-medium text-sm text-zinc-200 hover:text-violet-300 flex-1 truncate mr-3"
+                  onClick={() => {
+                    setSelectedViewId(v.id);
+                    onRestore(v.filters);
+                    setSaveOpen(false);
+                  }}
+                >
+                  <span className="block truncate text-zinc-100 font-medium">{v.name}</span>
+                  {v.filters && Object.keys(v.filters).length > 0 ? (
+                    <span className="block text-xs text-zinc-400 font-normal truncate mt-0.5">
+                      {Object.keys(v.filters).length} filter{Object.keys(v.filters).length > 1 ? 's' : ''} saved
+                    </span>
+                  ) : (
+                    <span className="block text-xs text-zinc-500 font-normal truncate mt-0.5">
+                      Default all leads
+                    </span>
+                  )}
+                </button>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    className="text-xs px-3 py-1.5 rounded-lg bg-violet-600/20 text-violet-300 hover:bg-violet-600 hover:text-white border border-violet-500/30 font-medium transition-all"
+                    onClick={() => {
+                      setSelectedViewId(v.id);
+                      onRestore(v.filters);
+                      setSaveOpen(false);
+                    }}
+                  >
+                    Apply
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Delete ${v.name}`}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/15 transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setViewToDelete(v);
+                      setError("");
+                    }}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        {error && <p role="alert" className="text-rose-400 text-sm mt-1">{error}</p>}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog.Root open={!!viewToDelete} onOpenChange={(open) => !open && !deletingView && setViewToDelete(null)}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[110]" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-[#120e1f] border border-white/10 text-white rounded-2xl shadow-2xl z-[111] p-6 flex flex-col gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 shrink-0">
+                <AlertTriangle size={22} />
+              </div>
+              <div className="space-y-1 min-w-0">
+                <Dialog.Title className="text-base font-semibold text-white">
+                  Delete Saved View
+                </Dialog.Title>
+                <Dialog.Description className="text-xs text-zinc-400 leading-relaxed">
+                  Are you sure you want to delete <span className="text-zinc-200 font-medium">&quot;{viewToDelete?.name}&quot;</span>? This view will be removed.
+                </Dialog.Description>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/5">
+              <button
+                type="button"
+                className="px-3.5 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 transition-colors"
+                onClick={() => setViewToDelete(null)}
+                disabled={deletingView}
+              >
+                Cancel
               </button>
               <button
-                aria-label={`Delete ${v.name}`}
-                onClick={() => persistViews(views.filter((_, j) => i !== j))}
+                type="button"
+                className="px-3.5 py-2 rounded-xl text-xs font-medium text-white bg-rose-600 hover:bg-rose-500 shadow-md shadow-rose-900/30 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                onClick={async () => {
+                  if (viewToDelete) {
+                    await handleDeleteView(viewToDelete.id);
+                    setViewToDelete(null);
+                  }
+                }}
+                disabled={deletingView}
               >
-                <X size={16} />
+                {deletingView ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                Delete View
               </button>
             </div>
-          ))}
-        </div>
-        {error && <p role="alert">{error}</p>}
-      </Modal>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </>
   );
 }

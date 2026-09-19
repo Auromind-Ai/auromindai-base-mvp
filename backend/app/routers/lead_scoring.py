@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from pydantic import ValidationError
 from fastapi.responses import StreamingResponse
-from app.schemas.crm_filters import LeadFilters, LeadExportRequest
+from app.schemas.crm_filters import LeadFilters, LeadExportRequest, CrmSavedViewCreate, CrmSavedViewResponse
 from app.services.crm.lead_query import lead_query, source_expression
 from app.services.crm import lead_reporting
 
@@ -58,7 +58,7 @@ def filter_options(workspace_id: str | None = None, db: Session = Depends(get_db
     base = db.query(Lead).filter(Lead.workspace_id == wid)
     agents = db.query(User.id, User.full_name, User.email).join(WorkspaceMember, WorkspaceMember.user_id == User.id).filter(WorkspaceMember.workspace_id == wid).all()
     return {
-        "sources": sorted(set(["whatsapp", "instagram", "twilio", "gmail", "email", "manual", "web"] + [r[0] for r in base.with_entities(source_expression()).distinct().all()])),
+        "sources": sorted(set(["whatsapp", "instagram", "twilio", "gmail", "email", "manual"] + [r[0] for r in base.with_entities(source_expression()).distinct().all()])),
         "statuses": sorted(set(["new", "active", "converted", "lost"] + [r[0] for r in base.with_entities(Lead.status).distinct().all() if r[0]])),
         "tiers": ["hot", "warm", "cold"],
         "labels": sorted(ALLOWED_LABELS),
@@ -106,7 +106,71 @@ def export_leads(body: LeadExportRequest, workspace_id: str | None = None, db: S
     return StreamingResponse(chunks(), media_type=media, headers={"Content-Disposition": f'attachment; filename="leads.{body.format}"', "Cache-Control": "no-store"})
 
 
+@router.get("/views", response_model=list[CrmSavedViewResponse])
+def get_crm_saved_views(
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.models.lead_scoring import CrmSavedView
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    views = (
+        db.query(CrmSavedView)
+        .filter(CrmSavedView.workspace_id == wid)
+        .order_by(CrmSavedView.created_at.desc())
+        .all()
+    )
+    return views
+
+
+@router.post("/views", response_model=CrmSavedViewResponse, status_code=status.HTTP_201_CREATED)
+def create_crm_saved_view(
+    body: CrmSavedViewCreate,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.models.lead_scoring import CrmSavedView
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    raw_filters = body.filters
+    if hasattr(raw_filters, "model_dump"):
+        serialized_filters = raw_filters.model_dump(mode="json", exclude_none=True)
+    elif isinstance(raw_filters, dict):
+        serialized_filters = {k: v for k, v in raw_filters.items() if v is not None and v != "" and (not isinstance(v, list) or len(v) > 0)}
+    else:
+        serialized_filters = {}
+
+    view = CrmSavedView(
+        workspace_id=wid,
+        user_id=current_user.id,
+        name=body.name.strip(),
+        filters=serialized_filters,
+    )
+    db.add(view)
+    db.commit()
+    db.refresh(view)
+    return view
+
+
+@router.delete("/views/{view_id}")
+def delete_crm_saved_view(
+    view_id: UUID,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.models.lead_scoring import CrmSavedView
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    view = db.query(CrmSavedView).filter(CrmSavedView.id == view_id, CrmSavedView.workspace_id == wid).first()
+    if not view:
+        raise HTTPException(status_code=404, detail="Saved view not found")
+    db.delete(view)
+    db.commit()
+    return {"success": True, "message": "Saved view deleted"}
+
+
 # 1. Stateless score preview (no DB write)
+
 
 
 @router.post(

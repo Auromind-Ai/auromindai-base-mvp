@@ -78,8 +78,14 @@ export function CrmAnalytics({ overview = false, onBrowse }) {
     if (
       period === "custom" &&
       (!custom.start || !custom.end || custom.start > custom.end)
-    )
+    ) {
+      // Clear the previous result and any pending loading state for invalid dates.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setData(null);
+      setLoading(false);
+      setError("");
       return;
+    }
     let active = true;
     let [from, to] = dateRange(Number(period) || 30);
     if (period === "custom") {
@@ -89,7 +95,6 @@ export function CrmAnalytics({ overview = false, onBrowse }) {
       to = end.toISOString();
     }
     // Loading and stale-data reset track the external analytics request.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError("");
     setData(null);
@@ -373,7 +378,7 @@ export function CrmHistory({ onSelect }) {
   );
 }
 
-export function CrmScoring({ options, lead, onRecalculate }) {
+export function CrmScoring({ options, lead, onRecalculate, loading, loadError, onRetry }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
@@ -393,12 +398,14 @@ export function CrmScoring({ options, lead, onRecalculate }) {
           </div>
         ))}
       </div>
+      {loading && <p role="status" className="text-zinc-400">Loading lead details...</p>}
+      {loadError && <p role="alert" className="text-rose-300">{loadError} <button className={crmControl} disabled={loading} onClick={onRetry}>Retry</button></p>}
       {lead ? (
         <>
           <h2 className="font-medium">{lead.name}</h2>
           <button
             className={crmControl}
-            disabled={busy}
+            disabled={busy || loading || !!loadError}
             onClick={async () => {
               setBusy(true);
               setError("");
@@ -417,9 +424,9 @@ export function CrmScoring({ options, lead, onRecalculate }) {
             {busy ? "Updating…" : "Recalculate lead score"}
           </button>
           {error && <p role="alert">{error}</p>}
-          <ScoreBreakdown breakdown={lead.breakdown} score={lead.score} />
+          <ScoreBreakdown breakdown={lead.breakdown} score={lead.score} leadTier={lead.lead_tier} />
         </>
-      ) : (
+      ) : !loading && !loadError && (
         <p className="text-zinc-400">
           Select a lead in the Leads section to inspect its score.
         </p>

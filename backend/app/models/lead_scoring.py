@@ -2,7 +2,7 @@
 import uuid
 
 from sqlalchemy import (Column,DateTime,Float,ForeignKey,Integer,String,Text,)
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -70,3 +70,40 @@ class TemplateLog(Base):
 
     # Points awarded / deducted when this event was processed
     score_impact = Column(Integer, nullable=True, default=0)
+
+
+class CrmSavedView(Base):
+    __tablename__ = "crm_saved_views"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    name = Column(String(100), nullable=False)
+    filters = Column(JSONB, nullable=False, default=dict)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+

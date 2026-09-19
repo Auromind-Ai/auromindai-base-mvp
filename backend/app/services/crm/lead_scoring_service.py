@@ -210,6 +210,10 @@ def calculate_score_breakdown(
         "is_vague": {"value": False, "snippet": "", "explanation": "Vague greeting", "reasoning": ""},
         "negative_intent": {"value": False, "snippet": "", "explanation": "Negative intent expressed", "reasoning": ""}
     }
+    weights = get_scoring_config().get_weights()
+    # Include every configured signal, including newly added buying intents.
+    for key in weights:
+        signals.setdefault(key, {"value": False, "snippet": "", "explanation": key.replace("_", " "), "reasoning": ""})
     if intent_signals is not None:
         for k, v in intent_signals.items():
             if k in signals:
@@ -222,6 +226,8 @@ def calculate_score_breakdown(
                     }
                 else:
                     signals[k]["value"] = bool(v)
+    for key, signal in signals.items():
+        signal["weight"] = weights.get(key)
     MAX_INTENT_SCORE = get_scoring_config().get_cap("intent_max")
     return {
         "total": total,

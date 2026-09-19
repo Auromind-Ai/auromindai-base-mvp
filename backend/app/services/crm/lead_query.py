@@ -18,7 +18,7 @@ def signal_active(key):
 def source_expression():
     source = func.lower(func.coalesce(Lead.source, "manual"))
     return case((source.in_(["sms", "phone", "twilio"]), "twilio"),
-                (source == "", "manual"), else_=source)
+                (source.in_(["web", ""]), "manual"), else_=source)
 
 
 def lead_query(db, workspace_id, filters: LeadFilters, user_id=None):
