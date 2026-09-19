@@ -31,7 +31,8 @@ import {
     Mail,
     Coins,
     PanelLeftClose,
-    PanelLeftOpen
+    PanelLeftOpen,
+    Crown
 } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from '@/context/AuthContext';
@@ -61,6 +62,19 @@ const MAIN_NAV_ITEMS = [
     { label: 'Leads & CRM', icon: Users, href: '/user/admin/leads' },
     { label: 'Channels', icon: Share2, href: '/user/admin/channels' },
     { label: 'Templates', icon: FileText, href: '/user/admin/templates' },
+    {
+        label: 'Marketing',
+        icon: Send,
+        href: '/user/admin/marketing',
+        isExpandable: true,
+        children: [
+            { label: 'Campaigns', href: '/user/admin/marketing/campaigns' },
+            { label: 'Bulk Messages', href: '/user/admin/marketing/bulk' },
+            { label: 'Broadcast', href: '/user/admin/marketing/broadcast' },
+            { label: 'Audience', href: '/user/admin/marketing/audience' },
+            { label: 'Analytics', href: '/user/admin/marketing/analytics' },
+        ]
+    },
     { label: 'Credits & Wallet', icon: Coins, href: '/user/admin/credits' },
     { label: 'Billing', icon: CreditCard, href: '/user/admin/billing' },
 ];
@@ -90,7 +104,18 @@ function AdminLayoutContent({ children }) {
 
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        try {
+            return localStorage.getItem('sidebar_collapsed') === 'true';
+        } catch {
+            return false;
+        }
+    });
+
+    const isMarketingPath = Boolean(pathname && (pathname.startsWith('/user/admin/marketing') || pathname.startsWith('/admin/marketing')));
+    const [isMarketingManualToggle, setIsMarketingManualToggle] = useState(null);
+    const isMarketingOpen = isMarketingManualToggle !== null ? isMarketingManualToggle : isMarketingPath;
 
     const workspace = workspaces.find(w => w.id === workspaceId) || null;
     const currentWorkspaceName = (() => {
@@ -103,19 +128,15 @@ function AdminLayoutContent({ children }) {
         return `${user?.full_name || user?.name || 'User'}'s Workspace`;
     })();
 
-    // 1. Safe Client-side LocalStorage Read
-    useEffect(() => {
-        const saved = localStorage.getItem('sidebar_collapsed');
-        if (saved !== null) {
-            setIsCollapsed(saved === 'true');
-        }
-    }, []);
-
-    // 2. Toggle Handler with LocalStorage Save
+    // Toggle Handler with LocalStorage Save
     const toggleSidebar = () => {
         setIsCollapsed((prev) => {
             const next = !prev;
-            localStorage.setItem('sidebar_collapsed', String(next));
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.setItem('sidebar_collapsed', String(next));
+                } catch {}
+            }
             return next;
         });
     };
@@ -212,8 +233,93 @@ function AdminLayoutContent({ children }) {
     const isAIPage = pathname && (pathname === '/user/admin/ai' || pathname.includes('/admin/ai'));
 
     const renderNavItem = (item, isMobile = false) => {
-        const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+        const isGroup = !!item.isExpandable;
+        const isChildActive = isGroup && item.children?.some(c => pathname === c.href || pathname.startsWith(c.href + '/'));
+        const isActive = pathname === item.href || pathname.startsWith(item.href + '/') || isChildActive;
         const Icon = item.icon;
+
+        if (isGroup) {
+            const isExpanded = isMarketingOpen;
+
+            return (
+                <div key={item.href} className="space-y-0.5">
+                    <div
+                        onClick={() => {
+                            if (!isMobile && isCollapsed) {
+                                toggleSidebar();
+                                setIsMarketingManualToggle(true);
+                                return;
+                            }
+                            setIsMarketingManualToggle(!isMarketingOpen);
+                        }}
+                        title={!isMobile && isCollapsed ? item.label : undefined}
+                        className={`relative flex items-center justify-between py-[7px] rounded-[6px] text-sm group select-none cursor-pointer
+                            transition-all duration-150 active:scale-[0.97] active:opacity-80
+                            ${!isMobile && isCollapsed ? 'justify-center px-0' : 'px-3'}
+                            ${isActive
+                                ? 'bg-white/10 text-white font-medium shadow-sm'
+                                : 'text-[#9b9b9b] hover:bg-white/5 hover:text-white'}
+                        `}
+                    >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            <Icon
+                                size={16}
+                                strokeWidth={2}
+                                className={`relative z-10 shrink-0 transition-colors duration-150 ${
+                                    isActive
+                                        ? 'text-[#C49FE0]'
+                                        : 'text-[#7e7e7e] group-hover:text-white'
+                                }`}
+                            />
+                            {(isMobile || !isCollapsed) && (
+                                <span className="relative z-10 truncate">{item.label}</span>
+                            )}
+                        </div>
+
+                        {(isMobile || !isCollapsed) && (
+                            <ChevronDown
+                                size={14}
+                                className={`text-[#7e7e7e] transition-transform duration-200 ${
+                                    isExpanded ? 'rotate-180 text-white' : ''
+                                }`}
+                            />
+                        )}
+                    </div>
+
+                    {/* Expandable Submenu */}
+                    {(isMobile || !isCollapsed) && isExpanded && (
+                        <div className="pl-4 pr-1 py-0.5 space-y-0.5 border-l border-white/5 ml-4">
+                            {item.children.map((child) => {
+                                const isSubActive = pathname === child.href;
+                                return (
+                                    <Link
+                                        key={child.href}
+                                        href={child.href}
+                                        onClick={() => {
+                                            if (isMobile) setIsMobileOpen(false);
+                                        }}
+                                        className={`relative flex items-center gap-2 py-1.5 px-2.5 rounded-[6px] text-xs transition-all ${
+                                            isSubActive
+                                                ? 'bg-[#814AC8]/25 text-white font-semibold border-l-2 border-[#814AC8] shadow-sm'
+                                                : 'text-[#8c88a6] hover:bg-white/5 hover:text-white'
+                                        }`}
+                                    >
+                                        <span
+                                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                                isSubActive
+                                                    ? 'bg-[#814AC8] shadow-[0_0_8px_#814AC8]'
+                                                    : 'bg-[#555]'
+                                            }`}
+                                        />
+                                        <span className="truncate">{child.label}</span>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            );
+        }
 
         const handleClick = (e) => {
             if (item.label === 'Settings') {
@@ -293,7 +399,8 @@ function AdminLayoutContent({ children }) {
         pathname === '/user/admin/brain' ||
         pathname.startsWith('/user/admin/brain/') ||
         pathname === '/user/admin/channels' ||
-        pathname.startsWith('/user/admin/channels/')
+        pathname.startsWith('/user/admin/channels/') ||
+        pathname.startsWith('/user/admin/marketing')
     );
 
     return (

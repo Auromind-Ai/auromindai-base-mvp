@@ -104,9 +104,7 @@ export default function NeuroHero() {
 
           <AnimatePresence mode="wait">
             {stage === 1 ? (
-              /* ========================================================================= */
-              /* STAGE 1: THE PROBLEM (MALE SILHOUETTE + FLOATING INCOMING MESSAGES)       */
-              /* ========================================================================= */
+              /* STAGE 1: THE PROBLEM (MALE SILHOUETTE + FLOATING INCOMING MESSAGES)  */
               <motion.div
                 key="stage-problem"
                 initial={{ opacity: 0, y: 15 }}
@@ -234,9 +232,7 @@ export default function NeuroHero() {
                 </div>
               </motion.div>
             ) : (
-              /* ========================================================================= */
-              /* STAGE 2: THE SOLUTION (GIRL SILHOUETTE + FLOATING AI SOLUTION PILLS)      */
-              /* ========================================================================= */
+              /* STAGE 2: THE SOLUTION (GIRL SILHOUETTE + FLOATING AI SOLUTION PILLS) */
               <motion.div
                 key="stage-solution"
                 initial={{ opacity: 0, y: 15 }}
