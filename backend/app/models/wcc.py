@@ -18,6 +18,7 @@ class WCCWallet(Base):
     included_balance = Column(Numeric(12, 2), nullable=False, default=0.0)
     purchased_balance = Column(Numeric(12, 2), nullable=False, default=0.0)
     balance = Column(Numeric(12, 2), nullable=False, default=0.0)
+    held_balance = Column(Numeric(12, 2), nullable=False, default=0.0)
     overage_balance = Column(Numeric(12, 2), nullable=False, default=0.0)  # Outstanding debt when overage_enabled=True
     currency = Column(String(3), default="INR", nullable=False)
 

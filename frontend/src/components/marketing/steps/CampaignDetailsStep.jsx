@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Send, FileText, MessageSquare, ChevronDown, Check, Sparkles, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Send, FileText, MessageSquare, ChevronDown, Check, Sparkles, MessageCircle, ShieldCheck } from 'lucide-react';
 import QuickTips from '../QuickTips';
 import WhatsAppPreview from '../WhatsAppPreview';
+import { getTierInfo } from '@/lib/api/marketing';
 
 const CAMPAIGN_TYPES = [
   {
@@ -26,11 +27,6 @@ const CAMPAIGN_TYPES = [
   },
 ];
 
-const WHATSAPP_NUMBERS = [
-  { id: 'num_1', name: 'Business Number (Primary)', phone: '+91 98765 43210', verified: true },
-  { id: 'num_2', name: 'Support Line 2', phone: '+91 98765 43211', verified: true },
-];
-
 const CAMPAIGN_GOALS = [
   'Increase sales',
   'Re-engage customers',
@@ -39,10 +35,39 @@ const CAMPAIGN_GOALS = [
   'Customer feedback & NPS',
 ];
 
-export default function CampaignDetailsStep({ data, updateData, onNext, onCancel }) {
+export default function CampaignDetailsStep({ data, updateData, onNext, onCancel, workspaceId }) {
   const [errors, setErrors] = useState({});
   const [isPhoneOpen, setIsPhoneOpen] = useState(false);
   const [isGoalOpen, setIsGoalOpen] = useState(false);
+  const [phoneNumbers, setPhoneNumbers] = useState([]);
+  const [tierInfo, setTierInfo] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    getTierInfo(workspaceId).then((info) => {
+      if (isMounted && info) {
+        setTierInfo(info);
+        if (info.display_phone) {
+          const connected = {
+            id: info.phone_number_id || 'primary_num',
+            name: info.is_connected ? 'Meta Business Connected' : 'Business Line',
+            phone: info.display_phone,
+            verified: info.is_connected ?? true,
+          };
+          setPhoneNumbers([connected]);
+          if (!data.whatsappNumber) {
+            updateData({
+              whatsappNumber: info.display_phone,
+              phoneNumberId: info.phone_number_id || 'primary_num',
+            });
+          }
+        }
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [workspaceId]);
 
   const validateAndProceed = () => {
     const errs = {};
@@ -64,7 +89,7 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
     onNext();
   };
 
-  const selectedPhone = WHATSAPP_NUMBERS.find(n => n.phone === data.whatsappNumber) || WHATSAPP_NUMBERS[0];
+  const selectedPhone = phoneNumbers.find((n) => n.phone === data.whatsappNumber) || phoneNumbers[0];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
@@ -98,7 +123,7 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
               updateData({ name: e.target.value });
               if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
             }}
-            placeholder="e.g. Diwali Offer 2025"
+            placeholder="e.g. Summer Promo 2026, New Feature Announcement..."
             className={`w-full px-3.5 py-2.5 rounded-xl bg-[#0f0e1c] border text-xs sm:text-sm text-white placeholder-[#585375] outline-none transition-all duration-200 focus:border-[#814AC8] focus:ring-1 focus:ring-[#814AC8]/50 ${
               errors.name ? 'border-rose-500/70' : 'border-[#251f42]'
             }`}
@@ -159,60 +184,99 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
           </div>
         </div>
 
-        {/* 3. WhatsApp Number Dropdown */}
+        {/* 3. WhatsApp Number Dropdown / Input */}
         <div className="space-y-1.5 relative">
-          <label className="text-xs font-medium text-[#D4D4D4] block">
-            WhatsApp Number <span className="text-[#814AC8]">*</span>
-          </label>
-
-          <div
-            onClick={() => setIsPhoneOpen(!isPhoneOpen)}
-            className="w-full px-3.5 py-2.5 rounded-xl bg-[#0f0e1c] border border-[#251f42] hover:border-[#382f61] flex items-center justify-between cursor-pointer transition-all"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-6 h-6 rounded-full bg-[#25D366]/20 flex items-center justify-center text-[#25D366] shrink-0">
-                <MessageCircle size={14} />
-              </div>
-              <div className="text-left">
-                <span className="text-xs font-semibold text-white block leading-tight">
-                  {selectedPhone.name}
-                </span>
-                <span className="text-[11px] text-[#8c88a6]">
-                  {selectedPhone.phone}
-                </span>
-              </div>
-            </div>
-            <ChevronDown size={16} className={`text-[#8c88a6] transition-transform ${isPhoneOpen ? 'rotate-180' : ''}`} />
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium text-[#D4D4D4] block">
+              WhatsApp Number <span className="text-[#814AC8]">*</span>
+            </label>
+            {selectedPhone && selectedPhone.verified && (
+              <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-medium">
+                <ShieldCheck size={12} /> Connected
+              </span>
+            )}
           </div>
 
-          {isPhoneOpen && (
-            <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-[#121026] border border-[#2d2650] rounded-xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150">
-              {WHATSAPP_NUMBERS.map((n) => (
-                <div
-                  key={n.id}
-                  onClick={() => {
-                    updateData({ whatsappNumber: n.phone });
-                    setIsPhoneOpen(false);
-                  }}
-                  className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-colors ${
-                    data.whatsappNumber === n.phone
-                      ? 'bg-[#814AC8]/20 text-white'
-                      : 'hover:bg-[#1a1638] text-[#D4D4D4]'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <MessageCircle size={14} className="text-[#25D366]" />
-                    <div>
-                      <span className="text-xs font-medium block">{n.name}</span>
-                      <span className="text-[10px] text-[#8c88a6]">{n.phone}</span>
-                    </div>
+          {phoneNumbers.length > 0 ? (
+            <div className="relative">
+              <div
+                onClick={() => setIsPhoneOpen(!isPhoneOpen)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#0f0e1c] border border-[#251f42] hover:border-[#382f61] flex items-center justify-between cursor-pointer transition-all"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-6 h-6 rounded-full bg-[#25D366]/20 flex items-center justify-center text-[#25D366] shrink-0">
+                    <MessageCircle size={14} />
                   </div>
-                  {data.whatsappNumber === n.phone && (
-                    <Check size={14} className="text-[#814AC8]" />
-                  )}
+                  <div className="text-left">
+                    <span className="text-xs font-semibold text-white block leading-tight">
+                      {selectedPhone?.name || 'Primary WhatsApp Line'}
+                    </span>
+                    <span className="text-[11px] text-[#8c88a6]">
+                      {selectedPhone?.phone || data.whatsappNumber}
+                    </span>
+                  </div>
                 </div>
-              ))}
+                <ChevronDown size={16} className={`text-[#8c88a6] transition-transform ${isPhoneOpen ? 'rotate-180' : ''}`} />
+              </div>
+
+              {isPhoneOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-[#121026] border border-[#2d2650] rounded-xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                  {phoneNumbers.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => {
+                        updateData({ whatsappNumber: n.phone, phoneNumberId: n.id });
+                        setIsPhoneOpen(false);
+                      }}
+                      className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-colors ${
+                        data.whatsappNumber === n.phone
+                          ? 'bg-[#814AC8]/20 text-white'
+                          : 'hover:bg-[#1a1638] text-[#D4D4D4]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MessageCircle size={14} className="text-[#25D366]" />
+                        <div>
+                          <span className="text-xs font-medium block">{n.name}</span>
+                          <span className="text-[10px] text-[#8c88a6]">{n.phone}</span>
+                        </div>
+                      </div>
+                      {data.whatsappNumber === n.phone && (
+                        <Check size={14} className="text-[#814AC8]" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="p-3 rounded-xl bg-[#141026] border border-[#2d244d] flex items-start gap-2.5">
+                <MessageCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-xs space-y-1">
+                  <p className="text-amber-300 font-medium">No Meta WhatsApp API number connected</p>
+                  <p className="text-[#8c88a6] text-[11px]">
+                    Connect your official WhatsApp Business number in Channels or enter your sender phone below.
+                  </p>
+                </div>
+              </div>
+
+              <input
+                type="text"
+                value={data.whatsappNumber || ''}
+                onChange={(e) => {
+                  updateData({ whatsappNumber: e.target.value, phoneNumberId: e.target.value });
+                  if (errors.whatsappNumber) setErrors((prev) => ({ ...prev, whatsappNumber: null }));
+                }}
+                placeholder="e.g. +91 98401 23456"
+                className={`w-full px-3.5 py-2.5 rounded-xl bg-[#0f0e1c] border text-xs sm:text-sm text-white placeholder-[#585375] outline-none transition-all duration-200 focus:border-[#814AC8] focus:ring-1 focus:ring-[#814AC8]/50 ${
+                  errors.whatsappNumber ? 'border-rose-500/70' : 'border-[#251f42]'
+                }`}
+              />
+            </div>
+          )}
+          {errors.whatsappNumber && (
+            <p className="text-[11px] text-rose-400 mt-1">{errors.whatsappNumber}</p>
           )}
         </div>
 

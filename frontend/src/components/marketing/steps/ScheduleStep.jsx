@@ -31,9 +31,10 @@ const SENDING_RATES = [
 ];
 
 export default function ScheduleStep({ data, updateData, onNext, onBack }) {
-  const [sendType, setSendType] = useState(data.sendType || 'Schedule for Later'); // 'Send Now' | 'Schedule for Later'
-  const [dateVal, setDateVal] = useState(data.scheduleDate || 'Oct 28, 2025');
-  const [timeVal, setTimeVal] = useState(data.scheduleTime || '10:30 AM');
+  const todayFormatted = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const [sendType, setSendType] = useState(data.sendType || 'Send Now'); // 'Send Now' | 'Schedule for Later'
+  const [dateVal, setDateVal] = useState(data.scheduleDate || todayFormatted);
+  const [timeVal, setTimeVal] = useState(data.scheduleTime || '10:00 AM');
   const [timezone, setTimezone] = useState(data.timezone || '(GMT+05:30) Asia/Kolkata (IST)');
   const [isTzOpen, setIsTzOpen] = useState(false);
   const [isRateOpen, setIsRateOpen] = useState(false);
@@ -44,9 +45,9 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
   const [stopOnFailure, setStopOnFailure] = useState(data.stopOnFailure ?? false);
   const [quietHours, setQuietHours] = useState(data.quietHours ?? true);
 
-  const totalRecipients = data.recipientsCount || 2500;
-  const validRecipients = data.validRecipients || 2432;
-  const invalidRecipients = data.invalidRecipients || 68;
+  const totalRecipients = data.recipientsCount || 0;
+  const validRecipients = data.validRecipients || 0;
+  const invalidRecipients = data.invalidRecipients || 0;
 
   // Calculate estimated completion time
   const calculateEstimatedDuration = () => {
@@ -403,7 +404,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                   Estimated completion
                 </span>
                 <span className="text-xs font-bold text-white block">
-                  {dateVal} at 12:45 PM (IST)
+                  ~ {calculateEstimatedDuration()} after start
                 </span>
                 <span className="text-[10px] text-[#7f7a9c]">
                   Based on {totalRecipients.toLocaleString()} messages at {sendingRate}/min ({calculateEstimatedDuration()})

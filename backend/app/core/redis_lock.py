@@ -28,7 +28,8 @@ def _get_redis() -> redis.Redis:
     return _redis_client
 
 
-# release ONLY if the caller owns the lock (compare-and-delete).
+def get_redis_client() -> redis.Redis:
+    return _get_redis()
 _RELEASE_SCRIPT = """
 if redis.call("GET", KEYS[1]) == ARGV[1] then
     return redis.call("DEL", KEYS[1])

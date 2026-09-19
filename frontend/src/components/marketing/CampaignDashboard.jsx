@@ -12,23 +12,52 @@ import {
   Send,
   CheckCircle2,
   MessageSquare,
-  Sparkles,
   Users,
-  TrendingUp,
   FileText,
   Trash2,
   Copy,
   Pause,
   Play,
-  Bell,
   ArrowLeft,
   ArrowRight,
-  ArrowDown
+  ArrowDown,
+  RefreshCw,
+  Check,
+  Minus
 } from 'lucide-react';
 import CampaignStatusBadge from './CampaignStatusBadge';
 import CreateCampaignModal from './CreateCampaignModal';
-import { getCampaigns, deleteCampaign, updateCampaign } from '@/lib/api/marketing';
+import { getCampaigns, deleteCampaign, updateCampaign, pauseCampaign, resumeCampaign } from '@/lib/api/marketing';
 import { useToast } from '@/context/ToastContext';
+import { useAuth } from '@/context/AuthContext';
+
+// Premium Custom Checkbox Component
+function PremiumCheckbox({ checked, indeterminate = false, onChange, ariaLabel = 'Select' }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={indeterminate ? 'mixed' : checked}
+      aria-label={ariaLabel}
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange?.();
+      }}
+      className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center transition-all duration-150 cursor-pointer select-none shrink-0 ${
+        checked || indeterminate
+          ? 'bg-[#814AC8] border border-[#a26cf5] shadow-[0_0_10px_rgba(129,74,200,0.55)] scale-100'
+          : 'bg-[#0d101c] border border-[#22293e] hover:border-[#814AC8] hover:bg-[#141829]'
+      } active:scale-90`}
+    >
+      {checked && !indeterminate && (
+        <Check size={12} strokeWidth={3} className="text-white drop-shadow-sm" />
+      )}
+      {indeterminate && (
+        <Minus size={12} strokeWidth={3} className="text-white drop-shadow-sm" />
+      )}
+    </button>
+  );
+}
 
 // Authentic WhatsApp SVG Icon Component
 function WhatsAppLogo({ className = 'w-6 h-6', size = 24 }) {
@@ -47,43 +76,51 @@ function WhatsAppLogo({ className = 'w-6 h-6', size = 24 }) {
 }
 
 const TABS = [
-  { id: 'all', label: 'All Campaigns', countKey: 'all', defaultCount: 24 },
-  { id: 'draft', label: 'Drafts', countKey: 'draft', defaultCount: 3 },
-  { id: 'scheduled', label: 'Scheduled', countKey: 'scheduled', defaultCount: 2 },
-  { id: 'sending', label: 'Sending', countKey: 'sending', defaultCount: 1 },
-  { id: 'completed', label: 'Completed', countKey: 'completed', defaultCount: 16 },
-  { id: 'paused', label: 'Paused', countKey: 'paused', defaultCount: 2 },
-  { id: 'failed', label: 'Failed', countKey: 'failed', defaultCount: 0 },
+  { id: 'all', label: 'All Campaigns' },
+  { id: 'draft', label: 'Drafts' },
+  { id: 'scheduled', label: 'Scheduled' },
+  { id: 'sending', label: 'Sending' },
+  { id: 'completed', label: 'Completed' },
+  { id: 'paused', label: 'Paused' },
+  { id: 'failed', label: 'Failed' },
 ];
 
-export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
+const ITEMS_PER_PAGE = 7;
+
+export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', workspaceId: propWorkspaceId }) {
+  const { workspaceId: authWsId } = useAuth();
+  const workspaceId = propWorkspaceId || authWsId;
+
   const [campaigns, setCampaigns] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCampaignIds, setSelectedCampaignIds] = useState([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
-  const [dateFilter, setDateFilter] = useState('Last 30 days');
+  const [dateFilter, setDateFilter] = useState('All time');
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
-  const [topDateFilter, setTopDateFilter] = useState('Current Week');
-  const [isTopDateOpen, setIsTopDateOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const { showToast } = useToast();
 
   const loadData = async () => {
+    setIsLoading(true);
     try {
-      const data = await getCampaigns();
+      const data = await getCampaigns(workspaceId);
       if (data && Array.isArray(data)) {
         setCampaigns(data);
       }
     } catch (err) {
       console.error('Failed to load campaigns:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     let isMounted = true;
-    getCampaigns()
+    setIsLoading(true);
+    getCampaigns(workspaceId)
       .then((data) => {
         if (isMounted && data && Array.isArray(data)) {
           setCampaigns(data);
@@ -91,71 +128,127 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
       })
       .catch((err) => {
         console.error('Failed to load campaigns:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
       });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [workspaceId]);
 
-  // Filter campaigns by active tab & search query
-  const filteredCampaigns = useMemo(() => {
-    return campaigns.filter((c) => {
-      // Tab filter
-      if (activeTab !== 'all') {
-        if (c.status?.toLowerCase() !== activeTab.toLowerCase()) {
-          return false;
-        }
-      }
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchName = c.name?.toLowerCase().includes(q);
-        const matchSubtitle = c.subtitle?.toLowerCase().includes(q);
-        const matchAudience = c.audienceListName?.toLowerCase().includes(q) || c.audienceType?.toLowerCase().includes(q);
-        const matchStatus = c.status?.toLowerCase().includes(q);
-        if (!matchName && !matchSubtitle && !matchAudience && !matchStatus) return false;
-      }
-      return true;
-    });
-  }, [campaigns, activeTab, searchQuery]);
-
-  // Tab counts
+  // Tab counts dynamically computed from DB campaigns
   const tabCounts = useMemo(() => {
-    const counts = { all: campaigns.length || 24 };
-    TABS.forEach((t) => {
-      if (t.id === 'all') {
-        counts.all = campaigns.length || t.defaultCount;
-      } else {
-        const matching = campaigns.filter((c) => c.status?.toLowerCase() === t.id.toLowerCase()).length;
-        counts[t.id] = matching > 0 ? matching : (campaigns.length === 6 ? t.defaultCount : matching);
-      }
+    const counts = {
+      all: campaigns.length,
+      draft: 0,
+      scheduled: 0,
+      sending: 0,
+      completed: 0,
+      paused: 0,
+      failed: 0,
+    };
+    campaigns.forEach((c) => {
+      const st = (c.status || '').toLowerCase();
+      if (st === 'draft' || st === 'pending') counts.draft++;
+      else if (st === 'scheduled') counts.scheduled++;
+      else if (st === 'sending' || st === 'in_progress') counts.sending++;
+      else if (st === 'completed') counts.completed++;
+      else if (st === 'paused') counts.paused++;
+      else if (st === 'failed' || st === 'cancelled') counts.failed++;
     });
     return counts;
   }, [campaigns]);
 
-  // Aggregate stats (exact values matching reference screenshot: 24, 12,840, 11,982 (93.4%), 1,248)
+  // Dynamic aggregate stats from real DB campaigns
   const stats = useMemo(() => {
     const total = campaigns.length;
-    const totalSent = campaigns.reduce((acc, c) => acc + (c.sentCount || 0), 0);
-    const totalDelivered = campaigns.reduce((acc, c) => acc + (c.deliveredCount || 0), 0);
-    const totalReplies = campaigns.reduce((acc, c) => acc + (c.repliesCount || 0), 0);
-    const deliveryRate = totalSent > 0 ? ((totalDelivered / totalSent) * 100).toFixed(1) + '%' : '93.4%';
+    const totalSent = campaigns.reduce((acc, c) => acc + (Number(c.sentCount) || 0), 0);
+    const totalDelivered = campaigns.reduce((acc, c) => acc + (Number(c.deliveredCount) || 0), 0);
+    const totalReplies = campaigns.reduce((acc, c) => acc + (Number(c.repliesCount) || 0), 0);
+    const deliveredRate = totalSent > 0 ? ((totalDelivered / totalSent) * 100).toFixed(1) + '%' : '0.0%';
+    const replyRate = totalSent > 0 ? ((totalReplies / totalSent) * 100).toFixed(1) + '%' : '0.0%';
 
     return {
-      totalCampaigns: total > 6 ? total : 24,
-      messagesSent: totalSent > 10000 ? totalSent.toLocaleString() : '12,840',
-      deliveredCount: totalDelivered > 10000 ? totalDelivered.toLocaleString() : '11,982',
-      deliveredRate: deliveryRate === '100.0%' ? '93.4%' : deliveryRate,
-      replies: totalReplies > 1000 ? totalReplies.toLocaleString() : '1,248',
+      totalCampaigns: total.toLocaleString(),
+      messagesSent: totalSent.toLocaleString(),
+      deliveredCount: totalDelivered.toLocaleString(),
+      deliveredRate,
+      deliveryRate: deliveredRate,
+      replies: totalReplies.toLocaleString(),
+      replyRate,
     };
   }, [campaigns]);
 
+  // Filter campaigns by active tab, search query, and date filter
+  const filteredCampaigns = useMemo(() => {
+    const now = new Date();
+
+    return campaigns.filter((c) => {
+      // Tab filter
+      if (activeTab !== 'all') {
+        const st = (c.status || '').toLowerCase();
+        if (activeTab === 'sending') {
+          if (st !== 'sending' && st !== 'in_progress') return false;
+        } else if (activeTab === 'draft') {
+          if (st !== 'draft' && st !== 'pending') return false;
+        } else if (activeTab === 'failed') {
+          if (st !== 'failed' && st !== 'cancelled') return false;
+        } else if (st !== activeTab.toLowerCase()) {
+          return false;
+        }
+      }
+
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchName = c.name?.toLowerCase().includes(q);
+        const matchGoal = c.goal?.toLowerCase().includes(q) || c.subtitle?.toLowerCase().includes(q);
+        const matchAudience = c.audienceListName?.toLowerCase().includes(q) || c.audienceType?.toLowerCase().includes(q);
+        const matchStatus = c.status?.toLowerCase().includes(q);
+        if (!matchName && !matchGoal && !matchAudience && !matchStatus) return false;
+      }
+
+      // Date Filter
+      if (dateFilter && dateFilter !== 'All time') {
+        const campDate = c.created_at ? new Date(c.created_at) : (c.scheduledAt ? new Date(c.scheduledAt) : null);
+        if (campDate && !isNaN(campDate.getTime())) {
+          const diffMs = now.getTime() - campDate.getTime();
+          const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+          if (dateFilter === 'Today' && diffDays > 1) return false;
+          if (dateFilter === 'Last 7 days' && diffDays > 7) return false;
+          if (dateFilter === 'Last 30 days' && diffDays > 30) return false;
+          if (dateFilter === 'This Month') {
+            if (campDate.getMonth() !== now.getMonth() || campDate.getFullYear() !== now.getFullYear()) {
+              return false;
+            }
+          }
+        }
+      }
+
+      return true;
+    });
+  }, [campaigns, activeTab, searchQuery, dateFilter]);
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchQuery, dateFilter]);
+
+  // Paginated campaigns
+  const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / ITEMS_PER_PAGE));
+  const paginatedCampaigns = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredCampaigns.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredCampaigns, currentPage]);
+
   const toggleSelectAll = () => {
-    if (selectedCampaignIds.length === filteredCampaigns.length && filteredCampaigns.length > 0) {
+    if (selectedCampaignIds.length === paginatedCampaigns.length && paginatedCampaigns.length > 0) {
       setSelectedCampaignIds([]);
     } else {
-      setSelectedCampaignIds(filteredCampaigns.map((c) => c.id));
+      setSelectedCampaignIds(paginatedCampaigns.map((c) => c.id));
     }
   };
 
@@ -179,13 +272,18 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
   };
 
   const handleTogglePause = async (campaign) => {
-    const nextStatus = campaign.status === 'Paused' ? 'Sending' : 'Paused';
     try {
-      await updateCampaign(campaign.id, { status: nextStatus });
-      showToast(`Campaign status updated to ${nextStatus}`, 'success');
+      const st = (campaign.status || '').toLowerCase();
+      if (st === 'paused') {
+        await resumeCampaign(campaign.id);
+        showToast('Campaign resumed successfully', 'success');
+      } else {
+        await pauseCampaign(campaign.id);
+        showToast('Campaign paused successfully', 'success');
+      }
       loadData();
     } catch (e) {
-      showToast('Failed to update status', 'error');
+      showToast('Failed to update campaign status', 'error');
     }
     setActiveMenuId(null);
   };
@@ -238,12 +336,12 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
         </div>
       </div>
 
-      {/* 2. Metrics Cards (4 Cards) */}
+      {/* 2. Metrics Cards (4 Dynamic Cards with Premium Backgrounds & White Icons) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Campaigns */}
         <div className="p-4 sm:p-5 rounded-2xl bg-[#0a0c14] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-[#1c1236] border border-[#311b5e]/40 flex items-center justify-center text-[#a855f7] shrink-0">
-            <Send size={18} className="translate-x-0.5" />
+          <div className="w-12 h-12 rounded-2xl bg-[#5E5CE6] shadow-[0_0_20px_rgba(94,92,230,0.4)] flex items-center justify-center text-white shrink-0">
+            <Send size={18} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-medium text-white/60">
@@ -253,20 +351,17 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
               <span className="text-2xl sm:text-3xl font-medium text-white tracking-tight">
                 {stats.totalCampaigns}
               </span>
-              <span className="text-xs font-medium text-[#22c55e] flex items-center">
-                ↑ 20%
-              </span>
             </div>
             <div className="text-[11px] text-white/40 mt-0.5">
-              +4 from last month
+              Active in workspace
             </div>
           </div>
         </div>
 
         {/* Card 2: Messages Sent */}
         <div className="p-4 sm:p-5 rounded-2xl bg-[#0a0c14] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-[#101b38] border border-[#192f64]/40 flex items-center justify-center text-[#60a5fa] shrink-0">
-            <Users size={18} />
+          <div className="w-12 h-12 rounded-2xl bg-[#1E4BB8] shadow-[0_0_20px_rgba(30,75,184,0.4)] flex items-center justify-center text-white shrink-0">
+            <Users size={18} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-medium text-white/60">
@@ -276,20 +371,17 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
               <span className="text-2xl sm:text-3xl font-medium text-white tracking-tight">
                 {stats.messagesSent}
               </span>
-              <span className="text-xs font-medium text-[#22c55e] flex items-center">
-                ↑ 32%
-              </span>
             </div>
             <div className="text-[11px] text-white/40 mt-0.5">
-              +3,120 from last month
+              Total dispatched
             </div>
           </div>
         </div>
 
         {/* Card 3: Delivered */}
         <div className="p-4 sm:p-5 rounded-2xl bg-[#0a0c14] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-[#0a231b] border border-[#124b38]/40 flex items-center justify-center text-[#22c55e] shrink-0">
-            <CheckCircle2 size={18} />
+          <div className="w-12 h-12 rounded-2xl bg-[#0E845A] shadow-[0_0_20px_rgba(14,132,90,0.4)] flex items-center justify-center text-white shrink-0">
+            <CheckCircle2 size={18} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-medium text-white/60">
@@ -311,8 +403,8 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
 
         {/* Card 4: Replies */}
         <div className="p-4 sm:p-5 rounded-2xl bg-[#0a0c14] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-[#0a2026] border border-[#104754]/40 flex items-center justify-center text-[#22d3ee] shrink-0">
-            <MessageSquare size={18} />
+          <div className="w-12 h-12 rounded-2xl bg-[#9A5328] shadow-[0_0_20px_rgba(154,83,40,0.4)] flex items-center justify-center text-white shrink-0">
+            <MessageSquare size={18} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-medium text-white/60">
@@ -322,12 +414,9 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
               <span className="text-2xl sm:text-3xl font-medium text-white tracking-tight">
                 {stats.replies}
               </span>
-              <span className="text-xs font-medium text-[#22c55e] flex items-center">
-                ↑ 18%
-              </span>
             </div>
             <div className="text-[11px] text-white/40 mt-0.5">
-              9.7% response rate
+              {stats.replyRate} response rate
             </div>
           </div>
         </div>
@@ -375,15 +464,6 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
             />
           </div>
 
-          {/* Filter Button */}
-          <button
-            type="button"
-            className="px-3 py-1.5 rounded-xl bg-[#0a0c14] border border-[#161a28] hover:border-[#283049] text-xs text-[#cbd5e1] hover:text-white flex items-center gap-1.5 transition-colors"
-          >
-            <Filter size={13} className="text-white/60" />
-            <span>Filter</span>
-          </button>
-
           {/* Date Filter Dropdown */}
           <div className="relative">
             <button
@@ -398,7 +478,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
 
             {isDateDropdownOpen && (
               <div className="absolute right-0 top-full mt-1.5 w-44 bg-[#101320] border border-[#22283d] rounded-xl shadow-2xl p-1 z-30 space-y-0.5">
-                {['Today', 'Last 7 days', 'Last 30 days', 'This Month', 'All time'].map((d) => (
+                {['All time', 'Today', 'Last 7 days', 'Last 30 days', 'This Month'].map((d) => (
                   <div
                     key={d}
                     onClick={() => {
@@ -422,18 +502,23 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
       <div className="rounded-2xl border border-[#161a28] bg-[#0a0c14] overflow-hidden shadow-xl">
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#0b0e18] border-b border-[#161a28] text-white text-[14px] font-normal">
+            <thead className="bg-[#0b0e18] border-b border-[#161a28] text-white text-[13px] font-normal">
               <tr>
                 <th className="w-12 px-4 py-3.5 text-center font-normal">
-                  <input
-                    type="checkbox"
-                    checked={
-                      filteredCampaigns.length > 0 &&
-                      selectedCampaignIds.length === filteredCampaigns.length
-                    }
-                    onChange={toggleSelectAll}
-                    className="w-4 h-4 rounded bg-[#101322] border-[#22293d] text-[#814AC8] accent-[#814AC8] cursor-pointer"
-                  />
+                  <div className="flex items-center justify-center">
+                    <PremiumCheckbox
+                      checked={
+                        paginatedCampaigns.length > 0 &&
+                        paginatedCampaigns.every((c) => selectedCampaignIds.includes(c.id))
+                      }
+                      indeterminate={
+                        paginatedCampaigns.some((c) => selectedCampaignIds.includes(c.id)) &&
+                        !paginatedCampaigns.every((c) => selectedCampaignIds.includes(c.id))
+                      }
+                      onChange={toggleSelectAll}
+                      ariaLabel="Select all campaigns"
+                    />
+                  </div>
                 </th>
                 <th className="px-4 py-3.5 font-normal text-white">Campaign Name</th>
                 <th className="px-4 py-3.5 font-normal text-white">Audience</th>
@@ -452,21 +537,37 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#131624]">
-              {filteredCampaigns.length === 0 ? (
+              {isLoading && campaigns.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-12 text-center text-white/60">
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <Sparkles size={24} className="text-[#814AC8]" />
+                      <RefreshCw size={20} className="animate-spin text-[#814AC8]" />
+                      <span className="text-sm font-medium text-white">Loading campaigns...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedCampaigns.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-12 text-center text-white/60">
+                    <div className="flex flex-col items-center justify-center gap-2">
                       <span className="text-sm font-medium text-white">No campaigns found</span>
-                      <p className="text-xs text-[#586174]">
+                      <p className="text-xs text-white/50">
                         Try changing the tab filter or search query, or create a new campaign.
                       </p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                filteredCampaigns.map((camp) => {
+                paginatedCampaigns.map((camp) => {
                   const isChecked = selectedCampaignIds.includes(camp.id);
+                  const sentCount = Number(camp.sentCount) || 0;
+                  const deliveredCount = Number(camp.deliveredCount) || 0;
+                  const failedCount = Number(camp.failedCount) || 0;
+                  const recipientsCount = Number(camp.recipientsCount) || 0;
+                  const validRecipients = Number(camp.validRecipients) || recipientsCount;
+
+                  const deliveredPct = sentCount > 0 ? `${((deliveredCount / sentCount) * 100).toFixed(1)}%` : '0.0%';
+                  const failedPct = sentCount > 0 ? `${((failedCount / sentCount) * 100).toFixed(1)}%` : '0.0%';
 
                   return (
                     <tr
@@ -475,73 +576,74 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
                         isChecked ? 'bg-[#814AC8]/10' : 'hover:bg-[#0f121e]/70'
                       }`}
                     >
-                      {/* Checkbox */}
+                      {/* Premium Custom Checkbox */}
                       <td className="px-4 py-3.5 text-center">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleSelectOne(camp.id)}
-                          className="w-4 h-4 rounded bg-[#101322] border-[#22293d] text-[#814AC8] accent-[#814AC8] cursor-pointer"
-                        />
+                        <div className="flex items-center justify-center">
+                          <PremiumCheckbox
+                            checked={isChecked}
+                            onChange={() => toggleSelectOne(camp.id)}
+                            ariaLabel={`Select ${camp.name}`}
+                          />
+                        </div>
                       </td>
 
                       {/* Campaign Name & Subtitle */}
                       <td className="px-4 py-3.5">
-                        <div className="font-semibold text-white tracking-tight text-[13px]">
+                        <div className="font-medium text-white tracking-tight text-[13px]">
                           {camp.name}
                         </div>
-                        <div className="text-[11px] text-[#6b768c] mt-0.5">
-                          {camp.subtitle || 'Festive discount campaign'}
+                        <div className="text-[11px] text-white/60 mt-0.5">
+                          {camp.goal || camp.subtitle || `${camp.type || 'Promotional'} Campaign`}
                         </div>
                       </td>
 
                       {/* Audience */}
                       <td className="px-4 py-3.5">
-                        <div className="text-xs text-[#cbd5e1] font-medium">
-                          {camp.audienceType || camp.audienceListName || 'Customers'}
+                        <div className="font-medium text-white tracking-tight text-[13px]">
+                          {camp.audienceListName || camp.audienceType || 'All Contacts'}
                         </div>
-                        <div className="text-[11px] text-[#6b768c] mt-0.5">
-                          {(camp.audienceCount || camp.recipientsCount || 2500).toLocaleString()}
+                        <div className="text-[11px] text-white/60 mt-0.5">
+                          {validRecipients.toLocaleString()} contacts
                         </div>
                       </td>
 
                       {/* Messages */}
                       <td className="px-4 py-3.5 text-xs text-[#cbd5e1] font-medium">
-                        {(camp.recipientsCount || 2500).toLocaleString()}
+                        {recipientsCount.toLocaleString()}
                       </td>
 
                       {/* Sent */}
                       <td className="px-4 py-3.5 text-xs text-[#cbd5e1] font-medium">
-                        {(camp.sentCount ?? 2500).toLocaleString()}
+                        {sentCount.toLocaleString()}
                       </td>
 
                       {/* Delivered */}
                       <td className="px-4 py-3.5">
                         <div className="text-xs text-[#cbd5e1] font-medium">
-                          {(camp.deliveredCount ?? 2432).toLocaleString()}
+                          {deliveredCount.toLocaleString()}
                         </div>
-                        <div className="text-[11px] text-[#6b768c] mt-0.5">
-                          {camp.deliveredPct || '97.3%'}
+                        <div className="text-[11px] text-white/60 mt-0.5">
+                          {deliveredPct}
                         </div>
                       </td>
 
                       {/* Failed */}
                       <td className="px-4 py-3.5">
                         <div className="text-xs text-[#cbd5e1] font-medium">
-                          {(camp.failedCount ?? 68).toLocaleString()}
+                          {failedCount.toLocaleString()}
                         </div>
-                        <div className="text-[11px] text-[#6b768c] mt-0.5">
-                          {camp.failedPct || '2.7%'}
+                        <div className="text-[11px] text-white/60 mt-0.5">
+                          {failedPct}
                         </div>
                       </td>
 
                       {/* Date & Time */}
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         <div className="text-xs text-[#cbd5e1]">
-                          {camp.date || 'Oct 28, 2025'}
+                          {camp.date || (camp.created_at ? new Date(camp.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Today')}
                         </div>
-                        <div className="text-[11px] text-[#6b768c] mt-0.5">
-                          {camp.time || '10:30 AM'}
+                        <div className="text-[11px] text-white/60 mt-0.5">
+                          {camp.time || (camp.created_at ? new Date(camp.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:00 AM')}
                         </div>
                       </td>
 
@@ -568,8 +670,8 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
                               onClick={() => handleTogglePause(camp)}
                               className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2"
                             >
-                              {camp.status === 'Paused' ? <Play size={12} /> : <Pause size={12} />}
-                              <span>{camp.status === 'Paused' ? 'Resume' : 'Pause'}</span>
+                              {(camp.status || '').toLowerCase() === 'paused' ? <Play size={12} /> : <Pause size={12} />}
+                              <span>{(camp.status || '').toLowerCase() === 'paused' ? 'Resume' : 'Pause'}</span>
                             </button>
 
                             <button
@@ -606,85 +708,52 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
         {/* Table Footer & Pagination */}
         <div className="px-4 sm:px-6 py-3.5 bg-[#0b0e18] border-t border-[#161a28] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/60">
           <span>
-            Showing 1 to {Math.min(filteredCampaigns.length, 6)} of {stats.totalCampaigns} campaigns
+            Showing {filteredCampaigns.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredCampaigns.length)} of {filteredCampaigns.length} campaigns
           </span>
 
-          <div className="flex items-center gap-1.5">
-            {/* Left Arrow */}
-            <button
-              type="button"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="w-8 h-8 rounded-lg bg-[#0e111d] border border-[#1e2436] text-white/60 hover:text-white disabled:opacity-30 flex items-center justify-center transition-colors"
-            >
-              <ArrowLeft size={13} />
-            </button>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              {/* Left Arrow */}
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="w-8 h-8 rounded-lg bg-[#0e111d] border border-[#1e2436] text-white/60 hover:text-white disabled:opacity-30 flex items-center justify-center transition-colors"
+              >
+                <ArrowLeft size={13} />
+              </button>
 
-            {/* Page 1 (Active) */}
-            <button
-              type="button"
-              onClick={() => setCurrentPage(1)}
-              className={`w-8 h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors ${
-                currentPage === 1
-                  ? 'bg-[#814AC8] text-white shadow-sm'
-                  : 'bg-[#0e111d] border border-[#1e2436] text-white/60 hover:text-white'
-              }`}
-            >
-              1
-            </button>
+              {/* Dynamic Page Buttons */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  type="button"
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-8 h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors ${
+                    currentPage === pageNum
+                      ? 'bg-[#814AC8] text-white shadow-sm'
+                      : 'bg-[#0e111d] border border-[#1e2436] text-white/60 hover:text-white'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              ))}
 
-            {/* Page 2 */}
-            <button
-              type="button"
-              onClick={() => setCurrentPage(2)}
-              className={`w-8 h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors ${
-                currentPage === 2
-                  ? 'bg-[#814AC8] text-white shadow-sm'
-                  : 'bg-[#0e111d] border border-[#1e2436] text-white/60 hover:text-white'
-              }`}
-            >
-              2
-            </button>
-
-            {/* Page 3 */}
-            <button
-              type="button"
-              onClick={() => setCurrentPage(3)}
-              className={`w-8 h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors ${
-                currentPage === 3
-                  ? 'bg-[#814AC8] text-white shadow-sm'
-                  : 'bg-[#0e111d] border border-[#1e2436] text-white/60 hover:text-white'
-              }`}
-            >
-              3
-            </button>
-
-            {/* Page 4 */}
-            <button
-              type="button"
-              onClick={() => setCurrentPage(4)}
-              className={`w-8 h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors ${
-                currentPage === 4
-                  ? 'bg-[#814AC8] text-white shadow-sm'
-                  : 'bg-[#0e111d] border border-[#1e2436] text-white/60 hover:text-white'
-              }`}
-            >
-              4
-            </button>
-
-            {/* Right Arrow */}
-            <button
-              type="button"
-              onClick={() => setCurrentPage((p) => Math.min(4, p + 1))}
-              className="w-8 h-8 rounded-lg bg-[#0e111d] border border-[#1e2436] text-white/60 hover:text-white flex items-center justify-center transition-colors"
-            >
-              <ArrowRight size={13} />
-            </button>
-          </div>
+              {/* Right Arrow */}
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="w-8 h-8 rounded-lg bg-[#0e111d] border border-[#1e2436] text-white/60 hover:text-white disabled:opacity-30 flex items-center justify-center transition-colors"
+              >
+                <ArrowRight size={13} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 6. Bottom Promotional Banner ("Reach more customers with WhatsApp") with Purple Wave Gradient */}
+      {/* 5. Bottom Promotional Banner ("Reach more customers with WhatsApp") with Purple Wave Gradient */}
       <div className="relative overflow-hidden rounded-2xl border border-[#251b42]/60 bg-[#090812] p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-2xl group">
         {/* Decorative Glowing Purple Wave Background */}
         <div className="absolute inset-0 pointer-events-none opacity-40 group-hover:opacity-50 transition-opacity">
@@ -745,11 +814,12 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages' }) {
         </button>
       </div>
 
-      {/* 7. Create WhatsApp Campaign Modal */}
+      {/* 6. Create WhatsApp Campaign Modal */}
       <CreateCampaignModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onSuccess={() => loadData()}
+        workspaceId={workspaceId}
       />
     </div>
   );

@@ -138,8 +138,8 @@ export default function MarketingAnalyticsPage() {
           <div className="space-y-2.5 pt-1">
             <div className="p-3 rounded-xl bg-[#121024] border border-[#231d3d] flex items-center justify-between">
               <div>
-                <span className="text-xs font-semibold text-white block">diwali_festive_offer</span>
-                <span className="text-[10px] text-[#8c88a6]">Promotional • 2,480 sent</span>
+                <span className="text-xs font-semibold text-white block">welcome_vip_onboarding</span>
+                <span className="text-[10px] text-[#8c88a6]">Marketing • 2,480 sent</span>
               </div>
               <div className="text-right">
                 <span className="text-xs font-bold text-emerald-400">18.4% CTR</span>
@@ -160,8 +160,8 @@ export default function MarketingAnalyticsPage() {
 
             <div className="p-3 rounded-xl bg-[#121024] border border-[#231d3d] flex items-center justify-between">
               <div>
-                <span className="text-xs font-semibold text-white block">cart_reminder_discount</span>
-                <span className="text-[10px] text-[#8c88a6]">Transactional • 640 sent</span>
+                <span className="text-xs font-semibold text-white block">order_dispatch_notification</span>
+                <span className="text-[10px] text-[#8c88a6]">Utility • 640 sent</span>
               </div>
               <div className="text-right">
                 <span className="text-xs font-bold text-emerald-400">22.0% CTR</span>
