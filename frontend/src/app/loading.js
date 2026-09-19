@@ -58,10 +58,10 @@ export default function GlobalLoading() {
 
         {/* Loading text */}
         <div className="flex items-center gap-1.5 animate-fade-up">
-          <span className="text-white/60 text-[10px] font-mono uppercase tracking-[0.25em] font-medium">
+          <span className="text-white/60 text-[10px] uppercase tracking-[0.25em] font-medium">
             Orbionagents
           </span>
-          <span className="text-violet-400 text-[10px] font-mono uppercase tracking-[0.25em] font-bold">
+          <span className="text-violet-400 text-[10px] uppercase tracking-[0.25em] font-bold">
             AI
           </span>
         </div>

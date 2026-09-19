@@ -26,7 +26,7 @@ const poppins = Poppins({
 
 const CHANNEL_META = {
     Whatsapp: { icon: Phone,      gradient: 'from-[#25D366] to-[#128C7E]', dot: 'bg-emerald-400', label: 'Whatsapp',  textColor: 'text-emerald-400', scoreColor: 'text-emerald-400' },
-    Instagram: { icon: Instagram, gradient: 'from-[#F58529] via-[#DD2A7B] to-[#8134AF]', dot: 'bg-pink-400',    label: 'Instagram', textColor: 'text-pink-400',    scoreColor: 'text-pink-400'    },
+    Instagram: { icon: Instagram, gradient: 'from-[#F58529] via-[#DD2A7B] to-[#8134AF]', dot: 'bg-pink-400',    label: 'Instagram', textColor: 'text-violet-400',    scoreColor: 'text-violet-400'    },
     Web:       { icon: Globe,      gradient: 'from-[#3B82F6] to-[#1D4ED8]', dot: 'bg-sky-400',   label: 'Web',        textColor: 'text-sky-400',     scoreColor: 'text-sky-400'     },
     Email:     { icon: Mail,       gradient: 'from-[#F97316] to-[#EA580C]', dot: 'bg-orange-400', label: 'Email',      textColor: 'text-orange-400',  scoreColor: 'text-amber-400'   },
     Twilio:    { icon: Zap,        gradient: 'from-[#F22F46] to-[#CE272D]', dot: 'bg-red-500',    label: 'Twilio',     textColor: 'text-red-500',     scoreColor: 'text-red-500'     },
@@ -61,14 +61,14 @@ const CHANNEL_THEME = {
     },
     Instagram: {
         bubbleGradient: 'from-[#F58529] via-[#DD2A7B] to-[#8134AF]',
-        scoreColor: 'text-pink-400',
-        scoreBg: 'bg-pink-400/10 border-pink-400/20 text-pink-400',
+        scoreColor: 'text-violet-400',
+        scoreBg: 'bg-pink-400/10 border-pink-400/20 text-violet-400',
         accentBorder: 'border-pink-500/20',
         accentGlow: 'shadow-pink-500/5',
-        buttonColor: 'bg-pink-500/15 border-pink-500/30 text-pink-400 hover:bg-pink-500/25',
+        buttonColor: 'bg-pink-500/15 border-pink-500/30 text-violet-400 hover:bg-pink-500/25',
         cardBorder: 'border-pink-500/20 shadow-lg shadow-pink-500/5',
         timelineIconBg: 'bg-pink-500/10 border-pink-500/20',
-        timelineIconText: 'text-pink-400',
+        timelineIconText: 'text-violet-400',
         headerBorder: 'border-b border-pink-500/10 shadow-lg shadow-pink-500/[0.02]',
     },
     Twilio: {

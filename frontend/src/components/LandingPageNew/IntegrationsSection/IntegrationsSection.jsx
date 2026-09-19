@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useBranding } from "@/context/BrandingContext";
 import { Poppins } from "next/font/google";
 
@@ -59,8 +59,6 @@ const ROW_4 = [
   { name: "Jira",           img: "/images/integrations/jira.svg"            },
 ];
 
-
-
 const ALL_ROWS = [
   { items: ROW_1, dir: "left",  speed: 35 },
   { items: ROW_2, dir: "right", speed: 45 },
@@ -75,50 +73,24 @@ function AppIcon({ app }) {
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{
-        flexShrink: 0,
-        width: 72,
-        height: 72,
-        borderRadius: 18,
-        margin: "0 6px",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 5,
-        background: hovered
-          ? "rgba(255,255,255,0.1)"
-          : app.featured
-          ? "rgba(255,255,255,0.07)"
-          : "rgba(255,255,255,0.04)",
-        border: app.featured
-          ? "1.5px solid rgba(139,92,246,0.35)"
-          : "1.5px solid rgba(255,255,255,0.08)",
-        boxShadow: hovered
-          ? "0 8px 32px rgba(0,0,0,0.5)"
-          : app.featured
-          ? "0 0 16px rgba(139,92,246,0.18)"
-          : "none",
-        transform: hovered ? "scale(1.1) translateY(-3px)" : "scale(1)",
-        transition: "all 0.22s cubic-bezier(0.4,0,0.2,1)",
-        cursor: "default",
-        backdropFilter: "none",
-        position: "relative",
-        overflow: "hidden",
-      }}
+      className={`relative flex-shrink-0 w-[72px] h-[72px] rounded-[18px] mx-[6px] flex flex-col items-center justify-center gap-[5px] cursor-default overflow-hidden border-[1.5px] transition-all duration-[220ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${
+        hovered
+          ? "scale-110 -translate-y-[3px] bg-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+          : "scale-100"
+      } ${
+        app.featured
+          ? "bg-white/[0.07] border-violet-500/35 shadow-[0_0_16px_rgba(139,92,246,0.18)]"
+          : "bg-white/[0.04] border-white/[0.08]"
+      }`}
     >
       {/* subtle shimmer on featured */}
       {app.featured && (
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "linear-gradient(135deg, rgba(139,92,246,0.12) 0%, transparent 60%)",
-          pointerEvents: "none",
-        }} />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(139,92,246,0.12)_0%,transparent_60%)]" />
       )}
       <img
         src={app.img}
         alt={app.name}
-        style={{ width: 38, height: 38, objectFit: "contain", position: "relative" }}
+        className="relative w-[38px] h-[38px] object-contain"
         onError={(e) => { e.currentTarget.style.opacity = "0.3"; }}
       />
     </div>
@@ -132,13 +104,10 @@ function MarqueeRow({ items, dir, speed }) {
   const anim  = dir === "left" ? "scrollLeft" : "scrollRight";
 
   return (
-    <div style={{ overflow: "hidden", width: "100%", position: "relative" }}>
+    <div className="relative w-full overflow-hidden">
       <div
-        style={{
-          display: "flex",
-          width: "max-content",
-          animation: `${anim} ${speed}s linear infinite`,
-        }}
+        className="flex w-max"
+        style={{ animation: `${anim} ${speed}s linear infinite` }}
       >
         {clone.map((app, i) => (
           <AppIcon key={`${app.name}-${i}`} app={app} />
@@ -154,102 +123,52 @@ export default function IntegrationsSection() {
 
   return (
     <section
-      className={poppins.className}
-      style={{
-        background: "#050505",
-        overflow: "hidden",
-        position: "relative",
-        borderBottom: "1px solid rgba(255,255,255,0.04)",
-      }}
+      className={`${poppins.className} relative overflow-hidden bg-[#050505] border-b border-white/[0.04]`}
     >
       {/* ── Ambient blobs ─────────────────────────────────────────── */}
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-        <div style={{
-          position: "absolute", top: "10%", left: "5%",
-          width: 400, height: 400, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(109,40,217,0.14) 0%, transparent 70%)",
-        }} />
-        <div style={{
-          position: "absolute", bottom: "10%", right: "5%",
-          width: 350, height: 350, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(79,70,229,0.10) 0%, transparent 70%)",
-        }} />
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute top-[10%] left-[5%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(109,40,217,0.14)_0%,transparent_70%)]" />
+        <div className="absolute bottom-[10%] right-[5%] w-[350px] h-[350px] rounded-full bg-[radial-gradient(circle,rgba(79,70,229,0.10)_0%,transparent_70%)]" />
       </div>
 
       {/* ── Main two-column layout ──────────────────────────────── */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        minHeight: 520,
-        maxWidth: 1280,
-        margin: "0 auto",
-        position: "relative",
-        zIndex: 2,
-      }}
-        className="integ-grid"
-      >
+      <div className="integ-grid relative z-[2] grid grid-cols-2 min-h-[520px] max-w-[1280px] mx-auto">
         {/* LEFT — Text content */}
-        <div style={{
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          padding: "72px 48px 72px 32px",
-          position: "relative",
-          zIndex: 10,
-        }}>
+        <div className="relative z-10 flex flex-col justify-center px-8 py-[72px] pl-8 pr-12">
           {/* COMING SOON pill */}
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: 8,
-            background: "linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(245,158,11,0.08) 100%)",
-            border: "1px solid rgba(251,191,36,0.3)",
-            borderRadius: 100, padding: "5px 14px",
-            marginBottom: 12, width: "fit-content",
-          }}>
-            <span style={{ fontSize: 12 }}>✦</span>
-            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.18em", color: "#fbbf24", textTransform: "uppercase" }}>
+          <div className="mb-3 inline-flex w-fit items-center gap-2 rounded-full border border-amber-400/30 bg-[linear-gradient(135deg,rgba(251,191,36,0.15)_0%,rgba(245,158,11,0.08)_100%)] px-[14px] py-[5px]">
+            <span className="text-xs">✦</span>
+            <span className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-400">
               200+ Apps · Coming Soon
             </span>
-            <span style={{ fontSize: 12 }}>✦</span>
+            <span className="text-xs">✦</span>
           </div>
 
           {/* Integrations pill badge */}
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: 6,
-            background: "rgba(139,92,246,0.12)",
-            border: "1px solid rgba(139,92,246,0.28)",
-            borderRadius: 100, padding: "6px 14px",
-            marginBottom: 20, width: "fit-content",
-          }}>
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#a78bfa", display: "inline-block", animation: "blink 1.8s ease-in-out infinite" }} />
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#c4b5fd", textTransform: "uppercase" }}>
+          <div className="mb-5 inline-flex w-fit items-center gap-1.5 rounded-full border border-violet-500/[0.28] bg-violet-500/[0.12] px-[14px] py-[6px]">
+            <span className="inline-block h-[7px] w-[7px] animate-[blink_1.8s_ease-in-out_infinite] rounded-full bg-violet-300" />
+            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-violet-300">
               Integrations
             </span>
           </div>
 
           {/* Headline */}
-          <h2 style={{ fontSize: "clamp(2rem,3.5vw,3rem)", fontWeight: 800, color: "#fff", lineHeight: 1.15, margin: 0, marginBottom: 8 }}>
+          <h2 className="m-0 mb-2 text-[clamp(2rem,3.5vw,3rem)] font-bold leading-[1.15] text-white">
             Connect every tool<br />your team loves
           </h2>
 
           {/* Subheading gradient */}
-          <p style={{
-            fontSize: "clamp(1.1rem,2vw,1.4rem)",
-            fontWeight: 700,
-            margin: "0 0 20px",
-            background: "linear-gradient(90deg,#a855f7 0%,#818cf8 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}>
+          <p className="m-0 mb-5 bg-[linear-gradient(90deg,#a855f7_0%,#818cf8_100%)] bg-clip-text text-[clamp(1.1rem,2vw,1.4rem)] font-bold text-transparent">
             One AI. Infinite Connections.
           </p>
 
           {/* Description */}
-          <p style={{ fontSize: 15, color: "#94a3b8", lineHeight: 1.7, marginBottom: 36, maxWidth: 420 }}>
+          <p className="mb-9 max-w-[420px] text-[15px] leading-[1.7] text-slate-400">
             {appName} plugs into your entire stack — WhatsApp, Gmail, Instagram, Google Calendar, Twilio, and 200+ more. One platform, every conversation, fully automated.
           </p>
 
           {/* Featured apps row */}
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 36, flexWrap: "wrap" }}>
+          <div className="mb-9 flex flex-wrap items-center gap-[10px]">
             {[
               { img: "/images/integrations/instagram.png",       name: "Instagram"       },
               { img: "/images/integrations/whatsapp.png",        name: "WhatsApp"        },
@@ -257,55 +176,33 @@ export default function IntegrationsSection() {
               { img: "/images/integrations/google_calendar.png", name: "Google Calendar" },
               { img: "/images/integrations/twilio.png",          name: "Twilio"          },
             ].map((a) => (
-              <div key={a.name} title={a.name} style={{
-                width: 40, height: 40, borderRadius: 10,
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
-              }}>
-                <img src={a.img} alt={a.name} style={{ width: 24, height: 24, objectFit: "contain" }} />
+              <div
+                key={a.name}
+                title={a.name}
+                className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-white/[0.12] bg-white/[0.06] shadow-[0_4px_16px_rgba(0,0,0,0.35)]"
+              >
+                <img src={a.img} alt={a.name} className="h-6 w-6 object-contain" />
               </div>
             ))}
-            <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>+ 200 more</span>
+            <span className="text-[13px] font-medium text-slate-500">+ 200 more</span>
           </div>
-
-
         </div>
 
         {/* RIGHT — Scrolling icon grid */}
-        <div style={{ position: "relative", overflow: "hidden" }}>
+        <div className="relative overflow-hidden">
           {/* Left fade mask */}
-          <div style={{
-            position: "absolute", left: 0, top: 0, bottom: 0, width: 80,
-            background: "linear-gradient(90deg, #060412 0%, transparent 100%)",
-            zIndex: 5, pointerEvents: "none",
-          }} />
+          <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-[5] w-20 bg-[linear-gradient(90deg,#060412_0%,transparent_100%)]" />
           {/* Right fade mask */}
-          <div style={{
-            position: "absolute", right: 0, top: 0, bottom: 0, width: 60,
-            background: "linear-gradient(270deg, #060412 0%, transparent 100%)",
-            zIndex: 5, pointerEvents: "none",
-          }} />
+          <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-[5] w-[60px] bg-[linear-gradient(270deg,#060412_0%,transparent_100%)]" />
 
           {/* Rows container */}
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            gap: 10,
-            padding: "48px 0",
-            height: "100%",
-          }}>
+          <div className="flex h-full flex-col justify-center gap-[10px] py-12">
             {ALL_ROWS.map((row, i) => (
               <MarqueeRow key={i} items={row.items} dir={row.dir} speed={row.speed} />
             ))}
           </div>
         </div>
       </div>
-
-
-
 
       {/* ── CSS animations ───────────────────────────────────────── */}
       <style>{`

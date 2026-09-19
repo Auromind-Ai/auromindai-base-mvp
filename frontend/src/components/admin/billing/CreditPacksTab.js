@@ -138,7 +138,7 @@ export default function CreditPacksTab({
               <div className="flex justify-between items-start">
                 <div>
                   <div className="text-sm font-bold text-white">{pack.name}</div>
-                  <div className="text-[10px] text-gray-500 font-mono mt-0.5">{pack.pack_id}</div>
+                  <div className="text-[10px] text-gray-500 mt-0.5">{pack.pack_id}</div>
                 </div>
                 <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${
                   pack.is_active ? "bg-green-900/30 text-green-300" : "bg-red-900/30 text-red-300"

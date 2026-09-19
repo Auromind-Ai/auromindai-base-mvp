@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+
 import { useState } from 'react';
 import FeatureDiscoveryCard from '@/components/docs/FeatureDiscoveryCard';
 import DocsHeroVideoCard from '@/components/docs/DocsHeroVideoCard';
@@ -48,10 +49,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/features/agentic-orchestrator',
     tag: '5 min setup',
     icon: Workflow,
-    glowColor: 'bg-teal-500/25',
-    iconStyle: 'bg-teal-500/15 border-teal-500/30 text-teal-300 group-hover:bg-teal-500 group-hover:text-white',
-    accentBorder: 'group-hover:border-teal-500/50',
-    actionColor: 'text-teal-400 group-hover:text-teal-300',
+    glowColor: 'bg-[#0f8b6c]/20',
+    iconStyle: 'bg-[#0f8b6c] text-white shadow-[0_0_24px_rgba(15,139,108,0.65)]',
+    accentBorder: 'border-white/[0.08]',
+    hoverColor: 'group-hover:text-[#0f8b6c]',
   },
   {
     title: 'Connect WhatsApp Business Cloud API',
@@ -59,10 +60,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/integrations/whatsapp-cloud-api',
     tag: 'Enterprise Meta API',
     icon: Phone,
-    glowColor: 'bg-amber-500/25',
-    iconStyle: 'bg-amber-500/15 border-amber-500/30 text-amber-300 group-hover:bg-amber-500 group-hover:text-white',
-    accentBorder: 'group-hover:border-amber-500/50',
-    actionColor: 'text-amber-400 group-hover:text-amber-300',
+    glowColor: 'bg-[#a45422]/20',
+    iconStyle: 'bg-[#a45422] text-white shadow-[0_0_24px_rgba(164,84,34,0.65)]',
+    accentBorder: 'border-white/[0.08]',
+    hoverColor: 'group-hover:text-[#a45422]',
   },
   {
     title: 'Ingest company PDFs into AI Brain',
@@ -70,10 +71,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/features/brain-rag',
     tag: 'RAG Knowledge',
     icon: Cpu,
-    glowColor: 'bg-rose-500/25',
-    iconStyle: 'bg-rose-500/15 border-rose-500/30 text-rose-300 group-hover:bg-rose-500 group-hover:text-white',
-    accentBorder: 'group-hover:border-rose-500/50',
-    actionColor: 'text-rose-400 group-hover:text-rose-300',
+    glowColor: 'bg-[#9f1239]/20',
+    iconStyle: 'bg-[#9f1239] text-white shadow-[0_0_20px_rgba(159,18,57,0.5)]',
+    accentBorder: 'border-white/[0.08]',
+    hoverColor: 'group-hover:text-rose-400',
   },
   {
     title: 'Manage live customer conversations',
@@ -81,10 +82,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/features/omni-inbox',
     tag: 'Omni-Channel',
     icon: MessageSquare,
-    glowColor: 'bg-blue-500/25',
-    iconStyle: 'bg-blue-500/15 border-blue-500/30 text-blue-300 group-hover:bg-blue-500 group-hover:text-white',
-    accentBorder: 'group-hover:border-blue-500/50',
-    actionColor: 'text-blue-400 group-hover:text-blue-300',
+    glowColor: 'bg-[#245bb5]/20',
+    iconStyle: 'bg-[#245bb5] text-white shadow-[0_0_24px_rgba(36,91,181,0.65)]',
+    accentBorder: 'border-white/[0.08]',
+    hoverColor: 'group-hover:text-[#245bb5]',
   },
   {
     title: 'Qualify & score inbound leads',
@@ -92,10 +93,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/features/leads-crm',
     tag: 'CRM Pipeline',
     icon: Bot,
-    glowColor: 'bg-purple-500/25',
-    iconStyle: 'bg-purple-500/15 border-purple-500/30 text-purple-300 group-hover:bg-purple-500 group-hover:text-white',
-    accentBorder: 'group-hover:border-purple-500/50',
-    actionColor: 'text-purple-400 group-hover:text-purple-300',
+    glowColor: 'bg-[#5851ea]/20',
+    iconStyle: 'bg-[#5851ea] text-white shadow-[0_0_24px_rgba(88,81,234,0.65)]',
+    accentBorder: 'border-white/[0.08]',
+    hoverColor: 'group-hover:text-[#5851ea]',
   },
   {
     title: 'Lead follow-ups with WhatsApp templates',
@@ -103,10 +104,10 @@ const POPULAR_WORKFLOWS = [
     href: '/docs/features/templates',
     tag: 'WhatsApp Templates',
     icon: Send,
-    glowColor: 'bg-emerald-500/25',
-    iconStyle: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 group-hover:bg-emerald-500 group-hover:text-white',
-    accentBorder: 'group-hover:border-emerald-500/50',
-    actionColor: 'text-emerald-400 group-hover:text-emerald-300',
+    glowColor: 'bg-[#0f8b6c]/20',
+    iconStyle: 'bg-[#0f8b6c] text-white shadow-[0_0_24px_rgba(15,139,108,0.65)]',
+    accentBorder: 'border-white/[0.08]',
+    hoverColor: 'group-hover:text-[#0f8b6c]',
   },
 ];
 
@@ -118,80 +119,85 @@ export default function DocsHomePage() {
       title: 'Agentic Orchestrator: Node Construction & Flow Health',
       duration: '0:18',
       slug: 'features/agentic-orchestrator',
-      url: '/docs/videos/agentic-orchestrator.mp4',
+      url: '/images/docs/videos/agentic-orchestrator.mp4',
       desc: 'Visual workflow construction, trigger configuration, and error validation.',
     },
     {
       title: 'AI Workspace: Real-Time Streaming & Dynamic Tool Selection',
       duration: '0:38',
       slug: 'features/ai-workspace',
-      url: '/docs/videos/ai-workspace.mp4',
+      url: '/images/docs/videos/ai-workspace.mp4',
       desc: 'Live agent testing, tool badges, and multi-model routing.',
     },
     {
       title: 'Magic Wire: Prompt-to-Flow Automatic Bot Builder',
       duration: '0:17',
       slug: 'features/magic-wire',
-      url: '/docs/videos/magic-wire.mp4',
+      url: '/images/docs/videos/magic-wire.mp4',
       desc: 'Generate complete real-estate and lead bots directly from natural language prompts.',
     },
     {
       title: 'Decision Nodes: Conditional Branching & Urgency Logic',
       duration: '0:09',
       slug: 'features/conditional-logic',
-      url: '/docs/videos/conditional-logic.mp4',
+      url: '/images/docs/videos/conditional-logic.mp4',
       desc: 'Dynamic decision rules evaluating urgency and keyword matches.',
     },
   ];
 
   return (
-    <div className="w-full space-y-24 sm:space-y-28 pb-28">
+    <div className="md:max-xl:pb-8 md:max-xl:space-y-9 w-full space-y-12 sm:space-y-14 pb-16">
       {/* 1. Hero Section - Expansive Balanced Grid */}
-      <section className="relative pt-2 sm:pt-4">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 xl:gap-12 items-center">
-          {/* Left Hero Content (7 Cols) */}
-          <div className="lg:col-span-7 space-y-6 text-left">
+      <section className="relative pt-0 sm:pt-1">
+        <div className="md:max-xl:gap-6 md:max-xl:[&>div]:min-w-0 lg:max-xl:grid-cols-2 lg:max-xl:[&>div]:col-auto grid grid-cols-1 xl:grid-cols-12 gap-6 xl:gap-8 items-center">
+          {/* Left Hero Content (6 Cols) */}
+          <div className="xl:col-span-6 space-y-4 text-left">
 
             {/* Main Headline */}
-            <div className="space-y-3">
-              <h1 className="text-4xl sm:text-5xl xl:text-6xl font-semibold tracking-tight text-white leading-[1.12]">
+            <div className="space-y-2">
+              <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white leading-tight">
                 Build Smarter.{' '}
                 <span className="bg-gradient-to-r from-violet-400 via-purple-300 to-cyan-400 bg-clip-text text-transparent">
                   Ship Faster.
                 </span>
               </h1>
-              <p className="text-[11px] sm:text-lg text-zinc-300 leading-relaxed max-w-2xl font-normal">
+              <p className="text-sm text-zinc-400 leading-relaxed max-w-xl font-normal">
                 One AI-native workspace for conversations, customers, knowledge, automation and revenue. Explore official guides, interactive UI previews, and production blueprints.
               </p>
             </div>
 
             {/* Global Search Trigger Bar */}
-            <div className="w-full max-w-2xl pt-1">
-              <Link
-                href="#directory"
-                className="flex items-center justify-between px-5 py-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-violet-500/50 text-sm text-zinc-400 hover:text-white transition-all shadow-2xl group relative overflow-hidden backdrop-blur-md"
+            <div className="w-full max-w-xl">
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('open-docs-search'));
+                  }
+                }}
+                className="w-full flex items-center justify-between px-4 py-2.5 sm:py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-violet-500/50 text-xs sm:text-sm text-zinc-400 hover:text-white transition-all shadow-xl group relative overflow-hidden backdrop-blur-md cursor-pointer text-left"
               >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-all">
-                    <Search className="w-4 h-4" />
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-all shrink-0">
+                    <Search className="w-3.5 h-3.5" />
                   </div>
-                  <span className="font-medium text-zinc-300 group-hover:text-white transition-colors">
+                  <span className="font-normal text-zinc-400 group-hover:text-white transition-colors text-xs sm:text-[13px] truncate">
                     Search documentation, APIs, and workflows...
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2.5 py-1 text-xs font-mono font-semibold bg-white/[0.06] border border-white/10 rounded-lg text-zinc-300 shadow-inner">
+                  <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 text-[11px] font-medium bg-white/[0.06] border border-white/10 rounded-md text-zinc-400 shadow-inner">
                     ⌘K
                   </kbd>
                 </div>
-              </Link>
+              </button>
             </div>
 
             {/* Quick Guide Fast-Track Action Pills */}
-            <div className="flex flex-wrap items-center gap-3 pt-1">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pt-4 sm:pt-6">
               <Link
                 href="/docs/getting-started/quickstart"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#814AC8] to-[#9333ea] hover:from-[#8d51db] hover:to-[#9f3ff2] text-xs font-semibold text-white shadow-lg shadow-purple-950/40 hover:shadow-purple-900/60 transition-all hover:-translate-y-0.5"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-gradient-to-r from-[#814AC8] to-[#9333ea] hover:from-[#8d51db] hover:to-[#9f3ff2] text-xs font-medium text-white shadow-md shadow-purple-950/40 hover:shadow-purple-900/60 transition-all hover:-translate-y-0.5"
               >
                 <Zap className="w-3.5 h-3.5 fill-white" />
                 <span>5-Minute Quick Start</span>
@@ -199,7 +205,7 @@ export default function DocsHomePage() {
 
               <Link
                 href="/docs/features/agentic-orchestrator"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-violet-500/40 text-xs font-semibold text-zinc-200 hover:text-white transition-all hover:-translate-y-0.5"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-violet-500/40 text-xs font-medium text-zinc-300 hover:text-white transition-all hover:-translate-y-0.5"
               >
                 <Sparkles className="w-3.5 h-3.5 text-violet-400" />
                 <span>Explore Visual Wires</span>
@@ -207,7 +213,7 @@ export default function DocsHomePage() {
 
               <Link
                 href="/docs/integrations/whatsapp-cloud-api"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-emerald-500/40 text-xs font-semibold text-zinc-200 hover:text-white transition-all hover:-translate-y-0.5"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-emerald-500/40 text-xs font-medium text-zinc-300 hover:text-white transition-all hover:-translate-y-0.5"
               >
                 <Share2 className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Connect WhatsApp</span>
@@ -215,52 +221,52 @@ export default function DocsHomePage() {
             </div>
           </div>
 
-          {/* Right Hero Video Panel (5 Cols) - Blank Card with Centered Play Icon */}
-          <div className="lg:col-span-5 h-full flex items-center">
-            <DocsHeroVideoCard />
+          {/* Right Hero Video Panel (6 Cols) - Interactive Documentation Video */}
+          <div className="md:max-xl:max-w-[640px] md:max-xl:justify-self-center md:max-xl:[&>div]:w-full xl:col-span-6 w-full flex items-center justify-center lg:justify-start">
+            <DocsHeroVideoCard src="/videos/docs.mov" title="OrbionAgents Platform Tour" />
           </div>
         </div>
       </section>
 
       {/* 2. Popular Workflows Section - Balanced 3x2 Grid */}
       <section className="space-y-6 pt-4 border-t border-white/[0.08]">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+        <div className="md:max-xl:flex-wrap md:max-xl:gap-x-6 md:max-xl:gap-y-3 md:max-xl:items-start md:max-xl:[&>div]:flex-[1_1_440px] md:max-xl:[&>div]:min-w-0 md:max-xl:[&>span]:shrink-0 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-violet-400 mb-1">
+            <div className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider text-violet-400 mb-1">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Recommended Blueprints</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
               Popular Workflows
             </h2>
-            <p className="text-xs sm:text-sm text-white/60 mt-1">
+            <p className="text-xs sm:text-sm text-zinc-400 mt-1">
               Proven execution patterns designed for rapid production deployment.
             </p>
           </div>
           <span className="text-xs text-zinc-400 hidden sm:block">6 Ready-to-use Blueprints</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="md:max-xl:grid-cols-2 md:max-xl:auto-rows-fr md:max-xl:gap-5 md:max-xl:[&>a]:min-w-0 md:max-xl:[&>a]:min-h-0 md:max-xl:[&>a]:p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {POPULAR_WORKFLOWS.map((wf, idx) => {
             const Icon = wf.icon;
             return (
               <Link
                 key={idx}
                 href={wf.href}
-                className={`p-6 sm:p-7 rounded-[26px] border border-white/[0.08] bg-[#16161a]/95 hover:bg-[#191920] ${wf.accentBorder} transition-all duration-300 group flex flex-col justify-between shadow-2xl shadow-black/70 hover:-translate-y-1 relative overflow-hidden min-h-[250px] backdrop-blur-xl`}
+                className="p-6 sm:p-7 rounded-[26px] border border-white/[0.08] bg-[#16161a]/95 transition-colors duration-200 group flex flex-col justify-between shadow-2xl shadow-black/70 relative overflow-hidden min-h-[250px] backdrop-blur-xl"
               >
                 {/* Atmospheric Ambient Glow */}
                 <div
-                  className={`absolute -top-12 -right-12 w-48 h-48 ${wf.glowColor} rounded-full blur-3xl pointer-events-none opacity-40 group-hover:opacity-75 transition-opacity duration-500`}
+                  className={`absolute -top-12 -right-12 w-48 h-48 ${wf.glowColor} rounded-full blur-3xl pointer-events-none opacity-40`}
                 />
                 <div
-                  className={`absolute -bottom-12 -left-12 w-36 h-36 ${wf.glowColor} rounded-full blur-3xl pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity duration-500`}
+                  className={`absolute -bottom-12 -left-12 w-36 h-36 ${wf.glowColor} rounded-full blur-3xl pointer-events-none opacity-20`}
                 />
 
                 {/* TOP ROW: Icon Container & Tag Pill */}
-                <div className="flex items-center justify-between relative z-10 mb-4">
+                <div className="md:max-xl:gap-3 md:max-xl:[&>div]:shrink-0 md:max-xl:[&>span]:text-right flex items-center justify-between relative z-10 mb-4">
                   <div
-                    className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all duration-300 shadow-md ${wf.iconStyle}`}
+                    className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-md ${wf.iconStyle}`}
                   >
                     <Icon className="w-5 h-5" />
                   </div>
@@ -271,7 +277,7 @@ export default function DocsHomePage() {
 
                 {/* MIDDLE: Title & Description */}
                 <div className="relative z-10 mb-4 flex-1">
-                  <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight leading-snug group-hover:text-white transition-colors">
+                  <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight leading-snug">
                     {wf.title}
                   </h3>
                   <p className="text-xs sm:text-[13px] text-zinc-400 leading-relaxed line-clamp-2 font-normal mt-2">
@@ -281,10 +287,10 @@ export default function DocsHomePage() {
 
                 {/* BOTTOM: Action Guide Link */}
                 <div
-                  className={`pt-3.5 border-t border-white/[0.06] flex items-center justify-between text-xs font-semibold ${wf.actionColor} relative z-10 transition-colors`}
+                  className="pt-3.5 border-t border-white/[0.06] flex items-center justify-between text-xs font-semibold text-white relative z-10"
                 >
-                  <span>Start Guide</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1.5 transition-transform" />
+                  <span className={`transition-colors duration-200 ${wf.hoverColor}`}>Start Guide</span>
+                  <ArrowRight className={`w-3.5 h-3.5 transition-all duration-200 group-hover:translate-x-1.5 ${wf.hoverColor}`} />
                 </div>
               </Link>
             );
@@ -294,16 +300,16 @@ export default function DocsHomePage() {
 
       {/* 3. Feature Discovery Section (The 8 Rich Visual Showcase Cards) */}
       <section id="features-discovery" className="space-y-6 pt-4 border-t border-white/[0.08]">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+        <div className="md:max-xl:flex-wrap md:max-xl:gap-x-6 md:max-xl:gap-y-3 md:max-xl:items-start md:max-xl:[&>div]:flex-[1_1_440px] md:max-xl:[&>div]:min-w-0 md:max-xl:[&>span]:shrink-0 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-violet-400 mb-1">
+            <div className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider text-violet-400 mb-1">
               <Layers className="w-3.5 h-3.5" />
-              <span>Interactive Product Showcase</span>
+              <span>Product Showcase</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
               Core Capabilities &amp; Architecture
             </h2>
-            <p className="text-xs sm:text-sm text-white/60 mt-1 max-w-3xl">
+            <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-3xl">
               Miniature visual representations of actual Orbion surfaces. Click any card to enter the full step-by-step walkthrough.
             </p>
           </div>
@@ -313,15 +319,16 @@ export default function DocsHomePage() {
         </div>
 
         {/* The 8 Rich Visual Cards Grid - Spacious 2-Column Responsive Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 pt-2">
+        <div className="md:max-xl:grid-cols-2 md:max-xl:auto-rows-fr md:max-xl:gap-5 grid grid-cols-1 md:grid-cols-2 gap-6 xl:gap-8 pt-2">
           {/* Omni-Channel Inbox */}
           <FeatureDiscoveryCard
             title="Omni-Channel Inbox"
             category="Conversations"
             badge="Live Sync"
-            description="Unite WhatsApp, Instagram, Twilio SMS, and Webchat in a single collaborative inbox with automated AI handoffs. Manage all conversations, track contact details, and convert leads — from one powerful interface."
+            description="Unite WhatsApp, Instagram, Twilio SMS, and Webchat in a single collaborative inbox with automated AI handoffs."
             href="/docs/features/omni-inbox"
-            imageSrc="/images/Docs/Docs_OmniInbox.png"
+            imageSrc="/images/docs/Docs_OmniInbox.png"
+            priority={true}
           />
 
           {/* AI Brain */}
@@ -331,7 +338,8 @@ export default function DocsHomePage() {
             badge="pgvector"
             description="Ingest company PDFs, dynamic URLs, and sitemaps. Generate strictly grounded answers with exact source citations."
             href="/docs/features/brain-rag"
-            imageSrc="/images/Docs/Docs_AI_Brain.png"
+            imageSrc="/images/docs/Docs_AI_Brain.png"
+            priority={true}
           />
 
           {/* AI Workspace */}
@@ -341,7 +349,7 @@ export default function DocsHomePage() {
             badge="Multi-Model"
             description="Test live prompt variations with token-by-token streaming, intent scoring, and dynamic tool-calling inspection."
             href="/docs/features/ai-workspace"
-            imageSrc="/images/Docs/Docs_AiWorkspace.png"
+            imageSrc="/images/docs/Docs_AiWorkspace.png"
           />
 
           {/* AI Lead Intelligence */}
@@ -351,7 +359,7 @@ export default function DocsHomePage() {
             badge="Scoring Engine"
             description="Dynamically categorize conversations into Hot, Warm, and Cold tiers with automated contact extraction."
             href="/docs/features/leads-crm"
-            imageSrc="/images/Docs/Docs_Lead_CRM.png?v=2"
+            imageSrc="/images/docs/Docs_Lead_CRM.png"
           />
 
           {/* Automation Wire */}
@@ -361,7 +369,7 @@ export default function DocsHomePage() {
             badge="Showcase Hero"
             description="Visual canvas for constructing multi-step logic, intent triggers, delay timers, and human handoff conditions."
             href="/docs/features/agentic-orchestrator"
-            imageSrc="/images/Docs/Docs_Automation.png"
+            imageSrc="/images/docs/Docs_Automation.png"
           />
 
           {/* AI Governance */}
@@ -371,7 +379,7 @@ export default function DocsHomePage() {
             badge="Deterministic"
             description="Enforce Model Context Protocol policies, PII redaction, blacklisted competitor terms, and human escalations."
             href="/docs/account/ai-governance"
-            imageSrc="/images/Docs/Docs_AI_Governance.png"
+            imageSrc="/images/docs/Docs_AI_Governance.png"
           />
 
           {/* Wallet & Credits */}
@@ -381,7 +389,7 @@ export default function DocsHomePage() {
             badge="Orbion Fuel"
             description="Track real-time token expenditure, WhatsApp conversation credits (WCC), and configure auto-recharge triggers."
             href="/docs/features/credits-wallet"
-            imageSrc="/images/Docs/Docs_Credits.png"
+            imageSrc="/images/docs/Docs_Credits.png"
           />
 
           {/* Multi-Channel Architecture */}
@@ -391,7 +399,7 @@ export default function DocsHomePage() {
             badge="Meta Certified"
             description="Direct infrastructure connectors uniting Meta Cloud API, Instagram Graph API, Twilio, and Gmail in one stack."
             href="/docs/integrations/whatsapp-cloud-api"
-            imageSrc="/images/Docs/Docs_Channels.png"
+            imageSrc="/images/docs/Docs_Channels.png"
           />
         </div>
       </section>

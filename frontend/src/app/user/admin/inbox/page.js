@@ -934,7 +934,7 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
                                     <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Variables</label>
                                     {varKeys.map(k => (
                                         <div key={k} className="flex flex-col gap-1.5">
-                                            <span className="text-[12px] text-zinc-400 font-medium font-mono">Variable {`{{${k}}}`}</span>
+                                            <span className="text-[12px] text-zinc-400 font-medium ">Variable {`{{${k}}}`}</span>
                                             <input
                                                 type="text"
                                                 value={variables[k]}

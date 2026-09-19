@@ -102,7 +102,7 @@ export default function ConversationsPage() {
                     <tbody>
                       {conversations.map((conv) => (
                         <tr key={conv.id} className="border-b border-white/5 hover:bg-white/5 transition">
-                          <td className="py-4 px-4 text-white font-mono text-sm">{conv.id?.slice(0, 8) || "N/A"}...</td>
+                          <td className="py-4 px-4 text-white text-sm">{conv.id?.slice(0, 8) || "N/A"}...</td>
                           <td className="py-4 px-4 text-gray-300">{conv.user_name || conv.user_email || "N/A"}</td>
                           <td className="py-4 px-4 text-gray-300 text-right">{conv.message_count || 0}</td>
                           <td className="py-4 px-4 text-gray-400 text-sm">

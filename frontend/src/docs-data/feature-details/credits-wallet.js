@@ -12,7 +12,6 @@ const walletVariants = {
       "benefits": {
         "src": "/images/doc-images/ai-credit-balance-recharge.png",
         "alt": "AI credit balance, usage metrics, credit-used bar and selectable recharge packs",
-        "label": "AI credit balance & recharge packs",
         "caption": "Illustrative screenshot. Amounts and available options depend on your workspace.",
         "aspectRatio": "aspect-[1655/952] [&_img]:object-contain"
       }

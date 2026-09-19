@@ -221,16 +221,16 @@ export default function DocumentationVideo({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-2.5">
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
                   Full Screen Preview
                 </span>
-                <h3 className="text-sm sm:text-base font-bold text-white truncate max-w-md sm:max-w-xl">
+                <h3 className="text-sm sm:text-base font-semibold text-white truncate max-w-md sm:max-w-xl">
                   {videoData.title || 'Workflow Orchestration Walkthrough'}
                 </h3>
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="text-xs font-mono text-zinc-400 hidden sm:inline">Press ESC to close</span>
+                <span className="text-xs text-zinc-400 hidden sm:inline">Press ESC to close</span>
                 <button
                   onClick={() => setIsExpanded(false)}
                   className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1.5 border border-white/15 text-xs font-medium cursor-pointer"
@@ -348,7 +348,7 @@ export default function DocumentationVideo({
 
             <div className="flex items-center gap-2 pointer-events-auto">
               {videoData.duration && (
-                <span className="px-2 py-0.5 rounded bg-black/70 backdrop-blur-md border border-white/10 font-mono text-[11px] text-zinc-300">
+                <span className="px-2 py-0.5 rounded bg-black/60 backdrop-blur-md border border-white/10 text-[11px] text-zinc-300">
                   {videoData.duration}
                 </span>
               )}
@@ -411,7 +411,7 @@ export default function DocumentationVideo({
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-zinc-300 font-mono hidden sm:inline">
+              <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-zinc-300 hidden sm:inline">
                 HD 1080p
               </span>
               <button
@@ -429,7 +429,7 @@ export default function DocumentationVideo({
                 aria-label="Expand to Fullscreen Theater Modal"
               >
                 <Maximize2 className="w-4 h-4" />
-                <span className="text-[11px] font-mono">Full Screen</span>
+                <span className="text-[11px] ">Full Screen</span>
               </button>
             </div>
           </div>
@@ -454,16 +454,16 @@ export default function DocumentationVideo({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-2.5">
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
                   Walkthrough Video
                 </span>
-                <h3 className="text-sm sm:text-base font-bold text-white truncate max-w-md sm:max-w-xl">
+                <h3 className="text-sm sm:text-base font-semibold text-white truncate max-w-md sm:max-w-xl">
                   {videoData.title || 'Official Video Walkthrough'}
                 </h3>
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="text-xs font-mono text-zinc-400 hidden sm:inline">Press ESC to close</span>
+                <span className="text-xs text-zinc-400 hidden sm:inline">Press ESC to close</span>
                 <button
                   onClick={() => setIsExpanded(false)}
                   className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1.5 border border-white/15 text-xs font-medium"
@@ -538,7 +538,7 @@ export default function DocumentationVideo({
         </div>
 
         {videoData.duration && (
-          <div className="absolute top-4 right-4 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[11px] font-mono text-zinc-400">
+          <div className="absolute top-4 right-4 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[11px] text-zinc-400">
             {videoData.duration}
           </div>
         )}
@@ -554,7 +554,7 @@ export default function DocumentationVideo({
 
         {/* Text Content */}
         <div className="space-y-1.5 max-w-md px-4">
-          <h4 className="text-sm sm:text-base font-bold text-white tracking-tight">
+          <h4 className="text-sm sm:text-base font-semibold text-white tracking-tight">
             {videoData.title || 'Product Video Walkthrough'}
           </h4>
           <p className="text-xs text-zinc-400 leading-relaxed">

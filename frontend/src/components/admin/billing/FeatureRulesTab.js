@@ -111,7 +111,7 @@ export default function FeatureRulesTab({
               {featureRules.map((rule) => (
                 <tr key={rule.id} className="hover:bg-white/[0.01] transition-colors">
                   <td className="py-3 font-semibold text-white">{rule.feature_name}</td>
-                  <td className="py-3 font-mono text-[10px] text-gray-500">{rule.feature_key}</td>
+                  <td className="py-3 text-[10px] text-gray-500">{rule.feature_key}</td>
                   <td className="py-3 uppercase font-medium">{rule.billing_type}</td>
                   <td className="py-3 text-right">{rule.unit_value}</td>
                   <td className="py-3 text-right font-bold text-white">{Number(rule.credit_cost ?? 0).toFixed(4)}</td>

@@ -6,7 +6,7 @@ import React from 'react';
 //  Channel config 
 const CHANNELS = {
   whatsapp: { icon: Phone, label: 'WhatsApp', color: 'text-emerald-400', bg: 'bg-emerald-400/10', dot: 'bg-emerald-400' },
-  instagram: { icon: Instagram, label: 'Instagram', color: 'text-pink-400', bg: 'bg-pink-400/10', dot: 'bg-pink-400' },
+  instagram: { icon: Instagram, label: 'Instagram', color: 'text-violet-400', bg: 'bg-pink-400/10', dot: 'bg-pink-400' },
   web: { icon: Globe, label: 'Web', color: 'text-sky-400', bg: 'bg-sky-400/10', dot: 'bg-sky-400' },
   email: { icon: Mail, label: 'Email', color: 'text-amber-400', bg: 'bg-amber-400/10', dot: 'bg-amber-400' },
   twilio: { icon: MessageCircle, label: 'Twilio', color: 'text-blue-400', bg: 'bg-blue-400/10', dot: 'bg-blue-400' },

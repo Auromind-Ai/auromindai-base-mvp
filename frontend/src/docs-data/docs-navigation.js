@@ -126,7 +126,7 @@ export const DOCS_NAVIGATION = [
     ]
   },
   {
-    category: "Troubleshooting & Support",
+    category: "Support Guide",
     icon: "HelpCircle",
     items: [
       {

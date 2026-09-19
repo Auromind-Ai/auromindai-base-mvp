@@ -90,7 +90,7 @@ export default function TwoFactorSetupModal({ setupData, onSuccess, onClose }) {
               Or enter manually
             </p>
             <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-[rgba(157,157,157,0.43)]">
-              <code className="flex-1 text-sm text-violet-300 font-mono tracking-widest break-all">
+              <code className="flex-1 text-sm text-violet-300 tracking-widest break-all">
                 {setupData.secret}
               </code>
               <button
@@ -120,7 +120,7 @@ export default function TwoFactorSetupModal({ setupData, onSuccess, onClose }) {
                 className="
                   w-full h-12 rounded-xl px-4 text-center
                   bg-white/5 border border-[rgba(157,157,157,0.43)]
-                  text-white text-2xl font-mono tracking-[0.4em]
+                  text-white text-2xl tracking-[0.4em]
                   placeholder:text-white/20 placeholder:tracking-[0.2em]
                   focus:outline-none focus:border-violet-500
                   transition-colors

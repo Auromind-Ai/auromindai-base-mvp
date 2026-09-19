@@ -12,13 +12,13 @@ export const MEDIA_INVENTORY = {
     featureSlug: "features/omni-inbox",
     videoAvailable: false,
     videoVersion: null,
-    videoUrl: "/docs/videos/omni-inbox.mp4",
+    videoUrl: "/images/docs/videos/omni-inbox.mp4",
     videoDuration: "1:30",
     screenshotAvailable: false,
     screenshotVersion: null,
     screenshotUrls: [
-      "/docs/screenshots/omni-inbox-live.png",
-      "/docs/screenshots/human-takeover-modal.png"
+      "/images/docs/screenshots/omni-inbox-live.png",
+      "/images/docs/screenshots/human-takeover-modal.png"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
@@ -29,13 +29,13 @@ export const MEDIA_INVENTORY = {
     featureSlug: "features/brain-rag",
     videoAvailable: false,
     videoVersion: null,
-    videoUrl: "/docs/videos/ai-brain-rag.mp4",
+    videoUrl: "/images/docs/videos/ai-brain-rag.mp4",
     videoDuration: "1:15",
     screenshotAvailable: false,
     screenshotVersion: null,
     screenshotUrls: [
-      "/docs/screenshots/brain-rag-documents.png",
-      "/docs/screenshots/brain-vector-chunks.png"
+      "/images/docs/screenshots/brain-rag-documents.png",
+      "/images/docs/screenshots/brain-vector-chunks.png"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
@@ -46,13 +46,13 @@ export const MEDIA_INVENTORY = {
     featureSlug: "features/ai-workspace",
     videoAvailable: false,
     videoVersion: null,
-    videoUrl: "/docs/videos/ai-workspace.mp4",
+    videoUrl: "/images/docs/videos/ai-workspace.mp4",
     videoDuration: "0:38",
     screenshotAvailable: false,
     screenshotVersion: null,
     screenshotUrls: [
-      "/docs/screenshots/ai-workspace-tool-calling.png",
-      "/docs/screenshots/ai-workspace-streaming.png"
+      "/images/docs/screenshots/ai-workspace-tool-calling.png",
+      "/images/docs/screenshots/ai-workspace-streaming.png"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
@@ -63,7 +63,7 @@ export const MEDIA_INVENTORY = {
     featureSlug: "features/leads-crm",
     videoAvailable: false,
     videoVersion: null,
-    videoUrl: "/docs/videos/leads-pipeline.mp4",
+    videoUrl: "/images/docs/videos/leads-pipeline.mp4",
     videoDuration: "1:05",
     screenshotAvailable: true,
     screenshotVersion: "v2.3.1",
@@ -79,13 +79,13 @@ export const MEDIA_INVENTORY = {
     featureSlug: "features/agentic-orchestrator",
     videoAvailable: true,
     videoVersion: "v2.4.0",
-    videoUrl: "/docs/videos/Screen Recording 2026-09-11 104247.mp4",
+    videoUrl: "/images/docs/videos/Screen Recording 2026-09-11 104247.mp4",
     videoDuration: "Walkthrough Demo",
     screenshotAvailable: true,
     screenshotVersion: "v2.4.0",
     screenshotUrls: [
-      "/docs/screenshots/flow-verification-active.png",
-      "/docs/screenshots/orchestrator-canvas.png"
+      "/images/docs/screenshots/flow-verification-active.png",
+      "/images/docs/screenshots/orchestrator-canvas.png"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
@@ -96,12 +96,12 @@ export const MEDIA_INVENTORY = {
     featureSlug: "features/campaigns",
     videoAvailable: false,
     videoVersion: null,
-    videoUrl: "/docs/videos/campaigns-overview.mp4",
+    videoUrl: "/images/docs/videos/campaigns-overview.mp4",
     videoDuration: "1:15",
     screenshotAvailable: false,
     screenshotVersion: null,
     screenshotUrls: [
-      "/docs/screenshots/campaigns-funnel.png"
+      "/images/docs/screenshots/campaigns-funnel.png"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
@@ -112,12 +112,12 @@ export const MEDIA_INVENTORY = {
     featureSlug: "account/ai-governance",
     videoAvailable: false,
     videoVersion: null,
-    videoUrl: "/docs/videos/ai-governance.mp4",
+    videoUrl: "/images/docs/videos/ai-governance.mp4",
     videoDuration: "1:20",
     screenshotAvailable: false,
     screenshotVersion: null,
     screenshotUrls: [
-      "/docs/screenshots/mcp-policy-editor.png"
+      "/images/docs/screenshots/mcp-policy-editor.png"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
@@ -128,12 +128,12 @@ export const MEDIA_INVENTORY = {
     featureSlug: "features/credits-wallet",
     videoAvailable: false,
     videoVersion: null,
-    videoUrl: "/docs/videos/credits-wallet.mp4",
+    videoUrl: "/images/docs/videos/credits-wallet.mp4",
     videoDuration: "0:45",
     screenshotAvailable: false,
     screenshotVersion: null,
     screenshotUrls: [
-      "/docs/screenshots/wallet-token-ring.png"
+      "/images/docs/screenshots/wallet-token-ring.png"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
@@ -172,8 +172,8 @@ export const MEDIA_INVENTORY = {
     screenshotAvailable: true,
     screenshotVersion: "v2.4.0",
     screenshotUrls: [
-      "/docs/screenshots/gst-billing-profile-card.png",
-      "/docs/screenshots/gst-edit-billing-profile-modal.png"
+      "/images/docs/screenshots/gst-billing-profile-card.png",
+      "/images/docs/screenshots/gst-edit-billing-profile-modal.png"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",

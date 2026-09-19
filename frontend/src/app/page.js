@@ -3,7 +3,6 @@ import NavigationSection from '../components/LandingPageNew/NavigationSection/Na
 import ModernSaaSBackground from '../components/LandingPageNew/ModernSaaSBackground/ModernSaaSBackground';
 // import ProductDemoSection from '../components/LandingPageNew/ProductDemoSection/ProductDemoSection';
 // import SocialProofSection from '../components/LandingPageNew/SocialProofSection/SocialProofSection';
-import HeroSectionNew from '../components/LandingPageNew/HeroSection/HeroSectionNew';
 // import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
 import IntegrationsSection from '@/components/LandingPageNew/IntegrationsSection/IntegrationsSection';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -16,6 +15,11 @@ const HeroShowcaseSection = dynamic(
 
 const MessageManagementSection = dynamic(
   () => import('../components/LandingPageNew/MessageManagementSection/Messagemanagementsection'),
+  { ssr: true, loading: () => <div className="min-h-[300px]" /> }
+);
+
+const SalesJourneySection = dynamic(
+  () => import('../components/LandingPageNew/SalesJourneySection/SalesJourneySection'),
   { ssr: true, loading: () => <div className="min-h-[300px]" /> }
 );
 
@@ -104,16 +108,14 @@ export default function LandingPage() {
           <HeroShowcaseSection />
         </ErrorBoundary>
 
-        {/* <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">Hero Error</div>}>
-          <HeroSectionNew />
-        </ErrorBoundary> */}
+        
 
         <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">MessageManagement Error</div>}>
           <MessageManagementSection />
         </ErrorBoundary>
 
-        <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">ManageChats Error</div>}>
-          <ManageChatsSection />        
+        <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">SalesJourney Error</div>}>
+          <SalesJourneySection />
         </ErrorBoundary>
 
         <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">WhatsAppShowcase Error</div>}>
@@ -142,4 +144,4 @@ export default function LandingPage() {
       </div>
     </main>
   );
-}// Clean rollback trigger
+}

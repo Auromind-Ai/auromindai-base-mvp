@@ -19,10 +19,27 @@ export default function DocumentationScreenshot({
   scrollPreview,
 }) {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  // Always normalize any incoming path so it strictly uses the actual lowercase folder: /images/docs/
+  const normalizedSrc = typeof src === "string" ? src.replace(/\/images\/Docs\//g, "/images/docs/") : src;
+  const [lastSrc, setLastSrc] = useState(normalizedSrc);
+
+  // If src changed from parent, reset error during render
+  if (normalizedSrc !== lastSrc) {
+    setLastSrc(normalizedSrc);
+    setHasError(false);
+  }
+
+  const currentSrc = normalizedSrc;
+
+  const handleImageError = () => {
+    setHasError(true);
+  };
 
   // If a real screenshot exists, render the image directly
   // with optional scroll preview and lightbox support.
-  if (src) {
+  if (currentSrc && !hasError) {
     const defaultFrameStyle = frameless
       ? "border-0 rounded-none bg-transparent shadow-none"
       : "border border-white/10 bg-[#090A10] shadow-lg hover:border-violet-500/40";
@@ -80,8 +97,9 @@ export default function DocumentationScreenshot({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={src}
+            src={currentSrc}
             alt={alt}
+            onError={handleImageError}
             width={scrollPreview?.width}
             height={scrollPreview?.height}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 75vw, 60vw"
@@ -114,7 +132,7 @@ export default function DocumentationScreenshot({
           )}
 
           {stepNumber && (
-            <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-[#814AC8] text-[11px] font-bold text-white shadow-md pointer-events-none">
+            <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-[#814AC8] text-[11px] font-semibold text-white shadow-md pointer-events-none">
               Step {stepNumber}
             </div>
           )}
@@ -156,14 +174,15 @@ export default function DocumentationScreenshot({
               <div className="relative w-full max-h-[80vh] flex items-center justify-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={src}
+                  src={currentSrc}
                   alt={alt}
+                  onError={handleImageError}
                   className="max-h-[80vh] w-auto max-w-full rounded-xl object-contain"
                 />
               </div>
 
               {caption && (
-                <p className="mt-3 text-sm text-zinc-300 font-medium text-center">
+                <p className="mt-3 text-xs sm:text-sm text-zinc-300 font-normal text-center">
                   {caption}
                 </p>
               )}
@@ -196,7 +215,7 @@ export default function DocumentationScreenshot({
             <span className="w-2 h-2 rounded-full bg-emerald-500/40" />
 
             {stepNumber && (
-              <span className="ml-2 text-[10px] font-mono text-zinc-400 font-semibold">
+              <span className="ml-2 text-[10px] text-zinc-400 font-semibold">
                 Step {stepNumber}
               </span>
             )}
@@ -228,12 +247,8 @@ export default function DocumentationScreenshot({
         </div>
 
         <div className="mt-3 flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-white/5 border border-white/10 text-zinc-400">
-            <Layers
-              className="w-3 h-3 text-violet-400"
-              aria-hidden="true"
-            />
-
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px]  bg-white/5 border border-white/10 text-zinc-400">
+            <Layers className="w-3 3-4 text-violet-400" aria-hidden="true" />
             <span>Product Console</span>
           </span>
         </div>

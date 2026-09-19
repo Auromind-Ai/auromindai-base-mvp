@@ -120,7 +120,7 @@ const SocialProofSection = () => {
                     <div className="w-6 h-6 opacity-30 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                       {brand.icon}
                     </div>
-                    <span className="text-sm font-bold tracking-widest uppercase font-mono">
+                    <span className="text-sm font-bold tracking-widest uppercase">
                       {brand.name}
                     </span>
                   </div>
@@ -154,7 +154,7 @@ const SocialProofSection = () => {
                   </div>
                   
                   {/* Performance indicator */}
-                  <span className="text-[8px] font-mono tracking-widest text-white/20 uppercase">
+                  <span className="text-[8px] tracking-widest text-white/20 uppercase">
                     SYS OK • v2.0
                   </span>
                 </div>

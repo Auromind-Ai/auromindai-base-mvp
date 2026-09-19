@@ -14,49 +14,52 @@ const poppins = Poppins({
 const steps = [
   {
     step: '01',
-    label: 'Connect',
-    title: 'Connect Account',
+    label: 'RESPOND',
+    title: 'Faster response',
+    detailTitle: 'Speed Up Responses, Close Deals Faster',
     description:
-      'Securely connect your WhatsApp Business account using the official Cloud API to automate messaging, manage conversations at scale, and deliver reliable customer support — all with enterprise-grade security.',
+      'Turn incoming inquiries into active sales chats with instant, accurate answers using your business knowledge.',
     features: [
-      'Official Meta API Integration',
       'Instant Response Automation',
-      'Verified Green Badge Status',
-      'Fully Scalable Delivery Platform',
+      '24/7 Knowledge Base Integration',
+      'Real-Time Customer Context',
+      'Zero Delay Reply Delivery System',
     ],
-    image: '/images/StepOne.webp',
+    image: '/images/FasterResponseEnhanced.jpeg',
     accent: '#8B5CF6',
     icon: <Network size={14} className="text-violet-400" />,
   },
   {
     step: '02',
-    label: 'Train',
-    title: 'Configure AI Brain',
+    label: 'CAPTURE',
+    title: 'Capture every lead',
+    detailTitle: 'Never Let a Qualified Lead Slip Away',
     description:
-      'Train your AI by setting rules and training it on your business data so it responds accurately, works exactly for your business needs, and continuously improves across more interactions.',
+      'Automatically record customer data, interest level, and contact info from every interaction for instant follow-up.',
     features: [
-      'Custom Context Injection',
-      'Behavioral Alignment Rules',
-      'Knowledge Base Embeddings',
-      'Adaptive Learning Over Time',
+      'Automated Lead Qualification',
+      'Customer Context & Intent Capture',
+      'CRM System Integrations',
+      'Zero Missed Sales Opportunities',
     ],
-    image: '/images/StepTwo.webp',
+    image: '/images/CaptureLead.png',
     accent: '#EC4899',
-    icon: <Cpu size={14} className="text-pink-400" />,
+    icon: <Cpu size={14} className="text-violet-400" />,
   },
   {
     step: '03',
-    label: 'Launch',
-    title: 'Go Live Instantly',
+    label: 'CONVERT',
+    title: 'Close more sales',
+    detailTitle: 'Turn Customer Interest Into Completed Sales',
     description:
-      'Launch your autonomous sales system in minutes and let it automatically engage leads, qualify prospects, and convert conversations into revenue around the clock.',
+      'Seamlessly help customers buy products, schedule calls, or reach your team right when they are ready.',
     features: [
-      'One-Click Production Launch',
-      '24/7 Autopilot Processing',
-      'CRM System Integrations',
-      'Revenue Attribution Dashboards',
+      'Effortless Next-Step Handoff',
+      'Product Recommendation Engine',
+      '24/7 Autopilot Sales Closing',
+      'Revenue & Conversion Optimization',
     ],
-    image: '/images/StepThree.webp',
+    image: '/images/CloseMoreDealsNew.png',
     accent: '#3B82F6',
     icon: <Zap size={14} className="text-blue-400" />,
   },
@@ -121,13 +124,13 @@ export default function HowItWorks() {
         <div className="max-w-3xl mx-auto text-center mb-16 sm:mb-20">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-1.5 text-xs font-semibold text-purple-300 tracking-wider uppercase mb-5">
             <Activity size={12} className="text-purple-400 animate-pulse" />
-            Seamless Onboarding
+            SEAMLESS CUSTOMER ENGAGEMENT
           </div>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight">
-            Launch in Three Simple Steps
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight leading-tight">
+            Turn Every Inquiry Into an Instant Sale.
           </h2>
           <p className="mt-4 text-base sm:text-lg text-zinc-400 max-w-xl mx-auto leading-relaxed">
-            Configure your autonomous sales agent and start automating customer conversations in minutes.
+            Instantly reply, capture high-intent leads, and automate conversions around the clock.
           </p>
         </div>
 
@@ -210,14 +213,11 @@ export default function HowItWorks() {
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
                 
-                {/* Neon Color Mask Overlay */}
+                {/* Subtle Edge Ambient Glow */}
                 <div 
-                  className="absolute inset-0 mix-blend-color opacity-20 transition-all duration-500 pointer-events-none"
-                  style={{ backgroundColor: activeItem.accent }}
+                  className="absolute inset-0 opacity-10 transition-all duration-500 pointer-events-none"
+                  style={{ background: `radial-gradient(circle at center, ${activeItem.accent}20 0%, transparent 70%)` }}
                 />
-                
-                {/* Bottom Shadow Gradient */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
               </div>
 
               {/* Right Side: Copy Panel */}
@@ -227,11 +227,11 @@ export default function HowItWorks() {
                   <span>Phase {activeItem.step}</span>
                 </div>
 
-                <h3 className="text-3xl sm:text-4xl font-bold text-white tracking-tight leading-tight">
-                  {activeItem.title}
+                <h3 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight leading-tight min-h-[4rem] flex items-center">
+                  {activeItem.detailTitle || activeItem.title}
                 </h3>
 
-                <p className="text-base sm:text-lg text-zinc-400 leading-relaxed font-normal">
+                <p className="text-base sm:text-lg text-zinc-400 leading-relaxed font-normal min-h-[3.5rem] flex items-center">
                   {activeItem.description}
                 </p>
 

@@ -1402,7 +1402,7 @@ export default function CreditsPage() {
                                                         <span className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
                                                             <Calendar size={14} />
                                                         </span>
-                                                        <span className="text-xs font-mono font-medium text-zinc-200 truncate">
+                                                        <span className="text-xs font-medium text-zinc-200 truncate">
                                                             {formatBillingDate(r.date, true)}
                                                         </span>
                                                     </div>
@@ -1429,7 +1429,7 @@ export default function CreditsPage() {
                                                 <div>
                                                     <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Transaction ID</span>
                                                     <div className="flex items-center justify-between gap-2 p-1.5 px-2 rounded-lg bg-white/[0.02] border border-white/5">
-                                                        <span className="text-xs font-mono text-zinc-400 truncate flex-1" title={r.payment_id || r.gateway_order_id || 'N/A'}>
+                                                        <span className="text-xs text-zinc-400 truncate flex-1" title={r.payment_id || r.gateway_order_id || 'N/A'}>
                                                             {r.payment_id || r.gateway_order_id || 'N/A'}
                                                         </span>
                                                         <button
@@ -1469,7 +1469,7 @@ export default function CreditsPage() {
                                                             <span className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
                                                                 <Calendar size={14} />
                                                             </span>
-                                                            <span className="text-xs font-mono font-medium text-zinc-200 truncate">
+                                                            <span className="text-xs font-medium text-zinc-200 truncate">
                                                                 {formatBillingDate(r.date, true)}
                                                             </span>
                                                         </div>
@@ -1496,7 +1496,7 @@ export default function CreditsPage() {
                                                     <div>
                                                         <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Transaction ID</span>
                                                         <div className="flex items-center justify-between gap-2 p-1.5 px-2 rounded-lg bg-white/[0.02] border border-white/5">
-                                                            <span className="text-xs font-mono text-zinc-400 truncate flex-1" title={r.payment_id || r.gateway_order_id || 'N/A'}>
+                                                            <span className="text-xs text-zinc-400 truncate flex-1" title={r.payment_id || r.gateway_order_id || 'N/A'}>
                                                                 {r.payment_id || r.gateway_order_id || 'N/A'}
                                                             </span>
                                                             <button
@@ -1546,17 +1546,17 @@ export default function CreditsPage() {
                                                                 <span className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
                                                                     <Calendar size={13} />
                                                                 </span>
-                                                                <span className="text-zinc-300 font-mono text-[11px] whitespace-nowrap">
+                                                                <span className="text-zinc-300 text-[11px] whitespace-nowrap">
                                                                     {formatBillingDate(r.date, true)}
                                                                 </span>
                                                             </div>
                                                         </td>
-                                                        <td className="p-4 px-6 font-bold text-white font-mono text-xs whitespace-nowrap">
+                                                        <td className="p-4 px-6 font-bold text-white text-xs whitespace-nowrap">
                                                             ₹{Number(r.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                         </td>
                                                         <td className="p-4 px-6">
                                                             <div className="flex items-center gap-2 max-w-[280px]">
-                                                                <span className="font-mono text-zinc-400 text-[11px] truncate" title={r.payment_id || r.gateway_order_id || 'N/A'}>
+                                                                <span className="text-zinc-400 text-[11px] truncate" title={r.payment_id || r.gateway_order_id || 'N/A'}>
                                                                     {r.payment_id || r.gateway_order_id || 'N/A'}
                                                                 </span>
                                                                 {(r.payment_id || r.gateway_order_id) && (
@@ -1634,7 +1634,7 @@ export default function CreditsPage() {
                                 <span className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
                                     <Calendar size={14} />
                                 </span>
-                                <span className="text-xs font-mono font-medium text-zinc-200 truncate">
+                                <span className="text-xs font-medium text-zinc-200 truncate">
                                     {formatBillingDate(r.date, true)}
                                 </span>
                             </div>
@@ -1657,7 +1657,7 @@ export default function CreditsPage() {
                         <div>
                             <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Transaction ID</span>
                             <div className="flex items-center justify-between gap-2 p-1.5 px-2 rounded-lg bg-white/[0.02] border border-white/5">
-                                <span className="text-xs font-mono text-zinc-400 truncate flex-1">
+                                <span className="text-xs text-zinc-400 truncate flex-1">
                                     {r.payment_id || r.gateway_order_id || 'N/A'}
                                 </span>
                                 <button
@@ -1690,7 +1690,7 @@ export default function CreditsPage() {
                                 <span className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
                                     <Calendar size={13} />
                                 </span>
-                                <span className="text-zinc-300 font-mono text-[11px] whitespace-nowrap">
+                                <span className="text-zinc-300 text-[11px] whitespace-nowrap">
                                     {formatBillingDate(r.date, true)}
                                 </span>
                             </div>
@@ -1699,14 +1699,14 @@ export default function CreditsPage() {
                     {
                         key: "amount",
                         label: "Amount",
-                        render: (r) => <span className="font-bold text-white font-mono text-xs whitespace-nowrap">₹{Number(r.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        render: (r) => <span className="font-bold text-white text-xs whitespace-nowrap">₹{Number(r.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     },
                     {
                         key: "payment_id",
                         label: "Payment / Order ID",
                         render: (r) => (
                             <div className="flex items-center gap-2 max-w-[280px]">
-                                <span className="font-mono text-zinc-400 text-[11px] truncate">
+                                <span className="text-zinc-400 text-[11px] truncate">
                                     {r.payment_id || r.gateway_order_id || "N/A"}
                                 </span>
                                 {(r.payment_id || r.gateway_order_id) && (
@@ -1813,7 +1813,7 @@ export default function CreditsPage() {
                                         <p className="text-zinc-200 text-xs font-medium m-0 truncate">
                                             {formatBillingDate(r.created_at, true)}
                                         </p>
-                                        <p className="text-[11px] text-zinc-500 font-mono m-0 mt-0.5 truncate">
+                                        <p className="text-[11px] text-zinc-500 m-0 mt-0.5 truncate">
                                             {r.entry_type || meta.label}
                                         </p>
                                     </div>
@@ -1843,7 +1843,7 @@ export default function CreditsPage() {
                                     <span className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${meta.bg}`}>
                                         {meta.icon}
                                     </span>
-                                    <span className="text-zinc-300 font-mono text-[11px] whitespace-nowrap">
+                                    <span className="text-zinc-300 text-[11px] whitespace-nowrap">
                                         {formatBillingDate(r.created_at, true)}
                                     </span>
                                 </div>

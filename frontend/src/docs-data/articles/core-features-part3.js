@@ -180,7 +180,7 @@ export const CORE_FEATURES_PART3 = {
         type: "text",
         content: "The Credits & Wallet console (/user/admin/credits) provides transparent metering for AI token consumption across foundation models (GPT, Claude, Gemini) and reconciles Meta WhatsApp Conversation Charges (WCC). Monitor daily expenditure, inspect an itemized ledger, and configure auto-recharge rules.",
         uiPreview: "WalletPreview",
-        screenshot: "/docs/screenshots/dashboard-credits-wallet.png"
+        screenshot: "/images/docs/screenshots/dashboard-credits-wallet.png"
       },
       {
         id: "ledger-features",

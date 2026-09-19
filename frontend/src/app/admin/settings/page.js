@@ -84,7 +84,7 @@ function SecretInput({ label, value, onChange, placeholder }) {
           autoComplete="new-password"
           autoCapitalize="none"
           autoCorrect="off"
-          className="w-full bg-[#050505] border border-white/10 rounded-xl pl-4 pr-11 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 transition-colors"
+          className="w-full bg-[#050505] border border-white/10 rounded-xl pl-4 pr-11 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700 transition-colors"
         />
         <button
           type="button"
@@ -767,7 +767,7 @@ export default function SettingsPage() {
                               value={settings[provider.key] || ""}
                               onChange={(e) => handleInputChange(provider.key, e.target.value)}
                               placeholder={`Enter ${provider.name} API Key`}
-                              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none"
                             />
                           </div>
                         </div>
@@ -832,7 +832,7 @@ export default function SettingsPage() {
                                 required
                                 value={newPlanForm.name}
                                 onChange={(e) => setNewPlanForm(prev => ({ ...prev, name: e.target.value }))}
-                                className="w-full bg-black/60 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:border-indigo-500 outline-none font-mono"
+                                className="w-full bg-black/60 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:border-indigo-500 outline-none "
                               />
                             </div>
                             <div className="space-y-1.5">
@@ -1211,7 +1211,7 @@ export default function SettingsPage() {
                             value={settings.razorpay_key || ""}
                             onChange={(e) => handleInputChange("razorpay_key", e.target.value)}
                             placeholder="rzp_live_..."
-                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none "
                           />
                         </div>
                         <SecretInput
@@ -1233,7 +1233,7 @@ export default function SettingsPage() {
                             value={settings.razorpay_pro_plan_id || ""}
                             onChange={(e) => handleInputChange("razorpay_pro_plan_id", e.target.value)}
                             placeholder="plan_xxxxxx"
-                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none"
                           />
                         </div>
                         <div className="space-y-2">
@@ -1243,7 +1243,7 @@ export default function SettingsPage() {
                             value={settings.razorpay_enterprise_plan_id || ""}
                             onChange={(e) => handleInputChange("razorpay_enterprise_plan_id", e.target.value)}
                             placeholder="plan_xxxxxx"
-                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none "
                           />
                         </div>
                       </div>
@@ -1263,7 +1263,7 @@ export default function SettingsPage() {
                             value={settings.payu_merchant_key || ""}
                             onChange={(e) => handleInputChange("payu_merchant_key", e.target.value)}
                             placeholder="merchant_key"
-                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none"
                           />
                         </div>
                         <SecretInput
@@ -1285,7 +1285,7 @@ export default function SettingsPage() {
                             value={settings.payu_pro_plan_id || ""}
                             onChange={(e) => handleInputChange("payu_pro_plan_id", e.target.value)}
                             placeholder="plan_xxxxxx"
-                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none "
                           />
                         </div>
                         <div className="space-y-2">
@@ -1295,7 +1295,7 @@ export default function SettingsPage() {
                             value={settings.payu_enterprise_plan_id || ""}
                             onChange={(e) => handleInputChange("payu_enterprise_plan_id", e.target.value)}
                             placeholder="plan_xxxxxx"
-                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none"
                           />
                         </div>
                       </div>
@@ -1326,7 +1326,7 @@ export default function SettingsPage() {
                         value={settings.invoice_support_email || ""}
                         onChange={(e) => handleInputChange("invoice_support_email", e.target.value)}
                         placeholder="billing@auromind.ai"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1336,7 +1336,7 @@ export default function SettingsPage() {
                         value={settings.invoice_support_url || ""}
                         onChange={(e) => handleInputChange("invoice_support_url", e.target.value)}
                         placeholder="https://auromind.ai"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                   </div>
@@ -1398,7 +1398,7 @@ export default function SettingsPage() {
                           value={settings.invoice_qr_custom_url || ""}
                           onChange={(e) => handleInputChange("invoice_qr_custom_url", e.target.value)}
                           placeholder="https://auromind.ai/billing"
-                          className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                          className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                         />
                       </div>
                     )}
@@ -1461,7 +1461,7 @@ export default function SettingsPage() {
                         value={settings.smtp_host || ""}
                         onChange={(e) => handleInputChange("smtp_host", e.target.value)}
                         placeholder="smtp.gmail.com"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1471,7 +1471,7 @@ export default function SettingsPage() {
                         value={settings.smtp_port || ""}
                         onChange={(e) => handleInputChange("smtp_port", e.target.value)}
                         placeholder="587"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1481,7 +1481,7 @@ export default function SettingsPage() {
                         value={settings.smtp_user || ""}
                         onChange={(e) => handleInputChange("smtp_user", e.target.value)}
                         placeholder="hello@auromind.ai"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                     <SecretInput 
@@ -1529,7 +1529,7 @@ export default function SettingsPage() {
                         value={settings.google_client_id || ""}
                         onChange={(e) => handleInputChange("google_client_id", e.target.value)}
                         placeholder="123456-xxxx.apps.googleusercontent.com"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                     <SecretInput 
@@ -1545,7 +1545,7 @@ export default function SettingsPage() {
                         value={settings.oauth_redirect_uri || ""}
                         onChange={(e) => handleInputChange("oauth_redirect_uri", e.target.value)}
                         placeholder="https://app.auromind.ai/api/auth/callback/google"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1555,7 +1555,7 @@ export default function SettingsPage() {
                         value={settings.google_integration_redirect_uri || ""}
                         onChange={(e) => handleInputChange("google_integration_redirect_uri", e.target.value)}
                         placeholder="https://app.auromind.ai/api/integrations/google/callback"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                   </div>
@@ -1597,7 +1597,7 @@ export default function SettingsPage() {
                         value={settings.meta_verify_token || ""}
                         onChange={(e) => handleInputChange("meta_verify_token", e.target.value)}
                         placeholder="verify_token_value"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1607,7 +1607,7 @@ export default function SettingsPage() {
                         value={settings.meta_app_id || ""}
                         onChange={(e) => handleInputChange("meta_app_id", e.target.value)}
                         placeholder="1234567890"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                     <SecretInput 
@@ -1629,7 +1629,7 @@ export default function SettingsPage() {
                         value={settings.meta_redirect_uri || ""}
                         onChange={(e) => handleInputChange("meta_redirect_uri", e.target.value)}
                         placeholder="https://app.auromind.ai/meta/callback"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1639,7 +1639,7 @@ export default function SettingsPage() {
                         value={settings.ig_app_id || ""}
                         onChange={(e) => handleInputChange("ig_app_id", e.target.value)}
                         placeholder="1234567890"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                     <SecretInput 
@@ -1655,7 +1655,7 @@ export default function SettingsPage() {
                         value={settings.ig_redirect_uri || ""}
                         onChange={(e) => handleInputChange("ig_redirect_uri", e.target.value)}
                         placeholder="https://app.auromind.ai/instagram/callback"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                   </div>
@@ -1664,7 +1664,7 @@ export default function SettingsPage() {
                       type="button"
                       disabled={testing.meta}
                       onClick={() => handleTest("meta")}
-                      className="px-4 py-2 border border-white/10 hover:border-pink-500/30 hover:bg-pink-500/5 text-pink-400 disabled:text-pink-400/50 disabled:border-white/5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
+                      className="px-4 py-2 border border-white/10 hover:border-pink-500/30 hover:bg-pink-500/5 text-violet-400 disabled:text-violet-400/50 disabled:border-white/5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
                     >
                       {testing.meta ? (
                         <>
@@ -1697,7 +1697,7 @@ export default function SettingsPage() {
                         value={settings.twilio_account_sid || ""}
                         onChange={(e) => handleInputChange("twilio_account_sid", e.target.value)}
                         placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                     <SecretInput
@@ -1713,7 +1713,7 @@ export default function SettingsPage() {
                         value={settings.twilio_phone_number || ""}
                         onChange={(e) => handleInputChange("twilio_phone_number", e.target.value)}
                         placeholder="+1234567890"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1723,7 +1723,7 @@ export default function SettingsPage() {
                         value={settings.twilio_status_callback_url || ""}
                         onChange={(e) => handleInputChange("twilio_status_callback_url", e.target.value)}
                         placeholder="https://app.auromind.ai/twilio/status-callback"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                   </div>
@@ -1747,7 +1747,7 @@ export default function SettingsPage() {
                         <select
                           value={settings.storage_provider || "SUPABASE"}
                           onChange={(e) => handleInputChange("storage_provider", e.target.value)}
-                          className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none appearance-none text-white font-mono"
+                          className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none appearance-none text-white"
                         >
                           {(settings._supported_storage_providers || ["SUPABASE", "S3"]).map((prov) => (
                             <option key={prov} value={prov} className="bg-[#050505] text-white">
@@ -1771,7 +1771,7 @@ export default function SettingsPage() {
                             value={settings.supabase_url || ""}
                             onChange={(e) => handleInputChange("supabase_url", e.target.value)}
                             placeholder="https://xxxx.supabase.co"
-                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700 animate-in fade-in duration-300"
                           />
                         </div>
                         <div className="md:col-span-2">
@@ -1797,7 +1797,7 @@ export default function SettingsPage() {
                             value={settings.supabase_bucket || ""}
                             onChange={(e) => handleInputChange("supabase_bucket", e.target.value)}
                             placeholder="media"
-                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700 animate-in fade-in duration-300"
                           />
                         </div>
                       </>
@@ -1813,7 +1813,7 @@ export default function SettingsPage() {
                             value={settings.aws_access_key_id || ""}
                             onChange={(e) => handleInputChange("aws_access_key_id", e.target.value)}
                             placeholder="AKIA..."
-                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700 animate-in fade-in duration-300"
                           />
                         </div>
                         <SecretInput 
@@ -1829,7 +1829,7 @@ export default function SettingsPage() {
                             value={settings.aws_region || ""}
                             onChange={(e) => handleInputChange("aws_region", e.target.value)}
                             placeholder="us-east-1"
-                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700 animate-in fade-in duration-300"
                           />
                         </div>
                         <div className="space-y-2">
@@ -1839,7 +1839,7 @@ export default function SettingsPage() {
                             value={settings.aws_s3_bucket || ""}
                             onChange={(e) => handleInputChange("aws_s3_bucket", e.target.value)}
                             placeholder="my-bucket"
-                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700 animate-in fade-in duration-300"
                           />
                         </div>
                         <div className="space-y-2">
@@ -1849,7 +1849,7 @@ export default function SettingsPage() {
                             value={settings.aws_s3_endpoint_url || ""}
                             onChange={(e) => handleInputChange("aws_s3_endpoint_url", e.target.value)}
                             placeholder="https://s3.amazonaws.com"
-                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700 animate-in fade-in duration-300"
                           />
                         </div>
                         <div className="space-y-2">
@@ -1859,7 +1859,7 @@ export default function SettingsPage() {
                             value={settings.aws_s3_public_base_url || ""}
                             onChange={(e) => handleInputChange("aws_s3_public_base_url", e.target.value)}
                             placeholder="https://my-bucket.s3.amazonaws.com"
-                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700 animate-in fade-in duration-300"
                           />
                         </div>
                       </>
@@ -1909,7 +1909,7 @@ export default function SettingsPage() {
                         value={settings.hf_home || ""}
                         onChange={(e) => handleInputChange("hf_home", e.target.value)}
                         placeholder="/models/huggingface"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1919,7 +1919,7 @@ export default function SettingsPage() {
                         value={settings.transformers_cache || ""}
                         onChange={(e) => handleInputChange("transformers_cache", e.target.value)}
                         placeholder="/models/huggingface"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700"
                       />
                     </div>
                   </div>

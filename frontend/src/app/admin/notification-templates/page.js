@@ -683,7 +683,7 @@ export default function NotificationManagerPage() {
       case "payments & credits":
       case "billing": return <CreditCard className="w-4 h-4 text-purple-400" />;
       case "lead management":
-      case "crm": return <Users className="w-4 h-4 text-pink-400" />;
+      case "crm": return <Users className="w-4 h-4 text-violet-400" />;
       case "broadcast & workflow":
       case "workflow": return <GitMerge className="w-4 h-4 text-blue-400" />;
       case "reports": return <Gauge className="w-4 h-4 text-amber-400" />;
@@ -840,7 +840,7 @@ export default function NotificationManagerPage() {
                           <h3 className="font-semibold text-sm sm:text-base text-white">{tpl.name}</h3>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-mono text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                          <span className="text-[11px] text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
                             {tpl.template_key}
                           </span>
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -936,7 +936,7 @@ export default function NotificationManagerPage() {
                   <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-indigo-500" />
                     <span>{cat.name}</span>
-                    <span className="text-gray-500 font-mono">({catRules.length})</span>
+                    <span className="text-gray-500 ">({catRules.length})</span>
                   </h4>
 
                   <div className="grid grid-cols-1 gap-3">
@@ -950,9 +950,9 @@ export default function NotificationManagerPage() {
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                           <div className="space-y-2">
                             <div className="flex flex-wrap items-center gap-2.5">
-                              <span className="font-mono text-sm font-semibold text-white">{rule.event_name}</span>
+                              <span className="text-sm font-semibold text-white">{rule.event_name}</span>
                               <ChevronRight className="w-3.5 h-3.5 text-gray-600" />
-                              <span className="px-2 py-0.5 rounded text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">
+                              <span className="px-2 py-0.5 rounded text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                                 Template: {rule.template_key}
                               </span>
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -975,10 +975,10 @@ export default function NotificationManagerPage() {
                               )}
                               <span className="text-gray-600">|</span>
                               <span className="text-gray-500">Delay:</span>
-                              <span className="text-gray-300 font-mono">{rule.delay_minutes > 0 ? `${rule.delay_minutes}m` : "0m (Immediate)"}</span>
+                              <span className="text-gray-300 ">{rule.delay_minutes > 0 ? `${rule.delay_minutes}m` : "0m (Immediate)"}</span>
                               <span className="text-gray-600">|</span>
                               <span className="text-gray-500">Dedup:</span>
-                              <span className="text-gray-300 font-mono">{rule.dedup_window_seconds ? `${Math.round(rule.dedup_window_seconds / 3600)}h` : "24h"}</span>
+                              <span className="text-gray-300 ">{rule.dedup_window_seconds ? `${Math.round(rule.dedup_window_seconds / 3600)}h` : "24h"}</span>
                             </div>
                           </div>
 
@@ -1019,9 +1019,7 @@ export default function NotificationManagerPage() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* TAB 3: BUSINESS SCHEDULES                                                 */}
-      {/* ========================================================================= */}
+      {/* TAB 3: BUSINESS SCHEDULES  */}
       {activeTab === "schedules" && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
@@ -1040,7 +1038,7 @@ export default function NotificationManagerPage() {
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2.5">
                         <h4 className="text-sm font-semibold text-white">{sched.display_name}</h4>
-                        <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-white/5 text-gray-300 border border-white/10">
+                        <span className="px-2 py-0.5 rounded text-[11px] bg-white/5 text-gray-300 border border-white/10">
                           {sched.event_name}
                         </span>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -1057,7 +1055,7 @@ export default function NotificationManagerPage() {
                           {sched.schedule_type === "weekly" && `Every ${sched.day_of_week?.toUpperCase()} at ${sched.time_of_day}`}
                           {sched.schedule_type === "interval_minutes" && `Every ${sched.interval_minutes} Minute(s)`}
                         </span>
-                        <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-gray-300 font-mono">
+                        <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-gray-300 ">
                           {sched.default_timezone}
                         </span>
                         <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-gray-300">
@@ -1098,9 +1096,7 @@ export default function NotificationManagerPage() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* TAB 4: DELIVERY LOGS & DELIVERABILITY HEALTH                              */}
-      {/* ========================================================================= */}
+      {/* TAB 4: DELIVERY LOGS & DELIVERABILITY HEALTH  */}
       {activeTab === "logs" && (
         <div className="space-y-5">
           {/* KPI Health Cards */}
@@ -1181,7 +1177,7 @@ export default function NotificationManagerPage() {
                     filteredLogs.map((log) => (
                       <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
                         <td className="px-5 py-3 font-medium text-white">{log.recipient_email}</td>
-                        <td className="px-5 py-3 font-mono text-[11px] text-indigo-400">{log.event_name || log.event_key}</td>
+                        <td className="px-5 py-3 text-[11px] text-indigo-400">{log.event_name || log.event_key}</td>
                         <td className="px-5 py-3 max-w-xs truncate text-gray-300">{log.subject}</td>
                         <td className="px-5 py-3">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -1193,7 +1189,7 @@ export default function NotificationManagerPage() {
                             {log.status}
                           </span>
                         </td>
-                        <td className="px-5 py-3 text-[11px] font-mono text-gray-400">
+                        <td className="px-5 py-3 text-[11px] text-gray-400">
                           {formatDateTime(log.sent_at || log.created_at)}
                         </td>
                         <td className="px-5 py-3 text-right whitespace-nowrap space-x-1.5">
@@ -1228,11 +1224,9 @@ export default function NotificationManagerPage() {
       )}
 
       </div>
-      {/* ================= END SCROLLABLE CONTENT BODY ================= */}
+      {/*  END SCROLLABLE CONTENT BODY  */}
 
-      {/* ========================================================================= */}
-      {/* MODALS SECTION                                                            */}
-      {/* ========================================================================= */}
+      {/* MODALS SECTION */}
 
       {/* MODAL: EDIT NOTIFICATION TEMPLATE + LIVE PREVIEW + SEND TEST EMAIL        */}
       {editTemplateModal && selectedTemplate && (
@@ -1243,7 +1237,7 @@ export default function NotificationManagerPage() {
                 <Edit2 className="w-4 h-4 text-indigo-400" />
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <span>Edit Template: {templateForm.name}</span>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                     {selectedTemplate.template_key}
                   </span>
                 </h3>
@@ -1309,7 +1303,7 @@ export default function NotificationManagerPage() {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-gray-300 font-semibold">Message Content</label>
-                      <span className="text-[10px] text-indigo-400 font-mono flex items-center gap-1">
+                      <span className="text-[10px] text-indigo-400 flex items-center gap-1">
                         <Sparkles className="w-3 h-3" />
                         Event Contract Driven
                       </span>
@@ -1344,7 +1338,7 @@ export default function NotificationManagerPage() {
                                     key={v.key}
                                     type="button"
                                     onClick={() => handleInsertVariable(v.key)}
-                                    className="group px-2 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-200 hover:text-white text-[11px] font-mono transition-all flex items-center gap-1.5 shadow-sm"
+                                    className="group px-2 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-200 hover:text-white text-[11px] transition-all flex items-center gap-1.5 shadow-sm"
                                     title={`${v.description || v.key} (Sample: ${v.sample})`}
                                   >
                                     <span className="font-semibold">{`{{${v.key}}}`}</span>
@@ -1381,7 +1375,7 @@ export default function NotificationManagerPage() {
                                     key={v.key}
                                     type="button"
                                     onClick={() => handleInsertVariable(v.key)}
-                                    className="group px-2 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-200 hover:text-white text-[11px] font-mono transition-all flex items-center gap-1.5 shadow-sm"
+                                    className="group px-2 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-200 hover:text-white text-[11px] transition-all flex items-center gap-1.5 shadow-sm"
                                     title={`${v.description || v.key} (Sample: ${v.sample})`}
                                   >
                                     <span className="font-semibold">{`{{${v.key}}}`}</span>
@@ -1421,7 +1415,7 @@ export default function NotificationManagerPage() {
                       rows={6}
                       value={templateForm.message}
                       onChange={(e) => setTemplateForm({ ...templateForm, message: e.target.value })}
-                      className="w-full p-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none font-mono text-xs leading-relaxed"
+                      className="w-full p-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none text-xs leading-relaxed"
                       required
                     />
                   </div>
@@ -1460,7 +1454,7 @@ export default function NotificationManagerPage() {
                       <Globe className="w-3.5 h-3.5 text-indigo-400" />
                       Email Call-To-Action (CTA) Button & Destination
                     </span>
-                    <span className="text-[10px] text-emerald-400 font-mono px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 rounded font-semibold">
+                    <span className="text-[10px] text-emerald-400 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 rounded font-semibold">
                       Editable Deep-Link
                     </span>
                   </div>
@@ -1483,14 +1477,14 @@ export default function NotificationManagerPage() {
                         placeholder="e.g. /verify-otp or /dashboard"
                         value={templateForm.action_route || ""}
                         onChange={(e) => setTemplateForm({ ...templateForm, action_route: e.target.value })}
-                        className="w-full px-2.5 py-1.5 bg-black/50 border border-white/10 rounded-lg text-emerald-300 font-mono text-xs focus:outline-none focus:border-indigo-500"
+                        className="w-full px-2.5 py-1.5 bg-black/50 border border-white/10 rounded-lg text-emerald-300 text-xs focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 pt-0.5">
                     <span className="text-[10px] text-gray-400 whitespace-nowrap">Resolved URL:</span>
-                    <code className="text-[11px] font-mono text-cyan-300 bg-black/60 px-2 py-0.5 rounded border border-white/10 flex-1 truncate select-all">
+                    <code className="text-[11px] text-cyan-300 bg-black/60 px-2 py-0.5 rounded border border-white/10 flex-1 truncate select-all">
                       {testRenderResult?.action_url || (typeof window !== "undefined" ? buildActionUrl(templateForm.action_route || selectedTemplate?.action_route || "/dashboard", window.location.origin) : "http://localhost:3000/dashboard")}
                     </code>
                   </div>
@@ -1543,7 +1537,7 @@ export default function NotificationManagerPage() {
                       </div>
                     )
                   ) : (
-                    <div className="flex-1 p-4 text-gray-200 overflow-y-auto font-mono text-xs whitespace-pre-wrap leading-relaxed">
+                    <div className="flex-1 p-4 text-gray-200 overflow-y-auto text-xs whitespace-pre-wrap leading-relaxed">
                       {testRenderResult?.rendered_message || templateForm.message}
                     </div>
                   )}
@@ -1573,16 +1567,14 @@ export default function NotificationManagerPage() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL: STANDALONE VISUAL PREVIEW                                          */}
-      {/* ========================================================================= */}
+      {/* MODAL: STANDALONE VISUAL PREVIEW */}
       {testRenderModal && selectedTemplate && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#0c0c12] border border-white/10 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
             <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <span>Preview: {selectedTemplate.name}</span>
-                <span className="text-xs font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <span className="text-xs px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                   {selectedTemplate.template_key}
                 </span>
               </h3>
@@ -1614,9 +1606,7 @@ export default function NotificationManagerPage() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL: EDIT EVENT RULE CONFIGURATION                                      */}
-      {/* ========================================================================= */}
+      {/* MODAL: EDIT EVENT RULE CONFIGURATION */}
       {editRuleModal && selectedRule && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#0c0c12] border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
@@ -1639,7 +1629,7 @@ export default function NotificationManagerPage() {
                   <div className="flex items-center gap-2">
                     <Lock className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
                     <div>
-                      <div className="font-mono text-xs text-white font-semibold">{ruleForm.template_key}</div>
+                      <div className="text-xs text-white font-semibold">{ruleForm.template_key}</div>
                       <div className="text-[10px] text-gray-400">
                         {templates.find(t => t.template_key === ruleForm.template_key)?.name || "Standard Template"}
                       </div>
@@ -1731,9 +1721,7 @@ export default function NotificationManagerPage() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL: EDIT SCHEDULE TIMINGS                                              */}
-      {/* ========================================================================= */}
+      {/* MODAL: EDIT SCHEDULE TIMINGS */}
       {editScheduleModal && selectedSchedule && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#0c0c12] border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
@@ -1752,7 +1740,7 @@ export default function NotificationManagerPage() {
                     type="time"
                     value={scheduleForm.time_of_day}
                     onChange={(e) => setScheduleForm({ ...scheduleForm, time_of_day: e.target.value })}
-                    className="w-full px-3.5 py-2 bg-white/5 border border-white/10 rounded-xl text-white font-mono focus:outline-none"
+                    className="w-full px-3.5 py-2 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none"
                     required
                   />
                 </div>
@@ -1849,9 +1837,7 @@ export default function NotificationManagerPage() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL: VIEW RENDERED EMAIL LOG HTML                                       */}
-      {/* ========================================================================= */}
+      {/* MODAL: VIEW RENDERED EMAIL LOG HTML */}
       {viewLogModal && selectedLog && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#0c0c12] border border-white/10 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
@@ -1870,7 +1856,7 @@ export default function NotificationManagerPage() {
                 {selectedLog.body_html ? (
                   <div dangerouslySetInnerHTML={{ __html: selectedLog.body_html }} />
                 ) : (
-                  <pre className="text-xs font-mono whitespace-pre-wrap text-slate-800">
+                  <pre className="text-xs whitespace-pre-wrap text-slate-800">
                     {selectedLog.body_text || "No HTML body found."}
                   </pre>
                 )}
@@ -1889,10 +1875,7 @@ export default function NotificationManagerPage() {
       )}
 
 
-
-      {/* ========================================================================= */}
-      {/* MODAL: DELETE RULE CONFIRMATION                                           */}
-      {/* ========================================================================= */}
+      {/* MODAL: DELETE RULE CONFIRMATION */}
       {deleteRuleModal && selectedRule && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#0c0c12] border border-white/10 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">

@@ -193,7 +193,7 @@ export default function ApiKeysPage() {
                         value={settings[k.id] || ""}
                         onChange={(e) => handleUpdate(k.id, e.target.value)}
                         placeholder={k.placeholder}
-                        className="w-full pl-11 pr-12 py-3.5 bg-[#020202] border border-white/10 rounded-2xl text-white text-sm placeholder:text-gray-800 focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500/50 outline-none transition-all font-mono"
+                        className="w-full pl-11 pr-12 py-3.5 bg-[#020202] border border-white/10 rounded-2xl text-white text-sm placeholder:text-gray-800 focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500/50 outline-none transition-all "
                       />
                       <button
                         onClick={() => toggleShow(k.id)}

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import StageIndicator from "./StageIndicator";
-import BrainCanvas from "./BrainCanvas";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { Poppins } from "next/font/google";
+import { Check, Zap } from "lucide-react";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -12,88 +12,9 @@ const poppins = Poppins({
   display: "swap",
 });
 
-function AutoVideo({ src, active }) {
-  const ref = useRef(null);
-
-  // Play only when active, pause when inactive to save system resources
-  useEffect(() => {
-    const vid = ref.current;
-    if (!vid) return;
-    vid.muted = true;
-    if (active) {
-      vid.dataset.stageActive = "true";
-      vid.play().catch(() => {});
-    } else {
-      vid.dataset.stageActive = "false";
-      vid.pause();
-    }
-  }, [active]);
-
-  return (
-    <video
-      ref={ref}
-      src={src}
-      autoPlay
-      loop
-      muted
-      playsInline
-      preload="auto"
-      className="absolute inset-0 w-full h-full object-cover video-tone"
-    />
-  );
-}
-// ─────────────────────────────────────────────────────────────────────────────
-
 export default function NeuroHero() {
-  const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState(1);
   const [isVisible, setIsVisible] = useState(false);
-
-  const TEXTS = [
-    {
-      title: "Unified Inbox for Everything.",
-      desc: "Manage Instagram, WhatsApp, and more from a single dashboard — no switching tabs.",
-    },
-    {
-      title: "Instant Human-Like Replies",
-      desc: "AI replies that sound like you, sent in seconds using your business knowledge.",
-    },
-    {
-      title: "Process Intelligence",
-      desc: "Automatically assign leads, trigger follow-ups, and route chats to the right team.",
-    },
-    {
-      title: "Generate Outcomes",
-      desc: "Turn conversations into closed deals while you focus on growing your business.",
-    },
-  ];
-
-  const current = TEXTS[stage - 1] || TEXTS[0];
-
-  // ─── iOS Video Unlock ──────────────────────────────────────────────
-  useEffect(() => {
-    const unlockiOS = () => {
-      document.querySelectorAll("video").forEach((vid) => {
-        vid.muted = true;
-        vid.play()
-          .then(() => {
-            if (vid.dataset.stageActive !== "true") {
-              vid.pause();
-            }
-          })
-          .catch(() => {});
-      });
-      document.removeEventListener("touchstart", unlockiOS);
-    };
-
-    document.addEventListener("touchstart", unlockiOS, {
-      once: true,
-      passive: true,
-    });
-
-    return () => document.removeEventListener("touchstart", unlockiOS);
-  }, []);
-
 
   useEffect(() => {
     const section = document.getElementById("neuro-section");
@@ -107,7 +28,6 @@ export default function NeuroHero() {
       if (rafId) return;
       rafId = requestAnimationFrame(() => {
         rafId = 0;
-
         const rect = section.getBoundingClientRect();
         const vh = window.innerHeight;
 
@@ -116,20 +36,14 @@ export default function NeuroHero() {
           1
         );
 
-        setProgress(scrollProgress);
-
-        const nowVisible = rect.top <= 0 && rect.bottom >= vh;
+        const nowVisible = rect.top <= 100 && rect.bottom >= vh - 100;
         if (nowVisible !== lastVisible) {
           lastVisible = nowVisible;
           setIsVisible(nowVisible);
         }
 
-        let newStage;
-        if (scrollProgress < 0.25) newStage = 1;
-        else if (scrollProgress < 0.5) newStage = 2;
-        else if (scrollProgress < 0.75) newStage = 3;
-        else newStage = 4;
-
+        // 2 Stages: 1 for first half, 2 for second half
+        const newStage = scrollProgress < 0.5 ? 1 : 2;
         if (newStage !== lastStage) {
           lastStage = newStage;
           setStage(newStage);
@@ -138,6 +52,7 @@ export default function NeuroHero() {
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
     return () => {
       window.removeEventListener("scroll", handleScroll);
       cancelAnimationFrame(rafId);
@@ -145,144 +60,313 @@ export default function NeuroHero() {
   }, []);
 
   return (
-    <div id="neuro-section" className={`relative h-[400vh] bg-black ${poppins.className}`}>
-
-      <StageIndicator stage={stage} isVisible={isVisible} />
-
-      <div className="sticky top-0 h-screen flex items-center justify-center overflow-hidden px-4 md:px-8">
-
-        {/* OUTER CARD */}
+    <div
+      id="neuro-section"
+      className={`relative h-[200vh] bg-black text-white ${poppins.className}`}
+    >
+      <div className="sticky top-0 h-screen flex items-center justify-center overflow-hidden px-3 sm:px-6 lg:px-8">
+        {/* MAIN CONTAINER CARD */}
         <div
           className="
             relative overflow-hidden
-            rounded-2xl md:rounded-[32px]
-            w-[88vw]
-            max-w-[1280px]
-            h-[78vh]
-            max-h-[760px]
+            rounded-2xl sm:rounded-3xl md:rounded-[36px] lg:rounded-[40px]
+            w-[94vw] max-w-[1260px]
+            h-[82vh] sm:h-[86vh] lg:h-[88vh] max-h-[600px] sm:max-h-[680px] lg:max-h-[760px] min-h-[520px] sm:min-h-[600px]
             mx-auto
+            border-t border-l border-white/15 border-b-0 border-r-0
+            shadow-[0_20px_80px_rgba(0,0,0,0.85)]
+            transition-all duration-700
           "
           style={{
             background:
-              "linear-gradient(135deg, #b48ce8 0%, #9b6fe0 20%, #8b5fd0 40%, #7c4fc8 60%, #9333ea 80%, #7e22ce 100%)",
+              stage === 1
+                ? "radial-gradient(ellipse 95% 80% at 72% 25%, rgba(147, 51, 234, 0.78) 0%, rgba(124, 58, 237, 0.45) 45%, transparent 80%), radial-gradient(ellipse 70% 60% at 20% 20%, rgba(139, 92, 246, 0.5) 0%, transparent 65%), linear-gradient(145deg, #7c3aed 0%, #5b1fa6 30%, #290d4f 65%, #0d041c 100%)"
+                : "radial-gradient(ellipse 95% 80% at 28% 25%, rgba(147, 51, 234, 0.78) 0%, rgba(124, 58, 237, 0.45) 45%, transparent 80%), radial-gradient(ellipse 70% 60% at 80% 20%, rgba(139, 92, 246, 0.5) 0%, transparent 65%), linear-gradient(145deg, #7c3aed 0%, #5b1fa6 30%, #290d4f 65%, #0d041c 100%)",
           }}
         >
-
-          {/* GIRL IMAGE */}
-          <div
-            className="
-              absolute bottom-0 left-0 z-10
-              w-full h-[72%] max-md:h-[75%]
-              lg:left-0 lg:w-[56%] xl:left-[4%] xl:w-[55%] lg:h-full
-            "
-          >
-            <Image
-              src="/images/Ai-Girltwo.webp"
-              alt="AI Girl Hero Illustration"
-              fill
-              priority
-              sizes="(max-width: 1024px) 100vw, 55vw"
-              className="
-                h-full w-full
-                object-cover object-[50%_top]
-                lg:object-[50%_top]
-                xl:object-[60%_top]
-              "
-              style={{
-                filter: "brightness(0.55) contrast(1.1)",
-              }}
+          {/* Stage Indicator Dots on Right Inside Card */}
+          <div className="hidden lg:flex absolute right-6 top-1/2 -translate-y-1/2 flex-col items-center gap-3 z-30 pointer-events-none">
+            <span
+              className={`rounded-full transition-all duration-500 ${
+                stage === 1
+                  ? "w-3 h-3 bg-purple-200 shadow-[0_0_20px_rgba(192,132,252,0.95)] ring-2 ring-purple-300/60"
+                  : "w-1.5 h-1.5 bg-white/40"
+              }`}
             />
-
-            {/* CIRCULAR VIDEO */}
-            <div
-              className="
-                absolute z-30
-                top-[18%] left-[46%] lg:max-xl:left-[43%] xl:left-[40%]
-                -translate-x-1/2
-                w-[140px] h-[140px]
-                max-[375px]:w-[110px] max-[375px]:h-[110px]
-                md:max-lg:w-[180px] md:max-lg:h-[180px]
-                lg:max-xl:w-[180px] lg:max-xl:h-[180px] lg:max-xl:top-[20%]
-                xl:w-[220px] xl:h-[220px]
-              "
-            >
-              <div className="absolute inset-0 rounded-full" />
-
-              {/* Video circle — relative container */}
-              <div className="relative w-full h-full rounded-full overflow-hidden">
-
-                {/* Stage 1: BrainCanvas */}
-                <div
-                  className="absolute inset-0 w-full h-full transition-opacity duration-300"
-                  style={{ opacity: stage === 1 ? 1 : 0 }}
-                >
-                  <BrainCanvas progress={Math.max(progress, 0.05)} />
-                </div>
-
-                <div
-                  className="absolute inset-0 transition-opacity duration-300"
-                  style={{ opacity: stage === 2 ? 1 : 0 }}
-                >
-                  <AutoVideo src="/animations/stage77.mp4" active={stage === 2} />
-                </div>
-
-                <div
-                  className="absolute inset-0 transition-opacity duration-300"
-                  style={{ opacity: stage === 3 ? 1 : 0 }}
-                >
-                  <AutoVideo src="/animations/stage22.mp4" active={stage === 3} />
-                </div>
-
-                <div
-                  className="absolute inset-0 transition-opacity duration-300"
-                  style={{ opacity: stage === 4 ? 1 : 0 }}
-                >
-                  <AutoVideo src="/animations/stage55.mp4" active={stage === 4} />
-                </div>
-
-              </div>
-            </div>
+            <span
+              className={`rounded-full transition-all duration-500 ${
+                stage === 2
+                  ? "w-3 h-3 bg-purple-200 shadow-[0_0_20px_rgba(192,132,252,0.95)] ring-2 ring-purple-300/60"
+                  : "w-1.5 h-1.5 bg-white/40"
+              }`}
+            />
           </div>
 
-          {/* RIGHT / TOP TEXT */}
-          <div
-            className="
-              absolute z-20
-              left-0 right-0 top-[4%] translate-y-0 w-full px-6 text-center mx-auto
-              md:max-lg:px-10 md:max-lg:max-w-[700px]
-              lg:left-auto lg:right-0 lg:top-1/2 lg:-translate-y-1/2 lg:w-[44%] xl:w-[48%] lg:max-w-[440px] xl:max-w-[520px] lg:pr-6 xl:pr-10 lg:pl-0 xl:pl-4 lg:px-0 lg:text-left
-            "
-          >
-            <div key={stage} className="animate-textIn">
-              <h1
-                className="
-                  font-bold tracking-tight text-white
-                  text-[26px]
-                  max-md:text-[2rem] max-md:leading-[1.08]
-                  md:max-lg:text-4xl md:max-lg:leading-[1.08]
-                  lg:text-[2.25rem] lg:leading-[1.12]
-                  xl:text-[3.6rem] xl:leading-[1.08]
-                "
-                style={{ textShadow: "0 2px 24px rgba(0,0,0,0.18)" }}
+          <AnimatePresence mode="wait">
+            {stage === 1 ? (
+              /* ========================================================================= */
+              /* STAGE 1: THE PROBLEM (MALE SILHOUETTE + FLOATING INCOMING MESSAGES)       */
+              /* ========================================================================= */
+              <motion.div
+                key="stage-problem"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.45, ease: "easeInOut" }}
+                className="relative w-full h-full flex flex-col lg:flex-row items-center justify-between z-10 overflow-hidden"
               >
-                {current.title}
-              </h1>
+                {/* PROBLEM CONTENT (Top-Center on mobile/tablet, Left on desktop) */}
+                <div className="relative w-full lg:w-[52%] xl:w-[50%] mx-auto lg:mr-auto lg:ml-0 flex flex-col items-center lg:items-start text-center lg:text-left justify-start lg:justify-center h-full z-20 space-y-2.5 sm:space-y-4 lg:space-y-6 pt-5 sm:pt-8 md:pt-10 lg:pt-0 px-4 sm:px-8 md:px-12 lg:p-10 xl:p-14 lg:pr-8 xl:pr-12">
+                  {/* Badge */}
+                  <div className="flex justify-center lg:justify-start w-full">
+                    <div className="inline-flex items-center px-3.5 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-[13px] font-medium text-white/95 bg-white/10 border border-white/20 backdrop-blur-md shadow-sm">
+                      The Problem
+                    </div>
+                  </div>
 
-              <p
-                className="
-                  text-[#E3E3E3]
-                  font-normal
-                  tracking-normal
-                  max-md:text-[16px] max-md:mt-3 max-md:leading-[1.2]
-                  md:max-lg:text-[17px] md:max-lg:mt-3 md:max-lg:leading-[1.2] md:max-lg:max-w-[580px] md:max-lg:mx-auto
-                  lg:text-[15px] lg:mt-3 lg:leading-[1.3]
-                  xl:text-[18px] xl:mt-5 xl:leading-[1.2]
-                "
+                  {/* Headline */}
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-[40px] xl:text-[46px] font-semibold tracking-tight text-white leading-[1.14] text-center lg:text-left mx-auto lg:mx-0">
+                    Important <br className="hidden sm:inline" />
+                    conversations get <br className="hidden sm:inline" />
+                    missed everyday
+                  </h2>
+
+                  {/* Subtitle / Problem Content */}
+                  <p className="text-white/80 text-xs sm:text-sm md:text-[15px] lg:text-[16px] font-normal leading-relaxed max-w-sm sm:max-w-md md:max-w-lg lg:max-w-md text-center lg:text-left mx-auto lg:mx-0">
+                    Slow replies, manual followups and disconnected chats leads to lost customers.
+                  </p>
+                </div>
+
+                {/* MALE SILHOUETTE + FLOATING INCOMING MESSAGES */}
+                <div className="
+                  absolute bottom-0
+                  left-1/2 -translate-x-1/2 lg:translate-x-0 lg:left-auto lg:right-0
+                  w-full max-w-[100%] sm:max-w-[78%] md:max-w-[65%] lg:max-w-[45%] xl:max-w-[46%] 2xl:max-w-[48%]
+                  h-[58%] sm:h-[54%] md:h-[58%] lg:h-[80%] xl:h-[82%] 2xl:h-[84%]
+                  flex items-end justify-center lg:justify-end
+                  pointer-events-none z-10 pr-0
+                ">
+                  <div
+                    className="relative h-full aspect-[1371/1148] max-w-full flex items-end justify-center lg:justify-end"
+                    style={{ aspectRatio: "1371 / 1148" }}
+                  >
+                    {/* Male Silhouette Image */}
+                    <Image
+                      src="/images/Male_Shadow.png"
+                      alt="Customer Silhouette"
+                      width={1371}
+                      height={1148}
+                      priority
+                      className="w-full h-full object-contain object-bottom lg:object-bottom-right pointer-events-none select-none"
+                    />
+
+                    {/* 1. Twilio Card (Top Center above head on mobile, desktop: top: -2%, left: 48%) */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 12, scale: 0.85 }}
+                      animate={{ opacity: 1, y: [0, -5, 0], scale: 1 }}
+                      transition={{
+                        opacity: { duration: 0.4, delay: 0.15 },
+                        y: { repeat: Infinity, duration: 4, ease: "easeInOut", delay: 0.15 }
+                      }}
+                      className="absolute z-30 pointer-events-none bg-white text-gray-900 rounded-2xl shadow-[0_12px_32px_rgba(0,0,0,0.35)] px-3.5 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2.5 sm:gap-3 border border-white/90 scale-75 sm:scale-85 md:scale-95 lg:scale-100 -top-[13.5%] lg:-top-[2%] left-1/2 lg:left-[48%] -translate-x-1/2 -translate-y-1/2"
+                    >
+                      {/* Twilio Red 4-dot Icon */}
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#F22F46] flex items-center justify-center shrink-0 shadow-sm">
+                        <div className="grid grid-cols-2 gap-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className="text-xs sm:text-[13px] font-semibold text-gray-900 leading-tight whitespace-nowrap">Any Update ?</span>
+                        <span className="text-[10px] text-gray-400 font-medium leading-tight mt-0.5">10.05 AM</span>
+                      </div>
+                    </motion.div>
+
+                    {/* 2. Instagram Card (Left: top-[5%] left-[22%] on mobile, desktop: top: 18%, left: 10%) */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 12, scale: 0.85 }}
+                      animate={{ opacity: 1, y: [0, -6, 0], scale: 1 }}
+                      transition={{
+                        opacity: { duration: 0.4, delay: 0.25 },
+                        y: { repeat: Infinity, duration: 4.5, ease: "easeInOut", delay: 0.4 }
+                      }}
+                      className="absolute z-30 pointer-events-none bg-white text-gray-900 rounded-2xl shadow-[0_12px_32px_rgba(0,0,0,0.35)] px-3.5 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2.5 sm:gap-3 border border-white/90 scale-75 sm:scale-85 md:scale-95 lg:scale-100 top-[5%] lg:top-[18%] left-[22%] lg:left-[10%] -translate-x-1/2 -translate-y-1/2"
+                    >
+                      {/* Instagram Icon */}
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] flex items-center justify-center shrink-0 p-1 shadow-sm">
+                        <svg className="w-full h-full text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="2" y="2" width="20" height="20" rx="5" />
+                          <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                          <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                        </svg>
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className="text-xs sm:text-[13px] font-semibold text-gray-900 leading-tight whitespace-nowrap">Can I get a demo ?</span>
+                        <span className="text-[10px] text-gray-400 font-medium leading-tight mt-0.5">11:10 AM</span>
+                      </div>
+                    </motion.div>
+
+                    {/* 3. WhatsApp Card (Right: top-[5%] left-[76%] on mobile, desktop: top: 18%, left: 68%) */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 12, scale: 0.85 }}
+                      animate={{ opacity: 1, y: [0, -5, 0], scale: 1 }}
+                      transition={{
+                        opacity: { duration: 0.4, delay: 0.35 },
+                        y: { repeat: Infinity, duration: 4.2, ease: "easeInOut", delay: 0.7 }
+                      }}
+                      className="absolute z-30 pointer-events-none bg-white text-gray-900 rounded-2xl shadow-[0_12px_32px_rgba(0,0,0,0.35)] px-3.5 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2.5 sm:gap-3 border border-white/90 scale-75 sm:scale-85 md:scale-95 lg:scale-100 top-[5%] lg:top-[18%] left-[76%] lg:left-[68%] -translate-x-1/2 -translate-y-1/2"
+                    >
+                      {/* WhatsApp Icon */}
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#25D366] flex items-center justify-center shrink-0 p-1 shadow-sm">
+                        <svg className="w-full h-full fill-white" viewBox="0 0 24 24">
+                          <path d="M17.5 14.3c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.7.1-.2.3-.8.9-1 .9-.2.1-.4 0-.7-.1-.3-.1-1.2-.4-2.3-1.4-.9-.8-1.5-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.3 0-.5-.1-.1-.7-1.7-1-2.3-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.4-1.2 1.2-1.2 2.9s1.2 3.4 1.4 3.6c.2.2 2.4 3.7 5.8 5.1.8.3 1.4.6 1.9.7.8.3 1.6.2 2.2.1.7-.1 2.1-.9 2.4-1.7.3-.8.3-1.6.2-1.7-.1-.2-.3-.3-.6-.4z"/>
+                        </svg>
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className="text-xs sm:text-[13px] font-semibold text-gray-900 leading-tight whitespace-nowrap">Is this available ?</span>
+                        <span className="text-[10px] text-gray-400 font-medium leading-tight mt-0.5">10.55 AM</span>
+                      </div>
+                    </motion.div>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              /* ========================================================================= */
+              /* STAGE 2: THE SOLUTION (GIRL SILHOUETTE + FLOATING AI SOLUTION PILLS)      */
+              /* ========================================================================= */
+              <motion.div
+                key="stage-solution"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.45, ease: "easeInOut" }}
+                className="relative w-full h-full flex flex-col lg:flex-row items-center justify-between z-10 overflow-hidden"
               >
-                {current.desc}
-              </p>
-            </div>
-          </div>
+                {/* GIRL SILHOUETTE + VIDEO + FLOATING SOLUTION PILLS */}
+                <div className="
+                  absolute bottom-0
+                  left-1/2 -translate-x-1/2 lg:translate-x-0 lg:left-0
+                  w-full max-w-[100%] sm:max-w-[78%] md:max-w-[65%] lg:max-w-[45%] xl:max-w-[46%] 2xl:max-w-[48%]
+                  h-[56%] sm:h-[52%] md:h-[56%] lg:h-[80%] xl:h-[82%] 2xl:h-[84%]
+                  flex items-end justify-center lg:justify-start
+                  pointer-events-none z-10 pl-0
+                ">
+                  <div
+                    className="relative h-full aspect-[1240/1269] max-w-full flex items-end justify-center lg:justify-start"
+                    style={{ aspectRatio: "1240 / 1269" }}
+                  >
+                    {/* Female Profile Image */}
+                    <Image
+                      src="/images/Girl_Shadow.png"
+                      alt="Girl Solution Silhouette"
+                      width={1240}
+                      height={1269}
+                      priority
+                      className="w-full h-full object-contain object-bottom lg:object-bottom-left pointer-events-none select-none"
+                    />
+
+                    {/* Video playing inside Girl Silhouette Head (Exact Red Circle Marked Position: top 34.3%, left 49.2%) */}
+                    <div
+                      className="absolute pointer-events-none rounded-full overflow-hidden flex items-center justify-center z-20"
+                      style={{
+                        top: "34.3%",
+                        left: "49.2%",
+                        transform: "translate(-50%, -50%)",
+                        width: "24%",
+                        aspectRatio: "1 / 1",
+                      }}
+                    >
+                      <video
+                        src="/animations/stage22.mp4"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        preload="auto"
+                        className="w-full h-full object-cover rounded-full pointer-events-none"
+                      />
+                    </div>
+
+                    {/* 1. Top Pill: AI replies instantly (Top Center: -top-[13.5%] left-1/2 on mobile, desktop: -top-[11.5%], left: 49%) */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 12, scale: 0.85 }}
+                      animate={{ opacity: 1, y: [0, -5, 0], scale: 1 }}
+                      transition={{
+                        opacity: { duration: 0.4, delay: 0.15 },
+                        y: { repeat: Infinity, duration: 4, ease: "easeInOut", delay: 0.15 }
+                      }}
+                      className="absolute z-30 pointer-events-none bg-white text-gray-900 rounded-full shadow-[0_12px_32px_rgba(0,0,0,0.35)] px-3 sm:px-4 py-1.5 sm:py-2 flex items-center gap-2 border border-white/90 scale-75 sm:scale-85 md:scale-95 lg:scale-100 -top-[13.5%] lg:-top-[11.5%] left-1/2 lg:left-[49%] -translate-x-1/2 -translate-y-1/2"
+                    >
+                      <Zap className="w-3.5 h-3.5 fill-black text-black stroke-black shrink-0" />
+                      <span className="text-xs sm:text-[13px] font-semibold text-gray-900 whitespace-nowrap">AI replies instantly</span>
+                      <div className="w-4 h-4 rounded-full bg-black flex items-center justify-center shrink-0 ml-0.5">
+                        <Check className="w-2.5 h-2.5 text-white stroke-[3.5]" />
+                      </div>
+                    </motion.div>
+
+                    {/* 2. Left Pill: Qualifies the lead (Left: top-[5%] left-[22%] on mobile, desktop: top: 1.5%, left: 16%) */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 12, scale: 0.85 }}
+                      animate={{ opacity: 1, y: [0, -6, 0], scale: 1 }}
+                      transition={{
+                        opacity: { duration: 0.4, delay: 0.25 },
+                        y: { repeat: Infinity, duration: 4.5, ease: "easeInOut", delay: 0.4 }
+                      }}
+                      className="absolute z-30 pointer-events-none bg-white text-gray-900 rounded-full shadow-[0_12px_32px_rgba(0,0,0,0.35)] px-3 sm:px-4 py-1.5 sm:py-2 flex items-center gap-2 border border-white/90 scale-75 sm:scale-85 md:scale-95 lg:scale-100 top-[5%] lg:top-[1.5%] left-[22%] lg:left-[16%] -translate-x-1/2 -translate-y-1/2"
+                    >
+                      <Zap className="w-3.5 h-3.5 fill-black text-black stroke-black shrink-0" />
+                      <span className="text-xs sm:text-[13px] font-semibold text-gray-900 whitespace-nowrap">Qualifies the lead</span>
+                      <div className="w-4 h-4 rounded-full bg-black flex items-center justify-center shrink-0 ml-0.5">
+                        <Check className="w-2.5 h-2.5 text-white stroke-[3.5]" />
+                      </div>
+                    </motion.div>
+
+                    {/* 3. Right Pill: Sends payment link (Right: top-[5%] left-[76%] on mobile, desktop: top: 0%, left: 89%) */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 12, scale: 0.85 }}
+                      animate={{ opacity: 1, y: [0, -5, 0], scale: 1 }}
+                      transition={{
+                        opacity: { duration: 0.4, delay: 0.35 },
+                        y: { repeat: Infinity, duration: 4.2, ease: "easeInOut", delay: 0.7 }
+                      }}
+                      className="absolute z-30 pointer-events-none bg-white text-gray-900 rounded-full shadow-[0_12px_32px_rgba(0,0,0,0.35)] px-3 sm:px-4 py-1.5 sm:py-2 flex items-center gap-2 border border-white/90 scale-75 sm:scale-85 md:scale-95 lg:scale-100 top-[5%] lg:top-[0%] left-[76%] lg:left-[89%] -translate-x-1/2 -translate-y-1/2"
+                    >
+                      <Zap className="w-3.5 h-3.5 fill-black text-black stroke-black shrink-0" />
+                      <span className="text-xs sm:text-[13px] font-semibold text-gray-900 whitespace-nowrap">Sends payment link</span>
+                      <div className="w-4 h-4 rounded-full bg-black flex items-center justify-center shrink-0 ml-0.5">
+                        <Check className="w-2.5 h-2.5 text-white stroke-[3.5]" />
+                      </div>
+                    </motion.div>
+                  </div>
+                </div>
+
+                {/* SOLUTION CONTENT (Top-Center on mobile/tablet, Right on desktop) */}
+                <div className="relative w-full lg:w-[52%] xl:w-[50%] mx-auto lg:ml-auto lg:mr-0 flex flex-col items-center lg:items-start text-center lg:text-left justify-start lg:justify-center h-full z-20 space-y-2.5 sm:space-y-4 lg:space-y-6 pt-5 sm:pt-7 md:pt-9 lg:pt-0 px-4 sm:px-8 md:px-12 lg:p-10 xl:p-14 lg:pl-8 xl:pl-12">
+                  {/* Badge */}
+                  <div className="flex justify-center lg:justify-start w-full">
+                    <div className="inline-flex items-center px-3.5 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-[13px] font-medium text-white/95 bg-white/10 border border-white/20 backdrop-blur-md shadow-sm">
+                      The Solution
+                    </div>
+                  </div>
+
+                  {/* Headline */}
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-[40px] xl:text-[46px] font-semibold tracking-tight text-white leading-[1.14] text-center lg:text-left mx-auto lg:mx-0">
+                    One AI <br className="hidden sm:inline" />
+                    every conversations <br className="hidden sm:inline" />
+                    handled
+                  </h2>
+
+                  {/* Subtitle */}
+                  <p className="text-white/80 text-xs sm:text-sm md:text-[15px] lg:text-[16px] font-normal leading-relaxed max-w-sm sm:max-w-md md:max-w-lg lg:max-w-md text-center lg:text-left mx-auto lg:mx-0">
+                    Orbionagents responds instantly, qualifies leads and automates the next steps — turning conversations into customers.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>

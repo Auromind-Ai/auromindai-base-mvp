@@ -296,7 +296,7 @@ export default function PricingSectionNew() {
       })
     : [];
 
-  const plans = dynamicPlans;
+  const plans = dynamicPlans.filter(plan => plan.key !== 'free');
 
   return (
     <section id="pricing" className="relative overflow-hidden bg-[#050507] min-h-screen py-16 md:py-24 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center font-['Poppins',sans-serif]" style={{ fontFamily: "'Poppins', sans-serif" }}>
@@ -370,7 +370,7 @@ export default function PricingSectionNew() {
 
         {/* Feature Comparison Table */}
         <PricingComparisonTable 
-          plans={settings?.plans || []} 
+          plans={(settings?.plans || []).filter(plan => plan.key !== 'free')} 
           onSelectPlan={handlePlanClick} 
           billingCycle={billing} 
           onBillingCycleChange={setBilling} 

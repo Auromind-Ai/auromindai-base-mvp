@@ -82,10 +82,10 @@ export default function WhatsAppShowcase() {
             <MessageSquare size={12} className="text-purple-400" />
             Core Capabilities
           </div>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight leading-tight">
             Conversational Commerce Redefined
           </h2>
-          <p className="mt-4 text-base sm:text-lg text-zinc-400 max-w-xl mx-auto leading-relaxed">
+          <p className="mt-3 text-base sm:text-lg text-zinc-400 max-w-xl mx-auto leading-relaxed">
             Turn WhatsApp into your most productive sales channel. Build forms, collect payments, and close deals directly in chat.
           </p>
         </div>

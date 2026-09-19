@@ -82,7 +82,7 @@ export default function InteractiveBrainSection() {
               {/* Left side — UNCHANGED */}
               <div className="relative w-[58%] h-full flex items-end justify-start overflow-hidden">
                 <img
-                  src="/images/Ai-Girltwo.png"
+                  src="/images/Girl_Shadow.png"
                   alt="AI Girl"
                   className="absolute bottom-[-12%] left-[-58%] h-[118%] w-auto max-w-none object-contain"
                   style={{

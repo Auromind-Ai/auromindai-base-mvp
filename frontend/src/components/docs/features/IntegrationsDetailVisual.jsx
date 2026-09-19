@@ -123,7 +123,7 @@ export default function IntegrationsDetailVisual() {
             <label className="text-[11px] text-slate-400 font-medium block mb-1.5">
               Production Webhook Callback URL
             </label>
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-950 border border-white/10 font-mono text-xs">
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-950 border border-white/10 text-xs">
               <span className="text-sky-300 truncate flex-1">{activeChannel.endpoint}</span>
               <button
                 onClick={() => handleCopy(activeChannel.endpoint)}
@@ -136,7 +136,7 @@ export default function IntegrationsDetailVisual() {
           </div>
 
           {/* Meta / Channel Credentials Matrix */}
-          <div className="p-3.5 rounded-xl bg-slate-900 border border-white/10 space-y-2.5 text-xs font-mono">
+          <div className="p-3.5 rounded-xl bg-slate-900 border border-white/10 space-y-2.5 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Meta App / Client ID:</span>
               <span className="text-slate-200">{activeChannel.appId}</span>
@@ -155,7 +155,7 @@ export default function IntegrationsDetailVisual() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-xs text-slate-400 pt-1 font-mono">
+          <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
             <span className="flex items-center gap-1.5">
               <Activity className="w-3.5 h-3.5 text-emerald-400" />
               Edge Ping Latency:
@@ -170,7 +170,7 @@ export default function IntegrationsDetailVisual() {
             <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
               Subscribed Webhook Event Types
             </span>
-            <span className="text-[10px] text-slate-400 font-mono">Real-time Stream</span>
+            <span className="text-[10px] text-slate-400">Real-time Stream</span>
           </div>
 
           {/* Active Event Badges */}
@@ -178,7 +178,7 @@ export default function IntegrationsDetailVisual() {
             {activeChannel.eventSubscriptions.map((evt, idx) => (
               <span
                 key={idx}
-                className="px-2.5 py-1 rounded-md text-xs font-mono bg-sky-500/10 text-sky-300 border border-sky-500/20 flex items-center gap-1.5"
+                className="px-2.5 py-1 rounded-md text-xs bg-sky-500/10 text-sky-300 border border-sky-500/20 flex items-center gap-1.5"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
                 {evt}
@@ -193,9 +193,9 @@ export default function IntegrationsDetailVisual() {
                 <Terminal className="w-3 h-3 text-sky-400" />
                 Verified Inbound Payload Sample
               </span>
-              <span className="text-[10px] font-mono text-emerald-400">200 OK (Processed)</span>
+              <span className="text-[10px] text-emerald-400">200 OK (Processed)</span>
             </div>
-            <div className="p-3 rounded-lg bg-slate-950 border border-white/10 font-mono text-[11px] text-slate-300 space-y-1 overflow-x-auto leading-relaxed">
+            <div className="p-3 rounded-lg bg-slate-950 border border-white/10 text-[11px] text-slate-300 space-y-1 overflow-x-auto leading-relaxed">
               <div className="text-slate-500">Security Check: Verified ✓</div>
               <div>&#123;</div>
               <div className="pl-3 text-sky-300">&quot;object&quot;: &quot;whatsapp_business_account&quot;,</div>
@@ -216,7 +216,7 @@ export default function IntegrationsDetailVisual() {
               <Lock className="w-3.5 h-3.5 text-sky-400" />
               Meta TLS 1.3 Encrypted Socket
             </span>
-            <span className="text-[10px] font-mono text-slate-400">Zero Inbound Drops</span>
+            <span className="text-[10px] text-slate-400">Zero Inbound Drops</span>
           </div>
         </div>
       </div>

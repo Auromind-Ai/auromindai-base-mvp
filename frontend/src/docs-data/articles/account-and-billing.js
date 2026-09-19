@@ -211,7 +211,7 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
             instruction: "Navigate to your admin dashboard and open the Billing console at /user/admin/billing. In the 'Billing Profile' card, review your current business name, billing contact, email, and GST registration status. Click 'Edit Profile' to launch the tax configuration modal.",
             uiElements: ["Sidebar 'Billing' navigation", "'Billing Profile' card", "'Edit Profile' button", "GST registration status badge"],
             screenshot: {
-              src: "/docs/screenshots/gst-billing-profile-card.png",
+              src: "/images/docs/screenshots/gst-billing-profile-card.png",
               alt: "Billing Profile overview card interface",
               caption: "Billing Profile card on /user/admin/billing: Review current GST registration status and click 'Edit Profile'."
             }
@@ -222,7 +222,7 @@ export const ACCOUNT_AND_BILLING_ARTICLES = {
             instruction: "In the Edit Billing Profile modal, enter your official Business Name, contact details, physical address, city, and state. Check 'I have a GST Registration', enter your 15-character uppercase GSTIN (e.g., 33ABCDE1234F1Z5), optional Legal Business Name, and select your Business Type (Private Limited, LLP, etc.). Click 'Save Changes' to update your workspace tax profile.",
             uiElements: ["'Business Name *' input", "'Address *', 'City *' & 'State *'", "'I have a GST Registration' checkbox", "15-Digit 'GSTIN *' uppercase field", "'Save Changes' button"],
             screenshot: {
-              src: "/docs/screenshots/gst-edit-billing-profile-modal.png",
+              src: "/images/docs/screenshots/gst-edit-billing-profile-modal.png",
               alt: "Edit Billing Profile Modal with GSTIN configuration",
               caption: "Edit Billing Profile modal: Check 'I have a GST Registration', enter 15-character GSTIN, and save changes."
             }
