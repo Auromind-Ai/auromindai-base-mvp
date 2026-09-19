@@ -6,7 +6,7 @@ import { Check, Info } from 'lucide-react';
 const STEPS = [
   { id: 1, title: 'Campaign Details', subtitle: 'Basic information' },
   { id: 2, title: 'Audience', subtitle: 'Select recipients' },
-  { id: 3, title: 'Message', subtitle: 'Create your content' },
+  { id: 3, title: 'Template', subtitle: 'Select template' },
   { id: 4, title: 'Schedule', subtitle: 'Send now or later' },
   { id: 5, title: 'Review', subtitle: 'Confirm & launch', hasInfo: true },
 ];

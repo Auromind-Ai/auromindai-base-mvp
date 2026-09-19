@@ -28,7 +28,7 @@ const getInitialDraftState = () => {
     invalidRecipients: 0,
     optedInCount: 0,
     optedOutCount: 0,
-    messageMode: 'type',
+    messageMode: 'template',
     messageBody: '',
     mediaUrl: '',
     mediaName: '',

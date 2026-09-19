@@ -135,7 +135,7 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
                   <MessageSquare size={14} />
                 </div>
                 <h4 className="text-xs font-semibold text-white">
-                  Message
+                  Template
                 </h4>
               </div>
 
@@ -152,7 +152,7 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
             <div className="grid grid-cols-2 gap-y-2.5 text-xs">
               <span className="text-[#8c88a6]">Content Type</span>
               <span className="text-white font-medium text-right sm:text-left">
-                {data.templateName ? `Template (${data.templateName})` : 'Custom Message'}
+                {data.templateName ? `Template (${data.templateName})` : 'Template Message'}
               </span>
 
               <span className="text-[#8c88a6]">Message Preview</span>
