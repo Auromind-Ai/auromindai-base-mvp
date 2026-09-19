@@ -13,6 +13,7 @@ import requests
 from sqlalchemy.orm import Session
 from twilio.twiml.messaging_response import MessagingResponse
 from app.models.conversation import ChannelType
+from app.models.campaign import CampaignRecipient, Campaign
 from app.services.inbox.conversation_service import ConversationService
 from app.services.inbox.message_service import MessageService
 from app.utils.intent_detection import detect_intent_signals
@@ -399,6 +400,50 @@ class WebhookService:
                                         logger.info(f"Ignored out-of-order status update for {wamid}: current={outbound.status}, received={status_str}")
                             except Exception as exc:
                                 logger.error(f"Failed to update message status for {wamid}: {exc}")
+
+                           
+                            try:
+                                
+                                recipient = db.query(CampaignRecipient).filter(CampaignRecipient.wamid == wamid).first()
+                                if recipient:
+                                    c_status = status_str.lower()
+                                    now_dt = datetime.now(timezone.utc)
+                                    if c_status == "sent" and recipient.status in ("accepted", "queued", "pending"):
+                                        recipient.status = "sent"
+                                        recipient.sent_at = now_dt
+                                        db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                            Campaign.sent_count: Campaign.sent_count + 1
+                                        })
+                                        db.flush()
+                                    elif c_status == "delivered" and recipient.status != "read":
+                                        if recipient.status != "delivered":
+                                            recipient.status = "delivered"
+                                            recipient.delivered_at = now_dt
+                                            db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                                Campaign.delivered_count: Campaign.delivered_count + 1
+                                            })
+                                            db.flush()
+                                    elif c_status == "read":
+                                        if recipient.status != "read":
+                                            recipient.status = "read"
+                                            recipient.read_at = now_dt
+                                            db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                                Campaign.read_count: Campaign.read_count + 1
+                                            })
+                                            db.flush()
+                                    elif c_status == "failed":
+                                        if recipient.status != "failed":
+                                            recipient.status = "failed"
+                                            errors = status_update.get("errors", [])
+                                            if errors:
+                                                recipient.error_code = str(errors[0].get("code", "FAILED"))
+                                                recipient.error_message = errors[0].get("message", "Delivery failed")
+                                            db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                                Campaign.failed_count: Campaign.failed_count + 1
+                                            })
+                                            db.flush()
+                            except Exception as camp_exc:
+                                logger.error(f"Failed to update CampaignRecipient status for {wamid}: {camp_exc}")
 
                             # WCC Wallet Debit Integration — Strictly for Flow messages, NEVER for user <-> agent conversations
                             is_flow_message = False
