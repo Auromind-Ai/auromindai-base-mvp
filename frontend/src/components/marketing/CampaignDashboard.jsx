@@ -45,8 +45,8 @@ function PremiumCheckbox({ checked, indeterminate = false, onChange, ariaLabel =
       }}
       className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center transition-all duration-150 cursor-pointer select-none shrink-0 ${
         checked || indeterminate
-          ? 'bg-[#814AC8] border border-[#a26cf5] shadow-[0_0_10px_rgba(129,74,200,0.55)] scale-100'
-          : 'bg-[#0d101c] border border-[#22293e] hover:border-[#814AC8] hover:bg-[#141829]'
+          ? 'bg-[#635BFF] border border-[#8b85ff] shadow-[0_0_10px_rgba(99,91,255,0.55)] scale-100'
+          : 'bg-[#0d101c] border border-[#22293e] hover:border-[#635BFF] hover:bg-[#141829]'
       } active:scale-90`}
     >
       {checked && !indeterminate && (
@@ -119,19 +119,20 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
 
   useEffect(() => {
     let isMounted = true;
-    setIsLoading(true);
-    getCampaigns(workspaceId)
-      .then((data) => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getCampaigns(workspaceId);
         if (isMounted && data && Array.isArray(data)) {
           setCampaigns(data);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('Failed to load campaigns:', err);
-      })
-      .finally(() => {
+      } finally {
         if (isMounted) setIsLoading(false);
-      });
+      }
+    };
+    fetchData();
 
     return () => {
       isMounted = false;
@@ -232,17 +233,13 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
     });
   }, [campaigns, activeTab, searchQuery, dateFilter]);
 
-  // Reset page when filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab, searchQuery, dateFilter]);
-
-  // Paginated campaigns
+  // Paginated campaigns with safe page boundary
   const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedCampaigns = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const start = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
     return filteredCampaigns.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredCampaigns, currentPage]);
+  }, [filteredCampaigns, safeCurrentPage]);
 
   const toggleSelectAll = () => {
     if (selectedCampaignIds.length === paginatedCampaigns.length && paginatedCampaigns.length > 0) {
@@ -422,10 +419,10 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
         </div>
       </div>
 
-      {/* 3. Campaign Navigation Tabs & Filter Tools Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-1">
-        {/* Navigation Tabs with Underline Indicator */}
-        <div className="flex items-center gap-5 overflow-x-auto custom-scrollbar border-b border-[#161a28] lg:border-none pb-2 lg:pb-0">
+      {/* 3. Section Heading & Search Filter Row */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2">
+        {/* Left Tabs Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 lg:pb-0">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.id;
             const count = tabCounts[tab.id] ?? 0;
@@ -433,17 +430,21 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 pb-2 relative ${
+                type="button"
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setCurrentPage(1);
+                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 flex items-center gap-1.5 relative ${
                   isActive
-                    ? 'text-white font-semibold'
+                    ? 'text-white bg-[#15192c] border border-[#262f4d]'
                     : 'text-[#6b768c] hover:text-[#a1a1aa]'
                 }`}
               >
                 <span>{tab.label}</span>
                 <span>({count})</span>
                 {isActive && (
-                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#814AC8] rounded-full shadow-[0_0_8px_#814AC8]" />
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#635BFF] rounded-full shadow-[0_0_8px_#635BFF]" />
                 )}
               </button>
             );
@@ -460,7 +461,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search campaigns..."
-              className="w-full pl-9 pr-3.5 py-1.5 rounded-xl bg-[#0a0c14] border border-[#161a28] text-xs text-white placeholder-[#586174] outline-none focus:border-[#814AC8] transition-all"
+              className="w-full pl-9 pr-3.5 py-1.5 rounded-xl bg-[#0a0c14] border border-[#161a28] text-xs text-white placeholder-[#586174] outline-none focus:border-[#635BFF] transition-all"
             />
           </div>
 
@@ -486,7 +487,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                       setIsDateDropdownOpen(false);
                     }}
                     className={`px-3 py-1.5 text-xs rounded-lg cursor-pointer ${
-                      dateFilter === d ? 'bg-[#814AC8]/25 text-white font-medium' : 'text-[#a1a1aa] hover:bg-[#181d2e] hover:text-white'
+                      dateFilter === d ? 'bg-[#635BFF]/25 text-white font-medium' : 'text-[#a1a1aa] hover:bg-[#181d2e] hover:text-white'
                     }`}
                   >
                     {d}
@@ -541,7 +542,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                 <tr>
                   <td colSpan={10} className="py-12 text-center text-white/60">
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <RefreshCw size={20} className="animate-spin text-[#814AC8]" />
+                      <RefreshCw size={20} className="animate-spin text-[#635BFF]" />
                       <span className="text-sm font-medium text-white">Loading campaigns...</span>
                     </div>
                   </td>
@@ -573,7 +574,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                     <tr
                       key={camp.id}
                       className={`transition-colors duration-150 ${
-                        isChecked ? 'bg-[#814AC8]/10' : 'hover:bg-[#0f121e]/70'
+                        isChecked ? 'bg-[#635BFF]/10' : 'hover:bg-[#0f121e]/70'
                       }`}
                     >
                       {/* Premium Custom Checkbox */}
@@ -668,7 +669,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                             <button
                               type="button"
                               onClick={() => handleTogglePause(camp)}
-                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2"
+                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#635BFF]/25 hover:text-white rounded flex items-center gap-2"
                             >
                               {(camp.status || '').toLowerCase() === 'paused' ? <Play size={12} /> : <Pause size={12} />}
                               <span>{(camp.status || '').toLowerCase() === 'paused' ? 'Resume' : 'Pause'}</span>
@@ -680,7 +681,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                                 showToast('Campaign duplicated as draft', 'success');
                                 setActiveMenuId(null);
                               }}
-                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2"
+                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#635BFF]/25 hover:text-white rounded flex items-center gap-2"
                             >
                               <Copy size={12} />
                               <span>Duplicate</span>
@@ -731,7 +732,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                   onClick={() => setCurrentPage(pageNum)}
                   className={`w-8 h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors ${
                     currentPage === pageNum
-                      ? 'bg-[#814AC8] text-white shadow-sm'
+                      ? 'bg-[#635BFF] text-white shadow-sm'
                       : 'bg-[#0e111d] border border-[#1e2436] text-white/60 hover:text-white'
                   }`}
                 >
@@ -776,12 +777,12 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
             <defs>
               <linearGradient id="paint0_linear_wave" x1="0" y1="60" x2="1200" y2="160" gradientUnits="userSpaceOnUse">
                 <stop stopColor="#6322b5" stopOpacity="0.4" />
-                <stop offset="0.5" stopColor="#814AC8" stopOpacity="0.6" />
+                <stop offset="0.5" stopColor="#635BFF" stopOpacity="0.6" />
                 <stop offset="1" stopColor="#3b0764" stopOpacity="0.1" />
               </linearGradient>
               <linearGradient id="paint1_linear_wave" x1="0" y1="40" x2="1200" y2="140" gradientUnits="userSpaceOnUse">
                 <stop stopColor="#9333ea" stopOpacity="0.25" />
-                <stop offset="0.5" stopColor="#c084fc" stopOpacity="0.3" />
+                <stop offset="0.5" stopColor="#635BFF" stopOpacity="0.3" />
                 <stop offset="1" stopColor="#6b21a8" stopOpacity="0.05" />
               </linearGradient>
             </defs>
@@ -807,7 +808,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
         <button
           type="button"
           onClick={() => setIsCreateOpen(true)}
-          className="relative z-10 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#814AC8] hover:bg-[#723db5] shadow-[0_0_20px_rgba(129,74,200,0.45)] hover:shadow-[0_0_28px_rgba(129,74,200,0.7)] flex items-center gap-2 shrink-0 transition-all active:scale-[0.98]"
+          className="relative z-10 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#635BFF] hover:bg-[#5248e8] shadow-[0_0_20px_rgba(99,91,255,0.45)] hover:shadow-[0_0_28px_rgba(99,91,255,0.7)] flex items-center gap-2 shrink-0 transition-all active:scale-[0.98]"
         >
           <Plus size={16} strokeWidth={2.5} />
           <span>Create Campaign</span>

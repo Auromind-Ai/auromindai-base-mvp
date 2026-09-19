@@ -13,15 +13,15 @@ export default function QuickTips({ tips = [] }) {
   const items = tips.length > 0 ? tips : defaultTips;
 
   return (
-    <div className="rounded-xl bg-[#0f0e1c] border border-[#251f42] p-4 text-xs transition-all duration-200 hover:border-purple-500/30">
+    <div className="rounded-xl bg-[#0a0d17] border border-[#1a2136] p-4 text-xs">
       <div className="flex items-center gap-2 mb-3">
-        <Lightbulb size={16} className="text-amber-400 shrink-0" />
+        <Lightbulb size={15} className="text-amber-400 shrink-0" />
         <span className="font-semibold text-white tracking-tight">Quick Tips</span>
       </div>
-      <ul className="space-y-2 text-[#9da3ae] leading-relaxed">
+      <ul className="space-y-2 text-[#8c94a6] text-[11px] leading-relaxed">
         {items.map((tip, idx) => (
           <li key={idx} className="flex items-start gap-2">
-            <span className="text-[#814AC8] font-bold shrink-0">•</span>
+            <span className="text-white/40 shrink-0">•</span>
             <span>{tip}</span>
           </li>
         ))}
