@@ -1604,7 +1604,7 @@ export default function DashboardPage() {
             {/* Header: Title on Left, 2 Toggle buttons on Right */}
             <div className="px-5 pt-4 pb-1 flex items-center justify-between">
               <div>
-                <h2 className="text-[15px] font-semibold text-white/90">Monthly Revenue</h2>
+                <h2 className="text-[15px] font-medium text-white/90">Monthly Revenue</h2>
                 <p className="text-[12px] text-white/70 mt-0.5">This year vs last year (INR)</p>
               </div>
 
