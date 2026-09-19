@@ -1572,8 +1572,8 @@ export default function DashboardPage() {
         {/* HEADER */}
         <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-white/90">Dashboard</h1>
-            <p className="text-xs text-white/70 mt-0.5">Good morning! Here are your key actions for today.</p>
+            <h1 className="text-xl lg:text-2xl font-semibold tracking-tight text-white/90">Dashboard</h1>
+            <p className="text-[12px] text-white/70 mt-0.5">Good morning! Here are your key actions for today.</p>
           </div>
           <div className="flex items-center flex-nowrap gap-1.5 sm:gap-3 py-0.5 justify-start xl:justify-end">
             <WhatsAppStatusIndicator />
