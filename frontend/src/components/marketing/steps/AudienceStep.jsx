@@ -1222,7 +1222,8 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
           ratePerMessage={estimate?.rate_per_message || 0.8}
           isBalanceSufficient={estimate?.is_balance_sufficient ?? true}
           shortfall={estimate?.shortfall || 0}
-          portfolioRemainingToday={estimate?.portfolio_remaining_today}
+          portfolioRemainingToday={estimate?.portfolio_remaining_today ?? 0}
+          isWhatsAppConnected={estimate?.is_whatsapp_connected ?? false}
           estimatedMessages={`~ ${currentValidCount.toLocaleString()} messages`}
         />
 

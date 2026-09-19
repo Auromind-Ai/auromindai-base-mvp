@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Poppins } from 'next/font/google';
 import {
   Search, Plus, X, Send, Eye,
@@ -77,7 +77,8 @@ const INDUSTRIES = [
    Atoms
 ─ */
 const StatusPill = ({ status }) => {
-  const s = STATUS[status] || STATUS.draft;
+  const normalized = String(status || 'draft').toLowerCase();
+  const s = STATUS[normalized] || STATUS.draft;
   return (
     <span
       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide shrink-0"
@@ -190,7 +191,7 @@ function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
             <Eye size={12} /> Preview
           </button>
 
-          {tpl.status === 'draft' && (
+          {String(tpl.status || 'draft').toLowerCase() === 'draft' && (
             <button
               onClick={e => { e.stopPropagation(); onSubmit(tpl); }}
               className="px-3.5 py-1.5 rounded-lg border-none text-white text-xs font-bold cursor-pointer flex items-center gap-1.5 transition-all bg-[#814AC8] hover:shadow-[0_4px_22px_rgba(129,74,200,0.7)] hover:scale-105 active:scale-95 shrink-0"
@@ -199,7 +200,7 @@ function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
             </button>
           )}
 
-          {tpl.status === 'approved' && (
+          {String(tpl.status || 'draft').toLowerCase() === 'approved' && (
             <button
               onClick={e => { e.stopPropagation(); onUse(tpl); }}
               className="px-3.5 py-1.5 rounded-lg border-none text-white text-xs font-bold cursor-pointer flex items-center gap-1.5 transition-all bg-[#814AC8] hover:shadow-[0_4px_22px_rgba(129,74,200,0.7)] hover:scale-105 active:scale-95 shrink-0"
@@ -339,7 +340,7 @@ function PreviewModal({ tpl, onClose, onSubmit }) {
         </div>
 
         <div className="px-6 pb-6">
-          {tpl?.status === 'draft' ? (
+          {String(tpl?.status || 'draft').toLowerCase() === 'draft' ? (
             <button
               onClick={() => { onSubmit(tpl); onClose(); }}
               className="w-full py-3.5 rounded-xl border-none text-white text-sm font-bold cursor-pointer bg-[#814AC8] hover:shadow-[0_4px_24px_rgba(129,74,200,0.5)] transition-all"
@@ -572,7 +573,6 @@ export default function TemplatesPage() {
   const { showToast } = useToast();
   const [templates, setTemplates] = useState([]);
   const [systemTemplates, setSystemTemplates] = useState([]);
-  const [filtered, setFiltered]   = useState([]);
   const [viewSource, setViewSource] = useState('samples');
   const [activeTab, setActiveTab] = useState(null);
   const [search, setSearch]       = useState('');
@@ -586,57 +586,24 @@ export default function TemplatesPage() {
   const [checkingConnection, setCheckingConnection] = useState(false);
 
   const countFor = tab => {
-    if (tab === 'All') return templates.length;
-    if (tab === 'Action Required' || tab === 'action') {
-      return templates.filter(t =>
-        t.status === 'action_required' ||
-        t.status === 'action' ||
-        t.status === 'paused' ||
-        t.status === 'flagged' ||
-        t.status === 'disabled'
-      ).length;
+    if (!tab || tab === 'All') return templates.length;
+    const target = tab.toLowerCase();
+    if (target === 'action required' || target === 'action') {
+      return templates.filter(t => {
+        const s = String(t.status || '').toLowerCase();
+        return (
+          s === 'action_required' ||
+          s === 'action' ||
+          s === 'paused' ||
+          s === 'flagged' ||
+          s === 'disabled'
+        );
+      }).length;
     }
-    return templates.filter(t => t.status === tab.toLowerCase()).length;
+    return templates.filter(t => String(t.status || '').toLowerCase() === target).length;
   };
 
-  useEffect(() => { fetchTemplates(); }, []);
-
-  useEffect(() => {
-    if (viewSource === 'samples') {
-      let d = systemTemplates.filter(t => t.tag === activeCategory);
-      if (search) {
-        d = d.filter(t =>
-          t.name.toLowerCase().includes(search.toLowerCase()) ||
-          (t.content || '').toLowerCase().includes(search.toLowerCase())
-        );
-      }
-      setFiltered(d);
-    } else {
-      let d = [...templates];
-      if (activeTab && activeTab !== 'All') {
-        if (activeTab === 'Action Required' || activeTab === 'action') {
-          d = d.filter(t =>
-            t.status === 'action_required' ||
-            t.status === 'action' ||
-            t.status === 'paused' ||
-            t.status === 'flagged' ||
-            t.status === 'disabled'
-          );
-        } else {
-          d = d.filter(t => t.status === activeTab.toLowerCase());
-        }
-      }
-      if (search) {
-        d = d.filter(t =>
-          t.name.toLowerCase().includes(search.toLowerCase()) ||
-          (t.content || '').toLowerCase().includes(search.toLowerCase())
-        );
-      }
-      setFiltered(d);
-    }
-  }, [templates, viewSource, activeTab, activeCategory, search]);
-
-  const fetchTemplates = async (refresh = false) => {
+  const fetchTemplates = useCallback(async (refresh = false) => {
     if (refresh) setSpinning(true);
     try {
       if (workspaceId) {
@@ -654,7 +621,74 @@ export default function TemplatesPage() {
       setLoading(false);
       setTimeout(() => setSpinning(false), 600);
     }
-  };
+  }, [workspaceId]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        if (workspaceId) {
+          await api.get(`/templates/status/${workspaceId}`);
+        }
+        const [userRes, systemRes] = await Promise.all([
+          api.get('/templates'),
+          api.get('/templates/system')
+        ]);
+        if (active) {
+          setTemplates(userRes.templates || []);
+          setSystemTemplates(systemRes.templates || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [workspaceId]);
+
+  const filtered = useMemo(() => {
+    if (viewSource === 'samples') {
+      let d = systemTemplates.filter(t => t.tag === activeCategory);
+      if (search) {
+        d = d.filter(t =>
+          (t.name || '').toLowerCase().includes(search.toLowerCase()) ||
+          (t.content || t.body || '').toLowerCase().includes(search.toLowerCase())
+        );
+      }
+      return d;
+    } else {
+      let d = [...templates];
+      if (activeTab && activeTab !== 'All') {
+        const target = activeTab.toLowerCase();
+        if (target === 'action required' || target === 'action') {
+          d = d.filter(t => {
+            const s = String(t.status || '').toLowerCase();
+            return (
+              s === 'action_required' ||
+              s === 'action' ||
+              s === 'paused' ||
+              s === 'flagged' ||
+              s === 'disabled'
+            );
+          });
+        } else {
+          d = d.filter(t => String(t.status || '').toLowerCase() === target);
+        }
+      }
+      if (search) {
+        d = d.filter(t =>
+          (t.name || '').toLowerCase().includes(search.toLowerCase()) ||
+          (t.content || t.body || '').toLowerCase().includes(search.toLowerCase())
+        );
+      }
+      return d;
+    }
+  }, [viewSource, systemTemplates, activeCategory, search, templates, activeTab]);
 
   const handleSubmit = async tpl => {
     try {
@@ -716,7 +750,7 @@ export default function TemplatesPage() {
                 ? templates.length
                 : cfg.key === 'action'
                 ? countFor('Action Required')
-                : templates.filter(t => t.status === cfg.key).length;
+                : templates.filter(t => String(t.status || '').toLowerCase() === cfg.key.toLowerCase()).length;
 
               const tabName = cfg.key === 'total'
                 ? 'All'

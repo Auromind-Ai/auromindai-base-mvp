@@ -170,6 +170,15 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
         except Exception:
             pass
 
+        tier_limit = 0
+        if workspace.meta_waba_id and redis_client:
+            try:
+                cached = redis_client.get(f"wa:meta_tier:{workspace.meta_waba_id}")
+                if cached:
+                    tier_limit = int(cached.decode("utf-8") if isinstance(cached, bytes) else str(cached))
+            except Exception:
+                pass
+
         rate_per_msg = Decimal(str(campaign.estimated_cost / max(1, campaign.valid_recipients)))
 
         for r_id in recipient_ids:
@@ -186,7 +195,7 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
                 redis_client=redis_client,
                 portfolio_id=portfolio_id,
                 recipient_normalized_phone=recipient.normalized_phone,
-                portfolio_tier_limit=2000,
+                portfolio_tier_limit=tier_limit,
                 rolling_window_seconds=86400
             )
 

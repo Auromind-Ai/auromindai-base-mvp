@@ -545,7 +545,7 @@ def get_templates(
             "footer": t.footer,
             "cta": t.cta,
             "cta_btn_title": t.cta_btn_title,
-            "status": (t.status or "APPROVED").upper(),
+            "status": (t.status or "draft").lower(),
             "category": (t.category or "MARKETING").upper(),
             "language": t.language or "en_US",
             "variables": vars_found,

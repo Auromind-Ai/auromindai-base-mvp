@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Send, FileText, MessageSquare, ChevronDown, Check, Sparkles, MessageCircle, ShieldCheck } from 'lucide-react';
 import QuickTips from '../QuickTips';
 import WhatsAppPreview from '../WhatsAppPreview';
@@ -36,38 +37,44 @@ const CAMPAIGN_GOALS = [
 ];
 
 export default function CampaignDetailsStep({ data, updateData, onNext, onCancel, workspaceId }) {
+  const router = useRouter();
   const [errors, setErrors] = useState({});
   const [isPhoneOpen, setIsPhoneOpen] = useState(false);
   const [isGoalOpen, setIsGoalOpen] = useState(false);
   const [phoneNumbers, setPhoneNumbers] = useState([]);
   const [tierInfo, setTierInfo] = useState(null);
+  const [isLoadingPhone, setIsLoadingPhone] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
     getTierInfo(workspaceId).then((info) => {
-      if (isMounted && info) {
+      if (!isMounted) return;
+      if (info) {
         setTierInfo(info);
-        if (info.display_phone) {
+        if (info.display_phone && info.is_connected) {
           const connected = {
             id: info.phone_number_id || 'primary_num',
-            name: info.is_connected ? 'Meta Business Connected' : 'Business Line',
+            name: 'Meta Business Line',
             phone: info.display_phone,
-            verified: info.is_connected ?? true,
+            verified: true,
           };
           setPhoneNumbers([connected]);
-          if (!data.whatsappNumber) {
-            updateData({
-              whatsappNumber: info.display_phone,
-              phoneNumberId: info.phone_number_id || 'primary_num',
-            });
-          }
+          updateData({
+            whatsappNumber: info.display_phone,
+            phoneNumberId: info.phone_number_id || 'primary_num',
+          });
+        } else {
+          setPhoneNumbers([]);
+          updateData({ whatsappNumber: '', phoneNumberId: '' });
         }
       }
+    }).finally(() => {
+      if (isMounted) setIsLoadingPhone(false);
     });
     return () => {
       isMounted = false;
     };
-  }, [workspaceId]);
+  }, [workspaceId, updateData]);
 
   const validateAndProceed = () => {
     const errs = {};
@@ -77,8 +84,8 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
     if (!data.type) {
       errs.type = 'Please select a campaign type';
     }
-    if (!data.whatsappNumber) {
-      errs.whatsappNumber = 'WhatsApp number is required';
+    if (!tierInfo?.is_connected || !data.whatsappNumber) {
+      errs.whatsappNumber = 'WhatsApp Business channel is not connected. Please connect your official Meta WhatsApp line in Channels.';
     }
 
     if (Object.keys(errs).length > 0) {
@@ -184,42 +191,55 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
           </div>
         </div>
 
-        {/* 3. WhatsApp Number Dropdown / Input */}
+        {/* 3. WhatsApp Sender Selection */}
         <div className="space-y-1.5 relative">
           <div className="flex items-center justify-between">
             <label className="text-xs font-medium text-[#D4D4D4] block">
-              WhatsApp Number <span className="text-[#814AC8]">*</span>
+              WhatsApp Sender Number <span className="text-[#814AC8]">*</span>
             </label>
-            {selectedPhone && selectedPhone.verified && (
+            {tierInfo?.is_connected && selectedPhone && (
               <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-medium">
-                <ShieldCheck size={12} /> Connected
+                <ShieldCheck size={12} /> Connected &amp; Verified
               </span>
             )}
           </div>
 
-          {phoneNumbers.length > 0 ? (
+          {isLoadingPhone ? (
+            <div className="p-3.5 rounded-xl bg-[#0f0e1c] border border-[#251f42] flex items-center gap-2.5 text-xs text-[#8c88a6]">
+              <div className="w-3.5 h-3.5 border-2 border-[#814AC8] border-t-transparent rounded-full animate-spin" />
+              <span>Checking connected WhatsApp business lines...</span>
+            </div>
+          ) : tierInfo?.is_connected && phoneNumbers.length > 0 ? (
             <div className="relative">
               <div
-                onClick={() => setIsPhoneOpen(!isPhoneOpen)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#0f0e1c] border border-[#251f42] hover:border-[#382f61] flex items-center justify-between cursor-pointer transition-all"
+                onClick={() => phoneNumbers.length > 1 && setIsPhoneOpen(!isPhoneOpen)}
+                className={`w-full px-3.5 py-2.5 rounded-xl bg-[#0f0e1c] border border-[#251f42] flex items-center justify-between transition-all ${
+                  phoneNumbers.length > 1 ? 'cursor-pointer hover:border-[#382f61]' : 'cursor-default'
+                }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <div className="w-6 h-6 rounded-full bg-[#25D366]/20 flex items-center justify-center text-[#25D366] shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-[#25D366]/20 flex items-center justify-center text-[#25D366] shrink-0">
                     <MessageCircle size={14} />
                   </div>
                   <div className="text-left">
                     <span className="text-xs font-semibold text-white block leading-tight">
-                      {selectedPhone?.name || 'Primary WhatsApp Line'}
+                      {selectedPhone?.name || 'Meta Business Connected'}
                     </span>
-                    <span className="text-[11px] text-[#8c88a6]">
+                    <span className="text-[11px] text-[#25D366] font-mono">
                       {selectedPhone?.phone || data.whatsappNumber}
                     </span>
                   </div>
                 </div>
-                <ChevronDown size={16} className={`text-[#8c88a6] transition-transform ${isPhoneOpen ? 'rotate-180' : ''}`} />
+                {phoneNumbers.length > 1 ? (
+                  <ChevronDown size={16} className={`text-[#8c88a6] transition-transform ${isPhoneOpen ? 'rotate-180' : ''}`} />
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                    Active
+                  </span>
+                )}
               </div>
 
-              {isPhoneOpen && (
+              {isPhoneOpen && phoneNumbers.length > 1 && (
                 <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-[#121026] border border-[#2d2650] rounded-xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150">
                   {phoneNumbers.map((n) => (
                     <div
@@ -250,29 +270,35 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
               )}
             </div>
           ) : (
-            <div className="space-y-2">
-              <div className="p-3 rounded-xl bg-[#141026] border border-[#2d244d] flex items-start gap-2.5">
-                <MessageCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
-                <div className="text-xs space-y-1">
-                  <p className="text-amber-300 font-medium">No Meta WhatsApp API number connected</p>
-                  <p className="text-[#8c88a6] text-[11px]">
-                    Connect your official WhatsApp Business number in Channels or enter your sender phone below.
+            <div className="p-4 rounded-xl bg-[#151126] border border-amber-500/30 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
+                  <MessageCircle size={17} />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <h4 className="text-xs font-semibold text-amber-300">
+                    WhatsApp Business Channel Not Connected
+                  </h4>
+                  <p className="text-[11px] text-[#9b94b3] leading-relaxed">
+                    Official Meta marketing campaigns can only be broadcast from a verified WhatsApp Business Account (WABA). Manual phone number entry is not allowed.
                   </p>
                 </div>
               </div>
 
-              <input
-                type="text"
-                value={data.whatsappNumber || ''}
-                onChange={(e) => {
-                  updateData({ whatsappNumber: e.target.value, phoneNumberId: e.target.value });
-                  if (errors.whatsappNumber) setErrors((prev) => ({ ...prev, whatsappNumber: null }));
-                }}
-                placeholder="e.g. +91 98401 23456"
-                className={`w-full px-3.5 py-2.5 rounded-xl bg-[#0f0e1c] border text-xs sm:text-sm text-white placeholder-[#585375] outline-none transition-all duration-200 focus:border-[#814AC8] focus:ring-1 focus:ring-[#814AC8]/50 ${
-                  errors.whatsappNumber ? 'border-rose-500/70' : 'border-[#251f42]'
-                }`}
-              />
+              <div className="pt-1 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCancel?.();
+                    router.push('/user/admin/channels');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#814AC8] hover:bg-[#703db5] text-white text-xs font-semibold transition-all shadow-[0_0_15px_rgba(129,74,200,0.35)] cursor-pointer"
+                >
+                  <MessageCircle size={13} />
+                  <span>Connect WhatsApp in Channels</span>
+                  <span>→</span>
+                </button>
+              </div>
             </div>
           )}
           {errors.whatsappNumber && (
@@ -331,7 +357,13 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
           <button
             type="button"
             onClick={validateAndProceed}
-            className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_25px_rgba(129,74,200,0.6)] flex items-center gap-1.5 transition-all"
+            disabled={!tierInfo?.is_connected}
+            className={`px-5 py-2.5 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 transition-all ${
+              !tierInfo?.is_connected
+                ? 'bg-[#814AC8]/40 text-white/50 cursor-not-allowed'
+                : 'bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_25px_rgba(129,74,200,0.6)] cursor-pointer'
+            }`}
+            title={!tierInfo?.is_connected ? 'Please connect a WhatsApp channel first' : 'Next: Select Audience'}
           >
             <span>Next</span>
             <span>→</span>

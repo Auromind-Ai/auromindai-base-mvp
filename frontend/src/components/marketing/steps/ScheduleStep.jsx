@@ -51,6 +51,9 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
 
   // Calculate estimated completion time
   const calculateEstimatedDuration = () => {
+    if (!sendGradually) {
+      return '< 1 min (Fast dispatch)';
+    }
     const minutes = Math.ceil(totalRecipients / (sendingRate || 100));
     const hours = Math.floor(minutes / 60);
     const remainingMins = minutes % 60;
@@ -389,7 +392,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                   Campaign will start on
                 </span>
                 <span className="text-xs font-bold text-white">
-                  {dateVal} at {timeVal} (IST)
+                  {sendType === 'Send Now' ? 'Immediately upon launch' : `${dateVal} at ${timeVal} (IST)`}
                 </span>
               </div>
             </div>
@@ -407,7 +410,11 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                   ~ {calculateEstimatedDuration()} after start
                 </span>
                 <span className="text-[10px] text-[#7f7a9c]">
-                  Based on {totalRecipients.toLocaleString()} messages at {sendingRate}/min ({calculateEstimatedDuration()})
+                  {sendGradually ? (
+                    `Based on ${totalRecipients.toLocaleString()} messages at ${sendingRate}/min`
+                  ) : (
+                    `Direct blast dispatch (Safe 40 msgs/sec throughput)`
+                  )}
                 </span>
               </div>
             </div>

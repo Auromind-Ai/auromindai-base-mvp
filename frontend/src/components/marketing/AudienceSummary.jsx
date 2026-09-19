@@ -15,6 +15,7 @@ export default function AudienceSummary({
   isBalanceSufficient = true,
   shortfall = 0,
   portfolioRemainingToday = null,
+  isWhatsAppConnected = true,
 }) {
   const validPct = total > 0 ? ((valid / total) * 100).toFixed(1) : '0.0';
   const invalidPct = total > 0 ? ((invalid / total) * 100).toFixed(1) : '0.0';
@@ -116,14 +117,18 @@ export default function AudienceSummary({
         )}
 
         {/* Portfolio Tier Limit Info */}
-        {portfolioRemainingToday !== null && (
-          <div className="flex items-center justify-between text-[11px] text-[#8c88a6] px-1 pt-1">
-            <span>Meta 24h Quota:</span>
+        <div className="flex items-center justify-between text-[11px] text-[#8c88a6] px-1 pt-1">
+          <span>Meta 24h Quota:</span>
+          {!isWhatsAppConnected || portfolioRemainingToday === 0 || portfolioRemainingToday === null ? (
+            <span className="text-amber-400/90 font-medium">
+              0 remaining (Not Connected)
+            </span>
+          ) : (
             <span className="text-[#C49FE0] font-medium">
               {portfolioRemainingToday.toLocaleString()} remaining
             </span>
-          </div>
-        )}
+          )}
+        </div>
 
         <p className="text-[10px] text-[#6d688c] leading-relaxed pt-1">
           Final cost settled atomically upon Meta delivery receipt. Unused escrow is refunded instantly.
