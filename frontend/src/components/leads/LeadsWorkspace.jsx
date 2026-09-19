@@ -1289,10 +1289,10 @@ function RightPanel({ lead, details, history, loadingHistory, onBackToChat, isTa
 export default function LeadsWorkspace({ upgraded = false }) {
     const { workspaceId, loading } = useAuth();
     if (loading || !workspaceId) return <div className="p-6 text-zinc-400" role="status">Loading workspace...</div>;
-    return <WorkspaceContent key={`${workspaceId}:${upgraded}`} upgraded={upgraded} />;
+    return <WorkspaceContent key={`${workspaceId}:${upgraded}`} upgraded={upgraded} workspaceId={workspaceId} />;
 }
 
-function WorkspaceContent({ upgraded }) {
+function WorkspaceContent({ upgraded, workspaceId }) {
     const router = useRouter();
 
     const [section, setSection] = useState('leads');
@@ -1602,7 +1602,7 @@ function WorkspaceContent({ upgraded }) {
                 {section === 'analytics' && <CrmAnalytics />}
                 {section === 'scoring' && <CrmScoring options={filterOptions} lead={leadsDetails[selectedLeadId]} onRecalculate={async id => { await fetchSelectedLeadData(id); await fetchLeadsList(); }} />}
                 {section === 'history' && <CrmHistory onSelect={id => { setSelectedLeadId(id); setSection('scoring'); }} />}
-                {section === 'reports' && <CrmReports />}
+                {section === 'reports' && <CrmReports workspaceId={workspaceId} />}
                 {section === 'leads' && <>
                 {/* Header */}
                 <header className="h-12 sm:h-14 flex items-center justify-between px-3 sm:px-4 md:px-6 border-b border-white/[0.06] bg-[#0D0D17] flex-shrink-0 gap-2 sm:gap-4">

@@ -129,10 +129,28 @@ export const getUser = () => {
 
 export const setWorkspace = (workspace) => {
   memoryWorkspace = workspace || null;
+  if (isBrowser) {
+    if (workspace?.id) {
+      localStorage.setItem("workspace_id", workspace.id);
+      localStorage.setItem("workspace", JSON.stringify(workspace));
+    } else {
+      localStorage.removeItem("workspace_id");
+      localStorage.removeItem("workspace");
+    }
+  }
 };
 
 export const getWorkspace = () => {
-  return isBrowser ? memoryWorkspace : null;
+  if (!isBrowser) return null;
+  if (memoryWorkspace) return memoryWorkspace;
+  const storedWs = localStorage.getItem("workspace");
+  if (storedWs) {
+    try {
+      memoryWorkspace = JSON.parse(storedWs);
+      return memoryWorkspace;
+    } catch {}
+  }
+  return null;
 };
 
 /* ---------------- AUTH ---------------- */
@@ -193,7 +211,19 @@ export const clearAdminBackup = () => {
 };
 export const getWorkspaceIdFromToken = () => {
   if (!isBrowser) return null;
-  return memoryWorkspace?.id || null;
+  if (memoryWorkspace?.id) return memoryWorkspace.id;
+  const storedId = localStorage.getItem("workspace_id");
+  if (storedId) return storedId;
+  const storedWs = localStorage.getItem("workspace");
+  if (storedWs) {
+    try {
+      const parsed = JSON.parse(storedWs);
+      if (parsed?.id) return parsed.id;
+    } catch {}
+  }
+  const user = getUser();
+  if (user?.workspace_id) return user.workspace_id;
+  return null;
 };
 
 /* ---------------- HEADERS ---------------- */

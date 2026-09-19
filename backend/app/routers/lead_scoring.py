@@ -12,8 +12,9 @@ from app.schemas.crm_filters import LeadFilters, LeadExportRequest
 from app.services.crm.lead_query import lead_query, source_expression
 from app.services.crm import lead_reporting
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.core.event_bus import emit_event
 from app.database import get_db
@@ -1047,4 +1048,199 @@ async def create_manual_lead(
         lead_tier=lead.lead_tier or "cold",
         created_at=lead.created_at,
     )
+
+
+# --- Qualified Lead Email Report Endpoints ---
+
+@router.get("/email-report/settings")
+def get_email_report_settings(
+    response: Response,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.services.crm.lead_email_report_service import (
+        LeadEmailReportService,
+        DEFAULT_SUBJECT_TEMPLATE,
+        DEFAULT_BODY_TEMPLATE
+    )
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    setting = LeadEmailReportService.get_or_create_settings(db, wid)
+
+    lead_count = db.query(func.count(Lead.id)).filter(
+        Lead.workspace_id == wid,
+        func.coalesce(Lead.score, 0) >= setting.min_score
+    ).scalar() or 0
+
+    return {
+        "settings": {
+            "id": str(setting.id),
+            "workspace_id": str(setting.workspace_id),
+            "is_active": setting.is_active,
+            "min_score": setting.min_score,
+            "frequency": setting.frequency,
+            "send_time": setting.send_time,
+            "recipient_emails": setting.recipient_emails or [],
+            "attach_csv": setting.attach_csv,
+            "subject_template": setting.subject_template or DEFAULT_SUBJECT_TEMPLATE,
+            "body_template": setting.body_template or DEFAULT_BODY_TEMPLATE,
+            "default_subject": DEFAULT_SUBJECT_TEMPLATE,
+            "default_body": DEFAULT_BODY_TEMPLATE,
+            "last_sent_at": setting.last_sent_at.isoformat() if setting.last_sent_at else None,
+            "next_run_at": setting.next_run_at.isoformat() if setting.next_run_at else None,
+        },
+        "lead_count": lead_count
+    }
+
+
+@router.post("/email-report/settings")
+def save_email_report_settings(
+    body: dict,
+    response: Response,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.services.crm.lead_email_report_service import (
+        LeadEmailReportService,
+        DEFAULT_SUBJECT_TEMPLATE,
+        DEFAULT_BODY_TEMPLATE
+    )
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    setting = LeadEmailReportService.update_settings(db, wid, body)
+
+    lead_count = db.query(func.count(Lead.id)).filter(
+        Lead.workspace_id == wid,
+        func.coalesce(Lead.score, 0) >= setting.min_score
+    ).scalar() or 0
+
+    return {
+        "status": "success",
+        "settings": {
+            "id": str(setting.id),
+            "workspace_id": str(setting.workspace_id),
+            "is_active": setting.is_active,
+            "min_score": setting.min_score,
+            "frequency": setting.frequency,
+            "send_time": setting.send_time,
+            "recipient_emails": setting.recipient_emails or [],
+            "attach_csv": setting.attach_csv,
+            "subject_template": setting.subject_template or DEFAULT_SUBJECT_TEMPLATE,
+            "body_template": setting.body_template or DEFAULT_BODY_TEMPLATE,
+            "default_subject": DEFAULT_SUBJECT_TEMPLATE,
+            "default_body": DEFAULT_BODY_TEMPLATE,
+            "last_sent_at": setting.last_sent_at.isoformat() if setting.last_sent_at else None,
+            "next_run_at": setting.next_run_at.isoformat() if setting.next_run_at else None,
+        },
+        "lead_count": lead_count
+    }
+
+
+@router.post("/email-report/send-test")
+def send_test_email_report(
+    body: dict = None,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.services.crm.lead_email_report_service import LeadEmailReportService
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+
+    body = body or {}
+    recipient_override = body.get("recipient_emails")
+
+    try:
+        result = LeadEmailReportService.send_report(
+            db=db,
+            workspace_id=wid,
+            is_test=True,
+            recipient_override=recipient_override
+        )
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to send test email: {str(exc)}") from exc
+
+
+@router.get("/email-report/sample-preview")
+def get_sample_preview(
+    min_score: int = Query(50, ge=0, le=100),
+    frequency: str = Query("daily"),
+    subject_template: str | None = Query(None),
+    body_template: str | None = Query(None),
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.services.crm.lead_email_report_service import LeadEmailReportService
+    from app.models.workspace import Workspace
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+
+    leads = (
+        db.query(Lead)
+        .filter(
+            Lead.workspace_id == wid,
+            func.coalesce(Lead.score, 0) >= min_score
+        )
+        .order_by(Lead.score.desc(), Lead.created_at.desc())
+        .limit(10)
+        .all()
+    )
+
+    lead_count = db.query(func.count(Lead.id)).filter(
+        Lead.workspace_id == wid,
+        func.coalesce(Lead.score, 0) >= min_score
+    ).scalar() or 0
+
+    sample_items = [
+        {
+            "id": str(l.id),
+            "name": l.name or "N/A",
+            "phone": l.phone or "N/A",
+            "email": l.email or "N/A",
+            "company": l.company or "N/A",
+            "source": l.source or "N/A",
+            "score": l.score or 0,
+            "lead_tier": l.lead_tier or "cold",
+            "status": l.status or "new",
+            "created_at": l.created_at.isoformat() if l.created_at else None,
+        }
+        for l in leads
+    ]
+
+    filename = f"qualified_leads_{datetime.now().strftime('%Y-%m-%d')}.csv"
+    ws = db.query(Workspace).filter(Workspace.id == wid).first()
+    ws_name = ws.name if ws and ws.name else "OrbionAgents"
+
+    setting = LeadEmailReportService.get_or_create_settings(db, wid)
+    # Temporary mock setting for building preview with requested min_score and frequency
+    setting.min_score = min_score
+    setting.frequency = frequency
+
+    content = LeadEmailReportService.build_email_content(
+        setting=setting,
+        lead_count=lead_count,
+        filename=filename,
+        workspace_name=ws_name,
+        custom_subject=subject_template if isinstance(subject_template, str) and subject_template else None,
+        custom_body=body_template if isinstance(body_template, str) and body_template else None
+    )
+
+    return {
+        "total_count": lead_count,
+        "sample_leads": sample_items,
+        "subject": content["subject"],
+        "body_text": content["plain_text"],
+        "filename": filename,
+        "date_str": content["date_str"],
+    }
 

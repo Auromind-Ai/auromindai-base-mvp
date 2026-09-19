@@ -54,14 +54,26 @@ class EmailService:
         return bool(smtp_user and smtp_password)
 
     @staticmethod
-    def send_email(to_email: str, subject: str, body: str, metadata: Dict[str, Any] = None):
+    def send_email(
+        to_email: str | list[str],
+        subject: str,
+        body: str,
+        metadata: Dict[str, Any] = None,
+        attachments: list[Dict[str, Any]] = None
+    ):
         from app.services.config_service import config_service
+        from email.mime.base import MIMEBase
+        from email import encoders
+
         smtp_server = config_service.get("smtp_host", "smtp.gmail.com")
         smtp_port = int(config_service.get("smtp_port", 587))
         smtp_user = str(config_service.get("smtp_user", "")).strip()
         smtp_password = str(config_service.get("smtp_password", "")).strip()
         if smtp_password and "gmail.com" in str(smtp_server).lower():
             smtp_password = smtp_password.replace(" ", "")
+
+        to_addrs = [to_email] if isinstance(to_email, str) else list(to_email)
+        to_str = ", ".join(to_addrs)
 
         logger.info(f"SMTP Host Loaded: {smtp_server}")
         logger.info(f"SMTP User Loaded: {smtp_user}")
@@ -70,42 +82,72 @@ class EmailService:
         if not smtp_user or not smtp_password:
             logger.warning("SMTP credentials not configured. Simulating email send.")
             logger.info("--- SIMULATING EMAIL SEND ---")
-            logger.info(f"To: {to_email}")
+            logger.info(f"To: {to_str}")
             safe_subj = str(subject).encode('ascii', 'replace').decode('ascii')
             safe_body = str(body[:200]).encode('ascii', 'replace').decode('ascii')
             logger.info(f"Subject: {safe_subj}")
             logger.info(f"Body: {safe_body}...")
+            if attachments:
+                logger.info(f"Attachments: {[a.get('filename') for a in attachments]}")
             if metadata:
                 logger.info(f"Metadata: {metadata}")
             logger.info("-----------------------------")
-            return {"status": "simulated", "simulated": True, "message": "SMTP is not configured. Email simulation logged."}
+            return {
+                "status": "simulated",
+                "simulated": True,
+                "message": "SMTP is not configured. Email simulation logged.",
+                "recipients": to_addrs,
+                "attachments": [a.get("filename") for a in attachments] if attachments else []
+            }
 
         try:
-            msg = MIMEMultipart()
+            msg = MIMEMultipart("mixed")
             msg['From'] = smtp_user
-            msg['To'] = to_email
+            msg['To'] = to_str
             msg['Subject'] = subject
-           
+
             # Detect HTML content
             is_html = body.strip().startswith("<") or "<html>" in body.lower()
-            mime_type = 'html' if is_html else 'plain'
-            msg.attach(MIMEText(body, mime_type))
-           
+            alt_part = MIMEMultipart("alternative")
+            if is_html:
+                import re
+                plain = re.sub(r'<[^>]+>', '', body)
+                alt_part.attach(MIMEText(plain, 'plain'))
+                alt_part.attach(MIMEText(body, 'html'))
+            else:
+                alt_part.attach(MIMEText(body, 'plain'))
+            msg.attach(alt_part)
+
+            # Process attachments
+            if attachments:
+                for att in attachments:
+                    filename = att.get("filename", "attachment.csv")
+                    content = att.get("content", b"")
+                    mime_type = att.get("mime_type", "text/csv")
+                    if isinstance(content, str):
+                        content = content.encode("utf-8")
+                    main_type, sub_type = mime_type.split("/", 1) if "/" in mime_type else ("application", "octet-stream")
+                    part = MIMEBase(main_type, sub_type)
+                    part.set_payload(content)
+                    encoders.encode_base64(part)
+                    part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
+                    msg.attach(part)
+
             if smtp_port == 465:
                 server = smtplib.SMTP_SSL(smtp_server, smtp_port)
             else:
                 server = smtplib.SMTP(smtp_server, smtp_port)
                 server.starttls()
-               
+
             server.login(smtp_user, smtp_password)
             text = msg.as_string()
-            server.sendmail(smtp_user, to_email, text)
+            server.sendmail(smtp_user, to_addrs, text)
             server.quit()
-           
-            logger.info(f"Email sent successfully to {to_email}")
-            return {"status": "success", "message": "Email sent successfully."}
+
+            logger.info(f"Email sent successfully to {to_str}")
+            return {"status": "success", "message": "Email sent successfully.", "recipients": to_addrs}
         except Exception as e:
-            logger.error(f"Failed to send email to {to_email}: {str(e)}")
+            logger.error(f"Failed to send email to {to_str}: {str(e)}")
             raise ValueError(f"Failed to send email: {str(e)}")
 
     @staticmethod
@@ -167,19 +209,24 @@ class EmailService:
     def send_email_for_workspace(
         db,
         workspace_id,
-        to_email: str,
+        to_email: str | list[str],
         subject: str,
         body: str,
         plain_text: str = None,
-        metadata: Dict[str, Any] = None
+        metadata: Dict[str, Any] = None,
+        attachments: list[Dict[str, Any]] = None
     ):
         """
         Sends an email prioritizing the workspace's connected Gmail OAuth account.
         Falls back to platform SMTP / simulated delivery if Gmail is not connected.
         """
-        if not to_email or "@" not in str(to_email):
-            logger.warning(f"Cannot send email: invalid recipient '{to_email}'")
+        to_addrs = [to_email] if isinstance(to_email, str) else list(to_email)
+        valid_recipients = [e for e in to_addrs if e and "@" in str(e)]
+        if not valid_recipients:
+            logger.warning(f"Cannot send email: invalid recipients '{to_email}'")
             return {"status": "skipped", "reason": "Invalid recipient email"}
+
+        to_str = ", ".join(valid_recipients)
 
         if db and workspace_id:
             try:
@@ -187,19 +234,38 @@ class EmailService:
                 if gmail_service:
                     import base64
                     import re
-                    msg = MIMEMultipart("alternative")
+                    from email.mime.base import MIMEBase
+                    from email import encoders
+
+                    msg = MIMEMultipart("mixed")
                     msg["Subject"] = subject
                     msg["From"] = sender_email or "me"
-                    msg["To"] = to_email
+                    msg["To"] = to_str
 
                     is_html = body.strip().startswith("<") or "<html>" in body.lower() or "</div>" in body.lower()
+                    alt_part = MIMEMultipart("alternative")
                     if is_html:
                         text_part = MIMEText(plain_text or re.sub(r'<[^>]+>', '', body), "plain")
                         html_part = MIMEText(body, "html")
-                        msg.attach(text_part)
-                        msg.attach(html_part)
+                        alt_part.attach(text_part)
+                        alt_part.attach(html_part)
                     else:
-                        msg.attach(MIMEText(body, "plain"))
+                        alt_part.attach(MIMEText(body, "plain"))
+                    msg.attach(alt_part)
+
+                    if attachments:
+                        for att in attachments:
+                            filename = att.get("filename", "attachment.csv")
+                            content = att.get("content", b"")
+                            mime_type = att.get("mime_type", "text/csv")
+                            if isinstance(content, str):
+                                content = content.encode("utf-8")
+                            main_type, sub_type = mime_type.split("/", 1) if "/" in mime_type else ("application", "octet-stream")
+                            part = MIMEBase(main_type, sub_type)
+                            part.set_payload(content)
+                            encoders.encode_base64(part)
+                            part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
+                            msg.attach(part)
 
                     raw_bytes = base64.urlsafe_b64encode(msg.as_bytes()).decode()
                     sent_msg = gmail_service.users().messages().send(
@@ -207,15 +273,22 @@ class EmailService:
                         body={"raw": raw_bytes}
                     ).execute()
 
-                    logger.info(f"Email sent via workspace connected Gmail to {to_email} (Msg ID: {sent_msg.get('id')})")
+                    logger.info(f"Email sent via workspace connected Gmail to {to_str} (Msg ID: {sent_msg.get('id')})")
                     return {
                         "status": "success",
                         "provider": "gmail",
                         "sender": sender_email or "me",
+                        "recipients": valid_recipients,
                         "message_id": sent_msg.get("id")
                     }
             except Exception as ge:
                 logger.warning(f"Gmail API send failed ({ge}). Falling back to SMTP...")
 
         # Fallback to SMTP / Simulation
-        return EmailService.send_email(to_email=to_email, subject=subject, body=body, metadata=metadata)
+        return EmailService.send_email(
+            to_email=valid_recipients,
+            subject=subject,
+            body=body,
+            metadata=metadata,
+            attachments=attachments
+        )
