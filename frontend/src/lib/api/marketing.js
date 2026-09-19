@@ -434,8 +434,7 @@ export function getCampaignDraft() {
     const parsed = JSON.parse(raw);
     if (
       parsed &&
-      (parsed.name === 'Diwali Offer 2025' ||
-       String(parsed.name || '').toLowerCase().includes('diwali') ||
+      (String(parsed.name || '').toLowerCase().includes('diwali') ||
        parsed.recipientsCount === 2480 ||
        parsed.recipientsCount === 2430 ||
        (Array.isArray(parsed.selectedListIds) && parsed.selectedListIds.includes('list_1')))

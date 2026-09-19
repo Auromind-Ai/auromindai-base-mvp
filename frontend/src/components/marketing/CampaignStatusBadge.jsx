@@ -7,50 +7,56 @@ const STATUS_CONFIGS = {
   Completed: {
     label: 'Completed',
     icon: CheckCircle2,
-    bg: 'bg-emerald-500/10',
-    text: 'text-emerald-400',
-    border: 'border-emerald-500/25',
-    dot: 'bg-emerald-400',
+    bg: 'bg-[#0E845A]',
+    shadow: 'shadow-[0_0_12px_rgba(14,132,90,0.4)]',
+    border: 'border-[#10B981]/40',
+    text: 'text-white',
+    iconColor: 'text-white',
   },
   Scheduled: {
     label: 'Scheduled',
     icon: Clock,
-    bg: 'bg-blue-500/10',
-    text: 'text-sky-400',
-    border: 'border-sky-500/25',
-    dot: 'bg-sky-400',
+    bg: 'bg-[#1E4BB8]',
+    shadow: 'shadow-[0_0_12px_rgba(30,75,184,0.4)]',
+    border: 'border-[#3B82F6]/40',
+    text: 'text-white',
+    iconColor: 'text-white',
   },
   Sending: {
     label: 'Sending',
     icon: Send,
-    bg: 'bg-purple-500/15',
-    text: 'text-purple-300',
-    border: 'border-purple-500/30',
-    dot: 'bg-purple-400 animate-ping',
+    bg: 'bg-[#5E5CE6]',
+    shadow: 'shadow-[0_0_12px_rgba(94,92,230,0.4)]',
+    border: 'border-[#818CF8]/40',
+    text: 'text-white',
+    iconColor: 'text-white',
   },
   Paused: {
     label: 'Paused',
     icon: PauseCircle,
-    bg: 'bg-amber-500/10',
-    text: 'text-amber-400',
-    border: 'border-amber-500/25',
-    dot: 'bg-amber-400',
+    bg: 'bg-[#9A5328]',
+    shadow: 'shadow-[0_0_12px_rgba(154,83,40,0.4)]',
+    border: 'border-[#F59E0B]/40',
+    text: 'text-white',
+    iconColor: 'text-white',
   },
   Draft: {
     label: 'Draft',
     icon: FileText,
-    bg: 'bg-zinc-500/10',
-    text: 'text-zinc-400',
-    border: 'border-zinc-500/20',
-    dot: 'bg-zinc-400',
+    bg: 'bg-[#334155]',
+    shadow: 'shadow-[0_0_10px_rgba(71,85,105,0.3)]',
+    border: 'border-[#475569]/50',
+    text: 'text-white',
+    iconColor: 'text-white',
   },
   Failed: {
     label: 'Failed',
     icon: AlertCircle,
-    bg: 'bg-rose-500/10',
-    text: 'text-rose-400',
-    border: 'border-rose-500/25',
-    dot: 'bg-rose-400',
+    bg: 'bg-[#B91C1C]',
+    shadow: 'shadow-[0_0_12px_rgba(185,28,28,0.4)]',
+    border: 'border-[#EF4444]/40',
+    text: 'text-white',
+    iconColor: 'text-white',
   },
 };
 
@@ -61,9 +67,9 @@ export default function CampaignStatusBadge({ status }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border ${cfg.bg} ${cfg.text} ${cfg.border} shrink-0`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${cfg.bg} ${cfg.text} ${cfg.border} ${cfg.shadow || ''} shrink-0`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+      <Icon size={13} className={`${cfg.iconColor} shrink-0`} />
       <span>{cfg.label}</span>
     </span>
   );

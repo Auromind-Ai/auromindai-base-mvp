@@ -184,7 +184,7 @@ export default function DashboardView({
           <div className="bg-[#13131a]/60 border border-white/[0.06] rounded-2xl p-6 shadow-xl backdrop-blur-md flex flex-col justify-between min-h-[200px] relative overflow-hidden group">
             <div className="absolute -right-16 -top-16 w-32 h-32 bg-purple-500/5 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500 pointer-events-none" />
             <div className="relative z-10 w-full">
-              <h3 className="text-sm font-bold text-white mb-4">Flow Quota Usage</h3>
+              <h3 className="text-sm font-semibold text-white mb-4">Flow Quota Usage</h3>
               
               {/* Circular Progress Indicator */}
               <div className="flex items-center gap-6">
@@ -216,7 +216,7 @@ export default function DashboardView({
                   <div className="text-2xl font-black text-white tracking-tight leading-none">
                     {usedFlows} <span className="text-xs font-bold text-white/40">/ {totalLimit}</span>
                   </div>
-                  <div className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Flows Created ({usedActive} Active)</div>
+                  <div className="text-[10px] font-medium text-white/70  tracking-wider">Flows Created ({usedActive} Active)</div>
                 </div>
               </div>
 

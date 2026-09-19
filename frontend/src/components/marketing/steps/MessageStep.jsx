@@ -34,7 +34,7 @@ export const VARIABLES_LIST = [
   { tag: '{{coupon_code}}', label: 'Promo / Coupon Code' },
 ];
 
-export default function MessageStep({ data, updateData, onNext, onBack }) {
+export default function MessageStep({ data, updateData, onNext, onBack, workspaceId }) {
   const [activeTab, setActiveTab] = useState(data.messageMode || 'type'); // 'type' | 'template' | 'ai'
   const [message, setMessage] = useState(data.messageBody || '');
   const [hasMedia, setHasMedia] = useState(Boolean(data.mediaUrl));
@@ -67,7 +67,8 @@ export default function MessageStep({ data, updateData, onNext, onBack }) {
 
   useEffect(() => {
     let isMounted = true;
-    fetchApprovedTemplates(data.workspaceId)
+    const targetWsId = workspaceId || data?.workspaceId;
+    fetchApprovedTemplates(targetWsId)
       .then((tpls) => {
         if (isMounted) {
           setTemplates(tpls || []);
@@ -84,7 +85,7 @@ export default function MessageStep({ data, updateData, onNext, onBack }) {
     return () => {
       isMounted = false;
     };
-  }, [data.workspaceId]);
+  }, [workspaceId, data?.workspaceId]);
 
   const handleInsertVariable = (varTag) => {
     setMessage((prev) => prev + (prev.endsWith(' ') || prev.endsWith('\n') ? '' : ' ') + varTag);
