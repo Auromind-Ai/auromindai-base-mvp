@@ -4,15 +4,25 @@ import React from 'react';
 import { Users, CheckCircle2, AlertTriangle, MessageSquare, Info, ShieldCheck } from 'lucide-react';
 
 export default function AudienceSummary({
-  total = 2480,
-  valid = 2430,
-  invalid = 50,
-  optedIn = 2430,
-  optedOut = 50,
-  estimatedMessages = '~ 2,430 messages'
+  total = 0,
+  valid = 0,
+  invalid = 0,
+  optedIn = 0,
+  optedOut = 0,
+  estimatedMessages = null,
+  estimatedCost = null,
+  ratePerMessage = 0.8,
+  isBalanceSufficient = true,
+  shortfall = 0,
+  portfolioRemainingToday = null,
 }) {
   const validPct = total > 0 ? ((valid / total) * 100).toFixed(1) : '0.0';
   const invalidPct = total > 0 ? ((invalid / total) * 100).toFixed(1) : '0.0';
+
+  const displayEstimatedMessages = estimatedMessages || `~ ${valid.toLocaleString()} messages`;
+  const costDisplay = estimatedCost !== null
+    ? `₹${Number(estimatedCost).toFixed(2)}`
+    : `~ ₹${(valid * (ratePerMessage || 0.8)).toFixed(2)}`;
 
   return (
     <div className="rounded-xl bg-[#0f0e1c] border border-[#251f42] p-5 text-xs transition-all duration-200 hover:border-purple-500/30">
@@ -74,19 +84,49 @@ export default function AudienceSummary({
           <span className="text-xs font-medium text-[#a8a3c2] flex items-center gap-1.5">
             Estimated Cost <Info size={11} className="text-[#814AC8]" />
           </span>
+          {ratePerMessage && (
+            <span className="text-[11px] text-[#8c88a6]">
+              ₹{Number(ratePerMessage).toFixed(2)} / msg
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#17132e] border border-[#2b244d]">
-          <div className="w-5 h-5 rounded-full bg-[#25D366]/20 flex items-center justify-center text-[#25D366] shrink-0">
-            <MessageSquare size={12} />
+        <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#17132e] border border-[#2b244d]">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-full bg-[#25D366]/20 flex items-center justify-center text-[#25D366] shrink-0">
+              <MessageSquare size={12} />
+            </div>
+            <span className="text-xs font-semibold text-white">
+              {displayEstimatedMessages}
+            </span>
           </div>
-          <span className="text-xs font-semibold text-white">
-            {estimatedMessages}
+          <span className="text-xs font-bold text-emerald-400">
+            {costDisplay}
           </span>
         </div>
 
+        {/* Balance Warning if insufficient */}
+        {!isBalanceSufficient && (
+          <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px] flex items-center gap-2">
+            <AlertTriangle size={14} className="text-rose-400 shrink-0" />
+            <span>
+              Insufficient wallet balance. Shortfall: <strong>₹{Number(shortfall || 0).toFixed(2)}</strong>. Please recharge before blast.
+            </span>
+          </div>
+        )}
+
+        {/* Portfolio Tier Limit Info */}
+        {portfolioRemainingToday !== null && (
+          <div className="flex items-center justify-between text-[11px] text-[#8c88a6] px-1 pt-1">
+            <span>Meta 24h Quota:</span>
+            <span className="text-[#C49FE0] font-medium">
+              {portfolioRemainingToday.toLocaleString()} remaining
+            </span>
+          </div>
+        )}
+
         <p className="text-[10px] text-[#6d688c] leading-relaxed pt-1">
-          Final cost may vary based on template category (marketing/utility) and Meta charges.
+          Final cost settled atomically upon Meta delivery receipt. Unused escrow is refunded instantly.
         </p>
       </div>
     </div>

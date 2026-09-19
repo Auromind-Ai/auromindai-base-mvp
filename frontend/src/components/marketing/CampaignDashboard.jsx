@@ -25,8 +25,9 @@ import {
 } from 'lucide-react';
 import CampaignStatusBadge from './CampaignStatusBadge';
 import CreateCampaignModal from './CreateCampaignModal';
-import { getCampaigns, deleteCampaign, updateCampaign } from '@/lib/api/marketing';
+import { getCampaigns, deleteCampaign, updateCampaign, pauseCampaign, resumeCampaign } from '@/lib/api/marketing';
 import { useToast } from '@/context/ToastContext';
+import { useAuth } from '@/context/AuthContext';
 
 const TABS = [
   { id: 'all', label: 'All Campaigns' },
@@ -39,6 +40,7 @@ const TABS = [
 ];
 
 export default function CampaignDashboard({ activeSubmenu = 'Campaigns' }) {
+  const { workspaceId } = useAuth();
   const [campaigns, setCampaigns] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,17 +53,20 @@ export default function CampaignDashboard({ activeSubmenu = 'Campaigns' }) {
   const { showToast } = useToast();
 
   const loadData = async () => {
+    setIsLoading(true);
     try {
-      const data = await getCampaigns();
+      const data = await getCampaigns(workspaceId);
       setCampaigns(data || []);
     } catch (err) {
       console.error('Failed to load campaigns:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     let isMounted = true;
-    getCampaigns().then((data) => {
+    getCampaigns(workspaceId).then((data) => {
       if (isMounted && data) {
         setCampaigns(data);
       }
@@ -69,7 +74,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Campaigns' }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [workspaceId]);
 
   // Filter campaigns by active tab & search query
   const filteredCampaigns = useMemo(() => {
@@ -109,15 +114,17 @@ export default function CampaignDashboard({ activeSubmenu = 'Campaigns' }) {
     const totalSent = campaigns.reduce((acc, c) => acc + (c.sentCount || 0), 0);
     const totalDelivered = campaigns.reduce((acc, c) => acc + (c.deliveredCount || 0), 0);
     const totalReplies = campaigns.reduce((acc, c) => acc + (c.repliesCount || 0), 0);
-    const deliveryRate = totalSent > 0 ? ((totalDelivered / totalSent) * 100).toFixed(1) + '%' : '98.2%';
+    const deliveryRate = totalSent > 0 ? ((totalDelivered / totalSent) * 100).toFixed(1) + '%' : '0.0%';
 
     return {
-      totalCampaigns: total || 48,
-      messagesSent: totalSent ? (totalSent > 1000 ? (totalSent / 1000).toFixed(1) + 'k' : totalSent) : '142.5k',
+      totalCampaigns: total,
+      messagesSent: totalSent ? (totalSent >= 1000 ? (totalSent / 1000).toFixed(1) + 'k' : totalSent) : 0,
       deliveredRate: deliveryRate,
-      deliveredSubtext: totalDelivered ? `${(totalDelivered / 1000).toFixed(1)}k delivered` : '139.9k delivered',
-      replies: totalReplies ? totalReplies.toLocaleString() : '1,248',
-      replyRate: '9.7% response rate',
+      deliveredSubtext: totalDelivered > 0 ? `${totalDelivered >= 1000 ? (totalDelivered / 1000).toFixed(1) + 'k' : totalDelivered} delivered` : '0 delivered',
+      replies: totalReplies ? totalReplies.toLocaleString() : 0,
+      replyRate: totalDelivered > 0 ? `${((totalReplies / totalDelivered) * 100).toFixed(1)}% response rate` : '0.0% response rate',
+      activeCount: campaigns.filter((c) => ['sending', 'running'].includes((c.status || '').toLowerCase())).length,
+      completedCount: campaigns.filter((c) => (c.status || '').toLowerCase() === 'completed').length,
     };
   }, [campaigns]);
 
@@ -149,13 +156,17 @@ export default function CampaignDashboard({ activeSubmenu = 'Campaigns' }) {
   };
 
   const handleTogglePause = async (campaign) => {
-    const nextStatus = campaign.status === 'Paused' ? 'Sending' : 'Paused';
     try {
-      await updateCampaign(campaign.id, { status: nextStatus });
-      showToast(`Campaign status updated to ${nextStatus}`, 'success');
+      if (campaign.status === 'Paused') {
+        await resumeCampaign(campaign.id);
+        showToast('Campaign resumed successfully', 'success');
+      } else {
+        await pauseCampaign(campaign.id);
+        showToast('Campaign paused successfully', 'success');
+      }
       loadData();
     } catch (e) {
-      showToast('Failed to update status', 'error');
+      showToast('Failed to update campaign status', 'error');
     }
     setActiveMenuId(null);
   };
@@ -217,9 +228,15 @@ export default function CampaignDashboard({ activeSubmenu = 'Campaigns' }) {
             <div className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
               {stats.totalCampaigns}
             </div>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-400 font-medium">
-              <TrendingUp size={12} />
-              <span>+12% this month</span>
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#8c88a6] font-medium">
+              {stats.activeCount > 0 ? (
+                <>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-emerald-400">{stats.activeCount} active now</span>
+                </>
+              ) : (
+                <span>{stats.totalCampaigns > 0 ? `${stats.completedCount} completed` : 'No campaigns yet'}</span>
+              )}
             </div>
           </div>
         </div>
@@ -238,9 +255,15 @@ export default function CampaignDashboard({ activeSubmenu = 'Campaigns' }) {
             <div className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
               {stats.messagesSent}
             </div>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-400 font-medium">
-              <TrendingUp size={12} />
-              <span>+24% vs last week</span>
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#8c88a6] font-medium">
+              {stats.messagesSent > 0 ? (
+                <span className="text-emerald-400 flex items-center gap-1">
+                  <TrendingUp size={12} />
+                  <span>Outbound dispatches</span>
+                </span>
+              ) : (
+                <span>0 messages sent</span>
+              )}
             </div>
           </div>
         </div>
@@ -278,7 +301,11 @@ export default function CampaignDashboard({ activeSubmenu = 'Campaigns' }) {
           <div className="mt-4">
             <div className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-baseline gap-2">
               <span>{stats.replies}</span>
-              <span className="text-xs font-semibold text-emerald-400">↑ 18%</span>
+              {stats.replies > 0 && (
+                <span className="text-xs font-semibold text-emerald-400">
+                  {stats.replyRate}
+                </span>
+              )}
             </div>
             <div className="text-[11px] text-[#8c88a6] mt-1">
               {stats.replyRate}
@@ -445,23 +472,23 @@ export default function CampaignDashboard({ activeSubmenu = 'Campaigns' }) {
                       </td>
 
                       <td className="px-4 py-3.5 text-[#D4D4D4] font-semibold">
-                        {(camp.recipientsCount || 2480).toLocaleString()}
+                        {(camp.recipientsCount ?? 0).toLocaleString()}
                       </td>
 
                       <td className="px-4 py-3.5 hidden md:table-cell text-emerald-400 font-medium">
-                        {(camp.sentCount ?? 2430).toLocaleString()}
+                        {(camp.sentCount ?? 0).toLocaleString()}
                       </td>
 
                       <td className="px-4 py-3.5 hidden md:table-cell text-sky-400 font-medium">
-                        {(camp.deliveredCount ?? 2380).toLocaleString()}
+                        {(camp.deliveredCount ?? 0).toLocaleString()}
                       </td>
 
                       <td className="px-4 py-3.5 hidden lg:table-cell text-rose-400 font-medium">
-                        {(camp.failedCount ?? 50).toLocaleString()}
+                        {(camp.failedCount ?? 0).toLocaleString()}
                       </td>
 
                       <td className="px-4 py-3.5 text-[#8c88a6] whitespace-nowrap text-[11px]">
-                        {camp.date || 'Oct 28, 2025'}
+                        {camp.date || 'Today'}
                       </td>
 
                       <td className="px-4 py-3.5">
@@ -530,19 +557,19 @@ export default function CampaignDashboard({ activeSubmenu = 'Campaigns' }) {
           </span>
 
           <div className="flex items-center gap-1.5">
-            <button className="px-2.5 py-1 rounded-lg border border-[#2d2650] bg-[#141228] text-[#8c88a6] hover:text-white disabled:opacity-40">
+            <button
+              disabled={true}
+              className="px-2.5 py-1 rounded-lg border border-[#2d2650] bg-[#141228] text-[#8c88a6] disabled:opacity-40"
+            >
               ‹
             </button>
             <button className="px-2.5 py-1 rounded-lg bg-[#814AC8] text-white font-semibold">
               1
             </button>
-            <button className="px-2.5 py-1 rounded-lg border border-[#2d2650] bg-[#141228] text-[#8c88a6] hover:text-white">
-              2
-            </button>
-            <button className="px-2.5 py-1 rounded-lg border border-[#2d2650] bg-[#141228] text-[#8c88a6] hover:text-white">
-              3
-            </button>
-            <button className="px-2.5 py-1 rounded-lg border border-[#2d2650] bg-[#141228] text-[#8c88a6] hover:text-white">
+            <button
+              disabled={true}
+              className="px-2.5 py-1 rounded-lg border border-[#2d2650] bg-[#141228] text-[#8c88a6] disabled:opacity-40"
+            >
               ›
             </button>
           </div>
@@ -580,6 +607,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Campaigns' }) {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onSuccess={() => loadData()}
+        workspaceId={workspaceId}
       />
     </div>
   );

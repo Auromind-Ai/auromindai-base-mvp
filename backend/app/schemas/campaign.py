@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -25,10 +25,24 @@ class PreflightEstimateResponse(BaseModel):
 
 class RecipientInput(BaseModel):
     lead_id: Optional[str] = None
-    phone_number: str
+    phone_number: Optional[str] = None
+    phone: Optional[str] = None
     normalized_phone: Optional[str] = None
     recipient_name: Optional[str] = None
+    name: Optional[str] = None
     variables: Dict[str, Any] = {}
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_phone_and_name(cls, values):
+        if isinstance(values, dict):
+            p = values.get("phone_number") or values.get("phone") or ""
+            values["phone_number"] = p
+            values["phone"] = p
+            n = values.get("recipient_name") or values.get("name") or ""
+            values["recipient_name"] = n
+            values["name"] = n
+        return values
 
 
 class CampaignCreateRequest(BaseModel):
@@ -55,6 +69,9 @@ class CampaignCreateRequest(BaseModel):
     quiet_hours_start: str = "22:00"
     quiet_hours_end: str = "08:00"
     estimated_cost: float = 0.0
+    whatsapp_number: Optional[str] = None
+    auto_launch: bool = False
+    segment: Optional[str] = None
     recipients: List[RecipientInput] = []
 
 
@@ -76,6 +93,14 @@ class CampaignResponse(BaseModel):
     timezone: str
     send_gradually: bool
     messages_per_minute: int
+    skip_invalid_numbers: bool = True
+    stop_on_high_failure_rate: bool = False
+    failure_rate_threshold: float = 10.0
+    quiet_hours_enabled: bool = False
+    quiet_hours_start: str = "22:00"
+    quiet_hours_end: str = "08:00"
+    message_content: Optional[str] = None
+    media_url: Optional[str] = None
     estimated_cost: float
     held_cost: float
     actual_cost: float

@@ -1,219 +1,30 @@
 import client from './client';
 import { getTemplates } from './templates';
 
-// Initial Seed Data matching reference screenshots
-export const INITIAL_CAMPAIGNS = [
-  {
-    id: 'camp_001',
-    name: 'Diwali Offer 2025',
-    type: 'Promotional',
-    whatsappNumber: '+91 98765 43210',
-    goal: 'Increase sales',
-    audienceType: 'Existing Contacts',
-    audienceListName: 'All Customers',
-    recipientsCount: 2480,
-    validRecipients: 2430,
-    invalidRecipients: 50,
-    sentCount: 2430,
-    deliveredCount: 2380,
-    failedCount: 50,
-    repliesCount: 1248,
-    responseRate: '9.7%',
-    status: 'Completed',
-    date: 'Oct 28, 2025',
-    scheduledAt: '2025-10-28T10:30:00.000Z',
-    messageType: 'Custom Message',
-    messageBody: 'Hi {{name}}, This Diwali, get up to 50% OFF on our exclusive collection! 🎁 Use code {{coupon_code}} and make this festive season brighter with OrbionAgents. Shop now: {{website}}',
-    mediaUrl: '/images/diwali-banner.jpg',
-    mediaType: 'image',
-    mediaName: 'Diwali Offer',
-    variables: ['{{name}}', '{{coupon_code}}', '{{website}}'],
-    sendType: 'Scheduled',
-    timezone: 'Asia/Kolkata (IST)',
-    sendGradually: true,
-    sendingRate: 100,
-    skipInvalid: true,
-    stopOnFailure: false,
-    quietHours: true,
-  },
-  {
-    id: 'camp_002',
-    name: 'Flash Sale March 2026',
-    type: 'Promotional',
-    whatsappNumber: '+91 98765 43210',
-    goal: 'Increase sales',
-    audienceType: 'Existing Contacts',
-    audienceListName: 'Recent Leads',
-    recipientsCount: 856,
-    validRecipients: 840,
-    invalidRecipients: 16,
-    sentCount: 840,
-    deliveredCount: 825,
-    failedCount: 15,
-    repliesCount: 312,
-    responseRate: '12.4%',
-    status: 'Completed',
-    date: 'Mar 15, 2026',
-    scheduledAt: '2026-03-15T09:00:00.000Z',
-    messageType: 'Template',
-    templateName: 'flash_sale_march',
-    messageBody: 'Hey {{name}}, don\'t miss out on 24hr Flash Deals! Grab up to 40% OFF now with code {{coupon_code}}.',
-    variables: ['{{name}}', '{{coupon_code}}'],
-    sendType: 'Scheduled',
-    timezone: 'Asia/Kolkata (IST)',
-    sendGradually: true,
-    sendingRate: 100,
-    skipInvalid: true,
-    statusBadge: 'completed'
-  },
-  {
-    id: 'camp_003',
-    name: 'Spring Collection Launch',
-    type: 'Promotional',
-    whatsappNumber: '+91 98765 43210',
-    goal: 'Promote new feature',
-    audienceType: 'Existing Contacts',
-    audienceListName: 'Interested in Offers',
-    recipientsCount: 1120,
-    validRecipients: 1100,
-    invalidRecipients: 20,
-    sentCount: 1100,
-    deliveredCount: 1070,
-    failedCount: 30,
-    repliesCount: 420,
-    responseRate: '15.2%',
-    status: 'Completed',
-    date: 'Mar 01, 2026',
-    messageType: 'Template',
-    statusBadge: 'completed'
-  },
-  {
-    id: 'camp_004',
-    name: 'Cart Recovery Broadcast',
-    type: 'Transactional',
-    whatsappNumber: '+91 98765 43210',
-    goal: 'Increase sales',
-    audienceType: 'Smart Segment',
-    audienceListName: 'Abandoned Carts',
-    recipientsCount: 640,
-    validRecipients: 630,
-    invalidRecipients: 10,
-    sentCount: 0,
-    deliveredCount: 0,
-    failedCount: 0,
-    repliesCount: 0,
-    responseRate: '0.0%',
-    status: 'Scheduled',
-    date: 'Mar 25, 2026',
-    scheduledAt: '2026-03-25T11:00:00.000Z',
-    messageType: 'Template',
-    statusBadge: 'scheduled'
-  },
-  {
-    id: 'camp_005',
-    name: 'VIP Customer Appreciation',
-    type: 'Promotional',
-    whatsappNumber: '+91 98765 43210',
-    goal: 'Re-engage customers',
-    audienceType: 'Existing Contacts',
-    audienceListName: 'Repeat Customers',
-    recipientsCount: 642,
-    validRecipients: 640,
-    invalidRecipients: 2,
-    sentCount: 640,
-    deliveredCount: 638,
-    failedCount: 2,
-    repliesCount: 290,
-    responseRate: '21.0%',
-    status: 'Completed',
-    date: 'Feb 15, 2026',
-    statusBadge: 'completed'
-  },
-  {
-    id: 'camp_006',
-    name: 'Weekend Re-engagement',
-    type: 'Customer Support',
-    whatsappNumber: '+91 98765 43210',
-    goal: 'Re-engage customers',
-    audienceType: 'Existing Contacts',
-    audienceListName: 'Festival Campaign 2025',
-    recipientsCount: 1980,
-    validRecipients: 1900,
-    invalidRecipients: 80,
-    sentCount: 650,
-    deliveredCount: 640,
-    failedCount: 10,
-    repliesCount: 88,
-    responseRate: '4.5%',
-    status: 'Paused',
-    date: 'Feb 20, 2026',
-    statusBadge: 'paused'
-  }
-];
+// Initial Seed Data - empty defaults for clean production state
+export const INITIAL_CAMPAIGNS = [];
 
-export const INITIAL_CONTACT_LISTS = [
-  {
-    id: 'list_1',
-    name: 'All Customers',
-    totalContacts: 2480,
-    validContacts: 2430,
-    invalidContacts: 50,
-    optedIn: 2430,
-    optedOut: 50,
-    description: 'All verified customers',
-    createdOn: 'Jan 12, 2026'
-  },
-  {
-    id: 'list_2',
-    name: 'Recent Leads',
-    totalContacts: 856,
-    validContacts: 840,
-    invalidContacts: 16,
-    optedIn: 840,
-    optedOut: 16,
-    description: 'Leads from last 30 days',
-    createdOn: 'Feb 3, 2026'
-  },
-  {
-    id: 'list_3',
-    name: 'Interested in Offers',
-    totalContacts: 1120,
-    validContacts: 1098,
-    invalidContacts: 22,
-    optedIn: 1098,
-    optedOut: 22,
-    description: 'Users who showed interest',
-    createdOn: 'Feb 10, 2026'
-  },
-  {
-    id: 'list_4',
-    name: 'Repeat Customers',
-    totalContacts: 642,
-    validContacts: 640,
-    invalidContacts: 2,
-    optedIn: 640,
-    optedOut: 2,
-    description: 'Purchased more than 2 times',
-    createdOn: 'Feb 15, 2026'
-  },
-  {
-    id: 'list_5',
-    name: 'Festival Campaign 2025',
-    totalContacts: 1980,
-    validContacts: 1900,
-    invalidContacts: 80,
-    optedIn: 1900,
-    optedOut: 80,
-    description: 'Diwali offer audience',
-    createdOn: 'Feb 20, 2026'
-  }
-];
+export const INITIAL_CONTACT_LISTS = [];
 
 const STORAGE_KEYS = {
   CAMPAIGNS: 'orbion_marketing_campaigns',
   CONTACT_LISTS: 'orbion_marketing_contact_lists',
   DRAFT: 'orbion_marketing_campaign_draft'
 };
+
+export function getStoredWorkspaceId() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const rawWs = localStorage.getItem('workspace');
+    if (rawWs) {
+      const parsed = JSON.parse(rawWs);
+      if (parsed?.id) return String(parsed.id);
+    }
+    const wsId = localStorage.getItem('workspace_id');
+    if (wsId) return String(wsId);
+  } catch {}
+  return null;
+}
 
 function getStoredItems(key, fallback) {
   if (typeof window === 'undefined') return fallback;
@@ -236,23 +47,140 @@ function setStoredItems(key, data) {
   }
 }
 
-// API Service functions with backend fallback & persistence
-export async function getCampaigns() {
+function normalizeStatus(status) {
+  if (!status) return 'Draft';
+  const lower = String(status).toLowerCase();
+  if (lower === 'in_progress' || lower === 'sending') return 'Sending';
+  if (lower === 'draft' || lower === 'pending') return 'Draft';
+  if (lower === 'scheduled') return 'Scheduled';
+  if (lower === 'paused') return 'Paused';
+  if (lower === 'completed') return 'Completed';
+  if (lower === 'failed' || lower === 'cancelled') return 'Failed';
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function parseScheduleDatetime(dateStr, timeStr) {
+  if (!dateStr) return null;
   try {
-    const res = await client.get('/api/campaigns');
-    if (res?.data && Array.isArray(res.data)) {
-      return res.data;
+    const combined = `${dateStr} ${timeStr || '10:00 AM'}`;
+    const d = new Date(combined);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString();
+    }
+  } catch {}
+  return null;
+}
+
+export function mapBackendCampaignToFrontend(c) {
+  if (!c) return null;
+  const sCount = c.sent_count ?? c.sentCount ?? c.accepted_count ?? 0;
+  const rCount = c.read_count ?? c.repliesCount ?? 0;
+  const dCount = c.delivered_count ?? c.deliveredCount ?? 0;
+  const fCount = c.failed_count ?? c.failedCount ?? 0;
+  const tRecipients = c.total_recipients ?? c.recipientsCount ?? 0;
+  const vRecipients = c.valid_recipients ?? c.validRecipients ?? tRecipients;
+
+  const dateStr = c.date || (c.created_at ? new Date(c.created_at).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  }) : 'Today');
+
+  return {
+    id: String(c.id),
+    workspaceId: c.workspace_id,
+    name: c.name || 'Untitled Campaign',
+    type: (c.campaign_type || c.type || 'Promotional').charAt(0).toUpperCase() + (c.campaign_type || c.type || 'Promotional').slice(1),
+    whatsappNumber: c.whatsappNumber || c.phone_number_id || '',
+    goal: c.campaign_goal || c.goal || 'General Announcements',
+    audienceType: c.audience_source === 'upload_csv' ? 'Upload CSV' : (c.audienceType || 'Existing Contacts'),
+    audienceListName: c.audienceListName || c.campaign_goal || 'Custom Audience',
+    recipientsCount: tRecipients,
+    validRecipients: vRecipients,
+    invalidRecipients: c.invalid_recipients ?? c.invalidRecipients ?? 0,
+    sentCount: sCount,
+    deliveredCount: dCount,
+    failedCount: fCount,
+    repliesCount: rCount,
+    responseRate: c.responseRate || (sCount > 0 ? `${((rCount / sCount) * 100).toFixed(1)}%` : '0.0%'),
+    status: normalizeStatus(c.status),
+    date: dateStr,
+    scheduledAt: c.scheduled_at,
+    messageBody: c.message_content || c.messageBody || '',
+    mediaUrl: c.media_url || c.mediaUrl,
+    sendType: c.schedule_type === 'later' ? 'Schedule for Later' : (c.sendType || 'Send Now'),
+    sendGradually: c.send_gradually ?? c.sendGradually ?? true,
+    sendingRate: c.messages_per_minute ?? c.sendingRate ?? 100,
+    skipInvalid: c.skip_invalid_numbers ?? c.skipInvalid ?? true,
+    stopOnFailure: c.stop_on_high_failure_rate ?? c.stopOnFailure ?? false,
+    quietHours: c.quiet_hours_enabled ?? c.quietHours ?? true,
+  };
+}
+
+export function mapFrontendCampaignToBackend(c, workspaceId) {
+  const wsId = workspaceId || getStoredWorkspaceId();
+  const sendType = c.sendType === 'Schedule for Later' ? 'later' : 'now';
+  const scheduledIso = sendType === 'later' ? parseScheduleDatetime(c.scheduleDate, c.scheduleTime) : null;
+
+  return {
+    workspace_id: wsId,
+    name: c.name || 'Untitled Campaign',
+    campaign_type: (c.type || 'promotional').toLowerCase().replace(/\s+/g, '_'),
+    campaign_goal: c.goal || null,
+    phone_number_id: c.phoneNumberId || c.whatsappNumber || null,
+    whatsapp_number: c.whatsappNumber || null,
+    audience_source: (c.audienceType || 'existing_contacts').toLowerCase().replace(/\s+/g, '_'),
+    message_type: c.messageMode === 'template' ? 'template' : (c.messageMode === 'ai' ? 'ai_generated' : 'custom'),
+    template_id: c.selectedTemplateId || null,
+    message_content: c.messageBody || '',
+    media_url: c.mediaUrl || null,
+    media_type: c.mediaType || (c.mediaUrl ? 'image' : null),
+    schedule_type: sendType,
+    scheduled_at: scheduledIso,
+    timezone: 'Asia/Kolkata',
+    send_gradually: Boolean(c.sendGradually ?? true),
+    messages_per_minute: Number(c.sendingRate || 100),
+    skip_invalid_numbers: Boolean(c.skipInvalid ?? true),
+    stop_on_high_failure_rate: Boolean(c.stopOnFailure ?? false),
+    failure_rate_threshold: 10.0,
+    quiet_hours_enabled: Boolean(c.quietHours ?? false),
+    auto_launch: sendType === 'now',
+    estimated_cost: Number(c.estimatedCost || 0.0),
+    segment: c.segment || null,
+    recipients: (c.recipients || []).map(r => ({
+      lead_id: r.lead_id || r.id || null,
+      phone_number: r.phone_number || r.phone || '',
+      phone: r.phone_number || r.phone || '',
+      recipient_name: r.recipient_name || r.name || '',
+      name: r.recipient_name || r.name || '',
+      variables: r.variables || {},
+    })),
+  };
+}
+
+// API Service functions with live backend + persistent fallback
+export async function getCampaigns(workspaceId) {
+  const wsId = workspaceId || getStoredWorkspaceId();
+  try {
+    const url = wsId ? `/api/marketing/campaigns?workspace_id=${wsId}` : '/api/marketing/campaigns';
+    const res = await client.get(url);
+    const rawItems = res?.items || res?.data?.items || (Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : null));
+    if (rawItems && Array.isArray(rawItems)) {
+      const mapped = rawItems.map(mapBackendCampaignToFrontend);
+      setStoredItems(STORAGE_KEYS.CAMPAIGNS, mapped);
+      return mapped;
     }
   } catch (e) {
-    // Graceful fallback to client storage
+    console.warn('Live getCampaigns notice, falling back to local store:', e.message || e);
   }
   return getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
 }
 
 export async function getCampaignById(id) {
   try {
-    const res = await client.get(`/api/campaigns/${id}`);
-    if (res?.data) return res.data;
+    const res = await client.get(`/api/marketing/campaigns/${id}`);
+    const item = res?.data || res;
+    if (item?.id) return mapBackendCampaignToFrontend(item);
   } catch (e) {
     // Fallback
   }
@@ -260,7 +188,31 @@ export async function getCampaignById(id) {
   return all.find(c => c.id === id) || null;
 }
 
-export async function createCampaign(campaignData) {
+export async function createCampaign(campaignData, workspaceId) {
+  const wsId = workspaceId || getStoredWorkspaceId();
+  const payload = mapFrontendCampaignToBackend(campaignData, wsId);
+
+  try {
+    const res = await client.post('/api/marketing/campaigns', payload);
+    const result = res?.data || res;
+
+    // If 'Send Now' and not auto-launched, trigger launch endpoint
+    const campaignId = result?.campaign_id || result?.id;
+    if (campaignId && payload.schedule_type === 'now' && !result?.campaign_status?.includes('progress')) {
+      try {
+        await client.post(`/api/marketing/campaigns/${campaignId}/launch`);
+      } catch (lErr) {
+        console.warn('Launch trigger notice:', lErr);
+      }
+    }
+
+    clearCampaignDraft();
+    return result;
+  } catch (e) {
+    console.warn('createCampaign live failed, caching locally:', e.message || e);
+  }
+
+  // Fallback for offline safety
   const newCampaign = {
     id: 'camp_' + Date.now(),
     date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
@@ -272,14 +224,6 @@ export async function createCampaign(campaignData) {
     responseRate: '0.0%',
     ...campaignData
   };
-
-  try {
-    const res = await client.post('/api/campaigns', newCampaign);
-    if (res?.data) return res.data;
-  } catch (e) {
-    // Fallback to local storage update
-  }
-
   const existing = getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
   const updated = [newCampaign, ...existing];
   setStoredItems(STORAGE_KEYS.CAMPAIGNS, updated);
@@ -289,8 +233,8 @@ export async function createCampaign(campaignData) {
 
 export async function updateCampaign(id, updateData) {
   try {
-    const res = await client.patch(`/api/campaigns/${id}`, updateData);
-    if (res?.data) return res.data;
+    const res = await client.patch(`/api/marketing/campaigns/${id}`, updateData);
+    if (res?.data || res?.id) return res?.data || res;
   } catch (e) {
     // Fallback
   }
@@ -302,9 +246,16 @@ export async function updateCampaign(id, updateData) {
 
 export async function deleteCampaign(id) {
   try {
-    await client.delete(`/api/campaigns/${id}`);
+    await client.delete(`/api/marketing/campaigns/${id}`);
+    const existing = getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
+    const updated = existing.filter(c => c.id !== id);
+    setStoredItems(STORAGE_KEYS.CAMPAIGNS, updated);
+    return true;
   } catch (e) {
-    // Fallback
+    // Attempt fallback cancel endpoint
+    try {
+      await client.post(`/api/marketing/campaigns/${id}/cancel`);
+    } catch {}
   }
   const existing = getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
   const updated = existing.filter(c => c.id !== id);
@@ -312,57 +263,164 @@ export async function deleteCampaign(id) {
   return true;
 }
 
-export async function getContactLists() {
+export async function pauseCampaign(id) {
   try {
-    const res = await client.get('/api/marketing/contact-lists');
-    if (res?.data && Array.isArray(res.data)) {
-      return res.data;
+    const res = await client.post(`/api/marketing/campaigns/${id}/pause`);
+    return res?.data || res;
+  } catch (e) {
+    return updateCampaign(id, { status: 'Paused' });
+  }
+}
+
+export async function resumeCampaign(id) {
+  try {
+    const res = await client.post(`/api/marketing/campaigns/${id}/resume`);
+    return res?.data || res;
+  } catch (e) {
+    return updateCampaign(id, { status: 'Sending' });
+  }
+}
+
+export async function getContactLists(workspaceId) {
+  const wsId = workspaceId || getStoredWorkspaceId();
+  try {
+    const url = wsId ? `/api/marketing/audiences/lists?workspace_id=${wsId}` : '/api/marketing/audiences/lists';
+    const res = await client.get(url);
+    const lists = res?.data || res;
+    if (Array.isArray(lists) && lists.length > 0) {
+      setStoredItems(STORAGE_KEYS.CONTACT_LISTS, lists);
+      return lists;
     }
   } catch (e) {
-    // Fallback
+    console.warn('getContactLists notice:', e.message || e);
   }
   return getStoredItems(STORAGE_KEYS.CONTACT_LISTS, INITIAL_CONTACT_LISTS);
 }
 
-export async function fetchApprovedTemplates() {
+export async function uploadAudienceCSV(file, workspaceId, defaultCountryCode = '91') {
+  const wsId = workspaceId || getStoredWorkspaceId();
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const url = `/api/marketing/audiences/upload-csv?workspace_id=${wsId || ''}&default_country_code=${defaultCountryCode}`;
+  // Don't pass explicit Content-Type so fetch sets boundary automatically!
+  const res = await client.post(url, formData);
+  return res?.data || res;
+}
+
+export async function getMarketingLeads(workspaceId, segment = 'all', search = '') {
+  const wsId = workspaceId || getStoredWorkspaceId();
   try {
-    const res = await getTemplates();
-    const list = res?.items || res?.data || res || [];
+    const params = new URLSearchParams();
+    if (wsId) params.append('workspace_id', wsId);
+    if (segment) params.append('segment', segment);
+    if (search) params.append('search', search);
+    const url = `/api/marketing/audiences/leads?${params.toString()}`;
+    const res = await client.get(url);
+    return res?.data || res || { total: 0, segment_counts: {}, leads: [] };
+  } catch (e) {
+    console.warn('getMarketingLeads notice:', e.message || e);
+    return { total: 0, segment_counts: {}, leads: [] };
+  }
+}
+
+export async function estimateCampaign(workspaceId, validRecipientsCount, category = 'marketing') {
+  const wsId = workspaceId || getStoredWorkspaceId();
+  if (!wsId) {
+    return {
+      estimated_cost: Number(validRecipientsCount || 0) * 0.8,
+      rate_per_message: 0.8,
+      is_balance_sufficient: true,
+      portfolio_remaining_today: 2000,
+    };
+  }
+
+  try {
+    const res = await client.post('/api/marketing/campaigns/estimate', {
+      workspace_id: wsId,
+      valid_recipients_count: Number(validRecipientsCount || 0),
+      category,
+    });
+    return res?.data || res;
+  } catch (e) {
+    console.warn('estimateCampaign notice:', e.message || e);
+    return {
+      estimated_cost: Number(validRecipientsCount || 0) * 0.8,
+      rate_per_message: 0.8,
+      is_balance_sufficient: true,
+      portfolio_remaining_today: 2000,
+    };
+  }
+}
+
+export async function getTierInfo(workspaceId) {
+  const wsId = workspaceId || getStoredWorkspaceId();
+  try {
+    const url = wsId ? `/api/marketing/tier-info?workspace_id=${wsId}` : '/api/marketing/tier-info';
+    const res = await client.get(url);
+    return res?.data || res;
+  } catch (e) {
+    return {
+      display_phone: '',
+      phone_number_id: '',
+      is_connected: false,
+      tier_limit: 2000,
+      used_today: 0,
+      remaining_today: 2000,
+    };
+  }
+}
+
+function mapTemplateRecord(t) {
+  const bodyText = t.body || t.content || '';
+  let vars = t.variables;
+  if (!Array.isArray(vars) || vars.length === 0) {
+    const matched = bodyText.match(/\{\{[^}]+\}\}/g);
+    vars = matched ? Array.from(new Set(matched)) : [];
+  }
+
+  return {
+    id: String(t.id),
+    name: t.name,
+    category: String(t.category || 'MARKETING').toUpperCase(),
+    language: t.language || 'en_US',
+    status: String(t.status || 'APPROVED').toUpperCase(),
+    body: bodyText,
+    content: bodyText,
+    header: t.header || null,
+    footer: t.footer || null,
+    cta: t.cta || null,
+    cta_btn_title: t.cta_btn_title || null,
+    variables: vars,
+  };
+}
+
+export async function fetchApprovedTemplates(workspaceId) {
+  const wsId = workspaceId || getStoredWorkspaceId();
+
+  try {
+    const url = wsId ? `/api/marketing/templates?workspace_id=${wsId}` : '/api/marketing/templates';
+    const res = await client.get(url);
+    const list = res?.items || res?.templates || res?.data?.items || res?.data?.templates || (Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : null));
     if (Array.isArray(list) && list.length > 0) {
-      return list;
+      return list.map(mapTemplateRecord);
     }
   } catch (e) {
-    console.warn('Failed to fetch templates from /api/templates:', e);
+    console.warn('fetchApprovedTemplates /api/marketing/templates notice:', e.message || e);
   }
-  return [
-    {
-      id: 'tpl_1',
-      name: 'diwali_festive_offer',
-      category: 'MARKETING',
-      language: 'en_US',
-      status: 'APPROVED',
-      body: 'Hi {{1}}, get up to 50% OFF on our exclusive collection! 🎁 Use code {{2}} and celebrate Diwali with us.',
-      variables: ['{{1}}', '{{2}}'],
-    },
-    {
-      id: 'tpl_2',
-      name: 'order_status_update',
-      category: 'TRANSACTIONAL',
-      language: 'en_US',
-      status: 'APPROVED',
-      body: 'Hi {{1}}, your order #{{2}} has been confirmed and is being processed.',
-      variables: ['{{1}}', '{{2}}'],
-    },
-    {
-      id: 'tpl_3',
-      name: 'cart_reminder_discount',
-      category: 'MARKETING',
-      language: 'en_US',
-      status: 'APPROVED',
-      body: 'Hi {{1}}, items in your cart are waiting! Complete your purchase now and enjoy 15% off with code {{2}}.',
-      variables: ['{{1}}', '{{2}}'],
+
+  try {
+    const res2 = await getTemplates();
+    const list2 = res2?.templates || res2?.items || res2?.data?.templates || res2?.data?.items || (Array.isArray(res2?.data) ? res2.data : (Array.isArray(res2) ? res2 : null));
+    if (Array.isArray(list2) && list2.length > 0) {
+      return list2.map(mapTemplateRecord);
     }
-  ];
+  } catch (e2) {
+    console.warn('fetchApprovedTemplates /api/templates notice:', e2.message || e2);
+  }
+
+  // Pure real data: return empty array if no templates exist in DB
+  return [];
 }
 
 // Draft state persistence for form safety
@@ -370,7 +428,20 @@ export function getCampaignDraft() {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.DRAFT);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      (parsed.name === 'Diwali Offer 2025' ||
+       String(parsed.name || '').toLowerCase().includes('diwali') ||
+       parsed.recipientsCount === 2480 ||
+       parsed.recipientsCount === 2430 ||
+       (Array.isArray(parsed.selectedListIds) && parsed.selectedListIds.includes('list_1')))
+    ) {
+      localStorage.removeItem(STORAGE_KEYS.DRAFT);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }

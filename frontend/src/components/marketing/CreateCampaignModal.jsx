@@ -11,48 +11,52 @@ import ScheduleStep from './steps/ScheduleStep';
 import ReviewStep from './steps/ReviewStep';
 import { createCampaign, getCampaignDraft, saveCampaignDraft, clearCampaignDraft } from '@/lib/api/marketing';
 import { useToast } from '@/context/ToastContext';
+import { useAuth } from '@/context/AuthContext';
 
-const INITIAL_DRAFT_STATE = {
-  name: 'Diwali Offer 2025',
-  type: 'Promotional',
-  whatsappNumber: '+91 98765 43210',
-  goal: 'Increase sales',
-  audienceType: 'Existing Contacts',
-  audienceListName: 'All Customers',
-  selectedListIds: ['list_1'],
-  recipientsCount: 2480,
-  validRecipients: 2430,
-  invalidRecipients: 50,
-  optedInCount: 2430,
-  optedOutCount: 50,
-  messageMode: 'type',
-  messageBody: `Hi {{name}},
-
-This Diwali, get up to 50% OFF on our exclusive collection! 🎁
-Use code {{coupon_code}} and make this festive season brighter with OrbionAgents.
-
-Shop now: {{website}}
-
-Regards,
-Team OrbionAgents`,
-  mediaUrl: '/images/diwali-banner.jpg',
-  mediaName: 'Diwali Offer',
-  sendType: 'Schedule for Later',
-  scheduleDate: 'Oct 28, 2025',
-  scheduleTime: '10:30 AM',
-  timezone: '(GMT+05:30) Asia/Kolkata (IST)',
-  sendGradually: true,
-  sendingRate: 100,
-  skipInvalid: true,
-  stopOnFailure: false,
-  quietHours: true,
+const getInitialDraftState = () => {
+  const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return {
+    name: '',
+    type: 'Promotional',
+    whatsappNumber: '',
+    goal: '',
+    audienceType: 'Existing Contacts',
+    audienceListName: '',
+    selectedListIds: [],
+    recipientsCount: 0,
+    validRecipients: 0,
+    invalidRecipients: 0,
+    optedInCount: 0,
+    optedOutCount: 0,
+    messageMode: 'type',
+    messageBody: '',
+    mediaUrl: '',
+    mediaName: '',
+    sendType: 'Send Now',
+    scheduleDate: today,
+    scheduleTime: '10:00 AM',
+    timezone: '(GMT+05:30) Asia/Kolkata (IST)',
+    sendGradually: true,
+    sendingRate: 100,
+    skipInvalid: true,
+    stopOnFailure: false,
+    quietHours: true,
+  };
 };
 
-export default function CreateCampaignModal({ isOpen, onClose, onSuccess }) {
+export default function CreateCampaignModal({ isOpen, onClose, onSuccess, workspaceId }) {
+  const { workspaceId: authWsId } = useAuth();
+  const activeWsId = workspaceId || authWsId;
+
   const [currentStep, setCurrentStep] = useState(1);
   const [campaignData, setCampaignData] = useState(() => {
+    const initial = getInitialDraftState();
     const saved = typeof window !== 'undefined' ? getCampaignDraft() : null;
-    return saved ? { ...INITIAL_DRAFT_STATE, ...saved } : INITIAL_DRAFT_STATE;
+    if (saved && (saved.name === 'Diwali Offer 2025' || String(saved.name || '').toLowerCase().includes('diwali') || saved.recipientsCount === 2480)) {
+      clearCampaignDraft();
+      return initial;
+    }
+    return saved ? { ...initial, ...saved } : initial;
   });
   const [isLaunching, setIsLaunching] = useState(false);
   const { showToast } = useToast();
@@ -84,7 +88,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }) {
   const handleLaunch = async () => {
     setIsLaunching(true);
     try {
-      const res = await createCampaign(campaignData);
+      const res = await createCampaign(campaignData, activeWsId);
       showToast('Campaign created and queued successfully!', 'success');
       clearCampaignDraft();
       if (onSuccess) onSuccess(res);
@@ -147,6 +151,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }) {
                   updateData={updateData}
                   onNext={handleNext}
                   onCancel={onClose}
+                  workspaceId={activeWsId}
                 />
               )}
 
@@ -156,6 +161,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }) {
                   updateData={updateData}
                   onNext={handleNext}
                   onBack={handleBack}
+                  workspaceId={activeWsId}
                 />
               )}
 
@@ -165,6 +171,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }) {
                   updateData={updateData}
                   onNext={handleNext}
                   onBack={handleBack}
+                  workspaceId={activeWsId}
                 />
               )}
 
@@ -174,6 +181,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }) {
                   updateData={updateData}
                   onNext={handleNext}
                   onBack={handleBack}
+                  workspaceId={activeWsId}
                 />
               )}
 
@@ -184,6 +192,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }) {
                   onLaunch={handleLaunch}
                   onBack={handleBack}
                   isLaunching={isLaunching}
+                  workspaceId={activeWsId}
                 />
               )}
             </motion.div>

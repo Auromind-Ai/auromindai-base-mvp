@@ -18,34 +18,31 @@ export default function WhatsAppPreview({
   messageText = '',
   variables = {},
   mediaUrl = null,
-  mediaName = 'Diwali Offer',
-  timestamp = '10:30 AM',
+  mediaName = 'Attachment',
+  timestamp = '10:00 AM',
   interactiveButtons = [],
   title = 'Message Preview',
   showInfo = true,
   viewMode = 'whatsapp'
 }) {
-  // Interpolate variables like {{name}} -> "Arjun", {{coupon_code}} -> "DIWALI50", etc.
+  // Interpolate variables like {{name}} -> "Arjun", {{coupon_code}} -> "PROMO10", etc.
   const renderInterpolatedText = () => {
     if (!messageText) {
       return (
-        <div className="space-y-2">
-          <p>Hi <span className="text-[#a78bfa] font-medium">Arjun</span>,</p>
-          <p>✨ This Diwali, get up to <span className="font-semibold text-white">50% OFF</span> on our exclusive collection! 🎁</p>
-          <p>Shop now and make this festive season brighter with OrbionAgents.</p>
-          <p className="text-[#9da3ae] text-[10px]">Shop now: https://yourwebsite.com</p>
+        <div className="py-6 text-center text-[#9da3ae] text-xs italic">
+          Message preview will appear here
         </div>
       );
     }
 
     let result = messageText;
     const defaults = {
-      name: 'Arjun',
-      phone: '+91 98765 43210',
-      email: 'arjun@example.com',
-      coupon_code: 'DIWALI50',
-      website: 'https://yourwebsite.com',
-      company: 'OrbionAgents',
+      name: 'John Doe',
+      phone: '+91 90000 00000',
+      email: 'john@example.com',
+      coupon_code: 'SAVE10',
+      website: 'https://yourstore.com',
+      company: 'Your Business',
       ...variables
     };
 
@@ -54,9 +51,9 @@ export default function WhatsAppPreview({
       const reg = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
       result = result.replace(reg, defaults[k]);
     });
-    result = result.replace(/\{\{\s*1\s*\}\}/g, defaults.name || 'Arjun');
-    result = result.replace(/\{\{\s*2\s*\}\}/g, defaults.coupon_code || 'DIWALI50');
-    result = result.replace(/\{\{\s*3\s*\}\}/g, defaults.website || 'https://yourwebsite.com');
+    result = result.replace(/\{\{\s*1\s*\}\}/g, defaults.name || 'John Doe');
+    result = result.replace(/\{\{\s*2\s*\}\}/g, defaults.coupon_code || 'SAVE10');
+    result = result.replace(/\{\{\s*3\s*\}\}/g, defaults.website || 'https://yourstore.com');
 
     return (
       <div className="whitespace-pre-line text-[11px] leading-relaxed text-[#e5e7eb]">
@@ -125,17 +122,17 @@ export default function WhatsAppPreview({
           <div className="max-w-[94%] bg-[#15122b] border border-[#2d2650] rounded-2xl rounded-tl-none p-3 shadow-md space-y-2 relative">
             {/* Optional Attached Media Card */}
             {(mediaUrl || mediaName) && (
-              <div className="rounded-xl overflow-hidden bg-gradient-to-r from-[#200e3b] via-[#3c1361] to-[#1d0b38] border border-[#4d2f7a] p-3 text-center shadow-inner relative group">
-                <div className="flex flex-col items-center justify-center py-2">
-                  <div className="text-[10px] uppercase tracking-widest text-[#facc15] font-bold">
-                    Happy Diwali
+              <div className="rounded-xl overflow-hidden bg-[#1f1b3d] border border-[#3b3363] p-3 text-center shadow-inner relative group">
+                <div className="flex flex-col items-center justify-center py-2 text-center">
+                  <div className="w-8 h-8 rounded-lg bg-[#814AC8]/20 flex items-center justify-center text-[#C49FE0] mb-1.5">
+                    <ImageIcon size={18} />
                   </div>
-                  <div className="text-base font-black text-white tracking-tight my-0.5">
-                    FLAT 50% OFF
+                  <div className="text-xs font-semibold text-white tracking-tight">
+                    {mediaName || 'Attached Media'}
                   </div>
-                  <button className="mt-1 px-3 py-0.5 bg-[#facc15] text-[#1c1917] rounded-md text-[10px] font-bold shadow hover:bg-yellow-400">
-                    Shop Now
-                  </button>
+                  <span className="text-[10px] text-[#8c88a6] mt-0.5">
+                    Attachment preview
+                  </span>
                 </div>
               </div>
             )}

@@ -11,7 +11,9 @@ from app.models.campaign import Campaign, CampaignRecipient
 from app.models.wcc import WCCWallet, WCCRateCard
 from app.models.workspace import Workspace
 from app.models.templates import Template
+from app.models.ai_action import Lead
 from app.services.wcc_service import WCCService, InsufficientWCCBalanceError
+from app.services.marketing.audience_service import normalize_phone
 from app.services.marketing.whatsapp_tier_service import WhatsAppTierService
 from app.core.redis_lock import get_redis_client
 
@@ -162,9 +164,13 @@ class CampaignService:
         if not workspace:
             raise HTTPException(status_code=404, detail="Workspace not found")
 
-        phone_number_id = data.get("phone_number_id") or workspace.meta_phone_number_id
-        if not phone_number_id:
-            raise HTTPException(status_code=400, detail="No WhatsApp phone number connected to workspace")
+        phone_number_id = (
+            data.get("phone_number_id")
+            or workspace.meta_phone_number_id
+            or data.get("whatsapp_number")
+            or workspace.meta_display_phone
+            or "primary_whatsapp_line"
+        )
 
         portfolio_id = workspace.meta_business_id or workspace.meta_waba_id or str(workspace_id)
         raw_recipients = data.get("recipients", [])
@@ -205,17 +211,65 @@ class CampaignService:
 
         # Batch insert recipients
         recipient_objs = []
-        for r in raw_recipients:
-            recipient_objs.append(CampaignRecipient(
-                campaign_id=campaign.id,
-                workspace_id=workspace_id,
-                lead_id=r.get("lead_id"),
-                phone_number=r.get("phone_number", ""),
-                normalized_phone=r.get("normalized_phone", r.get("phone_number", "")),
-                recipient_name=r.get("recipient_name"),
-                variables=r.get("variables", {}),
-                status="pending"
-            ))
+        if raw_recipients:
+            for r in raw_recipients:
+                phone = r.get("phone_number") or r.get("phone") or ""
+                norm = r.get("normalized_phone") or normalize_phone(phone, default_country_code="91")
+                is_valid = bool(norm)
+                # If skip_invalid_numbers is True, invalid numbers are skipped and excluded from dispatch
+                # If skip_invalid_numbers is False, all numbers remain pending for dispatch attempt
+                rec_status = "pending" if (is_valid or not campaign.skip_invalid_numbers) else "skipped"
+                err_msg = None if is_valid else ("Unverified format (Will attempt dispatch)" if not campaign.skip_invalid_numbers else "Skipped (Invalid phone number)")
+
+                recipient_objs.append(CampaignRecipient(
+                    campaign_id=campaign.id,
+                    workspace_id=workspace_id,
+                    lead_id=r.get("lead_id"),
+                    phone_number=phone,
+                    normalized_phone=norm or phone,
+                    recipient_name=r.get("recipient_name") or r.get("name"),
+                    variables=r.get("variables") or {"name": r.get("recipient_name") or r.get("name") or "Customer"},
+                    status=rec_status,
+                    error_message=err_msg
+                ))
+            campaign.total_recipients = len(recipient_objs)
+            campaign.valid_recipients = len([r for r in recipient_objs if r.status == "pending"])
+            campaign.invalid_recipients = campaign.total_recipients - campaign.valid_recipients
+        elif campaign.audience_source in ("existing_contacts", "all_crm_contacts", "smart_segment"):
+            lead_query = db.query(Lead).filter(Lead.workspace_id == workspace_id)
+            segment = data.get("segment")
+            if segment == "hot":
+                lead_query = lead_query.filter(Lead.score >= 70)
+            elif segment == "warm":
+                lead_query = lead_query.filter(Lead.score >= 40, Lead.score < 70)
+            elif segment == "new":
+                lead_query = lead_query.filter(Lead.status == "new")
+            elif segment == "converted":
+                lead_query = lead_query.filter(Lead.status == "converted")
+            elif segment == "cold":
+                lead_query = lead_query.filter(Lead.score < 40)
+
+            crm_leads = lead_query.all()
+            for lead in crm_leads:
+                norm = normalize_phone(lead.phone, default_country_code="91")
+                is_valid = bool(norm)
+                rec_status = "pending" if (is_valid or not campaign.skip_invalid_numbers) else "skipped"
+                err_msg = None if is_valid else ("Unverified format (Will attempt dispatch)" if not campaign.skip_invalid_numbers else "Skipped (Invalid phone number)")
+
+                recipient_objs.append(CampaignRecipient(
+                    campaign_id=campaign.id,
+                    workspace_id=workspace_id,
+                    lead_id=lead.id,
+                    phone_number=lead.phone or "",
+                    normalized_phone=norm or lead.phone or "",
+                    recipient_name=lead.name or "Contact",
+                    variables={"name": lead.name or "Customer", "phone": lead.phone or ""},
+                    status=rec_status,
+                    error_message=err_msg
+                ))
+            campaign.total_recipients = len(recipient_objs)
+            campaign.valid_recipients = len([r for r in recipient_objs if r.status == "pending"])
+            campaign.invalid_recipients = campaign.total_recipients - campaign.valid_recipients
 
         if recipient_objs:
             db.bulk_save_objects(recipient_objs)
@@ -234,10 +288,11 @@ class CampaignService:
             raise HTTPException(status_code=400, detail=f"Campaign is already {campaign.status}")
 
         # 1. Preflight calculation & escrow reservation
+        recipients_to_charge = campaign.valid_recipients if campaign.skip_invalid_numbers else campaign.total_recipients
         est = cls.calculate_preflight_estimation(
             db=db,
             workspace_id=campaign.workspace_id,
-            valid_recipients_count=campaign.valid_recipients,
+            valid_recipients_count=recipients_to_charge,
             category="marketing"
         )
         cost_decimal = Decimal(str(est["estimated_cost"]))

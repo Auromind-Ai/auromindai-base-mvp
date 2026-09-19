@@ -50,12 +50,26 @@ class AudienceService:
         Parses an uploaded CSV file containing contacts.
         Extracts Name, Phone, Email, and dynamic variables.
         """
-        try:
-            text_content = file_content.decode("utf-8-sig", errors="replace")
-        except Exception:
-            text_content = file_content.decode("latin1", errors="replace")
+        # Try multiple encodings
+        text_content = ""
+        for enc in ["utf-8-sig", "utf-8", "latin1", "cp1252"]:
+            try:
+                text_content = file_content.decode(enc)
+                break
+            except Exception:
+                continue
+        if not text_content:
+            text_content = file_content.decode("utf-8", errors="replace")
 
-        reader = csv.DictReader(io.StringIO(text_content))
+        # Detect delimiter (comma, semicolon, tab)
+        delimiter = ","
+        first_line = text_content.strip().split("\n")[0] if text_content.strip() else ""
+        if ";" in first_line and first_line.count(";") > first_line.count(","):
+            delimiter = ";"
+        elif "\t" in first_line and first_line.count("\t") > first_line.count(","):
+            delimiter = "\t"
+
+        reader = csv.DictReader(io.StringIO(text_content), delimiter=delimiter)
         if not reader.fieldnames:
             return {
                 "total": 0,
@@ -65,38 +79,57 @@ class AudienceService:
                 "invalid_sample": []
             }
 
-        # Normalize field headers to lowercase
+        # Flexible alphanumeric header mapping
         field_map = {}
         for fn in reader.fieldnames:
-            norm = fn.strip().lower()
-            field_map[norm] = fn
+            if fn:
+                clean = re.sub(r"[^a-z0-9]", "", str(fn).strip().lower())
+                field_map[clean] = fn
 
         # Detect phone column
         phone_key = None
-        for candidate in ["phone", "phone_number", "mobile", "contact", "whatsapp", "cell"]:
-            if candidate in field_map:
-                phone_key = field_map[candidate]
+        for clean_name, orig in field_map.items():
+            if any(k in clean_name for k in ["phone", "mobile", "whatsapp", "contact", "cell", "tel"]):
+                phone_key = orig
                 break
+        if not phone_key:
+            for clean_name, orig in field_map.items():
+                if any(k in clean_name for k in ["number", "num"]):
+                    phone_key = orig
+                    break
 
-        # Fallback to first field with digits
         if not phone_key and reader.fieldnames:
             phone_key = reader.fieldnames[0]
 
+        # Detect name column
         name_key = None
-        for candidate in ["name", "full_name", "first_name", "customer_name"]:
-            if candidate in field_map:
-                name_key = field_map[candidate]
+        for clean_name, orig in field_map.items():
+            if any(k in clean_name for k in ["name", "fullname", "firstname", "customer", "lead", "client", "user"]):
+                name_key = orig
                 break
 
+        # Detect email column
         email_key = None
-        for candidate in ["email", "email_address", "mail"]:
-            if candidate in field_map:
-                email_key = field_map[candidate]
+        for clean_name, orig in field_map.items():
+            if any(k in clean_name for k in ["email", "mail"]):
+                email_key = orig
                 break
 
         valid_recipients = []
         invalid_sample = []
         seen_phones = set()
+
+        # If header itself is a phone number (headerless file)
+        if phone_key:
+            header_norm = cls.normalize_phone(phone_key, default_country_code=default_country_code)
+            if header_norm:
+                seen_phones.add(header_norm)
+                valid_recipients.append({
+                    "phone_number": phone_key,
+                    "normalized_phone": header_norm,
+                    "recipient_name": "",
+                    "variables": {"phone": header_norm}
+                })
 
         for idx, row in enumerate(reader, start=1):
             raw_phone = row.get(phone_key, "") if phone_key else ""
@@ -204,3 +237,6 @@ class AudienceService:
             })
 
         return recipients
+
+
+normalize_phone = AudienceService.normalize_phone

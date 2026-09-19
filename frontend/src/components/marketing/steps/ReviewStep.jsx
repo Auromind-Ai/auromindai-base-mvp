@@ -66,16 +66,16 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
 
             <div className="grid grid-cols-2 gap-y-2.5 text-xs">
               <span className="text-[#8c88a6]">Campaign Name</span>
-              <span className="text-white font-medium text-right sm:text-left">{data.name || 'Diwali Offer 2025'}</span>
+              <span className="text-white font-medium text-right sm:text-left">{data.name || 'Untitled Campaign'}</span>
 
               <span className="text-[#8c88a6]">Campaign Type</span>
               <span className="text-white font-medium text-right sm:text-left">{data.type || 'Promotional'}</span>
 
               <span className="text-[#8c88a6]">WhatsApp Number</span>
-              <span className="text-white font-medium text-right sm:text-left">{data.whatsappNumber || '+91 98765 43210'}</span>
+              <span className="text-white font-medium text-right sm:text-left">{data.whatsappNumber || 'Not configured'}</span>
 
               <span className="text-[#8c88a6]">Campaign Goal</span>
-              <span className="text-white font-medium text-right sm:text-left">{data.goal || 'Increase sales'}</span>
+              <span className="text-white font-medium text-right sm:text-left">{data.goal || 'General Announcements'}</span>
             </div>
           </div>
 
@@ -107,22 +107,22 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
 
               <span className="text-[#8c88a6]">Contact List</span>
               <span className="text-white font-medium text-right sm:text-left">
-                {data.audienceListName || 'All Customers'} ({(data.recipientsCount || 2480).toLocaleString()} contacts)
+                {data.audienceListName || 'Custom Audience'} ({(data.recipientsCount || 0).toLocaleString()} contacts)
               </span>
 
               <span className="text-[#8c88a6]">Valid Numbers</span>
               <span className="text-emerald-400 font-medium text-right sm:text-left">
-                {(data.validRecipients || 2430).toLocaleString()} (98.0%)
+                {(data.validRecipients || 0).toLocaleString()} ({data.recipientsCount > 0 ? ((data.validRecipients / data.recipientsCount) * 100).toFixed(1) : '0.0'}%)
               </span>
 
               <span className="text-[#8c88a6]">Invalid / Opted-out</span>
               <span className="text-amber-400 font-medium text-right sm:text-left">
-                {(data.invalidRecipients || 50).toLocaleString()} (2.0%)
+                {(data.invalidRecipients || 0).toLocaleString()} ({data.recipientsCount > 0 ? ((data.invalidRecipients / data.recipientsCount) * 100).toFixed(1) : '0.0'}%)
               </span>
 
               <span className="text-[#8c88a6]">Estimated Cost</span>
-              <span className="text-white font-medium text-right sm:text-left">
-                ~ {(data.validRecipients || 2430).toLocaleString()} messages
+              <span className="text-emerald-400 font-semibold text-right sm:text-left">
+                {data.estimatedCost ? `₹${Number(data.estimatedCost).toFixed(2)}` : `~ ${(data.validRecipients || 0).toLocaleString()} messages`}
               </span>
             </div>
           </div>
@@ -157,17 +157,17 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
 
               <span className="text-[#8c88a6]">Message Preview</span>
               <span className="text-[#D4D4D4] font-medium text-right sm:text-left truncate max-w-[220px]">
-                {data.messageBody?.slice(0, 45) || 'Hi {{name}}, This Diwali, get up to 50% OFF...'}
+                {data.messageBody?.slice(0, 45) ? data.messageBody.slice(0, 45) + (data.messageBody.length > 45 ? '...' : '') : 'No message content'}
               </span>
 
               <span className="text-[#8c88a6]">Media</span>
               <span className="text-white font-medium text-right sm:text-left">
-                {data.mediaUrl ? '1 image (Diwali Offer)' : 'None'}
+                {data.mediaUrl ? (data.mediaName || '1 attachment') : 'None'}
               </span>
 
               <span className="text-[#8c88a6]">Variables</span>
               <span className="text-[#C49FE0] text-[11px] text-right sm:text-left">
-                {'{{name}}, {{coupon_code}}, {{website}}'}
+                {data.messageBody ? ([...new Set(data.messageBody.match(/\{\{([a-zA-Z0-9_]+)\}\}/g) || [])].join(', ') || 'None') : 'None'}
               </span>
             </div>
           </div>
@@ -196,11 +196,11 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
 
             <div className="grid grid-cols-2 gap-y-2.5 text-xs">
               <span className="text-[#8c88a6]">Send Type</span>
-              <span className="text-white font-medium text-right sm:text-left">{data.sendType || 'Scheduled'}</span>
+              <span className="text-white font-medium text-right sm:text-left">{data.sendType || 'Send Now'}</span>
 
               <span className="text-[#8c88a6]">Date & Time</span>
               <span className="text-white font-medium text-right sm:text-left">
-                {data.scheduleDate || 'Oct 28, 2025'} at {data.scheduleTime || '10:30 AM'} (IST)
+                {data.sendType === 'Send Now' ? 'Immediate dispatch upon launch' : `${data.scheduleDate || 'Today'} at ${data.scheduleTime || '10:00 AM'} (IST)`}
               </span>
 
               <span className="text-[#8c88a6]">Timezone</span>
@@ -210,7 +210,26 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
 
               <span className="text-[#8c88a6]">Sending Preferences</span>
               <span className="text-white font-medium text-right sm:text-left">
-                Gradual ({data.sendingRate || 100} msgs/min), Skip invalid
+                {(() => {
+                  const prefs = [];
+                  if (data.sendGradually) {
+                    prefs.push(`Gradual (${data.sendingRate || 100}/min)`);
+                  } else {
+                    prefs.push('Immediate blast');
+                  }
+                  if (data.skipInvalid) {
+                    prefs.push('Skip invalid');
+                  } else {
+                    prefs.push('Attempt all');
+                  }
+                  if (data.stopOnFailure) {
+                    prefs.push('Circuit breaker (10%)');
+                  }
+                  if (data.quietHours) {
+                    prefs.push('Quiet hours (10 PM - 8 AM)');
+                  }
+                  return prefs.join(', ');
+                })()}
               </span>
             </div>
           </div>
@@ -255,6 +274,15 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
             <span className="text-[#814AC8] underline font-medium">WhatsApp&apos;s Business Policy</span> and guidelines.
           </label>
         </div>
+
+        {data.isBalanceSufficient === false && (
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs flex items-center gap-2">
+            <ShieldCheck size={16} className="text-amber-400 shrink-0" />
+            <span>
+              Notice: Your current WCC wallet available balance may be below the full escrow required for this campaign. Please ensure your wallet has sufficient funds.
+            </span>
+          </div>
+        )}
 
         {error && <p className="text-xs text-rose-400 font-medium">{error}</p>}
 
