@@ -151,7 +151,6 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
   useEffect(() => {
     let isMounted = true;
     const targetWsId = workspaceId || data?.workspaceId;
-    setIsLoadingTemplates(true);
     fetchApprovedTemplates(targetWsId)
       .then((tpls) => {
         if (isMounted) {
@@ -346,18 +345,18 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     <div className="space-y-6">
       {/* Top Header */}
       <div>
-        <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight">
+        <h3 className="text-base sm:text-lg font-medium text-white tracking-tight">
           Select Message Template
         </h3>
-        <p className="text-xs text-[#8c88a6] mt-0.5">
+        <p className="text-xs sm:text-sm text-[#c4c0db] mt-1 font-normal">
           Choose an official Meta-approved template for your campaign. Personalize it with variables to make it more engaging.
         </p>
       </div>
 
       {/* Mode Indicator: Use Template Only */}
       <div className="flex items-center gap-2 p-1 rounded-xl bg-[#0f0e1c] border border-[#251f42] w-fit">
-        <div className="py-2 px-3.5 rounded-lg text-xs font-medium flex items-center justify-center gap-2 bg-[#814AC8] text-white shadow-[0_0_12px_rgba(129,74,200,0.35)]">
-          <FileText size={13} />
+        <div className="py-2 px-3.5 rounded-lg text-xs sm:text-sm font-medium flex items-center justify-center gap-2 bg-[#814AC8] text-white shadow-[0_0_12px_rgba(129,74,200,0.35)]">
+          <FileText size={14} />
           <span>Use Template</span>
         </div>
       </div>
@@ -366,12 +365,12 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
         {/* Left Column (7 cols): Templates List */}
         <div className="lg:col-span-7 space-y-3">
-          <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs text-[#d8b4fe] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CheckCircle size={15} className="text-emerald-400 shrink-0" />
+          <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs sm:text-sm text-[#e4e4e7] flex items-center justify-between font-normal">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle size={16} className="text-emerald-400 shrink-0" />
               <span>Showing official Meta-approved message templates for high deliverability.</span>
             </div>
-            <span className="text-[11px] font-semibold text-[#C49FE0]">
+            <span className="text-xs font-medium text-[#C49FE0] shrink-0 ml-2">
               {filteredTemplates.length} Active
             </span>
           </div>
@@ -379,35 +378,35 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
           {/* Filter and Search Controls */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <div className="relative flex-1">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6d688c]" />
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8c88a6]" />
               <input
                 type="text"
                 value={templateSearch}
                 onChange={(e) => setTemplateSearch(e.target.value)}
                 placeholder="Search templates by name or text..."
-                className="w-full pl-8 pr-7 py-1.5 rounded-lg bg-[#0c0b17] border border-[#251f42] text-xs text-white placeholder-[#585375] outline-none focus:border-[#814AC8]"
+                className="w-full pl-9 pr-7 py-2 rounded-xl bg-[#0c0b17] border border-[#251f42] text-xs sm:text-sm text-white placeholder-[#716d8a] outline-none focus:border-[#814AC8] font-normal"
               />
               {templateSearch && (
                 <button
                   type="button"
                   onClick={() => setTemplateSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8c88a6] hover:text-white"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#c4c0db] hover:text-white"
                 >
-                  <X size={12} />
+                  <X size={14} />
                 </button>
               )}
             </div>
 
-            <div className="flex items-center gap-1 bg-[#0c0b17] p-1 rounded-lg border border-[#251f42]">
+            <div className="flex items-center gap-1 bg-[#0c0b17] p-1 rounded-xl border border-[#251f42]">
               {['ALL', 'MARKETING', 'UTILITY'].map((cat) => (
                 <button
                   key={cat}
                   type="button"
                   onClick={() => setTemplateCategoryFilter(cat)}
-                  className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                     templateCategoryFilter === cat
                       ? 'bg-[#814AC8] text-white'
-                      : 'text-[#8c88a6] hover:text-white'
+                      : 'text-[#c4c0db] hover:text-white'
                   }`}
                 >
                   {cat === 'ALL' ? 'All' : cat.charAt(0) + cat.slice(1).toLowerCase()}
@@ -418,7 +417,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
           {/* Templates List */}
           {isLoadingTemplates ? (
-            <div className="p-8 text-center rounded-xl bg-[#0c0b17] border border-[#251f42] text-xs text-[#8c88a6]">
+            <div className="p-8 text-center rounded-xl bg-[#0c0b17] border border-[#251f42] text-xs sm:text-sm text-[#c4c0db]">
               Loading official templates from database...
             </div>
           ) : filteredTemplates.length === 0 ? (
@@ -427,10 +426,10 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                 <FileText size={20} />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-white">
+                <h4 className="text-xs sm:text-sm font-medium text-white">
                   {templates.length === 0 ? 'No Approved Templates Available' : 'No Matching Templates Found'}
                 </h4>
-                <p className="text-[11px] text-[#8c88a6] max-w-xs mt-1">
+                <p className="text-xs text-[#c4c0db] max-w-xs mt-1 font-normal leading-relaxed">
                   {templates.length === 0
                     ? 'Only Meta-approved templates can be used for WhatsApp campaigns. Create and submit templates in Template Studio.'
                     : 'Try adjusting your search terms or category filter.'}
@@ -442,7 +441,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                     href="/user/admin/templates/create"
                     target="_blank"
                     rel="noreferrer"
-                    className="px-3 py-1.5 rounded-lg bg-[#814AC8] text-white text-xs font-semibold hover:bg-[#703db5]"
+                    className="px-3 py-1.5 rounded-lg bg-[#814AC8] text-white text-xs sm:text-sm font-medium hover:bg-[#703db5]"
                   >
                     Create in Template Studio
                   </a>
@@ -454,34 +453,34 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                     setTemplateSearch('');
                     setTemplateCategoryFilter('ALL');
                   }}
-                  className="text-xs text-[#814AC8] hover:underline"
+                  className="text-xs sm:text-sm text-[#814AC8] hover:underline font-medium"
                 >
                   Clear Filters
                 </button>
               )}
             </div>
           ) : (
-            <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+            <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
               {filteredTemplates.map((tpl) => {
                 const isSelected = String(selectedTemplateId) === String(tpl.id);
                 return (
                   <div
                     key={tpl.id}
                     onClick={() => handleSelectTemplate(tpl)}
-                    className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    className={`p-4 rounded-xl border border-white/[0.07] cursor-pointer transition-all duration-200 ${
                       isSelected
-                        ? 'bg-[#1a0f2e] border-[#814AC8] shadow-[0_0_15px_rgba(129,74,200,0.25)]'
-                        : 'bg-[#0f0e1c] border-[#251f42] hover:border-[#382f61]'
+                        ? 'bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white'
+                        : 'bg-[#0d0e17] hover:border-white/20 text-[#8e95ab] hover:text-white'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white tracking-tight">{tpl.name}</span>
+                        <span className="text-xs sm:text-sm font-medium text-white tracking-tight">{tpl.name}</span>
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
                             tpl.category === 'MARKETING'
                               ? 'bg-[#814AC8]/20 text-[#C49FE0] border-[#814AC8]/30'
-                              : 'bg-blue-500/15 text-blue-400 border-blue-500/25'
+                              : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
                           }`}
                         >
                           {tpl.category}
@@ -489,29 +488,29 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                       </div>
                       <div className="flex items-center gap-1.5">
                         {isSelected && (
-                          <CheckCircle size={14} className="text-[#C49FE0]" />
+                          <CheckCircle size={15} className="text-white" />
                         )}
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
                           APPROVED
                         </span>
                       </div>
                     </div>
 
                     {tpl.header && (
-                      <div className="text-[11px] font-semibold text-slate-200 mb-1">
+                      <div className="text-xs sm:text-[13px] font-medium text-white mb-1.5">
                         {tpl.header}
                       </div>
                     )}
 
-                    <p className="text-xs text-[#a8a3c2] leading-relaxed line-clamp-3">
+                    <p className={`text-xs sm:text-sm leading-relaxed line-clamp-3 font-normal ${isSelected ? 'text-white/90' : 'text-[#c4c0db]'}`}>
                       {tpl.body || tpl.content}
                     </p>
 
                     {(tpl.footer || (tpl.variables && tpl.variables.length > 0)) && (
-                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#251f42]/60 text-[10px] text-[#6d688c]">
-                        <span>{tpl.footer || 'Meta Verified Template'}</span>
+                      <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-white/[0.07] text-xs text-[#c4c0db]">
+                        <span className={isSelected ? 'text-white/80' : ''}>{tpl.footer || 'Meta Verified Template'}</span>
                         {tpl.variables && tpl.variables.length > 0 && (
-                          <span className="text-[#C49FE0] font-medium">
+                          <span className={isSelected ? 'text-white font-medium' : 'text-[#C49FE0] font-medium'}>
                             Variables: {tpl.variables.join(', ')}
                           </span>
                         )}
@@ -523,7 +522,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
             </div>
           )}
 
-          {error && <p className="text-xs text-rose-400">{error}</p>}
+          {error && <p className="text-xs sm:text-sm text-rose-400 font-medium">{error}</p>}
         </div>
 
         {/* Right Column (5 cols): Variable Mapping + Preview + Quick Tips */}
@@ -644,8 +643,8 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                 })}
               </div>
             ) : (
-              <div className="p-4 rounded-lg bg-[#141228]/60 border border-[#251f42]/60 text-center">
-                <p className="text-[11px] text-[#8c88a6]">
+              <div className="p-4 rounded-xl bg-[#141228]/60 border border-[#251f42]/60 text-center">
+                <p className="text-xs text-[#c4c0db] font-normal">
                   {selectedTemplate
                     ? 'This template does not have any variables.'
                     : 'Select an approved template from the left to map its variables.'}
@@ -657,8 +656,8 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
           {/* Dynamic WhatsApp Preview with live variable substitution from Row 1 */}
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-medium text-[#8c88a6] flex items-center gap-1">
-                Message Preview <Info size={11} className="text-[#814AC8]" />
+              <span className="text-xs sm:text-sm font-medium text-[#c4c0db] flex items-center gap-1.5">
+                Message Preview <Info size={13} className="text-[#814AC8]" />
               </span>
               {displayedVariables.length > 0 && (
                 <span className="text-[10px] text-purple-400 font-medium flex items-center gap-1 truncate max-w-[200px]" title={data?.recipients?.[0] ? `Previewing with contact: ${data.recipients[0].recipient_name || data.recipients[0].name || data.recipients[0].phone_number}` : 'Live sample preview'}>
@@ -688,11 +687,11 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
       </div>
 
       {/* Action Buttons */}
-      <div className="pt-4 border-t border-[#251f42]/70 flex items-center justify-between">
+      <div className="pt-6 mt-4 border-t border-[#1b2238] flex items-center justify-between">
         <button
           type="button"
           onClick={onBack}
-          className="px-4 py-2 rounded-xl text-xs font-medium text-[#9da3ae] bg-[#121024] border border-[#251f42] hover:text-white hover:border-[#3d3363] transition-all"
+          className="px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl text-xs sm:text-sm font-medium text-white/80 bg-[#101424] border border-[#1e263c] hover:bg-[#181e34] hover:text-white transition-all"
         >
           ← Back
         </button>
@@ -700,7 +699,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
         <button
           type="button"
           onClick={handleProceed}
-          className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_25px_rgba(129,74,200,0.6)] flex items-center gap-1.5 transition-all"
+          className="px-6 py-2.5 sm:px-7 sm:py-3 rounded-xl text-xs sm:text-sm font-medium text-white bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_18px_rgba(129,74,200,0.4)] flex items-center gap-2 transition-all active:scale-[0.98]"
         >
           <span>Next</span>
           <span>→</span>

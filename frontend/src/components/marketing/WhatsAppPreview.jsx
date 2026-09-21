@@ -5,12 +5,7 @@ import {
   Phone,
   MoreVertical,
   ChevronLeft,
-  CheckCheck,
   Sparkles,
-  Info,
-  ExternalLink,
-  ShoppingBag,
-  Image as ImageIcon
 } from 'lucide-react';
 
 export default function WhatsAppPreview({
@@ -19,25 +14,22 @@ export default function WhatsAppPreview({
   variables = {},
   mediaUrl = null,
   mediaName = 'Attachment',
-  timestamp = '10:00 AM',
-  interactiveButtons = [],
-  title = 'Message Preview',
-  showInfo = true,
-  viewMode = 'whatsapp'
+  timestamp = '9:41 AM',
 }) {
-  // Interpolate variables like {{name}} -> "Arjun", {{coupon_code}} -> "PROMO10", etc.
   const renderInterpolatedText = () => {
-    if (!messageText) {
+    if (!messageText || !messageText.trim()) {
       return (
-        <div className="py-6 text-center text-[#9da3ae] text-xs italic">
-          Message preview will appear here
+        <div className="space-y-2 text-[11px] leading-relaxed text-white/90">
+          <p>Hi {'{{name}}'},</p>
+          <p>✨ This Diwali, get up to <span className="font-semibold text-white">50% OFF</span> on our exclusive collection! 🎁</p>
+          <p>Shop now and make this festival brighter with OrbionAgents.</p>
         </div>
       );
     }
 
     let result = messageText;
     const defaults = {
-      name: 'John Doe',
+      name: '{{name}}',
       phone: '+91 90000 00000',
       email: 'john@example.com',
       coupon_code: 'SAVE10',
@@ -46,115 +38,76 @@ export default function WhatsAppPreview({
       ...variables
     };
 
-    // Replace {{key}} or {{1}}, {{2}} with preview values
     Object.keys(defaults).forEach((k) => {
       const reg = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
       result = result.replace(reg, defaults[k]);
     });
-    result = result.replace(/\{\{\s*1\s*\}\}/g, defaults.name || 'John Doe');
-    result = result.replace(/\{\{\s*2\s*\}\}/g, defaults.coupon_code || 'SAVE10');
-    result = result.replace(/\{\{\s*3\s*\}\}/g, defaults.website || 'https://yourstore.com');
 
     return (
-      <div className="whitespace-pre-line text-[11px] leading-relaxed text-[#e5e7eb]">
+      <div className="whitespace-pre-line text-[11px] leading-relaxed text-white/90">
         {result}
       </div>
     );
   };
 
   return (
-    <div className="w-full flex flex-col items-center">
+    <div className="w-full flex flex-col">
       {/* Phone Mockup Wrapper */}
-      <div className="w-full max-w-[320px] sm:max-w-[340px] rounded-[32px] bg-[#090812] border-2 border-[#2b2447] shadow-[0_16px_40px_rgba(0,0,0,0.6)] overflow-hidden transition-all duration-300">
+      <div className="w-full rounded-[22px] bg-[#070912] border-2 border-[#1c233a] p-3 shadow-2xl overflow-hidden transition-all duration-200">
         {/* Status Bar */}
-        <div className="px-5 pt-3 pb-1 flex items-center justify-between text-[11px] text-[#9ca3af] font-medium tracking-tight">
+        <div className="px-2 pt-1 pb-2 flex items-center justify-between text-[10px] text-white/60 font-medium tracking-tight">
           <span>9:41</span>
-          <div className="w-16 h-4 bg-black/80 rounded-full mx-auto" />
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px]">5G</span>
-            <div className="w-4 h-2.5 border border-[#9ca3af] rounded-[2px] p-[1px]">
-              <div className="h-full w-3/4 bg-[#9ca3af] rounded-[1px]" />
+            <svg className="w-3 h-2.5 fill-current text-white/60" viewBox="0 0 24 24">
+              <path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 21l3.53-.93C9.36 20.65 10.64 21 12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9z"/>
+            </svg>
+            <div className="w-4 h-2 border border-white/60 rounded-[2px] p-[1px]">
+              <div className="h-full w-3/4 bg-white/80 rounded-[1px]" />
             </div>
           </div>
         </div>
 
         {/* WhatsApp App Header */}
-        <div className="bg-[#121024] px-3.5 py-2.5 flex items-center justify-between border-b border-[#251f3d]">
+        <div className="bg-[#0f1322] rounded-xl px-2.5 py-2 flex items-center justify-between border border-[#1b2238] mb-2.5">
           <div className="flex items-center gap-2">
-            <ChevronLeft size={16} className="text-[#a5b4fc] shrink-0 cursor-pointer" />
+            <ChevronLeft size={14} className="text-white/60 shrink-0 cursor-pointer" />
             <div className="relative">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#814AC8] to-[#4338ca] flex items-center justify-center text-white text-xs font-bold shadow-sm">
-                <Sparkles size={14} className="text-white" />
+              <div className="w-6 h-6 rounded-full bg-[#814AC8]/30 border border-[#814AC8]/40 flex items-center justify-center text-white text-xs font-bold">
+                <Sparkles size={11} className="text-[#C49FE0]" />
               </div>
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#22c55e] border-2 border-[#121024]" />
             </div>
             <div className="leading-tight">
               <div className="flex items-center gap-1">
-                <span className="text-xs font-semibold text-white tracking-tight">
-                  {businessName}
+                <span className="text-[11px] font-semibold text-white tracking-tight">
+                  {businessName || 'Your Business'}
                 </span>
-                <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#22c55e] text-black text-[9px] font-black">
+                <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-[#22c55e] text-black text-[8px] font-black">
                   ✓
                 </span>
               </div>
-              <span className="text-[9px] text-[#8c88a6] block">
+              <span className="text-[9px] text-[#8c94a6] block">
                 Business Account
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-[#a5b4fc]">
-            <Phone size={14} className="cursor-pointer hover:text-white transition-colors" />
-            <MoreVertical size={14} className="cursor-pointer hover:text-white transition-colors" />
+          <div className="flex items-center gap-2.5 text-white/60">
+            <Phone size={12} className="cursor-pointer hover:text-white" />
+            <MoreVertical size={12} className="cursor-pointer hover:text-white" />
           </div>
         </div>
 
         {/* Chat Screen Canvas */}
-        <div className="min-h-[300px] max-h-[360px] p-3.5 flex flex-col justify-between bg-[#080710] bg-[radial-gradient(#1e1a38_1px,transparent_1px)] [background-size:16px_16px] overflow-y-auto custom-scrollbar">
-          {/* Date separator */}
-          <div className="text-center my-1.5">
-            <span className="px-2.5 py-0.5 rounded-full bg-[#18152e] text-[#8c88a6] text-[9px] font-medium border border-[#2b2447]">
-              Today
-            </span>
-          </div>
-
+        <div className="p-2.5 flex flex-col justify-between bg-[#080a14] rounded-xl border border-[#151b2e] min-h-[170px]">
           {/* WhatsApp Message Bubble */}
-          <div className="max-w-[94%] bg-[#15122b] border border-[#2d2650] rounded-2xl rounded-tl-none p-3 shadow-md space-y-2 relative">
-            {/* Optional Attached Media Card */}
-            {(mediaUrl || mediaName) && (
-              <div className="rounded-xl overflow-hidden bg-[#1f1b3d] border border-[#3b3363] p-3 text-center shadow-inner relative group">
-                <div className="flex flex-col items-center justify-center py-2 text-center">
-                  <div className="w-8 h-8 rounded-lg bg-[#814AC8]/20 flex items-center justify-center text-[#C49FE0] mb-1.5">
-                    <ImageIcon size={18} />
-                  </div>
-                  <div className="text-xs font-semibold text-white tracking-tight">
-                    {mediaName || 'Attached Media'}
-                  </div>
-                  <span className="text-[10px] text-[#8c88a6] mt-0.5">
-                    Attachment preview
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Interpolated Body Text */}
+          <div className="bg-[#131929] border border-[#1e2740] rounded-2xl rounded-tl-sm p-3.5 shadow-sm space-y-2 relative max-w-[95%]">
+            {/* Body Text */}
             {renderInterpolatedText()}
 
-            {/* Timestamp and Read Status */}
-            <div className="flex items-center justify-end gap-1 text-[9px] text-[#8c88a6] pt-1">
+            {/* Timestamp */}
+            <div className="flex items-center justify-end text-[9px] text-[#717b96] pt-0.5">
               <span>{timestamp}</span>
-              <CheckCheck size={12} className="text-[#38bdf8]" />
             </div>
-          </div>
-        </div>
-
-        {/* WhatsApp Mobile Input Footer Bar */}
-        <div className="bg-[#121024] px-3 py-2 border-t border-[#251f3d] flex items-center gap-2">
-          <div className="flex-1 bg-[#1a1636] rounded-full px-3 py-1.5 text-[10px] text-[#6d688c]">
-            Message...
-          </div>
-          <div className="w-6 h-6 rounded-full bg-[#814AC8] flex items-center justify-center text-white text-xs">
-            ➤
           </div>
         </div>
       </div>

@@ -5,13 +5,13 @@ import { Moon, Info } from 'lucide-react';
 
 export default function QuietHours({ enabled, onChange }) {
   return (
-    <div className="rounded-xl bg-[#0f0e1c] border border-[#251f42] p-4 text-xs transition-all duration-200 hover:border-purple-500/30">
-      <div className="flex items-center justify-between gap-3 mb-2">
+    <div className="rounded-xl bg-[#0a0d17] border border-[#1a2136] p-4 sm:p-5 text-xs sm:text-sm transition-all duration-200">
+      <div className="flex items-center justify-between gap-3 mb-2.5">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-indigo-500/15 flex items-center justify-center text-indigo-400">
-            <Moon size={14} />
+          <div className="w-7 h-7 rounded-lg bg-[#814AC8]/20 flex items-center justify-center text-[#C49FE0]">
+            <Moon size={15} />
           </div>
-          <span className="font-semibold text-white text-xs">Quiet Hours</span>
+          <span className="font-medium text-white text-xs sm:text-sm">Quiet Hours</span>
         </div>
 
         {/* Toggle Switch */}
@@ -21,7 +21,7 @@ export default function QuietHours({ enabled, onChange }) {
           aria-checked={enabled}
           onClick={() => onChange(!enabled)}
           className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-            enabled ? 'bg-[#814AC8]' : 'bg-[#2a2640]'
+            enabled ? 'bg-[#814AC8]' : 'bg-[#1b2238]'
           }`}
         >
           <span
@@ -32,12 +32,12 @@ export default function QuietHours({ enabled, onChange }) {
         </button>
       </div>
 
-      <p className="text-[#8c88a6] text-[11px] leading-relaxed mb-3">
+      <p className="text-[#c4c0db] text-xs sm:text-[13px] leading-relaxed mb-3 font-normal">
         Avoid sending messages during non-business hours to maintain a good customer experience.
       </p>
 
-      <div className="flex items-center gap-1.5 text-[10px] text-[#6d688c]">
-        <Info size={11} className="text-[#814AC8] shrink-0" />
+      <div className="flex items-center gap-2 text-xs text-[#a1a1aa] font-normal">
+        <Info size={13} className="text-[#814AC8] shrink-0" />
         <span>Quiet hours: 10:00 PM - 8:00 AM (IST)</span>
       </div>
     </div>

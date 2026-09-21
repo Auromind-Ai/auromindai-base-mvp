@@ -71,6 +71,18 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
     }).finally(() => {
       if (isMounted) setIsLoadingPhone(false);
     });
+
+    if (!data.whatsappNumber) {
+      updateData({
+        whatsappNumber: '+91 98765 43210',
+        phoneNumberId: 'primary_number',
+      });
+    }
+
+    if (!data.goal) {
+      updateData({ goal: 'Increase sales' });
+    }
+
     return () => {
       isMounted = false;
     };
@@ -130,28 +142,23 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
   const selectedPhone = phoneNumbers.find((n) => n.phone === data.whatsappNumber) || phoneNumbers[0];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 xl:gap-10 items-start">
       {/* Left Column: Form Fields */}
-      <div className="lg:col-span-7 space-y-6">
+      <div className="lg:col-span-7 xl:col-span-7 space-y-5">
         <div>
-          <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight">
+          <h3 className="text-sm sm:text-base font-semibold text-white tracking-tight">
             Campaign Details
           </h3>
-          <p className="text-xs text-[#8c88a6] mt-0.5">
+          <p className="text-xs sm:text-sm text-[#8c94a6] mt-0.5">
             Give your campaign a name and select the WhatsApp number.
           </p>
         </div>
 
         {/* 1. Campaign Name */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-[#D4D4D4]">
-              Campaign Name <span className="text-[#814AC8]">*</span>
-            </label>
-            <span className="text-[11px] text-[#6d688c]">
-              {(data.name || '').length}/100
-            </span>
-          </div>
+        <div className="space-y-1.5 pt-1">
+          <label className="text-xs sm:text-sm font-medium text-[#d1d5db] block">
+            Campaign Name <span className="text-rose-500">*</span>
+          </label>
 
           <input
             type="text"
@@ -161,58 +168,53 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
               updateData({ name: e.target.value });
               if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
             }}
-            placeholder="e.g. Summer Promo 2026, New Feature Announcement..."
-            className={`w-full px-3.5 py-2.5 rounded-xl bg-[#0f0e1c] border text-xs sm:text-sm text-white placeholder-[#585375] outline-none transition-all duration-200 focus:border-[#814AC8] focus:ring-1 focus:ring-[#814AC8]/50 ${
-              errors.name ? 'border-rose-500/70' : 'border-[#251f42]'
+            placeholder="Diwali Offer 2025"
+            className={`w-full px-4 py-3 rounded-xl bg-[#080a12] border text-xs sm:text-sm text-white placeholder-[#586174] outline-none transition-all duration-200 focus:border-[#814AC8] ${
+              errors.name ? 'border-rose-500/70' : 'border-[#1b2238]'
             }`}
           />
-          {errors.name && (
-            <p className="text-[11px] text-rose-400 mt-1">{errors.name}</p>
-          )}
+          <div className="flex items-center justify-between text-[11px] sm:text-xs mt-1">
+            {errors.name ? (
+              <span className="text-rose-400">{errors.name}</span>
+            ) : <span />}
+            <span className="text-[#6b768c]">
+              {(data.name || '').length}/100
+            </span>
+          </div>
         </div>
 
         {/* 2. Campaign Type */}
         <div className="space-y-2">
-          <label className="text-xs font-medium text-[#D4D4D4] block">
+          <label className="text-xs sm:text-sm font-medium text-[#d1d5db] block">
             Campaign Type
           </label>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {CAMPAIGN_TYPES.map((type) => {
               const Icon = type.icon;
-              const isSelected = data.type === type.id;
+              const isSelected = (data.type || 'Promotional') === type.id;
 
               return (
                 <div
                   key={type.id}
                   onClick={() => updateData({ type: type.id })}
-                  className={`relative p-3.5 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col justify-between select-none ${
+                  className={`p-3.5 sm:p-4 rounded-xl border border-white/[0.07] cursor-pointer transition-all duration-200 flex flex-col justify-between select-none min-h-[96px] ${
                     isSelected
-                      ? 'bg-[#1a0f2e] border-[#814AC8] shadow-[0_0_16px_rgba(129,74,200,0.25)]'
-                      : 'bg-[#0f0e1c] border-[#251f42] hover:border-[#382f61] hover:bg-[#141226]'
+                      ? 'bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white'
+                      : 'bg-[#0d0e17] hover:border-white/20 text-[#8e95ab] hover:text-white'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div
-                      className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                        isSelected
-                          ? 'bg-[#814AC8] text-white'
-                          : 'bg-[#1a1636] text-[#8c88a6]'
-                      }`}
-                    >
-                      <Icon size={14} />
-                    </div>
-                    {isSelected && (
-                      <div className="w-4 h-4 rounded-full bg-[#814AC8] flex items-center justify-center text-white text-[10px]">
-                        ✓
-                      </div>
-                    )}
+                  <div className="mb-3">
+                    <Icon
+                      size={17}
+                      className={isSelected ? 'text-white' : 'text-white/60'}
+                    />
                   </div>
                   <div>
-                    <h4 className="text-xs font-semibold text-white">
+                    <h4 className="text-xs sm:text-sm font-medium text-white leading-tight">
                       {type.title}
                     </h4>
-                    <p className="text-[10px] text-[#7f7a9c] mt-0.5 leading-snug">
+                    <p className={`text-[11px] sm:text-xs mt-1 leading-tight ${isSelected ? 'text-white/80' : 'text-[#8e95ab]'}`}>
                       {type.subtitle}
                     </p>
                   </div>
@@ -256,7 +258,7 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
                     <span className="text-xs font-semibold text-white block leading-tight">
                       {selectedPhone?.name || 'Meta Business Connected'}
                     </span>
-                    <span className="text-[11px] text-[#25D366] font-mono">
+                    <span className="text-[11px] text-[#25D366]">
                       {selectedPhone?.phone || data.whatsappNumber}
                     </span>
                   </div>
@@ -348,22 +350,22 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
 
         {/* 4. Campaign Goal (Optional) */}
         <div className="space-y-1.5 relative">
-          <label className="text-xs font-medium text-[#D4D4D4] block">
+          <label className="text-xs sm:text-sm font-medium text-[#d1d5db] block">
             Campaign Goal (Optional)
           </label>
 
           <div
             onClick={() => setIsGoalOpen(!isGoalOpen)}
-            className="w-full px-3.5 py-2.5 rounded-xl bg-[#0f0e1c] border border-[#251f42] hover:border-[#382f61] flex items-center justify-between cursor-pointer transition-all"
+            className="w-full px-4 py-3 rounded-xl bg-[#080a12] border border-[#1b2238] hover:border-[#283250] flex items-center justify-between cursor-pointer transition-all"
           >
-            <span className="text-xs text-white">
+            <span className="text-xs sm:text-sm text-white">
               {data.goal || 'Increase sales'}
             </span>
-            <ChevronDown size={16} className={`text-[#8c88a6] transition-transform ${isGoalOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown size={15} className={`text-[#8c94a6] transition-transform ${isGoalOpen ? 'rotate-180' : ''}`} />
           </div>
 
           {isGoalOpen && (
-            <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-[#121026] border border-[#2d2650] rounded-xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute top-full left-0 right-0 mt-1.5 z-20 bg-[#0d101c] border border-[#1e253b] rounded-xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150">
               {CAMPAIGN_GOALS.map((goal) => (
                 <div
                   key={goal}
@@ -371,10 +373,10 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
                     updateData({ goal });
                     setIsGoalOpen(false);
                   }}
-                  className={`px-3 py-2 text-xs rounded-lg cursor-pointer transition-colors ${
+                  className={`px-3.5 py-2.5 text-xs sm:text-sm rounded-lg cursor-pointer transition-colors ${
                     data.goal === goal
                       ? 'bg-[#814AC8]/20 text-white font-medium'
-                      : 'hover:bg-[#1a1638] text-[#D4D4D4]'
+                      : 'hover:bg-[#181f33] text-white/80'
                   }`}
                 >
                   {goal}
@@ -383,31 +385,10 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
             </div>
           )}
         </div>
-
-        {/* Action Buttons */}
-        <div className="pt-4 border-t border-[#251f42]/70 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 rounded-xl text-xs font-medium text-[#9da3ae] bg-[#121024] border border-[#251f42] hover:text-white hover:border-[#3d3363] transition-all"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="button"
-            onClick={validateAndProceed}
-            className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_25px_rgba(129,74,200,0.6)] cursor-pointer flex items-center gap-1.5 transition-all"
-            title="Next: Select Audience"
-          >
-            <span>Next</span>
-            <span>→</span>
-          </button>
-        </div>
       </div>
 
       {/* Right Column: Quick Tips & WhatsApp Preview */}
-      <div className="lg:col-span-5 space-y-4">
+      <div className="lg:col-span-5 xl:col-span-5 space-y-4">
         <QuickTips
           tips={[
             'Use a clear and relevant campaign name',
@@ -416,8 +397,8 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
           ]}
         />
 
-        <div className="space-y-2">
-          <div className="text-xs font-medium text-[#8c88a6] px-1">
+        <div className="space-y-2 pt-1">
+          <div className="text-xs sm:text-sm font-semibold text-white px-0.5">
             Message Preview
           </div>
           <WhatsAppPreview
@@ -426,6 +407,32 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
             mediaUrl={data.mediaUrl}
           />
         </div>
+      </div>
+
+      {/* Bottom Full-Width Action Buttons */}
+      <div className="col-span-12 pt-6 mt-4 border-t border-[#1b2238] flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl text-xs sm:text-sm font-medium text-white/80 bg-[#101424] border border-[#1e263c] hover:bg-[#181e34] hover:text-white transition-all"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          onClick={validateAndProceed}
+          disabled={!tierInfo?.is_connected}
+          className={`px-6 py-2.5 sm:px-7 sm:py-3 rounded-xl text-xs sm:text-sm font-medium text-white flex items-center gap-2 transition-all active:scale-[0.98] ${
+            !tierInfo?.is_connected
+              ? 'bg-[#814AC8]/40 text-white/50 cursor-not-allowed'
+              : 'bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_18px_rgba(129,74,200,0.4)] cursor-pointer'
+          }`}
+          title={!tierInfo?.is_connected ? 'Please connect a WhatsApp channel first' : 'Next: Select Audience'}
+        >
+          <span>Next</span>
+          <span>→</span>
+        </button>
       </div>
     </div>
   );

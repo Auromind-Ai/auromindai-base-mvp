@@ -110,14 +110,14 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 xl:gap-10 items-start">
       {/* Left Column (7 cols): Scheduling Configuration */}
-      <div className="lg:col-span-7 space-y-6">
+      <div className="lg:col-span-7 xl:col-span-7 space-y-6">
         <div>
-          <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight">
+          <h3 className="text-base sm:text-lg font-medium text-white tracking-tight">
             Schedule Your Campaign
           </h3>
-          <p className="text-xs text-[#8c88a6] mt-0.5">
+          <p className="text-xs sm:text-sm text-[#c4c0db] mt-1 font-normal">
             Choose when you want to send your WhatsApp messages.
           </p>
         </div>
@@ -127,33 +127,32 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
           {/* Send Now */}
           <div
             onClick={() => setSendType('Send Now')}
-            className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col justify-between select-none ${
+            className={`p-4 rounded-xl border border-white/[0.07] cursor-pointer transition-all duration-200 flex flex-col justify-between select-none min-h-[105px] ${
               sendType === 'Send Now'
-                ? 'bg-[#1a0f2e] border-[#814AC8] shadow-[0_0_16px_rgba(129,74,200,0.25)]'
-                : 'bg-[#0f0e1c] border-[#251f42] hover:border-[#382f61] hover:bg-[#141226]'
+                ? 'bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white'
+                : 'bg-[#0d0e17] hover:border-white/20 text-[#8e95ab] hover:text-white'
             }`}
           >
-            <div className="flex items-center justify-between mb-2">
-              <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                  sendType === 'Send Now' ? 'bg-[#814AC8] text-white' : 'bg-[#1a1636] text-[#8c88a6]'
-                }`}
-              >
-                <Send size={15} />
-              </div>
+            <div className="flex items-center justify-between mb-3">
+              <Send
+                size={18}
+                className={sendType === 'Send Now' ? 'text-white' : 'text-white/60'}
+              />
               <div
                 className={`w-4 h-4 rounded-full border flex items-center justify-center ${
                   sendType === 'Send Now'
-                    ? 'border-[#814AC8] bg-[#814AC8]'
-                    : 'border-[#382f61] bg-[#141228]'
+                    ? 'border-white bg-[#814AC8]'
+                    : 'border-white/20 bg-transparent'
                 }`}
               >
                 {sendType === 'Send Now' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
               </div>
             </div>
             <div>
-              <h4 className="text-xs font-semibold text-white">Send Now</h4>
-              <p className="text-[10px] text-[#8c88a6] mt-0.5 leading-snug">
+              <h4 className="text-xs sm:text-sm font-medium text-white leading-tight">
+                Send Now
+              </h4>
+              <p className={`text-xs sm:text-[13px] mt-1.5 leading-relaxed font-normal ${sendType === 'Send Now' ? 'text-white/90' : 'text-[#c4c0db]'}`}>
                 Start sending your campaign immediately after confirmation.
               </p>
             </div>
@@ -161,28 +160,23 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
 
           {/* Schedule for Later */}
           <div
-            onClick={handleSelectScheduleForLater}
-            className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col justify-between select-none ${
+            onClick={() => setSendType('Schedule for Later')}
+            className={`p-4 rounded-xl border border-white/[0.07] cursor-pointer transition-all duration-200 flex flex-col justify-between select-none min-h-[105px] ${
               sendType === 'Schedule for Later'
-                ? 'bg-[#1a0f2e] border-[#814AC8] shadow-[0_0_16px_rgba(129,74,200,0.25)]'
-                : 'bg-[#0f0e1c] border-[#251f42] hover:border-[#382f61] hover:bg-[#141226]'
+                ? 'bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white'
+                : 'bg-[#0d0e17] hover:border-white/20 text-[#8e95ab] hover:text-white'
             }`}
           >
-            <div className="flex items-center justify-between mb-2">
-              <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                  sendType === 'Schedule for Later'
-                    ? 'bg-[#814AC8] text-white'
-                    : 'bg-[#1a1636] text-[#8c88a6]'
-                }`}
-              >
-                <CalendarIcon size={15} />
-              </div>
+            <div className="flex items-center justify-between mb-3">
+              <CalendarIcon
+                size={18}
+                className={sendType === 'Schedule for Later' ? 'text-white' : 'text-white/60'}
+              />
               <div
                 className={`w-4 h-4 rounded-full border flex items-center justify-center ${
                   sendType === 'Schedule for Later'
-                    ? 'border-[#814AC8] bg-[#814AC8]'
-                    : 'border-[#382f61] bg-[#141228]'
+                    ? 'border-white bg-[#814AC8]'
+                    : 'border-white/20 bg-transparent'
                 }`}
               >
                 {sendType === 'Schedule for Later' && (
@@ -191,9 +185,11 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
               </div>
             </div>
             <div>
-              <h4 className="text-xs font-semibold text-white">Schedule for Later</h4>
-              <p className="text-[10px] text-[#8c88a6] mt-0.5 leading-snug">
-                Choose any future date and time to send your campaign.
+              <h4 className="text-xs sm:text-sm font-medium text-white leading-tight">
+                Schedule for Later
+              </h4>
+              <p className={`text-xs sm:text-[13px] mt-1.5 leading-relaxed font-normal ${sendType === 'Schedule for Later' ? 'text-white/90' : 'text-[#c4c0db]'}`}>
+                Choose a date and time to send your campaign.
               </p>
             </div>
           </div>
@@ -315,23 +311,23 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
             )}
 
             {/* Timezone Selector */}
-            <div className="space-y-1 relative">
-              <label className="text-xs font-medium text-[#D4D4D4]">
+            <div className="space-y-1.5 relative">
+              <label className="text-xs sm:text-sm font-normal text-[#e4e4e7]">
                 Timezone
               </label>
               <div
                 onClick={() => setIsTzOpen(!isTzOpen)}
-                className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#0f0e1c] border border-[#251f42] hover:border-[#382f61] cursor-pointer text-xs text-white transition-all"
+                className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#080a12] border border-[#1b2238] hover:border-[#283250] cursor-pointer text-xs sm:text-sm text-white transition-all font-normal"
               >
                 <div className="flex items-center gap-2">
-                  <Globe size={14} className="text-[#8c88a6] shrink-0" />
+                  <Globe size={15} className="text-[#c4c0db] shrink-0" />
                   <span>{timezone}</span>
                 </div>
-                <ChevronDown size={14} className={`text-[#8c88a6] transition-transform ${isTzOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} className={`text-[#c4c0db] transition-transform ${isTzOpen ? 'rotate-180' : ''}`} />
               </div>
 
               {isTzOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-[#121026] border border-[#2d2650] rounded-xl shadow-2xl p-1 max-h-48 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-[#0f1322] border border-[#1e2740] rounded-xl shadow-2xl p-1 max-h-48 overflow-y-auto">
                   {TIMEZONES.map((tz) => (
                     <div
                       key={tz}
@@ -339,8 +335,8 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                         setTimezone(tz);
                         setIsTzOpen(false);
                       }}
-                      className={`px-3 py-2 text-xs rounded-lg cursor-pointer transition-colors ${
-                        timezone === tz ? 'bg-[#814AC8]/20 text-white font-semibold' : 'text-[#D4D4D4] hover:bg-[#1a1638]'
+                      className={`px-3 py-2 text-xs sm:text-sm rounded-lg cursor-pointer transition-colors ${
+                        timezone === tz ? 'bg-[#814AC8]/20 text-white font-medium' : 'text-white/90 hover:bg-[#181f33]'
                       }`}
                     >
                       {tz}
@@ -348,7 +344,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                   ))}
                 </div>
               )}
-              <span className="text-[10px] text-[#6d688c] block mt-1">
+              <span className="text-xs text-[#a1a1aa] block mt-1 font-normal">
                 Campaign will be sent in your local timezone
               </span>
             </div>
@@ -357,26 +353,26 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
 
         {/* Sending Preferences */}
         <div className="space-y-3 pt-2">
-          <h4 className="text-xs font-semibold text-white">
+          <h4 className="text-xs sm:text-sm font-medium text-white">
             Sending Preferences
           </h4>
 
           <div className="space-y-2.5">
             {/* 1. Send gradually */}
-            <div className="p-3 rounded-xl bg-[#0f0e1c] border border-[#251f42] space-y-2">
+            <div className="p-3.5 rounded-xl bg-[#0a0d17] border border-[#1b2238] space-y-2">
               <div className="flex items-center justify-between">
-                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <label className="flex items-start gap-3 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={sendGradually}
                     onChange={(e) => setSendGradually(e.target.checked)}
-                    className="w-4 h-4 mt-0.5 rounded bg-[#1a1636] border-[#382f61] text-[#814AC8] accent-[#814AC8] cursor-pointer"
+                    className="w-4 h-4 mt-0.5 rounded bg-[#080a12] border-[#1e253b] text-[#814AC8] accent-[#814AC8] cursor-pointer"
                   />
                   <div>
-                    <span className="text-xs font-medium text-white block">
+                    <span className="text-xs sm:text-sm font-medium text-white block">
                       Send gradually
                     </span>
-                    <span className="text-[10px] text-[#8c88a6]">
+                    <span className="text-xs text-[#c4c0db] mt-0.5 block font-normal leading-relaxed">
                       Spread messages over time to appear more natural
                     </span>
                   </div>
@@ -384,17 +380,17 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
               </div>
 
               {sendGradually && (
-                <div className="relative pl-6 pt-1">
+                <div className="relative pl-7 pt-1">
                   <div
                     onClick={() => setIsRateOpen(!isRateOpen)}
-                    className="w-full sm:w-64 px-3 py-1.5 rounded-lg bg-[#141228] border border-[#2d2650] flex items-center justify-between text-xs text-white cursor-pointer hover:border-[#814AC8]"
+                    className="w-full sm:w-64 px-3 py-2 rounded-lg bg-[#080a12] border border-[#1b2238] flex items-center justify-between text-xs sm:text-sm text-white cursor-pointer hover:border-[#814AC8] font-normal"
                   >
                     <span>{sendingRate} messages per minute</span>
-                    <ChevronDown size={13} className="text-[#8c88a6]" />
+                    <ChevronDown size={14} className="text-[#c4c0db]" />
                   </div>
 
                   {isRateOpen && (
-                    <div className="absolute top-full left-6 mt-1 w-64 bg-[#141228] border border-[#2d2650] rounded-lg shadow-2xl p-1 z-30">
+                    <div className="absolute top-full left-7 mt-1 w-64 bg-[#0f1322] border border-[#1e2740] rounded-lg shadow-2xl p-1 z-30">
                       {SENDING_RATES.map((r) => (
                         <div
                           key={r.rate}
@@ -402,8 +398,8 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                             setSendingRate(r.rate);
                             setIsRateOpen(false);
                           }}
-                          className={`px-3 py-1.5 text-xs rounded cursor-pointer ${
-                            sendingRate === r.rate ? 'bg-[#814AC8]/20 text-white font-medium' : 'text-[#D4D4D4] hover:bg-[#1f1a3b]'
+                          className={`px-3 py-2 text-xs sm:text-sm rounded cursor-pointer ${
+                            sendingRate === r.rate ? 'bg-[#814AC8]/20 text-white font-medium' : 'text-white/90 hover:bg-[#181f33]'
                           }`}
                         >
                           {r.label}
@@ -416,19 +412,19 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
             </div>
 
             {/* 2. Skip invalid numbers */}
-            <div className="p-3 rounded-xl bg-[#0f0e1c] border border-[#251f42]">
-              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+            <div className="p-3.5 rounded-xl bg-[#0a0d17] border border-[#1b2238]">
+              <label className="flex items-start gap-3 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={skipInvalid}
                   onChange={(e) => setSkipInvalid(e.target.checked)}
-                  className="w-4 h-4 mt-0.5 rounded bg-[#1a1636] border-[#382f61] text-[#814AC8] accent-[#814AC8] cursor-pointer"
+                  className="w-4 h-4 mt-0.5 rounded bg-[#080a12] border-[#1e253b] text-[#814AC8] accent-[#814AC8] cursor-pointer"
                 />
                 <div>
-                  <span className="text-xs font-medium text-white block">
+                  <span className="text-xs sm:text-sm font-medium text-white block">
                     Skip invalid numbers
                   </span>
-                  <span className="text-[10px] text-[#8c88a6]">
+                  <span className="text-xs text-[#c4c0db] mt-0.5 block font-normal leading-relaxed">
                     Automatically skip invalid or unreachable numbers
                   </span>
                 </div>
@@ -436,19 +432,19 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
             </div>
 
             {/* 3. Stop on high failure rate */}
-            <div className="p-3 rounded-xl bg-[#0f0e1c] border border-[#251f42]">
-              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+            <div className="p-3.5 rounded-xl bg-[#0a0d17] border border-[#1b2238]">
+              <label className="flex items-start gap-3 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={stopOnFailure}
                   onChange={(e) => setStopOnFailure(e.target.checked)}
-                  className="w-4 h-4 mt-0.5 rounded bg-[#1a1636] border-[#382f61] text-[#814AC8] accent-[#814AC8] cursor-pointer"
+                  className="w-4 h-4 mt-0.5 rounded bg-[#080a12] border-[#1e253b] text-[#814AC8] accent-[#814AC8] cursor-pointer"
                 />
                 <div>
-                  <span className="text-xs font-medium text-white block">
+                  <span className="text-xs sm:text-sm font-medium text-white block">
                     Stop on high failure rate
                   </span>
-                  <span className="text-[10px] text-[#8c88a6]">
+                  <span className="text-xs text-[#c4c0db] mt-0.5 block font-normal leading-relaxed">
                     Pause sending if failure rate exceeds 10%
                   </span>
                 </div>
@@ -456,43 +452,17 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
             </div>
           </div>
         </div>
-
-        {/* Action Buttons */}
-        <div className="pt-4 border-t border-[#251f42]/70 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onBack}
-            className="px-4 py-2 rounded-xl text-xs font-medium text-[#9da3ae] bg-[#121024] border border-[#251f42] hover:text-white hover:border-[#3d3363] transition-all"
-          >
-            ← Back
-          </button>
-
-          <button
-            type="button"
-            onClick={handleProceed}
-            disabled={!isScheduleValid}
-            className={`px-5 py-2.5 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 transition-all ${
-              isScheduleValid
-                ? 'bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_25px_rgba(129,74,200,0.6)] cursor-pointer'
-                : 'bg-[#814AC8]/40 border border-[#814AC8]/20 text-white/50 cursor-not-allowed'
-            }`}
-            title={!isScheduleValid ? 'Scheduled time must be in the future to proceed' : 'Proceed to Review'}
-          >
-            <span>Next</span>
-            <span>→</span>
-          </button>
-        </div>
       </div>
 
       {/* Right Column (5 cols): Estimated Schedule Timeline + ProTip + Quiet Hours */}
-      <div className="lg:col-span-5 space-y-4">
+      <div className="lg:col-span-5 xl:col-span-5 space-y-4">
         {/* Estimated Schedule Card */}
-        <div className="rounded-xl bg-[#0f0e1c] border border-[#251f42] p-5 text-xs">
-          <h4 className="font-semibold text-white text-sm mb-4">
+        <div className="rounded-xl bg-[#0a0d17] border border-[#1a2136] p-5 text-xs sm:text-sm">
+          <h4 className="font-medium text-white text-sm sm:text-base mb-4">
             Estimated Schedule
           </h4>
 
-          <div className="space-y-4 relative before:absolute before:left-3.5 before:top-3 before:bottom-3 before:w-[2px] before:bg-[#251f42]">
+          <div className="space-y-4 relative before:absolute before:left-3.5 before:top-3 before:bottom-3 before:w-[2px] before:bg-[#1b2238]">
             {/* Start Event */}
             <div className="flex items-start gap-3 relative z-10">
               <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
@@ -505,7 +475,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                 <CalendarIcon size={13} />
               </div>
               <div>
-                <span className="text-[10px] text-[#8c88a6] uppercase font-semibold tracking-wider block">
+                <span className="text-xs text-[#c4c0db] font-medium block">
                   Campaign will start on
                 </span>
                 <span className={`text-xs font-bold block ${!isScheduleValid && sendType !== 'Send Now' ? 'text-rose-400' : 'text-white'}`}>
@@ -525,17 +495,17 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
 
             {/* Estimated Completion Event */}
             <div className="flex items-start gap-3 relative z-10">
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                <Send size={13} />
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
+                <Send size={14} />
               </div>
               <div>
-                <span className="text-[10px] text-[#8c88a6] uppercase font-semibold tracking-wider block">
+                <span className="text-xs text-[#c4c0db] font-medium block">
                   Estimated completion
                 </span>
-                <span className="text-xs font-bold text-white block">
+                <span className="text-xs sm:text-sm font-medium text-white mt-0.5 block">
                   ~ {calculateEstimatedDuration()} after start
                 </span>
-                <span className="text-[10px] text-[#7f7a9c]">
+                <span className="text-xs text-[#a1a1aa] font-normal block mt-0.5">
                   {sendGradually ? (
                     `Based on ${totalRecipients.toLocaleString()} messages at ${sendingRate}/min`
                   ) : (
@@ -547,20 +517,20 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
 
             {/* Recipients Event */}
             <div className="flex items-start gap-3 relative z-10">
-              <div className="w-7 h-7 rounded-lg bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
-                <Users size={13} />
+              <div className="w-7 h-7 rounded-lg bg-[#814AC8]/15 border border-[#814AC8]/30 flex items-center justify-center text-[#a78bfa] shrink-0 mt-0.5">
+                <Users size={14} />
               </div>
               <div>
-                <span className="text-[10px] text-[#8c88a6] uppercase font-semibold tracking-wider block">
+                <span className="text-xs text-[#c4c0db] font-medium block">
                   Total recipients
                 </span>
-                <span className="text-sm font-bold text-white block leading-tight">
+                <span className="text-sm sm:text-base font-semibold text-white block leading-tight mt-0.5">
                   {totalRecipients.toLocaleString()}
                 </span>
-                <span className="text-[10px] text-[#8c88a6] block mt-0.5">
+                <span className="text-xs text-[#c4c0db] block mt-1 font-normal">
                   Valid numbers: {validRecipients.toLocaleString()}
                 </span>
-                <span className="text-[10px] text-amber-400/80">
+                <span className="text-xs text-amber-300 font-normal block mt-0.5">
                   Invalid numbers: {invalidRecipients.toLocaleString()}
                 </span>
               </div>
@@ -573,6 +543,26 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
 
         {/* Quiet Hours Card */}
         <QuietHours enabled={quietHours} onChange={setQuietHours} />
+      </div>
+
+      {/* Bottom Full-Width Action Buttons */}
+      <div className="col-span-12 pt-6 mt-4 border-t border-[#1b2238] flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onBack}
+          className="px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl text-xs sm:text-sm font-medium text-white/80 bg-[#101424] border border-[#1e263c] hover:bg-[#181e34] hover:text-white transition-all"
+        >
+          ← Back
+        </button>
+
+        <button
+          type="button"
+          onClick={handleProceed}
+          className="px-6 py-2.5 sm:px-7 sm:py-3 rounded-xl text-xs sm:text-sm font-medium text-white bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_18px_rgba(129,74,200,0.4)] flex items-center gap-2 transition-all active:scale-[0.98]"
+        >
+          <span>Next</span>
+          <span>→</span>
+        </button>
       </div>
     </div>
   );

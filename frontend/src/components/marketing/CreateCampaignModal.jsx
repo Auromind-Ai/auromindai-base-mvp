@@ -17,10 +17,10 @@ import { getDefaultFutureSchedule, isFutureSchedule } from '@/lib/campaignSchedu
 const getInitialDraftState = () => {
   const defaultSchedule = getDefaultFutureSchedule();
   return {
-    name: '',
+    name: 'Diwali Offer 2025',
     type: 'Promotional',
-    whatsappNumber: '',
-    goal: '',
+    whatsappNumber: '+91 98765 43210',
+    goal: 'Increase sales',
     audienceType: 'Existing Contacts',
     audienceListName: '',
     selectedListIds: [],
@@ -115,15 +115,15 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden animate-in fade-in duration-200">
-      <div className="w-full max-w-5xl h-full max-h-[92vh] flex flex-col rounded-2xl sm:rounded-3xl bg-[#0b0a16] border border-[#2d244d] shadow-[0_20px_70px_rgba(0,0,0,0.9)] overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 md:p-8 overflow-hidden animate-in fade-in duration-200">
+      <div className="w-full max-w-5xl xl:max-w-6xl 2xl:max-w-[1240px] max-h-[92vh] flex flex-col rounded-2xl bg-[#0d101c] border border-[#1e253b] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden">
         {/* Modal Top Header */}
-        <div className="px-5 sm:px-7 pt-5 pb-3 border-b border-[#221c3b] flex items-center justify-between shrink-0">
+        <div className="px-6 sm:px-8 pt-5 pb-4 border-b border-[#1b2238] flex items-center justify-between shrink-0 bg-[#0d101c]">
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+            <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
               Create WhatsApp Campaign
             </h2>
-            <p className="text-xs text-[#8c88a6] mt-0.5">
+            <p className="text-xs sm:text-sm text-[#8c94a6] mt-0.5">
               Send personalized messages to your customers at scale.
             </p>
           </div>
@@ -131,15 +131,15 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-full text-[#8c88a6] hover:text-white hover:bg-[#1a1638] transition-colors"
+            className="p-2 rounded-xl text-[#8c94a6] hover:text-white hover:bg-[#1a2136] transition-colors"
             title="Close"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
         {/* 5-Step Stepper Bar */}
-        <div className="px-5 sm:px-7 py-2.5 bg-[#0f0e1f] border-b border-[#221c3b] shrink-0">
+        <div className="px-6 sm:px-8 py-3 bg-[#0b0e1a] border-b border-[#1b2238] shrink-0">
           <CampaignStepper
             currentStep={currentStep}
             onStepClick={handleEditStep}
@@ -147,14 +147,14 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
         </div>
 
         {/* Scrollable Step Body */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-7">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 sm:p-8 bg-[#0d101c]">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              transition={{ duration: 0.15 }}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.12 }}
             >
               {currentStep === 1 && (
                 <CampaignDetailsStep

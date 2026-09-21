@@ -782,20 +782,20 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
   }, [crmLeads, searchQuery]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 xl:gap-10 items-start">
       {/* Left Column (7 cols): Audience Controls */}
-      <div className="lg:col-span-7 space-y-5">
+      <div className="lg:col-span-7 xl:col-span-7 space-y-5">
         <div>
-          <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight">
+          <h3 className="text-base sm:text-lg font-medium text-white tracking-tight">
             Select Audience
           </h3>
-          <p className="text-xs text-[#8c88a6] mt-0.5">
+          <p className="text-xs sm:text-sm text-[#c4c0db] mt-1 font-normal">
             Choose who you want to send this campaign to.
           </p>
         </div>
 
         {/* 4 Audience Mode Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {AUDIENCE_TYPES.map((type) => {
             const Icon = type.icon;
             const isSelected = audienceType === type.id;
@@ -804,24 +804,23 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
               <div
                 key={type.id}
                 onClick={() => handleAudienceTypeChange(type.id)}
-                className={`p-3 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col justify-between select-none ${
+                className={`p-3.5 sm:p-4 rounded-xl border border-white/[0.07] cursor-pointer transition-all duration-200 flex flex-col justify-between select-none min-h-[105px] ${
                   isSelected
-                    ? 'bg-[#1a0f2e] border-[#814AC8] shadow-[0_0_16px_rgba(129,74,200,0.25)]'
-                    : 'bg-[#0f0e1c] border-[#251f42] hover:border-[#382f61] hover:bg-[#141226]'
+                    ? 'bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white'
+                    : 'bg-[#0d0e17] hover:border-white/20 text-[#8e95ab] hover:text-white'
                 }`}
               >
-                <div
-                  className={`w-7 h-7 rounded-lg flex items-center justify-center mb-2 ${
-                    isSelected ? 'bg-[#814AC8] text-white' : 'bg-[#1a1636] text-[#8c88a6]'
-                  }`}
-                >
-                  <Icon size={14} />
+                <div className="mb-3">
+                  <Icon
+                    size={18}
+                    className={isSelected ? 'text-white' : 'text-white/60'}
+                  />
                 </div>
                 <div>
-                  <h4 className="text-xs font-semibold text-white truncate">
+                  <h4 className="text-xs sm:text-sm font-medium text-white leading-tight">
                     {type.label}
                   </h4>
-                  <p className="text-[10px] text-[#7f7a9c] mt-0.5 leading-tight line-clamp-2">
+                  <p className={`text-xs sm:text-[13px] mt-1.5 leading-relaxed font-normal ${isSelected ? 'text-white/90' : 'text-[#c4c0db]'}`}>
                     {type.desc}
                   </p>
                 </div>
@@ -834,8 +833,8 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
         {audienceType === 'Existing Contacts' && (
           <div className="space-y-3 pt-1">
             {/* Sub-tab toggle: CRM Leads vs Contact Lists */}
-            <div className="flex items-center justify-between gap-2 border-b border-[#251f42] pb-2">
-              <div className="flex items-center gap-1.5 bg-[#0e0c1e] p-1 rounded-xl border border-[#221c3b]">
+            <div className="flex items-center justify-between gap-2 border-b border-[#1b2238] pb-2">
+              <div className="flex items-center gap-1.5 bg-[#080a12] p-1 rounded-xl border border-[#1b2238]">
                 <button
                   type="button"
                   onClick={() => {
@@ -856,10 +855,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                       })),
                     });
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                     contactsSubTab === 'leads'
                       ? 'bg-[#814AC8] text-white shadow-sm'
-                      : 'text-[#8c88a6] hover:text-white hover:bg-[#181433]'
+                      : 'text-[#c4c0db] hover:text-white'
                   }`}
                 >
                   CRM Leads ({crmLeads.length})
@@ -878,10 +877,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                       recipients: [],
                     });
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                     contactsSubTab === 'lists'
                       ? 'bg-[#814AC8] text-white shadow-sm'
-                      : 'text-[#8c88a6] hover:text-white hover:bg-[#181433]'
+                      : 'text-[#c4c0db] hover:text-white'
                   }`}
                 >
                   Saved Lists ({contactLists.length})
@@ -891,48 +890,48 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
               <button
                 type="button"
                 onClick={handleRefreshLeads}
-                className="p-2 rounded-lg bg-[#0f0e1c] border border-[#251f42] text-[#8c88a6] hover:text-white hover:border-[#3d3363] transition-colors"
+                className="p-2 rounded-lg bg-[#0a0d17] border border-[#1b2238] text-[#c4c0db] hover:text-white hover:border-[#283250] transition-colors"
                 title="Refresh leads"
               >
-                <RefreshCw size={13} className={isLoadingLeads ? 'animate-spin text-[#814AC8]' : ''} />
+                <RefreshCw size={14} className={isLoadingLeads ? 'animate-spin text-[#814AC8]' : ''} />
               </button>
             </div>
 
             {/* Search Input */}
             <div className="relative">
-              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#6d688c]" />
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8c88a6]" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={contactsSubTab === 'leads' ? 'Search contacts by name or phone...' : 'Search lists...'}
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#0f0e1c] border border-[#251f42] text-xs text-white placeholder-[#585375] outline-none focus:border-[#814AC8] transition-colors"
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#080a12] border border-[#1b2238] text-xs sm:text-sm text-white placeholder-[#716d8a] outline-none focus:border-[#814AC8] transition-colors font-normal"
               />
             </div>
 
             {/* CRM Leads Table */}
             {contactsSubTab === 'leads' ? (
-              <div className="rounded-xl border border-[#251f42] bg-[#0c0b17] overflow-hidden">
-                <div className="px-3.5 py-2.5 bg-[#121024] border-b border-[#251f42] flex items-center justify-between text-xs">
+              <div className="rounded-xl border border-[#1b2238] bg-[#080a12] overflow-hidden">
+                <div className="px-3.5 py-2.5 bg-[#0d101c] border-b border-[#1b2238] flex items-center justify-between text-xs sm:text-sm">
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
                       checked={crmLeads.length > 0 && selectedLeadIds.length === crmLeads.length}
                       onChange={toggleSelectAllLeads}
-                      className="w-4 h-4 rounded bg-[#1a1636] border-[#382f61] text-[#814AC8] accent-[#814AC8] cursor-pointer"
+                      className="w-4 h-4 rounded bg-[#080a12] border-[#1e253b] text-[#814AC8] accent-[#814AC8] cursor-pointer"
                     />
-                    <span className="text-[#a8a3c2] font-medium text-[11px]">
+                    <span className="text-white/90 font-medium text-xs sm:text-[13px]">
                       Select All ({crmLeads.length} CRM Contacts)
                     </span>
                   </div>
-                  <span className="text-[11px] text-[#8c88a6]">
-                    <strong className="text-white">{selectedLeadIds.length}</strong> selected
+                  <span className="text-xs text-[#c4c0db]">
+                    <strong className="text-white font-medium">{selectedLeadIds.length}</strong> selected
                   </span>
                 </div>
 
                 <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#121024]/60 border-b border-[#1f1a36] text-[#8c88a6] text-[10px] uppercase font-semibold">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-[#0d101c]/80 border-b border-[#1b2238] text-[#c4c0db] text-xs uppercase font-medium">
                       <tr>
                         <th className="w-8 px-3 py-2 text-center"></th>
                         <th className="px-3 py-2">Name</th>
@@ -941,7 +940,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                         <th className="px-3 py-2 text-right">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#18142c]">
+                    <tbody className="divide-y divide-[#151b2e]">
                       {filteredCrmLeads.map((lead) => {
                         const isChecked = selectedLeadIds.includes(lead.id);
                         return (
@@ -949,7 +948,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                             key={lead.id}
                             onClick={() => toggleLeadSelect(lead.id)}
                             className={`cursor-pointer transition-colors ${
-                              isChecked ? 'bg-[#814AC8]/15 text-white' : 'hover:bg-[#141129] text-[#c7c4db]'
+                              isChecked ? 'bg-[#814AC8]/15 text-white' : 'hover:bg-[#121626] text-white/90'
                             }`}
                           >
                             <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
@@ -957,18 +956,18 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                                 type="checkbox"
                                 checked={isChecked}
                                 onChange={() => toggleLeadSelect(lead.id)}
-                                className="w-3.5 h-3.5 rounded bg-[#1a1636] border-[#382f61] text-[#814AC8] accent-[#814AC8] cursor-pointer"
+                                className="w-3.5 h-3.5 rounded bg-[#080a12] border-[#1e253b] text-[#814AC8] accent-[#814AC8] cursor-pointer"
                               />
                             </td>
                             <td className="px-3 py-2 font-medium text-white">
                               {lead.name}
                             </td>
-                            <td className="px-3 py-2 font-mono text-[11px] text-[#9a94b8]">
+                            <td className="px-3 py-2 text-xs text-[#c4c0db] font-normal">
                               {lead.phone}
                             </td>
                             <td className="px-3 py-2">
                               <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                   (lead.score || 0) >= 70
                                     ? 'bg-rose-500/20 text-rose-300'
                                     : (lead.score || 0) >= 40
@@ -980,7 +979,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                               </span>
                             </td>
                             <td className="px-3 py-2 text-right">
-                              <span className="px-2 py-0.5 rounded-md bg-[#1d1838] text-[10px] text-[#a8a3c2] capitalize">
+                              <span className="px-2 py-0.5 rounded-md bg-[#161b2c] text-xs text-[#c4c0db] capitalize font-normal">
                                 {lead.status || 'new'}
                               </span>
                             </td>
@@ -989,7 +988,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                       })}
                       {filteredCrmLeads.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="py-6 text-center text-xs text-[#8c88a6]">
+                          <td colSpan={5} className="py-6 text-center text-xs sm:text-sm text-[#c4c0db]">
                             No CRM leads found matching &ldquo;{searchQuery}&rdquo;.
                           </td>
                         </tr>
@@ -1000,9 +999,9 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
               </div>
             ) : (
               /* Contact Lists Table */
-              <div className="rounded-xl border border-[#251f42] bg-[#0c0b17] overflow-hidden">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[#121024] border-b border-[#251f42] text-[#8c88a6] uppercase text-[10px] font-semibold tracking-wider">
+              <div className="rounded-xl border border-[#1b2238] bg-[#080a12] overflow-hidden">
+                <table className="w-full text-left text-xs sm:text-sm">
+                  <thead className="bg-[#0d101c] border-b border-[#1b2238] text-[#c4c0db] uppercase text-xs font-medium tracking-wider">
                     <tr>
                       <th className="w-10 px-3 py-2.5 text-center">Select</th>
                       <th className="px-3 py-2.5">List Name</th>
@@ -1010,7 +1009,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                       <th className="px-3 py-2.5 hidden sm:table-cell">Description</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#1f1a36]">
+                  <tbody className="divide-y divide-[#151b2e]">
                     {contactLists.map((item) => {
                       const isChecked = selectedListIds.includes(item.id);
                       const contactsCount = item.totalContacts || item.total_contacts || 0;
@@ -1020,7 +1019,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                           key={item.id}
                           onClick={() => toggleListSelect(item.id)}
                           className={`cursor-pointer transition-colors ${
-                            isChecked ? 'bg-[#814AC8]/15' : 'hover:bg-[#15122b]'
+                            isChecked ? 'bg-[#814AC8]/15' : 'hover:bg-[#121626]'
                           }`}
                         >
                           <td className="px-3 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
@@ -1028,16 +1027,16 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                               type="checkbox"
                               checked={isChecked}
                               onChange={() => toggleListSelect(item.id)}
-                              className="w-4 h-4 rounded bg-[#1a1636] border-[#382f61] text-[#814AC8] accent-[#814AC8] cursor-pointer"
+                              className="w-4 h-4 rounded bg-[#080a12] border-[#1e253b] text-[#814AC8] accent-[#814AC8] cursor-pointer"
                             />
                           </td>
                           <td className="px-3 py-2.5 font-medium text-white">
                             {item.name}
                           </td>
-                          <td className="px-3 py-2.5 text-[#a8a3c2] font-semibold">
+                          <td className="px-3 py-2.5 text-white/90 font-medium">
                             {contactsCount.toLocaleString()}
                           </td>
-                          <td className="px-3 py-2.5 text-[#8c88a6] hidden sm:table-cell text-[11px] truncate max-w-[200px]">
+                          <td className="px-3 py-2.5 text-[#c4c0db] hidden sm:table-cell text-xs font-normal truncate max-w-[200px]">
                             {item.description}
                           </td>
                         </tr>
@@ -1054,10 +1053,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
         {audienceType === 'Upload CSV' && (
           <div className="space-y-4 pt-1">
             <div>
-              <h4 className="text-xs font-semibold text-white">
+              <h4 className="text-xs sm:text-sm font-medium text-white">
                 Upload Contacts CSV
               </h4>
-              <p className="text-[11px] text-[#8c88a6]">
+              <p className="text-xs text-[#c4c0db] mt-0.5 font-normal leading-relaxed">
                 Upload any CSV with phone numbers. Automatically normalizes to E.164 standard with country code.
               </p>
             </div>
@@ -1077,34 +1076,34 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                   ? 'border-[#814AC8] bg-[#814AC8]/10 animate-pulse'
                   : uploadedFileName
                   ? 'border-emerald-500/40 bg-emerald-500/5'
-                  : 'border-[#2d2650] bg-[#0c0b17] hover:border-[#814AC8]/50 hover:bg-[#121026]'
+                  : 'border-[#1e253b] bg-[#080a12] hover:border-[#814AC8]/50 hover:bg-[#16132d]'
               }`}
             >
               <div className="flex flex-col items-center justify-center gap-2.5">
-                <div className="w-12 h-12 rounded-2xl bg-[#814AC8]/15 text-[#C49FE0] flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-[#814AC8]/15 text-[#a78bfa] flex items-center justify-center">
                   {uploadedFileName ? <FileSpreadsheet size={24} className="text-emerald-400" /> : <UploadCloud size={24} />}
                 </div>
 
                 {isUploading ? (
-                  <span className="text-xs font-medium text-white">
+                  <span className="text-xs sm:text-sm font-medium text-white">
                     Parsing CSV & validating numbers...
                   </span>
                 ) : uploadedFileName ? (
                   <div className="space-y-1">
-                    <span className="text-xs font-semibold text-white block">
+                    <span className="text-xs sm:text-sm font-medium text-white block">
                       {uploadedFileName}
                     </span>
                     <span className="text-[11px] text-emerald-400 font-medium">
                       ✓ Successfully parsed {((csvStats || data.csvStats)?.valid_count ?? data.validRecipients ?? 0).toLocaleString()} valid numbers
                     </span>
-                    <p className="text-[10px] text-[#8c88a6]">Click to upload a different file</p>
+                    <p className="text-xs text-[#c4c0db] font-normal">Click to upload a different file</p>
                   </div>
                 ) : (
                   <div>
-                    <span className="text-xs font-semibold text-white block">
+                    <span className="text-xs sm:text-sm font-medium text-white block">
                       Click to upload CSV or drag and drop
                     </span>
-                    <span className="text-[11px] text-[#6d688c]">
+                    <span className="text-xs text-[#c4c0db] font-normal mt-0.5 block">
                       Supported headers: Phone, Mobile, Contact, Name, Email, Variables
                     </span>
                   </div>
@@ -1137,10 +1136,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
         {audienceType === 'Smart Segment' && (
           <div className="space-y-4 pt-1">
             <div>
-              <h4 className="text-xs font-semibold text-white">
+              <h4 className="text-xs sm:text-sm font-medium text-white">
                 Choose Smart Segment
               </h4>
-              <p className="text-[11px] text-[#8c88a6]">
+              <p className="text-xs text-[#c4c0db] mt-0.5 font-normal leading-relaxed">
                 Target high-intent segments dynamically calculated from CRM signals & lead scores.
               </p>
             </div>
@@ -1156,25 +1155,25 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                   <div
                     key={seg.id}
                     onClick={() => setActiveSegment(seg.id)}
-                    className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 select-none ${
+                    className={`p-3.5 sm:p-4 rounded-xl border cursor-pointer transition-all flex items-start gap-3 select-none ${
                       isSelected
                         ? seg.activeBg + ' shadow-[0_0_16px_rgba(129,74,200,0.25)]'
-                        : 'bg-[#0f0e1c] border-[#251f42] hover:border-[#382f61] hover:bg-[#141226]'
+                        : 'bg-[#0a0d17] border-[#1b2238] hover:border-[#283250]'
                     }`}
                   >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${seg.bg} ${seg.color}`}>
-                      <Icon size={16} />
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${seg.bg} ${seg.color} mt-0.5`}>
+                      <Icon size={17} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h5 className="text-xs font-semibold text-white truncate">
+                        <h5 className="text-xs sm:text-sm font-medium text-white truncate">
                           {seg.title}
                         </h5>
-                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${seg.bg} ${seg.color}`}>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${seg.bg} ${seg.color}`}>
                           {count}
                         </span>
                       </div>
-                      <p className="text-[10px] text-[#8c88a6] mt-0.5 leading-tight">
+                      <p className="text-xs text-[#c4c0db] mt-1 leading-relaxed font-normal">
                         {seg.subtitle}
                       </p>
                     </div>
@@ -1184,37 +1183,37 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
             </div>
 
             {/* Segment Leads Preview Table */}
-            <div className="rounded-xl border border-[#251f42] bg-[#0c0b17] overflow-hidden">
-              <div className="px-3.5 py-2.5 bg-[#121024] border-b border-[#251f42] flex items-center justify-between text-xs">
+            <div className="rounded-xl border border-[#1b2238] bg-[#080a12] overflow-hidden">
+              <div className="px-3.5 py-2.5 bg-[#0d101c] border-b border-[#1b2238] flex items-center justify-between text-xs sm:text-sm">
                 <span className="text-white font-medium">
                   Leads in &ldquo;{SMART_SEGMENT_CONFIG.find((s) => s.id === activeSegment)?.title}&rdquo;
                 </span>
-                <span className="text-[11px] text-[#8c88a6]">
+                <span className="text-xs text-[#c4c0db] font-normal">
                   {segmentLeads.length} contacts targeted
                 </span>
               </div>
 
               <div className="max-h-52 overflow-y-auto custom-scrollbar">
                 {isLoadingSegment ? (
-                  <div className="py-8 text-center text-xs text-[#8c88a6] animate-pulse">
+                  <div className="py-8 text-center text-xs sm:text-sm text-[#c4c0db] animate-pulse">
                     Loading segment contacts...
                   </div>
                 ) : (
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#121024]/60 border-b border-[#1f1a36] text-[#8c88a6] text-[10px] uppercase font-semibold">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-[#0d101c]/80 border-b border-[#1b2238] text-[#c4c0db] text-xs uppercase font-medium">
                       <tr>
                         <th className="px-3 py-2">Name</th>
                         <th className="px-3 py-2">Phone</th>
                         <th className="px-3 py-2 text-right">Score</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#18142c]">
+                    <tbody className="divide-y divide-[#151b2e]">
                       {segmentLeads.map((lead) => (
-                        <tr key={lead.id} className="text-[#c7c4db]">
+                        <tr key={lead.id} className="text-white/90">
                           <td className="px-3 py-2 font-medium text-white">{lead.name}</td>
-                          <td className="px-3 py-2 font-mono text-[11px] text-[#9a94b8]">{lead.phone}</td>
+                          <td className="px-3 py-2 text-xs text-[#c4c0db] font-normal">{lead.phone}</td>
                           <td className="px-3 py-2 text-right">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#1a1533] text-[#b3abdb]">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#16132d] text-[#a78bfa]">
                               {lead.score || 0}
                             </span>
                           </td>
@@ -1222,7 +1221,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                       ))}
                       {segmentLeads.length === 0 && (
                         <tr>
-                          <td colSpan={3} className="py-6 text-center text-xs text-[#8c88a6]">
+                          <td colSpan={3} className="py-6 text-center text-xs sm:text-sm text-[#c4c0db]">
                             No leads currently match this segment filter.
                           </td>
                         </tr>
@@ -1239,17 +1238,17 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
         {audienceType === 'Manual Entry' && (
           <div className="space-y-4 pt-1">
             <div>
-              <h4 className="text-xs font-semibold text-white">
+              <h4 className="text-xs sm:text-sm font-medium text-white">
                 Enter Phone Numbers
               </h4>
-              <p className="text-[11px] text-[#8c88a6]">
+              <p className="text-xs text-[#c4c0db] mt-0.5 font-normal leading-relaxed">
                 Add individual numbers or paste a bulk list of customer phones.
               </p>
             </div>
 
             {/* Single Contact Entry Form */}
-            <div className="p-3.5 rounded-xl bg-[#0f0e1c] border border-[#251f42] space-y-2.5">
-              <span className="text-[11px] font-semibold text-[#D4D4D4] block">
+            <div className="p-3.5 rounded-xl bg-[#0a0d17] border border-[#1b2238] space-y-2.5">
+              <span className="text-xs sm:text-sm font-medium text-white block">
                 Add Single Contact
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
@@ -1258,19 +1257,19 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                   value={manualName}
                   onChange={(e) => setManualName(e.target.value)}
                   placeholder="Customer Name (Optional)"
-                  className="sm:col-span-5 px-3 py-2 rounded-xl bg-[#141226] border border-[#2a2347] text-xs text-white placeholder-[#585375] outline-none focus:border-[#814AC8]"
+                  className="sm:col-span-5 px-3 py-2 rounded-xl bg-[#080a12] border border-[#1b2238] text-xs sm:text-sm text-white placeholder-[#716d8a] outline-none focus:border-[#814AC8] font-normal"
                 />
                 <input
                   type="text"
                   value={manualPhone}
                   onChange={(e) => setManualPhone(e.target.value)}
                   placeholder="Phone: 9840123456 or +91 98401..."
-                  className="sm:col-span-5 px-3 py-2 rounded-xl bg-[#141226] border border-[#2a2347] text-xs text-white placeholder-[#585375] outline-none focus:border-[#814AC8]"
+                  className="sm:col-span-5 px-3 py-2 rounded-xl bg-[#080a12] border border-[#1b2238] text-xs sm:text-sm text-white placeholder-[#716d8a] outline-none focus:border-[#814AC8] font-normal"
                 />
                 <button
                   type="button"
                   onClick={handleAddManualSingle}
-                  className="sm:col-span-2 px-3 py-2 rounded-xl bg-[#814AC8] hover:bg-[#703db5] text-white text-xs font-semibold flex items-center justify-center gap-1 transition-all"
+                  className="sm:col-span-2 px-3 py-2 rounded-xl bg-[#814AC8] hover:bg-[#703db5] text-white text-xs sm:text-sm font-medium flex items-center justify-center gap-1 transition-all"
                 >
                   <Plus size={14} /> Add
                 </button>
@@ -1278,12 +1277,12 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
             </div>
 
             {/* Bulk Paste Textarea */}
-            <div className="p-3.5 rounded-xl bg-[#0f0e1c] border border-[#251f42] space-y-2.5">
+            <div className="p-3.5 rounded-xl bg-[#0a0d17] border border-[#1b2238] space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-[#D4D4D4]">
+                <span className="text-xs sm:text-sm font-medium text-white">
                   Bulk Paste Numbers
                 </span>
-                <span className="text-[10px] text-[#6d688c]">
+                <span className="text-xs text-[#c4c0db] font-normal">
                   Comma, newline, or space separated
                 </span>
               </div>
@@ -1291,14 +1290,14 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                 rows={2}
                 value={bulkInput}
                 onChange={(e) => setBulkInput(e.target.value)}
-                placeholder="e.g. 9840123456, +1 555 123 4567, +971 50 123 4567"
-                className="w-full px-3 py-2 rounded-xl bg-[#141226] border border-[#2a2347] text-xs text-white placeholder-[#585375] outline-none focus:border-[#814AC8] custom-scrollbar"
+                placeholder="e.g. 9840123456, 9840234567, +919840345678"
+                className="w-full px-3 py-2 rounded-xl bg-[#080a12] border border-[#1b2238] text-xs sm:text-sm text-white placeholder-[#716d8a] outline-none focus:border-[#814AC8] custom-scrollbar font-normal"
               />
               <div className="flex justify-end">
                 <button
                   type="button"
                   onClick={handleAddManualBulk}
-                  className="px-3.5 py-1.5 rounded-xl bg-[#1d1838] border border-[#382f61] hover:bg-[#251f47] text-white text-xs font-medium transition-all"
+                  className="px-3.5 py-1.5 rounded-xl bg-[#16132d] border border-[#814AC8]/30 hover:bg-[#814AC8]/20 text-white text-xs sm:text-sm font-medium transition-all"
                 >
                   Parse & Add Numbers
                 </button>
@@ -1337,8 +1336,8 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
             )}
 
             {/* Added Manual Contacts List */}
-            <div className="rounded-xl border border-[#251f42] bg-[#0c0b17] overflow-hidden">
-              <div className="px-3.5 py-2.5 bg-[#121024] border-b border-[#251f42] flex items-center justify-between text-xs">
+            <div className="rounded-xl border border-[#1b2238] bg-[#080a12] overflow-hidden">
+              <div className="px-3.5 py-2.5 bg-[#0d101c] border-b border-[#1b2238] flex items-center justify-between text-xs sm:text-sm">
                 <span className="text-white font-medium">
                   Added Recipients ({manualRecipients.length})
                 </span>
@@ -1351,28 +1350,28 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                       setManualInvalidList([]);
                       updateData({ recipientsCount: 0, validRecipients: 0, invalidRecipients: 0, recipients: [] });
                     }}
-                    className="text-[11px] text-rose-400 hover:text-rose-300 font-medium"
+                    className="text-xs text-rose-400 hover:text-rose-300 font-medium"
                   >
                     Clear All
                   </button>
                 )}
               </div>
 
-              <div className="max-h-52 overflow-y-auto custom-scrollbar divide-y divide-[#18142c]">
+              <div className="max-h-52 overflow-y-auto custom-scrollbar divide-y divide-[#151b2e]">
                 {manualRecipients.map((rec, idx) => (
                   <div
                     key={idx}
-                    className="px-3.5 py-2 flex items-center justify-between text-xs hover:bg-[#120f26]"
+                    className="px-3.5 py-2 flex items-center justify-between text-xs sm:text-sm hover:bg-[#121626]"
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-5 h-5 rounded-full bg-[#814AC8]/20 text-[#C49FE0] flex items-center justify-center text-[10px] font-bold">
+                      <div className="w-5 h-5 rounded-full bg-[#814AC8]/20 text-[#a78bfa] flex items-center justify-center text-xs font-medium">
                         {idx + 1}
                       </div>
                       <div>
                         <span className="text-white font-medium block leading-tight">
                           {rec.recipient_name}
                         </span>
-                        <span className="text-[11px] font-mono text-[#9a94b8]">
+                        <span className="text-xs text-[#c4c0db] font-normal">
                           {rec.normalized_phone || rec.phone_number}
                         </span>
                       </div>
@@ -1381,15 +1380,15 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                     <button
                       type="button"
                       onClick={() => handleRemoveManualContact(rec.normalized_phone || rec.phone_number)}
-                      className="p-1 rounded-md text-[#6d688c] hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                      className="p-1 rounded-md text-[#c4c0db] hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                       title="Remove"
                     >
-                      <X size={13} />
+                      <X size={14} />
                     </button>
                   </div>
                 ))}
                 {manualRecipients.length === 0 && (
-                  <div className="py-6 text-center text-xs text-[#8c88a6]">
+                  <div className="py-6 text-center text-xs sm:text-sm text-[#c4c0db]">
                     No manual numbers added yet. Use the inputs above to add recipients.
                   </div>
                 )}
@@ -1399,32 +1398,12 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
         )}
 
         {error && (
-          <p className="text-xs text-rose-400 font-medium">{error}</p>
+          <p className="text-xs sm:text-sm text-rose-400 font-medium">{error}</p>
         )}
-
-        {/* Action Buttons */}
-        <div className="pt-4 border-t border-[#251f42]/70 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onBack}
-            className="px-4 py-2 rounded-xl text-xs font-medium text-[#9da3ae] bg-[#121024] border border-[#251f42] hover:text-white hover:border-[#3d3363] transition-all"
-          >
-            ← Back
-          </button>
-
-          <button
-            type="button"
-            onClick={handleProceed}
-            className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_25px_rgba(129,74,200,0.6)] flex items-center gap-1.5 transition-all"
-          >
-            <span>Next</span>
-            <span>→</span>
-          </button>
-        </div>
       </div>
 
       {/* Right Column (5 cols): Live Audience Summary & Pro Tip */}
-      <div className="lg:col-span-5 space-y-4">
+      <div className="lg:col-span-5 xl:col-span-5 space-y-4">
         <AudienceSummary
           total={currentTotalCount}
           valid={currentValidCount}
@@ -1442,6 +1421,26 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
         />
 
         <ProTip message="Targeted audiences consistently achieve 2.4x higher response rates. Use Smart Segments or filter contacts by intent score." />
+      </div>
+
+      {/* Bottom Full-Width Action Buttons */}
+      <div className="col-span-12 pt-6 mt-4 border-t border-[#1b2238] flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onBack}
+          className="px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl text-xs sm:text-sm font-medium text-white/80 bg-[#101424] border border-[#1e263c] hover:bg-[#181e34] hover:text-white transition-all"
+        >
+          ← Back
+        </button>
+
+        <button
+          type="button"
+          onClick={handleProceed}
+          className="px-6 py-2.5 sm:px-7 sm:py-3 rounded-xl text-xs sm:text-sm font-medium text-white bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_18px_rgba(129,74,200,0.4)] flex items-center gap-2 transition-all active:scale-[0.98]"
+        >
+          <span>Next</span>
+          <span>→</span>
+        </button>
       </div>
     </div>
   );

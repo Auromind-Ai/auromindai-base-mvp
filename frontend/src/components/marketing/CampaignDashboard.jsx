@@ -45,7 +45,7 @@ function PremiumCheckbox({ checked, indeterminate = false, onChange, ariaLabel =
       }}
       className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center transition-all duration-150 cursor-pointer select-none shrink-0 ${
         checked || indeterminate
-          ? 'bg-[#814AC8] border border-[#a26cf5] shadow-[0_0_10px_rgba(129,74,200,0.55)] scale-100'
+          ? 'bg-[#814AC8] border border-[#a78bfa] shadow-[0_0_10px_rgba(129,74,200,0.55)] scale-100'
           : 'bg-[#0d101c] border border-[#22293e] hover:border-[#814AC8] hover:bg-[#141829]'
       } active:scale-90`}
     >
@@ -119,19 +119,20 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
 
   useEffect(() => {
     let isMounted = true;
-    setIsLoading(true);
-    getCampaigns(workspaceId)
-      .then((data) => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getCampaigns(workspaceId);
         if (isMounted && data && Array.isArray(data)) {
           setCampaigns(data);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('Failed to load campaigns:', err);
-      })
-      .finally(() => {
+      } finally {
         if (isMounted) setIsLoading(false);
-      });
+      }
+    };
+    fetchData();
 
     return () => {
       isMounted = false;
@@ -232,17 +233,13 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
     });
   }, [campaigns, activeTab, searchQuery, dateFilter]);
 
-  // Reset page when filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab, searchQuery, dateFilter]);
-
-  // Paginated campaigns
+  // Paginated campaigns with safe page boundary
   const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedCampaigns = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const start = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
     return filteredCampaigns.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredCampaigns, currentPage]);
+  }, [filteredCampaigns, safeCurrentPage]);
 
   const toggleSelectAll = () => {
     if (selectedCampaignIds.length === paginatedCampaigns.length && paginatedCampaigns.length > 0) {
@@ -295,10 +292,8 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
         <div>
           {/* Breadcrumb */}
-          <div className="flex items-center gap-1.5 text-xs text-[#6b768c] mb-2 font-medium">
+          <div className="flex items-center gap-1.5 text-xs text-[#8c94a6] mb-2 font-medium">
             <span>Marketing</span>
-            <span className="text-[#475166]">›</span>
-            <span className="text-[#8c94a6]">Bulk Messages</span>
           </div>
 
           {/* Title with Glowing WhatsApp Logo */}
@@ -422,10 +417,10 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
         </div>
       </div>
 
-      {/* 3. Campaign Navigation Tabs & Filter Tools Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-1">
-        {/* Navigation Tabs with Underline Indicator */}
-        <div className="flex items-center gap-5 overflow-x-auto custom-scrollbar border-b border-[#161a28] lg:border-none pb-2 lg:pb-0">
+      {/* 3. Section Heading & Search Filter Row */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2">
+        {/* Left Tabs Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 lg:pb-0">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.id;
             const count = tabCounts[tab.id] ?? 0;
@@ -433,10 +428,14 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 pb-2 relative ${
+                type="button"
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setCurrentPage(1);
+                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 flex items-center gap-1.5 relative ${
                   isActive
-                    ? 'text-white font-semibold'
+                    ? 'text-white bg-[#15192c] border border-[#262f4d]'
                     : 'text-[#6b768c] hover:text-[#a1a1aa]'
                 }`}
               >
@@ -781,7 +780,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
               </linearGradient>
               <linearGradient id="paint1_linear_wave" x1="0" y1="40" x2="1200" y2="140" gradientUnits="userSpaceOnUse">
                 <stop stopColor="#9333ea" stopOpacity="0.25" />
-                <stop offset="0.5" stopColor="#c084fc" stopOpacity="0.3" />
+                <stop offset="0.5" stopColor="#814AC8" stopOpacity="0.3" />
                 <stop offset="1" stopColor="#6b21a8" stopOpacity="0.05" />
               </linearGradient>
             </defs>
@@ -807,7 +806,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
         <button
           type="button"
           onClick={() => setIsCreateOpen(true)}
-          className="relative z-10 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#814AC8] hover:bg-[#723db5] shadow-[0_0_20px_rgba(129,74,200,0.45)] hover:shadow-[0_0_28px_rgba(129,74,200,0.7)] flex items-center gap-2 shrink-0 transition-all active:scale-[0.98]"
+          className="relative z-10 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.45)] hover:shadow-[0_0_28px_rgba(129,74,200,0.7)] flex items-center gap-2 shrink-0 transition-all active:scale-[0.98]"
         >
           <Plus size={16} strokeWidth={2.5} />
           <span>Create Campaign</span>
