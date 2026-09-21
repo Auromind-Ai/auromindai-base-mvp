@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import {
   Plus,
@@ -104,6 +104,25 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
   const [currentPage, setCurrentPage] = useState(1);
   const { showToast } = useToast();
 
+  const dateDropdownRef = useRef(null);
+
+  // Close dropdowns & action menus on outside clicks
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dateDropdownRef.current && !dateDropdownRef.current.contains(event.target)) {
+        setIsDateDropdownOpen(false);
+      }
+      if (!event.target.closest('[data-action-menu-cell]')) {
+        setActiveMenuId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -183,9 +202,42 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
     };
   }, [campaigns]);
 
+  // Helper to extract a valid Date object from campaign data
+  const getCampaignDate = (c) => {
+    if (!c) return null;
+    if (c.created_at) {
+      const d = new Date(c.created_at);
+      if (!isNaN(d.getTime())) return d;
+    }
+    if (c.createdAt) {
+      const d = new Date(c.createdAt);
+      if (!isNaN(d.getTime())) return d;
+    }
+    if (c.scheduledAt) {
+      const d = new Date(c.scheduledAt);
+      if (!isNaN(d.getTime())) return d;
+    }
+    if (c.date) {
+      const lower = String(c.date).toLowerCase();
+      if (lower === 'today') return new Date();
+      if (lower === 'yesterday') {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        return d;
+      }
+      const d = new Date(c.date);
+      if (!isNaN(d.getTime())) return d;
+    }
+    return null;
+  };
+
   // Filter campaigns by active tab, search query, and date filter
   const filteredCampaigns = useMemo(() => {
     const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7, 0, 0, 0, 0);
+    const thirtyDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30, 0, 0, 0, 0);
 
     return campaigns.filter((c) => {
       // Tab filter
@@ -214,18 +266,18 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
 
       // Date Filter
       if (dateFilter && dateFilter !== 'All time') {
-        const campDate = c.created_at ? new Date(c.created_at) : (c.scheduledAt ? new Date(c.scheduledAt) : null);
-        if (campDate && !isNaN(campDate.getTime())) {
-          const diffMs = now.getTime() - campDate.getTime();
-          const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        const campDate = getCampaignDate(c);
+        if (!campDate) return false;
 
-          if (dateFilter === 'Today' && diffDays > 1) return false;
-          if (dateFilter === 'Last 7 days' && diffDays > 7) return false;
-          if (dateFilter === 'Last 30 days' && diffDays > 30) return false;
-          if (dateFilter === 'This Month') {
-            if (campDate.getMonth() !== now.getMonth() || campDate.getFullYear() !== now.getFullYear()) {
-              return false;
-            }
+        if (dateFilter === 'Today') {
+          if (campDate < startOfToday || campDate > endOfToday) return false;
+        } else if (dateFilter === 'Last 7 days') {
+          if (campDate < sevenDaysAgo) return false;
+        } else if (dateFilter === 'Last 30 days') {
+          if (campDate < thirtyDaysAgo) return false;
+        } else if (dateFilter === 'This Month') {
+          if (campDate.getMonth() !== now.getMonth() || campDate.getFullYear() !== now.getFullYear()) {
+            return false;
           }
         }
       }
@@ -286,8 +338,9 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
     setActiveMenuId(null);
   };
 
-  const handleDuplicate = async (id) => {
+  const handleDuplicate = async (campaignOrId) => {
     try {
+      const id = typeof campaignOrId === 'object' && campaignOrId !== null ? campaignOrId.id : campaignOrId;
       await duplicateCampaign(id);
       showToast('Campaign duplicated as draft', 'success');
       loadData();
@@ -469,39 +522,51 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Search campaigns..."
               className="w-full pl-9 pr-3.5 py-1.5 rounded-xl bg-[#0a0c14] border border-[#161a28] text-xs text-white placeholder-[#586174] outline-none focus:border-[#814AC8] transition-all"
             />
           </div>
 
           {/* Date Filter Dropdown */}
-          <div className="relative">
+          <div className="relative" ref={dateDropdownRef}>
             <button
               type="button"
               onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
-              className="px-3.5 py-1.5 rounded-xl bg-[#0a0c14] border border-[#161a28] hover:border-[#283049] text-xs text-[#cbd5e1] hover:text-white flex items-center gap-2 transition-colors"
+              className={`px-3.5 py-1.5 rounded-xl border text-xs flex items-center gap-2 transition-colors cursor-pointer select-none ${
+                dateFilter !== 'All time'
+                  ? 'bg-[#814AC8]/20 border-[#814AC8] text-white font-medium shadow-[0_0_15px_rgba(129,74,200,0.25)]'
+                  : 'bg-[#0a0c14] border-[#161a28] hover:border-[#283049] text-[#cbd5e1] hover:text-white'
+              }`}
             >
-              <Calendar size={13} className="text-white/60" />
+              <Calendar size={13} className={dateFilter !== 'All time' ? 'text-[#a78bfa]' : 'text-white/60'} />
               <span>{dateFilter}</span>
-              <ChevronDown size={13} className="text-white/60" />
+              <ChevronDown size={13} className={`transition-transform duration-200 ${isDateDropdownOpen ? 'rotate-180 text-white' : 'text-white/60'}`} />
             </button>
 
             {isDateDropdownOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-44 bg-[#101320] border border-[#22283d] rounded-xl shadow-2xl p-1 z-30 space-y-0.5">
+              <div className="absolute right-0 top-full mt-1.5 w-44 bg-[#101320] border border-[#22283d] rounded-xl shadow-2xl p-1 z-30 space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
                 {['All time', 'Today', 'Last 7 days', 'Last 30 days', 'This Month'].map((d) => (
-                  <div
+                  <button
                     key={d}
+                    type="button"
                     onClick={() => {
                       setDateFilter(d);
+                      setCurrentPage(1);
                       setIsDateDropdownOpen(false);
                     }}
-                    className={`px-3 py-1.5 text-xs rounded-lg cursor-pointer ${
-                      dateFilter === d ? 'bg-[#814AC8]/25 text-white font-medium' : 'text-[#a1a1aa] hover:bg-[#181d2e] hover:text-white'
+                    className={`w-full text-left px-3 py-1.5 text-xs rounded-lg cursor-pointer flex items-center justify-between transition-colors ${
+                      dateFilter === d
+                        ? 'bg-[#814AC8]/30 text-white font-medium'
+                        : 'text-[#a1a1aa] hover:bg-[#181d2e] hover:text-white'
                     }`}
                   >
-                    {d}
-                  </div>
+                    <span>{d}</span>
+                    {dateFilter === d && <Check size={12} className="text-[#a78bfa]" />}
+                  </button>
                 ))}
               </div>
             )}
@@ -693,22 +758,28 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                       </td>
 
                       {/* Actions */}
-                      <td className="px-4 py-3.5 text-right relative">
+                      <td className="px-4 py-3.5 text-right relative" data-action-menu-cell>
                         <button
                           type="button"
-                          onClick={() => setActiveMenuId(activeMenuId === camp.id ? null : camp.id)}
-                          className="p-1.5 rounded-lg text-[#6b768c] hover:text-white hover:bg-[#181d2e] transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId((prev) => (prev === camp.id ? null : camp.id));
+                          }}
+                          className="p-1.5 rounded-lg text-[#6b768c] hover:text-white hover:bg-[#181d2e] transition-colors cursor-pointer"
                         >
                           <MoreHorizontal size={16} />
                         </button>
 
                         {/* Action Menu Flyout */}
                         {activeMenuId === camp.id && (
-                          <div className="absolute right-4 top-10 w-36 bg-[#101320] border border-[#22283d] rounded-xl shadow-2xl p-1 z-30 space-y-0.5 text-left">
+                          <div className="absolute right-4 top-10 w-36 bg-[#101320] border border-[#22283d] rounded-xl shadow-2xl p-1 z-30 space-y-0.5 text-left animate-in fade-in zoom-in-95 duration-100">
                             <button
                               type="button"
-                              onClick={() => handleTogglePause(camp)}
-                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2"
+                              onClick={() => {
+                                handleTogglePause(camp);
+                                setActiveMenuId(null);
+                              }}
+                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
                             >
                               {(camp.status || '').toLowerCase() === 'paused' ? <Play size={12} /> : <Pause size={12} />}
                               <span>{(camp.status || '').toLowerCase() === 'paused' ? 'Resume' : 'Pause'}</span>
@@ -716,8 +787,8 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
 
                             <button
                               type="button"
-                              onClick={() => handleDuplicate(camp.id)}
-                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2"
+                              onClick={() => handleDuplicate(camp)}
+                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
                             >
                               <Copy size={12} />
                               <span>Duplicate</span>
@@ -726,7 +797,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                             <button
                               type="button"
                               onClick={() => handleDelete(camp.id)}
-                              className="w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20 rounded flex items-center gap-2"
+                              className="w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
                             >
                               <Trash2 size={12} />
                               <span>Delete</span>
@@ -791,7 +862,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
       </div>
 
       {/* 5. Bottom Promotional Banner ("Reach more customers with WhatsApp") with Purple Wave Gradient */}
-      <div className="relative overflow-hidden rounded-2xl border border-[#251b42]/60 bg-[#090812] p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-2xl group">
+      <div className="relative overflow-hidden rounded-2xl border border-[#251b42]/60 bg-[#090812] p-5 sm:p-6 flex items-center gap-4 shadow-2xl group">
         {/* Decorative Glowing Purple Wave Background */}
         <div className="absolute inset-0 pointer-events-none opacity-40 group-hover:opacity-50 transition-opacity">
           <svg
@@ -825,30 +896,21 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
           </svg>
         </div>
 
-        {/* Left Section: WhatsApp Icon + Header Text */}
+        {/* WhatsApp Icon + Header Text */}
         <div className="relative z-10 flex items-center gap-4">
           <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#091a14] border border-[#14532d]/60 flex items-center justify-center text-[#25D366] shrink-0 shadow-[0_0_20px_rgba(37,211,102,0.25)]">
             <WhatsAppLogo size={28} />
           </div>
           <div>
-            <h3 className="text-base sm:text-lg font-medium text-white tracking-tight">
+           <h3 className="text-sm sm:text-base font-medium text-white tracking-tight">
               Reach more customers with WhatsApp
             </h3>
-            <p className="text-xs sm:text-sm text-white/60 mt-0.5">
+
+            <p className="text-[11px] sm:text-xs text-white/60 mt-0.5">
               Use templates, personalization and smart timing to get better results.
             </p>
           </div>
         </div>
-
-        {/* Right Section: + Create Campaign Button */}
-        <button
-          type="button"
-          onClick={() => setIsCreateOpen(true)}
-          className="relative z-10 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.45)] hover:shadow-[0_0_28px_rgba(129,74,200,0.7)] flex items-center gap-2 shrink-0 transition-all active:scale-[0.98]"
-        >
-          <Plus size={16} strokeWidth={2.5} />
-          <span>Create Campaign</span>
-        </button>
       </div>
 
       {/* 6. Create WhatsApp Campaign Modal */}
