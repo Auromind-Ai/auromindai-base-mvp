@@ -23,11 +23,12 @@ import {
   ArrowDown,
   RefreshCw,
   Check,
-  Minus
+  Minus,
+  Clock
 } from 'lucide-react';
 import CampaignStatusBadge from './CampaignStatusBadge';
 import CreateCampaignModal from './CreateCampaignModal';
-import { getCampaigns, deleteCampaign, updateCampaign, pauseCampaign, resumeCampaign } from '@/lib/api/marketing';
+import { getCampaigns, deleteCampaign, updateCampaign, pauseCampaign, resumeCampaign, duplicateCampaign } from '@/lib/api/marketing';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 
@@ -281,6 +282,17 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
       loadData();
     } catch (e) {
       showToast('Failed to update campaign status', 'error');
+    }
+    setActiveMenuId(null);
+  };
+
+  const handleDuplicate = async (id) => {
+    try {
+      await duplicateCampaign(id);
+      showToast('Campaign duplicated as draft', 'success');
+      loadData();
+    } catch (e) {
+      showToast('Failed to duplicate campaign', 'error');
     }
     setActiveMenuId(null);
   };
@@ -638,17 +650,46 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
 
                       {/* Date & Time */}
                       <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="text-xs text-[#cbd5e1]">
-                          {camp.date || (camp.created_at ? new Date(camp.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Today')}
-                        </div>
-                        <div className="text-[11px] text-white/60 mt-0.5">
-                          {camp.time || (camp.created_at ? new Date(camp.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:00 AM')}
-                        </div>
+                        {(() => {
+                          const isScheduled = (camp.status || '').toLowerCase() === 'scheduled';
+                          const targetDateRaw = (isScheduled && camp.scheduledAt)
+                            ? camp.scheduledAt
+                            : (camp.created_at || camp.createdAt || null);
+                          const dateObj = targetDateRaw ? new Date(targetDateRaw) : null;
+                          const isValidDate = dateObj && !isNaN(dateObj.getTime());
+
+                          const dateFormatted = isValidDate
+                            ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                            : (camp.date || 'Today');
+
+                          const timeFormatted = isValidDate
+                            ? dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                            : (camp.time || '10:00 AM');
+
+                          return (
+                            <>
+                              <div className="text-xs text-[#cbd5e1]">
+                                {dateFormatted}
+                              </div>
+                              <div className="text-[11px] text-white/60 mt-0.5">
+                                {timeFormatted}
+                              </div>
+                            </>
+                          );
+                        })()}
                       </td>
 
                       {/* Status */}
                       <td className="px-4 py-3.5">
-                        <CampaignStatusBadge status={camp.status} />
+                        <div className="flex flex-col items-start gap-1">
+                          <CampaignStatusBadge status={camp.status} />
+                          {((camp.status || '').toLowerCase() === 'paused' && (camp.paused_reason === 'PORTFOLIO_TIER_LIMIT_REACHED' || camp.pausedReason === 'PORTFOLIO_TIER_LIMIT_REACHED')) && (
+                            <span className="text-[10px] text-amber-400 font-medium flex items-center gap-1">
+                              <Clock size={10} className="shrink-0" />
+                              <span>24h limit reached · Resumes tomorrow</span>
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Actions */}
@@ -675,10 +716,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
 
                             <button
                               type="button"
-                              onClick={() => {
-                                showToast('Campaign duplicated as draft', 'success');
-                                setActiveMenuId(null);
-                              }}
+                              onClick={() => handleDuplicate(camp.id)}
                               className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2"
                             >
                               <Copy size={12} />

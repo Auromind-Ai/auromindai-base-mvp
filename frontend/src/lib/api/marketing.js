@@ -105,16 +105,28 @@ export function mapBackendCampaignToFrontend(c) {
     responseRate: c.responseRate || (sCount > 0 ? `${((rCount / sCount) * 100).toFixed(1)}%` : '0.0%'),
     status: normalizeStatus(c.status),
     date: dateStr,
-    scheduledAt: c.scheduled_at,
+    created_at: c.created_at || c.createdAt || null,
+    createdAt: c.created_at || c.createdAt || null,
+    scheduled_at: c.scheduled_at || c.scheduledAt || null,
+    scheduledAt: c.scheduled_at || c.scheduledAt || null,
     messageBody: c.message_content || c.messageBody || '',
     mediaUrl: c.media_url || c.mediaUrl,
     sendType: c.schedule_type === 'later' ? 'Schedule for Later' : (c.sendType || 'Send Now'),
     sendGradually: c.send_gradually ?? c.sendGradually ?? true,
     sendingRate: c.messages_per_minute ?? c.sendingRate ?? 100,
     skipInvalid: c.skip_invalid_numbers ?? c.skipInvalid ?? true,
-    stopOnFailure: c.stop_on_high_failure_rate ?? c.stopOnFailure ?? false,
+    stopOnFailure: c.stop_on_high_failure_rate ?? c.stopOnFailure ?? true,
     quietHours: c.quiet_hours_enabled ?? c.quietHours ?? true,
   };
+}
+
+export function mapCampaignCategory(val) {
+  if (!val) return 'marketing';
+  const str = String(val).trim().toLowerCase();
+  if (str.includes('util') || str.includes('transact') || str.includes('order') || str.includes('bill') || str.includes('update') || str.includes('supp') || str.includes('reminder') || str.includes('follow')) return 'utility';
+  if (str.includes('auth') || str.includes('otp')) return 'authentication';
+  if (str.includes('serv') || str.includes('care')) return 'service';
+  return 'marketing';
 }
 
 export function mapFrontendCampaignToBackend(c, workspaceId) {
@@ -126,10 +138,14 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
     workspace_id: wsId,
     name: c.name || 'Untitled Campaign',
     campaign_type: (c.type || 'promotional').toLowerCase().replace(/\s+/g, '_'),
+    category: mapCampaignCategory(c.templateCategory || c.category || c.type),
     campaign_goal: c.goal || null,
     phone_number_id: c.phoneNumberId || c.whatsappNumber || null,
     whatsapp_number: c.whatsappNumber || null,
     audience_source: (c.audienceType || 'existing_contacts').toLowerCase().replace(/\s+/g, '_'),
+    contact_list_ids: c.selectedListIds || c.contact_list_ids || [],
+    lead_ids: c.selectedLeadIds || c.lead_ids || [],
+    variable_mapping: c.variableMapping || null,
     message_type: c.messageMode === 'template' ? 'template' : (c.messageMode === 'ai' ? 'ai_generated' : 'custom'),
     template_id: c.selectedTemplateId || null,
     message_content: c.messageBody || '',
@@ -141,7 +157,7 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
     send_gradually: Boolean(c.sendGradually ?? true),
     messages_per_minute: Number(c.sendingRate || 100),
     skip_invalid_numbers: Boolean(c.skipInvalid ?? true),
-    stop_on_high_failure_rate: Boolean(c.stopOnFailure ?? false),
+    stop_on_high_failure_rate: Boolean(c.stopOnFailure ?? true),
     failure_rate_threshold: 10.0,
     quiet_hours_enabled: Boolean(c.quietHours ?? true),
     quiet_hours_start: c.quietHoursStart || '22:00',
@@ -231,43 +247,26 @@ export async function createCampaign(campaignData, workspaceId) {
   const wsId = workspaceId || getStoredWorkspaceId();
   const payload = mapFrontendCampaignToBackend(campaignData, wsId);
 
-  try {
-    const res = await client.post('/api/marketing/campaigns', payload);
-    const result = res?.data || res;
+  const res = await client.post('/api/marketing/campaigns', payload);
+  const result = res?.data || res;
 
-    // If 'Send Now' and not auto-launched, trigger launch endpoint
-    const campaignId = result?.campaign_id || result?.id;
-    if (campaignId && payload.schedule_type === 'now' && !result?.campaign_status?.includes('progress')) {
-      try {
-        await client.post(`/api/marketing/campaigns/${campaignId}/launch`);
-      } catch (lErr) {
-        console.warn('Launch trigger notice:', lErr);
-      }
+  // If 'Send Now' and not auto-launched, trigger launch endpoint
+  const campaignId = result?.campaign_id || result?.id;
+  if (campaignId && payload.schedule_type === 'now' && !result?.campaign_status?.includes('progress')) {
+    try {
+      await client.post(`/api/marketing/campaigns/${campaignId}/launch`);
+    } catch (lErr) {
+      console.warn('Launch trigger notice:', lErr);
     }
-
-    clearCampaignDraft();
-    return result;
-  } catch (e) {
-    console.warn('createCampaign live failed, caching locally:', e.message || e);
   }
 
-  // Fallback for offline safety
-  const newCampaign = {
-    id: 'camp_' + Date.now(),
-    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    status: campaignData.sendType === 'Schedule for Later' ? 'Scheduled' : 'Sending',
-    sentCount: campaignData.sendType === 'Schedule for Later' ? 0 : (campaignData.validRecipients || 2430),
-    deliveredCount: campaignData.sendType === 'Schedule for Later' ? 0 : Math.floor((campaignData.validRecipients || 2430) * 0.98),
-    failedCount: campaignData.invalidRecipients || 50,
-    repliesCount: 0,
-    responseRate: '0.0%',
-    ...campaignData
-  };
-  const existing = getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
-  const updated = [newCampaign, ...existing];
-  setStoredItems(STORAGE_KEYS.CAMPAIGNS, updated);
   clearCampaignDraft();
-  return newCampaign;
+  return result;
+}
+
+export async function duplicateCampaign(id) {
+  const res = await client.post(`/api/marketing/campaigns/${id}/duplicate`);
+  return res?.data || res;
 }
 
 export async function updateCampaign(id, updateData) {
@@ -365,10 +364,18 @@ export async function getMarketingLeads(workspaceId, segment = 'all', search = '
 
 export async function estimateCampaign(workspaceId, validRecipientsCount, category = 'marketing') {
   const wsId = workspaceId || getStoredWorkspaceId();
+  const normalizedCategory = mapCampaignCategory(category);
+  const defaultRate = normalizedCategory === 'utility' ? 0.18 : (normalizedCategory === 'service' ? 0.05 : 1.25);
+  const defaultMeta = normalizedCategory === 'utility' ? 0.145 : (normalizedCategory === 'service' ? 0.0 : 1.09);
+  const defaultFee = normalizedCategory === 'utility' ? 0.035 : (normalizedCategory === 'service' ? 0.05 : 0.16);
+
   if (!wsId) {
     return {
-      estimated_cost: Number(validRecipientsCount || 0) * 0.8,
-      rate_per_message: 0.8,
+      estimated_cost: Number(validRecipientsCount || 0) * defaultRate,
+      rate_per_message: defaultRate,
+      customer_price: defaultRate,
+      meta_rate: defaultMeta,
+      platform_fee_rate: defaultFee,
       is_balance_sufficient: true,
       portfolio_tier_limit: 0,
       portfolio_used_today: 0,
@@ -381,14 +388,17 @@ export async function estimateCampaign(workspaceId, validRecipientsCount, catego
     const res = await client.post('/api/marketing/campaigns/estimate', {
       workspace_id: wsId,
       valid_recipients_count: Number(validRecipientsCount || 0),
-      category,
+      category: normalizedCategory,
     });
     return res?.data || res;
   } catch (e) {
     console.warn('estimateCampaign notice:', e.message || e);
     return {
-      estimated_cost: Number(validRecipientsCount || 0) * 0.8,
-      rate_per_message: 0.8,
+      estimated_cost: Number(validRecipientsCount || 0) * defaultRate,
+      rate_per_message: defaultRate,
+      customer_price: defaultRate,
+      meta_rate: defaultMeta,
+      platform_fee_rate: defaultFee,
       is_balance_sufficient: true,
       portfolio_tier_limit: 0,
       portfolio_used_today: 0,
@@ -480,10 +490,21 @@ export function getCampaignDraft() {
       (String(parsed.name || '').toLowerCase().includes('diwali') ||
        parsed.recipientsCount === 2480 ||
        parsed.recipientsCount === 2430 ||
+       (parsed.invalidRecipients === 50 && (!parsed.recipients || parsed.recipients.length === 0)) ||
        (Array.isArray(parsed.selectedListIds) && parsed.selectedListIds.includes('list_1')))
     ) {
       localStorage.removeItem(STORAGE_KEYS.DRAFT);
       return null;
+    }
+    // Sanitize any corrupt manual entry draft where invalidRecipients exists without manualInvalidList
+    if (parsed && parsed.audienceType === 'Manual Entry') {
+      if (!Array.isArray(parsed.manualInvalidList) || parsed.manualInvalidList.length === 0) {
+        parsed.invalidRecipients = 0;
+        if (!Array.isArray(parsed.recipients) || parsed.recipients.length === 0) {
+          parsed.recipientsCount = 0;
+          parsed.validRecipients = 0;
+        }
+      }
     }
     return parsed;
   } catch {

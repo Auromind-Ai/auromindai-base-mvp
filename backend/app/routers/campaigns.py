@@ -76,14 +76,53 @@ async def create_campaign(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    Step 5: Review & Save Campaign (Draft or Scheduled).
-    If auto_launch is True (e.g. Send Now), immediately executes preflight escrow and launches.
-    """
     ws_uuid = resolve_workspace_id(current_user, db, payload.workspace_id)
+    user_id = to_uuid(current_user.id) if getattr(current_user, "id", None) else None
+
+    
+    # 1. Validate template ownership if specified
+    if payload.template_id:
+        tmpl_uuid = to_uuid(payload.template_id)
+        tmpl = db.query(Template).filter(Template.id == tmpl_uuid).first()
+        if not tmpl:
+            raise HTTPException(status_code=404, detail="Template not found")
+        if tmpl.workspace_id and tmpl.workspace_id != ws_uuid:
+            if not tmpl.system_tag and (not user_id or tmpl.user_id != user_id):
+                raise HTTPException(status_code=403, detail="Access denied to specified template")
+
+    # 2. Validate contact_list_ids ownership if specified
+    if payload.contact_list_ids:
+        for cl_id in payload.contact_list_ids:
+            cl_uuid = to_uuid(cl_id)
+            cl = db.query(ContactList).filter(ContactList.id == cl_uuid).first()
+            if not cl:
+                raise HTTPException(status_code=404, detail=f"Contact list {cl_id} not found")
+            if cl.workspace_id != ws_uuid:
+                raise HTTPException(status_code=403, detail=f"Access denied to contact list {cl_id}")
+
+    # 3. Validate lead_ids ownership if specified
+    if payload.lead_ids:
+        foreign_leads = db.query(Lead.id).filter(
+            Lead.id.in_([to_uuid(lid) for lid in payload.lead_ids]),
+            Lead.workspace_id != ws_uuid
+        ).first()
+        if foreign_leads:
+            raise HTTPException(status_code=403, detail="Access denied to one or more selected leads")
+
+    # 4. Validate phone_number_id ownership if specified
+    if payload.phone_number_id:
+        ws = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
+        if ws:
+            valid_numbers = {
+                ws.meta_phone_number_id,
+                ws.meta_display_phone,
+                ws.twilio_phone_number
+            }
+            valid_numbers = {str(n).strip() for n in valid_numbers if n}
+            if valid_numbers and str(payload.phone_number_id).strip() not in valid_numbers:
+                raise HTTPException(status_code=403, detail="Phone number does not belong to this workspace")
 
     data = payload.model_dump()
-    user_id = to_uuid(current_user.id) if getattr(current_user, "id", None) else None
 
     try:
         campaign = CampaignService.create_campaign(
@@ -118,25 +157,37 @@ async def create_campaign(
 async def list_campaigns(
     workspace_id: Optional[str] = Query(None),
     status_filter: Optional[str] = Query(None, alias="status"),
+    search: Optional[str] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Lists campaigns with real-time counters and filter by status.
+    Lists campaigns with real-time counters, search, date range, and status filter.
     Supports both snake_case and camelCase attributes for complete frontend compatibility.
     """
     ws_uuid = resolve_workspace_id(current_user, db, workspace_id)
 
     query = db.query(Campaign).filter(Campaign.workspace_id == ws_uuid)
     if status_filter and status_filter.lower() != "all":
-        # Map frontend tab names if needed
         st = status_filter.lower()
         if st == "sending":
             query = query.filter(Campaign.status.in_(["in_progress", "sending"]))
         else:
             query = query.filter(Campaign.status == st)
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(Campaign.name.ilike(term))
+
+    if start_date and start_date.strip():
+        query = query.filter(Campaign.created_at >= start_date.strip())
+
+    if end_date and end_date.strip():
+        query = query.filter(Campaign.created_at <= end_date.strip())
 
     total = query.count()
     campaigns = query.order_by(Campaign.created_at.desc()).offset(offset).limit(limit).all()
@@ -359,6 +410,33 @@ async def cancel_campaign(
     return {"status": "cancelled", "campaign_id": str(updated.id)}
 
 
+@router.post("/campaigns/{campaign_id}/duplicate")
+async def duplicate_campaign(
+    campaign_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Duplicates an existing campaign as a new draft, copying settings and recipient snapshot.
+    """
+    c_uuid = to_uuid(campaign_id)
+    campaign = db.query(Campaign).filter(Campaign.id == c_uuid).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    verify_workspace_access(current_user, db, campaign.workspace_id)
+    user_id = to_uuid(current_user.id) if getattr(current_user, "id", None) else None
+
+    cloned = CampaignService.duplicate_campaign(db, c_uuid, user_id=user_id)
+    return {
+        "status": "success",
+        "campaign_id": str(cloned.id),
+        "campaign_name": cloned.name,
+        "total_recipients": cloned.total_recipients,
+        "campaign_status": cloned.status,
+    }
+
+
 @router.delete("/campaigns/{campaign_id}")
 async def delete_campaign(
     campaign_id: str,
@@ -371,8 +449,17 @@ async def delete_campaign(
         raise HTTPException(status_code=404, detail="Campaign not found")
 
     verify_workspace_access(current_user, db, campaign.workspace_id)
-    updated = CampaignService.cancel_campaign(db, c_uuid)
-    return {"status": "deleted", "campaign_id": str(updated.id)}
+
+    if campaign.status == "in_progress":
+        raise HTTPException(status_code=400, detail="Cannot delete an actively running campaign. Please pause or cancel it first.")
+
+    # Release any remaining held escrow
+    if campaign.status == "scheduled":
+        CampaignService.cancel_campaign(db, c_uuid)
+
+    db.delete(campaign)
+    db.commit()
+    return {"status": "deleted", "campaign_id": str(c_uuid)}
 
 
 @router.post("/audiences/upload-csv")

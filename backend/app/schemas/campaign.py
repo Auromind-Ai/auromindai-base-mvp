@@ -12,6 +12,10 @@ class PreflightEstimateRequest(BaseModel):
 class PreflightEstimateResponse(BaseModel):
     estimated_cost: float
     rate_per_message: float
+    meta_rate: float = 0.0
+    platform_fee_rate: float = 0.0
+    estimated_meta_cost: float = 0.0
+    platform_fee_total: float = 0.0
     current_balance: float
     held_balance: float
     available_balance: float
@@ -64,7 +68,7 @@ class CampaignCreateRequest(BaseModel):
     send_gradually: bool = True
     messages_per_minute: int = 100
     skip_invalid_numbers: bool = True
-    stop_on_high_failure_rate: bool = False
+    stop_on_high_failure_rate: bool = True
     failure_rate_threshold: float = 10.0
     quiet_hours_enabled: bool = False
     quiet_hours_start: str = "22:00"
@@ -73,6 +77,9 @@ class CampaignCreateRequest(BaseModel):
     whatsapp_number: Optional[str] = None
     auto_launch: bool = False
     segment: Optional[str] = None
+    contact_list_ids: Optional[List[str]] = None
+    lead_ids: Optional[List[str]] = None
+    variable_mapping: Optional[Dict[str, Any]] = None
     recipients: List[RecipientInput] = []
 
 
@@ -123,3 +130,11 @@ class ContactListCreateRequest(BaseModel):
     name: str
     description: Optional[str] = None
     lead_ids: Optional[List[str]] = None
+
+
+class CampaignDuplicateResponse(BaseModel):
+    status: str = "success"
+    campaign_id: str
+    campaign_name: str
+    campaign_status: str = "draft"
+

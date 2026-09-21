@@ -61,15 +61,27 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
   const [sendGradually, setSendGradually] = useState(data.sendGradually ?? true);
   const [sendingRate, setSendingRate] = useState(data.sendingRate || 100);
   const [skipInvalid, setSkipInvalid] = useState(data.skipInvalid ?? true);
-  const [stopOnFailure, setStopOnFailure] = useState(data.stopOnFailure ?? false);
+  const [stopOnFailure, setStopOnFailure] = useState(data.stopOnFailure ?? true);
   const [quietHours, setQuietHours] = useState(data.quietHours ?? true);
 
   const totalRecipients = data.recipientsCount || 0;
   const validRecipients = data.validRecipients || 0;
   const invalidRecipients = data.invalidRecipients || 0;
 
+  const portfolioRemainingToday = data.portfolioRemainingToday !== undefined ? data.portfolioRemainingToday : null;
+  const isWhatsAppConnected = data.isWhatsAppConnected ?? true;
+  const isQuotaExceeded = isWhatsAppConnected && portfolioRemainingToday !== null && validRecipients > portfolioRemainingToday;
+  const sendingToday = portfolioRemainingToday !== null ? Math.max(0, Math.min(validRecipients, portfolioRemainingToday)) : validRecipients;
+  const sendingTomorrow = portfolioRemainingToday !== null ? Math.max(0, validRecipients - sendingToday) : 0;
+
   // Calculate estimated completion time
   const calculateEstimatedDuration = () => {
+    if (isQuotaExceeded) {
+      if (portfolioRemainingToday === 0) {
+        return 'Tomorrow (All held for 24h reset)';
+      }
+      return '2 Days (Split across Meta 24h limit)';
+    }
     if (!sendGradually) {
       return '< 1 min (Fast dispatch)';
     }
@@ -502,11 +514,15 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                 <span className="text-xs text-[#c4c0db] font-medium block">
                   Estimated completion
                 </span>
-                <span className="text-xs sm:text-sm font-medium text-white mt-0.5 block">
-                  ~ {calculateEstimatedDuration()} after start
+                <span className={`text-xs sm:text-sm font-medium mt-0.5 block ${isQuotaExceeded ? 'text-amber-300' : 'text-white'}`}>
+                  ~ {calculateEstimatedDuration()}
                 </span>
                 <span className="text-xs text-[#a1a1aa] font-normal block mt-0.5">
-                  {sendGradually ? (
+                  {isQuotaExceeded ? (
+                    portfolioRemainingToday === 0
+                      ? `All ${validRecipients.toLocaleString()} msgs held until Meta 24h limit resets tomorrow`
+                      : `${sendingToday.toLocaleString()} msgs sent today · ${sendingTomorrow.toLocaleString()} msgs sent tomorrow`
+                  ) : sendGradually ? (
                     `Based on ${totalRecipients.toLocaleString()} messages at ${sendingRate}/min`
                   ) : (
                     `Direct blast dispatch (Safe 40 msgs/sec throughput)`
@@ -539,7 +555,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
         </div>
 
         {/* Pro Tip Card */}
-        <ProTip message="For better deliverability, we recommend sending messages gradually instead of all at once." />
+        <ProTip message="Keep Send gradually, Quiet hours, and Auto-stop on failure turned on to prevent WhatsApp bans, avoid spam reports, and ensure maximum delivery." />
 
         {/* Quiet Hours Card */}
         <QuietHours enabled={quietHours} onChange={setQuietHours} />

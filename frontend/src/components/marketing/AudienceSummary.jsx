@@ -11,7 +11,9 @@ export default function AudienceSummary({
   optedOut = 0,
   estimatedMessages = null,
   estimatedCost = null,
-  ratePerMessage = 0.8,
+  ratePerMessage = 1.25,
+  metaRate = null,
+  platformFeeRate = null,
   isBalanceSufficient = true,
   shortfall = 0,
   portfolioRemainingToday = null,
@@ -24,7 +26,7 @@ export default function AudienceSummary({
   const displayEstimatedMessages = estimatedMessages || `~ ${valid.toLocaleString()} messages`;
   const costDisplay = estimatedCost !== null
     ? `₹${Number(estimatedCost).toFixed(2)}`
-    : `~ ₹${(valid * (ratePerMessage || 0.8)).toFixed(2)}`;
+    : `~ ₹${(valid * (ratePerMessage || 1.25)).toFixed(2)}`;
 
   return (
     <div className="rounded-xl bg-[#0a0d17] border border-[#1a2136] p-5 text-xs sm:text-sm transition-all duration-200">
@@ -124,16 +126,56 @@ export default function AudienceSummary({
             <span className="text-amber-400/90 font-medium">
               0 remaining (Not Connected)
             </span>
+          ) : portfolioRemainingToday === null || portfolioRemainingToday === undefined ? (
+            <span className="text-[#C49FE0] font-medium">
+              Calculating...
+            </span>
           ) : portfolioRemainingToday === 0 ? (
             <span className="text-rose-400 font-medium">
               0 remaining (Daily limit reached)
             </span>
           ) : (
             <span className="text-[#C49FE0] font-medium">
-              {portfolioRemainingToday.toLocaleString()} remaining
+              {Number(portfolioRemainingToday).toLocaleString()} remaining
             </span>
           )}
         </div>
+
+        {/* Meta 24h Quota Exceeded Warning */}
+        {isWhatsAppConnected && portfolioRemainingToday !== null && portfolioRemainingToday !== undefined && valid > portfolioRemainingToday && (
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200 space-y-2 animate-in fade-in duration-200">
+            <div className="flex items-start gap-2 text-amber-300 font-semibold">
+              <AlertTriangle size={15} className="shrink-0 mt-0.5 text-amber-400" />
+              <span>Meta 24h Daily Limit Exceeded</span>
+            </div>
+            <p className="text-[11px] text-amber-200/90 leading-relaxed font-normal">
+              Your audience ({valid.toLocaleString()} contacts) exceeds your remaining Meta 24h quota ({Number(portfolioRemainingToday || 0).toLocaleString()}). Sending will be split across multiple days:
+            </p>
+            <div className="p-2.5 rounded-lg bg-[#080a12] border border-amber-500/20 text-[11px] space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-amber-300 font-medium flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  Sending Today:
+                </span>
+                <span className="text-white font-bold">
+                  {Math.max(0, Number(portfolioRemainingToday) || 0).toLocaleString()} msgs
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-amber-300 font-medium flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  Sending Tomorrow:
+                </span>
+                <span className="text-amber-300 font-bold">
+                  {Math.max(0, valid - Math.max(0, Number(portfolioRemainingToday) || 0)).toLocaleString()} msgs
+                </span>
+              </div>
+            </div>
+            <p className="text-[10px] text-amber-300/80 leading-normal">
+              Remaining messages will be automatically held and dispatched tomorrow once Meta&apos;s 24-hour rolling limit resets.
+            </p>
+          </div>
+        )}
 
         <p className="text-xs text-[#a1a1aa] leading-relaxed pt-1 font-normal">
           Final cost settled atomically upon Meta delivery receipt. Unused escrow is refunded instantly.

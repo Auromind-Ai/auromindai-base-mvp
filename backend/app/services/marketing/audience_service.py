@@ -157,24 +157,25 @@ class AudienceService:
                 email_key = orig
                 break
 
+        # Detect opt-out column
+        opt_out_key = None
+        for clean_name, orig in field_map.items():
+            if any(k in clean_name for k in ["optout", "opt_out", "optedout", "opted_out", "unsubscribe", "unsubscribed", "dnd", "block"]):
+                opt_out_key = orig
+                break
+
         valid_recipients = []
         invalid_sample = []
         invalid_count = 0
+        duplicate_count = 0
+        opted_out_count = 0
         seen_phones = set()
 
-        # If header itself is a phone number (headerless file)
-        if phone_key:
-            header_norm = cls.normalize_phone(phone_key, default_country_code=default_country_code)
-            if header_norm:
-                seen_phones.add(header_norm)
-                valid_recipients.append({
-                    "phone_number": phone_key,
-                    "normalized_phone": header_norm,
-                    "recipient_name": "",
-                    "variables": {"phone": header_norm}
-                })
-
         for idx, row in enumerate(reader, start=1):
+            # Check for completely empty row
+            if not any(str(v).strip() for v in row.values() if v is not None):
+                continue
+
             raw_phone = row.get(phone_key, "") if phone_key else ""
             norm_phone = cls.normalize_phone(raw_phone, default_country_code=default_country_code)
 
@@ -183,19 +184,19 @@ class AudienceService:
 
             if not norm_phone:
                 invalid_count += 1
-                if len(invalid_sample) < 20:
+                if len(invalid_sample) < 25:
                     invalid_sample.append({
                         "row": idx,
                         "raw_phone": raw_phone,
                         "name": name,
-                        "reason": "Invalid or missing phone format"
+                        "reason": "Invalid or missing phone number format"
                     })
                 continue
 
             # Deduplicate by normalized phone
             if norm_phone in seen_phones:
-                invalid_count += 1
-                if len(invalid_sample) < 20:
+                duplicate_count += 1
+                if len(invalid_sample) < 25:
                     invalid_sample.append({
                         "row": idx,
                         "raw_phone": raw_phone,
@@ -205,6 +206,14 @@ class AudienceService:
                 continue
 
             seen_phones.add(norm_phone)
+
+            # Check opt-out state
+            is_opted_out = False
+            if opt_out_key:
+                raw_opt = str(row.get(opt_out_key, "")).strip().lower()
+                if raw_opt in ("true", "1", "yes", "y", "optout", "opt_out", "opted_out", "unsubscribed"):
+                    is_opted_out = True
+                    opted_out_count += 1
 
             # Preserve all original column values by their exact CSV header name
             variables = {}
@@ -222,20 +231,29 @@ class AudienceService:
                 variables["email"] = email
             if norm_phone:
                 variables["phone"] = norm_phone
+            if is_opted_out:
+                variables["opt_out"] = True
 
             valid_recipients.append({
                 "phone_number": raw_phone,
                 "normalized_phone": norm_phone,
                 "recipient_name": name or None,
+                "is_opted_out": is_opted_out,
                 "variables": variables
             })
 
         headers = [str(f).strip() for f in (reader.fieldnames or []) if f and str(f).strip()]
-        total = len(valid_recipients) + invalid_count
+        total = len(valid_recipients) + invalid_count + duplicate_count
+        usable_count = len([r for r in valid_recipients if not r.get("is_opted_out")])
+
         return {
             "total": total,
             "valid_count": len(valid_recipients),
-            "invalid_count": invalid_count,
+            "usable_count": usable_count,
+            "invalid_count": invalid_count + duplicate_count,
+            "malformed_count": invalid_count,
+            "duplicate_count": duplicate_count,
+            "opted_out_count": opted_out_count,
             "headers": headers,
             "recipients": valid_recipients,
             "invalid_sample": invalid_sample

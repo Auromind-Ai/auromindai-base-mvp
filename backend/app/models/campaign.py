@@ -148,6 +148,7 @@ class CampaignRecipient(Base):
     campaign = relationship("Campaign", back_populates="recipients")
 
     __table_args__ = (
+        UniqueConstraint("campaign_id", "normalized_phone", name="uq_campaign_recipient_phone"),
         Index("idx_campaign_recipients_wamid", "wamid", postgresql_where=text("wamid IS NOT NULL")),
         Index("idx_campaign_recipients_camp_status", "campaign_id", "status"),
         Index("idx_campaign_recipients_ws_created", "workspace_id", "created_at"),

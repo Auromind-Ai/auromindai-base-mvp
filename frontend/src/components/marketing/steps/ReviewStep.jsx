@@ -10,7 +10,8 @@ import {
   CheckCircle2,
   Rocket,
   ShieldCheck,
-  ChevronDown
+  ChevronDown,
+  AlertTriangle
 } from 'lucide-react';
 import WhatsAppPreview from '../WhatsAppPreview';
 import { isFutureSchedule } from '@/lib/campaignScheduleUtils';
@@ -159,7 +160,15 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
 
               <span className="text-[#c4c0db] font-normal">Estimated Cost</span>
               <span className="text-emerald-400 font-medium text-right sm:text-left">
-                {data.estimatedCost ? `₹${Number(data.estimatedCost).toFixed(2)}` : `~ ${(data.validRecipients || 0).toLocaleString()} messages`}
+                {data.estimatedCost ? `₹${Number(data.estimatedCost).toFixed(2)}` : `~ ₹${((data.validRecipients || 0) * (data.ratePerMessage || 1.25)).toFixed(2)}`}
+                {data.ratePerMessage ? ` (₹${Number(data.ratePerMessage).toFixed(2)}/msg · ${String(data.templateCategory || data.category || data.type || 'Marketing').toUpperCase()})` : ''}
+              </span>
+
+              <span className="text-[#c4c0db] font-normal">Meta 24h Quota</span>
+              <span className="text-white font-medium text-right sm:text-left">
+                {data.portfolioRemainingToday !== null && data.portfolioRemainingToday !== undefined
+                  ? `${Number(data.portfolioRemainingToday || 0).toLocaleString()} remaining`
+                  : 'Unlimited / Not connected'}
               </span>
             </div>
           </div>
@@ -190,6 +199,11 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
               <span className="text-[#c4c0db] font-normal">Content Type</span>
               <span className="text-white font-medium text-right sm:text-left">
                 {data.templateName ? `Template (${data.templateName})` : 'Template Message'}
+              </span>
+
+              <span className="text-[#c4c0db] font-normal">Category</span>
+              <span className="text-[#C49FE0] font-medium text-right sm:text-left uppercase">
+                {data.templateCategory || data.category || data.type || 'Marketing'}
               </span>
 
               <span className="text-[#c4c0db] font-normal">Message Preview</span>

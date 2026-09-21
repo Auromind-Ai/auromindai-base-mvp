@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import WhatsAppPreview from '../WhatsAppPreview';
 import QuickTips from '../QuickTips';
-import { fetchApprovedTemplates } from '@/lib/api/marketing';
+import { fetchApprovedTemplates, estimateCampaign } from '@/lib/api/marketing';
 
 export default function MessageStep({ data, updateData, onNext, onBack, workspaceId }) {
   const [message, setMessage] = useState(data.messageBody || '');
@@ -267,14 +267,53 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
     setVariableMapping(newMapping);
 
+    const tplCategory = (tpl.category || 'MARKETING').toUpperCase();
+    const validCount = Number(data.validRecipients || data.recipientsCount || 0);
+    const targetWsId = workspaceId || data?.workspaceId;
+
+    // Auto-sync campaign type with the selected template category
+    let syncedType = data.type || 'Promotional';
+    if (tplCategory === 'MARKETING') {
+      syncedType = 'Promotional';
+    } else if (tplCategory === 'UTILITY') {
+      if (syncedType !== 'Customer Support' && syncedType !== 'Transactional') {
+        syncedType = 'Transactional';
+      }
+    } else if (tplCategory === 'AUTHENTICATION') {
+      syncedType = 'Transactional';
+    }
+
     updateData({
       selectedTemplateId: tpl.id,
       templateName: tpl.name,
       messageBody: bodyContent,
-      templateCategory: tpl.category,
+      templateCategory: tplCategory,
+      category: tplCategory,
+      type: syncedType,
       messageMode: 'template',
       variableMapping: newMapping,
     });
+
+    // Dynamic cost estimation based on template category
+    if (validCount > 0 && targetWsId) {
+      estimateCampaign(targetWsId, validCount, tplCategory)
+        .then((res) => {
+          if (res) {
+            updateData({
+              estimatedCost: res.estimated_cost,
+              ratePerMessage: res.customer_price || res.rate_per_message,
+              metaRate: res.meta_rate,
+              platformFeeRate: res.platform_fee_rate,
+              isBalanceSufficient: res.is_balance_sufficient,
+              portfolioRemainingToday: res.portfolio_remaining_today,
+              portfolioTierLimit: res.portfolio_tier_limit,
+              isWhatsAppConnected: res.is_whatsapp_connected,
+              nextUnlockAt: res.next_unlock_at,
+            });
+          }
+        })
+        .catch((err) => console.warn('Failed to recalculate estimate for template category:', err));
+    }
   };
 
   // Compute live preview with mapped values directly from the first row of uploaded CSV

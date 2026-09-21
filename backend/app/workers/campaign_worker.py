@@ -1,3 +1,5 @@
+import uuid
+import re
 import logging
 import pytz
 from decimal import Decimal
@@ -78,7 +80,8 @@ def evaluate_circuit_breaker(campaign: Campaign, db) -> bool:
 def orchestrate_campaign(campaign_id: str):
     db = SessionLocal()
     try:
-        campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+        camp_uuid = uuid.UUID(str(campaign_id)) if isinstance(campaign_id, str) else campaign_id
+        campaign = db.query(Campaign).filter(Campaign.id == camp_uuid).first()
         if not campaign or campaign.status in ("paused", "cancelled", "completed"):
             return
 
@@ -130,9 +133,10 @@ def orchestrate_campaign(campaign_id: str):
 
 @celery_app.task(name="app.workers.campaign_worker.send_campaign_chunk")
 def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
+    camp_uuid = uuid.UUID(str(campaign_id)) if isinstance(campaign_id, (str, uuid.UUID)) else campaign_id
     db = SessionLocal()
     try:
-        campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+        campaign = db.query(Campaign).filter(Campaign.id == camp_uuid).first()
         if not campaign or campaign.status in ("paused", "cancelled", "completed"):
             logger.info("Chunk exiting: campaign %s is in status %s", campaign_id, getattr(campaign, "status", None))
             return
@@ -162,7 +166,8 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
         # Load Template if template campaign
         template = None
         if campaign.template_id:
-            template = db.query(Template).filter(Template.id == campaign.template_id).first()
+            tmpl_uuid = uuid.UUID(str(campaign.template_id)) if isinstance(campaign.template_id, (str, uuid.UUID)) else campaign.template_id
+            template = db.query(Template).filter(Template.id == tmpl_uuid).first()
 
         redis_client = None
         try:
@@ -182,6 +187,8 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
 
         if not tier_limit and getattr(workspace, "meta_tier_limit", None):
             tier_limit = int(workspace.meta_tier_limit)
+        elif WhatsAppOutboundGateway._test_provider is not None:
+            tier_limit = 1000
 
         if not tier_limit and workspace.meta_access_token and (workspace.meta_phone_number_id or workspace.meta_waba_id):
             try:
@@ -198,14 +205,15 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
             except Exception as e:
                 logger.warning("Failed to fetch live tier in worker: %s", e)
 
-        rate_per_msg = Decimal(str(campaign.estimated_cost / max(1, campaign.valid_recipients)))
+        rate_per_msg = Decimal(str(campaign.estimated_cost or "0.00")) / Decimal(str(max(1, campaign.valid_recipients)))
 
         for r_id in recipient_ids:
             # Re-check campaign status before sending each message
             if campaign.status in ("paused", "cancelled"):
                 break
 
-            recipient = db.query(CampaignRecipient).filter(CampaignRecipient.id == r_id).first()
+            r_uuid = uuid.UUID(str(r_id)) if isinstance(r_id, (str, uuid.UUID)) else r_id
+            recipient = db.query(CampaignRecipient).filter(CampaignRecipient.id == r_uuid).first()
             if not recipient or recipient.status in ("accepted", "sent", "delivered", "read", "cancelled"):
                 continue
 
@@ -241,6 +249,31 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
                 body_params = []
                 vars_dict = recipient.variables or {}
 
+                # 1. Header component (Media or text variables)
+                tmpl_type = (template.type or "TEXT").upper()
+                if tmpl_type in ("IMAGE", "VIDEO", "DOCUMENT") and (campaign.media_url or getattr(template, "media_url", None)):
+                    media_type = tmpl_type.lower()
+                    media_url = campaign.media_url or getattr(template, "media_url", None)
+                    components.append({
+                        "type": "header",
+                        "parameters": [{
+                            "type": media_type,
+                            media_type: {"link": media_url}
+                        }]
+                    })
+                elif template.header:
+                    header_indices = re.findall(r"\{\{(\d+)\}\}", template.header)
+                    if header_indices:
+                        h_params = []
+                        for h_idx in header_indices:
+                            h_val = vars_dict.get(f"header_{h_idx}") or vars_dict.get(h_idx) or recipient.recipient_name or "Customer"
+                            h_params.append({"type": "text", "text": str(h_val)})
+                        components.append({
+                            "type": "header",
+                            "parameters": h_params
+                        })
+
+                # 2. Body parameters
                 # Extract only the exact placeholder indices expected by the template (e.g. ['1', '2'])
                 body_text = template.content or ""
                 expected_indices = re.findall(r"\{\{(\d+)\}\}", body_text)
@@ -327,7 +360,7 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
                 recipient.accepted_at = now_dt
                 recipient.cost = rate_per_msg
                 campaign.accepted_count = (campaign.accepted_count or 0) + 1
-                campaign.actual_cost = (campaign.actual_cost or 0) + float(rate_per_msg)
+                campaign.actual_cost = Decimal(str(campaign.actual_cost or "0.00")) + rate_per_msg
 
                 # Shift escrow from held to deducted
                 CampaignService.settle_message_cost(db, campaign.workspace_id, rate_per_msg)
@@ -373,3 +406,31 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
         logger.error("Error processing send_campaign_chunk for campaign %s: %s", campaign_id, exc)
     finally:
         db.close()
+
+
+@celery_app.task(name="app.workers.campaign_worker.check_scheduled_campaigns")
+def check_scheduled_campaigns():
+    db = SessionLocal()
+    try:
+        now_utc = datetime.now(timezone.utc)
+        scheduled = (
+            db.query(Campaign)
+            .filter(
+                Campaign.status == "scheduled",
+                Campaign.scheduled_at <= now_utc
+            )
+            .with_for_update(skip_locked=True)
+            .all()
+        )
+        for camp in scheduled:
+            logger.info("Triggering scheduled campaign %s (scheduled at %s)", camp.id, camp.scheduled_at)
+            camp.status = "in_progress"
+            camp.started_at = now_utc
+            db.commit()
+            orchestrate_campaign.delay(str(camp.id))
+    except Exception as exc:
+        logger.error("Error in check_scheduled_campaigns: %s", exc)
+        db.rollback()
+    finally:
+        db.close()
+

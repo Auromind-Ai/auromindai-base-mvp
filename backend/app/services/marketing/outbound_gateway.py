@@ -47,6 +47,15 @@ end
 
 class WhatsAppOutboundGateway:
     _session: Optional[requests.Session] = None
+    _test_provider = None
+
+    @classmethod
+    def register_test_provider(cls, provider_fn):
+        cls._test_provider = provider_fn
+
+    @classmethod
+    def reset_test_provider(cls):
+        cls._test_provider = None
 
     @classmethod
     def get_pooled_session(cls) -> requests.Session:
@@ -74,6 +83,9 @@ class WhatsAppOutboundGateway:
         target_mps: int = ORBION_SAFE_DISPATCH_MPS,
         timeout_seconds: float = 2.0
     ) -> bool:
+        if cls._test_provider is not None:
+            return True
+
         if not redis_client:
             return True
 
@@ -111,6 +123,8 @@ class WhatsAppOutboundGateway:
         redis_client=None,
         target_mps: int = ORBION_SAFE_DISPATCH_MPS,
     ) -> Dict[str, Any]:
+        if cls._test_provider is not None:
+            return cls._test_provider(phone_number_id, payload)
         
         # 1. Acquire throughput token
         cls.acquire_phone_token(

@@ -445,31 +445,58 @@ class WebhookService:
                                 if recipient:
                                     c_status = status_str.lower()
                                     now_dt = datetime.now(timezone.utc)
-                                    if c_status == "sent" and recipient.status in ("accepted", "queued", "pending"):
-                                        recipient.status = "sent"
-                                        recipient.sent_at = now_dt
-                                        db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
-                                            Campaign.sent_count: Campaign.sent_count + 1
-                                        })
-                                        db.flush()
-                                    elif c_status == "delivered" and recipient.status != "read":
-                                        if recipient.status != "delivered":
+                                    CAMP_STATUS_RANK = {
+                                        "pending": 0,
+                                        "accepted": 0,
+                                        "queued": 0,
+                                        "sent": 1,
+                                        "delivered": 2,
+                                        "read": 3,
+                                        "failed": 99,
+                                    }
+                                    current_c_rank = CAMP_STATUS_RANK.get(recipient.status, 0)
+
+                                    if c_status == "sent":
+                                        if current_c_rank < 1:
+                                            recipient.status = "sent"
+                                            recipient.sent_at = recipient.sent_at or now_dt
+                                            db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                                Campaign.sent_count: Campaign.sent_count + 1
+                                            })
+                                            db.flush()
+                                    elif c_status == "delivered":
+                                        if current_c_rank < 2:
+                                            if current_c_rank < 1:
+                                                recipient.sent_at = recipient.sent_at or now_dt
+                                                db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                                    Campaign.sent_count: Campaign.sent_count + 1
+                                                })
                                             recipient.status = "delivered"
-                                            recipient.delivered_at = now_dt
+                                            recipient.delivered_at = recipient.delivered_at or now_dt
                                             db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
                                                 Campaign.delivered_count: Campaign.delivered_count + 1
                                             })
                                             db.flush()
                                     elif c_status == "read":
-                                        if recipient.status != "read":
+                                        if current_c_rank < 3:
+                                            if current_c_rank < 1:
+                                                recipient.sent_at = recipient.sent_at or now_dt
+                                                db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                                    Campaign.sent_count: Campaign.sent_count + 1
+                                                })
+                                            if current_c_rank < 2:
+                                                recipient.delivered_at = recipient.delivered_at or now_dt
+                                                db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                                    Campaign.delivered_count: Campaign.delivered_count + 1
+                                                })
                                             recipient.status = "read"
-                                            recipient.read_at = now_dt
+                                            recipient.read_at = recipient.read_at or now_dt
                                             db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
                                                 Campaign.read_count: Campaign.read_count + 1
                                             })
                                             db.flush()
                                     elif c_status == "failed":
-                                        if recipient.status != "failed":
+                                        if recipient.status != "failed" and current_c_rank < 2:
                                             recipient.status = "failed"
                                             errors = status_update.get("errors", [])
                                             if errors:

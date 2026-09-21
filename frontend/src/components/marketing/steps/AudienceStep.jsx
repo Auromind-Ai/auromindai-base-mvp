@@ -201,8 +201,12 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
   const [manualRecipients, setManualRecipients] = useState(
     Array.isArray(data.recipients) && data.audienceType === 'Manual Entry' ? data.recipients : []
   );
-  const [manualInvalidCount, setManualInvalidCount] = useState(data.invalidRecipients || 0);
-  const [manualInvalidList, setManualInvalidList] = useState([]);
+  const [manualInvalidList, setManualInvalidList] = useState(
+    data.audienceType === 'Manual Entry' && Array.isArray(data.manualInvalidList)
+      ? data.manualInvalidList
+      : []
+  );
+  const manualInvalidCount = manualInvalidList.length;
 
   // 5. Preflight Estimation State
   const [estimate, setEstimate] = useState(null);
@@ -384,12 +388,15 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
         });
       }
     } else if (typeId === 'Manual Entry') {
+      const validCount = manualRecipients.length;
+      const invalidCount = manualInvalidList.length;
       updateData({
         audienceType: 'Manual Entry',
-        audienceListName: `Manual Entry (${manualRecipients.length} contacts)`,
-        recipientsCount: manualRecipients.length + manualInvalidCount,
-        validRecipients: manualRecipients.length,
-        invalidRecipients: manualInvalidCount,
+        audienceListName: `Manual Entry (${validCount} contacts)`,
+        recipientsCount: validCount + invalidCount,
+        validRecipients: validCount,
+        invalidRecipients: invalidCount,
+        manualInvalidList: manualInvalidList,
         audienceHeaders: null,
         csvStats: null,
         recipients: manualRecipients,
@@ -560,13 +567,14 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
     setManualPhone('');
     setError('');
 
-    const totalCount = nextList.length + manualInvalidCount;
+    const totalCount = nextList.length + manualInvalidList.length;
     updateData({
       audienceType: 'Manual Entry',
       audienceListName: `Manual Entry (${nextList.length} contacts)`,
       recipientsCount: totalCount,
       validRecipients: nextList.length,
-      invalidRecipients: manualInvalidCount,
+      invalidRecipients: manualInvalidList.length,
+      manualInvalidList: manualInvalidList,
       audienceHeaders: null,
       csvStats: null,
       recipients: nextList,
@@ -625,11 +633,8 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
       }
     });
 
-    const newInvalidCount = manualInvalidCount + invalid.length;
-    setManualInvalidCount(newInvalidCount);
-    if (invalid.length > 0) {
-      setManualInvalidList((prev) => [...prev, ...invalid]);
-    }
+    const nextInvalidList = [...manualInvalidList, ...invalid];
+    setManualInvalidList(nextInvalidList);
 
     if (added.length === 0) {
       if (invalid.length > 0 && duplicates.length > 0) {
@@ -654,13 +659,14 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
       setError('');
     }
 
-    const totalCount = nextList.length + newInvalidCount;
+    const totalCount = nextList.length + nextInvalidList.length;
     updateData({
       audienceType: 'Manual Entry',
       audienceListName: `Manual Entry (${nextList.length} contacts)`,
       recipientsCount: totalCount,
       validRecipients: nextList.length,
-      invalidRecipients: newInvalidCount,
+      invalidRecipients: nextInvalidList.length,
+      manualInvalidList: nextInvalidList,
       audienceHeaders: null,
       csvStats: null,
       recipients: nextList,
@@ -672,13 +678,14 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
     const nextList = manualRecipients.filter((r) => r.normalized_phone !== phoneToRemove && r.phone_number !== phoneToRemove);
     setManualRecipients(nextList);
 
-    const totalCount = nextList.length + manualInvalidCount;
+    const totalCount = nextList.length + manualInvalidList.length;
     updateData({
       audienceType: 'Manual Entry',
       audienceListName: `Manual Entry (${nextList.length} contacts)`,
       recipientsCount: totalCount,
       validRecipients: nextList.length,
-      invalidRecipients: manualInvalidCount,
+      invalidRecipients: manualInvalidList.length,
+      manualInvalidList: manualInvalidList,
       audienceHeaders: null,
       csvStats: null,
       recipients: nextList,
@@ -711,10 +718,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
       return activeStats?.invalid_count ?? data.invalidRecipients ?? 0;
     }
     if (audienceType === 'Manual Entry') {
-      return manualInvalidCount;
+      return manualInvalidList.length;
     }
     return 0;
-  }, [audienceType, csvStats, data.csvStats, data.invalidRecipients, manualInvalidCount]);
+  }, [audienceType, csvStats, data.csvStats, data.invalidRecipients, manualInvalidList.length]);
 
   const currentTotalCount = useMemo(() => {
     if (audienceType === 'Upload CSV') {
@@ -725,7 +732,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
       return segmentLeads.length;
     }
     if (audienceType === 'Manual Entry') {
-      return manualRecipients.length + manualInvalidCount;
+      return manualRecipients.length + manualInvalidList.length;
     }
     if (contactsSubTab === 'leads') {
       return selectedLeadIds.length;
@@ -733,26 +740,40 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
     return contactLists
       .filter((l) => selectedListIds.includes(l.id))
       .reduce((acc, curr) => acc + (curr.totalContacts || curr.total_contacts || 0), 0);
-  }, [audienceType, contactsSubTab, csvStats, data.csvStats, data.recipientsCount, segmentLeads, manualRecipients, manualInvalidCount, selectedLeadIds, contactLists, selectedListIds]);
+  }, [audienceType, contactsSubTab, csvStats, data.csvStats, data.recipientsCount, segmentLeads, manualRecipients, manualInvalidList.length, selectedLeadIds, contactLists, selectedListIds]);
 
-  // Preflight cost estimation
+  const categoryToEstimate = data.templateCategory || data.category || data.type || 'marketing';
+
+  // Preflight estimation effect
   useEffect(() => {
-    let isMounted = true;
-    const count = currentValidCount || 0;
-    estimateCampaign(workspaceId, count, 'marketing').then((res) => {
-      if (isMounted && res) {
-        setEstimate(res);
-        updateData({
-          estimatedCost: res.estimated_cost,
-          ratePerMessage: res.rate_per_message,
-          isBalanceSufficient: res.is_balance_sufficient,
-        });
-      }
-    });
+    let isSubscribed = true;
+    if (currentValidCount > 0 && workspaceId) {
+      estimateCampaign(workspaceId, currentValidCount, categoryToEstimate)
+        .then((res) => {
+          if (!isSubscribed) return;
+          if (res) {
+            setEstimate(res);
+            updateData({
+              estimatedCost: res.estimated_cost,
+              ratePerMessage: res.customer_price || res.rate_per_message || 1.25,
+              metaRate: res.meta_rate,
+              platformFeeRate: res.platform_fee_rate,
+              isBalanceSufficient: res.is_balance_sufficient,
+              portfolioRemainingToday: res.portfolio_remaining_today,
+              portfolioTierLimit: res.portfolio_tier_limit,
+              isWhatsAppConnected: res.is_whatsapp_connected,
+              nextUnlockAt: res.next_unlock_at,
+            });
+          }
+        })
+        .catch((e) => console.warn('Failed to estimate campaign:', e));
+    } else {
+      setEstimate(null);
+    }
     return () => {
-      isMounted = false;
+      isSubscribed = false;
     };
-  }, [workspaceId, currentValidCount]);
+  }, [currentValidCount, workspaceId, categoryToEstimate, updateData]);
 
   const handleProceed = () => {
     if (currentValidCount === 0) {
@@ -1305,13 +1326,13 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
             </div>
 
             {/* Invalid Numbers Alert Banner */}
-            {manualInvalidCount > 0 && (
+            {manualInvalidList.length > 0 && (
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs flex items-start justify-between gap-2.5 animate-in fade-in">
                 <div className="flex items-start gap-2">
                   <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-semibold text-amber-300 block">
-                      {manualInvalidCount} Invalid Phone Number{manualInvalidCount > 1 ? 's' : ''} Excluded
+                      {manualInvalidList.length} Invalid Phone Number{manualInvalidList.length > 1 ? 's' : ''} Excluded
                     </span>
                     <p className="text-[11px] text-amber-200/80 mt-0.5 leading-relaxed">
                       Phone numbers must have at least 10 digits (e.g. 9840123456 or +1 555 123 4567). Invalid inputs ({manualInvalidList.slice(0, 5).join(', ')}{manualInvalidList.length > 5 ? '...' : ''}) are excluded from the campaign send.
@@ -1321,10 +1342,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                 <button
                   type="button"
                   onClick={() => {
-                    setManualInvalidCount(0);
                     setManualInvalidList([]);
                     updateData({
                       invalidRecipients: 0,
+                      manualInvalidList: [],
                       recipientsCount: manualRecipients.length,
                     });
                   }}
@@ -1346,9 +1367,8 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                     type="button"
                     onClick={() => {
                       setManualRecipients([]);
-                      setManualInvalidCount(0);
                       setManualInvalidList([]);
-                      updateData({ recipientsCount: 0, validRecipients: 0, invalidRecipients: 0, recipients: [] });
+                      updateData({ recipientsCount: 0, validRecipients: 0, invalidRecipients: 0, manualInvalidList: [], recipients: [] });
                     }}
                     className="text-xs text-rose-400 hover:text-rose-300 font-medium"
                   >
@@ -1411,12 +1431,14 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
           optedIn={currentValidCount}
           optedOut={currentInvalidCount}
           estimatedCost={estimate?.estimated_cost}
-          ratePerMessage={estimate?.rate_per_message || 0.8}
+          ratePerMessage={estimate?.customer_price || estimate?.rate_per_message || 1.25}
+          metaRate={estimate?.meta_rate}
+          platformFeeRate={estimate?.platform_fee_rate}
           isBalanceSufficient={estimate?.is_balance_sufficient ?? true}
           shortfall={estimate?.shortfall || 0}
-          portfolioRemainingToday={estimate?.portfolio_remaining_today ?? 0}
-          portfolioTierLimit={estimate?.portfolio_tier_limit ?? 0}
-          isWhatsAppConnected={estimate?.is_whatsapp_connected ?? false}
+          portfolioRemainingToday={estimate?.portfolio_remaining_today ?? data.portfolioRemainingToday ?? null}
+          portfolioTierLimit={estimate?.portfolio_tier_limit ?? data.portfolioTierLimit ?? null}
+          isWhatsAppConnected={estimate?.is_whatsapp_connected ?? data.isWhatsAppConnected ?? true}
           estimatedMessages={`~ ${currentValidCount.toLocaleString()} messages`}
         />
 

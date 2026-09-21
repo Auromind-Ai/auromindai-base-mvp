@@ -123,6 +123,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.billing_worker.process_monthly_entitlement_resets",
         "schedule": crontab(hour=6, minute=0),  # Daily 06:00 IST
     },
+    # 5. Scheduled Marketing Campaigns Poller
+    "check-scheduled-campaigns": {
+        "task": "app.workers.campaign_worker.check_scheduled_campaigns",
+        "schedule": 30.0,
+    },
 }
 
 @worker_process_init.connect

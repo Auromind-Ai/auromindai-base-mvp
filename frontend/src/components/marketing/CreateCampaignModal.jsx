@@ -17,9 +17,10 @@ import { getDefaultFutureSchedule, isFutureSchedule } from '@/lib/campaignSchedu
 const getInitialDraftState = () => {
   const defaultSchedule = getDefaultFutureSchedule();
   return {
-    name: 'Diwali Offer 2025',
+    name: '',
     type: 'Promotional',
-    whatsappNumber: '+91 98765 43210',
+    whatsappNumber: '',
+    phoneNumberId: '',
     goal: 'Increase sales',
     audienceType: 'Existing Contacts',
     audienceListName: '',
@@ -42,7 +43,7 @@ const getInitialDraftState = () => {
     sendGradually: true,
     sendingRate: 100,
     skipInvalid: true,
-    stopOnFailure: false,
+    stopOnFailure: true,
     quietHours: true,
   };
 };
@@ -55,7 +56,13 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
   const [campaignData, setCampaignData] = useState(() => {
     const initial = getInitialDraftState();
     const saved = typeof window !== 'undefined' ? getCampaignDraft() : null;
-    if (saved && (saved.name === 'Diwali Offer 2025' || String(saved.name || '').toLowerCase().includes('diwali') || saved.recipientsCount === 2480)) {
+    if (
+      saved &&
+      (saved.name === 'Diwali Offer 2025' ||
+       String(saved.name || '').toLowerCase().includes('diwali') ||
+       saved.recipientsCount === 2480 ||
+       (saved.invalidRecipients === 50 && (!saved.recipients || saved.recipients.length === 0)))
+    ) {
       clearCampaignDraft();
       return initial;
     }
@@ -106,7 +113,8 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
       onClose();
     } catch (err) {
       console.error('Launch failed:', err);
-      showToast('Failed to launch campaign. Please try again.', 'error');
+      const detail = err?.response?.data?.detail || err?.message || 'Failed to launch campaign. Please try again.';
+      showToast(detail, 'error');
     } finally {
       setIsLaunching(false);
     }

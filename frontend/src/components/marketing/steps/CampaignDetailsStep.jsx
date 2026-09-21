@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, FileText, MessageSquare, ChevronDown, Check, Sparkles, MessageCircle, ShieldCheck } from 'lucide-react';
+import { Send, FileText, MessageSquare, ChevronDown, Check, MessageCircle, ShieldCheck } from 'lucide-react';
 import QuickTips from '../QuickTips';
 import WhatsAppPreview from '../WhatsAppPreview';
 import { getTierInfo } from '@/lib/api/marketing';
@@ -12,18 +12,21 @@ const CAMPAIGN_TYPES = [
     id: 'Promotional',
     title: 'Promotional',
     subtitle: 'Offers, updates, new products',
+    category: 'marketing',
     icon: Send,
   },
   {
     id: 'Transactional',
     title: 'Transactional',
     subtitle: 'Order updates, confirmations',
+    category: 'utility',
     icon: FileText,
   },
   {
     id: 'Customer Support',
     title: 'Customer Support',
     subtitle: 'Follow-ups, reminders',
+    category: 'utility',
     icon: MessageSquare,
   },
 ];
@@ -72,13 +75,6 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
       if (isMounted) setIsLoadingPhone(false);
     });
 
-    if (!data.whatsappNumber) {
-      updateData({
-        whatsappNumber: '+91 98765 43210',
-        phoneNumberId: 'primary_number',
-      });
-    }
-
     if (!data.goal) {
       updateData({ goal: 'Increase sales' });
     }
@@ -87,32 +83,6 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
       isMounted = false;
     };
   }, [workspaceId, updateData]);
-
-  const handleEnableTestBypass = () => {
-    const testLine = {
-      id: 'sandbox_test_line',
-      name: 'Sandbox Test Line',
-      phone: '+91 98401 98401',
-      verified: true,
-    };
-    setPhoneNumbers([testLine]);
-    setTierInfo({
-      is_connected: true,
-      tier_limit: 1000,
-      used_today: 0,
-      remaining_today: 1000,
-      display_phone: '+91 98401 98401',
-    });
-    updateData({
-      whatsappNumber: '+91 98401 98401',
-      phoneNumberId: 'sandbox_test_line',
-    });
-    setErrors((prev) => {
-      const next = { ...prev };
-      delete next.whatsappNumber;
-      return next;
-    });
-  };
 
   const validateAndProceed = () => {
     const errs = {};
@@ -123,12 +93,7 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
       errs.type = 'Please select a campaign type';
     }
     if (!tierInfo?.is_connected || !data.whatsappNumber) {
-      if (data.name && data.type) {
-        handleEnableTestBypass();
-        onNext();
-        return;
-      }
-      errs.whatsappNumber = 'WhatsApp Business channel is not connected. Please connect your official Meta WhatsApp line in Channels or use Bypass.';
+      errs.whatsappNumber = 'WhatsApp Business channel is not connected. Please connect your official Meta WhatsApp line in Channels.';
     }
 
     if (Object.keys(errs).length > 0) {
@@ -168,7 +133,7 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
               updateData({ name: e.target.value });
               if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
             }}
-            placeholder="Diwali Offer 2025"
+            placeholder="e.g. Summer Sale 2026"
             className={`w-full px-4 py-3 rounded-xl bg-[#080a12] border text-xs sm:text-sm text-white placeholder-[#586174] outline-none transition-all duration-200 focus:border-[#814AC8] ${
               errors.name ? 'border-rose-500/70' : 'border-[#1b2238]'
             }`}
@@ -197,7 +162,7 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
               return (
                 <div
                   key={type.id}
-                  onClick={() => updateData({ type: type.id })}
+                  onClick={() => updateData({ type: type.id, category: type.category })}
                   className={`p-3.5 sm:p-4 rounded-xl border border-white/[0.07] cursor-pointer transition-all duration-200 flex flex-col justify-between select-none min-h-[96px] ${
                     isSelected
                       ? 'bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white'
@@ -330,15 +295,6 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
                   <MessageCircle size={13} />
                   <span>Connect WhatsApp in Channels</span>
                   <span>→</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleEnableTestBypass}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1e173b] hover:bg-[#2a2052] border border-[#524185] text-[#C49FE0] hover:text-white text-xs font-medium transition-all cursor-pointer shadow-sm"
-                >
-                  <Sparkles size={13} className="text-[#A77BCA]" />
-                  <span>Bypass for Testing (Sandbox Mode)</span>
                 </button>
               </div>
             </div>
