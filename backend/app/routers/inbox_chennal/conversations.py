@@ -12,6 +12,7 @@ from fastapi import (
     HTTPException,
     Query,
     Request,
+    Response,
 )
 from app.core.config import settings
 from fastapi.responses import StreamingResponse
@@ -39,12 +40,18 @@ def create_media_token(
     workspace_id: str,
     expires_in: int = 3600,
 ) -> str:
-    expires_at = int(time.time()) + expires_in
+    # Bucket expiration into 1-hour blocks so the token and URL remain identical
+    # across frequent polling requests. This enables browser caching and prevents
+    # polling loops from retrying failed media every few seconds.
+    now = int(time.time())
+    current_bucket = now // 3600
+    expires_at = (current_bucket + 2) * 3600
 
     payload = f"{media_id}:{workspace_id}:{expires_at}".encode()
 
+    secret = (settings.MEDIA_SIGNING_SECRET or settings.SECRET_KEY or "media-signing-secret-default").encode()
     signature = hmac.new(
-        settings.MEDIA_SIGNING_SECRET.encode(),
+        secret,
         payload,
         hashlib.sha256,
     ).digest()
@@ -71,8 +78,9 @@ def verify_media_token(
             encoded_signature + "=" * (-len(encoded_signature) % 4)
         )
 
+        secret = (settings.MEDIA_SIGNING_SECRET or settings.SECRET_KEY or "media-signing-secret-default").encode()
         expected_signature = hmac.new(
-            settings.MEDIA_SIGNING_SECRET.encode(),
+            secret,
             payload,
             hashlib.sha256,
         ).digest()
@@ -527,7 +535,7 @@ def convert_conversation(
         "lead_id": str(lead.id)
     }
 
-FAILED_META_MEDIA_CACHE: dict[str, float] = {}
+from app.services.inbox.meta_media_service import MetaMediaService, FAILED_META_MEDIA_CACHE
 
 @router.get("/media/meta/{media_id}")
 @router.get("/inbox/media/meta/{media_id}")
@@ -547,8 +555,6 @@ def get_meta_media(
         )
 
     try:
-        
-
         message = (
             db.query(Message)
             .join(
@@ -567,7 +573,6 @@ def get_meta_media(
                 detail="Media not found",
             )
 
-
         # Get conversation
         conversation = (
             db.query(Conversation)
@@ -581,8 +586,6 @@ def get_meta_media(
                 detail="Conversation associated with media not found",
             )
 
-
-    
         # Get workspace
         workspace = (
             db.query(Workspace)
@@ -606,279 +609,69 @@ def get_meta_media(
                 detail="Invalid or expired media token",
             )
 
-     
-        # Workspace Meta token
-        import os
-        import time
+        # Parse metadata_json
+        metadata = message.metadata_json or {}
+        if isinstance(metadata, str):
+            try:
+                metadata = json.loads(metadata)
+            except json.JSONDecodeError:
+                metadata = {}
+        if not isinstance(metadata, dict):
+            metadata = {}
 
+        # 1. Fast path: check persistent storage/local cache first
+        cached_bytes, cached_mime, stored_path = MetaMediaService.get_cached_media(
+            workspace_id=workspace.id,
+            media_id=media_id,
+            message=message,
+            db=db,
+        )
+        if cached_bytes:
+            return Response(
+                content=cached_bytes,
+                media_type=cached_mime or "application/octet-stream",
+                headers={
+                    "Cache-Control": "public, max-age=31536000, immutable",
+                    "Accept-Ranges": "bytes",
+                    "Content-Length": str(len(cached_bytes)),
+                },
+            )
+
+        # 2. Negative cache check
         if FAILED_META_MEDIA_CACHE.get(media_id, 0) > time.time():
             raise HTTPException(
                 status_code=404,
                 detail="Meta media expired or unavailable",
             )
 
-        system_token = config_service.get("meta_system_user_token") or os.getenv("META_SYSTEM_USER_TOKEN")
-        access_token = system_token or workspace.meta_access_token
-
-        if not access_token:
-            raise HTTPException(
-                status_code=500,
-                detail="Meta access token is not configured"
-            )
-        
-        # Parse metadata_json
-        metadata = message.metadata_json
-
-        if isinstance(metadata, str):
-            try:
-                metadata = json.loads(metadata)
-            except json.JSONDecodeError:
-                logger.error(
-                    "Invalid metadata_json for message %s",
-                    message.id,
-                )
-                raise HTTPException(
-                    status_code=500,
-                    detail="Invalid message media metadata",
-                )
-
-        if not isinstance(metadata, dict):
-            raise HTTPException(
-                status_code=500,
-                detail="Invalid message media metadata",
-            )
-
-        stored_media_id = str(metadata.get("media_id") or "").strip()
-
-        # If Task 1 stores media_id, verify it.
-        # If older messages don't have media_id, the URL can
-        # still be used as a fallback identifier.
-        if stored_media_id and stored_media_id != media_id:
-            raise HTTPException(
-                status_code=404,
-                detail="Media not found",
-            )
-
-        media_type = metadata.get("media_type")
-        stored_mime_type = metadata.get("mime_type")
-
-        # Allow image, audio, voice, video, document, sticker
-        if media_type not in {"image", "audio", "voice", "video", "document", "sticker"}:
-            raise HTTPException(
-                status_code=400,
-                detail="Unsupported media type",
-            )
-
-        if media_type == "voice":
-            media_type = "audio"
-
-
-        # Ask Meta for temporary media URL
-        meta_url = (
-            f"https://graph.facebook.com/v19.0/{media_id}"
+        # 3. Download from Meta, store persistently, and return
+        file_bytes, mime_type, stored_path = MetaMediaService.download_and_store_meta_media(
+            workspace_id=workspace.id,
+            media_id=media_id,
+            message_id=message.id,
+            mime_type=metadata.get("mime_type"),
+            media_type=metadata.get("media_type"),
+            db=db,
         )
 
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-        }
-
-        try:
-            meta_response = requests.get(
-                meta_url,
-                headers=headers,
-                timeout=15,
-            )
-        except requests.RequestException as exc:
-            logger.error(
-                "Meta media metadata request failed for media %s: %s",
-                media_id,
-                exc,
-            )
-            raise HTTPException(
-                status_code=502,
-                detail="Unable to connect to Meta media service",
-            )
-
-    
-        # Handle Meta API errors
-        if meta_response.status_code == 401:
-            logger.error(
-                "Meta access token rejected for workspace %s",
-                workspace.id,
-            )
-            raise HTTPException(
-                status_code=502,
-                detail="Meta authentication failed",
-            )
-
-        if meta_response.status_code == 403:
-            logger.error(
-                "Meta access denied for media %s",
-                media_id,
-            )
-            FAILED_META_MEDIA_CACHE[media_id] = time.time() + 300
-            raise HTTPException(
-                status_code=403,
-                detail="Meta denied access to this media",
-            )
-
-        if meta_response.status_code in (400, 404):
-            FAILED_META_MEDIA_CACHE[media_id] = time.time() + 300
+        if not file_bytes:
             raise HTTPException(
                 status_code=404,
-                detail="Meta media expired or not found",
+                detail="Meta media expired or unavailable",
             )
 
-        if not meta_response.ok:
-            logger.error(
-                "Meta media API returned %s: %s",
-                meta_response.status_code,
-                meta_response.text[:500],
-            )
-            raise HTTPException(
-                status_code=502,
-                detail="Meta media service returned an error",
-            )
-
-        try:
-            media_info = meta_response.json()
-        except ValueError:
-            logger.error(
-                "Invalid JSON response from Meta for media %s",
-                media_id,
-            )
-            raise HTTPException(
-                status_code=502,
-                detail="Invalid response from Meta media service",
-            )
-
-        temporary_url = media_info.get("url")
-
-        if not temporary_url:
-            logger.error(
-                "Meta response did not contain media URL: %s",
-                media_info,
-            )
-            raise HTTPException(
-                status_code=502,
-                detail="Meta did not provide a media download URL",
-            )
-
-        # Prefer MIME type returned by Meta.
-        # MIME type from Meta media metadata.
-        mime_type = (
-            media_info.get("mime_type")
-            or stored_mime_type
-            or "application/octet-stream"
-        ).split(";")[0].strip()
-
-        if media_type == "audio" and mime_type.startswith("audio/ogg"):
-            mime_type = "audio/ogg"
-
-        # Stream actual media from Meta
-        range_header = request.headers.get("range")
-
-        try:
-            upstream_headers = {
-                "Authorization": f"Bearer {access_token}",
-            }
-
-            if range_header:
-                upstream_headers["Range"] = range_header
-
-            media_response = requests.get(
-                temporary_url,
-                headers=upstream_headers,
-                stream=True,
-                timeout=30,
-            )
-
-        except requests.RequestException as exc:
-            logger.error(
-                "Meta media download failed for media %s: %s",
-                media_id,
-                exc,
-            )
-            raise HTTPException(
-                status_code=502,
-                detail="Unable to download media from Meta",
-            )
-
-        if media_response.status_code == 404:
-            media_response.close()
-            raise HTTPException(
-                status_code=404,
-                detail="Media download URL has expired or media was removed",
-            )
-
-        if media_response.status_code == 403:
-            media_response.close()
-            raise HTTPException(
-                status_code=403,
-                detail="Meta denied media download",
-            )
-
-        if media_response.status_code not in (200, 206):
-            status = media_response.status_code
-            media_response.close()
-
-            logger.error(
-                "Meta media download returned HTTP %s for media %s",
-                status,
-                media_id,
-            )
-
-            raise HTTPException(
-                status_code=502,
-                detail="Meta media download failed",
-            )
-
-        # Use actual Content-Type returned by Meta
-        upstream_content_type = media_response.headers.get("Content-Type")
-
-        if upstream_content_type:
-            mime_type = upstream_content_type.split(";")[0].strip()
-
-        
-        #Stream response to browser
-        def media_stream():
-            try:
-                for chunk in media_response.iter_content(
-                    chunk_size=64 * 1024
-                ):
-                    if chunk:
-                        yield chunk
-            finally:
-                media_response.close()
-
-        response_headers = {
-            "Cache-Control": "private, max-age=300",
-            "Accept-Ranges": "bytes",
-        }
-
-        content_length = media_response.headers.get("Content-Length")
-        content_range = media_response.headers.get("Content-Range")
-
-        if content_length:
-            response_headers["Content-Length"] = content_length
-
-        if content_range:
-            response_headers["Content-Range"] = content_range
-
-        return StreamingResponse(
-            media_stream(),
-            status_code=(
-                206
-                if media_response.status_code == 206
-                else 200
-            ),
-            media_type=mime_type,
-            headers=response_headers,
+        return Response(
+            content=file_bytes,
+            media_type=mime_type or "application/octet-stream",
+            headers={
+                "Cache-Control": "public, max-age=31536000, immutable",
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(len(file_bytes)),
+            },
         )
 
     except HTTPException:
         raise
-
     except Exception as exc:
         logger.exception(
             "Unexpected error while serving Meta media %s: %s",

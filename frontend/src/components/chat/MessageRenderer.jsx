@@ -28,7 +28,17 @@ export default function MessageRenderer({
 }) {
   const meta = metadata || {};
   const mediaUrl = media_url || meta.media_url;
-  const [hasError, setHasError] = React.useState(() => mediaUrl ? FAILED_MEDIA_URLS.has(mediaUrl) : false);
+  const isExpired = Boolean(meta.media_expired || meta.expired);
+  const [hasError, setHasError] = React.useState(() => {
+    if (isExpired) return true;
+    return mediaUrl ? FAILED_MEDIA_URLS.has(mediaUrl) : false;
+  });
+
+  React.useEffect(() => {
+    if (isExpired || (mediaUrl && FAILED_MEDIA_URLS.has(mediaUrl))) {
+      setHasError(true);
+    }
+  }, [mediaUrl, isExpired]);
 
   const handleMediaError = () => {
     if (mediaUrl) FAILED_MEDIA_URLS.add(mediaUrl);
@@ -67,13 +77,19 @@ export default function MessageRenderer({
 
         {/* Media (if image/video attached to template) */}
         {mediaUrl && (messageType === 'image' || /\.(jpe?g|png|gif|webp)(\?|$)/i.test(mediaUrl)) && (
-          <img
-            src={mediaUrl}
-            alt="header media"
-            className="max-w-[220px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition mb-1"
-            onClick={() => onPreviewMedia?.({ type: 'image', url: mediaUrl })}
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
+          !hasError ? (
+            <img
+              src={mediaUrl}
+              alt="header media"
+              className="max-w-[220px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition mb-1"
+              onClick={() => onPreviewMedia?.({ type: 'image', url: mediaUrl })}
+              onError={handleMediaError}
+            />
+          ) : (
+            <div className="text-[11px] text-zinc-400 italic bg-white/5 px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 mb-1">
+              📷 Media expired
+            </div>
+          )
         )}
         {mediaUrl && (messageType === 'video' || /\.(mp4|webm|ogg|mov)(\?|$)/i.test(mediaUrl)) && (
           <video
@@ -198,12 +214,19 @@ export default function MessageRenderer({
   if (mediaUrl && (messageType === 'video' || /\.(mp4|webm|ogg|mov)(\?|$)/i.test(mediaUrl))) {
     return (
       <div>
-        <video
-          src={mediaUrl}
-          controls
-          className="max-w-[220px] rounded-xl"
-          onClick={(e) => { e.stopPropagation(); onPreviewMedia?.({ type: 'video', url: mediaUrl }); }}
-        />
+        {!hasError ? (
+          <video
+            src={mediaUrl}
+            controls
+            className="max-w-[220px] rounded-xl"
+            onClick={(e) => { e.stopPropagation(); onPreviewMedia?.({ type: 'video', url: mediaUrl }); }}
+            onError={handleMediaError}
+          />
+        ) : (
+          <div className="text-[11px] text-zinc-400 italic bg-white/5 px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5">
+            🎥 Video expired on WhatsApp
+          </div>
+        )}
         {content && !/^\[(IMAGE|AUDIO|VOICE|VIDEO|DOCUMENT)\]$/i.test(content.trim()) && (
           <p className="text-[13px] text-white/80 mt-2 leading-relaxed whitespace-pre-wrap">{content}</p>
         )}
