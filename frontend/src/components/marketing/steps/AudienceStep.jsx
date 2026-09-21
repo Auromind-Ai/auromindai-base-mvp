@@ -39,40 +39,24 @@ const SMART_SEGMENT_CONFIG = [
     title: 'Hot Leads',
     subtitle: 'Score ≥ 70 — High conversion intent',
     icon: Flame,
-    color: 'text-rose-400',
-    border: 'border-rose-500/40',
-    bg: 'bg-rose-500/10',
-    activeBg: 'bg-rose-950/40 border-rose-500',
   },
   {
     id: 'warm',
     title: 'Warm Leads',
     subtitle: 'Score 40-69 — Engaged prospects',
     icon: Zap,
-    color: 'text-amber-400',
-    border: 'border-amber-500/40',
-    bg: 'bg-amber-500/10',
-    activeBg: 'bg-amber-950/40 border-amber-500',
   },
   {
     id: 'new',
     title: 'New Leads',
     subtitle: 'Newly captured contacts',
     icon: Sparkles,
-    color: 'text-blue-400',
-    border: 'border-blue-500/40',
-    bg: 'bg-blue-500/10',
-    activeBg: 'bg-blue-950/40 border-blue-500',
   },
   {
     id: 'converted',
     title: 'Converted Customers',
     subtitle: 'Past buyers & active clients',
     icon: Award,
-    color: 'text-emerald-400',
-    border: 'border-emerald-500/40',
-    bg: 'bg-emerald-500/10',
-    activeBg: 'bg-emerald-950/40 border-emerald-500',
   },
 ];
 
@@ -789,7 +773,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
           <h3 className="text-base sm:text-lg font-medium text-white tracking-tight">
             Select Audience
           </h3>
-          <p className="text-xs sm:text-sm text-[#c4c0db] mt-1 font-normal">
+          <p className="text-xs sm:text-sm text-white/70 mt-1 font-normal">
             Choose who you want to send this campaign to.
           </p>
         </div>
@@ -820,7 +804,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                   <h4 className="text-xs sm:text-sm font-medium text-white leading-tight">
                     {type.label}
                   </h4>
-                  <p className={`text-xs sm:text-[13px] mt-1.5 leading-relaxed font-normal ${isSelected ? 'text-white/90' : 'text-[#c4c0db]'}`}>
+                  <p className={`text-xs sm:text-[13px] mt-1.5 leading-relaxed font-normal ${isSelected ? 'text-white/90' : 'text-white/70'}`}>
                     {type.desc}
                   </p>
                 </div>
@@ -858,7 +842,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                   className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                     contactsSubTab === 'leads'
                       ? 'bg-[#814AC8] text-white shadow-sm'
-                      : 'text-[#c4c0db] hover:text-white'
+                      : 'text-white/70 hover:text-white'
                   }`}
                 >
                   CRM Leads ({crmLeads.length})
@@ -880,7 +864,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                   className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                     contactsSubTab === 'lists'
                       ? 'bg-[#814AC8] text-white shadow-sm'
-                      : 'text-[#c4c0db] hover:text-white'
+                      : 'text-white/70 hover:text-white'
                   }`}
                 >
                   Saved Lists ({contactLists.length})
@@ -890,7 +874,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
               <button
                 type="button"
                 onClick={handleRefreshLeads}
-                className="p-2 rounded-lg bg-[#0a0d17] border border-[#1b2238] text-[#c4c0db] hover:text-white hover:border-[#283250] transition-colors"
+                className="p-2 rounded-lg bg-[#0a0d17] border border-[#1b2238] text-white/70 hover:text-white hover:border-[#283250] transition-colors"
                 title="Refresh leads"
               >
                 <RefreshCw size={14} className={isLoadingLeads ? 'animate-spin text-[#814AC8]' : ''} />
@@ -924,14 +908,14 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                       Select All ({crmLeads.length} CRM Contacts)
                     </span>
                   </div>
-                  <span className="text-xs text-[#c4c0db]">
+                  <span className="text-xs text-white/70">
                     <strong className="text-white font-medium">{selectedLeadIds.length}</strong> selected
                   </span>
                 </div>
 
                 <div className="max-h-64 overflow-y-auto custom-scrollbar">
                   <table className="w-full text-left text-xs sm:text-sm">
-                    <thead className="bg-[#0d101c]/80 border-b border-[#1b2238] text-[#c4c0db] text-xs uppercase font-medium">
+                    <thead className="bg-[#0d101c]/80 border-b border-[#1b2238] text-white/70 text-xs uppercase font-medium">
                       <tr>
                         <th className="w-8 px-3 py-2 text-center"></th>
                         <th className="px-3 py-2">Name</th>
@@ -962,7 +946,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                             <td className="px-3 py-2 font-medium text-white">
                               {lead.name}
                             </td>
-                            <td className="px-3 py-2 text-xs text-[#c4c0db] font-normal">
+                            <td className="px-3 py-2 text-xs text-white/70 font-normal">
                               {lead.phone}
                             </td>
                             <td className="px-3 py-2">
@@ -979,7 +963,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                               </span>
                             </td>
                             <td className="px-3 py-2 text-right">
-                              <span className="px-2 py-0.5 rounded-md bg-[#161b2c] text-xs text-[#c4c0db] capitalize font-normal">
+                              <span className="px-2 py-0.5 rounded-md bg-[#161b2c] text-xs text-white/70 capitalize font-normal">
                                 {lead.status || 'new'}
                               </span>
                             </td>
@@ -988,7 +972,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                       })}
                       {filteredCrmLeads.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="py-6 text-center text-xs sm:text-sm text-[#c4c0db]">
+                          <td colSpan={5} className="py-6 text-center text-xs sm:text-sm text-white/70">
                             No CRM leads found matching &ldquo;{searchQuery}&rdquo;.
                           </td>
                         </tr>
@@ -1001,7 +985,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
               /* Contact Lists Table */
               <div className="rounded-xl border border-[#1b2238] bg-[#080a12] overflow-hidden">
                 <table className="w-full text-left text-xs sm:text-sm">
-                  <thead className="bg-[#0d101c] border-b border-[#1b2238] text-[#c4c0db] uppercase text-xs font-medium tracking-wider">
+                  <thead className="bg-[#0d101c] border-b border-[#1b2238] text-white/70 uppercase text-xs font-medium tracking-wider">
                     <tr>
                       <th className="w-10 px-3 py-2.5 text-center">Select</th>
                       <th className="px-3 py-2.5">List Name</th>
@@ -1036,7 +1020,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                           <td className="px-3 py-2.5 text-white/90 font-medium">
                             {contactsCount.toLocaleString()}
                           </td>
-                          <td className="px-3 py-2.5 text-[#c4c0db] hidden sm:table-cell text-xs font-normal truncate max-w-[200px]">
+                          <td className="px-3 py-2.5 text-white/70 hidden sm:table-cell text-xs font-normal truncate max-w-[200px]">
                             {item.description}
                           </td>
                         </tr>
@@ -1053,10 +1037,11 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
         {audienceType === 'Upload CSV' && (
           <div className="space-y-4 pt-1">
             <div>
-              <h4 className="text-xs sm:text-sm font-medium text-white">
+              <h4 className="text-sm sm:text-base font-medium text-white">
                 Upload Contacts CSV
               </h4>
-              <p className="text-xs text-[#c4c0db] mt-0.5 font-normal leading-relaxed">
+
+              <p className="text-sm text-white/70 mt-0.5 font-normal leading-relaxed">
                 Upload any CSV with phone numbers. Automatically normalizes to E.164 standard with country code.
               </p>
             </div>
@@ -1080,8 +1065,8 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
               }`}
             >
               <div className="flex flex-col items-center justify-center gap-2.5">
-                <div className="w-12 h-12 rounded-2xl bg-[#814AC8]/15 text-[#a78bfa] flex items-center justify-center">
-                  {uploadedFileName ? <FileSpreadsheet size={24} className="text-emerald-400" /> : <UploadCloud size={24} />}
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white flex items-center justify-center">
+                  {uploadedFileName ? <FileSpreadsheet size={24} className="text-emerald-400" /> : <UploadCloud size={24} className="text-white"/>}
                 </div>
 
                 {isUploading ? (
@@ -1096,14 +1081,14 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                     <span className="text-[11px] text-emerald-400 font-medium">
                       ✓ Successfully parsed {((csvStats || data.csvStats)?.valid_count ?? data.validRecipients ?? 0).toLocaleString()} valid numbers
                     </span>
-                    <p className="text-xs text-[#c4c0db] font-normal">Click to upload a different file</p>
+                    <p className="text-xs text-white/70 font-normal">Click to upload a different file</p>
                   </div>
                 ) : (
                   <div>
                     <span className="text-xs sm:text-sm font-medium text-white block">
                       Click to upload CSV or drag and drop
                     </span>
-                    <span className="text-xs text-[#c4c0db] font-normal mt-0.5 block">
+                    <span className="text-xs text-white/70 font-normal mt-0.5 block">
                       Supported headers: Phone, Mobile, Contact, Name, Email, Variables
                     </span>
                   </div>
@@ -1139,7 +1124,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
               <h4 className="text-xs sm:text-sm font-medium text-white">
                 Choose Smart Segment
               </h4>
-              <p className="text-xs text-[#c4c0db] mt-0.5 font-normal leading-relaxed">
+              <p className="text-xs text-white/70 mt-0.5 font-normal leading-relaxed">
                 Target high-intent segments dynamically calculated from CRM signals & lead scores.
               </p>
             </div>
@@ -1155,25 +1140,31 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                   <div
                     key={seg.id}
                     onClick={() => setActiveSegment(seg.id)}
-                    className={`p-3.5 sm:p-4 rounded-xl border cursor-pointer transition-all flex items-start gap-3 select-none ${
+                    className={`p-3.5 sm:p-4 rounded-xl border border-white/[0.07] cursor-pointer transition-all duration-200 flex items-start gap-3 select-none ${
                       isSelected
-                        ? seg.activeBg + ' shadow-[0_0_16px_rgba(129,74,200,0.25)]'
-                        : 'bg-[#0a0d17] border-[#1b2238] hover:border-[#283250]'
+                        ? 'bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white'
+                        : 'bg-[#0d0e17] hover:border-white/20 text-[#8e95ab] hover:text-white'
                     }`}
                   >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${seg.bg} ${seg.color} mt-0.5`}>
-                      <Icon size={17} />
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                      isSelected ? 'bg-white/20 text-white' : 'bg-white/10 text-white'
+                    }`}>
+                      <Icon size={17} className="text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <h5 className="text-xs sm:text-sm font-medium text-white truncate">
                           {seg.title}
                         </h5>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${seg.bg} ${seg.color}`}>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full transition-colors ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-white/10 text-white'
+                        }`}>
                           {count}
                         </span>
                       </div>
-                      <p className="text-xs text-[#c4c0db] mt-1 leading-relaxed font-normal">
+                      <p className={`text-xs mt-1 leading-relaxed font-normal ${
+                        isSelected ? 'text-white/90' : 'text-white/70'
+                      }`}>
                         {seg.subtitle}
                       </p>
                     </div>
@@ -1188,19 +1179,19 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                 <span className="text-white font-medium">
                   Leads in &ldquo;{SMART_SEGMENT_CONFIG.find((s) => s.id === activeSegment)?.title}&rdquo;
                 </span>
-                <span className="text-xs text-[#c4c0db] font-normal">
+                <span className="text-xs text-white/70 font-normal">
                   {segmentLeads.length} contacts targeted
                 </span>
               </div>
 
               <div className="max-h-52 overflow-y-auto custom-scrollbar">
                 {isLoadingSegment ? (
-                  <div className="py-8 text-center text-xs sm:text-sm text-[#c4c0db] animate-pulse">
+                  <div className="py-8 text-center text-xs sm:text-sm text-white/70 animate-pulse">
                     Loading segment contacts...
                   </div>
                 ) : (
                   <table className="w-full text-left text-xs sm:text-sm">
-                    <thead className="bg-[#0d101c]/80 border-b border-[#1b2238] text-[#c4c0db] text-xs uppercase font-medium">
+                    <thead className="bg-[#0d101c]/80 border-b border-[#1b2238] text-white/70 text-xs uppercase font-medium">
                       <tr>
                         <th className="px-3 py-2">Name</th>
                         <th className="px-3 py-2">Phone</th>
@@ -1211,7 +1202,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                       {segmentLeads.map((lead) => (
                         <tr key={lead.id} className="text-white/90">
                           <td className="px-3 py-2 font-medium text-white">{lead.name}</td>
-                          <td className="px-3 py-2 text-xs text-[#c4c0db] font-normal">{lead.phone}</td>
+                          <td className="px-3 py-2 text-xs text-white/70 font-normal">{lead.phone}</td>
                           <td className="px-3 py-2 text-right">
                             <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#16132d] text-[#a78bfa]">
                               {lead.score || 0}
@@ -1221,7 +1212,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                       ))}
                       {segmentLeads.length === 0 && (
                         <tr>
-                          <td colSpan={3} className="py-6 text-center text-xs sm:text-sm text-[#c4c0db]">
+                          <td colSpan={3} className="py-6 text-center text-xs sm:text-sm text-white/70">
                             No leads currently match this segment filter.
                           </td>
                         </tr>
@@ -1241,7 +1232,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
               <h4 className="text-xs sm:text-sm font-medium text-white">
                 Enter Phone Numbers
               </h4>
-              <p className="text-xs text-[#c4c0db] mt-0.5 font-normal leading-relaxed">
+              <p className="text-xs text-white/70 mt-0.5 font-normal leading-relaxed">
                 Add individual numbers or paste a bulk list of customer phones.
               </p>
             </div>
@@ -1282,7 +1273,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                 <span className="text-xs sm:text-sm font-medium text-white">
                   Bulk Paste Numbers
                 </span>
-                <span className="text-xs text-[#c4c0db] font-normal">
+                <span className="text-xs text-[#c4c0db font-normal">
                   Comma, newline, or space separated
                 </span>
               </div>
@@ -1371,7 +1362,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                         <span className="text-white font-medium block leading-tight">
                           {rec.recipient_name}
                         </span>
-                        <span className="text-xs text-[#c4c0db] font-normal">
+                        <span className="text-xs text-white/70 font-normal">
                           {rec.normalized_phone || rec.phone_number}
                         </span>
                       </div>
@@ -1380,7 +1371,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                     <button
                       type="button"
                       onClick={() => handleRemoveManualContact(rec.normalized_phone || rec.phone_number)}
-                      className="p-1 rounded-md text-[#c4c0db] hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                      className="p-1 rounded-md text-white/70 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                       title="Remove"
                     >
                       <X size={14} />
@@ -1388,7 +1379,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                   </div>
                 ))}
                 {manualRecipients.length === 0 && (
-                  <div className="py-6 text-center text-xs sm:text-sm text-[#c4c0db]">
+                  <div className="py-6 text-center text-xs sm:text-sm text-white/70">
                     No manual numbers added yet. Use the inputs above to add recipients.
                   </div>
                 )}

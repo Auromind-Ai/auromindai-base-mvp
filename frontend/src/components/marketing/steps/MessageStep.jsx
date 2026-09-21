@@ -24,7 +24,9 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
   const [error, setError] = useState('');
 
   const mappingRef = useRef(variableMapping);
-  mappingRef.current = variableMapping;
+  useEffect(() => {
+    mappingRef.current = variableMapping;
+  }, [variableMapping]);
 
   // Extract actual column headers dynamically from uploaded CSV or audience
   const audienceColumns = useMemo(() => {
@@ -111,7 +113,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
     // 3. Fallback only if no audience has been selected yet
     return [];
-  }, [data?.audienceType, data?.audienceHeaders, data?.recipients]);
+  }, [data]);
 
   // Dropdown options created dynamically from real CSV column headers
   const mappingOptions = useMemo(() => {
@@ -309,7 +311,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     });
 
     return rendered;
-  }, [message, selectedTemplate, displayedVariables, variableMapping, defaultNameCol, data?.recipients]);
+  }, [message, selectedTemplate, displayedVariables, variableMapping, defaultNameCol, data]);
 
   const handleProceed = () => {
     if (!selectedTemplateId) {
@@ -348,17 +350,9 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
         <h3 className="text-base sm:text-lg font-medium text-white tracking-tight">
           Select Message Template
         </h3>
-        <p className="text-xs sm:text-sm text-[#c4c0db] mt-1 font-normal">
+        <p className="text-xs sm:text-sm text-white/70 mt-1 font-normal">
           Choose an official Meta-approved template for your campaign. Personalize it with variables to make it more engaging.
         </p>
-      </div>
-
-      {/* Mode Indicator: Use Template Only */}
-      <div className="flex items-center gap-2 p-1 rounded-xl bg-[#0f0e1c] border border-[#251f42] w-fit">
-        <div className="py-2 px-3.5 rounded-lg text-xs sm:text-sm font-medium flex items-center justify-center gap-2 bg-[#814AC8] text-white shadow-[0_0_12px_rgba(129,74,200,0.35)]">
-          <FileText size={14} />
-          <span>Use Template</span>
-        </div>
       </div>
 
       {/* Main Grid: Template Selector + Variables Mapping + Preview */}
@@ -378,7 +372,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
           {/* Filter and Search Controls */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <div className="relative flex-1">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8c88a6]" />
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70" />
               <input
                 type="text"
                 value={templateSearch}
@@ -390,7 +384,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                 <button
                   type="button"
                   onClick={() => setTemplateSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#c4c0db] hover:text-white"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/70 hover:text-white"
                 >
                   <X size={14} />
                 </button>
@@ -406,7 +400,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                   className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                     templateCategoryFilter === cat
                       ? 'bg-[#814AC8] text-white'
-                      : 'text-[#c4c0db] hover:text-white'
+                      : 'text-white/70 hover:text-white'
                   }`}
                 >
                   {cat === 'ALL' ? 'All' : cat.charAt(0) + cat.slice(1).toLowerCase()}
@@ -417,7 +411,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
           {/* Templates List */}
           {isLoadingTemplates ? (
-            <div className="p-8 text-center rounded-xl bg-[#0c0b17] border border-[#251f42] text-xs sm:text-sm text-[#c4c0db]">
+            <div className="p-8 text-center rounded-xl bg-[#0c0b17] border border-[#251f42] text-xs sm:text-sm text-white/70">
               Loading official templates from database...
             </div>
           ) : filteredTemplates.length === 0 ? (
@@ -429,7 +423,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                 <h4 className="text-xs sm:text-sm font-medium text-white">
                   {templates.length === 0 ? 'No Approved Templates Available' : 'No Matching Templates Found'}
                 </h4>
-                <p className="text-xs text-[#c4c0db] max-w-xs mt-1 font-normal leading-relaxed">
+                <p className="text-xs text-white/70 max-w-xs mt-1 font-normal leading-relaxed">
                   {templates.length === 0
                     ? 'Only Meta-approved templates can be used for WhatsApp campaigns. Create and submit templates in Template Studio.'
                     : 'Try adjusting your search terms or category filter.'}
@@ -476,22 +470,16 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-xs sm:text-sm font-medium text-white tracking-tight">{tpl.name}</span>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
-                            tpl.category === 'MARKETING'
-                              ? 'bg-[#814AC8]/20 text-[#C49FE0] border-[#814AC8]/30'
-                              : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
-                          }`}
-                        >
-                          {tpl.category}
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white lowercase">
+                          {tpl.category?.toLowerCase()}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         {isSelected && (
                           <CheckCircle size={15} className="text-white" />
                         )}
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                          APPROVED
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] text-white">
+                          Approved
                         </span>
                       </div>
                     </div>
@@ -502,12 +490,12 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                       </div>
                     )}
 
-                    <p className={`text-xs sm:text-sm leading-relaxed line-clamp-3 font-normal ${isSelected ? 'text-white/90' : 'text-[#c4c0db]'}`}>
+                    <p className={`text-xs sm:text-sm leading-relaxed line-clamp-3 font-normal ${isSelected ? 'text-white/90' : 'text-white/70'}`}>
                       {tpl.body || tpl.content}
                     </p>
 
                     {(tpl.footer || (tpl.variables && tpl.variables.length > 0)) && (
-                      <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-white/[0.07] text-xs text-[#c4c0db]">
+                      <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-white/[0.07] text-xs text-white/70">
                         <span className={isSelected ? 'text-white/80' : ''}>{tpl.footer || 'Meta Verified Template'}</span>
                         {tpl.variables && tpl.variables.length > 0 && (
                           <span className={isSelected ? 'text-white font-medium' : 'text-[#C49FE0] font-medium'}>
@@ -528,18 +516,18 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
         {/* Right Column (5 cols): Variable Mapping + Preview + Quick Tips */}
         <div className="lg:col-span-5 space-y-4">
           {/* Variable Mapping Box */}
-          <div className="rounded-xl bg-[#0f0e1c] border border-[#251f42] p-4 text-xs space-y-3">
+          <div className="rounded-xl bg-[#0f0e1c] border border-[#251f42] p-4 sm:p-5 space-y-3.5">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-semibold text-white flex items-center gap-1.5">
+                <h4 className="text-sm sm:text-base font-medium text-white flex items-center gap-2">
                   <span>Map Template Variables</span>
                   {displayedVariables.length > 0 && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#814AC8]/20 text-[#C49FE0] border border-[#814AC8]/30">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-normal bg-[#814AC8]/20 text-[#C49FE0] border border-[#814AC8]/30">
                       {displayedVariables.length} variable{displayedVariables.length > 1 ? 's' : ''}
                     </span>
                   )}
                 </h4>
-                <p className="text-[11px] text-[#8c88a6] mt-0.5">
+                <p className="text-xs sm:text-sm text-white/70 mt-1 font-normal leading-relaxed">
                   Match each template variable with fields from your selected audience.
                 </p>
               </div>
@@ -547,15 +535,15 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
             {/* Display detected audience column tags */}
             {audienceColumns.length > 0 && (
-              <div className="p-2.5 rounded-lg bg-[#141228] border border-[#251f42]/80 space-y-1.5">
-                <span className="text-[10px] text-[#8c88a6] block font-medium">
-                  Detected columns in <span className="text-[#C49FE0] font-semibold">{data?.audienceListName || 'Audience'}</span>:
+              <div className="p-3 rounded-lg bg-[#141228] border border-[#251f42]/80 space-y-1.5">
+                <span className="text-xs text-white/70 block font-normal">
+                  Detected columns in <span className="text-[#C49FE0] font-normal">{data?.audienceListName || 'Audience'}</span>:
                 </span>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
                   {audienceColumns.map((col) => (
                     <span
                       key={col}
-                      className="px-2 py-0.5 rounded bg-[#1f193d] border border-[#3d3366] text-[10px] text-purple-200 font-mono"
+                      className="px-2.5 py-0.5 rounded bg-[#1f193d] border border-[#3d3366] text-xs text-white/80 font-normal"
                     >
                       {col}
                     </span>
@@ -565,7 +553,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
             )}
 
             {displayedVariables.length > 0 ? (
-              <div className="space-y-2.5 pt-1">
+              <div className="space-y-3 pt-1">
                 {displayedVariables.map(({ tag, cleanKey }) => {
                   const current = variableMapping[cleanKey] || {
                     source: cleanKey === '1' ? defaultNameCol : 'custom',
@@ -578,29 +566,29 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                   return (
                     <div
                       key={cleanKey}
-                      className="p-3 rounded-xl bg-[#141228] border border-[#251f42] space-y-2.5 hover:border-[#3d3363] transition-colors"
+                      className="p-3.5 rounded-xl bg-[#141228] border border-[#251f42] space-y-3 hover:border-[#3d3363] transition-colors"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#C49FE0] px-2 py-0.5 rounded bg-[#814AC8]/20 border border-[#814AC8]/40 font-mono">
+                        <span className="text-xs sm:text-sm font-medium text-[#C49FE0] px-2.5 py-0.5 rounded-lg bg-[#814AC8]/20 border border-[#814AC8]/40">
                           {tag}
                         </span>
-                        <span className="text-[10px] text-[#8c88a6] font-medium">
+                        <span className="text-xs text-white/70 font-normal">
                           {isCustom ? 'Custom Text' : current.source}
                         </span>
                       </div>
 
                       {/* Dropdown selector for real CSV columns */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-semibold text-[#8c88a6] uppercase tracking-wider block">
+                      <div className="space-y-1.5">
+                        <label className="text-xs sm:text-sm font-normal uppercase text-white/70 block">
                           Fill with:
                         </label>
                         <select
                           value={current.source}
                           onChange={(e) => handleUpdateMapping(cleanKey, { source: e.target.value })}
-                          className="w-full px-2.5 py-1.5 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs text-white outline-none focus:border-[#814AC8] cursor-pointer"
+                          className="w-full px-3 py-2 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs sm:text-sm text-white font-normal outline-none focus:border-[#814AC8] cursor-pointer"
                         >
                           {mappingOptions.map((opt) => (
-                            <option key={opt.id} value={opt.id} className="bg-[#121026] text-white">
+                            <option key={opt.id} value={opt.id} className="bg-[#121026] text-white font-normal">
                               {opt.label}
                             </option>
                           ))}
@@ -609,8 +597,8 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
                       {/* Custom text input if custom value is selected */}
                       {isCustom && (
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-semibold text-[#8c88a6] uppercase tracking-wider block">
+                        <div className="space-y-1.5">
+                          <label className="text-xs sm:text-sm font-normal text-white/70 block">
                             Value for {tag}:
                           </label>
                           <input
@@ -618,23 +606,23 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                             value={current.customValue || ''}
                             onChange={(e) => handleUpdateMapping(cleanKey, { customValue: e.target.value })}
                             placeholder="e.g. DIWALI25, 20% OFF, Special Pass"
-                            className="w-full px-2.5 py-1.5 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs text-white placeholder-[#585375] outline-none focus:border-[#814AC8]"
+                            className="w-full px-3 py-2 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs sm:text-sm text-white font-normal placeholder-[#716d8a] outline-none focus:border-[#814AC8]"
                           />
                         </div>
                       )}
 
                       {/* Fallback value for dynamic contact fields */}
                       {!isCustom && (
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-[10px] text-[#8c88a6]">
-                            <span className="font-semibold uppercase tracking-wider">Fallback (if empty):</span>
-                          </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs sm:text-sm font-normal text-white/70 block">
+                            Fallback (if empty):
+                          </label>
                           <input
                             type="text"
                             value={current.fallback ?? ''}
                             onChange={(e) => handleUpdateMapping(cleanKey, { fallback: e.target.value })}
                             placeholder={current.source.toLowerCase().includes('name') ? 'e.g. Customer, Valued Member' : 'Default value'}
-                            className="w-full px-2.5 py-1.5 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs text-white placeholder-[#585375] outline-none focus:border-[#814AC8]"
+                            className="w-full px-3 py-2 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs sm:text-sm text-white font-normal placeholder-[#716d8a] outline-none focus:border-[#814AC8]"
                           />
                         </div>
                       )}
@@ -644,7 +632,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
               </div>
             ) : (
               <div className="p-4 rounded-xl bg-[#141228]/60 border border-[#251f42]/60 text-center">
-                <p className="text-xs text-[#c4c0db] font-normal">
+                <p className="text-xs sm:text-sm text-white/70 font-normal">
                   {selectedTemplate
                     ? 'This template does not have any variables.'
                     : 'Select an approved template from the left to map its variables.'}
@@ -656,12 +644,12 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
           {/* Dynamic WhatsApp Preview with live variable substitution from Row 1 */}
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
-              <span className="text-xs sm:text-sm font-medium text-[#c4c0db] flex items-center gap-1.5">
+              <span className="text-xs sm:text-sm font-medium text-white flex items-center gap-1.5">
                 Message Preview <Info size={13} className="text-[#814AC8]" />
               </span>
               {displayedVariables.length > 0 && (
-                <span className="text-[10px] text-purple-400 font-medium flex items-center gap-1 truncate max-w-[200px]" title={data?.recipients?.[0] ? `Previewing with contact: ${data.recipients[0].recipient_name || data.recipients[0].name || data.recipients[0].phone_number}` : 'Live sample preview'}>
-                  <Sparkles size={10} className="shrink-0" />
+                <span className="text-xs text-[#C49FE0] font-normal flex items-center gap-1 truncate max-w-[200px]" title={data?.recipients?.[0] ? `Previewing with contact: ${data.recipients[0].recipient_name || data.recipients[0].name || data.recipients[0].phone_number}` : 'Live sample preview'}>
+                  <Sparkles size={12} className="shrink-0" />
                   <span className="truncate">{data?.recipients?.[0] ? `Contact 1: ${data.recipients[0].recipient_name || data.recipients[0].name || 'Sample contact'}` : 'Live preview'}</span>
                 </span>
               )}

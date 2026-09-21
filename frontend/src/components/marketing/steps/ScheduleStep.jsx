@@ -117,7 +117,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
           <h3 className="text-base sm:text-lg font-medium text-white tracking-tight">
             Schedule Your Campaign
           </h3>
-          <p className="text-xs sm:text-sm text-[#c4c0db] mt-1 font-normal">
+          <p className="text-xs sm:text-sm text-white/70 mt-1 font-normal">
             Choose when you want to send your WhatsApp messages.
           </p>
         </div>
@@ -152,7 +152,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
               <h4 className="text-xs sm:text-sm font-medium text-white leading-tight">
                 Send Now
               </h4>
-              <p className={`text-xs sm:text-[13px] mt-1.5 leading-relaxed font-normal ${sendType === 'Send Now' ? 'text-white/90' : 'text-[#c4c0db]'}`}>
+              <p className={`text-xs sm:text-[13px] mt-1.5 leading-relaxed font-normal ${sendType === 'Send Now' ? 'text-white/90' : 'text-white/70'}`}>
                 Start sending your campaign immediately after confirmation.
               </p>
             </div>
@@ -188,7 +188,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
               <h4 className="text-xs sm:text-sm font-medium text-white leading-tight">
                 Schedule for Later
               </h4>
-              <p className={`text-xs sm:text-[13px] mt-1.5 leading-relaxed font-normal ${sendType === 'Schedule for Later' ? 'text-white/90' : 'text-[#c4c0db]'}`}>
+              <p className={`text-xs sm:text-[13px] mt-1.5 leading-relaxed font-normal ${sendType === 'Schedule for Later' ? 'text-white/90' : 'text-white/70'}`}>
                 Choose a date and time to send your campaign.
               </p>
             </div>
@@ -320,10 +320,10 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                 className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#080a12] border border-[#1b2238] hover:border-[#283250] cursor-pointer text-xs sm:text-sm text-white transition-all font-normal"
               >
                 <div className="flex items-center gap-2">
-                  <Globe size={15} className="text-[#c4c0db] shrink-0" />
+                  <Globe size={15} className="text-white/70 shrink-0" />
                   <span>{timezone}</span>
                 </div>
-                <ChevronDown size={14} className={`text-[#c4c0db] transition-transform ${isTzOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} className={`text-white/70 transition-transform ${isTzOpen ? 'rotate-180' : ''}`} />
               </div>
 
               {isTzOpen && (
@@ -372,7 +372,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                     <span className="text-xs sm:text-sm font-medium text-white block">
                       Send gradually
                     </span>
-                    <span className="text-xs text-[#c4c0db] mt-0.5 block font-normal leading-relaxed">
+                    <span className="text-xs text-white/70 mt-0.5 block font-normal leading-relaxed">
                       Spread messages over time to appear more natural
                     </span>
                   </div>
@@ -386,7 +386,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                     className="w-full sm:w-64 px-3 py-2 rounded-lg bg-[#080a12] border border-[#1b2238] flex items-center justify-between text-xs sm:text-sm text-white cursor-pointer hover:border-[#814AC8] font-normal"
                   >
                     <span>{sendingRate} messages per minute</span>
-                    <ChevronDown size={14} className="text-[#c4c0db]" />
+                    <ChevronDown size={14} className="text-white/70" />
                   </div>
 
                   {isRateOpen && (
@@ -424,7 +424,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                   <span className="text-xs sm:text-sm font-medium text-white block">
                     Skip invalid numbers
                   </span>
-                  <span className="text-xs text-[#c4c0db] mt-0.5 block font-normal leading-relaxed">
+                  <span className="text-xs text-white/70 mt-0.5 block font-normal leading-relaxed">
                     Automatically skip invalid or unreachable numbers
                   </span>
                 </div>
@@ -444,7 +444,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                   <span className="text-xs sm:text-sm font-medium text-white block">
                     Stop on high failure rate
                   </span>
-                  <span className="text-xs text-[#c4c0db] mt-0.5 block font-normal leading-relaxed">
+                  <span className="text-xs text-white/70 mt-0.5 block font-normal leading-relaxed">
                     Pause sending if failure rate exceeds 10%
                   </span>
                 </div>
@@ -475,7 +475,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                 <CalendarIcon size={13} />
               </div>
               <div>
-                <span className="text-xs text-[#c4c0db] font-medium block">
+                <span className="text-xs text-white/70 font-medium block">
                   Campaign will start on
                 </span>
                 <span className={`text-xs font-bold block ${!isScheduleValid && sendType !== 'Send Now' ? 'text-rose-400' : 'text-white'}`}>
@@ -499,13 +499,13 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                 <Send size={14} />
               </div>
               <div>
-                <span className="text-xs text-[#c4c0db] font-medium block">
+                <span className="text-xs text-white/70 font-medium block">
                   Estimated completion
                 </span>
                 <span className="text-xs sm:text-sm font-medium text-white mt-0.5 block">
                   ~ {calculateEstimatedDuration()} after start
                 </span>
-                <span className="text-xs text-[#a1a1aa] font-normal block mt-0.5">
+                <span className="text-xs text-white/70 font-normal block mt-0.5">
                   {sendGradually ? (
                     `Based on ${totalRecipients.toLocaleString()} messages at ${sendingRate}/min`
                   ) : (
@@ -521,13 +521,13 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                 <Users size={14} />
               </div>
               <div>
-                <span className="text-xs text-[#c4c0db] font-medium block">
+                <span className="text-xs text-white/70 font-medium block">
                   Total recipients
                 </span>
                 <span className="text-sm sm:text-base font-semibold text-white block leading-tight mt-0.5">
                   {totalRecipients.toLocaleString()}
                 </span>
-                <span className="text-xs text-[#c4c0db] block mt-1 font-normal">
+                <span className="text-xs text-white/70 block mt-1 font-normal">
                   Valid numbers: {validRecipients.toLocaleString()}
                 </span>
                 <span className="text-xs text-amber-300 font-normal block mt-0.5">

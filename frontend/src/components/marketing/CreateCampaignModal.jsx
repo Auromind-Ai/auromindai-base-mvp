@@ -120,7 +120,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
         {/* Modal Top Header */}
         <div className="px-6 sm:px-8 pt-5 pb-4 border-b border-[#1b2238] flex items-center justify-between shrink-0 bg-[#0d101c]">
           <div>
-            <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+            <h2 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
               Create WhatsApp Campaign
             </h2>
             <p className="text-xs sm:text-sm text-[#8c94a6] mt-0.5">

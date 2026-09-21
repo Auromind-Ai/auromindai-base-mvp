@@ -105,7 +105,9 @@ export function mapBackendCampaignToFrontend(c) {
     responseRate: c.responseRate || (sCount > 0 ? `${((rCount / sCount) * 100).toFixed(1)}%` : '0.0%'),
     status: normalizeStatus(c.status),
     date: dateStr,
-    scheduledAt: c.scheduled_at,
+    scheduledAt: c.scheduled_at || c.scheduledAt,
+    created_at: c.created_at || c.createdAt || c.scheduled_at || c.scheduledAt || new Date().toISOString(),
+    createdAt: c.createdAt || c.created_at || c.scheduled_at || c.scheduledAt || new Date().toISOString(),
     messageBody: c.message_content || c.messageBody || '',
     mediaUrl: c.media_url || c.mediaUrl,
     sendType: c.schedule_type === 'later' ? 'Schedule for Later' : (c.sendType || 'Send Now'),
@@ -252,9 +254,12 @@ export async function createCampaign(campaignData, workspaceId) {
   }
 
   // Fallback for offline safety
+  const nowIso = new Date().toISOString();
   const newCampaign = {
     id: 'camp_' + Date.now(),
     date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    created_at: nowIso,
+    createdAt: nowIso,
     status: campaignData.sendType === 'Schedule for Later' ? 'Scheduled' : 'Sending',
     sentCount: campaignData.sendType === 'Schedule for Later' ? 0 : (campaignData.validRecipients || 2430),
     deliveredCount: campaignData.sendType === 'Schedule for Later' ? 0 : Math.floor((campaignData.validRecipients || 2430) * 0.98),

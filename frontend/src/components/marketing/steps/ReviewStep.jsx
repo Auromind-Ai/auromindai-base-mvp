@@ -71,7 +71,7 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
         <h3 className="text-base sm:text-lg font-medium text-white tracking-tight">
           Review Your Campaign
         </h3>
-        <p className="text-xs sm:text-sm text-[#c4c0db] mt-1 font-normal">
+        <p className="text-xs sm:text-sm text-white/70 mt-1 font-normal">
           Please review all the details before launching your campaign.
         </p>
       </div>
@@ -102,16 +102,16 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
             </div>
 
             <div className="grid grid-cols-2 gap-y-3 text-xs sm:text-sm">
-              <span className="text-[#c4c0db] font-normal">Campaign Name</span>
+              <span className="text-white/70 font-normal">Campaign Name</span>
               <span className="text-white font-medium text-right sm:text-left">{data.name || 'Untitled Campaign'}</span>
 
-              <span className="text-[#c4c0db] font-normal">Campaign Type</span>
+              <span className="text-white/70 font-normal">Campaign Type</span>
               <span className="text-white font-medium text-right sm:text-left">{data.type || 'Promotional'}</span>
 
-              <span className="text-[#c4c0db] font-normal">WhatsApp Number</span>
+              <span className="text-white/70 font-normal">WhatsApp Number</span>
               <span className="text-white font-medium text-right sm:text-left">{data.whatsappNumber || 'Not configured'}</span>
 
-              <span className="text-[#c4c0db] font-normal">Campaign Goal</span>
+              <span className="text-white/70 font-normal">Campaign Goal</span>
               <span className="text-white font-medium text-right sm:text-left">{data.goal || 'General Announcements'}</span>
             </div>
           </div>
@@ -139,25 +139,25 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
             </div>
 
             <div className="grid grid-cols-2 gap-y-3 text-xs sm:text-sm">
-              <span className="text-[#c4c0db] font-normal">Audience Type</span>
+              <span className="text-white/70 font-normal">Audience Type</span>
               <span className="text-white font-medium text-right sm:text-left">{data.audienceType || 'Existing Contacts'}</span>
 
-              <span className="text-[#c4c0db] font-normal">Contact List</span>
+              <span className="text-white/70 font-normal">Contact List</span>
               <span className="text-white font-medium text-right sm:text-left">
                 {data.audienceListName || 'Custom Audience'} ({(data.recipientsCount || 0).toLocaleString()} contacts)
               </span>
 
-              <span className="text-[#c4c0db] font-normal">Valid Numbers</span>
+              <span className="text-white/70 font-normal">Valid Numbers</span>
               <span className="text-emerald-400 font-medium text-right sm:text-left">
                 {(data.validRecipients || 0).toLocaleString()} ({data.recipientsCount > 0 ? ((data.validRecipients / data.recipientsCount) * 100).toFixed(1) : '0.0'}%)
               </span>
 
-              <span className="text-[#c4c0db] font-normal">Invalid / Opted-out</span>
+              <span className="text-white/70 font-normal">Invalid / Opted-out</span>
               <span className="text-amber-300 font-medium text-right sm:text-left">
                 {(data.invalidRecipients || 0).toLocaleString()} ({data.recipientsCount > 0 ? ((data.invalidRecipients / data.recipientsCount) * 100).toFixed(1) : '0.0'}%)
               </span>
 
-              <span className="text-[#c4c0db] font-normal">Estimated Cost</span>
+              <span className="text-white/70 font-normal">Estimated Cost</span>
               <span className="text-emerald-400 font-medium text-right sm:text-left">
                 {data.estimatedCost ? `₹${Number(data.estimatedCost).toFixed(2)}` : `~ ${(data.validRecipients || 0).toLocaleString()} messages`}
               </span>
@@ -187,17 +187,17 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
             </div>
 
             <div className="grid grid-cols-2 gap-y-3 text-xs sm:text-sm">
-              <span className="text-[#c4c0db] font-normal">Content Type</span>
+              <span className="text-white/70 font-normal">Content Type</span>
               <span className="text-white font-medium text-right sm:text-left">
                 {data.templateName ? `Template (${data.templateName})` : 'Template Message'}
               </span>
 
-              <span className="text-[#c4c0db] font-normal">Message Preview</span>
+              <span className="text-white/70 font-normal">Message Preview</span>
               <span className="text-white font-medium text-right sm:text-left truncate max-w-[220px]">
                 {data.messageBody?.slice(0, 45) ? data.messageBody.slice(0, 45) + (data.messageBody.length > 45 ? '...' : '') : 'No message content'}
               </span>
 
-              <span className="text-[#c4c0db] font-normal">Media</span>
+              <span className="text-white/70 font-normal">Media</span>
               <span className="text-white font-medium text-right sm:text-left">
                 {data.mediaUrl ? (data.mediaName || '1 attachment') : 'None'}
               </span>
@@ -236,7 +236,7 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
             </div>
 
             <div className="grid grid-cols-2 gap-y-3 text-xs sm:text-sm">
-              <span className="text-[#c4c0db] font-normal">Send Type</span>
+              <span className="text-white/70 font-normal">Send Type</span>
               <span className="text-white font-medium text-right sm:text-left">{data.sendType || 'Send Now'}</span>
 
               <span className="text-[#8c88a6]">Date & Time</span>
@@ -248,12 +248,12 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
                   : `${data.scheduleDate} at ${data.scheduleTime} (Past time - Click Edit to fix)`}
               </span>
 
-              <span className="text-[#c4c0db] font-normal">Timezone</span>
+              <span className="text-white/70 font-normal">Timezone</span>
               <span className="text-white font-medium text-right sm:text-left">
                 {data.timezone || 'Asia/Kolkata (IST)'}
               </span>
 
-              <span className="text-[#c4c0db] font-normal">Sending Preferences</span>
+              <span className="text-white/70 font-normal">Sending Preferences</span>
               <span className="text-white font-medium text-right sm:text-left leading-relaxed">
                 {(() => {
                   const prefs = [];
