@@ -42,6 +42,7 @@ def calculate_score(
     template_logs: list[TemplateLog] | None = None,
     active_labels: list[str] | None = None,
     label_score: int = 0,
+    custom_thresholds: dict[str, int] | None = None,
 ) -> tuple[int, int, int, int, str]:
     # --- 1. Flow progress (20 pts max) ---
     # CHANGE 1: AI Flow node progress logic or normal flow progress
@@ -95,14 +96,14 @@ def calculate_score(
     behavioral_score = max(min(round(progress + recency + engagement), 60), 0)
     cfg = get_scoring_config()
     intent_score = max(
-        min(semantic_intent_score, cfg.get_cap("intent_max")),
+        min(semantic_intent_score, 100),
         cfg.get_cap("intent_min")
     )
     
     # Natural AI Score (behavioral + intent) capped at 100/0
     natural_ai_score = max(
-        min(behavioral_score + intent_score, cfg.get_cap("total_max")),
-        cfg.get_cap("total_min")
+        min(behavioral_score + intent_score, 100),
+        0
     )
     
     # Calculate Agent Label Bonus
@@ -123,7 +124,17 @@ def calculate_score(
         cfg.get_cap("total_min")
     )
     
-    tier = get_lead_tier(total_score)
+    if custom_thresholds:
+        hot_th = custom_thresholds.get("hot", 50)
+        warm_th = custom_thresholds.get("warm", 30)
+        if total_score >= hot_th:
+            tier = "hot"
+        elif total_score >= warm_th:
+            tier = "warm"
+        else:
+            tier = "cold"
+    else:
+        tier = get_lead_tier(total_score)
     return total_score, behavioral_score, intent_score, agent_label_bonus, tier
 
 
@@ -141,6 +152,7 @@ def calculate_score_breakdown(
     template_logs: list[TemplateLog] | None = None,
     active_labels: list[str] | None = None,
     label_score: int = 0,
+    custom_thresholds: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     """Return the total score *plus* per-factor details."""
     
@@ -154,6 +166,7 @@ def calculate_score_breakdown(
         template_logs=template_logs,
         active_labels=active_labels,
         label_score=label_score,
+        custom_thresholds=custom_thresholds,
     )
 
     if progress_score is not None:
@@ -212,16 +225,24 @@ def calculate_score_breakdown(
     }
     if intent_signals is not None:
         for k, v in intent_signals.items():
-            if k in signals:
-                if isinstance(v, dict):
-                    signals[k] = {
-                        "value": bool(v.get("value", False)),
-                        "snippet": str(v.get("snippet", "")),
-                        "explanation": str(v.get("explanation", signals[k]["explanation"])),
-                        "reasoning": str(v.get("reasoning", ""))
-                    }
-                else:
+            if k == "word_count":
+                continue
+            if isinstance(v, dict):
+                existing_exp = signals.get(k, {}).get("explanation", k)
+                signals[k] = {
+                    "value": bool(v.get("value", False)),
+                    "snippet": str(v.get("snippet", "")),
+                    "explanation": str(v.get("explanation", existing_exp)),
+                    "reasoning": str(v.get("reasoning", "")),
+                    "points": v.get("points"),
+                    "name": v.get("name", k),
+                    "icon": v.get("icon", "zap"),
+                }
+            else:
+                if k in signals:
                     signals[k]["value"] = bool(v)
+                else:
+                    signals[k] = {"value": bool(v), "snippet": "", "explanation": k, "reasoning": ""}
     MAX_INTENT_SCORE = get_scoring_config().get_cap("intent_max")
     return {
         "total": total,
@@ -325,6 +346,7 @@ def recalculate_lead_score(
     *,
     reason: str = "recalculation",
     commit: bool = True,
+    custom_setting: Any = None,
 ) -> dict[str, Any]:
     days = _days_inactive(lead)
     t_logs = db.query(TemplateLog).filter(TemplateLog.lead_id == lead.id).all()
@@ -334,7 +356,34 @@ def recalculate_lead_score(
     from app.models.flow_execution import FlowExecutionState
     from app.models.automation import AutomationFlow
     from app.models.message import Message, SenderType
-    
+    from app.models.lead_scoring_rule import LeadScoringSetting
+    from app.utils.intent_detection import detect_intent_signals
+
+    setting = custom_setting
+    if setting is None and lead.workspace_id:
+        setting = db.query(LeadScoringSetting).filter(LeadScoringSetting.workspace_id == lead.workspace_id).first()
+
+    custom_thresholds = None
+    if setting and getattr(setting, "ai_qualification_enabled", True):
+        custom_thresholds = getattr(setting, "thresholds", None)
+        signals_config = getattr(setting, "signals", None)
+        if signals_config and lead.conversation_id:
+            messages = (
+                db.query(Message)
+                .filter(Message.conversation_id == lead.conversation_id)
+                .order_by(Message.timestamp.desc())
+                .all()
+            )
+            customer_msgs = [
+                m.content for m in messages
+                if (m.sender_type == SenderType.USER or getattr(m, "sender", None) == "customer") and m.content
+            ]
+            if customer_msgs:
+                combined_text = "\n".join(customer_msgs[:10])
+                detect_res = detect_intent_signals(combined_text, custom_signals=signals_config)
+                lead.intent_signals = detect_res["signals"]
+                lead.semantic_intent_score = detect_res["semantic_intent_score"]
+
     flow_type = None
     state = db.query(FlowExecutionState).filter(FlowExecutionState.conversation_id == lead.conversation_id).first()
     if state and state.active_flow_id:
@@ -377,6 +426,7 @@ def recalculate_lead_score(
         progress_score=progress_score,
         template_logs=t_logs,
         active_labels=active_labels,
+        custom_thresholds=custom_thresholds,
     )
 
     old_score = lead.score or 0
@@ -618,9 +668,17 @@ async def recalculate_lead_score_async(
     *,
     reason: str = "recalculation",
     commit: bool = True,
+    custom_setting: Any = None,
 ) -> dict[str, Any]:
     import asyncio
-    return await asyncio.to_thread(recalculate_lead_score, lead, db, reason=reason, commit=commit)
+    return await asyncio.to_thread(
+        recalculate_lead_score,
+        lead,
+        db,
+        reason=reason,
+        commit=commit,
+        custom_setting=custom_setting,
+    )
 
 async def recalculate_workspace_scores_async(
     workspace_id: UUID,

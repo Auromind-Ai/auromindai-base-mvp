@@ -52,3 +52,4 @@ from .event_metadata import EventMetadata
 from .notification_system_variable import NotificationSystemVariable
 from .integration import Integration, CalendarEvent, EmailReplyLog, GmailImportLog, EmailState
 from .lead_report_setting import LeadReportSetting
+from .lead_scoring_rule import LeadScoringSetting

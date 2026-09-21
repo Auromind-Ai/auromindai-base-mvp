@@ -19,6 +19,20 @@ import {
   AlertCircle,
   Pencil,
   RotateCcw,
+  Flame,
+  Zap,
+  Droplets,
+  Sliders,
+  MoreVertical,
+  Trash2,
+  Lightbulb,
+  CheckCircle2,
+  XCircle,
+  FileText,
+  Calendar,
+  Phone,
+  Frown,
+  Brain,
 } from "lucide-react";
 import api from "@/lib/api";
 import { getWorkspaceIdFromToken } from "@/lib/auth";
@@ -388,55 +402,854 @@ export function CrmHistory({ onSelect }) {
 }
 
 export function CrmScoring({ options, lead, onRecalculate }) {
+  const { showToast } = useToast?.() || { showToast: () => {} };
+  const [activeSubtab, setActiveSubtab] = useState("rules"); // "rules" | "preview"
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  return (
-    <main className="flex-1 overflow-y-auto p-5 space-y-5">
-      <h1 className="text-xl font-semibold">Lead Scoring</h1>
-      <p className="text-sm text-zinc-400">
-        Lead scores combine buying intent, activity, engagement, and labels.
-        These tiers come from your existing scoring configuration.
-      </p>
-      <div className="flex flex-wrap gap-3">
-        {options?.tier_ranges?.map((range) => (
-          <div
-            className="rounded-xl bg-violet-500/10 border border-violet-500/20 p-4 capitalize"
-            key={range.tier}
-          >
-            {range.tier}: {range.min}–{range.max}
+
+  // Scoring rules state
+  const [rulesLoading, setRulesLoading] = useState(true);
+  const [rulesSaving, setRulesSaving] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState(true);
+  const [thresholds, setThresholds] = useState({ hot: 50, warm: 30, cold: 0 });
+  const [signals, setSignals] = useState([]);
+
+  // Modals & UI controls
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [showThresholdModal, setShowThresholdModal] = useState(false);
+  const [tempThresholds, setTempThresholds] = useState({ hot: 50, warm: 30 });
+  const [showAddSignalModal, setShowAddSignalModal] = useState(false);
+  const [newSignal, setNewSignal] = useState({ name: "", example_message: "", points: 15 });
+  const [showTipsModal, setShowTipsModal] = useState(false);
+  const [activeMenuId, setActiveMenuId] = useState(null);
+
+  const fetchRules = async () => {
+    setRulesLoading(true);
+    try {
+      const data = await api.get(`/lead-scoring/rules?workspace_id=${getWorkspaceIdFromToken()}`);
+      if (data) {
+        setAiEnabled(data.ai_qualification_enabled ?? true);
+        if (data.thresholds) setThresholds(data.thresholds);
+        if (data.signals) setSignals(data.signals);
+      }
+    } catch (e) {
+      console.error("Failed to fetch scoring rules:", e);
+    } finally {
+      setRulesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRules();
+  }, []);
+
+  const handleSaveRules = async (customSignals = signals, customThresholds = thresholds, customAi = aiEnabled) => {
+    setRulesSaving(true);
+    try {
+      const payload = {
+        ai_qualification_enabled: customAi,
+        thresholds: customThresholds,
+        signals: customSignals,
+      };
+      await api.post(`/lead-scoring/rules?workspace_id=${getWorkspaceIdFromToken()}`, payload);
+      showToast("Scoring rules saved successfully!", "success");
+    } catch (e) {
+      showToast(e.message || "Failed to save scoring rules", "error");
+    } finally {
+      setRulesSaving(false);
+    }
+  };
+
+  const handleResetRules = async () => {
+    setShowResetModal(false);
+    setRulesSaving(true);
+    try {
+      const data = await api.post(`/lead-scoring/rules/reset?workspace_id=${getWorkspaceIdFromToken()}`);
+      if (data) {
+        setAiEnabled(data.ai_qualification_enabled ?? true);
+        setThresholds(data.thresholds || { hot: 50, warm: 30, cold: 0 });
+        setSignals(data.signals || []);
+      }
+      showToast("Scoring rules reset to defaults", "success");
+    } catch (e) {
+      showToast(e.message || "Failed to reset rules", "error");
+    } finally {
+      setRulesSaving(false);
+    }
+  };
+
+  const handleToggleSignal = (id) => {
+    const updated = signals.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s));
+    setSignals(updated);
+  };
+
+  const handlePointsChange = (id, delta) => {
+    const updated = signals.map((s) => (s.id === id ? { ...s, points: (s.points || 0) + delta } : s));
+    setSignals(updated);
+  };
+
+  const handleDeleteSignal = (id) => {
+    const updated = signals.filter((s) => s.id !== id);
+    setSignals(updated);
+    setActiveMenuId(null);
+  };
+
+  const handleAddCustomSignal = () => {
+    if (!newSignal.name.trim()) {
+      showToast("Signal name is required", "error");
+      return;
+    }
+    const id = "custom_" + Date.now();
+    const created = {
+      id,
+      name: newSignal.name.trim(),
+      example_message: newSignal.example_message.trim(),
+      examples: newSignal.example_message
+        .split(/[,"]/)
+        .map((x) => x.trim())
+        .filter(Boolean),
+      points: Number(newSignal.points) || 10,
+      enabled: true,
+      icon: "zap",
+      is_custom: true,
+    };
+    const updated = [...signals, created];
+    setSignals(updated);
+    setNewSignal({ name: "", example_message: "", points: 15 });
+    setShowAddSignalModal(false);
+    showToast("Custom signal added. Click 'Save Changes' to persist.", "info");
+  };
+
+  const renderSignalIcon = (icon, id) => {
+    switch (icon || id) {
+      case "pricing":
+      case "currency":
+        return (
+          <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm">
+            ₹
           </div>
+        );
+      case "quotation":
+      case "file":
+        return (
+          <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center">
+            <FileText size={16} />
+          </div>
+        );
+      case "demo":
+      case "calendar":
+        return (
+          <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center">
+            <Calendar size={16} />
+          </div>
+        );
+      case "implementation":
+      case "clock":
+        return (
+          <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+            <Clock size={16} />
+          </div>
+        );
+      case "contact_details":
+      case "phone":
+        return (
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <Phone size={16} />
+          </div>
+        );
+      case "strong_intent":
+      case "check":
+        return (
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <CheckCircle2 size={16} />
+          </div>
+        );
+      case "not_interested":
+      case "x":
+        return (
+          <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center">
+            <XCircle size={16} />
+          </div>
+        );
+      case "too_expensive":
+      case "frown":
+        return (
+          <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center">
+            <Frown size={16} />
+          </div>
+        );
+      default:
+        return (
+          <div className="w-8 h-8 rounded-lg bg-violet-500/20 text-violet-400 flex items-center justify-center">
+            <Sparkles size={16} />
+          </div>
+        );
+    }
+  };
+
+  return (
+    <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 w-full">
+      {/* Top Header & Breadcrumbs */}
+      <div>
+        <div className="flex items-center gap-2 text-xs text-zinc-500 mb-1">
+          <span>CRM</span>
+          <span>&gt;</span>
+          <span className="text-zinc-300">Lead Scoring</span>
+        </div>
+        <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+          Lead Scoring
+        </h1>
+        <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+          Set scoring rules and qualify leads using AI.
+        </p>
+      </div>
+
+      {/* Subtabs Navigation */}
+      <div className="inline-flex items-center gap-1.5 p-1 rounded-2xl bg-[#13101E] border border-white/[0.08]">
+        {[
+          ["rules", "Scoring Rules", Sliders],
+          ["preview", "Preview", Sparkles],
+        ].map(([id, label, Icon]) => (
+          <button
+            key={id}
+            onClick={() => setActiveSubtab(id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+              activeSubtab === id
+                ? "bg-[#7C4DFF] text-white shadow-lg shadow-[#7C4DFF]/30"
+                : "text-zinc-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <Icon size={14} />
+            {label}
+          </button>
         ))}
       </div>
-      {lead ? (
-        <>
-          <h2 className="font-medium">{lead.name}</h2>
-          <button
-            className={crmControl}
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              setError("");
-              try {
-                await api.post(
-                  `/lead-scoring/leads/${lead.id}/recalculate?workspace_id=${getWorkspaceIdFromToken()}`,
-                );
-                await onRecalculate(lead.id);
-              } catch (e) {
-                setError(e.message);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            {busy ? "Updating…" : "Recalculate lead score"}
-          </button>
-          {error && <p role="alert">{error}</p>}
-          <ScoreBreakdown breakdown={lead.breakdown} score={lead.score} />
-        </>
-      ) : (
-        <p className="text-zinc-400">
-          Select a lead in the Leads section to inspect its score.
-        </p>
+
+      {/* SUBTAB 1: SCORING RULES (Image 2) */}
+      {activeSubtab === "rules" && (
+        <div className="space-y-6">
+          {rulesLoading ? (
+            <div className="flex items-center justify-center py-12 text-zinc-400">
+              <Loader2 className="animate-spin mr-2" size={18} /> Loading scoring rules...
+            </div>
+          ) : (
+            <>
+              {/* Card 1: AI Lead Qualification & Thresholds */}
+              <div className="rounded-2xl bg-[#121218] border border-white/5 p-5 sm:p-6 space-y-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400">
+                      <Brain size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white text-sm sm:text-base">
+                        AI Lead Qualification
+                      </h3>
+                      <p className="text-xs text-zinc-400">
+                        AI will analyze conversations and detect buying signals automatically.
+                      </p>
+                    </div>
+                  </div>
+                  {/* ON/OFF Switch */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                      {aiEnabled ? "ON" : "OFF"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAiEnabled(!aiEnabled)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        aiEnabled ? "bg-[#7C4DFF]" : "bg-zinc-700"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          aiEnabled ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Threshold Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Hot Lead */}
+                  <div className="rounded-xl bg-rose-950/20 border border-rose-500/20 p-4 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+                      <Flame size={18} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-rose-400 uppercase tracking-wider">
+                        Hot Lead
+                      </div>
+                      <div className="text-lg font-bold text-white">
+                        &ge; {thresholds.hot}%
+                      </div>
+                      <div className="text-[11px] text-zinc-400">High buying intent</div>
+                    </div>
+                  </div>
+
+                  {/* Warm Lead */}
+                  <div className="rounded-xl bg-amber-950/20 border border-amber-500/20 p-4 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                      <Zap size={18} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                        Warm Lead
+                      </div>
+                      <div className="text-lg font-bold text-white">
+                        {thresholds.warm}% – {Math.max(thresholds.warm, thresholds.hot - 1)}%
+                      </div>
+                      <div className="text-[11px] text-zinc-400">Some interest</div>
+                    </div>
+                  </div>
+
+                  {/* Cold Lead */}
+                  <div className="rounded-xl bg-sky-950/20 border border-sky-500/20 p-4 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0">
+                      <Droplets size={18} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-sky-400 uppercase tracking-wider">
+                        Cold Lead
+                      </div>
+                      <div className="text-lg font-bold text-white">
+                        0% – {Math.max(0, thresholds.warm - 1)}%
+                      </div>
+                      <div className="text-[11px] text-zinc-400">Low intent</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      setTempThresholds({ hot: thresholds.hot, warm: thresholds.warm });
+                      setShowThresholdModal(true);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-medium text-zinc-300 transition-colors"
+                  >
+                    Configure Thresholds
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 2: Conversation Signals Table */}
+              <div className="rounded-2xl bg-[#121218] border border-white/5 p-5 sm:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                      <Sparkles size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white text-sm sm:text-base">
+                        Custom Conversation Signals
+                      </h3>
+                      <p className="text-xs text-zinc-400">
+                        Default scoring rules from system config are active. Define custom rules here to detect specific keywords or intents.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowAddSignalModal(true)}
+                    className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-medium text-white transition-colors"
+                  >
+                    <Plus size={14} /> Add Custom Signal
+                  </button>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-zinc-300 border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/5 text-[11px] uppercase tracking-wider text-zinc-500">
+                        <th className="py-3 px-3">Signal</th>
+                        <th className="py-3 px-3">Example Customer Message</th>
+                        <th className="py-3 px-3 text-center">Points</th>
+                        <th className="py-3 px-3 text-right">Status</th>
+                        <th className="py-3 px-2 w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {signals.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-12 text-center text-zinc-500">
+                            <div className="flex flex-col items-center justify-center gap-2">
+                              <Sparkles size={24} className="text-zinc-600" />
+                              <p className="text-sm font-medium text-zinc-300">No custom rules</p>
+                              <p className="text-xs text-zinc-500 max-w-sm">
+                                Default signals from system scoring config are active. Click &quot;+ Add Custom Signal&quot; to define custom scoring rules.
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        signals.map((sig) => (
+                          <tr key={sig.id} className="hover:bg-white/[0.02] transition-colors">
+                            {/* Signal Icon & Name */}
+                            <td className="py-3 px-3">
+                              <div className="flex items-center gap-3">
+                                {renderSignalIcon(sig.icon, sig.id)}
+                                <div>
+                                  <div className="font-medium text-white text-xs sm:text-sm">
+                                    {sig.name}
+                                  </div>
+                                  <span className="text-[10px] text-violet-400 font-semibold uppercase tracking-wider">
+                                    Custom
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Example Customer Message */}
+                            <td className="py-3 px-3 text-zinc-400 text-xs max-w-xs font-mono">
+                              {sig.example_message || (sig.examples && sig.examples.join(", ")) || "—"}
+                            </td>
+
+                            {/* Points Controls */}
+                            <td className="py-3 px-3">
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  onClick={() => handlePointsChange(sig.id, -5)}
+                                  className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-xs font-bold text-zinc-300 transition-colors"
+                                  title="Decrease 5 points"
+                                >
+                                  -
+                                </button>
+                                <span
+                                  className={`w-10 text-center font-bold text-xs sm:text-sm ${
+                                    sig.points > 0 ? "text-emerald-400" : sig.points < 0 ? "text-rose-400" : "text-zinc-400"
+                                  }`}
+                                >
+                                  {sig.points > 0 ? `+${sig.points}` : sig.points}
+                                </span>
+                                <button
+                                  onClick={() => handlePointsChange(sig.id, 5)}
+                                  className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-xs font-bold text-zinc-300 transition-colors"
+                                  title="Increase 5 points"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* Status Toggle */}
+                            <td className="py-3 px-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSignal(sig.id)}
+                                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                  sig.enabled ? "bg-[#7C4DFF]" : "bg-zinc-700"
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                    sig.enabled ? "translate-x-4" : "translate-x-0"
+                                  }`}
+                                />
+                              </button>
+                            </td>
+
+                            {/* Action Menu (for custom signals) */}
+                            <td className="py-3 px-2 text-right relative">
+                              <button
+                                onClick={() => handleDeleteSignal(sig.id)}
+                                className="p-1.5 text-zinc-500 hover:text-rose-400 transition-colors"
+                                title="Delete signal"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Card 3: AI Scoring Tips */}
+              <div className="rounded-2xl bg-[#121218] border border-white/5 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 shrink-0">
+                    <Lightbulb size={18} />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-white text-xs sm:text-sm">
+                      AI Scoring Tips
+                    </h4>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      The AI understands context, not just keywords. It looks at the full conversation to detect intent, budget, timeline and decision maker signals.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowTipsModal(true)}
+                  className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-medium text-zinc-300 transition-colors whitespace-nowrap"
+                >
+                  Learn More
+                </button>
+              </div>
+
+              {/* Bottom Actions Bar */}
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  onClick={() => setShowResetModal(true)}
+                  disabled={rulesSaving}
+                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  <RotateCcw size={13} /> Reset to Defaults
+                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleSaveRules()}
+                    disabled={rulesSaving}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#7C4DFF] hover:bg-[#6C3AE8] text-white font-medium text-xs sm:text-sm transition-all shadow-lg shadow-violet-500/20 disabled:opacity-50"
+                  >
+                    {rulesSaving ? (
+                      <>
+                        <Loader2 className="animate-spin" size={14} /> Saving…
+                      </>
+                    ) : (
+                      <>
+                        <Check size={14} /> Save Changes
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* SUBTAB 2: PREVIEW */}
+      {activeSubtab === "preview" && (
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#7C4DFF]/20 to-[#6A3DE8]/30 border border-[#7C4DFF]/30 text-[#9E7BFF] flex items-center justify-center shrink-0 shadow-lg shadow-[#7C4DFF]/10">
+                <Sparkles size={18} />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Lead Score Preview</h2>
+                <p className="text-xs text-zinc-400">
+                  Realtime qualification combining buying intent, activity, engagement, and custom signals.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 rounded-xl bg-rose-500/10 border border-rose-500/25 px-3 py-1.5 text-xs font-semibold text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.15)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.8)]" />
+                <span>Hot: &ge; {thresholds.hot}</span>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/25 px-3 py-1.5 text-xs font-semibold text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.15)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
+                <span>Warm: {thresholds.warm}–{thresholds.hot - 1}</span>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-xl bg-sky-500/10 border border-sky-500/25 px-3 py-1.5 text-xs font-semibold text-sky-300 shadow-[0_0_10px_rgba(56,189,248,0.15)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.8)]" />
+                <span>Cold: 0–{thresholds.warm - 1}</span>
+              </div>
+            </div>
+          </div>
+
+          {lead ? (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-b from-[#161226] to-[#100D1D] border border-white/[0.08] rounded-3xl p-4 sm:p-5 shadow-xl">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#7C4DFF] to-[#6A3DE8] text-white flex items-center justify-center font-bold text-sm shadow-lg shadow-[#7C4DFF]/25 shrink-0">
+                    {lead.name && lead.name.trim() !== "."
+                      ? lead.name.slice(0, 2).toUpperCase()
+                      : <Users size={18} />}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-white text-base">
+                        {lead.name && lead.name.trim() !== "."
+                          ? lead.name
+                          : lead.phone || lead.email || `Lead #${lead.id?.slice(0, 8) || ""}`}
+                      </h3>
+                      {lead.source && (
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-[#7C4DFF]/15 border border-[#7C4DFF]/30 text-[#9E7BFF]">
+                          {lead.source}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      {lead.phone || lead.email || "No contact info available"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#1B162C] hover:bg-[#251E3D] border border-[#7C4DFF]/30 hover:border-[#7C4DFF]/60 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-[#7C4DFF]/10 transition-all disabled:opacity-50"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError("");
+                    try {
+                      await api.post(
+                        `/lead-scoring/leads/${lead.id}/recalculate?workspace_id=${getWorkspaceIdFromToken()}`,
+                      );
+                      if (onRecalculate) await onRecalculate(lead.id);
+                      showToast("Lead score recalculated with current rules", "success");
+                    } catch (e) {
+                      setError(e.message);
+                      showToast(e.message, "error");
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  <RotateCcw size={14} className={busy ? "animate-spin text-[#9E7BFF]" : "text-[#9E7BFF]"} />
+                  <span>{busy ? "Recalculating…" : "Recalculate lead score"}</span>
+                </button>
+              </div>
+              {error && <p role="alert" className="text-xs text-rose-400">{error}</p>}
+              <ScoreBreakdown breakdown={lead.breakdown} score={lead.score} thresholds={thresholds} />
+            </div>
+          ) : (
+            <div className="rounded-3xl bg-gradient-to-b from-[#151124] to-[#0E0B18] border border-white/[0.08] p-10 text-center text-zinc-400 space-y-3 shadow-xl">
+              <div className="w-12 h-12 rounded-2xl bg-[#7C4DFF]/15 border border-[#7C4DFF]/30 text-[#9E7BFF] flex items-center justify-center mx-auto">
+                <Sparkles size={24} />
+              </div>
+              <p className="text-sm font-semibold text-white">Select a lead in the Leads section to inspect its score.</p>
+              <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+                Or configure rules in the Scoring Rules tab to automatically qualify incoming chats.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+
+      {/* MODAL: RESET CONFIRMATION */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121218] border border-white/10 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+                <AlertCircle size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Reset Scoring Rules?</h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Are you sure you want to reset scoring rules to defaults?
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3 text-xs text-zinc-400 space-y-1.5">
+              <p>• Custom conversation signals will be removed.</p>
+              <p>• Default signals and points will be restored.</p>
+              <p>• Hot/Warm/Cold thresholds will be reset to 50% / 30% / 0%.</p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                disabled={rulesSaving}
+                className="px-4 py-2 rounded-xl text-xs text-zinc-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleResetRules}
+                disabled={rulesSaving}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium transition-all shadow-lg shadow-rose-600/20 disabled:opacity-50"
+              >
+                {rulesSaving ? (
+                  <>
+                    <Loader2 className="animate-spin" size={14} /> Resetting…
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw size={14} /> Reset to Defaults
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIGURE THRESHOLDS */}
+      {showThresholdModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121218] border border-white/10 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <h3 className="text-base font-bold text-white">Configure Lead Thresholds</h3>
+            <p className="text-xs text-zinc-400">
+              Customize score thresholds to automatically categorize leads into Hot, Warm, and Cold tiers.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  Hot Lead Threshold (&ge; %)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={tempThresholds.hot}
+                  onChange={(e) =>
+                    setTempThresholds({ ...tempThresholds, hot: Number(e.target.value) })
+                  }
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7C4DFF]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  Warm Lead Minimum Threshold (&ge; %)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max={tempThresholds.hot - 1}
+                  value={tempThresholds.warm}
+                  onChange={(e) =>
+                    setTempThresholds({ ...tempThresholds, warm: Number(e.target.value) })
+                  }
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7C4DFF]"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowThresholdModal(false)}
+                className="px-4 py-2 rounded-xl text-xs text-zinc-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (tempThresholds.warm >= tempThresholds.hot) {
+                    showToast("Warm threshold must be less than Hot threshold", "error");
+                    return;
+                  }
+                  const updated = { ...thresholds, hot: tempThresholds.hot, warm: tempThresholds.warm };
+                  setThresholds(updated);
+                  setShowThresholdModal(false);
+                  handleSaveRules(signals, updated, aiEnabled);
+                }}
+                className="px-4 py-2 rounded-xl bg-[#7C4DFF] hover:bg-[#6C3AE8] text-white text-xs font-medium"
+              >
+                Apply &amp; Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD CUSTOM SIGNAL */}
+      {showAddSignalModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121218] border border-white/10 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <h3 className="text-base font-bold text-white">Add Custom Conversation Signal</h3>
+            <p className="text-xs text-zinc-400">
+              Define a keyword or intent signal. When detected in customer chats, the AI will award or deduct points.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  Signal Name *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Asks about Enterprise Plan"
+                  value={newSignal.name}
+                  onChange={(e) => setNewSignal({ ...newSignal, name: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#7C4DFF]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  Example Messages / Keywords
+                </label>
+                <input
+                  type="text"
+                  placeholder='e.g. "enterprise license", "bulk discount", "custom contract"'
+                  value={newSignal.example_message}
+                  onChange={(e) => setNewSignal({ ...newSignal, example_message: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#7C4DFF]"
+                />
+                <p className="text-[11px] text-zinc-500 mt-1">
+                  Separate multiple phrases with commas or quotes. The AI matches exact keywords and semantic similarity.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  Points (+ or -)
+                </label>
+                <input
+                  type="number"
+                  placeholder="15"
+                  value={newSignal.points}
+                  onChange={(e) => setNewSignal({ ...newSignal, points: Number(e.target.value) })}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7C4DFF]"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowAddSignalModal(false)}
+                className="px-4 py-2 rounded-xl text-xs text-zinc-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCustomSignal}
+                className="px-4 py-2 rounded-xl bg-[#7C4DFF] hover:bg-[#6C3AE8] text-white text-xs font-medium"
+              >
+                Add Signal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: AI TIPS LEARN MORE */}
+      {showTipsModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121218] border border-white/10 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Lightbulb size={18} className="text-violet-400" /> AI Scoring Intelligence
+            </h3>
+            <div className="text-xs text-zinc-300 space-y-2 leading-relaxed">
+              <p>
+                Our lead scoring engine combines two complementary layers:
+              </p>
+              <ul className="list-disc pl-4 space-y-1 text-zinc-400">
+                <li>
+                  <strong className="text-white">Deterministic &amp; Keyword Matching:</strong> High-precision regex checks for phone numbers, pricing questions, emails, and custom phrases.
+                </li>
+                <li>
+                  <strong className="text-white">Semantic AI Embeddings:</strong> Cosine similarity against prototype vectors, detecting intent even if customers use slang, different languages (Tanglish, Hinglish), or indirect phrasing.
+                </li>
+                <li>
+                  <strong className="text-white">Behavioral Scoring:</strong> Tracks response recency, inactivity decay, and flow progression.
+                </li>
+              </ul>
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setShowTipsModal(false)}
+                className="px-4 py-2 rounded-xl bg-[#7C4DFF] hover:bg-[#6C3AE8] text-white text-xs font-medium"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );

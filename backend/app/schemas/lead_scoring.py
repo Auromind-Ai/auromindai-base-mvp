@@ -341,3 +341,29 @@ class UpdateLeadLabelsResponse(BaseModel):
 class AssignLeadRequest(BaseModel):
     assigned_to: Optional[UUID] = None
 
+
+class LeadSignalItem(BaseModel):
+    id: str
+    name: str
+    example_message: Optional[str] = ""
+    examples: list[str] = Field(default_factory=list)
+    points: int
+    enabled: bool = True
+    icon: Optional[str] = "zap"
+    is_custom: bool = False
+
+
+class LeadScoringSettingSchema(BaseModel):
+    id: Optional[UUID] = None
+    workspace_id: Optional[UUID] = None
+    ai_qualification_enabled: bool = True
+    thresholds: dict[str, int] = Field(default_factory=lambda: {"hot": 50, "warm": 30, "cold": 0})
+    signals: list[LeadSignalItem] = Field(default_factory=list)
+    updated_at: Optional[datetime] = None
+
+
+class LeadScoringSettingUpdateRequest(BaseModel):
+    ai_qualification_enabled: Optional[bool] = None
+    thresholds: Optional[dict[str, int]] = None
+    signals: Optional[list[LeadSignalItem]] = None
+

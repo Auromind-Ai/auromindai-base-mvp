@@ -25,7 +25,30 @@ from app.routers.inbox_chennal.conversations import create_media_token
 from app.services.crm import lead_scoring_service
 from app.utils.intent_detection import detect_intent_signals, detect_intent_signals_async
 from app.utils.scoring_config import get_scoring_config
-from app.schemas.lead_scoring import (BulkRecalcResponse,ConversationLogItem,LeadDetailResponse,LeadScoreListResponse,LeadScoreResponse,MessageIntentRequest,MessageIntentResponse,NodeProgressRequest,NodeProgressResponse,ScoreCalculateRequest,ScoreCalculateResponse,ScoreHistoryResponse,ConvertLeadRequest,ConvertLeadResponse,ManualLeadCreateRequest,ManualLeadCreateResponse,UpdateLeadLabelsRequest,UpdateLeadLabelsResponse,AssignLeadRequest)
+from app.models.lead_scoring_rule import LeadScoringSetting, DEFAULT_SIGNALS, DEFAULT_THRESHOLDS
+from app.schemas.lead_scoring import (
+    BulkRecalcResponse,
+    ConversationLogItem,
+    LeadDetailResponse,
+    LeadScoreListResponse,
+    LeadScoreResponse,
+    MessageIntentRequest,
+    MessageIntentResponse,
+    NodeProgressRequest,
+    NodeProgressResponse,
+    ScoreCalculateRequest,
+    ScoreCalculateResponse,
+    ScoreHistoryResponse,
+    ConvertLeadRequest,
+    ConvertLeadResponse,
+    ManualLeadCreateRequest,
+    ManualLeadCreateResponse,
+    UpdateLeadLabelsRequest,
+    UpdateLeadLabelsResponse,
+    AssignLeadRequest,
+    LeadScoringSettingSchema,
+    LeadScoringSettingUpdateRequest,
+)
 
 from app.services.billing.entitlement_service import EntitlementService
 from app.models.message import Message, SenderType, MessageStatus
@@ -105,6 +128,104 @@ def export_leads(body: LeadExportRequest, workspace_id: str | None = None, db: S
             output.close()
     media = "text/csv" if body.format == "csv" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     return StreamingResponse(chunks(), media_type=media, headers={"Content-Disposition": f'attachment; filename="leads.{body.format}"', "Cache-Control": "no-store"})
+
+
+# --- Scoring Rules Endpoints (Dynamic Lead Scoring) ---
+
+@router.get("/rules", response_model=LeadScoringSettingSchema)
+def get_scoring_rules(
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    setting = db.query(LeadScoringSetting).filter(LeadScoringSetting.workspace_id == wid).first()
+    if not setting:
+        return LeadScoringSettingSchema(
+            workspace_id=wid,
+            ai_qualification_enabled=True,
+            thresholds=DEFAULT_THRESHOLDS.copy(),
+            signals=[],
+        )
+    # Only return user's custom signals (filter out legacy hardcoded non-custom signals if present)
+    custom_signals = [s for s in (setting.signals or []) if s.get("is_custom", True)]
+    return LeadScoringSettingSchema(
+        id=setting.id,
+        workspace_id=setting.workspace_id,
+        ai_qualification_enabled=setting.ai_qualification_enabled,
+        thresholds=setting.thresholds or DEFAULT_THRESHOLDS.copy(),
+        signals=custom_signals,
+        updated_at=setting.updated_at,
+    )
+
+
+@router.post("/rules", response_model=LeadScoringSettingSchema)
+def update_scoring_rules(
+    body: LeadScoringSettingUpdateRequest,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    setting = db.query(LeadScoringSetting).filter(LeadScoringSetting.workspace_id == wid).first()
+    signals_data = []
+    if body.signals is not None:
+        for s in body.signals:
+            d = s.model_dump()
+            d["is_custom"] = True
+            signals_data.append(d)
+
+    if not setting:
+        setting = LeadScoringSetting(
+            workspace_id=wid,
+            ai_qualification_enabled=body.ai_qualification_enabled if body.ai_qualification_enabled is not None else True,
+            thresholds=body.thresholds if body.thresholds is not None else DEFAULT_THRESHOLDS.copy(),
+            signals=signals_data,
+        )
+        db.add(setting)
+    else:
+        if body.ai_qualification_enabled is not None:
+            setting.ai_qualification_enabled = body.ai_qualification_enabled
+        if body.thresholds is not None:
+            setting.thresholds = body.thresholds
+        if body.signals is not None:
+            setting.signals = signals_data
+        setting.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(setting)
+    return LeadScoringSettingSchema(
+        id=setting.id,
+        workspace_id=setting.workspace_id,
+        ai_qualification_enabled=setting.ai_qualification_enabled,
+        thresholds=setting.thresholds,
+        signals=setting.signals,
+        updated_at=setting.updated_at,
+    )
+
+
+@router.post("/rules/reset", response_model=LeadScoringSettingSchema)
+def reset_scoring_rules(
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    setting = db.query(LeadScoringSetting).filter(LeadScoringSetting.workspace_id == wid).first()
+    if setting:
+        setting.ai_qualification_enabled = True
+        setting.thresholds = DEFAULT_THRESHOLDS.copy()
+        setting.signals = []
+        setting.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(setting)
+    return LeadScoringSettingSchema(
+        id=setting.id if setting else None,
+        workspace_id=wid,
+        ai_qualification_enabled=True,
+        thresholds=DEFAULT_THRESHOLDS.copy(),
+        signals=[],
+    )
 
 
 # 1. Stateless score preview (no DB write)
@@ -374,14 +495,19 @@ async def message_intent(
             previous_score=old_score,
         )
 
-    result = await detect_intent_signals_async(body.message)
+    setting = db.query(LeadScoringSetting).filter(LeadScoringSetting.workspace_id == wid).first()
+    custom_signals = None
+    if setting and setting.ai_qualification_enabled and setting.signals:
+        custom_signals = setting.signals
+
+    result = await detect_intent_signals_async(body.message, custom_signals=custom_signals)
     new_intent_score = result["semantic_intent_score"]
     lead.semantic_intent_score = new_intent_score
     lead.intent_signals = result["signals"]
     lead.last_activity_at = datetime.now(timezone.utc)
 
     breakdown = await lead_scoring_service.recalculate_lead_score_async(
-        lead, db, reason="message_intent", commit=False
+        lead, db, reason="message_intent", commit=False, custom_setting=setting
     )
     db.commit()
 
@@ -1054,7 +1180,7 @@ async def create_manual_lead(
 
 @router.get("/email-report/settings")
 def get_email_report_settings(
-    response: Response,
+    response: Response = None,
     workspace_id: str | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -1064,9 +1190,10 @@ def get_email_report_settings(
         DEFAULT_SUBJECT_TEMPLATE,
         DEFAULT_BODY_TEMPLATE
     )
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
+    if response:
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
 
     wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
     setting = LeadEmailReportService.get_or_create_settings(db, wid)
@@ -1100,7 +1227,7 @@ def get_email_report_settings(
 @router.post("/email-report/settings")
 def save_email_report_settings(
     body: dict,
-    response: Response,
+    response: Response = None,
     workspace_id: str | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -1110,9 +1237,10 @@ def save_email_report_settings(
         DEFAULT_SUBJECT_TEMPLATE,
         DEFAULT_BODY_TEMPLATE
     )
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
+    if response:
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
 
     wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
     setting = LeadEmailReportService.update_settings(db, wid, body)
