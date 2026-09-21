@@ -72,8 +72,8 @@ export default function WhatsAppPreview({
           <div className="flex items-center gap-2">
             <ChevronLeft size={14} className="text-white/60 shrink-0 cursor-pointer" />
             <div className="relative">
-              <div className="w-6 h-6 rounded-full bg-[#635BFF]/30 border border-[#635BFF]/40 flex items-center justify-center text-white text-xs font-bold">
-                <Sparkles size={11} className="text-[#a78bfa]" />
+              <div className="w-6 h-6 rounded-full bg-[#814AC8]/30 border border-[#814AC8]/40 flex items-center justify-center text-white text-xs font-bold">
+                <Sparkles size={11} className="text-[#C49FE0]" />
               </div>
             </div>
             <div className="leading-tight">

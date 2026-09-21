@@ -6,7 +6,7 @@ import { Check } from 'lucide-react';
 const STEPS = [
   { id: 1, title: 'Campaign Details', subtitle: 'Basic information' },
   { id: 2, title: 'Audience', subtitle: 'Select recipients' },
-  { id: 3, title: 'Message', subtitle: 'Create your content' },
+  { id: 3, title: 'Template', subtitle: 'Select template' },
   { id: 4, title: 'Schedule', subtitle: 'Send now or later' },
   { id: 5, title: 'Review', subtitle: 'Confirm & launch' },
 ];
@@ -36,9 +36,9 @@ export default function CampaignStepper({ currentStep, onStepClick }) {
                 <div
                   className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 transition-all duration-200 ${
                     isCompleted
-                      ? 'bg-[#635BFF] text-white shadow-[0_0_12px_rgba(99,91,255,0.4)] group-hover:scale-105'
+                      ? 'bg-[#814AC8] text-white shadow-[0_0_12px_rgba(129,74,200,0.4)] group-hover:scale-105'
                       : isCurrent
-                      ? 'bg-[#635BFF] text-white shadow-[0_0_14px_rgba(99,91,255,0.5)]'
+                      ? 'bg-[#814AC8] text-white shadow-[0_0_14px_rgba(129,74,200,0.5)]'
                       : 'bg-[#121626] text-white/70 border border-[#222a42]'
                   }`}
                 >
@@ -73,7 +73,7 @@ export default function CampaignStepper({ currentStep, onStepClick }) {
                 <div className="flex-1 mx-2 sm:mx-3 md:mx-4 h-[2px] relative">
                   <div className="absolute inset-0 bg-[#1e253c]" />
                   <div
-                    className="absolute inset-0 bg-[#635BFF] transition-all duration-300"
+                    className="absolute inset-0 bg-[#814AC8] transition-all duration-300"
                     style={{
                       width: isCompleted || (isCurrent && idx === 0) ? '100%' : '0%',
                     }}
@@ -87,7 +87,7 @@ export default function CampaignStepper({ currentStep, onStepClick }) {
 
       {/* Mobile Step Title Banner */}
       <div className="sm:hidden mt-2 text-center">
-        <span className="text-xs font-semibold text-[#635BFF]">
+        <span className="text-xs font-semibold text-[#814AC8]">
           Step {currentStep} of 5:
         </span>{' '}
         <span className="text-xs font-medium text-white">

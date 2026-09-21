@@ -45,8 +45,8 @@ function PremiumCheckbox({ checked, indeterminate = false, onChange, ariaLabel =
       }}
       className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center transition-all duration-150 cursor-pointer select-none shrink-0 ${
         checked || indeterminate
-          ? 'bg-[#635BFF] border border-[#8b85ff] shadow-[0_0_10px_rgba(99,91,255,0.55)] scale-100'
-          : 'bg-[#0d101c] border border-[#22293e] hover:border-[#635BFF] hover:bg-[#141829]'
+          ? 'bg-[#814AC8] border border-[#a78bfa] shadow-[0_0_10px_rgba(129,74,200,0.55)] scale-100'
+          : 'bg-[#0d101c] border border-[#22293e] hover:border-[#814AC8] hover:bg-[#141829]'
       } active:scale-90`}
     >
       {checked && !indeterminate && (
@@ -292,10 +292,8 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
         <div>
           {/* Breadcrumb */}
-          <div className="flex items-center gap-1.5 text-xs text-[#6b768c] mb-2 font-medium">
+          <div className="flex items-center gap-1.5 text-xs text-[#8c94a6] mb-2 font-medium">
             <span>Marketing</span>
-            <span className="text-[#475166]">›</span>
-            <span className="text-[#8c94a6]">Bulk Messages</span>
           </div>
 
           {/* Title with Glowing WhatsApp Logo */}
@@ -444,7 +442,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                 <span>{tab.label}</span>
                 <span>({count})</span>
                 {isActive && (
-                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#635BFF] rounded-full shadow-[0_0_8px_#635BFF]" />
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#814AC8] rounded-full shadow-[0_0_8px_#814AC8]" />
                 )}
               </button>
             );
@@ -461,7 +459,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search campaigns..."
-              className="w-full pl-9 pr-3.5 py-1.5 rounded-xl bg-[#0a0c14] border border-[#161a28] text-xs text-white placeholder-[#586174] outline-none focus:border-[#635BFF] transition-all"
+              className="w-full pl-9 pr-3.5 py-1.5 rounded-xl bg-[#0a0c14] border border-[#161a28] text-xs text-white placeholder-[#586174] outline-none focus:border-[#814AC8] transition-all"
             />
           </div>
 
@@ -487,7 +485,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                       setIsDateDropdownOpen(false);
                     }}
                     className={`px-3 py-1.5 text-xs rounded-lg cursor-pointer ${
-                      dateFilter === d ? 'bg-[#635BFF]/25 text-white font-medium' : 'text-[#a1a1aa] hover:bg-[#181d2e] hover:text-white'
+                      dateFilter === d ? 'bg-[#814AC8]/25 text-white font-medium' : 'text-[#a1a1aa] hover:bg-[#181d2e] hover:text-white'
                     }`}
                   >
                     {d}
@@ -542,7 +540,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                 <tr>
                   <td colSpan={10} className="py-12 text-center text-white/60">
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <RefreshCw size={20} className="animate-spin text-[#635BFF]" />
+                      <RefreshCw size={20} className="animate-spin text-[#814AC8]" />
                       <span className="text-sm font-medium text-white">Loading campaigns...</span>
                     </div>
                   </td>
@@ -574,7 +572,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                     <tr
                       key={camp.id}
                       className={`transition-colors duration-150 ${
-                        isChecked ? 'bg-[#635BFF]/10' : 'hover:bg-[#0f121e]/70'
+                        isChecked ? 'bg-[#814AC8]/10' : 'hover:bg-[#0f121e]/70'
                       }`}
                     >
                       {/* Premium Custom Checkbox */}
@@ -669,7 +667,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                             <button
                               type="button"
                               onClick={() => handleTogglePause(camp)}
-                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#635BFF]/25 hover:text-white rounded flex items-center gap-2"
+                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2"
                             >
                               {(camp.status || '').toLowerCase() === 'paused' ? <Play size={12} /> : <Pause size={12} />}
                               <span>{(camp.status || '').toLowerCase() === 'paused' ? 'Resume' : 'Pause'}</span>
@@ -681,7 +679,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                                 showToast('Campaign duplicated as draft', 'success');
                                 setActiveMenuId(null);
                               }}
-                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#635BFF]/25 hover:text-white rounded flex items-center gap-2"
+                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2"
                             >
                               <Copy size={12} />
                               <span>Duplicate</span>
@@ -732,7 +730,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                   onClick={() => setCurrentPage(pageNum)}
                   className={`w-8 h-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors ${
                     currentPage === pageNum
-                      ? 'bg-[#635BFF] text-white shadow-sm'
+                      ? 'bg-[#814AC8] text-white shadow-sm'
                       : 'bg-[#0e111d] border border-[#1e2436] text-white/60 hover:text-white'
                   }`}
                 >
@@ -777,12 +775,12 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
             <defs>
               <linearGradient id="paint0_linear_wave" x1="0" y1="60" x2="1200" y2="160" gradientUnits="userSpaceOnUse">
                 <stop stopColor="#6322b5" stopOpacity="0.4" />
-                <stop offset="0.5" stopColor="#635BFF" stopOpacity="0.6" />
+                <stop offset="0.5" stopColor="#814AC8" stopOpacity="0.6" />
                 <stop offset="1" stopColor="#3b0764" stopOpacity="0.1" />
               </linearGradient>
               <linearGradient id="paint1_linear_wave" x1="0" y1="40" x2="1200" y2="140" gradientUnits="userSpaceOnUse">
                 <stop stopColor="#9333ea" stopOpacity="0.25" />
-                <stop offset="0.5" stopColor="#635BFF" stopOpacity="0.3" />
+                <stop offset="0.5" stopColor="#814AC8" stopOpacity="0.3" />
                 <stop offset="1" stopColor="#6b21a8" stopOpacity="0.05" />
               </linearGradient>
             </defs>
@@ -808,7 +806,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
         <button
           type="button"
           onClick={() => setIsCreateOpen(true)}
-          className="relative z-10 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#635BFF] hover:bg-[#5248e8] shadow-[0_0_20px_rgba(99,91,255,0.45)] hover:shadow-[0_0_28px_rgba(99,91,255,0.7)] flex items-center gap-2 shrink-0 transition-all active:scale-[0.98]"
+          className="relative z-10 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.45)] hover:shadow-[0_0_28px_rgba(129,74,200,0.7)] flex items-center gap-2 shrink-0 transition-all active:scale-[0.98]"
         >
           <Plus size={16} strokeWidth={2.5} />
           <span>Create Campaign</span>

@@ -143,7 +143,9 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
     skip_invalid_numbers: Boolean(c.skipInvalid ?? true),
     stop_on_high_failure_rate: Boolean(c.stopOnFailure ?? false),
     failure_rate_threshold: 10.0,
-    quiet_hours_enabled: Boolean(c.quietHours ?? false),
+    quiet_hours_enabled: Boolean(c.quietHours ?? true),
+    quiet_hours_start: c.quietHoursStart || '22:00',
+    quiet_hours_end: c.quietHoursEnd || '08:00',
     auto_launch: sendType === 'now',
     estimated_cost: Number(c.estimatedCost || 0.0),
     segment: c.segment || null,
@@ -384,7 +386,7 @@ function mapTemplateRecord(t) {
     name: t.name,
     category: String(t.category || 'MARKETING').toUpperCase(),
     language: t.language || 'en_US',
-    status: String(t.status || 'APPROVED').toUpperCase(),
+    status: String(t.status || 'DRAFT').toUpperCase(),
     body: bodyText,
     content: bodyText,
     header: t.header || null,
@@ -399,11 +401,11 @@ export async function fetchApprovedTemplates(workspaceId) {
   const wsId = workspaceId || getStoredWorkspaceId();
 
   try {
-    const url = wsId ? `/api/marketing/templates?workspace_id=${wsId}` : '/api/marketing/templates';
+    const url = wsId ? `/api/marketing/templates?workspace_id=${wsId}&status=approved` : '/api/marketing/templates?status=approved';
     const res = await client.get(url);
     const list = res?.items || res?.templates || res?.data?.items || res?.data?.templates || (Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : null));
     if (Array.isArray(list) && list.length > 0) {
-      return list.map(mapTemplateRecord);
+      return list.map(mapTemplateRecord).filter((t) => (t.status || '').toUpperCase() === 'APPROVED');
     }
   } catch (e) {
     console.warn('fetchApprovedTemplates /api/marketing/templates notice:', e.message || e);
@@ -413,7 +415,7 @@ export async function fetchApprovedTemplates(workspaceId) {
     const res2 = await getTemplates();
     const list2 = res2?.templates || res2?.items || res2?.data?.templates || res2?.data?.items || (Array.isArray(res2?.data) ? res2.data : (Array.isArray(res2) ? res2 : null));
     if (Array.isArray(list2) && list2.length > 0) {
-      return list2.map(mapTemplateRecord);
+      return list2.map(mapTemplateRecord).filter((t) => (t.status || '').toUpperCase() === 'APPROVED');
     }
   } catch (e2) {
     console.warn('fetchApprovedTemplates /api/templates notice:', e2.message || e2);

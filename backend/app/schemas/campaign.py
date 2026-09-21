@@ -21,6 +21,7 @@ class PreflightEstimateResponse(BaseModel):
     portfolio_used_today: int
     portfolio_remaining_today: int
     next_unlock_at: Optional[str] = None
+    is_whatsapp_connected: bool = False
 
 
 class RecipientInput(BaseModel):

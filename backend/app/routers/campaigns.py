@@ -563,25 +563,28 @@ async def get_portfolio_tier_info(
     except Exception:
         pass
 
-    usage = WhatsAppTierService.get_portfolio_usage(
-        redis_client=redis_client,
-        portfolio_id=portfolio_id,
-        portfolio_tier_limit=2000
-    )
-
-    display_phone = workspace.meta_display_phone or workspace.twilio_phone_number or workspace.billing_phone or ""
+    display_phone = workspace.meta_display_phone or workspace.twilio_phone_number or ""
     phone_number_id = workspace.meta_phone_number_id or workspace.twilio_phone_number or ""
     is_connected = bool((workspace.meta_access_token and workspace.meta_phone_number_id) or (workspace.twilio_account_sid and workspace.twilio_phone_number))
+
+    if not is_connected:
+        usage = {"limit": 0, "used": 0, "remaining": 0, "next_unlock_at": None}
+    else:
+        usage = WhatsAppTierService.get_portfolio_usage(
+            redis_client=redis_client,
+            portfolio_id=portfolio_id,
+            portfolio_tier_limit=2000
+        )
 
     return {
         "portfolio_id": portfolio_id,
         "phone_number_id": phone_number_id,
         "display_phone": display_phone,
         "is_connected": is_connected,
-        "quality_score": "GREEN",
-        "tier_limit": usage.get("limit", 2000),
+        "quality_score": "GREEN" if is_connected else "NOT_CONNECTED",
+        "tier_limit": usage.get("limit", 0),
         "used_today": usage.get("used", 0),
-        "remaining_today": usage.get("remaining", 2000),
+        "remaining_today": usage.get("remaining", 0),
         "next_unlock_at": usage.get("next_unlock_at"),
     }
 
@@ -590,10 +593,12 @@ async def get_portfolio_tier_info(
 async def get_marketing_templates(
     workspace_id: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
+    status: Optional[str] = Query("approved"),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
     import re
+    from sqlalchemy import func
     ws_uuid = resolve_workspace_id(current_user, db, workspace_id)
     user_id = to_uuid(current_user.id) if getattr(current_user, "id", None) else None
 
@@ -604,6 +609,10 @@ async def get_marketing_templates(
             Template.system_tag.isnot(None),
         )
     )
+
+    # Marketing campaigns require Meta-approved templates unless explicitly requested all
+    if status and status.lower() != "all":
+        query = query.filter(func.lower(Template.status) == status.lower())
 
     if category and category.lower() != "all":
         query = query.filter(Template.category.ilike(category))
@@ -624,7 +633,7 @@ async def get_marketing_templates(
             "footer": t.footer,
             "cta": t.cta,
             "cta_btn_title": t.cta_btn_title,
-            "status": (t.status or "APPROVED").upper(),
+            "status": (t.status or "draft").upper(),
             "category": (t.category or "MARKETING").upper(),
             "language": t.language or "en_US",
             "variables": vars_found,

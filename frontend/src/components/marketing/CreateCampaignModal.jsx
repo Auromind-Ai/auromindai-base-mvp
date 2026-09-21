@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CampaignStepper from './CampaignStepper';
@@ -28,7 +28,7 @@ const getInitialDraftState = () => {
     invalidRecipients: 0,
     optedInCount: 0,
     optedOutCount: 0,
-    messageMode: 'type',
+    messageMode: 'template',
     messageBody: '',
     mediaUrl: '',
     mediaName: '',
@@ -57,13 +57,13 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
   const [isLaunching, setIsLaunching] = useState(false);
   const { showToast } = useToast();
 
-  const updateData = (fields) => {
+  const updateData = useCallback((fields) => {
     setCampaignData((prev) => {
       const updated = { ...prev, ...fields };
       saveCampaignDraft(updated);
       return updated;
     });
-  };
+  }, []);
 
   const handleNext = () => {
     if (currentStep < 5) {
