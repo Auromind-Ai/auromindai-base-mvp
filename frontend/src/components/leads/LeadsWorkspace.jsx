@@ -1375,6 +1375,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
             if (!isAppend) {
                 const initialLeadId = initialLeadRef.current;
                 setSelectedLeadId(prev => initialLeadId || (normalizedItems.some(l => l.id === prev) ? prev : normalizedItems[0]?.id || null));
+                if (initialLeadId && !upgraded) setActiveView('chat');
                 initialLeadRef.current = null;
             }
             setTotalCount(res.total || 0);
