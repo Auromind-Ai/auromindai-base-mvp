@@ -30,7 +30,7 @@ from .flow_execution import FlowExecutionState, FlowExecutionTrace
 from .media import MediaFile
 from .outbound_message import OutboundMessage
 from .scheduled_resume import ScheduledResume
-from .lead_scoring import LeadScoreHistory, TemplateLog
+from .lead_scoring import LeadScoreHistory, TemplateLog, CrmSavedView
 from .user_session import UserSession
 from .notification import Notification
 from .admin_audit_log import AdminAuditLog
@@ -52,3 +52,5 @@ from .event_metadata import EventMetadata
 from .notification_system_variable import NotificationSystemVariable
 from .integration import Integration, CalendarEvent, EmailReplyLog, GmailImportLog, EmailState
 from .campaign import Campaign, CampaignRecipient, ContactList, ContactListMember
+from .lead_report_setting import LeadReportSetting
+from .lead_scoring_rule import LeadScoringSetting

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 import logging
 import json
 from datetime import datetime, timezone
@@ -672,6 +673,22 @@ class WebhookService:
                                     },
                         )
                         logger.info(f"Pipeline processing result: {result}")
+
+                        # Proactively download and persistently cache media in background
+                        if media_id and workspace:
+                            try:
+                                from app.services.inbox.meta_media_service import MetaMediaService
+                                asyncio.create_task(
+                                    MetaMediaService.download_and_store_meta_media_background(
+                                        workspace_id=str(workspace.id),
+                                        media_id=str(media_id),
+                                        message_external_id=message.get("id"),
+                                        mime_type=mime_type,
+                                        media_type=media_type,
+                                    )
+                                )
+                            except Exception as bg_task_err:
+                                logger.warning(f"Could not spawn background media download for {media_id}: {bg_task_err}")
                     except Exception as e:
                         logger.exception(f"Exception during process_incoming_message: {e}")
 
@@ -913,7 +930,7 @@ class WebhookService:
 
             msg_type = (message.get("type") or "").lower()
 
-            if msg_type in {"image", "audio", "voice", "video"}:
+            if msg_type in {"image", "audio", "voice", "video", "document", "sticker"}:
                 media = message.get(msg_type) or {}
 
                 # WhatsApp voice notes normally arrive as type="audio"
@@ -923,6 +940,7 @@ class WebhookService:
                 media_id = media.get("id")
                 mime_type = media.get("mime_type")
                 caption = media.get("caption")
+                filename = media.get("filename")
 
                 if media_id:
                     media_type = (
@@ -931,9 +949,8 @@ class WebhookService:
                         else msg_type
                     )
 
-                   
                     media_url = None
-                    text = caption or f"[{media_type.upper()}]"
+                    text = caption or filename or f"[{media_type.upper()}]"
 
             if not text:
                 if msg_type in [

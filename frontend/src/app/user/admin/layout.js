@@ -59,7 +59,8 @@ const MAIN_NAV_ITEMS = [
     { label: 'Brain', icon: Brain, href: '/user/admin/brain' },
     { label: 'Omni-Inbox', icon: MessageSquare, href: '/user/admin/inbox' },
     { label: 'Automations', icon: Zap, href: '/user/admin/automation' },
-    { label: 'Leads & CRM', icon: Users, href: '/user/admin/leads' },
+    { label: 'Leads', icon: Users, href: '/user/admin/leads' },
+    { label: 'CRM', icon: TrendingUp, href: '/user/admin/crm' },
     { label: 'Channels', icon: Share2, href: '/user/admin/channels' },
     { label: 'Templates', icon: FileText, href: '/user/admin/templates' },
     { label: 'Marketing', icon: Send, href: '/user/admin/marketing' },
@@ -291,6 +292,8 @@ function AdminLayoutContent({ children }) {
         pathname.startsWith('/user/admin/inbox/') ||
         pathname === '/user/admin/leads' ||
         pathname.startsWith('/user/admin/leads/') ||
+        pathname === '/user/admin/crm' ||
+        pathname.startsWith('/user/admin/crm/') ||
         pathname === '/user/admin/flows' ||
         pathname.startsWith('/user/admin/flows/') ||
         pathname === '/user/admin/automation' ||

@@ -121,6 +121,35 @@ class IntentPrototypeManager:
         
         return best_score >= threshold, best_match, best_score
 
+    def check_custom_signal(
+        self,
+        message_embedding: np.ndarray,
+        signal_id: str,
+        examples: list[str],
+        threshold: float = 70.0,
+    ) -> tuple[bool, str, float]:
+        if message_embedding is None or not examples:
+            return False, "", 0.0
+
+        cache_key = (signal_id, tuple(examples))
+        if cache_key not in self.prototypes:
+            try:
+                generator = get_embedding_generator()
+                self.prototypes[cache_key] = generator.generate_batch_embeddings(examples)
+                self.examples_map[cache_key] = examples
+            except Exception:
+                return False, "", 0.0
+
+        prototypes = self.prototypes[cache_key]
+        examples_list = self.examples_map[cache_key]
+        similarities = np.dot(prototypes, message_embedding)
+
+        best_idx = np.argmax(similarities)
+        best_score = float(similarities[best_idx]) * 100.0
+        best_match = examples_list[best_idx]
+
+        return best_score >= threshold, best_match, best_score
+
 _intent_manager = IntentPrototypeManager()
 
 def _normalize_text(message: str) -> str:
@@ -133,7 +162,121 @@ def _word_tokens(message: str) -> list[str]:
     # Use \w+ for unicode support
     return re.findall(r"\w+", message)
 
-def detect_intent_signals(message: str) -> dict[str, Any]:
+def detect_custom_signals(message: str, signals_config: list[dict[str, Any]]) -> dict[str, Any]:
+    text = _normalize_text(message)
+    text_lower = text.lower()
+    word_tokens = _word_tokens(text_lower)
+    word_count = len(word_tokens)
+    message_length = len(text)
+
+    # Pre-generate embedding if message has >= 2 words for semantic similarity
+    message_embedding = None
+    if word_count >= 2:
+        try:
+            generator = get_embedding_generator()
+            message_embedding = generator.generate_query_embedding(text_lower)
+        except Exception:
+            message_embedding = None
+
+    detected_signals = {}
+    total_intent_score = 0
+
+    for sig in signals_config:
+        sig_id = sig.get("id") or sig.get("name", "").lower().replace(" ", "_")
+        sig_name = sig.get("name", sig_id)
+        points = int(sig.get("points", 0))
+        enabled = sig.get("enabled", True)
+        icon = sig.get("icon", "zap")
+
+        if not enabled:
+            detected_signals[sig_id] = {
+                "value": False,
+                "snippet": "",
+                "explanation": sig_name,
+                "reasoning": "Signal disabled",
+                "points": points,
+                "name": sig_name,
+                "icon": icon,
+                "is_custom": True,
+            }
+            continue
+
+        examples = list(sig.get("examples") or [])
+        ex_msg = sig.get("example_message", "")
+        if ex_msg:
+            quotes = re.findall(r'"([^"]*)"', ex_msg)
+            if quotes:
+                examples.extend([q.strip() for q in quotes if q.strip()])
+            else:
+                examples.extend([p.strip() for p in ex_msg.split(",") if p.strip()])
+
+        matched = False
+        matched_snippet = ""
+        matched_reasoning = ""
+
+        # 1. Exact / Regex / Keyword matching
+        for ex in examples:
+            clean_ex = ex.strip().strip('"').lower()
+            if not clean_ex:
+                continue
+            pattern = r"\b" + re.escape(clean_ex) + r"\b"
+            if clean_ex in text_lower or re.search(pattern, text_lower):
+                matched = True
+                matched_snippet = clean_ex
+                matched_reasoning = f"Keyword pattern matched: '{clean_ex}'"
+                break
+
+        # 2. Semantic embedding cosine similarity match
+        if not matched and message_embedding is not None and examples:
+            clean_examples = [e.strip().strip('"') for e in examples if e.strip().strip('"')]
+            if clean_examples:
+                sem_match, sem_ex, sem_score = _intent_manager.check_custom_signal(
+                    message_embedding, sig_id, clean_examples, threshold=70.0
+                )
+                if sem_match:
+                    matched = True
+                    matched_snippet = sem_ex
+                    matched_reasoning = f"Semantic match: '{sem_ex}' ({sem_score:.1f}%)"
+
+        if matched:
+            total_intent_score += points
+            detected_signals[sig_id] = {
+                "value": True,
+                "snippet": matched_snippet,
+                "explanation": sig_name,
+                "reasoning": matched_reasoning,
+                "points": points,
+                "name": sig_name,
+                "icon": icon,
+                "is_custom": True,
+            }
+        else:
+            detected_signals[sig_id] = {
+                "value": False,
+                "snippet": "",
+                "explanation": sig_name,
+                "reasoning": "",
+                "points": points,
+                "name": sig_name,
+                "icon": icon,
+                "is_custom": True,
+            }
+
+    cfg = get_scoring_config()
+    total_intent_score = max(
+        min(total_intent_score, 100),
+        cfg.get_cap("intent_min"),
+    )
+
+    return {
+        "signals": detected_signals,
+        "semantic_intent_score": total_intent_score,
+        "word_count": word_count,
+        "message_length": message_length,
+    }
+
+
+def detect_intent_signals(message: str, custom_signals: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     text = _normalize_text(message)
     text_lower = text.lower()
 
@@ -287,98 +430,115 @@ def detect_intent_signals(message: str) -> dict[str, Any]:
             cfg.get_cap("intent_min")
         )
 
-    return {
-        "signals": {
-            "has_number": {
-                "value": has_number,
-                "snippet": number_snippet,
-                "explanation": "Budget mentioned",
-                "reasoning": f"Numeric pattern matched: '{number_snippet}'" if has_number else ""
-            },
-            "has_urgency": {
-                "value": has_urgency,
-                "snippet": urgency_snippet,
-                "explanation": "Urgency detected",
-                "reasoning": f"Urgency keyword matched: '{urgency_snippet}'" if has_urgency else ""
-            },
-            "has_question": {
-                "value": has_question,
-                "snippet": question_snippet,
-                "explanation": "Asked a clear question",
-                "reasoning": f"Question phrase matched: '{question_snippet}'" if has_question else ""
-            },
-            "has_pricing": {
-                "value": has_pricing,
-                "snippet": pricing_snippet,
-                "explanation": "Pricing/budget inquiry",
-                "reasoning": f"Pricing/budget term matched: '{pricing_snippet}'" if has_pricing else ""
-            },
-            "shared_contact": {
-                "value": shared_contact,
-                "snippet": contact_snippet,
-                "explanation": "Shared contact details",
-                "reasoning": f"Contact info matched: '{contact_snippet}'" if shared_contact else ""
-            },
-            "callback_request": {
-                "value": callback_request,
-                "snippet": callback_snippet,
-                "explanation": "Callback request",
-                "reasoning": f"Callback phrasing matched: '{callback_snippet}'" if callback_request else ""
-            },
-            "pincode_shared": {
-                "value": pincode_shared,
-                "snippet": pincode_snippet,
-                "explanation": "Pincode shared",
-                "reasoning": f"PIN code detected: '{pincode_snippet}'" if pincode_shared else ""
-            },
-            "delivery_interest": {
-                "value": delivery_interest,
-                "snippet": delivery_snippet,
-                "explanation": "Delivery interest",
-                "reasoning": f"Delivery keyword matched: '{delivery_snippet}'" if delivery_interest else ""
-            },
-            "is_specific": {
-                "value": is_specific,
-                "snippet": text[:40] + "..." if len(text) > 40 else text,
-                "explanation": "Specific query details",
-                "reasoning": f"Long detailed query ({word_count} words)" if is_specific else ""
-            },
-            "is_vague": {
-                "value": is_vague,
-                "snippet": text,
-                "explanation": "Vague greeting",
-                "reasoning": "Message contains only brief greetings" if is_vague else ""
-            },
-            "negative_intent": {
-                "value": negative_intent,
-                "snippet": negative_snippet,
-                "explanation": "Negative intent expressed",
-                "reasoning": f"Negative expression matched: '{negative_snippet}'" if negative_intent else ""
-            },
-            "pricing_intent": {
-                "value": pricing_intent,
-                "snippet": pricing_match_ex if pricing_match_ex else ("Regex matched" if pricing_intent else ""),
-                "explanation": "Pricing intent detected",
-                "reasoning": f"Fuzzy matched pricing: '{pricing_match_ex}' (score={pricing_score:.1f})" if pricing_match_ex else ("Pricing regex matched" if pricing_intent else "")
-            },
-            "payment_intent": {
-                "value": payment_intent,
-                "snippet": payment_match_ex if payment_match_ex else ("Regex matched" if payment_intent else ""),
-                "explanation": "Payment intent detected",
-                "reasoning": f"Fuzzy matched payment: '{payment_match_ex}' (score={payment_score:.1f})" if payment_match_ex else ("Payment regex matched" if payment_intent else "")
-            },
-            "budget_acceptance": {
-                "value": budget_acceptance,
-                "snippet": budget_match_ex if budget_match_ex else ("Regex matched" if budget_acceptance else ""),
-                "explanation": "Budget acceptance detected",
-                "reasoning": f"Fuzzy matched budget acceptance: '{budget_match_ex}' (score={budget_score:.1f})" if budget_match_ex else ("Budget acceptance regex matched" if budget_acceptance else "")
-            }
+    detected_signals = {
+        "has_number": {
+            "value": has_number,
+            "snippet": number_snippet,
+            "explanation": "Budget mentioned",
+            "reasoning": f"Numeric pattern matched: '{number_snippet}'" if has_number else ""
         },
+        "has_urgency": {
+            "value": has_urgency,
+            "snippet": urgency_snippet,
+            "explanation": "Urgency detected",
+            "reasoning": f"Urgency keyword matched: '{urgency_snippet}'" if has_urgency else ""
+        },
+        "has_question": {
+            "value": has_question,
+            "snippet": question_snippet,
+            "explanation": "Asked a clear question",
+            "reasoning": f"Question phrase matched: '{question_snippet}'" if has_question else ""
+        },
+        "has_pricing": {
+            "value": has_pricing,
+            "snippet": pricing_snippet,
+            "explanation": "Pricing/budget inquiry",
+            "reasoning": f"Pricing/budget term matched: '{pricing_snippet}'" if has_pricing else ""
+        },
+        "shared_contact": {
+            "value": shared_contact,
+            "snippet": contact_snippet,
+            "explanation": "Shared contact details",
+            "reasoning": f"Contact info matched: '{contact_snippet}'" if shared_contact else ""
+        },
+        "callback_request": {
+            "value": callback_request,
+            "snippet": callback_snippet,
+            "explanation": "Callback request",
+            "reasoning": f"Callback phrasing matched: '{callback_snippet}'" if callback_request else ""
+        },
+        "pincode_shared": {
+            "value": pincode_shared,
+            "snippet": pincode_snippet,
+            "explanation": "Pincode shared",
+            "reasoning": f"PIN code detected: '{pincode_snippet}'" if pincode_shared else ""
+        },
+        "delivery_interest": {
+            "value": delivery_interest,
+            "snippet": delivery_snippet,
+            "explanation": "Delivery interest",
+            "reasoning": f"Delivery keyword matched: '{delivery_snippet}'" if delivery_interest else ""
+        },
+        "is_specific": {
+            "value": is_specific,
+            "snippet": text[:40] + "..." if len(text) > 40 else text,
+            "explanation": "Specific query details",
+            "reasoning": f"Long detailed query ({word_count} words)" if is_specific else ""
+        },
+        "is_vague": {
+            "value": is_vague,
+            "snippet": text,
+            "explanation": "Vague greeting",
+            "reasoning": "Message contains only brief greetings" if is_vague else ""
+        },
+        "negative_intent": {
+            "value": negative_intent,
+            "snippet": negative_snippet,
+            "explanation": "Negative intent expressed",
+            "reasoning": f"Negative expression matched: '{negative_snippet}'" if negative_intent else ""
+        },
+        "pricing_intent": {
+            "value": pricing_intent,
+            "snippet": pricing_match_ex if pricing_match_ex else ("Regex matched" if pricing_intent else ""),
+            "explanation": "Pricing intent detected",
+            "reasoning": f"Fuzzy matched pricing: '{pricing_match_ex}' (score={pricing_score:.1f})" if pricing_match_ex else ("Pricing regex matched" if pricing_intent else "")
+        },
+        "payment_intent": {
+            "value": payment_intent,
+            "snippet": payment_match_ex if payment_match_ex else ("Regex matched" if payment_intent else ""),
+            "explanation": "Payment intent detected",
+            "reasoning": f"Fuzzy matched payment: '{payment_match_ex}' (score={payment_score:.1f})" if payment_match_ex else ("Payment regex matched" if payment_intent else "")
+        },
+        "budget_acceptance": {
+            "value": budget_acceptance,
+            "snippet": budget_match_ex if budget_match_ex else ("Regex matched" if budget_acceptance else ""),
+            "explanation": "Budget acceptance detected",
+            "reasoning": f"Fuzzy matched budget acceptance: '{budget_match_ex}' (score={budget_score:.1f})" if budget_match_ex else ("Budget acceptance regex matched" if budget_acceptance else "")
+        }
+    }
+
+    if custom_signals and len(custom_signals) > 0:
+        custom_res = detect_custom_signals(message, custom_signals)
+        detected_signals.update(custom_res.get("signals", {}))
+        for sig_val in custom_res.get("signals", {}).values():
+            if isinstance(sig_val, dict) and sig_val.get("value"):
+                semantic_intent_score += sig_val.get("points", 0)
+
+    # Score cap: 100 max, intent_min (-20)
+    semantic_intent_score = max(
+        min(semantic_intent_score, 100),
+        cfg.get_cap("intent_min"),
+    )
+
+    return {
+        "signals": detected_signals,
         "semantic_intent_score": semantic_intent_score,
         "word_count": word_count,
         "message_length": message_length,
     }
 
-async def detect_intent_signals_async(message: str) -> dict[str, Any]:
+async def detect_intent_signals_async(
+    message: str, custom_signals: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
     import asyncio
-    return await asyncio.to_thread(detect_intent_signals, message)
+    return await asyncio.to_thread(detect_intent_signals, message, custom_signals)

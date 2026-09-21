@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Leads Management & CRM System",
+  title: "Leads Management",
   description: "Track client profiles, organize sales pipelines, log interaction histories, and utilize AI insights to nurture and convert your business leads.",
 };
 

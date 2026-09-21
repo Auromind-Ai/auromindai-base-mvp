@@ -21,11 +21,38 @@ class EmailSchedulerService:
             coalesce=True,
             misfire_grace_time=60
         )
+        self.scheduler.add_job(
+            self._run_lead_email_reports,
+            trigger="interval",
+            minutes=1,
+            max_instances=1,
+            coalesce=True,
+            misfire_grace_time=60
+        )
         self.scheduler.start()
 
     def stop(self):
         logger.info(f"Email Scheduler Stopped at: {datetime.now()}")
         self.scheduler.shutdown(wait=False)
+
+    def _run_lead_email_reports(self):
+        from app.services.crm.lead_email_report_service import LeadEmailReportService
+        db = self.SessionLocal()
+        try:
+            processed = LeadEmailReportService.process_due_reports(db)
+            if processed > 0:
+                logger.info(f"[LeadReportScheduler] Successfully processed and sent {processed} scheduled lead report(s)")
+        except Exception as e:
+            logger.error(f"[LeadReportScheduler] Error in lead report schedule cycle: {e}", exc_info=True)
+            try:
+                db.rollback()
+            except Exception:
+                pass
+        finally:
+            try:
+                db.close()
+            except Exception:
+                pass
 
     def _run_email_monitor(self):
         logger.info(f"Scheduler Triggered at: {datetime.now()}")

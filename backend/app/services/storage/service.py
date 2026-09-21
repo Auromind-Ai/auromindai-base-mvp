@@ -205,6 +205,12 @@ class StorageService:
     async def save_file(self, file_path: str, content: bytes, content_type: str = None) -> str:
         return await self.provider.save_file(file_path, content, content_type)
 
+    def save_file_sync(self, file_path: str, content: bytes, content_type: str = None) -> str:
+        if hasattr(self.provider, "_save_file_sync"):
+            return self.provider._save_file_sync(file_path, content, content_type)
+        import asyncio
+        return asyncio.run(self.provider.save_file(file_path, content, content_type))
+
     async def delete_file(self, file_path: str) -> bool:
         return await self.provider.delete_file(file_path)
 
