@@ -24,6 +24,8 @@ def source_expression():
 def lead_query(db, workspace_id, filters: LeadFilters, user_id=None):
     q = db.query(Lead).filter(Lead.workspace_id == workspace_id)
     f = filters
+    if f.lead_ids:
+        q = q.filter(Lead.id.in_(f.lead_ids))
     if f.search and f.search.strip():
         term = "%" + f.search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         q = q.filter(or_(*[c.ilike(term, escape="\\") for c in (Lead.name, Lead.phone, Lead.email)]))

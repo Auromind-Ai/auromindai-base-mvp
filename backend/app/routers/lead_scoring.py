@@ -278,13 +278,8 @@ def create_crm_saved_view(
 ):
     from app.models.lead_scoring import CrmSavedView
     wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
-    raw_filters = body.filters
-    if hasattr(raw_filters, "model_dump"):
-        serialized_filters = raw_filters.model_dump(mode="json", exclude_none=True)
-    elif isinstance(raw_filters, dict):
-        serialized_filters = {k: v for k, v in raw_filters.items() if v is not None and v != "" and (not isinstance(v, list) or len(v) > 0)}
-    else:
-        serialized_filters = {}
+    validated_filters = parse_lead_filters(body.filters.model_dump_json())
+    serialized_filters = validated_filters.model_dump(mode="json", exclude_none=True, exclude_defaults=True)
 
     view = CrmSavedView(
         workspace_id=wid,

@@ -2,7 +2,15 @@
 
 import { useEffect, useState, useCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Filter, Download, X, Bookmark, Trash2, Loader2, AlertTriangle } from "lucide-react";
+import {
+  Filter,
+  Download,
+  X,
+  Bookmark,
+  Trash2,
+  Loader2,
+  AlertTriangle,
+} from "lucide-react";
 import api from "@/lib/api";
 import { getUser, getWorkspaceIdFromToken } from "@/lib/auth";
 
@@ -164,12 +172,19 @@ export default function CrmControls({
     if (!activeWsId) return;
     setViewsLoading(true);
     try {
-      const data = await api.get(`/lead-scoring/views?workspace_id=${activeWsId}`);
+      const data = await api.get(
+        `/lead-scoring/views?workspace_id=${activeWsId}`,
+      );
       setViews(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.warn("Failed to load saved views from server, checking local fallback:", err);
+      console.warn(
+        "Failed to load saved views from server, checking local fallback:",
+        err,
+      );
       try {
-        const stored = JSON.parse(localStorage.getItem(`crm-views:${activeWsId}`) || "[]");
+        const stored = JSON.parse(
+          localStorage.getItem(`crm-views:${activeWsId}`) || "[]",
+        );
         setViews(Array.isArray(stored) ? stored : []);
       } catch {
         setViews([]);
@@ -187,6 +202,12 @@ export default function CrmControls({
     e.preventDefault();
     const name = viewName.trim();
     if (!name) return;
+    if (!canSaveView) {
+      setError(
+        "Apply at least one filter or select a lead before saving a view.",
+      );
+      return;
+    }
     if (!activeWsId) {
       setError("Workspace is required to save views.");
       return;
@@ -194,10 +215,13 @@ export default function CrmControls({
     setSavingView(true);
     setError("");
     try {
-      const created = await api.post(`/lead-scoring/views?workspace_id=${activeWsId}`, {
-        name,
-        filters: effective,
-      });
+      const created = await api.post(
+        `/lead-scoring/views?workspace_id=${activeWsId}`,
+        {
+          name,
+          filters: savedViewFilters,
+        },
+      );
       setViews((prev) => [created, ...prev.filter((v) => v.id !== created.id)]);
       setViewName("");
       setSaveOpen(false);
@@ -213,11 +237,16 @@ export default function CrmControls({
     setDeletingView(true);
     setError("");
     try {
-      await api.delete(`/lead-scoring/views/${viewId}?workspace_id=${activeWsId}`);
+      await api.delete(
+        `/lead-scoring/views/${viewId}?workspace_id=${activeWsId}`,
+      );
       setViews((prev) => prev.filter((v) => String(v.id) !== String(viewId)));
       if (selectedViewId === String(viewId)) setSelectedViewId("");
     } catch (err) {
-      if (err?.status === 404 || err?.message?.toLowerCase().includes("not found")) {
+      if (
+        err?.status === 404 ||
+        err?.message?.toLowerCase().includes("not found")
+      ) {
         // Already removed or deleted from backend, remove from UI state
         setViews((prev) => prev.filter((v) => String(v.id) !== String(viewId)));
         if (selectedViewId === String(viewId)) setSelectedViewId("");
@@ -262,18 +291,35 @@ export default function CrmControls({
       />
     </label>
   );
-  const effective = cleanFilters({ ...filters, ...(search ? { search } : {}) });
+  const effective = cleanFilters({
+    ...filters,
+    ...(search?.trim() ? { search: search.trim() } : {}),
+  });
   if (quickFilter === "favorites") effective.favorite = true;
   else if (quickFilter !== "all") effective.sources = [quickFilter];
+  const savedViewFilters = {
+    ...effective,
+    ...(selectedIds.length ? { lead_ids: selectedIds } : {}),
+  };
+  const canSaveView = Object.keys(savedViewFilters).length > 0;
   // A saved-view name only applies while its stored filters match the query.
-  const filterSignature = (value) => JSON.stringify(
-    Object.entries(cleanFilters(value || {}))
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => [key, Array.isArray(value) ? [...value].sort() : value]),
+  const filterSignature = (value) =>
+    JSON.stringify(
+      Object.entries(cleanFilters(value || {}))
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, value]) => [
+          key,
+          Array.isArray(value) ? [...value].sort() : value,
+        ]),
+    );
+  const selectedView = views.find(
+    (view) => String(view.id) === String(selectedViewId),
   );
-  const selectedView = views.find(view => String(view.id) === String(selectedViewId));
-  const activeViewId = selectedView && filterSignature(selectedView.filters) === filterSignature(effective)
-    ? selectedViewId : "";
+  const activeViewId =
+    selectedView &&
+    filterSignature(selectedView.filters) === filterSignature(effective)
+      ? selectedViewId
+      : "";
   const exportLeads = async () => {
     setBusy(true);
     setError("");
@@ -739,12 +785,17 @@ export default function CrmControls({
           <button
             type="submit"
             className={`${crmControl} bg-violet-600 hover:bg-violet-500 font-medium px-4 flex items-center justify-center gap-1.5`}
-            disabled={savingView || !viewName.trim()}
+            disabled={savingView || !viewName.trim() || !canSaveView}
           >
             {savingView ? <Loader2 size={14} className="animate-spin" /> : null}
             Save
           </button>
         </form>
+        {!canSaveView && (
+          <p role="status" className="rounded-lg border border-violet-400/15 bg-violet-500/5 px-3 py-2 text-sm text-violet-200/80">
+            Apply at least one filter or select a lead before saving a view.
+          </p>
+        )}
         <div className="overflow-y-auto space-y-2 max-h-[320px] pr-1 mt-1">
           {viewsLoading ? (
             <div className="flex items-center justify-center py-6 text-zinc-400 text-sm gap-2">
@@ -752,7 +803,8 @@ export default function CrmControls({
             </div>
           ) : views.length === 0 ? (
             <div className="text-center py-6 text-zinc-500 text-sm">
-              No saved views yet. Enter a name above to save the current filter view.
+              No saved views yet. Enter a name above to save the current filter
+              view.
             </div>
           ) : (
             views.map((v) => (
@@ -769,10 +821,13 @@ export default function CrmControls({
                     setSaveOpen(false);
                   }}
                 >
-                  <span className="block truncate text-zinc-100 font-medium">{v.name}</span>
+                  <span className="block truncate text-zinc-100 font-medium">
+                    {v.name}
+                  </span>
                   {v.filters && Object.keys(v.filters).length > 0 ? (
                     <span className="block text-xs text-zinc-400 font-normal truncate mt-0.5">
-                      {Object.keys(v.filters).length} filter{Object.keys(v.filters).length > 1 ? 's' : ''} saved
+                      {Object.keys(v.filters).length} filter
+                      {Object.keys(v.filters).length > 1 ? "s" : ""} saved
                     </span>
                   ) : (
                     <span className="block text-xs text-zinc-500 font-normal truncate mt-0.5">
@@ -810,11 +865,18 @@ export default function CrmControls({
             ))
           )}
         </div>
-        {error && <p role="alert" className="text-rose-400 text-sm mt-1">{error}</p>}
+        {error && (
+          <p role="alert" className="text-rose-400 text-sm mt-1">
+            {error}
+          </p>
+        )}
       </Modal>
 
       {/* Delete Confirmation Modal */}
-      <Dialog.Root open={!!viewToDelete} onOpenChange={(open) => !open && !deletingView && setViewToDelete(null)}>
+      <Dialog.Root
+        open={!!viewToDelete}
+        onOpenChange={(open) => !open && !deletingView && setViewToDelete(null)}
+      >
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[110]" />
           <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-[#120e1f] border border-white/10 text-white rounded-2xl shadow-2xl z-[111] p-6 flex flex-col gap-4">
@@ -827,7 +889,11 @@ export default function CrmControls({
                   Delete Saved View
                 </Dialog.Title>
                 <Dialog.Description className="text-xs text-zinc-400 leading-relaxed">
-                  Are you sure you want to delete <span className="text-zinc-200 font-medium">&quot;{viewToDelete?.name}&quot;</span>? This view will be removed.
+                  Are you sure you want to delete{" "}
+                  <span className="text-zinc-200 font-medium">
+                    &quot;{viewToDelete?.name}&quot;
+                  </span>
+                  ? This view will be removed.
                 </Dialog.Description>
               </div>
             </div>
@@ -852,7 +918,11 @@ export default function CrmControls({
                 }}
                 disabled={deletingView}
               >
-                {deletingView ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                {deletingView ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Trash2 size={13} />
+                )}
                 Delete View
               </button>
             </div>
