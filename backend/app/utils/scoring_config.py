@@ -62,6 +62,15 @@ class ScoringConfig:
         self._maybe_reload()
         return self._config.get("worker", {}).get(key, 0)
 
+    def get_label_bonuses(self) -> dict[str, int]:
+        self._maybe_reload()
+        return self._config.get("label_bonuses", {
+            "Interested": 10,
+            "High Priority": 15,
+            "Premium Lead": 20,
+            "Follow Up": 5,
+        })
+
 
 _config_cache: dict[str, ScoringConfig] = {}
 

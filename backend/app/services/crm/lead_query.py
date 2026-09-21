@@ -18,7 +18,7 @@ def signal_active(key):
 def source_expression():
     source = func.lower(func.coalesce(Lead.source, "manual"))
     return case((source.in_(["sms", "phone", "twilio"]), "twilio"),
-                (source == "", "manual"), else_=source)
+                (source.in_(["web", ""]), "manual"), else_=source)
 
 
 def lead_query(db, workspace_id, filters: LeadFilters, user_id=None):
@@ -40,7 +40,7 @@ def lead_query(db, workspace_id, filters: LeadFilters, user_id=None):
         if high is not None:
             # Datetime upper bounds are exclusive, so full days include fractional seconds.
             q = q.filter(column < high if hasattr(high, "tzinfo") else column <= high)
-    for value, column in ((f.converted, Lead.is_converted), (f.favorite, Lead.is_favorite)):
+    for value, column in ((f.converted, Lead.is_converted), (f.favorite, Lead.is_favorite), (f.follow_up, Lead.is_follow_up)):
         if value is not None:
             q = q.filter(column.is_(value))
     for value, column in ((f.has_phone, Lead.phone), (f.has_email, Lead.email)):

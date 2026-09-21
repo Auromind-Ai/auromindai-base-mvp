@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime, timezone, timedelta
 import pytest
+from fastapi import Response
+from app.schemas.lead_report import LeadReportSettingsUpdate
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -9,6 +11,12 @@ from app.models.workspace import Workspace
 from app.models.ai_action import Lead
 from app.models.lead_report_setting import LeadReportSetting
 from app.services.crm.lead_email_report_service import LeadEmailReportService, parse_time_str
+
+
+@pytest.fixture(autouse=True)
+def mock_email_delivery(monkeypatch):
+    monkeypatch.setattr("app.services.email_service.EmailService.send_email_for_workspace",
+                        lambda **kwargs: {"status": "simulated", "simulated": True})
 
 
 @pytest.fixture
@@ -38,6 +46,30 @@ def test_parse_time_str():
     assert parse_time_str("12:00 AM") == (0, 0)
     assert parse_time_str("12:00 PM") == (12, 0)
     assert parse_time_str("invalid") == (9, 0)
+
+
+@pytest.mark.parametrize("values", [
+    {"min_score": 101}, {"min_score": -1}, {"frequency": "hourly"},
+    {"send_time": "25:99"}, {"recipient_emails": ["not-an-email"]},
+    {"unknown_setting": True},
+])
+def test_report_schema_rejects_invalid_settings(values):
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        LeadReportSettingsUpdate(**values)
+
+
+def test_partial_update_preserves_report_configuration(db_session):
+    session, ws = db_session
+    LeadEmailReportService.update_settings(session, ws.id, {
+        "min_score": 75, "frequency": "weekly", "send_time": "11:30",
+        "recipient_emails": ["owner@example.com"], "csv_columns": ["name", "phone"],
+    })
+    setting = LeadEmailReportService.update_settings(session, ws.id, {"is_active": True})
+    assert setting.min_score == 75
+    assert setting.frequency == "weekly"
+    assert setting.send_time == "11:30"
+    assert setting.csv_columns == ["name", "phone"]
 
 
 def test_get_or_create_settings(db_session):
@@ -193,6 +225,7 @@ def test_router_endpoints_directly(db_session):
 
     # Test get_email_report_settings
     res = get_email_report_settings(
+        response=Response(),
         workspace_id=str(ws.id),
         db=session,
         current_user=dummy_user
@@ -202,7 +235,8 @@ def test_router_endpoints_directly(db_session):
 
     # Test save_email_report_settings
     saved = save_email_report_settings(
-        body={"is_active": True, "min_score": 60, "frequency": "daily", "send_time": "09:00 AM", "recipient_emails": ["a@b.com"], "attach_csv": True},
+        response=Response(),
+        body=LeadReportSettingsUpdate(is_active=True, min_score=60, frequency="daily", send_time="09:00 AM", recipient_emails=["a@b.com"], attach_csv=True),
         workspace_id=str(ws.id),
         db=session,
         current_user=dummy_user
@@ -224,7 +258,8 @@ def test_router_endpoints_directly(db_session):
 
     # Test custom subject and body templates via save
     custom_saved = save_email_report_settings(
-        body={
+        response=Response(),
+        body=LeadReportSettingsUpdate(**{
             "is_active": True,
             "min_score": 70,
             "frequency": "weekly",
@@ -233,7 +268,7 @@ def test_router_endpoints_directly(db_session):
             "attach_csv": True,
             "subject_template": "Weekly Leads: {total_leads} leads ({date})",
             "body_template": "Hello {workspace_name},\nFound {total_leads} leads above {min_score}."
-        },
+        }),
         workspace_id=str(ws.id),
         db=session,
         current_user=dummy_user

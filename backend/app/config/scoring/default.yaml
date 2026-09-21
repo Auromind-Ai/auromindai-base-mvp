@@ -34,4 +34,10 @@ worker:
   idempotency_ttl_seconds    : 86400
   min_message_length         : 2
 
+label_bonuses:
+  Interested: 10
+  High Priority: 15
+  Premium Lead: 20
+  Follow Up: 5
+
 cache_ttl_seconds: 60

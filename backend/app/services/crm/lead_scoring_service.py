@@ -107,13 +107,8 @@ def calculate_score(
     )
     
     # Calculate Agent Label Bonus
-    LABEL_BONUSES = {
-        "Interested": 10,
-        "High Priority": 15,
-        "Premium Lead": 20,
-        "Follow Up": 5,
-    }
-    agent_label_bonus = sum(LABEL_BONUSES.get(label, 0) for label in (active_labels or []))
+    label_bonuses = cfg.get_label_bonuses()
+    agent_label_bonus = sum(label_bonuses.get(label, 0) for label in (active_labels or []))
     if label_score > 0 and not active_labels:
         # Fallback to legacy label_score for compatibility
         agent_label_bonus = label_score
@@ -223,6 +218,10 @@ def calculate_score_breakdown(
         "is_vague": {"value": False, "snippet": "", "explanation": "Vague greeting", "reasoning": ""},
         "negative_intent": {"value": False, "snippet": "", "explanation": "Negative intent expressed", "reasoning": ""}
     }
+    weights = get_scoring_config().get_weights()
+    # Include every configured signal, including newly added buying intents.
+    for key in weights:
+        signals.setdefault(key, {"value": False, "snippet": "", "explanation": key.replace("_", " "), "reasoning": ""})
     if intent_signals is not None:
         for k, v in intent_signals.items():
             if k == "word_count":
@@ -243,6 +242,8 @@ def calculate_score_breakdown(
                     signals[k]["value"] = bool(v)
                 else:
                     signals[k] = {"value": bool(v), "snippet": "", "explanation": k, "reasoning": ""}
+    for key, signal in signals.items():
+        signal["weight"] = weights.get(key)
     MAX_INTENT_SCORE = get_scoring_config().get_cap("intent_max")
     return {
         "total": total,

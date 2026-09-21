@@ -19,20 +19,20 @@ import {
 } from 'lucide-react';
 
 const INTENT_MAPPINGS = {
-  has_pricing: { label: 'Pricing intent detected', points: '+20', positive: true, icon: Sparkles },
-  has_urgency: { label: 'Urgency detected', points: '+20', positive: true, icon: Zap },
-  shared_contact: { label: 'Shared contact details', points: '+15', positive: true, icon: MapPin },
-  is_specific: { label: 'Specific query', points: '+10', positive: true, icon: Target },
-  has_number: { label: 'Budget mentioned', points: '+15', positive: true, icon: Target },
-  has_question: { label: 'Asked a clear question', points: '+5', positive: true, icon: Target },
-  callback_request: { label: 'Callback request', points: '+25', positive: true, icon: Phone },
-  pincode_shared: { label: 'Pincode shared', points: '+15', positive: true, icon: MapPin },
-  delivery_interest: { label: 'Delivery interest', points: '+15', positive: true, icon: Clock },
-  is_vague: { label: 'Vague communication', points: '-10', positive: false, icon: ShieldAlert },
-  negative_intent: { label: 'Negative intent', points: '-20', positive: false, icon: XCircle },
-  pricing_intent: { label: 'Pricing conversation', points: '+15', positive: true, icon: Sparkles },
-  payment_intent: { label: 'Payment intent', points: '+20', positive: true, icon: CheckCircle2 },
-  budget_acceptance: { label: 'Budget accepted', points: '+25', positive: true, icon: CheckCircle2 },
+  has_pricing: { label: 'Pricing intent detected', positive: true, icon: Sparkles },
+  has_urgency: { label: 'Urgency detected', positive: true, icon: Zap },
+  shared_contact: { label: 'Shared contact details', positive: true, icon: MapPin },
+  is_specific: { label: 'Specific query', positive: true, icon: Target },
+  has_number: { label: 'Budget mentioned', positive: true, icon: Target },
+  has_question: { label: 'Asked a clear question', positive: true, icon: Target },
+  callback_request: { label: 'Callback request', positive: true, icon: Phone },
+  pincode_shared: { label: 'Pincode shared', positive: true, icon: MapPin },
+  delivery_interest: { label: 'Delivery interest', positive: true, icon: Clock },
+  is_vague: { label: 'Vague communication', positive: false, icon: ShieldAlert },
+  negative_intent: { label: 'Negative intent', positive: false, icon: XCircle },
+  pricing_intent: { label: 'Pricing conversation', positive: true, icon: Sparkles },
+  payment_intent: { label: 'Payment intent', positive: true, icon: CheckCircle2 },
+  budget_acceptance: { label: 'Budget accepted', positive: true, icon: CheckCircle2 },
 };
 
 function getTier(score, thresholds) {
@@ -76,12 +76,19 @@ const TIER_CONFIG = {
   },
 };
 
-export default function ScoreBreakdown({ breakdown, score = 0, thresholds = { hot: 50, warm: 30, cold: 0 } }) {
+export default function ScoreBreakdown({
+  breakdown,
+  score = 0,
+  thresholds = { hot: 50, warm: 30, cold: 0 },
+  leadTier,
+}) {
   if (!breakdown) return null;
 
   const currentScore = score ?? 0;
-  const tierKey = getTier(currentScore, thresholds);
-  const tier = TIER_CONFIG[tierKey];
+  // Prefer a backend-provided tier (leadTier prop, or breakdown.lead_tier) over local
+  // threshold math, falling back to local computation only when neither is available.
+  const tierKey = leadTier || breakdown?.lead_tier || getTier(currentScore, thresholds);
+  const tier = TIER_CONFIG[tierKey] || TIER_CONFIG.cold;
   const TierIcon = tier.icon;
 
   const { behavioral_score = 0, intent, recency } = breakdown;
@@ -93,31 +100,30 @@ export default function ScoreBreakdown({ breakdown, score = 0, thresholds = { ho
       if (key === 'word_count') return;
       const isActive = val === true || (val && typeof val === 'object' && val.value === true);
       if (isActive) {
+        const mapped = INTENT_MAPPINGS[key] || { label: key.replace(/_/g, ' '), positive: true, icon: Sparkles };
         const snippet = val && typeof val === 'object' ? val.snippet : null;
         const reasoning = val && typeof val === 'object' ? val.reasoning : null;
-        const mapped = INTENT_MAPPINGS[key] || {};
         const explanation =
           (val && typeof val === 'object' && (val.explanation || val.name)) ||
           mapped.label ||
           key.replace(/_/g, ' ');
-        const points =
-          val && typeof val === 'object' && val.points !== undefined && val.points !== null
-            ? val.points > 0
-              ? `+${val.points}`
-              : `${val.points}`
-            : mapped.points || '+15';
-        const positive =
-          val && typeof val === 'object' && val.points !== undefined
-            ? val.points >= 0
-            : mapped.positive !== false;
-        const icon = mapped.icon || Sparkles;
+
+        // Support either a `points` or `weight` field on the signal, whichever the
+        // backend sends. Hide the score badge entirely when neither is present,
+        // rather than guessing at a value.
+        const rawWeight =
+          val && typeof val === 'object'
+            ? (typeof val.points === 'number' ? val.points : (typeof val.weight === 'number' ? val.weight : null))
+            : null;
+        const points = rawWeight !== null ? `${rawWeight >= 0 ? '+' : ''}${rawWeight}` : null;
+        const positive = rawWeight !== null ? rawWeight >= 0 : mapped.positive !== false;
 
         activeIntents.push({
           key,
           label: explanation,
           points,
           positive,
-          icon,
+          icon: mapped.icon || Sparkles,
           snippet,
           reasoning,
           explanation,
@@ -285,15 +291,17 @@ export default function ScoreBreakdown({ breakdown, score = 0, thresholds = { ho
                       {signal.label}
                     </p>
                   </div>
-                  <span
-                    className={`text-xs font-bold tracking-wide px-2.5 py-0.5 rounded-lg border ${
-                      signal.positive
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                        : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-                    }`}
-                  >
-                    {signal.points}
-                  </span>
+                  {signal.points !== null && signal.points !== undefined && (
+                    <span
+                      className={`text-xs font-bold tracking-wide px-2.5 py-0.5 rounded-lg border ${
+                        signal.positive
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                          : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                      }`}
+                    >
+                      {signal.points}
+                    </span>
+                  )}
                 </div>
 
                 {/* Explanation text */}

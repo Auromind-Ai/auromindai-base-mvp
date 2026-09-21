@@ -24,6 +24,9 @@ class LeadReportSetting(Base):
     recipient_emails = Column(JSON, default=list, nullable=False)
     attach_csv = Column(Boolean, default=True, nullable=False)
 
+    report_filters = Column(JSON, default=dict, nullable=True)
+    csv_columns = Column(JSON, nullable=True)
+
     # Custom message format templates
     subject_template = Column(String(255), nullable=True)
     body_template = Column(Text, nullable=True)

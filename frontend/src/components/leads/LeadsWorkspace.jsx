@@ -31,10 +31,10 @@ const poppins = Poppins({
 const CHANNEL_META = {
     Whatsapp: { icon: Phone,      gradient: 'from-[#25D366] to-[#128C7E]', dot: 'bg-emerald-400', label: 'Whatsapp',  textColor: 'text-emerald-400', scoreColor: 'text-emerald-400' },
     Instagram: { icon: Instagram, gradient: 'from-[#F58529] via-[#DD2A7B] to-[#8134AF]', dot: 'bg-pink-400',    label: 'Instagram', textColor: 'text-violet-400',    scoreColor: 'text-violet-400'    },
-    Web:       { icon: Globe,      gradient: 'from-[#3B82F6] to-[#1D4ED8]', dot: 'bg-sky-400',   label: 'Web',        textColor: 'text-sky-400',     scoreColor: 'text-sky-400'     },
+    Manual:    { icon: User,       gradient: 'from-[#6366F1] to-[#4F46E5]', dot: 'bg-indigo-400', label: 'Manual',     textColor: 'text-indigo-400',  scoreColor: 'text-indigo-400'  },
     Email:     { icon: Mail,       gradient: 'from-[#F97316] to-[#EA580C]', dot: 'bg-orange-400', label: 'Email',      textColor: 'text-orange-400',  scoreColor: 'text-amber-400'   },
     Twilio:    { icon: Zap,        gradient: 'from-[#F22F46] to-[#CE272D]', dot: 'bg-red-500',    label: 'Twilio',     textColor: 'text-red-500',     scoreColor: 'text-red-500'     },
-    Manual:    { icon: User,       gradient: 'from-[#6366F1] to-[#4F46E5]', dot: 'bg-indigo-400', label: 'Manual',     textColor: 'text-indigo-400',  scoreColor: 'text-indigo-400'  },
+    Web:       { icon: User,       gradient: 'from-[#6366F1] to-[#4F46E5]', dot: 'bg-indigo-400', label: 'Manual',     textColor: 'text-indigo-400',  scoreColor: 'text-indigo-400'  },
 };
 
 const TIER_BADGES = {
@@ -125,7 +125,7 @@ const CHANNEL_THEME = {
     }
 };
 
-const getTheme = (channel) => CHANNEL_THEME[channel] || CHANNEL_THEME.Web;
+const getTheme = (channel) => CHANNEL_THEME[channel] || CHANNEL_THEME.Manual;
 
 // ─ 6 FILTER OPTIONS CONFIG ─
 
@@ -142,15 +142,15 @@ const FILTER_OPTIONS = [
 // ─ HELPERS & MAPPERS ─
 
 const getChannelKey = (source) => {
-    if (!source) return 'Web';
+    if (!source) return 'Manual';
     const src = source.toLowerCase();
     if (src.includes('whatsapp')) return 'Whatsapp';
     if (src.includes('instagram')) return 'Instagram';
     if (src.includes('twilio') || src.includes('sms')) return 'Twilio';
     if (src.includes('email') || src.includes('mail')) return 'Email';
     if (src.includes('manual')) return 'Manual';
-    if (src.includes('web')) return 'Web';
-    return 'Web';
+    if (src.includes('web')) return 'Manual';
+    return 'Manual';
 };
 
 const getNormalizedTag = (tier) => {
@@ -283,7 +283,7 @@ const resolveLeadChannel = (lead, detail = null) => {
         detail?.conversation?.channel ||
         lead?.channel ||
         lead?.source ||
-        'web'
+        'manual'
     ).toString().toLowerCase();
 
     if (rawVal.includes('whatsapp')) return 'Whatsapp';
@@ -291,7 +291,8 @@ const resolveLeadChannel = (lead, detail = null) => {
     if (rawVal.includes('twilio') || rawVal.includes('sms')) return 'Twilio';
     if (rawVal.includes('email') || rawVal.includes('mail')) return 'Email';
     if (rawVal.includes('manual')) return 'Manual';
-    return 'Web';
+    if (rawVal.includes('web')) return 'Manual';
+    return 'Manual';
 };
 
 const normalizeLead = (lead) => {
@@ -430,8 +431,8 @@ function ChannelAvatar({ channel, size = 'md', avatar = null, name = '' }) {
         }
     }
 
-    // 5. Default channel icon (Web/Globe fallback)
-    const defaultMeta = CHANNEL_META.Web;
+    // 5. Default channel icon (Manual fallback)
+    const defaultMeta = CHANNEL_META.Manual;
     const DefaultIcon = defaultMeta.icon;
     return (
         <div className={`${sz} rounded-2xl bg-gradient-to-br ${defaultMeta.gradient} flex items-center justify-center shadow-lg flex-shrink-0`}>
@@ -883,10 +884,6 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onToggleFavorite
                                 <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                                     <div
                                         className={`max-w-[72%] px-4 py-3 ${!isMe ? 'rounded-[20px_20px_20px_6px] bg-[#252525]' : `rounded-[20px_20px_6px_20px] bg-gradient-to-br ${theme.bubbleGradient} border border-white/10 shadow-lg ${theme.accentGlow}`}`}
-                                        style={!isMe
-                                            ? { borderBottomLeftRadius: '6px' }
-                                            : { borderBottomRightRadius: '6px' }
-                                        }
                                     >
                                         <MessageRenderer
                                             content={m.text}
@@ -1299,7 +1296,13 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     const [filters, setFilters] = useState({});
     const [filterOptions, setFilterOptions] = useState(null);
     const [selectedIds, setSelectedIds] = useState([]);
+    const [addingFollowUp, setAddingFollowUp] = useState(false);
+    const [followUpError, setFollowUpError] = useState('');
     const [listError, setListError] = useState('');
+    const [failedListRequest, setFailedListRequest] = useState(null);
+    const [detailErrors, setDetailErrors] = useState({});
+    const [optionsError, setOptionsError] = useState('');
+    const [optionsRetry, setOptionsRetry] = useState(0);
     const listRequestRef = useRef(0);
     const initialLeadRef = useRef(typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('leadId') : null);
     const [leads, setLeads] = useState([]);
@@ -1344,7 +1347,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
         if (!workspaceId) return;
 
         const requestId = ++listRequestRef.current;
-        setLoading(true); setListError('');
+        setLoading(true); setListError(''); setFailedListRequest(null);
         try {
             const effective = cleanFilters({ ...filters, ...(searchVal?.trim() ? { search: searchVal.trim() } : {}) });
             if (selectedFilter === 'favorites') effective.favorite = true;
@@ -1376,7 +1379,10 @@ function WorkspaceContent({ upgraded, workspaceId }) {
             setHasMore((currentOffset + LIMIT) < (res.total || 0));
             setOffset(currentOffset);
         } catch (err) {
-            if (requestId === listRequestRef.current) { setListError(err.message || 'Unable to load leads'); setLeads([]); setTotalCount(0); setHasMore(false); }
+            if (requestId === listRequestRef.current) {
+                setListError(err.message || 'Unable to load leads');
+                setFailedListRequest({ currentOffset, isAppend });
+            }
         } finally {
             if (requestId === listRequestRef.current) setLoading(false);
         }
@@ -1387,6 +1393,9 @@ function WorkspaceContent({ upgraded, workspaceId }) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedIds([]);
         setLeads([]);
+        setTotalCount(0);
+        setHasMore(false);
+        setOffset(0);
         fetchLeadsList(0, false, debouncedSearch);
         return () => { listRequestRef.current += 1; };
     // Fetch identity is the applied query, not selection or list updates.
@@ -1396,9 +1405,9 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     useEffect(() => {
         if (!upgraded) return;
         let active = true;
-        api.get(`/lead-scoring/filter-options?workspace_id=${getWorkspaceIdFromToken()}`).then(data => { if (active) setFilterOptions(data); }).catch(err => { if (active) setListError(err.message); });
+        api.get(`/lead-scoring/filter-options?workspace_id=${getWorkspaceIdFromToken()}`).then(data => { if (active) { setFilterOptions(data); setOptionsError(''); } }).catch(err => { if (active) setOptionsError(err.message); });
         return () => { active = false; };
-    }, [upgraded]);
+    }, [upgraded, optionsRetry]);
 
     // Load High-Priority Selected Lead Details & History
     const fetchSelectedLeadData = async (leadId) => {
@@ -1413,6 +1422,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
         activeFetchesRef.current[leadId] = controller;
 
         setDetailsLoading(prev => ({ ...prev, [leadId]: true }));
+        setDetailErrors(prev => ({ ...prev, [leadId]: '' }));
         setHistoryLoading(leadId);
 
         const workspaceId = getWorkspaceIdFromToken();
@@ -1428,7 +1438,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
             ]);
 
             if (controller.signal.aborted) return;
-            if (detailRes.status === 'rejected' && detailRes.reason?.name !== 'AbortError') setListError(detailRes.reason?.message || 'Unable to load lead details');
+            if (detailRes.status === 'rejected' && detailRes.reason?.name !== 'AbortError') setDetailErrors(prev => ({ ...prev, [leadId]: detailRes.reason?.message || 'Unable to load lead details' }));
             if (detailRes.status === 'fulfilled') {
                 const detail = detailRes.value;
                 const normalizedDetail = normalizeLead(detail);
@@ -1588,19 +1598,46 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     const displayedLeads = leads;
     const selectedLead = leads.find(l => l.id === selectedLeadId) || leadsDetails[selectedLeadId];
     const restoreFilters = values => {
-        const next = { ...values }; const search = next.search || ''; delete next.search;
-        setSearchTerm(search); setDebouncedSearch(search); setSelectedFilter('all'); setFilters(cleanFilters(next));
+        const next = { ...values };
+        const search = next.search || '';
+        delete next.search;
+        setSearchTerm(search);
+        setDebouncedSearch(search);
+        if (next.favorite === true && Object.keys(next).length === 1) {
+            setSelectedFilter('favorites');
+            setFilters({});
+        } else if (Array.isArray(next.sources) && next.sources.length === 1 && Object.keys(next).length === 1 && ['whatsapp', 'instagram', 'twilio', 'gmail', 'manual'].includes(next.sources[0])) {
+            setSelectedFilter(next.sources[0]);
+            setFilters({});
+        } else {
+            setSelectedFilter('all');
+            setFilters(cleanFilters(next));
+        }
     };
     const changeQuickFilter = value => { setSelectedFilter(value); setFilters(prev => { const next = { ...prev }; delete next.sources; delete next.favorite; return next; }); };
     const toggleSelection = id => setSelectedIds(prev => prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id]);
+    const addToFollowUp = async () => {
+        if (!selectedIds.length || addingFollowUp) return;
+        setAddingFollowUp(true);
+        setFollowUpError('');
+        try {
+            await api.post(`/lead-scoring/follow-ups?workspace_id=${workspaceId}`, { selected_ids: selectedIds });
+            setSelectedIds([]);
+            setSection('overview');
+        } catch (err) {
+            setFollowUpError(err.message || 'Unable to add selected leads to follow up. Please try again.');
+        } finally {
+            setAddingFollowUp(false);
+        }
+    };
 
     return (
-        <div className={`${poppins.className} h-screen flex flex-col lg:flex-row bg-[#07010F] text-white overflow-hidden`} style={{ fontFamily: "'Poppins', sans-serif" }}>
+        <div className={`${poppins.className} h-screen flex flex-col lg:flex-row bg-[#07010F] text-white overflow-hidden`}>
             {upgraded && <CrmNavigation section={section} onChange={setSection} />}
             <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-                {section === 'overview' && <CrmAnalytics overview onBrowse={() => setSection('leads')} />}
+                {section === 'overview' && <CrmAnalytics overview workspaceId={workspaceId} onBrowse={() => setSection('leads')} onSelect={id => { setSelectedLeadId(id); setSection('scoring'); }} />}
                 {section === 'analytics' && <CrmAnalytics />}
-                {section === 'scoring' && <CrmScoring options={filterOptions} lead={leadsDetails[selectedLeadId]} onRecalculate={async id => { await fetchSelectedLeadData(id); await fetchLeadsList(); }} />}
+                {section === 'scoring' && <CrmScoring loading={detailsLoading[selectedLeadId]} loadError={detailErrors[selectedLeadId]} onRetry={() => fetchSelectedLeadData(selectedLeadId)} options={filterOptions} lead={leadsDetails[selectedLeadId]} onRecalculate={async id => { await fetchSelectedLeadData(id); await fetchLeadsList(); }} />}
                 {section === 'history' && <CrmHistory onSelect={id => { setSelectedLeadId(id); setSection('scoring'); }} />}
                 {section === 'reports' && <CrmReports workspaceId={workspaceId} />}
                 {section === 'leads' && <>
@@ -1610,6 +1647,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                         <span className="text-sm sm:text-base md:text-lg font-bold text-white whitespace-nowrap">{upgraded ? 'CRM' : 'Leads'}</span>
                     </div>
 
+                    {!upgraded && <>
                     <div className="relative flex-1 max-w-[170px] sm:max-w-[240px] md:max-w-[280px] lg:max-w-[320px]">
                         <Search size={13} className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                         <input
@@ -1629,20 +1667,32 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                             <span className="whitespace-nowrap">New Lead</span>
                         </button>
                     </div>
+                    </>}
                 </header>
 
                 {upgraded && <>
-                <CrmControls filters={filters} onApply={values => { setSelectedFilter('all'); setFilters(values); }} options={filterOptions} selectedIds={selectedIds} search={debouncedSearch} quickFilter={selectedFilter} onClear={() => restoreFilters({})} onRestore={restoreFilters} />
+                <CrmControls workspaceId={workspaceId} filters={filters} onApply={values => { setSelectedFilter('all'); setFilters(values); }} options={filterOptions} selectedIds={selectedIds} search={debouncedSearch} quickFilter={selectedFilter} onClear={() => restoreFilters({})} onRestore={restoreFilters} />
                 <div className="flex gap-2 px-3 py-2 overflow-x-auto bg-[#0D0D17] border-b border-white/10 shrink-0">{FILTER_OPTIONS.map(({ id, label }) => <button key={id} className={`whitespace-nowrap rounded-lg text-xs px-3 py-2 ${selectedFilter === id ? 'bg-violet-500/20 text-violet-200' : 'text-zinc-400 hover:bg-white/5'}`} onClick={() => changeQuickFilter(id)}>{label}</button>)}</div>
                 </>}
-                {listError && <p role="alert" className="px-4 py-2 text-sm text-rose-300">{listError} <button onClick={() => fetchLeadsList()}>Retry</button></p>}
+                {optionsError && <p role="alert" className="px-4 py-2 text-sm text-rose-300">{optionsError} <button onClick={() => setOptionsRetry(v => v + 1)}>Retry filter options</button></p>}
+                {!upgraded && detailErrors[selectedLeadId] && <p role="alert" className="px-4 py-2 text-sm text-rose-300">{detailErrors[selectedLeadId]} <button disabled={detailsLoading[selectedLeadId]} onClick={() => fetchSelectedLeadData(selectedLeadId)}>Retry lead details</button></p>}
+                {listError && <p role="alert" className="px-4 py-2 text-sm text-rose-300">{listError} <button disabled={loading} onClick={() => fetchLeadsList(failedListRequest?.currentOffset ?? 0, failedListRequest?.isAppend ?? false)}>Retry</button></p>}
                 {/* CRM uses a full-width table; the original Leads route retains its panels. */}
+                {followUpError && <p role="alert" className="px-4 py-2 text-sm text-rose-300">{followUpError}</p>}
                 {upgraded ? <CrmLeadsTable
+                    onAddFollowUp={addToFollowUp}
+                    addingFollowUp={addingFollowUp}
+                    title={selectedFilter !== 'all' ? (FILTER_OPTIONS.find(option => option.id === selectedFilter)?.label || 'Filtered Leads') : (Object.keys(cleanFilters(filters)).length || debouncedSearch.trim() ? 'Filtered Leads' : 'All Leads')}
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
                     leads={displayedLeads}
                     loading={loading}
                     totalCount={totalCount}
+                    offset={offset}
+                    pageSize={LIMIT}
+                    onPageChange={newOffset => fetchLeadsList(newOffset, false)}
                     hasMore={hasMore}
-                    onLoadMore={() => fetchLeadsList(offset + LIMIT, true)}
+                    onLoadMore={() => fetchLeadsList(offset + LIMIT, false)}
                     selectedIds={selectedIds}
                     onToggleSelection={toggleSelection}
                     onSelect={id => { setSelectedLeadId(id); setSection('scoring'); }}

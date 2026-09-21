@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   LayoutDashboard,
   Users,
@@ -23,7 +24,6 @@ import {
   Zap,
   Droplets,
   Sliders,
-  MoreVertical,
   Trash2,
   Lightbulb,
   CheckCircle2,
@@ -33,13 +33,17 @@ import {
   Phone,
   Frown,
   Brain,
+  ChevronDown,
 } from "lucide-react";
 import api from "@/lib/api";
 import { getWorkspaceIdFromToken } from "@/lib/auth";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
-import { crmControl, dateRange, intentLabel } from "./CrmControls";
+import { crmControl, dateRange } from "./CrmControls";
 import ScoreBreakdown from "./ScoreBreakdown";
+import ReportCsvOptions from "./ReportCsvOptions";
+import CrmFollowUps from "./CrmFollowUps";
+import { ScorePieChart, LeadBarChart } from "./CrmCharts";
 
 const sections = [
   ["overview", "Overview", LayoutDashboard],
@@ -73,29 +77,7 @@ export function CrmNavigation({ section, onChange }) {
   );
 }
 
-function Bars({ items, label }) {
-  const max = Math.max(1, ...items.map((i) => i.count));
-  return (
-    <div className="space-y-4">
-      {items.map((item) => (
-        <div key={item.label || item.key}>
-          <div className="flex justify-between text-sm mb-1">
-            <span>{label ? label(item.key) : item.label}</span>
-            <span className="text-zinc-400">{item.count.toLocaleString()}</span>
-          </div>
-          <div className="bg-white/5 rounded-full h-2">
-            <div
-              className="h-2 rounded-full bg-violet-500"
-              style={{ width: `${(item.count / max) * 100}%` }}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export function CrmAnalytics({ overview = false, onBrowse }) {
+export function CrmAnalytics({ overview = false, onBrowse, onSelect, workspaceId }) {
   const [period, setPeriod] = useState("30");
   const [custom, setCustom] = useState({ start: "", end: "" });
   const [data, setData] = useState(null);
@@ -106,8 +88,14 @@ export function CrmAnalytics({ overview = false, onBrowse }) {
     if (
       period === "custom" &&
       (!custom.start || !custom.end || custom.start > custom.end)
-    )
+    ) {
+      // Clear the previous result and any pending loading state for invalid dates.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setData(null);
+      setLoading(false);
+      setError("");
       return;
+    }
     let active = true;
     let [from, to] = dateRange(Number(period) || 30);
     if (period === "custom") {
@@ -117,7 +105,6 @@ export function CrmAnalytics({ overview = false, onBrowse }) {
       to = end.toISOString();
     }
     // Loading and stale-data reset track the external analytics request.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError("");
     setData(null);
@@ -150,20 +137,26 @@ export function CrmAnalytics({ overview = false, onBrowse }) {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <select
-            aria-label="Analytics date range"
-            className={crmControl}
-            value={period}
-            onChange={(e) => {
-              setData(null);
-              setPeriod(e.target.value);
-            }}
-          >
-            <option value="1">Today</option>
-            <option value="7">7 days</option>
-            <option value="30">30 days</option>
-            <option value="custom">Custom</option>
-          </select>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <button aria-label="Analytics date range" className={`${crmControl} flex items-center gap-3 hover:border-[#654BCC] data-[state=open]:border-[#654BCC]`}>
+                {{ "1": "Today", "7": "7 days", "30": "30 days", custom: "Custom" }[period]}
+                <ChevronDown size={14} aria-hidden="true" />
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content align="end" sideOffset={6} className="z-[110] min-w-36 rounded-xl border border-white/10 bg-[#171322] p-1.5 text-sm text-white shadow-xl shadow-black/40">
+                <DropdownMenu.RadioGroup value={period} onValueChange={value => { setData(null); setPeriod(value); }}>
+                  {[["1", "Today"], ["7", "7 days"], ["30", "30 days"], ["custom", "Custom"]].map(([value, label]) => (
+                    <DropdownMenu.RadioItem key={value} value={value} className="flex cursor-pointer items-center justify-between gap-4 rounded-lg px-3 py-2 outline-none data-[state=checked]:bg-[#654BCC]/25 data-[highlighted]:bg-[#654BCC] data-[highlighted]:text-white">
+                      {label}
+                      <DropdownMenu.ItemIndicator><Check size={14} aria-hidden="true" /></DropdownMenu.ItemIndicator>
+                    </DropdownMenu.RadioItem>
+                  ))}
+                </DropdownMenu.RadioGroup>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
           {period === "custom" && (
             <>
               <input
@@ -221,7 +214,7 @@ export function CrmAnalytics({ overview = false, onBrowse }) {
             ].map(([label, value]) => (
               <div
                 key={label}
-                className="rounded-2xl bg-[#151020] border border-white/10 p-5"
+                className="rounded-2xl bg-[#151020] border border-white/10 p-5 transition-all duration-300 hover:border-violet-500/30 hover:bg-[#1a1329] hover:shadow-lg hover:shadow-violet-950/20"
               >
                 <p className="text-xs text-zinc-400">{label}</p>
                 <p className="text-2xl font-semibold mt-3">
@@ -243,7 +236,7 @@ export function CrmAnalytics({ overview = false, onBrowse }) {
             </button>
           ) : (
             <>
-              <section className="rounded-2xl border border-white/10 bg-[#151020] p-5 overflow-x-auto">
+              <section className="rounded-2xl border border-white/10 bg-[#151020] p-5 overflow-x-auto transition-all duration-300 hover:border-violet-500/30 hover:bg-[#1a1329] hover:shadow-lg hover:shadow-violet-950/20">
                 <h2 className="font-semibold mb-4">Lead Source Analysis</h2>
                 <table className="w-full text-sm text-left">
                   <thead>
@@ -281,13 +274,13 @@ export function CrmAnalytics({ overview = false, onBrowse }) {
                 )}
               </section>
               <div className="grid xl:grid-cols-2 gap-5">
-                <section className="rounded-2xl border border-white/10 bg-[#151020] p-5">
+                <section className="rounded-2xl border border-white/10 bg-[#151020] p-5 transition-all duration-300 hover:border-violet-500/30 hover:bg-[#1a1329] hover:shadow-xl hover:shadow-violet-950/30">
                   <h2 className="font-semibold mb-5">Score Distribution</h2>
-                  <Bars items={data.distribution} />
+                  <ScorePieChart items={data.distribution} />
                 </section>
-                <section className="rounded-2xl border border-white/10 bg-[#151020] p-5">
+                <section className="rounded-2xl border border-white/10 bg-[#151020] p-5 transition-all duration-300 hover:border-violet-500/30 hover:bg-[#1a1329] hover:shadow-xl hover:shadow-violet-950/30">
                   <h2 className="font-semibold mb-5">Conversion Overview</h2>
-                  <Bars
+                  <LeadBarChart
                     items={[
                       { label: "Total leads", count: data.total },
                       { label: "Qualified", count: data.qualified },
@@ -301,17 +294,11 @@ export function CrmAnalytics({ overview = false, onBrowse }) {
                   </p>
                 </section>
               </div>
-              <section className="rounded-2xl border border-white/10 bg-[#151020] p-5">
-                <h2 className="font-semibold mb-5">Buying Intent Analysis</h2>
-                <Bars
-                  items={[...data.intents].sort((a, b) => b.count - a.count)}
-                  label={intentLabel}
-                />
-              </section>
             </>
           )}
         </>
       )}
+      {overview && <CrmFollowUps workspaceId={workspaceId} onSelect={onSelect} />}
     </main>
   );
 }
@@ -401,8 +388,8 @@ export function CrmHistory({ onSelect }) {
   );
 }
 
-export function CrmScoring({ options, lead, onRecalculate }) {
-  const { showToast } = useToast?.() || { showToast: () => {} };
+export function CrmScoring({ options, lead, onRecalculate, loading, loadError, onRetry }) {
+  const { showToast, showConfirm } = useToast?.() || { showToast: () => {} };
   const [activeSubtab, setActiveSubtab] = useState("rules"); // "rules" | "preview"
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -488,10 +475,28 @@ export function CrmScoring({ options, lead, onRecalculate }) {
     setSignals(updated);
   };
 
-  const handleDeleteSignal = (id) => {
-    const updated = signals.filter((s) => s.id !== id);
-    setSignals(updated);
-    setActiveMenuId(null);
+  const handleDeleteSignal = (sigOrId) => {
+    const sig = typeof sigOrId === "object" ? sigOrId : signals.find((s) => s.id === sigOrId) || { id: sigOrId };
+    const signalName = sig.name || "this custom signal";
+    if (showConfirm) {
+      showConfirm({
+        title: "Delete Custom Signal?",
+        message: `Are you sure you want to delete "${signalName}"? This signal will no longer be detected in lead scoring. Click 'Save Changes' to persist this change.`,
+        confirmText: "Delete Signal",
+        cancelText: "Cancel",
+        type: "danger",
+        onConfirm: () => {
+          const updated = signals.filter((s) => s.id !== sig.id);
+          setSignals(updated);
+          setActiveMenuId(null);
+          showToast(`Signal "${signalName}" removed`, "info");
+        },
+      });
+    } else {
+      const updated = signals.filter((s) => s.id !== sig.id);
+      setSignals(updated);
+      setActiveMenuId(null);
+    }
   };
 
   const handleAddCustomSignal = () => {
@@ -526,7 +531,7 @@ export function CrmScoring({ options, lead, onRecalculate }) {
       case "currency":
         return (
           <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm">
-            ₹
+            Γé╣
           </div>
         );
       case "quotation":
@@ -699,7 +704,7 @@ export function CrmScoring({ options, lead, onRecalculate }) {
                         Warm Lead
                       </div>
                       <div className="text-lg font-bold text-white">
-                        {thresholds.warm}% – {Math.max(thresholds.warm, thresholds.hot - 1)}%
+                        {thresholds.warm}% To {Math.max(thresholds.warm, thresholds.hot - 1)}%
                       </div>
                       <div className="text-[11px] text-zinc-400">Some interest</div>
                     </div>
@@ -715,7 +720,7 @@ export function CrmScoring({ options, lead, onRecalculate }) {
                         Cold Lead
                       </div>
                       <div className="text-lg font-bold text-white">
-                        0% – {Math.max(0, thresholds.warm - 1)}%
+                        0% To {Math.max(0, thresholds.warm - 1)}%
                       </div>
                       <div className="text-[11px] text-zinc-400">Low intent</div>
                     </div>
@@ -804,7 +809,7 @@ export function CrmScoring({ options, lead, onRecalculate }) {
 
                             {/* Example Customer Message */}
                             <td className="py-3 px-3 text-zinc-400 text-xs max-w-xs font-mono">
-                              {sig.example_message || (sig.examples && sig.examples.join(", ")) || "—"}
+                              {sig.example_message || (sig.examples && sig.examples.join(", ")) || "ΓÇö"}
                             </td>
 
                             {/* Points Controls */}
@@ -854,7 +859,7 @@ export function CrmScoring({ options, lead, onRecalculate }) {
                             {/* Action Menu (for custom signals) */}
                             <td className="py-3 px-2 text-right relative">
                               <button
-                                onClick={() => handleDeleteSignal(sig.id)}
+                                onClick={() => handleDeleteSignal(sig)}
                                 className="p-1.5 text-zinc-500 hover:text-rose-400 transition-colors"
                                 title="Delete signal"
                               >
@@ -909,7 +914,7 @@ export function CrmScoring({ options, lead, onRecalculate }) {
                   >
                     {rulesSaving ? (
                       <>
-                        <Loader2 className="animate-spin" size={14} /> Saving…
+                        <Loader2 className="animate-spin" size={14} /> SavingΓÇª
                       </>
                     ) : (
                       <>
@@ -946,16 +951,27 @@ export function CrmScoring({ options, lead, onRecalculate }) {
               </div>
               <div className="inline-flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/25 px-3 py-1.5 text-xs font-semibold text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.15)]">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
-                <span>Warm: {thresholds.warm}–{thresholds.hot - 1}</span>
+                <span>Warm: {thresholds.warm} - {thresholds.hot - 1}</span>
               </div>
               <div className="inline-flex items-center gap-2 rounded-xl bg-sky-500/10 border border-sky-500/25 px-3 py-1.5 text-xs font-semibold text-sky-300 shadow-[0_0_10px_rgba(56,189,248,0.15)]">
                 <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.8)]" />
-                <span>Cold: 0–{thresholds.warm - 1}</span>
+                <span>Cold: 0 - {thresholds.warm - 1}</span>
               </div>
             </div>
           </div>
 
-          {lead ? (
+          {loading && (
+            <div className="flex items-center justify-center py-8 text-zinc-400">
+              <Loader2 className="animate-spin mr-2" size={18} /> Loading lead details...
+            </div>
+          )}
+          {loadError && (
+            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 flex items-center justify-between text-xs">
+              <span>{loadError}</span>
+              <button className={crmControl} disabled={loading} onClick={onRetry}>Retry</button>
+            </div>
+          )}
+          {!loading && !loadError && lead ? (
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-b from-[#161226] to-[#100D1D] border border-white/[0.08] rounded-3xl p-4 sm:p-5 shadow-xl">
                 <div className="flex items-center gap-3.5">
@@ -1003,7 +1019,7 @@ export function CrmScoring({ options, lead, onRecalculate }) {
                   }}
                 >
                   <RotateCcw size={14} className={busy ? "animate-spin text-[#9E7BFF]" : "text-[#9E7BFF]"} />
-                  <span>{busy ? "Recalculating…" : "Recalculate lead score"}</span>
+                  <span>{busy ? "RecalculatingΓÇª" : "Recalculate lead score"}</span>
                 </button>
               </div>
               {error && <p role="alert" className="text-xs text-rose-400">{error}</p>}
@@ -1041,9 +1057,9 @@ export function CrmScoring({ options, lead, onRecalculate }) {
             </div>
 
             <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3 text-xs text-zinc-400 space-y-1.5">
-              <p>• Custom conversation signals will be removed.</p>
-              <p>• Default signals and points will be restored.</p>
-              <p>• Hot/Warm/Cold thresholds will be reset to 50% / 30% / 0%.</p>
+              <p>ΓÇó Custom conversation signals will be removed.</p>
+              <p>ΓÇó Default signals and points will be restored.</p>
+              <p>ΓÇó Hot/Warm/Cold thresholds will be reset to 50% / 30% / 0%.</p>
             </div>
 
             <div className="flex items-center justify-end gap-2.5 pt-2">
@@ -1063,7 +1079,7 @@ export function CrmScoring({ options, lead, onRecalculate }) {
               >
                 {rulesSaving ? (
                   <>
-                    <Loader2 className="animate-spin" size={14} /> Resetting…
+                    <Loader2 className="animate-spin" size={14} /> ResettingΓÇª
                   </>
                 ) : (
                   <>
@@ -1260,9 +1276,9 @@ const DEFAULT_BODY = `Hi Team,
 
 Please find attached the {frequency_lower} qualified leads report.
 
-• Total Qualified Leads: {total_leads}
-• Date: {date}
-• File: {filename}
+ΓÇó Total Qualified Leads: {total_leads}
+ΓÇó Date: {date}
+ΓÇó File: {filename}
 
 The leads in this report have a lead score of {min_score} or higher.
 
@@ -1287,7 +1303,9 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
   const [saving, setSaving] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
 
-  const [isActive, setIsActive] = useState(true);
+  const [isActive, setIsActive] = useState(false);
+  const [savingToggle, setSavingToggle] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [minScore, setMinScore] = useState(() => {
     if (typeof window !== "undefined") {
       const wsId = propWorkspaceId || getWorkspaceIdFromToken();
@@ -1307,9 +1325,16 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     return "daily";
   });
   const [sendTime, setSendTime] = useState("09:00 AM");
-  const [recipientEmails, setRecipientEmails] = useState(["sales@orbionagents.com"]);
+  const [recipientEmails, setRecipientEmails] = useState([]);
   const [emailInput, setEmailInput] = useState("");
   const [attachCsv, setAttachCsv] = useState(true);
+  const [csvColumns, setCsvColumns] = useState([]);
+  const [availableCsvColumns, setAvailableCsvColumns] = useState([]);
+  const [previewError, setPreviewError] = useState("");
+  const [countLoading, setCountLoading] = useState(false);
+  const [sampleColumns, setSampleColumns] = useState([]);
+  const [sampleRows, setSampleRows] = useState([]);
+  const previewQuery = `workspace_id=${effectiveWorkspaceId}&min_score=${minScore}&frequency=${frequency}&columns=${encodeURIComponent(JSON.stringify(csvColumns))}`;
   const [qualifyingCount, setQualifyingCount] = useState(0);
 
   // Template editing states
@@ -1342,7 +1367,8 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
         const data = res?.data || res;
         if (data?.settings) {
           const s = data.settings;
-          setIsActive(s.is_active ?? true);
+          setIsActive(Boolean(s.is_active));
+          setSettingsLoaded(true);
           if (s.min_score !== undefined && s.min_score !== null) {
             const scoreNum = Number(s.min_score);
             setMinScore(scoreNum);
@@ -1369,9 +1395,11 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
               setSendTime(s.send_time);
             }
           }
-          if (Array.isArray(s.recipient_emails) && s.recipient_emails.length > 0) {
+          if (Array.isArray(s.recipient_emails)) {
             setRecipientEmails(s.recipient_emails);
           }
+          setAvailableCsvColumns(data.csv_column_options || []);
+          setCsvColumns(s.csv_columns || []);
           if (s.attach_csv !== undefined) {
             setAttachCsv(Boolean(s.attach_csv));
           }
@@ -1393,27 +1421,28 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
         }
       })
       .catch((err) => {
-        console.error("Failed to load email report settings:", err);
+        setFeedback({ type: "error", message: err.message || "Unable to load email settings. Please refresh to try again." });
       })
       .finally(() => {
         setLoading(false);
       });
   }, [effectiveWorkspaceId]);
 
-  // Update qualifying count when minScore changes
+  // Debounce changes and ignore responses for an older filter selection.
   useEffect(() => {
-    if (!effectiveWorkspaceId) return;
-
-    api
-      .get(`/lead-scoring/email-report/sample-preview?workspace_id=${effectiveWorkspaceId}&min_score=${minScore}&frequency=${frequency}`)
-      .then((res) => {
-        const data = res?.data || res;
-        if (data?.total_count !== undefined) {
-          setQualifyingCount(data.total_count);
-        }
-      })
-      .catch(() => {});
-  }, [effectiveWorkspaceId, minScore, frequency]);
+    if (!effectiveWorkspaceId || loading) return;
+    let active = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCountLoading(true);
+    setPreviewError("");
+    const timer = setTimeout(() => {
+      api.get(`/lead-scoring/email-report/sample-preview?${previewQuery}`)
+        .then(res => { if (active) setQualifyingCount((res?.data || res).total_count); })
+        .catch(err => { if (active) { setPreviewError(err.message || "Unable to preview these filters."); setQualifyingCount(0); } })
+        .finally(() => { if (active) setCountLoading(false); });
+    }, 300);
+    return () => { active = false; clearTimeout(timer); };
+  }, [effectiveWorkspaceId, previewQuery, loading]);
 
   const addEmail = (raw) => {
     const clean = raw.trim().toLowerCase().replace(/[,;]/g, "");
@@ -1440,6 +1469,26 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     showToast("Reset to default message format", "info");
   };
 
+  const handleToggleActive = async () => {
+    if (!effectiveWorkspaceId || !settingsLoaded || savingToggle || saving) return;
+    const previous = isActive;
+    setIsActive(!previous);
+    setSavingToggle(true);
+    setFeedback(null);
+    try {
+      const res = await api.post(`/lead-scoring/email-report/settings?workspace_id=${effectiveWorkspaceId}`, {
+        is_active: !previous,
+      });
+      const data = res?.data || res;
+      setIsActive(Boolean(data.settings.is_active));
+    } catch (err) {
+      setIsActive(previous);
+      setFeedback({ type: "error", message: err.message || "Unable to save report status. Please try again." });
+    } finally {
+      setSavingToggle(false);
+    }
+  };
+
   const handleSaveSettings = async () => {
     if (!effectiveWorkspaceId) return;
 
@@ -1459,6 +1508,8 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
         send_time: sendTime,
         recipient_emails: recipientEmails,
         attach_csv: attachCsv,
+        report_filters: {},
+        csv_columns: csvColumns,
         subject_template: subjectTemplate,
         body_template: bodyTemplate,
       });
@@ -1513,6 +1564,7 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     try {
       const res = await api.post(`/lead-scoring/email-report/send-test?workspace_id=${effectiveWorkspaceId}`, {
         recipient_emails: recipientEmails,
+        settings: { min_score: minScore, frequency, attach_csv: attachCsv, report_filters: {}, csv_columns: csvColumns, subject_template: subjectTemplate, body_template: bodyTemplate },
       });
       const data = res?.data || res;
       const isSim = data?.delivery_result?.simulated;
@@ -1534,12 +1586,16 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     if (!effectiveWorkspaceId) return;
     setSampleModalOpen(true);
     setSampleLoading(true);
+    setSampleLeads([]);
+    setSampleRows([]);
     try {
-      const res = await api.get(`/lead-scoring/email-report/sample-preview?workspace_id=${effectiveWorkspaceId}&min_score=${minScore}&frequency=${frequency}`);
+      const res = await api.get(`/lead-scoring/email-report/sample-preview?${previewQuery}`);
       const data = res?.data || res;
       setSampleLeads(data?.sample_leads || []);
+      setSampleColumns(data?.csv_columns || []);
+      setSampleRows(data?.csv_rows || []);
     } catch (err) {
-      console.error("Failed to load sample leads:", err);
+      setPreviewError(err.message || "Unable to load sample leads.");
     } finally {
       setSampleLoading(false);
     }
@@ -1581,7 +1637,7 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     bodyTemplate !== (defaultBody || DEFAULT_BODY);
 
   return (
-    <main className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6 max-w-4xl text-white">
+    <main className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden p-4 lg:p-6 space-y-6 text-white">
       {/* Header */}
       <div>
         <h1 className="text-xl font-semibold text-white">Email Reports</h1>
@@ -1628,7 +1684,10 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
               type="button"
               role="switch"
               aria-checked={isActive}
-              onClick={() => setIsActive(!isActive)}
+              aria-label="Enable qualified lead email reports"
+              aria-busy={savingToggle}
+              disabled={loading || !settingsLoaded || savingToggle || saving}
+              onClick={handleToggleActive}
               className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                 isActive ? "bg-violet-600" : "bg-zinc-700"
               }`}
@@ -1774,12 +1833,15 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
           </label>
         </div>
 
+        {attachCsv && <ReportCsvOptions columns={csvColumns} onChange={setCsvColumns} options={availableCsvColumns} />}
+        {countLoading && <p role="status" className="text-xs text-zinc-400">Updating matching leads...</p>}
+        {previewError && <p role="alert" className="text-sm text-rose-300">{previewError}</p>}
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <button
             type="button"
             onClick={handleSendTest}
-            disabled={sendingTest || recipientEmails.length === 0}
+            disabled={sendingTest || loading || countLoading || !!previewError || recipientEmails.length === 0}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-white text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {sendingTest ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
@@ -1789,7 +1851,7 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
           <button
             type="button"
             onClick={handleSaveSettings}
-            disabled={saving}
+            disabled={saving || savingToggle || !settingsLoaded || loading || countLoading || !!previewError}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold transition-all shadow-lg shadow-violet-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={15} />}
@@ -1996,37 +2058,13 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-white/10 text-zinc-400">
-                        <th className="pb-2.5 font-medium">Name</th>
-                        <th className="pb-2.5 font-medium">Phone / Email</th>
-                        <th className="pb-2.5 font-medium">Source</th>
-                        <th className="pb-2.5 font-medium">Score</th>
-                        <th className="pb-2.5 font-medium">Tier</th>
-                        <th className="pb-2.5 font-medium">Status</th>
+                        {sampleColumns.map(column => <th key={column.key} className="pb-2.5 pr-4 font-medium">{column.label}</th>)}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                      {sampleLeads.map((l) => (
-                        <tr key={l.id} className="hover:bg-white/5 transition-colors">
-                          <td className="py-2.5 font-medium text-white">{l.name}</td>
-                          <td className="py-2.5 text-zinc-300">{l.phone || l.email || "N/A"}</td>
-                          <td className="py-2.5 capitalize text-zinc-400">{l.source || "N/A"}</td>
-                          <td className="py-2.5 font-semibold text-violet-400">{l.score}%</td>
-                          <td className="py-2.5 capitalize">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                l.lead_tier === "hot"
-                                  ? "bg-rose-500/20 text-rose-300"
-                                  : l.lead_tier === "warm"
-                                  ? "bg-amber-500/20 text-amber-300"
-                                  : "bg-zinc-500/20 text-zinc-300"
-                              }`}
-                            >
-                              {l.lead_tier}
-                            </span>
-                          </td>
-                          <td className="py-2.5 capitalize text-zinc-400">{l.status}</td>
-                        </tr>
-                      ))}
+                      {sampleRows.map((row, index) => <tr key={index} className="hover:bg-white/5 transition-colors">
+                        {row.map((value, cell) => <td key={sampleColumns[cell]?.key || cell} className="py-2.5 pr-4 text-zinc-300">{value}</td>)}
+                      </tr>)}
                     </tbody>
                   </table>
                 </div>

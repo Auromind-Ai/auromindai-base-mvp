@@ -1,16 +1,18 @@
-
 from __future__ import annotations
 
 import json
+import logging
 
 from uuid import UUID
 from datetime import datetime, timezone
 
 from pydantic import ValidationError
 from fastapi.responses import StreamingResponse
-from app.schemas.crm_filters import LeadFilters, LeadExportRequest
+from app.schemas.crm_filters import LeadFilters, LeadExportRequest, LeadFollowUpRequest, CrmSavedViewCreate, CrmSavedViewResponse
 from app.services.crm.lead_query import lead_query, source_expression
-from app.services.crm import lead_reporting
+from app.services.crm import lead_reporting, lead_follow_up_service
+from app.schemas.lead_report import LeadReportSettingsUpdate, LeadReportTestRequest
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 
@@ -59,6 +61,7 @@ from app.models.workspace import WorkspaceMember
 from app.models.lead_scoring import LeadScoreHistory
 from app.models.user import User
 
+logger = logging.getLogger("app")
 
 router = APIRouter(prefix="/lead-scoring", tags=["lead-scoring"])
 ALLOWED_LABELS = {"Interested", "High Priority", "Premium Lead", "Follow Up"}
@@ -75,6 +78,25 @@ def parse_lead_filters(raw: str | None) -> LeadFilters:
         raise HTTPException(status_code=422, detail="Invalid lead filters. Check ranges and values.") from exc
 
 
+@router.post("/follow-ups")
+def add_follow_up_leads(body: LeadFollowUpRequest, workspace_id: str | None = None, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    try:
+        return lead_follow_up_service.add_follow_ups(db, wid, body.selected_ids)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.delete("/follow-ups/{lead_id}")
+def remove_follow_up_lead(lead_id: UUID, workspace_id: str | None = None, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    try:
+        return lead_follow_up_service.remove_follow_up(db, wid, lead_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+
 @router.get("/filter-options")
 def filter_options(workspace_id: str | None = None, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     from app.models.workspace import WorkspaceMember
@@ -82,7 +104,7 @@ def filter_options(workspace_id: str | None = None, db: Session = Depends(get_db
     base = db.query(Lead).filter(Lead.workspace_id == wid)
     agents = db.query(User.id, User.full_name, User.email).join(WorkspaceMember, WorkspaceMember.user_id == User.id).filter(WorkspaceMember.workspace_id == wid).all()
     return {
-        "sources": sorted(set(["whatsapp", "instagram", "twilio", "gmail", "email", "manual", "web"] + [r[0] for r in base.with_entities(source_expression()).distinct().all()])),
+        "sources": sorted(s for s in set(["whatsapp", "instagram", "twilio", "gmail", "manual"] + [r[0] for r in base.with_entities(source_expression()).distinct().all() if r[0]]) if s != "email"),
         "statuses": sorted(set(["new", "active", "converted", "lost"] + [r[0] for r in base.with_entities(Lead.status).distinct().all() if r[0]])),
         "tiers": ["hot", "warm", "cold"],
         "labels": sorted(ALLOWED_LABELS),
@@ -228,7 +250,73 @@ def reset_scoring_rules(
     )
 
 
+# --- CRM Saved Views Endpoints ---
+
+@router.get("/views", response_model=list[CrmSavedViewResponse])
+def get_crm_saved_views(
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.models.lead_scoring import CrmSavedView
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    views = (
+        db.query(CrmSavedView)
+        .filter(CrmSavedView.workspace_id == wid)
+        .order_by(CrmSavedView.created_at.desc())
+        .all()
+    )
+    return views
+
+
+@router.post("/views", response_model=CrmSavedViewResponse, status_code=status.HTTP_201_CREATED)
+def create_crm_saved_view(
+    body: CrmSavedViewCreate,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.models.lead_scoring import CrmSavedView
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    raw_filters = body.filters
+    if hasattr(raw_filters, "model_dump"):
+        serialized_filters = raw_filters.model_dump(mode="json", exclude_none=True)
+    elif isinstance(raw_filters, dict):
+        serialized_filters = {k: v for k, v in raw_filters.items() if v is not None and v != "" and (not isinstance(v, list) or len(v) > 0)}
+    else:
+        serialized_filters = {}
+
+    view = CrmSavedView(
+        workspace_id=wid,
+        user_id=current_user.id,
+        name=body.name.strip(),
+        filters=serialized_filters,
+    )
+    db.add(view)
+    db.commit()
+    db.refresh(view)
+    return view
+
+
+@router.delete("/views/{view_id}")
+def delete_crm_saved_view(
+    view_id: UUID,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.models.lead_scoring import CrmSavedView
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    view = db.query(CrmSavedView).filter(CrmSavedView.id == view_id, CrmSavedView.workspace_id == wid).first()
+    if not view:
+        raise HTTPException(status_code=404, detail="Saved view not found")
+    db.delete(view)
+    db.commit()
+    return {"success": True, "message": "Saved view deleted"}
+
+
 # 1. Stateless score preview (no DB write)
+
 
 
 @router.post(
@@ -938,7 +1026,6 @@ async def convert_lead(
             db=db
         )
     except Exception as notif_err:
-        import logging
         logging.getLogger("app").error(f"Failed to emit lead.converted event: {notif_err}")
 
     return ConvertLeadResponse(
@@ -1012,7 +1099,6 @@ async def assign_lead(
                 db=db
             )
         except Exception as notif_err:
-            import logging
             logging.getLogger("app").error(f"Failed to emit lead.assigned event: {notif_err}")
 
     return {"status": "success", "lead_id": str(lead.id), "assigned_to": str(lead.assigned_to) if lead.assigned_to else None}
@@ -1185,11 +1271,7 @@ def get_email_report_settings(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    from app.services.crm.lead_email_report_service import (
-        LeadEmailReportService,
-        DEFAULT_SUBJECT_TEMPLATE,
-        DEFAULT_BODY_TEMPLATE
-    )
+    from app.services.crm.lead_email_report_service import LeadEmailReportService
     if response:
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
@@ -1198,83 +1280,35 @@ def get_email_report_settings(
     wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
     setting = LeadEmailReportService.get_or_create_settings(db, wid)
 
-    lead_count = db.query(func.count(Lead.id)).filter(
-        Lead.workspace_id == wid,
-        func.coalesce(Lead.score, 0) >= setting.min_score
-    ).scalar() or 0
-
-    return {
-        "settings": {
-            "id": str(setting.id),
-            "workspace_id": str(setting.workspace_id),
-            "is_active": setting.is_active,
-            "min_score": setting.min_score,
-            "frequency": setting.frequency,
-            "send_time": setting.send_time,
-            "recipient_emails": setting.recipient_emails or [],
-            "attach_csv": setting.attach_csv,
-            "subject_template": setting.subject_template or DEFAULT_SUBJECT_TEMPLATE,
-            "body_template": setting.body_template or DEFAULT_BODY_TEMPLATE,
-            "default_subject": DEFAULT_SUBJECT_TEMPLATE,
-            "default_body": DEFAULT_BODY_TEMPLATE,
-            "last_sent_at": setting.last_sent_at.isoformat() if setting.last_sent_at else None,
-            "next_run_at": setting.next_run_at.isoformat() if setting.next_run_at else None,
-        },
-        "lead_count": lead_count
-    }
+    return LeadEmailReportService.settings_payload(db, wid, setting)
 
 
 @router.post("/email-report/settings")
 def save_email_report_settings(
-    body: dict,
+    body: LeadReportSettingsUpdate,
     response: Response = None,
     workspace_id: str | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    from app.services.crm.lead_email_report_service import (
-        LeadEmailReportService,
-        DEFAULT_SUBJECT_TEMPLATE,
-        DEFAULT_BODY_TEMPLATE
-    )
+    from app.services.crm.lead_email_report_service import LeadEmailReportService
     if response:
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
 
     wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
-    setting = LeadEmailReportService.update_settings(db, wid, body)
+    try:
+        setting = LeadEmailReportService.update_settings(db, wid, body.model_dump(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    lead_count = db.query(func.count(Lead.id)).filter(
-        Lead.workspace_id == wid,
-        func.coalesce(Lead.score, 0) >= setting.min_score
-    ).scalar() or 0
-
-    return {
-        "status": "success",
-        "settings": {
-            "id": str(setting.id),
-            "workspace_id": str(setting.workspace_id),
-            "is_active": setting.is_active,
-            "min_score": setting.min_score,
-            "frequency": setting.frequency,
-            "send_time": setting.send_time,
-            "recipient_emails": setting.recipient_emails or [],
-            "attach_csv": setting.attach_csv,
-            "subject_template": setting.subject_template or DEFAULT_SUBJECT_TEMPLATE,
-            "body_template": setting.body_template or DEFAULT_BODY_TEMPLATE,
-            "default_subject": DEFAULT_SUBJECT_TEMPLATE,
-            "default_body": DEFAULT_BODY_TEMPLATE,
-            "last_sent_at": setting.last_sent_at.isoformat() if setting.last_sent_at else None,
-            "next_run_at": setting.next_run_at.isoformat() if setting.next_run_at else None,
-        },
-        "lead_count": lead_count
-    }
+    return {"status": "success", **LeadEmailReportService.settings_payload(db, wid, setting)}
 
 
 @router.post("/email-report/send-test")
 def send_test_email_report(
-    body: dict = None,
+    body: LeadReportTestRequest | None = None,
     workspace_id: str | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -1282,7 +1316,7 @@ def send_test_email_report(
     from app.services.crm.lead_email_report_service import LeadEmailReportService
     wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
 
-    body = body or {}
+    body = body.model_dump(exclude_unset=True) if body else {}
     recipient_override = body.get("recipient_emails")
 
     try:
@@ -1290,7 +1324,8 @@ def send_test_email_report(
             db=db,
             workspace_id=wid,
             is_test=True,
-            recipient_override=recipient_override
+            recipient_override=recipient_override,
+            settings_override=body.get("settings"),
         )
         return result
     except ValueError as exc:
@@ -1302,7 +1337,9 @@ def send_test_email_report(
 @router.get("/email-report/sample-preview")
 def get_sample_preview(
     min_score: int = Query(50, ge=0, le=100),
-    frequency: str = Query("daily"),
+    filters: str | None = Query(None, max_length=16000),
+    columns: str | None = Query(None, max_length=2000),
+    frequency: Literal["daily", "weekly", "monthly"] = Query("daily"),
     subject_template: str | None = Query(None),
     body_template: str | None = Query(None),
     workspace_id: str | None = None,
@@ -1310,65 +1347,9 @@ def get_sample_preview(
     current_user=Depends(get_current_user),
 ):
     from app.services.crm.lead_email_report_service import LeadEmailReportService
-    from app.models.workspace import Workspace
     wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
 
-    leads = (
-        db.query(Lead)
-        .filter(
-            Lead.workspace_id == wid,
-            func.coalesce(Lead.score, 0) >= min_score
-        )
-        .order_by(Lead.score.desc(), Lead.created_at.desc())
-        .limit(10)
-        .all()
-    )
-
-    lead_count = db.query(func.count(Lead.id)).filter(
-        Lead.workspace_id == wid,
-        func.coalesce(Lead.score, 0) >= min_score
-    ).scalar() or 0
-
-    sample_items = [
-        {
-            "id": str(l.id),
-            "name": l.name or "N/A",
-            "phone": l.phone or "N/A",
-            "email": l.email or "N/A",
-            "company": l.company or "N/A",
-            "source": l.source or "N/A",
-            "score": l.score or 0,
-            "lead_tier": l.lead_tier or "cold",
-            "status": l.status or "new",
-            "created_at": l.created_at.isoformat() if l.created_at else None,
-        }
-        for l in leads
-    ]
-
-    filename = f"qualified_leads_{datetime.now().strftime('%Y-%m-%d')}.csv"
-    ws = db.query(Workspace).filter(Workspace.id == wid).first()
-    ws_name = ws.name if ws and ws.name else "OrbionAgents"
-
-    setting = LeadEmailReportService.get_or_create_settings(db, wid)
-    # Temporary mock setting for building preview with requested min_score and frequency
-    setting.min_score = min_score
-    setting.frequency = frequency
-
-    content = LeadEmailReportService.build_email_content(
-        setting=setting,
-        lead_count=lead_count,
-        filename=filename,
-        workspace_name=ws_name,
-        custom_subject=subject_template if isinstance(subject_template, str) and subject_template else None,
-        custom_body=body_template if isinstance(body_template, str) and body_template else None
-    )
-
-    return {
-        "total_count": lead_count,
-        "sample_leads": sample_items,
-        "subject": content["subject"],
-        "body_text": content["plain_text"],
-        "filename": filename,
-        "date_str": content["date_str"],
-    }
-
+    try:
+        return LeadEmailReportService.sample_preview(db, wid, min_score, filters, columns, frequency, subject_template, body_template)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
