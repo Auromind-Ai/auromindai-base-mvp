@@ -31,7 +31,8 @@ import {
     Mail,
     Coins,
     PanelLeftClose,
-    PanelLeftOpen
+    PanelLeftOpen,
+    Crown
 } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from '@/context/AuthContext';
@@ -62,6 +63,7 @@ const MAIN_NAV_ITEMS = [
     { label: 'CRM', icon: TrendingUp, href: '/user/admin/crm' },
     { label: 'Channels', icon: Share2, href: '/user/admin/channels' },
     { label: 'Templates', icon: FileText, href: '/user/admin/templates' },
+    { label: 'Marketing', icon: Send, href: '/user/admin/marketing' },
     { label: 'Credits & Wallet', icon: Coins, href: '/user/admin/credits' },
     { label: 'Billing', icon: CreditCard, href: '/user/admin/billing' },
 ];
@@ -91,7 +93,15 @@ function AdminLayoutContent({ children }) {
 
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        try {
+            return localStorage.getItem('sidebar_collapsed') === 'true';
+        } catch {
+            return false;
+        }
+    });
+
 
     const workspace = workspaces.find(w => w.id === workspaceId) || null;
     const currentWorkspaceName = (() => {
@@ -104,19 +114,15 @@ function AdminLayoutContent({ children }) {
         return `${user?.full_name || user?.name || 'User'}'s Workspace`;
     })();
 
-    // 1. Safe Client-side LocalStorage Read
-    useEffect(() => {
-        const saved = localStorage.getItem('sidebar_collapsed');
-        if (saved !== null) {
-            setIsCollapsed(saved === 'true');
-        }
-    }, []);
-
-    // 2. Toggle Handler with LocalStorage Save
+    // Toggle Handler with LocalStorage Save
     const toggleSidebar = () => {
         setIsCollapsed((prev) => {
             const next = !prev;
-            localStorage.setItem('sidebar_collapsed', String(next));
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.setItem('sidebar_collapsed', String(next));
+                } catch {}
+            }
             return next;
         });
     };
@@ -296,7 +302,8 @@ function AdminLayoutContent({ children }) {
         pathname === '/user/admin/brain' ||
         pathname.startsWith('/user/admin/brain/') ||
         pathname === '/user/admin/channels' ||
-        pathname.startsWith('/user/admin/channels/')
+        pathname.startsWith('/user/admin/channels/') ||
+        pathname.startsWith('/user/admin/marketing')
     );
 
     return (

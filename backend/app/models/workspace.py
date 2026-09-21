@@ -59,6 +59,7 @@ class Workspace(Base):
 
     # OPTIONAL (FUTURE SAFE)
     meta_token_expiry = Column(DateTime(timezone=True), nullable=True)
+    meta_tier_limit = Column(Integer, nullable=True)
 
     twilio_account_sid = Column(Text, nullable=True)
     twilio_auth_token = Column(Text, nullable=True)

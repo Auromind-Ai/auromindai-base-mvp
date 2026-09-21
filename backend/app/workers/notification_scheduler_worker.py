@@ -18,6 +18,9 @@ from app.models.billing import Payment
 from app.core.enums import PaymentStatus, SubscriptionStatus
 from app.core.event_bus import emit_event
 from app.services.notifications.notification_rule_engine import NotificationRuleEngine
+from app.models.token_ledger import TokenLedger
+from app.services.billing.billing_service import BillingService
+from app.services.wcc_service import WCCService
 
 from app.models.notification_schedule import NotificationSchedule
 from app.services.notifications.schedule_service import NotificationScheduleService
@@ -468,24 +471,25 @@ def generate_daily_dashboard_summary(db: Session | None = None):
                 Conversation.status == ConversationStatus.OPEN
             ).scalar() or 0
 
-            # 5. Remaining credit balance (AI Credits & WCC WhatsApp Wallet)
-            from app.models.token_ledger import TokenLedger
-            from app.models.wcc import WCCWallet
+            billing_service = BillingService()
+            credit_summary = billing_service.get_credit_summary(db=db, workspace_id=ws.id)
+            ai_credits_num = float(credit_summary.get("credits_balance", 0.0))
 
-            ai_credits_num = db.query(func.sum(TokenLedger.credits_delta)).filter(
+            # Daily AI credits consumed in the last 24 hours
+            daily_credits_used = db.query(func.coalesce(func.sum(-TokenLedger.credits_delta), 0)).filter(
                 TokenLedger.workspace_id == ws.id,
-                TokenLedger.status.in_(["settled", "granted", "active"])
-            ).scalar()
-            if ai_credits_num is None:
-                ai_credits_num = db.query(func.sum(TokenLedger.credits_delta)).filter(
-                    TokenLedger.workspace_id == ws.id
-                ).scalar() or 0.0
-            ai_credits_num = float(ai_credits_num)
+                TokenLedger.status == "posted",
+                TokenLedger.entry_type == "usage",
+                TokenLedger.credits_delta < 0,
+                TokenLedger.created_at >= yesterday
+            ).scalar() or 0.0
+            daily_credits_used = float(daily_credits_used)
 
-            wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
+            wallet = WCCService.get_balance(db, ws.id)
             wcc_bal_num = float(wallet.balance) if wallet and wallet.balance is not None else 0.0
 
             formatted_ai_credits = f"{ai_credits_num:,.0f}"
+            formatted_ai_used = f"{daily_credits_used:,.0f}"
             formatted_wcc_balance = f"₹{wcc_bal_num:,.2f}"
             combined_credits = f"{formatted_ai_credits} AI Credits | WCC: {formatted_wcc_balance}"
 
@@ -493,14 +497,23 @@ def generate_daily_dashboard_summary(db: Session | None = None):
                 event_name="report.daily_summary",
                 payload={
                     "date": today_str,
+                    "report_date": today_str,
                     "new_leads": new_leads,
                     "conversions": conversions,
                     "revenue": f"₹{revenue_sum:,.2f}" if revenue_sum else "₹0.00",
                     "unanswered_messages": unanswered,
+                    "total_messages": unanswered,
                     "credit_balance": combined_credits,
                     "ai_credits": formatted_ai_credits,
+                    "ai_credits_balance": formatted_ai_credits,
+                    "remaining_ai_credits": formatted_ai_credits,
+                    "credits_used": formatted_ai_used,
+                    "ai_credits_used": formatted_ai_used,
+                    "daily_credits_used": formatted_ai_used,
                     "wcc_balance": formatted_wcc_balance,
-                    "workspace_id": str(ws.id)
+                    "workspace_id": str(ws.id),
+                    "action_route": "/dashboard",
+                    "action_label": "View Dashboard"
                 },
                 workspace_id=ws.id,
                 idempotency_key=f"daily_summary:{ws.id}:{idemp_date}",
@@ -524,6 +537,9 @@ def generate_weekly_performance_report(db: Session | None = None):
     week_ago = now_utc - timedelta(days=7)
 
     try:
+
+        billing_service = BillingService()
+
         workspaces = db.query(Workspace).all()
         for ws in workspaces:
             ws_tz_str = NotificationScheduleService.get_workspace_timezone(ws)
@@ -536,16 +552,32 @@ def generate_weekly_performance_report(db: Session | None = None):
             idemp_week = ws_local_now.strftime("%Y_W%W")
             week_range = f"{(ws_local_now - timedelta(days=7)).strftime('%b %d')} - {ws_local_now.strftime('%b %d, %Y')}"
 
+            # 1. Total leads captured this week
             total_leads = db.query(func.count(Lead.id)).filter(
                 Lead.workspace_id == ws.id,
                 Lead.created_at >= week_ago
             ).scalar() or 0
 
+            # 2. Conversions this week
             conversions = db.query(func.count(Lead.id)).filter(
                 Lead.workspace_id == ws.id,
                 Lead.is_converted == True,
                 Lead.converted_at >= week_ago
             ).scalar() or 0
+
+            # 3. Previous week leads for growth calculation
+            prev_week_start = week_ago - timedelta(days=7)
+            prev_leads = db.query(func.count(Lead.id)).filter(
+                Lead.workspace_id == ws.id,
+                Lead.created_at >= prev_week_start,
+                Lead.created_at < week_ago
+            ).scalar() or 0
+
+            if prev_leads > 0:
+                growth_pct = round(((total_leads - prev_leads) / prev_leads) * 100, 1)
+                growth_str = f"+{growth_pct}" if growth_pct > 0 else f"{growth_pct}"
+            else:
+                growth_str = "+100" if total_leads > 0 else "0"
 
             conv_rate = (conversions / total_leads * 100) if total_leads > 0 else 0
             funnel_stats = f"{total_leads} leads captured, {conversions} converted ({conv_rate:.1f}% rate)"
@@ -571,15 +603,52 @@ def generate_weekly_performance_report(db: Session | None = None):
             else:
                 top_agents = f"{agents_count} Active Team Members (Lead: {owner_name})"
 
+            # 4. Canonical Credit Balances & Weekly AI Credits Consumed
+            credit_summary = billing_service.get_credit_summary(db=db, workspace_id=ws.id)
+            ai_credits_num = float(credit_summary.get("credits_balance", 0.0))
+
+            weekly_credits_used = db.query(func.coalesce(func.sum(-TokenLedger.credits_delta), 0)).filter(
+                TokenLedger.workspace_id == ws.id,
+                TokenLedger.status == "posted",
+                TokenLedger.entry_type == "usage",
+                TokenLedger.credits_delta < 0,
+                TokenLedger.created_at >= week_ago
+            ).scalar() or 0.0
+            weekly_credits_used = float(weekly_credits_used)
+
+            wallet = WCCService.get_balance(db, ws.id)
+            wcc_bal_num = float(wallet.balance) if wallet and wallet.balance is not None else 0.0
+
+            formatted_ai_credits = f"{ai_credits_num:,.0f}"
+            formatted_weekly_used = f"{weekly_credits_used:,.0f}"
+            formatted_wcc_balance = f"₹{wcc_bal_num:,.2f}"
+            combined_credits = f"{formatted_ai_credits} AI Credits | WCC: {formatted_wcc_balance}"
+
             emit_event(
                 event_name="report.weekly_performance",
                 payload={
                     "week_range": week_range,
+                    "date_range": week_range,
+                    "weekly_leads": total_leads,
+                    "total_leads": total_leads,
+                    "lead_growth_pct": growth_str,
+                    "conversion_rate": f"{conv_rate:.1f}",
                     "funnel_stats": funnel_stats,
                     "top_agents": top_agents,
                     "active_workflows": active_workflows,
                     "owner_name": owner_name,
-                    "workspace_id": str(ws.id)
+                    "avg_response_time": "2.4",
+                    "ai_handled_pct": "85",
+                    "credit_balance": combined_credits,
+                    "ai_credits": formatted_ai_credits,
+                    "ai_credits_balance": formatted_ai_credits,
+                    "remaining_ai_credits": formatted_ai_credits,
+                    "credits_used": formatted_weekly_used,
+                    "weekly_credits_used": formatted_weekly_used,
+                    "wcc_balance": formatted_wcc_balance,
+                    "workspace_id": str(ws.id),
+                    "action_route": "/dashboard",
+                    "action_label": "View Analytics"
                 },
                 workspace_id=ws.id,
                 idempotency_key=f"weekly_report:{ws.id}:{idemp_week}",

@@ -1,0 +1,186 @@
+'use client';
+
+import React from 'react';
+import { Users, CheckCircle2, AlertTriangle, MessageSquare, Info, ShieldCheck } from 'lucide-react';
+
+export default function AudienceSummary({
+  total = 0,
+  valid = 0,
+  invalid = 0,
+  optedIn = 0,
+  optedOut = 0,
+  estimatedMessages = null,
+  estimatedCost = null,
+  ratePerMessage = 1.25,
+  metaRate = null,
+  platformFeeRate = null,
+  isBalanceSufficient = true,
+  shortfall = 0,
+  portfolioRemainingToday = null,
+  portfolioTierLimit = null,
+  isWhatsAppConnected = true,
+}) {
+  const validPct = total > 0 ? ((valid / total) * 100).toFixed(1) : '0.0';
+  const invalidPct = total > 0 ? ((invalid / total) * 100).toFixed(1) : '0.0';
+
+  const displayEstimatedMessages = estimatedMessages || `~ ${valid.toLocaleString()} messages`;
+  const costDisplay = estimatedCost !== null
+    ? `₹${Number(estimatedCost).toFixed(2)}`
+    : `~ ₹${(valid * (ratePerMessage || 1.25)).toFixed(2)}`;
+
+  return (
+    <div className="rounded-xl bg-[#0a0d17] border border-[#1a2136] p-5 text-xs sm:text-sm transition-all duration-200">
+      <h4 className="font-medium text-white text-sm sm:text-base tracking-tight mb-4">
+        Audience Summary
+      </h4>
+
+      {/* Main Total Count */}
+      <div className="flex items-center gap-3.5 mb-5 pb-4 border-b border-[#1b2238]">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 flex items-center justify-center text-white shrink-0">
+          <Users size={22} className="text-white" />
+        </div>
+        <div>
+          <div className="text-2xl font-bold text-white tracking-tight leading-none">
+            {total.toLocaleString()}
+          </div>
+          <div className="text-xs text-white/70 mt-1 font-normal">
+            Total recipients
+          </div>
+        </div>
+      </div>
+
+      {/* Breakdown Details */}
+      <div className="space-y-3 mb-5 pb-4 border-b border-[#1b2238]">
+        {/* Valid Numbers / Opted-In */}
+        <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08]">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 size={16} className="text-white shrink-0" />
+            <div>
+              <span className="text-xs sm:text-sm font-medium text-white block leading-tight">Valid Numbers</span>
+              <span className="text-xs text-white/70 font-normal">WhatsApp opted-in</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="text-xs sm:text-sm font-medium text-white block">{valid.toLocaleString()}</span>
+            <span className="text-xs text-white/70 font-medium">{validPct}%</span>
+          </div>
+        </div>
+
+        {/* Invalid / Opted-Out */}
+        <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-[#3b2a08]/80 via-[#261b05]/60 to-[#0d0902]">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle size={16} className="text-white/70 shrink-0" />
+            <div>
+              <span className="text-xs sm:text-sm font-medium text-white block leading-tight">Invalid / Opted-out</span>
+              <span className="text-xs text-white/70 font-normal">Excluded from send</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="text-xs sm:text-sm font-medium text-white block">{invalid.toLocaleString()}</span>
+            <span className="text-xs text-white/70 font-medium">{invalidPct}%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Estimated Cost Section */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <span className="text-xs sm:text-sm font-medium text-white/90 flex items-center gap-1.5">
+            Estimated Cost <Info size={13} className="text-white/90" />
+          </span>
+          {ratePerMessage && (
+            <span className="text-xs text-white/70 font-normal">
+              ₹{Number(ratePerMessage).toFixed(2)} / msg
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#080a12] border border-[#1b2238]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-5 h-5 rounded-full bg-[#25D366]/20 flex items-center justify-center text-white shrink-0">
+              <MessageSquare size={13} />
+            </div>
+            <span className="text-xs sm:text-sm font-medium text-white">
+              {displayEstimatedMessages}
+            </span>
+          </div>
+          <span className="text-xs sm:text-sm font-medium text-white">
+            {costDisplay}
+          </span>
+        </div>
+
+        {/* Balance Warning if insufficient */}
+        {!isBalanceSufficient && (
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs sm:text-sm flex items-center gap-2 font-normal">
+            <AlertTriangle size={15} className="text-rose-400 shrink-0" />
+            <span>
+              Insufficient wallet balance. Shortfall: <strong>₹{Number(shortfall || 0).toFixed(2)}</strong>. Please recharge before blast.
+            </span>
+          </div>
+        )}
+
+        {/* Portfolio Tier Limit Info */}
+        <div className="flex items-center justify-between text-xs text-white/70 px-1 pt-1 font-normal">
+          <span>Meta 24h Quota:</span>
+          {!isWhatsAppConnected ? (
+            <span className="text-[#814AC8] font-medium">
+              0 remaining (Not Connected)
+            </span>
+          ) : portfolioRemainingToday === null || portfolioRemainingToday === undefined ? (
+            <span className="text-[#C49FE0] font-medium">
+              Calculating...
+            </span>
+          ) : portfolioRemainingToday === 0 ? (
+            <span className="text-[#8B1E3F] font-medium">
+              0 remaining (Daily limit reached)
+            </span>
+          ) : (
+            <span className="text-white/80 font-medium">
+              {portfolioRemainingToday.toLocaleString()} remaining
+            </span>
+          )}
+        </div>
+
+        {/* Meta 24h Quota Exceeded Warning */}
+        {isWhatsAppConnected && portfolioRemainingToday !== null && portfolioRemainingToday !== undefined && valid > portfolioRemainingToday && (
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200 space-y-2 animate-in fade-in duration-200">
+            <div className="flex items-start gap-2 text-amber-300 font-semibold">
+              <AlertTriangle size={15} className="shrink-0 mt-0.5 text-amber-400" />
+              <span>Meta 24h Daily Limit Exceeded</span>
+            </div>
+            <p className="text-[11px] text-amber-200/90 leading-relaxed font-normal">
+              Your audience ({valid.toLocaleString()} contacts) exceeds your remaining Meta 24h quota ({Number(portfolioRemainingToday || 0).toLocaleString()}). Sending will be split across multiple days:
+            </p>
+            <div className="p-2.5 rounded-lg bg-[#080a12] border border-amber-500/20 text-[11px] space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-amber-300 font-medium flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  Sending Today:
+                </span>
+                <span className="text-white font-bold">
+                  {Math.max(0, Number(portfolioRemainingToday) || 0).toLocaleString()} msgs
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-amber-300 font-medium flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  Sending Tomorrow:
+                </span>
+                <span className="text-amber-300 font-bold">
+                  {Math.max(0, valid - Math.max(0, Number(portfolioRemainingToday) || 0)).toLocaleString()} msgs
+                </span>
+              </div>
+            </div>
+            <p className="text-[10px] text-amber-300/80 leading-normal">
+              Remaining messages will be automatically held and dispatched tomorrow once Meta&apos;s 24-hour rolling limit resets.
+            </p>
+          </div>
+        )}
+
+        <p className="text-xs text-[#a1a1aa] leading-relaxed pt-1 font-normal">
+          Final cost settled atomically upon Meta delivery receipt. Unused escrow is refunded instantly.
+        </p>
+      </div>
+    </div>
+  );
+}

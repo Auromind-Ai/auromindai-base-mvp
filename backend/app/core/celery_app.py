@@ -29,6 +29,7 @@ celery_app.conf.update(
         "app.workers.billing_worker",
         "app.workers.ingestion_worker",
         "app.workers.notification_scheduler_worker",
+        "app.workers.campaign_worker",
     ],
 
     # Reliability
@@ -47,22 +48,26 @@ celery_app.conf.update(
         "visibility_timeout": 1800,
     },
 
-    # Queue routing — beat vs heavy tasks on separate queues
+    # Queue routing — campaign blasts matrum beat tasks-ku separate queues
     task_default_queue="default",
     task_routes={
+        # 1. High-throughput Campaign Tasks (Dedicated Isolation)
+        "app.workers.campaign_worker.*": {"queue": "campaigns_queue"},
+
+        # 2. Celery Beat periodic sweepers
         "app.workers.flow_execution.sweep_stuck_messages": {"queue": "beat"},
         "app.workers.flow_execution.poll_scheduled_resumes": {"queue": "beat"},
         "app.workers.notification_scheduler_worker.process_scheduled_email_outbox": {"queue": "beat"},
+        "app.workers.notification_scheduler_worker.evaluate_dynamic_notification_schedules": {"queue": "beat"},
+
+        # 3. Critical System Workers (Zero-delay processing)
+        "app.workers.billing_worker.*": {"queue": "critical_queue"},
+        "app.workers.ingestion_worker.*": {"queue": "default"},
     },
 
 
     worker_max_tasks_per_child=500,
 
-    # Redbeat - Redis-based scheduler disabled to prevent 100% CPU lock loops on Redis locks
-    # beat_max_loop_interval=30,
-    # beat_scheduler="redbeat.RedBeatScheduler",
-    # redbeat_redis_url=REDIS_URL,
-    # redbeat_lock_timeout=150,
 )
 
 celery_app.conf.beat_schedule = {
@@ -118,16 +123,12 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.billing_worker.process_monthly_entitlement_resets",
         "schedule": crontab(hour=6, minute=0),  # Daily 06:00 IST
     },
+    # 5. Scheduled Marketing Campaigns Poller
+    "check-scheduled-campaigns": {
+        "task": "app.workers.campaign_worker.check_scheduled_campaigns",
+        "schedule": 30.0,
+    },
 }
-
-# @celery_app.on_after_finalize.connect
-# def preload_models(sender, **kwargs):
-    
-#     try:
-     
-#         print(" RAG models preloaded at worker startup!")
-#     except Exception as e:
-#         print(f" RAG preload failed (non-critical): {e}")
 
 @worker_process_init.connect
 def preload_rag_models(**kwargs):
@@ -145,8 +146,6 @@ def preload_rag_models(**kwargs):
         log.error("[Celery PID %d] Failed to dispose parent connection pool: %s", pid, exc)
 
     try:
-        # from app.services.agentic_rag.rag_service import get_rag_service
-        # get_rag_service()
         log.info("[Celery PID %d] RAG model preloading skipped to prevent CPU spikes.", pid)
     except Exception as exc:
         log.warning(

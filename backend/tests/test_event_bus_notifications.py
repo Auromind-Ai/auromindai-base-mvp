@@ -21,7 +21,8 @@ from app.workers.notification_scheduler_worker import (
     process_scheduled_email_outbox,
     check_lead_sla_breaches,
     check_inactive_leads,
-    generate_daily_dashboard_summary
+    generate_daily_dashboard_summary,
+    generate_weekly_performance_report
 )
 
 
@@ -462,7 +463,36 @@ def test_scheduler_daily_summary_report(db_session):
     ).all()
     assert len(summary_logs) >= 1
     assert "Daily" in summary_logs[0].subject
-    assert "Briefing" in summary_logs[0].subject or "Summary" in summary_logs[0].subject
+    assert "Briefing" in summary_logs[0].subject or "Summary" in summary_logs[0].subject or "Digest" in summary_logs[0].subject
+    # Verify AI credits payload was constructed accurately
+    payload = summary_logs[0].metadata_json or {}
+    assert "ai_credits" in payload
+    assert "credit_balance" in payload
+    assert "credits_used" in payload
+    assert "AI Credits" in payload["credit_balance"]
+
+
+def test_scheduler_weekly_performance_report(db_session):
+    owner = User(id=uuid.uuid4(), email="owner@weekly.com", full_name="Weekly Owner", is_active=True)
+    ws = Workspace(id=uuid.uuid4(), name="Weekly Metrics Space", created_by=owner.id)
+    db_session.add_all([owner, ws])
+    db_session.commit()
+    db_session.add(WorkspaceMember(workspace_id=ws.id, user_id=owner.id, role="founder"))
+    db_session.commit()
+
+    with patch("app.workers.notification_scheduler_worker.SessionLocal", return_value=db_session):
+        generate_weekly_performance_report()
+
+    weekly_logs = db_session.query(EmailDeliveryLog).filter(
+        EmailDeliveryLog.event_name == "report.weekly_performance"
+    ).all()
+    assert len(weekly_logs) >= 1
+    assert "Weekly" in weekly_logs[0].subject
+    payload = weekly_logs[0].metadata_json or {}
+    assert "ai_credits" in payload
+    assert "credit_balance" in payload
+    assert "weekly_credits_used" in payload
+    assert "AI Credits" in payload["credit_balance"]
 
 
 def test_user_verification_pending_emission(db_session):

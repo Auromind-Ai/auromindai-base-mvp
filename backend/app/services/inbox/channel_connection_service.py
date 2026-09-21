@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from app import models
+from app.services.marketing.whatsapp_tier_service import WhatsAppTierService
 
 logger = logging.getLogger(__name__)
 
@@ -308,6 +309,20 @@ class ChannelConnectionService:
             logger.info("WhatsApp registration status: %s, response: %s", register_res.status_code, register_res.text)
         except Exception as e:
             logger.error("Failed to automatically register WhatsApp phone number: %s", e)
+
+        # Fetch and persist initial Meta messaging tier limit upon channel connection
+        try:
+            tier_info = WhatsAppTierService.fetch_live_portfolio_tier(
+                waba_id=waba_id,
+                access_token=access_token,
+                business_id=business_id,
+                phone_number_id=phone_number_id,
+            )
+            if tier_info.get("daily_limit"):
+                workspace.meta_tier_limit = tier_info["daily_limit"]
+                logger.info("Saved initial Meta tier limit upon connection: %s", tier_info["daily_limit"])
+        except Exception as e:
+            logger.warning("Could not fetch initial Meta tier limit on connection: %s", e)
 
         db.commit()
 

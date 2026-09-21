@@ -15,6 +15,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from twilio.twiml.messaging_response import MessagingResponse
 from app.models.conversation import ChannelType
+from app.models.campaign import CampaignRecipient, Campaign
 from app.services.inbox.conversation_service import ConversationService
 from app.services.inbox.message_service import MessageService
 from app.utils.intent_detection import detect_intent_signals
@@ -327,6 +328,43 @@ class WebhookService:
                     else:
                         logger.warning(f"No template found in DB for name: {tpl_name}, lang: {tpl_lang}, id: {tpl_id}")
                     continue
+
+                if field == "phone_number_quality_update":
+                    display_phone = value.get("display_phone_number")
+                    event_type = value.get("event")
+                    current_limit = value.get("current_limit")
+                    print(f"[DEBUG WEBHOOK] Phone Number Quality Update: {display_phone} -> {event_type} ({current_limit})")
+                    logger.info(f"Meta phone_number_quality_update received: phone={display_phone}, event={event_type}, limit={current_limit}")
+
+                    waba_id = entry.get("id")
+                    workspace = None
+                    if display_phone:
+                        clean_digits = "".join(filter(str.isdigit, str(display_phone)))
+                        workspace = db.query(Workspace).filter(
+                            (Workspace.meta_display_phone.ilike(f"%{clean_digits}%"))
+                            | (Workspace.meta_waba_id == str(waba_id))
+                        ).first()
+                    elif waba_id:
+                        workspace = db.query(Workspace).filter(Workspace.meta_waba_id == str(waba_id)).first()
+
+                    if workspace and current_limit:
+                        from app.services.marketing.whatsapp_tier_service import PORTFOLIO_TIER_LIMITS
+                        tier_label = str(current_limit).upper()
+                        new_limit = PORTFOLIO_TIER_LIMITS.get(tier_label)
+                        if new_limit:
+                            workspace.meta_tier_limit = new_limit
+                            db.commit()
+                            logger.info(f"Successfully updated workspace {workspace.id} meta_tier_limit to {new_limit} via Meta webhook")
+
+                            try:
+                                from app.routers.auth import _get_redis_client
+                                r = _get_redis_client()
+                                if r and (workspace.meta_phone_number_id or workspace.meta_waba_id):
+                                    cache_id = workspace.meta_phone_number_id or workspace.meta_waba_id
+                                    r.delete(f"wa:meta_tier:{cache_id}")
+                            except Exception as c_exc:
+                                logger.warning(f"Failed to clear Redis tier cache: {c_exc}")
+                    continue
                 
                 # In WhatsApp Cloud API, incoming messages usually have 'metadata' with 'phone_number_id'
                 metadata = value.get("metadata") or {}
@@ -421,6 +459,77 @@ class WebhookService:
                                         logger.info(f"Ignored out-of-order status update for {wamid}: current={outbound.status}, received={status_str}")
                             except Exception as exc:
                                 logger.error(f"Failed to update message status for {wamid}: {exc}")
+
+                           
+                            try:
+                                
+                                recipient = db.query(CampaignRecipient).filter(CampaignRecipient.wamid == wamid).first()
+                                if recipient:
+                                    c_status = status_str.lower()
+                                    now_dt = datetime.now(timezone.utc)
+                                    CAMP_STATUS_RANK = {
+                                        "pending": 0,
+                                        "accepted": 0,
+                                        "queued": 0,
+                                        "sent": 1,
+                                        "delivered": 2,
+                                        "read": 3,
+                                        "failed": 99,
+                                    }
+                                    current_c_rank = CAMP_STATUS_RANK.get(recipient.status, 0)
+
+                                    if c_status == "sent":
+                                        if current_c_rank < 1:
+                                            recipient.status = "sent"
+                                            recipient.sent_at = recipient.sent_at or now_dt
+                                            db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                                Campaign.sent_count: Campaign.sent_count + 1
+                                            })
+                                            db.flush()
+                                    elif c_status == "delivered":
+                                        if current_c_rank < 2:
+                                            if current_c_rank < 1:
+                                                recipient.sent_at = recipient.sent_at or now_dt
+                                                db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                                    Campaign.sent_count: Campaign.sent_count + 1
+                                                })
+                                            recipient.status = "delivered"
+                                            recipient.delivered_at = recipient.delivered_at or now_dt
+                                            db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                                Campaign.delivered_count: Campaign.delivered_count + 1
+                                            })
+                                            db.flush()
+                                    elif c_status == "read":
+                                        if current_c_rank < 3:
+                                            if current_c_rank < 1:
+                                                recipient.sent_at = recipient.sent_at or now_dt
+                                                db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                                    Campaign.sent_count: Campaign.sent_count + 1
+                                                })
+                                            if current_c_rank < 2:
+                                                recipient.delivered_at = recipient.delivered_at or now_dt
+                                                db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                                    Campaign.delivered_count: Campaign.delivered_count + 1
+                                                })
+                                            recipient.status = "read"
+                                            recipient.read_at = recipient.read_at or now_dt
+                                            db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                                Campaign.read_count: Campaign.read_count + 1
+                                            })
+                                            db.flush()
+                                    elif c_status == "failed":
+                                        if recipient.status != "failed" and current_c_rank < 2:
+                                            recipient.status = "failed"
+                                            errors = status_update.get("errors", [])
+                                            if errors:
+                                                recipient.error_code = str(errors[0].get("code", "FAILED"))
+                                                recipient.error_message = errors[0].get("message", "Delivery failed")
+                                            db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
+                                                Campaign.failed_count: Campaign.failed_count + 1
+                                            })
+                                            db.flush()
+                            except Exception as camp_exc:
+                                logger.error(f"Failed to update CampaignRecipient status for {wamid}: {camp_exc}")
 
                             # WCC Wallet Debit Integration — Strictly for Flow messages, NEVER for user <-> agent conversations
                             is_flow_message = False

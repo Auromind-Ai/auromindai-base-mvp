@@ -1007,7 +1007,7 @@ function QuickActionsCard({ onAddLeadClick }) {
     <section className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden h-full">
       <div className="px-5 pt-4 pb-1">
         <h2 className="text-[15px] font-semibold text-white/90">Quick Actions</h2>
-        <p className="text-[11px] text-white/70 mt-0.5">Perform important task in one click</p>
+        <p className="text-[13px] text-white/70 mt-0.5">Perform important task in one click</p>
       </div>
       <div className="p-3.5 sm:p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
         {QUICK_ACTIONS.map((action, i) => {
@@ -1572,8 +1572,8 @@ export default function DashboardPage() {
         {/* HEADER */}
         <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-white/90">Dashboard</h1>
-            <p className="text-xs text-white/70 mt-0.5">Good morning! Here are your key actions for today.</p>
+            <h1 className="text-xl lg:text-2xl font-semibold tracking-tight text-white/90">Dashboard</h1>
+            <p className="text-[13px] text-white/70 mt-0.5">Good morning! Here are your key actions for today.</p>
           </div>
           <div className="flex items-center flex-nowrap gap-1.5 sm:gap-3 py-0.5 justify-start xl:justify-end">
             <WhatsAppStatusIndicator />
@@ -1604,7 +1604,7 @@ export default function DashboardPage() {
             {/* Header: Title on Left, 2 Toggle buttons on Right */}
             <div className="px-5 pt-4 pb-1 flex items-center justify-between">
               <div>
-                <h2 className="text-[15px] font-semibold text-white/90">Monthly Revenue</h2>
+                <h2 className="text-[15px] font-medium text-white/90">Monthly Revenue</h2>
                 <p className="text-[12px] text-white/70 mt-0.5">This year vs last year (INR)</p>
               </div>
 

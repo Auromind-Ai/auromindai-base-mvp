@@ -155,9 +155,9 @@ export default function AdminTemplatesPage() {
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Category</label>
                   <select name="category" value={formData.category} onChange={handleInputChange} className="w-full bg-[#161616] border border-white/10 rounded-lg px-4 py-2 text-white">
-                    <option value="UTILITY">UTILITY</option>
-                    <option value="MARKETING">MARKETING</option>
-                    <option value="AUTHENTICATION">AUTHENTICATION</option>
+                    <option value="UTILITY">Utility</option>
+                    <option value="MARKETING">Marketing</option>
+                    <option value="AUTHENTICATION">Authentication</option>
                   </select>
                 </div>
               </div>

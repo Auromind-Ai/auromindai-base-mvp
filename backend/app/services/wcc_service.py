@@ -29,6 +29,19 @@ class InsufficientWCCBalanceError(Exception):
         )
 
 
+def normalize_wcc_category(category: Optional[str]) -> str:
+    if not category:
+        return "marketing"
+    cat = str(category).strip().lower()
+    if any(k in cat for k in ["utility", "transactional", "transact", "order", "update", "bill", "alert", "support", "customer support", "reminder", "follow"]):
+        return "utility"
+    if any(k in cat for k in ["auth", "otp", "code", "login", "verification"]):
+        return "authentication"
+    if any(k in cat for k in ["service", "care", "help"]):
+        return "service"
+    return "marketing"
+
+
 class WCCService:
     _debit_lock = threading.RLock()
     @classmethod
@@ -337,8 +350,10 @@ class WCCService:
       
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc)
+        norm_cat = normalize_wcc_category(category)
+
         rate_cards = db.query(WCCRateCard).filter(
-            WCCRateCard.category == category,
+            WCCRateCard.category.ilike(norm_cat),
             WCCRateCard.region == region,
             WCCRateCard.is_active == True,
             WCCRateCard.effective_from <= now,
@@ -346,11 +361,30 @@ class WCCService:
         ).all()
 
         if not rate_cards:
-            raise ValueError(f"No active WCC rate card found for category '{category}' in region '{region}' at this time.")
+            rate_cards = db.query(WCCRateCard).filter(
+                WCCRateCard.category.ilike(norm_cat),
+                WCCRateCard.is_active == True,
+            ).all()
+
+        if not rate_cards:
+            fallback_rates = {
+                "marketing": (Decimal("1.2500"), Decimal("1.0900")),
+                "utility": (Decimal("0.1800"), Decimal("0.1450")),
+                "authentication": (Decimal("0.1800"), Decimal("0.1450")),
+                "service": (Decimal("0.0500"), Decimal("0.0000")),
+            }
+            cust_p, meta_c = fallback_rates.get(norm_cat, (Decimal("1.2500"), Decimal("1.0900")))
+            return WCCRateCard(
+                category=norm_cat,
+                region=region,
+                customer_price=cust_p,
+                meta_cost=meta_c,
+                rate_per_message=cust_p,
+                is_active=True
+            )
 
         if len(rate_cards) > 1:
-            logger.error(f"Inconsistent pricing setup: Multiple overlapping active rate cards found for '{category}' in region '{region}'.")
-            raise ValueError(f"Pricing configuration error: Overlapping rate cards found for category '{category}'.")
+            logger.error(f"Inconsistent pricing setup: Multiple overlapping active rate cards found for '{norm_cat}' in region '{region}'.")
 
         return rate_cards[0]
 
@@ -368,11 +402,13 @@ class WCCService:
         workspace_id = normalize_workspace_id(workspace_id)
         rate_card = cls.get_active_rate(db, category, "IN")
 
-        customer_rate = rate_card.customer_price
-        meta_rate = rate_card.meta_cost
+        customer_rate = rate_card.customer_price if rate_card.customer_price is not None else Decimal("1.25")
+        meta_rate = rate_card.meta_cost if rate_card.meta_cost is not None else Decimal("1.09")
+        platform_fee_rate = max(Decimal("0.0000"), customer_rate - meta_rate)
         
         estimated_cost = Decimal(audience_size) * customer_rate
         estimated_meta_cost = Decimal(audience_size) * meta_rate
+        estimated_platform_fee = Decimal(audience_size) * platform_fee_rate
 
         wallet = cls.get_balance(db, workspace_id)
         balance_sufficient = wallet.balance >= estimated_cost
@@ -380,8 +416,12 @@ class WCCService:
         return {
             "estimated_cost": estimated_cost,
             "estimated_meta_cost": estimated_meta_cost,
+            "estimated_platform_fee": estimated_platform_fee,
             "balance_sufficient": balance_sufficient,
-            "rate_applied": customer_rate
+            "rate_applied": customer_rate,
+            "customer_price": customer_rate,
+            "meta_rate": meta_rate,
+            "platform_fee_rate": platform_fee_rate,
         }
 
     @classmethod

@@ -497,37 +497,65 @@ def get_system_templates(db: Session = Depends(get_db)):
 # GET TEMPLATES
 @router.get("/templates")
 def get_templates(
+    workspace_id: str | None = None,
+    category: str | None = None,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    templates = (
-        db.query(Template)
-        .filter(
+  
+    user_ws = getattr(current_user, "workspace_id", None)
+    target_ws = workspace_id or user_ws
+
+    query = db.query(Template)
+    if target_ws:
+        try:
+            ws_uuid = to_uuid(target_ws)
+            query = query.filter(
+                (Template.workspace_id == ws_uuid) |
+                (Template.user_id == current_user.id) |
+                (Template.system_tag.isnot(None))
+            )
+        except Exception:
+            query = query.filter(
+                (Template.user_id == current_user.id) |
+                (Template.system_tag.isnot(None))
+            )
+    else:
+        query = query.filter(
             (Template.user_id == current_user.id) |
-            ((Template.user_id == None) & (Template.workspace_id == current_user.workspace_id))
+            (Template.system_tag.isnot(None))
         )
-        .order_by(Template.created_at.desc())
-        .all()
-    )
+
+    if category and category.lower() != "all":
+        query = query.filter(Template.category.ilike(category))
+
+    templates = query.order_by(Template.created_at.desc()).all()
+
+    formatted = []
+    for t in templates:
+        body_text = t.content or ""
+        vars_found = list(dict.fromkeys(re.findall(r"\{\{[^}]+\}\}", body_text)))
+        formatted.append({
+            "id": str(t.id),
+            "name": t.name,
+            "type": t.type or "TEXT",
+            "content": body_text,
+            "body": body_text,
+            "header": t.header,
+            "footer": t.footer,
+            "cta": t.cta,
+            "cta_btn_title": t.cta_btn_title,
+            "status": (t.status or "draft").lower(),
+            "category": (t.category or "MARKETING").upper(),
+            "language": t.language or "en_US",
+            "variables": vars_found,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+        })
 
     return {
-        "templates": [
-            {
-                "id": str(t.id),
-                "name": t.name,
-                "type": t.type,
-                "content": t.content,
-                "header": t.header,
-                "footer": t.footer,
-                "cta": t.cta,
-                "cta_btn_title": t.cta_btn_title,
-                "status": t.status,
-                "category": t.category,
-                "language": t.language,
-                "created_at": t.created_at.isoformat() if t.created_at else None,
-            }
-            for t in templates
-        ]
+        "templates": formatted,
+        "items": formatted,
+        "total": len(formatted),
     }
 
 
