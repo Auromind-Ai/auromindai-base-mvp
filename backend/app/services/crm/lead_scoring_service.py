@@ -519,7 +519,7 @@ def get_workspace_lead_scores(
     min_score: int | None = None,
     max_score: int | None = None,
     search: str | None = None,
-    sort_by: str = "score_desc",
+    sort_by: str = "recent",
     limit: int = 100,
     offset: int = 0,
     filters=None,
@@ -541,17 +541,23 @@ def get_workspace_lead_scores(
     # Total count (before pagination)
     total = query.count()
 
-    # Sorting
+    # Sorting: Default to recent (most recent activity / return date first)
     if sort_by == "score_asc":
-        query = query.order_by(Lead.score.asc().nullslast())
+        query = query.order_by(Lead.score.asc().nullslast(), Lead.id.desc())
     elif sort_by == "score_desc":
-        query = query.order_by(Lead.score.desc().nullsfirst())
+        query = query.order_by(Lead.score.desc().nullsfirst(), Lead.id.desc())
     elif sort_by == "recent":
-        query = query.order_by(Lead.last_activity_at.desc().nullslast())
+        query = query.order_by(
+            sa_func.coalesce(Lead.last_activity_at, Lead.updated_at, Lead.created_at).desc().nullslast(),
+            Lead.id.desc()
+        )
     else:
-        query = query.order_by(Lead.score.desc().nullsfirst())
+        query = query.order_by(
+            sa_func.coalesce(Lead.last_activity_at, Lead.updated_at, Lead.created_at).desc().nullslast(),
+            Lead.id.desc()
+        )
 
-    leads = query.order_by(Lead.id).offset(offset).limit(limit).all()
+    leads = query.offset(offset).limit(limit).all()
     responses_by_lead = {}
     if leads:
         for lead_id, response in db.query(TemplateLog.lead_id, TemplateLog.response_type).filter(
@@ -612,6 +618,10 @@ def get_workspace_lead_scores(
             "last_activity_at": (
                 lead.last_activity_at.isoformat()
                 if lead.last_activity_at else None
+            ),
+            "updated_at": (
+                lead.updated_at.isoformat()
+                if lead.updated_at else None
             ),
 
             "assigned_to": (

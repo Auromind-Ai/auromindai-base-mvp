@@ -320,6 +320,8 @@ const normalizeLead = (lead) => {
         conversation_id: lead.conversation_id,
         assigned_to: lead.assigned_to,
         created_at: lead.created_at,
+        last_activity_at: lead.last_activity_at,
+        updated_at: lead.updated_at,
         ai_summary: lead.ai_summary || '',
         profile_image: lead.profile_image || lead.profile_pic || null,
         avatar_url: lead.avatar_url || null,
@@ -1353,7 +1355,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
             if (selectedFilter === 'favorites') effective.favorite = true;
             else if (selectedFilter !== 'all') effective.sources = [selectedFilter];
             const filterParam = `&filters=${encodeURIComponent(JSON.stringify(effective))}`;
-            const res = await api.get(`/lead-scoring/leads?workspace_id=${workspaceId}&limit=${LIMIT}&offset=${currentOffset}${filterParam}`);
+            const res = await api.get(`/lead-scoring/leads?workspace_id=${workspaceId}&limit=${LIMIT}&offset=${currentOffset}&sort_by=recent${filterParam}`);
             if (requestId !== listRequestRef.current) return;
             const normalizedItems = (res.items || []).map(normalizeLead);
 

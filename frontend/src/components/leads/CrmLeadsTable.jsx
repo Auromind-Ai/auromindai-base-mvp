@@ -126,8 +126,8 @@ export default function CrmLeadsTable({
                                         <input type="checkbox" className="accent-violet-500" checked={checked} onChange={() => onToggleSelection(lead.id)} aria-label={`Select ${lead.name}`} />
                                     </td>}
                                     <td className="px-4 py-4 text-zinc-500 tabular-nums">{offset + index + 1}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-zinc-300">
-                                        {formatDate(lead.created_at)}
+                                    <td className="px-4 py-4 whitespace-nowrap text-zinc-300" title={lead.created_at && lead.last_activity_at && lead.created_at !== lead.last_activity_at ? `Created: ${formatDate(lead.created_at)} | Last active: ${formatDate(lead.last_activity_at)}` : undefined}>
+                                        {formatDate(lead.last_activity_at || lead.updated_at || lead.created_at)}
                                     </td>
                                     <td className="px-4 py-4 whitespace-nowrap text-zinc-300">
                                         {sourceLabel(lead.source)}
