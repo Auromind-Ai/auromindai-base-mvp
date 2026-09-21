@@ -8,12 +8,15 @@ from datetime import datetime, timezone
 
 from pydantic import ValidationError
 from fastapi.responses import StreamingResponse
-from app.schemas.crm_filters import LeadFilters, LeadExportRequest, CrmSavedViewCreate, CrmSavedViewResponse
+from app.schemas.crm_filters import LeadFilters, LeadExportRequest, LeadFollowUpRequest, CrmSavedViewCreate, CrmSavedViewResponse
 from app.services.crm.lead_query import lead_query, source_expression
-from app.services.crm import lead_reporting
+from app.services.crm import lead_reporting, lead_follow_up_service
+from app.schemas.lead_report import LeadReportSettingsUpdate, LeadReportTestRequest
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.core.event_bus import emit_event
 from app.database import get_db
@@ -49,6 +52,25 @@ def parse_lead_filters(raw: str | None) -> LeadFilters:
         return filters
     except (ValidationError, ValueError) as exc:
         raise HTTPException(status_code=422, detail="Invalid lead filters. Check ranges and values.") from exc
+
+
+@router.post("/follow-ups")
+def add_follow_up_leads(body: LeadFollowUpRequest, workspace_id: str | None = None, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    try:
+        return lead_follow_up_service.add_follow_ups(db, wid, body.selected_ids)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.delete("/follow-ups/{lead_id}")
+def remove_follow_up_lead(lead_id: UUID, workspace_id: str | None = None, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    try:
+        return lead_follow_up_service.remove_follow_up(db, wid, lead_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
 
 
 @router.get("/filter-options")
@@ -1112,3 +1134,93 @@ async def create_manual_lead(
         created_at=lead.created_at,
     )
 
+
+# --- Qualified Lead Email Report Endpoints ---
+
+@router.get("/email-report/settings")
+def get_email_report_settings(
+    response: Response,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.services.crm.lead_email_report_service import LeadEmailReportService
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    setting = LeadEmailReportService.get_or_create_settings(db, wid)
+
+    return LeadEmailReportService.settings_payload(db, wid, setting)
+
+
+@router.post("/email-report/settings")
+def save_email_report_settings(
+    body: LeadReportSettingsUpdate,
+    response: Response,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.services.crm.lead_email_report_service import LeadEmailReportService
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    try:
+        setting = LeadEmailReportService.update_settings(db, wid, body.model_dump(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return {"status": "success", **LeadEmailReportService.settings_payload(db, wid, setting)}
+
+
+@router.post("/email-report/send-test")
+def send_test_email_report(
+    body: LeadReportTestRequest | None = None,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.services.crm.lead_email_report_service import LeadEmailReportService
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+
+    body = body.model_dump(exclude_unset=True) if body else {}
+    recipient_override = body.get("recipient_emails")
+
+    try:
+        result = LeadEmailReportService.send_report(
+            db=db,
+            workspace_id=wid,
+            is_test=True,
+            recipient_override=recipient_override,
+            settings_override=body.get("settings"),
+        )
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to send test email: {str(exc)}") from exc
+
+
+@router.get("/email-report/sample-preview")
+def get_sample_preview(
+    min_score: int = Query(50, ge=0, le=100),
+    filters: str | None = Query(None, max_length=16000),
+    columns: str | None = Query(None, max_length=2000),
+    frequency: Literal["daily", "weekly", "monthly"] = Query("daily"),
+    subject_template: str | None = Query(None),
+    body_template: str | None = Query(None),
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.services.crm.lead_email_report_service import LeadEmailReportService
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+
+    try:
+        return LeadEmailReportService.sample_preview(db, wid, min_score, filters, columns, frequency, subject_template, body_template)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

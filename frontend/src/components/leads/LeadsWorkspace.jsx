@@ -884,10 +884,6 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onToggleFavorite
                                 <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                                     <div
                                         className={`max-w-[72%] px-4 py-3 ${!isMe ? 'rounded-[20px_20px_20px_6px] bg-[#252525]' : `rounded-[20px_20px_6px_20px] bg-gradient-to-br ${theme.bubbleGradient} border border-white/10 shadow-lg ${theme.accentGlow}`}`}
-                                        style={!isMe
-                                            ? { borderBottomLeftRadius: '6px' }
-                                            : { borderBottomRightRadius: '6px' }
-                                        }
                                     >
                                         <MessageRenderer
                                             content={m.text}
@@ -1300,6 +1296,8 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     const [filters, setFilters] = useState({});
     const [filterOptions, setFilterOptions] = useState(null);
     const [selectedIds, setSelectedIds] = useState([]);
+    const [addingFollowUp, setAddingFollowUp] = useState(false);
+    const [followUpError, setFollowUpError] = useState('');
     const [listError, setListError] = useState('');
     const [failedListRequest, setFailedListRequest] = useState(null);
     const [detailErrors, setDetailErrors] = useState({});
@@ -1618,16 +1616,30 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     };
     const changeQuickFilter = value => { setSelectedFilter(value); setFilters(prev => { const next = { ...prev }; delete next.sources; delete next.favorite; return next; }); };
     const toggleSelection = id => setSelectedIds(prev => prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id]);
+    const addToFollowUp = async () => {
+        if (!selectedIds.length || addingFollowUp) return;
+        setAddingFollowUp(true);
+        setFollowUpError('');
+        try {
+            await api.post(`/lead-scoring/follow-ups?workspace_id=${workspaceId}`, { selected_ids: selectedIds });
+            setSelectedIds([]);
+            setSection('overview');
+        } catch (err) {
+            setFollowUpError(err.message || 'Unable to add selected leads to follow up. Please try again.');
+        } finally {
+            setAddingFollowUp(false);
+        }
+    };
 
     return (
-        <div className={`${poppins.className} h-screen flex flex-col lg:flex-row bg-[#07010F] text-white overflow-hidden`} style={{ fontFamily: "'Poppins', sans-serif" }}>
+        <div className={`${poppins.className} h-screen flex flex-col lg:flex-row bg-[#07010F] text-white overflow-hidden`}>
             {upgraded && <CrmNavigation section={section} onChange={setSection} />}
             <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-                {section === 'overview' && <CrmAnalytics overview onBrowse={() => setSection('leads')} />}
+                {section === 'overview' && <CrmAnalytics overview workspaceId={workspaceId} onBrowse={() => setSection('leads')} onSelect={id => { setSelectedLeadId(id); setSection('scoring'); }} />}
                 {section === 'analytics' && <CrmAnalytics />}
                 {section === 'scoring' && <CrmScoring loading={detailsLoading[selectedLeadId]} loadError={detailErrors[selectedLeadId]} onRetry={() => fetchSelectedLeadData(selectedLeadId)} options={filterOptions} lead={leadsDetails[selectedLeadId]} onRecalculate={async id => { await fetchSelectedLeadData(id); await fetchLeadsList(); }} />}
                 {section === 'history' && <CrmHistory onSelect={id => { setSelectedLeadId(id); setSection('scoring'); }} />}
-                {section === 'reports' && <CrmReports />}
+                {section === 'reports' && <CrmReports workspaceId={workspaceId} />}
                 {section === 'leads' && <>
                 {/* Header */}
                 <header className="h-12 sm:h-14 flex items-center justify-between px-3 sm:px-4 md:px-6 border-b border-white/[0.06] bg-[#0D0D17] flex-shrink-0 gap-2 sm:gap-4">
@@ -1666,15 +1678,21 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                 {!upgraded && detailErrors[selectedLeadId] && <p role="alert" className="px-4 py-2 text-sm text-rose-300">{detailErrors[selectedLeadId]} <button disabled={detailsLoading[selectedLeadId]} onClick={() => fetchSelectedLeadData(selectedLeadId)}>Retry lead details</button></p>}
                 {listError && <p role="alert" className="px-4 py-2 text-sm text-rose-300">{listError} <button disabled={loading} onClick={() => fetchLeadsList(failedListRequest?.currentOffset ?? 0, failedListRequest?.isAppend ?? false)}>Retry</button></p>}
                 {/* CRM uses a full-width table; the original Leads route retains its panels. */}
+                {followUpError && <p role="alert" className="px-4 py-2 text-sm text-rose-300">{followUpError}</p>}
                 {upgraded ? <CrmLeadsTable
+                    onAddFollowUp={addToFollowUp}
+                    addingFollowUp={addingFollowUp}
                     title={selectedFilter !== 'all' ? (FILTER_OPTIONS.find(option => option.id === selectedFilter)?.label || 'Filtered Leads') : (Object.keys(cleanFilters(filters)).length || debouncedSearch.trim() ? 'Filtered Leads' : 'All Leads')}
                     searchTerm={searchTerm}
                     onSearchChange={setSearchTerm}
                     leads={displayedLeads}
                     loading={loading}
                     totalCount={totalCount}
+                    offset={offset}
+                    pageSize={LIMIT}
+                    onPageChange={newOffset => fetchLeadsList(newOffset, false)}
                     hasMore={hasMore}
-                    onLoadMore={() => fetchLeadsList(offset + LIMIT, true)}
+                    onLoadMore={() => fetchLeadsList(offset + LIMIT, false)}
                     selectedIds={selectedIds}
                     onToggleSelection={toggleSelection}
                     onSelect={id => { setSelectedLeadId(id); setSection('scoring'); }}

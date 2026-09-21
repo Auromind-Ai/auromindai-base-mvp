@@ -26,6 +26,7 @@ class LeadFilters(BaseModel):
     labels: list[str] = Field(default_factory=list, max_length=20)
     converted: bool | None = None
     favorite: bool | None = None
+    follow_up: bool | None = None
     min_value: float | None = Field(None, ge=0, allow_inf_nan=False)
     max_value: float | None = Field(None, ge=0, allow_inf_nan=False)
     product: str | None = Field(None, max_length=255)
@@ -51,6 +52,11 @@ class LeadFilters(BaseModel):
             if a is not None and b is not None and a > b:
                 raise ValueError(f"{lower} must not exceed {upper}")
         return self
+
+
+class LeadFollowUpRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    selected_ids: list[UUID] = Field(min_length=1, max_length=5000)
 
 
 class LeadExportRequest(BaseModel):
@@ -82,4 +88,3 @@ class CrmSavedViewResponse(BaseModel):
     filters: dict
     created_at: datetime
     updated_at: datetime | None = None
-

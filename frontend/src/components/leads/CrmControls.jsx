@@ -7,7 +7,7 @@ import api from "@/lib/api";
 import { getUser, getWorkspaceIdFromToken } from "@/lib/auth";
 
 export const crmControl =
-  "rounded-xl border border-white/10 bg-[#171322] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-40";
+  "rounded-xl border border-white/10 bg-[#171322] px-3 py-2 text-sm text-white [color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-40";
 export const intentLabel = (key) =>
   ({
     has_pricing: "Price enquiry",
