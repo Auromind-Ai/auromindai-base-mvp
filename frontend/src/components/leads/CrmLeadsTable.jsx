@@ -1,6 +1,7 @@
 'use client';
 
 import { SYSTEM_TIERS } from '@/lib/labelStyles';
+import Link from 'next/link';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const sourceLabel = source => ({
@@ -138,7 +139,15 @@ export default function CrmLeadsTable({
                                         </button>
                                     </td>
                                     <td className="px-4 py-4 whitespace-nowrap text-zinc-300">
-                                        {lead.phone || '—'}
+                                        {lead.phone && lead.id ? (
+                                            <Link
+                                                href={`/user/admin/leads?leadId=${encodeURIComponent(lead.id)}`}
+                                                aria-label={`Open conversation for ${lead.name || lead.phone}`}
+                                                className="rounded text-violet-200 hover:text-violet-300 hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                                            >
+                                                {lead.phone}
+                                            </Link>
+                                        ) : (lead.phone || '—')}
                                     </td>
                                     <td className="px-4 py-4">
                                         <span className="inline-flex rounded-lg border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 font-semibold text-violet-300 tabular-nums">
