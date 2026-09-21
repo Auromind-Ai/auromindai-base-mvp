@@ -13,13 +13,50 @@ import {
   ChevronDown
 } from 'lucide-react';
 import WhatsAppPreview from '../WhatsAppPreview';
+import { isFutureSchedule } from '@/lib/campaignScheduleUtils';
 
 export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunching }) {
   const [confirmedPolicy, setConfirmedPolicy] = useState(true);
   const [viewMode, setViewMode] = useState('whatsapp');
   const [error, setError] = useState('');
 
+  const isScheduleValid = data.sendType !== 'Schedule for Later' || isFutureSchedule(data.scheduleDate, data.scheduleTime);
+
+  const previewMessage = React.useMemo(() => {
+    let text = data.messageBody || '';
+    const sampleRecipient = (data?.recipients && data.recipients.length > 0) ? data.recipients[0] : null;
+
+    if (data.variableMapping && typeof data.variableMapping === 'object') {
+      Object.entries(data.variableMapping).forEach(([k, v]) => {
+        const tag = `{{${k}}}`;
+        let sample = tag;
+        if (v?.source === 'custom') {
+          sample = v.customValue || `[Value ${k}]`;
+        } else {
+          const colName = v?.source;
+          if (sampleRecipient) {
+            sample =
+              sampleRecipient?.variables?.[colName] ||
+              sampleRecipient?.variables?.[colName?.toLowerCase()] ||
+              sampleRecipient?.[colName] ||
+              (colName?.toLowerCase().includes('name') ? (sampleRecipient?.recipient_name || sampleRecipient?.name) : null) ||
+              (colName?.toLowerCase().includes('phone') ? (sampleRecipient?.phone_number || sampleRecipient?.phone) : null) ||
+              `[${colName}]`;
+          } else {
+            sample = `[${colName}]`;
+          }
+        }
+        text = text.split(tag).join(sample);
+      });
+    }
+    return text;
+  }, [data.messageBody, data.variableMapping, data?.recipients]);
+
   const handleConfirmLaunch = () => {
+    if (!isScheduleValid) {
+      setError('The scheduled date and time is in the past. Please click "Edit" on Schedule to select a future time.');
+      return;
+    }
     if (!confirmedPolicy) {
       setError('Please accept WhatsApp Business Policy confirmation before launching.');
       return;
@@ -165,9 +202,13 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
                 {data.mediaUrl ? (data.mediaName || '1 attachment') : 'None'}
               </span>
 
-              <span className="text-[#8c88a6]">Variables</span>
-              <span className="text-[#C49FE0] text-[11px] text-right sm:text-left">
-                {data.messageBody ? ([...new Set(data.messageBody.match(/\{\{([a-zA-Z0-9_]+)\}\}/g) || [])].join(', ') || 'None') : 'None'}
+              <span className="text-[#8c88a6]">Variables Mapped</span>
+              <span className="text-[#C49FE0] text-[11px] text-right sm:text-left font-medium">
+                {data.variableMapping && Object.keys(data.variableMapping).length > 0
+                  ? Object.entries(data.variableMapping)
+                      .map(([k, v]) => `{{${k}}} → ${v?.source === 'custom' ? (v?.customValue ? `"${v.customValue}"` : 'Custom Text') : v?.source}`)
+                      .join(', ')
+                  : (data.messageBody ? ([...new Set(data.messageBody.match(/\{\{([a-zA-Z0-9_]+)\}\}/g) || [])].join(', ') || 'None') : 'None')}
               </span>
             </div>
           </div>
@@ -199,8 +240,12 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
               <span className="text-white font-medium text-right sm:text-left">{data.sendType || 'Send Now'}</span>
 
               <span className="text-[#8c88a6]">Date & Time</span>
-              <span className="text-white font-medium text-right sm:text-left">
-                {data.sendType === 'Send Now' ? 'Immediate dispatch upon launch' : `${data.scheduleDate || 'Today'} at ${data.scheduleTime || '10:00 AM'} (IST)`}
+              <span className={`font-medium text-right sm:text-left ${!isScheduleValid ? 'text-rose-400' : 'text-white'}`}>
+                {data.sendType === 'Send Now'
+                  ? 'Immediate dispatch upon launch'
+                  : isScheduleValid
+                  ? `${data.scheduleDate || 'Today'} at ${data.scheduleTime || '10:00 AM'} (IST)`
+                  : `${data.scheduleDate} at ${data.scheduleTime} (Past time - Click Edit to fix)`}
               </span>
 
               <span className="text-[#8c88a6]">Timezone</span>
@@ -250,7 +295,7 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
 
           <WhatsAppPreview
             businessName={data.name || 'Your Business'}
-            messageText={data.messageBody}
+            messageText={previewMessage}
             mediaUrl={data.mediaUrl}
           />
         </div>

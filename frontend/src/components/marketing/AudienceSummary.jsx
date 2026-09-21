@@ -15,6 +15,7 @@ export default function AudienceSummary({
   isBalanceSufficient = true,
   shortfall = 0,
   portfolioRemainingToday = null,
+  portfolioTierLimit = null,
   isWhatsAppConnected = true,
 }) {
   const validPct = total > 0 ? ((valid / total) * 100).toFixed(1) : '0.0';
@@ -119,9 +120,13 @@ export default function AudienceSummary({
         {/* Portfolio Tier Limit Info */}
         <div className="flex items-center justify-between text-[11px] text-[#8c88a6] px-1 pt-1">
           <span>Meta 24h Quota:</span>
-          {!isWhatsAppConnected || portfolioRemainingToday === 0 || portfolioRemainingToday === null ? (
+          {!isWhatsAppConnected ? (
             <span className="text-amber-400/90 font-medium">
               0 remaining (Not Connected)
+            </span>
+          ) : portfolioRemainingToday === 0 ? (
+            <span className="text-rose-400 font-medium">
+              0 remaining (Daily limit reached)
             </span>
           ) : (
             <span className="text-[#C49FE0] font-medium">

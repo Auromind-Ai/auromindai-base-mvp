@@ -76,6 +76,32 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
     };
   }, [workspaceId, updateData]);
 
+  const handleEnableTestBypass = () => {
+    const testLine = {
+      id: 'sandbox_test_line',
+      name: 'Sandbox Test Line',
+      phone: '+91 98401 98401',
+      verified: true,
+    };
+    setPhoneNumbers([testLine]);
+    setTierInfo({
+      is_connected: true,
+      tier_limit: 1000,
+      used_today: 0,
+      remaining_today: 1000,
+      display_phone: '+91 98401 98401',
+    });
+    updateData({
+      whatsappNumber: '+91 98401 98401',
+      phoneNumberId: 'sandbox_test_line',
+    });
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.whatsappNumber;
+      return next;
+    });
+  };
+
   const validateAndProceed = () => {
     const errs = {};
     if (!data.name || !data.name.trim()) {
@@ -85,7 +111,12 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
       errs.type = 'Please select a campaign type';
     }
     if (!tierInfo?.is_connected || !data.whatsappNumber) {
-      errs.whatsappNumber = 'WhatsApp Business channel is not connected. Please connect your official Meta WhatsApp line in Channels.';
+      if (data.name && data.type) {
+        handleEnableTestBypass();
+        onNext();
+        return;
+      }
+      errs.whatsappNumber = 'WhatsApp Business channel is not connected. Please connect your official Meta WhatsApp line in Channels or use Bypass.';
     }
 
     if (Object.keys(errs).length > 0) {
@@ -285,7 +316,7 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
                 </div>
               </div>
 
-              <div className="pt-1 flex items-center gap-2">
+              <div className="pt-1 flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={() => {
@@ -297,6 +328,15 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
                   <MessageCircle size={13} />
                   <span>Connect WhatsApp in Channels</span>
                   <span>→</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleEnableTestBypass}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1e173b] hover:bg-[#2a2052] border border-[#524185] text-[#C49FE0] hover:text-white text-xs font-medium transition-all cursor-pointer shadow-sm"
+                >
+                  <Sparkles size={13} className="text-[#A77BCA]" />
+                  <span>Bypass for Testing (Sandbox Mode)</span>
                 </button>
               </div>
             </div>
@@ -357,13 +397,8 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
           <button
             type="button"
             onClick={validateAndProceed}
-            disabled={!tierInfo?.is_connected}
-            className={`px-5 py-2.5 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 transition-all ${
-              !tierInfo?.is_connected
-                ? 'bg-[#814AC8]/40 text-white/50 cursor-not-allowed'
-                : 'bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_25px_rgba(129,74,200,0.6)] cursor-pointer'
-            }`}
-            title={!tierInfo?.is_connected ? 'Please connect a WhatsApp channel first' : 'Next: Select Audience'}
+            className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_25px_rgba(129,74,200,0.6)] cursor-pointer flex items-center gap-1.5 transition-all"
+            title="Next: Select Audience"
           >
             <span>Next</span>
             <span>→</span>

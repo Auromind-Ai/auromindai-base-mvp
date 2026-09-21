@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   FileText,
   X,
   Info,
   CheckCircle,
   Search,
+  Sparkles,
 } from 'lucide-react';
 import WhatsAppPreview from '../WhatsAppPreview';
 import QuickTips from '../QuickTips';
@@ -19,7 +20,132 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
   const [templateSearch, setTemplateSearch] = useState('');
   const [templateCategoryFilter, setTemplateCategoryFilter] = useState('ALL');
   const [selectedTemplateId, setSelectedTemplateId] = useState(data.selectedTemplateId || '');
+  const [variableMapping, setVariableMapping] = useState(data.variableMapping || {});
   const [error, setError] = useState('');
+
+  const mappingRef = useRef(variableMapping);
+  mappingRef.current = variableMapping;
+
+  // Extract actual column headers dynamically from uploaded CSV or audience
+  const audienceColumns = useMemo(() => {
+    // 1. Explicit headers from uploaded CSV (only when audienceType is CSV)
+    if (
+      data?.audienceType === 'Upload CSV' &&
+      Array.isArray(data?.audienceHeaders) &&
+      data.audienceHeaders.length > 0
+    ) {
+      return data.audienceHeaders;
+    }
+
+    // 2. Or dynamically extract keys from actual recipients with non-empty values
+    if (Array.isArray(data?.recipients) && data.recipients.length > 0) {
+      const detectedKeys = [];
+      const lowerSeen = new Set();
+
+      const addKey = (key) => {
+        if (!key) return;
+        const lower = key.toLowerCase();
+        if (!lowerSeen.has(lower)) {
+          lowerSeen.add(lower);
+          detectedKeys.push(key);
+        }
+      };
+
+      const sample = data.recipients.slice(0, 50);
+
+      // Check name - only if present and non-empty
+      const hasName = sample.some(
+        (r) =>
+          (r.recipient_name && String(r.recipient_name).trim().length > 0) ||
+          (r.name && String(r.name).trim().length > 0) ||
+          (r.variables?.name && String(r.variables.name).trim().length > 0)
+      );
+      if (hasName) addKey('name');
+
+      // Check phone - only if present and non-empty
+      const hasPhone = sample.some(
+        (r) =>
+          (r.phone_number && String(r.phone_number).trim().length > 0) ||
+          (r.normalized_phone && String(r.normalized_phone).trim().length > 0) ||
+          (r.phone && String(r.phone).trim().length > 0) ||
+          (r.variables?.phone && String(r.variables.phone).trim().length > 0)
+      );
+      if (hasPhone) addKey('phone');
+
+      // Check email - ONLY if actually present and not empty!
+      const hasEmail = sample.some(
+        (r) =>
+          (r.email && String(r.email).trim().length > 0) ||
+          (r.variables?.email && String(r.variables.email).trim().length > 0)
+      );
+      if (hasEmail) addKey('email');
+
+      // Check company - ONLY if actually present and not empty!
+      const hasCompany = sample.some(
+        (r) =>
+          (r.company && String(r.company).trim().length > 0) ||
+          (r.variables?.company && String(r.variables.company).trim().length > 0)
+      );
+      if (hasCompany) addKey('company');
+
+      // Check any other custom variables in variables object
+      sample.forEach((r) => {
+        if (r.variables && typeof r.variables === 'object') {
+          Object.entries(r.variables).forEach(([k, val]) => {
+            if (
+              k &&
+              !k.startsWith('_') &&
+              !['name', 'phone', 'email', 'company'].includes(k.toLowerCase()) &&
+              val !== null &&
+              val !== undefined &&
+              String(val).trim().length > 0
+            ) {
+              addKey(k);
+            }
+          });
+        }
+      });
+
+      if (detectedKeys.length > 0) return detectedKeys;
+    }
+
+    // 3. Fallback only if no audience has been selected yet
+    return [];
+  }, [data?.audienceType, data?.audienceHeaders, data?.recipients]);
+
+  // Dropdown options created dynamically from real CSV column headers
+  const mappingOptions = useMemo(() => {
+    const opts = [];
+
+    // Add each actual column heading from the CSV
+    audienceColumns.forEach((col) => {
+      opts.push({
+        id: col,
+        label: col,
+        isCustom: false,
+      });
+    });
+
+    // Option for custom text
+    opts.push({
+      id: 'custom',
+      label: 'Custom Text / Fixed Value',
+      isCustom: true,
+    });
+
+    return opts;
+  }, [audienceColumns]);
+
+  // Automatically detect the best column for Variable 1 (e.g. name column)
+  const defaultNameCol = useMemo(() => {
+    if (!audienceColumns.length) return 'custom';
+    return (
+      audienceColumns.find((c) => {
+        const l = c.toLowerCase();
+        return l.includes('name') || l.includes('user') || l.includes('customer') || l.includes('client');
+      }) || audienceColumns[0]
+    );
+  }, [audienceColumns]);
 
   // Fetch only official approved Meta templates
   useEffect(() => {
@@ -29,14 +155,12 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     fetchApprovedTemplates(targetWsId)
       .then((tpls) => {
         if (isMounted) {
-          // Strictly filter out any draft or unapproved templates
           const approvedOnly = (tpls || []).filter(
             (t) => (t.status || '').toUpperCase() === 'APPROVED'
           );
           setTemplates(approvedOnly);
           setIsLoadingTemplates(false);
 
-          // If the campaign had a selectedTemplateId that exists in approved templates, keep it
           if (data?.selectedTemplateId) {
             const found = approvedOnly.find((t) => String(t.id) === String(data.selectedTemplateId));
             if (found) {
@@ -63,7 +187,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
   const selectedTemplate = templates.find((t) => String(t.id) === String(selectedTemplateId));
 
   // Extract variables strictly from the currently selected template
-  const displayedVariables = React.useMemo(() => {
+  const displayedVariables = useMemo(() => {
     if (!selectedTemplate) return [];
 
     let vars = Array.isArray(selectedTemplate.variables) ? selectedTemplate.variables : [];
@@ -74,16 +198,50 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
     return vars.map((tag) => {
       const normalized = tag.startsWith('{{') ? tag : `{{${tag}}}`;
+      const cleanKey = normalized.replace(/[{}]/g, '');
       return {
         tag: normalized,
-        label: `Template Var ${normalized}`,
+        cleanKey,
+        label: `Variable ${normalized}`,
       };
     });
   }, [selectedTemplate]);
 
-  const handleInsertVariable = (varTag) => {
-    setMessage((prev) => prev + (prev.endsWith(' ') || prev.endsWith('\n') ? '' : ' ') + varTag);
-    updateData({ messageBody: message + ' ' + varTag });
+  // Ensure initial mapping for any missing variables when selected template or audience changes
+  useEffect(() => {
+    if (!displayedVariables.length) return;
+
+    let updated = false;
+    const next = { ...mappingRef.current };
+    displayedVariables.forEach(({ cleanKey }) => {
+      if (!next[cleanKey]) {
+        updated = true;
+        if (cleanKey === '1') {
+          next[cleanKey] = { source: defaultNameCol, fallback: 'Customer', customValue: '' };
+        } else {
+          next[cleanKey] = { source: 'custom', fallback: '', customValue: '' };
+        }
+      }
+    });
+
+    if (updated) {
+      setVariableMapping(next);
+      updateData({ variableMapping: next });
+    }
+  }, [displayedVariables, defaultNameCol, updateData]);
+
+  const handleUpdateMapping = (cleanKey, updates) => {
+    const current = mappingRef.current[cleanKey] || {
+      source: cleanKey === '1' ? defaultNameCol : 'custom',
+      fallback: cleanKey === '1' ? 'Customer' : '',
+      customValue: '',
+    };
+    const next = {
+      ...mappingRef.current,
+      [cleanKey]: { ...current, ...updates },
+    };
+    setVariableMapping(next);
+    updateData({ variableMapping: next });
   };
 
   const handleSelectTemplate = (tpl) => {
@@ -91,14 +249,68 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     setError('');
     const bodyContent = tpl.body || tpl.content || '';
     setMessage(bodyContent);
+
+    let vars = Array.isArray(tpl.variables) ? tpl.variables : [];
+    if (vars.length === 0 && bodyContent) {
+      const matched = bodyContent.match(/\{\{[^}]+\}\}/g);
+      vars = matched ? Array.from(new Set(matched)) : [];
+    }
+
+    const newMapping = {};
+    vars.forEach((v) => {
+      const clean = String(v).replace(/[{}]/g, '');
+      if (clean === '1') {
+        newMapping[clean] = { source: defaultNameCol, fallback: 'Customer', customValue: '' };
+      } else {
+        newMapping[clean] = { source: 'custom', fallback: '', customValue: '' };
+      }
+    });
+
+    setVariableMapping(newMapping);
+
     updateData({
       selectedTemplateId: tpl.id,
       templateName: tpl.name,
       messageBody: bodyContent,
       templateCategory: tpl.category,
       messageMode: 'template',
+      variableMapping: newMapping,
     });
   };
+
+  // Compute live preview with mapped values directly from the first row of uploaded CSV
+  const livePreviewText = useMemo(() => {
+    const base = message || selectedTemplate?.body || selectedTemplate?.content || '';
+    if (!base) return 'Select an approved template to preview your message.';
+
+    const sampleRecipient = (data?.recipients && data.recipients.length > 0) ? data.recipients[0] : null;
+
+    let rendered = base;
+    displayedVariables.forEach(({ tag, cleanKey }) => {
+      const map = variableMapping[cleanKey] || (cleanKey === '1' ? { source: defaultNameCol } : { source: 'custom', customValue: '' });
+      let sampleVal = tag;
+
+      if (map.source === 'custom') {
+        sampleVal = map.customValue?.trim() || `[Value ${cleanKey}]`;
+      } else {
+        const colName = map.source;
+        if (sampleRecipient) {
+          sampleVal =
+            sampleRecipient?.variables?.[colName] ||
+            sampleRecipient?.variables?.[colName.toLowerCase()] ||
+            sampleRecipient?.[colName] ||
+            (colName.toLowerCase().includes('name') ? (sampleRecipient?.recipient_name || sampleRecipient?.name) : null) ||
+            (colName.toLowerCase().includes('phone') ? (sampleRecipient?.phone_number || sampleRecipient?.phone) : null) ||
+            `[${colName}]`;
+        } else {
+          sampleVal = `[${colName}]`;
+        }
+      }
+      rendered = rendered.split(tag).join(sampleVal);
+    });
+
+    return rendered;
+  }, [message, selectedTemplate, displayedVariables, variableMapping, defaultNameCol, data?.recipients]);
 
   const handleProceed = () => {
     if (!selectedTemplateId) {
@@ -111,12 +323,12 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
       selectedTemplateId,
       templateName: selectedTemplate?.name || data.templateName,
       templateCategory: selectedTemplate?.category || data.templateCategory,
+      variableMapping,
     });
     onNext();
   };
 
   const filteredTemplates = templates.filter((tpl) => {
-    // Extra safety: only approved templates
     if ((tpl.status || '').toUpperCase() !== 'APPROVED') return false;
 
     const matchesCat =
@@ -150,7 +362,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
         </div>
       </div>
 
-      {/* Main Grid: Template Selector + Variables + Preview */}
+      {/* Main Grid: Template Selector + Variables Mapping + Preview */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
         {/* Left Column (7 cols): Templates List */}
         <div className="lg:col-span-7 space-y-3">
@@ -314,76 +526,164 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
           {error && <p className="text-xs text-rose-400">{error}</p>}
         </div>
 
-        {/* Right Column (5 cols): Variables Panel + Quick Tips + Preview */}
+        {/* Right Column (5 cols): Variable Mapping + Preview + Quick Tips */}
         <div className="lg:col-span-5 space-y-4">
-          {/* Variables Box - Strictly Template Variables */}
-          <div className="rounded-xl bg-[#0f0e1c] border border-[#251f42] p-4 text-xs">
-            <div className="flex items-center justify-between mb-1.5">
-              <h4 className="font-semibold text-white">Message Variables</h4>
-              {displayedVariables.length > 0 && (
-                <span className="text-[10px] text-[#C49FE0]">
-                  {displayedVariables.length} variable{displayedVariables.length > 1 ? 's' : ''}
-                </span>
-              )}
+          {/* Variable Mapping Box */}
+          <div className="rounded-xl bg-[#0f0e1c] border border-[#251f42] p-4 text-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-semibold text-white flex items-center gap-1.5">
+                  <span>Map Template Variables</span>
+                  {displayedVariables.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#814AC8]/20 text-[#C49FE0] border border-[#814AC8]/30">
+                      {displayedVariables.length} variable{displayedVariables.length > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </h4>
+                <p className="text-[11px] text-[#8c88a6] mt-0.5">
+                  Match each template variable with fields from your selected audience.
+                </p>
+              </div>
             </div>
-            <p className="text-[11px] text-[#8c88a6] mb-3">
-              Click to add variable in your message.
-            </p>
+
+            {/* Display detected audience column tags */}
+            {audienceColumns.length > 0 && (
+              <div className="p-2.5 rounded-lg bg-[#141228] border border-[#251f42]/80 space-y-1.5">
+                <span className="text-[10px] text-[#8c88a6] block font-medium">
+                  Detected columns in <span className="text-[#C49FE0] font-semibold">{data?.audienceListName || 'Audience'}</span>:
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {audienceColumns.map((col) => (
+                    <span
+                      key={col}
+                      className="px-2 py-0.5 rounded bg-[#1f193d] border border-[#3d3366] text-[10px] text-purple-200 font-mono"
+                    >
+                      {col}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {displayedVariables.length > 0 ? (
-              <div className="space-y-1.5">
-                {displayedVariables.map((item) => (
-                  <div
-                    key={item.tag}
-                    onClick={() => handleInsertVariable(item.tag)}
-                    className="flex items-center justify-between p-2 rounded-lg bg-[#141228] border border-[#251f42] hover:border-[#814AC8] hover:bg-[#1a1638] cursor-pointer transition-all group select-none"
-                    title={`Click to add ${item.tag}`}
-                  >
-                    <span className="text-xs font-semibold text-[#C49FE0] group-hover:text-white">
-                      {item.tag}
-                    </span>
-                    <span className="text-[11px] text-[#8c88a6]">
-                      {item.label}
-                    </span>
-                  </div>
-                ))}
+              <div className="space-y-2.5 pt-1">
+                {displayedVariables.map(({ tag, cleanKey }) => {
+                  const current = variableMapping[cleanKey] || {
+                    source: cleanKey === '1' ? defaultNameCol : 'custom',
+                    fallback: cleanKey === '1' ? 'Customer' : '',
+                    customValue: '',
+                  };
+
+                  const isCustom = current.source === 'custom';
+
+                  return (
+                    <div
+                      key={cleanKey}
+                      className="p-3 rounded-xl bg-[#141228] border border-[#251f42] space-y-2.5 hover:border-[#3d3363] transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#C49FE0] px-2 py-0.5 rounded bg-[#814AC8]/20 border border-[#814AC8]/40 font-mono">
+                          {tag}
+                        </span>
+                        <span className="text-[10px] text-[#8c88a6] font-medium">
+                          {isCustom ? 'Custom Text' : current.source}
+                        </span>
+                      </div>
+
+                      {/* Dropdown selector for real CSV columns */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-[#8c88a6] uppercase tracking-wider block">
+                          Fill with:
+                        </label>
+                        <select
+                          value={current.source}
+                          onChange={(e) => handleUpdateMapping(cleanKey, { source: e.target.value })}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs text-white outline-none focus:border-[#814AC8] cursor-pointer"
+                        >
+                          {mappingOptions.map((opt) => (
+                            <option key={opt.id} value={opt.id} className="bg-[#121026] text-white">
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Custom text input if custom value is selected */}
+                      {isCustom && (
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-semibold text-[#8c88a6] uppercase tracking-wider block">
+                            Value for {tag}:
+                          </label>
+                          <input
+                            type="text"
+                            value={current.customValue || ''}
+                            onChange={(e) => handleUpdateMapping(cleanKey, { customValue: e.target.value })}
+                            placeholder="e.g. DIWALI25, 20% OFF, Special Pass"
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs text-white placeholder-[#585375] outline-none focus:border-[#814AC8]"
+                          />
+                        </div>
+                      )}
+
+                      {/* Fallback value for dynamic contact fields */}
+                      {!isCustom && (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-[#8c88a6]">
+                            <span className="font-semibold uppercase tracking-wider">Fallback (if empty):</span>
+                          </div>
+                          <input
+                            type="text"
+                            value={current.fallback ?? ''}
+                            onChange={(e) => handleUpdateMapping(cleanKey, { fallback: e.target.value })}
+                            placeholder={current.source.toLowerCase().includes('name') ? 'e.g. Customer, Valued Member' : 'Default value'}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs text-white placeholder-[#585375] outline-none focus:border-[#814AC8]"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="p-4 rounded-lg bg-[#141228]/60 border border-[#251f42]/60 text-center">
                 <p className="text-[11px] text-[#8c88a6]">
                   {selectedTemplate
                     ? 'This template does not have any variables.'
-                    : 'Select an approved template from the left to view its variables.'}
+                    : 'Select an approved template from the left to map its variables.'}
                 </p>
               </div>
             )}
           </div>
 
-          {/* Quick Tips */}
-          <QuickTips
-            tips={[
-              'Only Meta-approved templates can be sent via WhatsApp Cloud API',
-              'Personalize template variables with contact data',
-              'Templates ensure highest delivery and avoid spam blocks',
-              'Preview how your template appears on recipient devices',
-            ]}
-          />
-
-          {/* Dynamic WhatsApp Preview */}
+          {/* Dynamic WhatsApp Preview with live variable substitution from Row 1 */}
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
               <span className="text-xs font-medium text-[#8c88a6] flex items-center gap-1">
                 Message Preview <Info size={11} className="text-[#814AC8]" />
               </span>
-              <span className="text-[10px] text-[#6d688c]">Live rendering</span>
+              {displayedVariables.length > 0 && (
+                <span className="text-[10px] text-purple-400 font-medium flex items-center gap-1 truncate max-w-[200px]" title={data?.recipients?.[0] ? `Previewing with contact: ${data.recipients[0].recipient_name || data.recipients[0].name || data.recipients[0].phone_number}` : 'Live sample preview'}>
+                  <Sparkles size={10} className="shrink-0" />
+                  <span className="truncate">{data?.recipients?.[0] ? `Contact 1: ${data.recipients[0].recipient_name || data.recipients[0].name || 'Sample contact'}` : 'Live preview'}</span>
+                </span>
+              )}
             </div>
             <WhatsAppPreview
               businessName={data.name || 'Your Business'}
-              messageText={message || (selectedTemplate ? (selectedTemplate.body || selectedTemplate.content) : 'Select a template to preview')}
+              messageText={livePreviewText}
               mediaUrl={data.mediaUrl || null}
               mediaName={data.mediaName || ''}
             />
           </div>
+
+          {/* Quick Tips */}
+          <QuickTips
+            tips={[
+              'Dropdown shows real fields detected from your selected audience',
+              'Pick which contact field replaces {{1}}, {{2}}, etc. for every recipient',
+              'Set a fallback value for any contacts where that field might be blank',
+              'Templates ensure highest delivery and avoid spam blocks',
+            ]}
+          />
         </div>
       </div>
 

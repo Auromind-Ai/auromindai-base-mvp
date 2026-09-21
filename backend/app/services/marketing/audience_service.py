@@ -16,29 +16,71 @@ class AudienceService:
         if not phone_str:
             return None
 
-        # Strip all whitespace, dashes, parentheses
-        cleaned = re.sub(r"[^\d+]", "", str(phone_str).strip())
-        if not cleaned:
+        raw_str = str(phone_str).strip()
+        if not raw_str:
             return None
 
-        if cleaned.startswith("+"):
-            digits = cleaned[1:]
-        elif cleaned.startswith("00"):
-            digits = cleaned[2:]
-        else:
-            digits = cleaned
-
-        # Strip leading zeroes from national number
-        digits = digits.lstrip("0")
-
-        # Basic length validation (international phone numbers are between 7 and 15 digits)
-        if len(digits) == 10 and default_country_code:
-            digits = f"{default_country_code}{digits}"
-
-        if len(digits) < 7 or len(digits) > 15:
+        # Check for multiple numbers / delimiters
+        if re.search(r"[,;]", raw_str):
             return None
 
-        return f"+{digits}"
+        has_plus = raw_str.startswith("+")
+        has_double_zero = raw_str.startswith("00")
+
+        # Strip all non-digit characters
+        digits = re.sub(r"\D", "", raw_str)
+        if not digits:
+            return None
+
+        # Repetitive dummy digits
+        if len(set(digits)) == 1 and len(digits) >= 7:
+            return None
+
+        if has_double_zero:
+            digits = digits[2:]
+            has_plus = True
+
+        # If explicit international prefix (+ or 00) was provided
+        if has_plus:
+            if len(digits) < 10 or len(digits) > 15:
+                return None
+            if digits.startswith("0"):
+                return None
+            if digits.startswith("91"):
+                if len(digits) != 12 or digits[2] not in "6789":
+                    return None
+            return f"+{digits}"
+
+        # Standard 10-digit number
+        if len(digits) == 10:
+            if default_country_code == "91":
+                if digits[0] in "6789":
+                    return f"+91{digits}"
+                return None
+            return f"+{default_country_code}{digits}"
+
+        # 11-digit number starting with 0
+        if len(digits) == 11 and raw_str.startswith("0"):
+            national = digits[1:]
+            if default_country_code == "91":
+                if national[0] in "6789":
+                    return f"+91{national}"
+                return None
+            return f"+{default_country_code}{national}"
+
+        # 12-digit number starting with 91
+        if len(digits) == 12 and digits.startswith("91"):
+            if digits[2] in "6789":
+                return f"+{digits}"
+            return None
+
+        # General international number without + (10 to 15 digits)
+        if 10 <= len(digits) <= 15 and not digits.startswith("0"):
+            if digits.startswith("91"):
+                return None
+            return f"+{digits}"
+
+        return None
 
     @classmethod
     def parse_csv_contacts(
@@ -117,6 +159,7 @@ class AudienceService:
 
         valid_recipients = []
         invalid_sample = []
+        invalid_count = 0
         seen_phones = set()
 
         # If header itself is a phone number (headerless file)
@@ -139,6 +182,7 @@ class AudienceService:
             email = (row.get(email_key, "") if email_key else "").strip()
 
             if not norm_phone:
+                invalid_count += 1
                 if len(invalid_sample) < 20:
                     invalid_sample.append({
                         "row": idx,
@@ -150,6 +194,7 @@ class AudienceService:
 
             # Deduplicate by normalized phone
             if norm_phone in seen_phones:
+                invalid_count += 1
                 if len(invalid_sample) < 20:
                     invalid_sample.append({
                         "row": idx,
@@ -161,19 +206,22 @@ class AudienceService:
 
             seen_phones.add(norm_phone)
 
-            # Collect dynamic variables from remaining columns
+            # Preserve all original column values by their exact CSV header name
             variables = {}
+            for k, v in row.items():
+                if k and str(k).strip():
+                    orig_key = str(k).strip()
+                    val_str = str(v).strip() if v is not None else ""
+                    variables[orig_key] = val_str
+                    clean_k = re.sub(r"[^\w]", "_", orig_key.lower())
+                    variables[clean_k] = val_str
+
             if name:
                 variables["name"] = name
             if email:
                 variables["email"] = email
-            variables["phone"] = norm_phone
-
-            for k, v in row.items():
-                clean_k = re.sub(r"[^\w]", "_", k.strip().lower())
-                if clean_k not in ["phone", "mobile", "contact", "whatsapp", "cell", "name", "email"]:
-                    if v and v.strip():
-                        variables[clean_k] = v.strip()
+            if norm_phone:
+                variables["phone"] = norm_phone
 
             valid_recipients.append({
                 "phone_number": raw_phone,
@@ -182,11 +230,13 @@ class AudienceService:
                 "variables": variables
             })
 
-        total = len(valid_recipients) + len(invalid_sample)
+        headers = [str(f).strip() for f in (reader.fieldnames or []) if f and str(f).strip()]
+        total = len(valid_recipients) + invalid_count
         return {
             "total": total,
             "valid_count": len(valid_recipients),
-            "invalid_count": len(invalid_sample),
+            "invalid_count": invalid_count,
+            "headers": headers,
             "recipients": valid_recipients,
             "invalid_sample": invalid_sample
         }

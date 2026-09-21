@@ -171,13 +171,32 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
             pass
 
         tier_limit = 0
-        if workspace.meta_waba_id and redis_client:
+        cache_id = workspace.meta_phone_number_id or workspace.meta_waba_id
+        if cache_id and redis_client:
             try:
-                cached = redis_client.get(f"wa:meta_tier:{workspace.meta_waba_id}")
+                cached = redis_client.get(f"wa:meta_tier:{cache_id}")
                 if cached:
                     tier_limit = int(cached.decode("utf-8") if isinstance(cached, bytes) else str(cached))
             except Exception:
                 pass
+
+        if not tier_limit and getattr(workspace, "meta_tier_limit", None):
+            tier_limit = int(workspace.meta_tier_limit)
+
+        if not tier_limit and workspace.meta_access_token and (workspace.meta_phone_number_id or workspace.meta_waba_id):
+            try:
+                meta_tier = WhatsAppTierService.fetch_live_portfolio_tier(
+                    waba_id=workspace.meta_waba_id,
+                    access_token=workspace.meta_access_token,
+                    business_id=workspace.meta_business_id,
+                    phone_number_id=workspace.meta_phone_number_id,
+                )
+                if meta_tier.get("is_connected"):
+                    tier_limit = meta_tier.get("daily_limit", 1000)
+                    if redis_client and cache_id:
+                        redis_client.setex(f"wa:meta_tier:{cache_id}", 3600, str(tier_limit))
+            except Exception as e:
+                logger.warning("Failed to fetch live tier in worker: %s", e)
 
         rate_per_msg = Decimal(str(campaign.estimated_cost / max(1, campaign.valid_recipients)))
 
@@ -221,9 +240,30 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
                 components = []
                 body_params = []
                 vars_dict = recipient.variables or {}
-                # Match {{1}}, {{2}} or parameter variables
-                for k, v in vars_dict.items():
-                    body_params.append({"type": "text", "text": str(v)})
+
+                # Extract only the exact placeholder indices expected by the template (e.g. ['1', '2'])
+                body_text = template.content or ""
+                expected_indices = re.findall(r"\{\{(\d+)\}\}", body_text)
+
+                if expected_indices:
+                    # Deduplicate in occurrence order (1, 2, 3...)
+                    seen = set()
+                    ordered_indices = [x for x in expected_indices if not (x in seen or seen.add(x))]
+
+                    for idx in ordered_indices:
+                        val = vars_dict.get(idx) or vars_dict.get(f"{{{{{idx}}}}}") or vars_dict.get(f"var_{idx}") or ""
+                        # Graceful fallback for {{1}} if name was mapped or available
+                        if not val and idx == "1":
+                            val = recipient.recipient_name or vars_dict.get("name") or "Customer"
+                        body_params.append({"type": "text", "text": str(val or "Customer")})
+                else:
+                    # If template doesn't use standard {{1}} format, only send numeric keys
+                    numeric_keys = sorted(
+                        [k for k in vars_dict.keys() if str(k).replace("{", "").replace("}", "").strip().isdigit()],
+                        key=lambda k: int(str(k).replace("{", "").replace("}", "").strip())
+                    )
+                    for k in numeric_keys:
+                        body_params.append({"type": "text", "text": str(vars_dict[k])})
 
                 if body_params:
                     components.append({

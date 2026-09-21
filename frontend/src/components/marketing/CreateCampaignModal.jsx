@@ -12,9 +12,10 @@ import ReviewStep from './steps/ReviewStep';
 import { createCampaign, getCampaignDraft, saveCampaignDraft, clearCampaignDraft } from '@/lib/api/marketing';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
+import { getDefaultFutureSchedule, isFutureSchedule } from '@/lib/campaignScheduleUtils';
 
 const getInitialDraftState = () => {
-  const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const defaultSchedule = getDefaultFutureSchedule();
   return {
     name: '',
     type: 'Promotional',
@@ -28,13 +29,15 @@ const getInitialDraftState = () => {
     invalidRecipients: 0,
     optedInCount: 0,
     optedOutCount: 0,
+    recipients: [],
+    csvStats: null,
     messageMode: 'template',
     messageBody: '',
     mediaUrl: '',
     mediaName: '',
     sendType: 'Send Now',
-    scheduleDate: today,
-    scheduleTime: '10:00 AM',
+    scheduleDate: defaultSchedule.date,
+    scheduleTime: defaultSchedule.time,
     timezone: '(GMT+05:30) Asia/Kolkata (IST)',
     sendGradually: true,
     sendingRate: 100,
@@ -56,7 +59,15 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
       clearCampaignDraft();
       return initial;
     }
-    return saved ? { ...initial, ...saved } : initial;
+    if (saved) {
+      // Ensure saved draft doesn't have an expired past schedule
+      if (saved.sendType === 'Schedule for Later' && !isFutureSchedule(saved.scheduleDate, saved.scheduleTime)) {
+        const fresh = getDefaultFutureSchedule();
+        return { ...initial, ...saved, scheduleDate: fresh.date, scheduleTime: fresh.time };
+      }
+      return { ...initial, ...saved };
+    }
+    return initial;
   });
   const [isLaunching, setIsLaunching] = useState(false);
   const { showToast } = useToast();

@@ -62,16 +62,77 @@ class CampaignService:
 
         redis_client = cls._get_redis()
 
-        # Check if workspace has a real connected WhatsApp line
-        is_whatsapp_connected = bool(
+        # Check if workspace has a WhatsApp line configured
+        configured_tier = getattr(workspace, "meta_tier_limit", None)
+        has_meta_config = bool(
             workspace and (
                 (workspace.meta_access_token and (workspace.meta_phone_number_id or workspace.meta_waba_id))
-                or (getattr(workspace, "twilio_account_sid", None) and getattr(workspace, "twilio_phone_number", None))
+                or configured_tier
             )
         )
+        has_twilio_config = bool(workspace and getattr(workspace, "twilio_account_sid", None) and getattr(workspace, "twilio_phone_number", None))
 
-        if not is_whatsapp_connected:
-            # Without connected line, quota is 0 (no fallback 2000)
+        is_whatsapp_connected = False
+        tier_limit = 0
+
+        if has_meta_config:
+            if workspace.meta_access_token and (workspace.meta_phone_number_id or workspace.meta_waba_id):
+                cache_id = workspace.meta_phone_number_id or workspace.meta_waba_id
+                cache_key = f"wa:meta_tier:{cache_id}"
+                cached = None
+                if redis_client:
+                    try:
+                        cached = redis_client.get(cache_key)
+                    except Exception:
+                        cached = None
+
+                if cached:
+                    try:
+                        tier_limit = int(cached.decode("utf-8") if isinstance(cached, bytes) else str(cached))
+                        is_whatsapp_connected = tier_limit > 0
+                    except (ValueError, TypeError):
+                        tier_limit = 0
+                elif configured_tier:
+                    # Fast path: Use tier limit already retrieved and saved during WhatsApp channel connection
+                    is_whatsapp_connected = True
+                    tier_limit = int(configured_tier)
+                    if redis_client and tier_limit:
+                        try:
+                            redis_client.setex(cache_key, 3600, str(tier_limit))
+                        except Exception:
+                            pass
+                else:
+                    meta_tier = WhatsAppTierService.fetch_live_portfolio_tier(
+                        waba_id=workspace.meta_waba_id,
+                        access_token=workspace.meta_access_token,
+                        business_id=workspace.meta_business_id,
+                        phone_number_id=workspace.meta_phone_number_id
+                    )
+                    if meta_tier.get("is_connected"):
+                        is_whatsapp_connected = True
+                        tier_limit = meta_tier.get("daily_limit", 1000)
+                        try:
+                            workspace.meta_tier_limit = tier_limit
+                            db.commit()
+                        except Exception:
+                            pass
+                        if redis_client and tier_limit:
+                            redis_client.setex(cache_key, 3600, str(tier_limit))
+                    elif configured_tier:
+                        # Fallback to user-configured tier limit if Meta API returns error / test mode
+                        is_whatsapp_connected = True
+                        tier_limit = int(configured_tier)
+                    else:
+                        is_whatsapp_connected = False
+                        tier_limit = 0
+            elif configured_tier:
+                is_whatsapp_connected = True
+                tier_limit = int(configured_tier)
+        elif has_twilio_config:
+            is_whatsapp_connected = True
+            tier_limit = int(configured_tier or 1000)
+
+        if not is_whatsapp_connected or tier_limit <= 0:
             portfolio_usage = {
                 "limit": 0,
                 "used": 0,
@@ -79,38 +140,12 @@ class CampaignService:
                 "next_unlock_at": None,
             }
         else:
-            tier_limit = 2000
-            # If live Meta WABA credentials exist, resolve live limit from Meta or Redis cache
-            if workspace.meta_waba_id and workspace.meta_access_token:
-                cache_key = f"wa:meta_tier:{workspace.meta_waba_id}"
-                cached = None
-                if redis_client:
-                    try:
-                        cached = redis_client.get(cache_key)
-                    except Exception:
-                        cached = None
-                if cached:
-                    try:
-                        tier_limit = int(cached.decode("utf-8") if isinstance(cached, bytes) else str(cached))
-                    except (ValueError, TypeError):
-                        tier_limit = 2000
-                else:
-                    try:
-                        meta_tier = WhatsAppTierService.fetch_live_portfolio_tier(
-                            waba_id=workspace.meta_waba_id,
-                            access_token=workspace.meta_access_token,
-                            business_id=workspace.meta_business_id
-                        )
-                        tier_limit = meta_tier.get("daily_limit", 2000)
-                        if redis_client and tier_limit:
-                            redis_client.setex(cache_key, 3600, str(tier_limit))
-                    except Exception as e:
-                        logger.warning("Could not fetch live Meta tier, using %s: %s", tier_limit, e)
-
             portfolio_usage = WhatsAppTierService.get_portfolio_usage(
                 redis_client=redis_client,
                 portfolio_id=portfolio_id,
-                portfolio_tier_limit=tier_limit
+                portfolio_tier_limit=tier_limit,
+                db=db,
+                workspace_id=workspace_id
             )
 
         return {

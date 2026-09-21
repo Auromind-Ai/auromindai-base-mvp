@@ -1,5 +1,6 @@
 import client from './client';
 import { getTemplates } from './templates';
+import { parseScheduleDateTime } from '../campaignScheduleUtils';
 
 // Initial Seed Data - empty defaults for clean production state
 export const INITIAL_CAMPAIGNS = [];
@@ -62,9 +63,8 @@ function normalizeStatus(status) {
 function parseScheduleDatetime(dateStr, timeStr) {
   if (!dateStr) return null;
   try {
-    const combined = `${dateStr} ${timeStr || '10:00 AM'}`;
-    const d = new Date(combined);
-    if (!isNaN(d.getTime())) {
+    const d = parseScheduleDateTime(dateStr, timeStr || '10:00 AM');
+    if (d && !isNaN(d.getTime())) {
       return d.toISOString();
     }
   } catch {}
@@ -149,14 +149,51 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
     auto_launch: sendType === 'now',
     estimated_cost: Number(c.estimatedCost || 0.0),
     segment: c.segment || null,
-    recipients: (c.recipients || []).map(r => ({
-      lead_id: r.lead_id || r.id || null,
-      phone_number: r.phone_number || r.phone || '',
-      phone: r.phone_number || r.phone || '',
-      recipient_name: r.recipient_name || r.name || '',
-      name: r.recipient_name || r.name || '',
-      variables: r.variables || {},
-    })),
+    recipients: (c.recipients || []).map((r) => {
+      const recipientName = r.recipient_name || r.name || '';
+      const recipientPhone = r.phone_number || r.phone || '';
+      const vars = { ...(r.variables || {}) };
+
+      if (c.variableMapping && typeof c.variableMapping === 'object') {
+        Object.entries(c.variableMapping).forEach(([varKey, mapping]) => {
+          const cleanKey = String(varKey).replace(/[{}]/g, '');
+          let val = '';
+          if (mapping?.source === 'custom') {
+            val = mapping?.customValue || mapping?.fallback || '';
+          } else {
+            const col = mapping?.source;
+            if (col) {
+              val =
+                vars[col] ||
+                vars[col.toLowerCase()] ||
+                vars[col.trim()] ||
+                r[col] ||
+                r[col.toLowerCase()] ||
+                '';
+              if (!val) {
+                const lower = col.toLowerCase();
+                if (lower.includes('name')) val = recipientName;
+                else if (lower.includes('phone') || lower.includes('mobile') || lower.includes('contact')) val = recipientPhone;
+                else if (lower.includes('email')) val = r.email || '';
+                else if (lower.includes('company')) val = r.company || '';
+              }
+            }
+          }
+          vars[cleanKey] = val || mapping?.fallback || 'Customer';
+        });
+      } else if (!vars['1'] && recipientName) {
+        vars['1'] = recipientName;
+      }
+
+      return {
+        lead_id: r.lead_id || r.id || null,
+        phone_number: recipientPhone,
+        phone: recipientPhone,
+        recipient_name: recipientName,
+        name: recipientName,
+        variables: vars,
+      };
+    }),
   };
 }
 
@@ -333,7 +370,10 @@ export async function estimateCampaign(workspaceId, validRecipientsCount, catego
       estimated_cost: Number(validRecipientsCount || 0) * 0.8,
       rate_per_message: 0.8,
       is_balance_sufficient: true,
-      portfolio_remaining_today: 2000,
+      portfolio_tier_limit: 0,
+      portfolio_used_today: 0,
+      portfolio_remaining_today: 0,
+      is_whatsapp_connected: false,
     };
   }
 
@@ -350,7 +390,10 @@ export async function estimateCampaign(workspaceId, validRecipientsCount, catego
       estimated_cost: Number(validRecipientsCount || 0) * 0.8,
       rate_per_message: 0.8,
       is_balance_sufficient: true,
-      portfolio_remaining_today: 2000,
+      portfolio_tier_limit: 0,
+      portfolio_used_today: 0,
+      portfolio_remaining_today: 0,
+      is_whatsapp_connected: false,
     };
   }
 }
@@ -366,9 +409,9 @@ export async function getTierInfo(workspaceId) {
       display_phone: '',
       phone_number_id: '',
       is_connected: false,
-      tier_limit: 2000,
+      tier_limit: 0,
       used_today: 0,
-      remaining_today: 2000,
+      remaining_today: 0,
     };
   }
 }

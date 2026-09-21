@@ -25,11 +25,18 @@ class TestAudienceService:
         assert AudienceService.normalize_phone("+91 98765-43210") == "+919876543210"
         assert AudienceService.normalize_phone("09876543210", default_country_code="91") == "+919876543210"
         assert AudienceService.normalize_phone("+1 (555) 123-4567") == "+15551234567"
+        assert AudienceService.normalize_phone("+971 50 123 4567") == "+971501234567"
+        assert AudienceService.normalize_phone("+44 7911 123456") == "+447911123456"
+        assert AudienceService.normalize_phone("+94 77 123 4567") == "+94771234567"
 
     def test_normalize_phone_invalid(self):
         assert AudienceService.normalize_phone("") is None
         assert AudienceService.normalize_phone("abc") is None
         assert AudienceService.normalize_phone("123") is None  # Too short
+        assert AudienceService.normalize_phone("554554") is None  # 6-digit incomplete number
+        assert AudienceService.normalize_phone("554554, 151654") is None  # Multiple comma numbers
+        assert AudienceService.normalize_phone("1111111111") is None  # Dummy repetitive digits
+        assert AudienceService.normalize_phone("+91 48569387455") is None  # Invalid Indian prefix / length
 
     def test_parse_csv_contacts(self):
         csv_data = b"""Name,Phone,Email,Coupon,City
@@ -54,8 +61,8 @@ class TestWhatsAppTierService:
     def test_modern_tier_mapping(self):
         assert PORTFOLIO_TIER_LIMITS["250"] == 250
         assert PORTFOLIO_TIER_LIMITS["2000"] == 2000
-        assert PORTFOLIO_TIER_LIMITS["TIER_2K"] == 2000
-        assert PORTFOLIO_TIER_LIMITS["TIER_1K"] == 2000  # Legacy mapped to modern 2K
+        assert PORTFOLIO_TIER_LIMITS["TIER_1K"] == 1000
+        assert PORTFOLIO_TIER_LIMITS["1000"] == 1000
         assert PORTFOLIO_TIER_LIMITS["10000"] == 10000
         assert PORTFOLIO_TIER_LIMITS["100000"] == 100000
         assert PORTFOLIO_TIER_LIMITS["UNLIMITED"] == float("inf")

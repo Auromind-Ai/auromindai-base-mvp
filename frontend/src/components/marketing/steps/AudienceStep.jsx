@@ -10,6 +10,7 @@ import {
   RefreshCw,
   FileSpreadsheet,
   AlertCircle,
+  AlertTriangle,
   X,
   Flame,
   Zap,
@@ -77,17 +78,90 @@ const SMART_SEGMENT_CONFIG = [
 
 function normalizePhoneE164(raw, defaultCountry = '91') {
   if (!raw) return null;
-  let digits = String(raw).replace(/\D/g, '');
+  const str = String(raw).trim();
+  if (!str) return null;
+
+  // Never accept strings containing multi-number delimiters
+  if (/[;,]/.test(str)) {
+    return null;
+  }
+
+  const hasPlus = str.startsWith('+');
+  const hasDoubleZero = str.startsWith('00');
+
+  // Strip all non-digit characters
+  let digits = str.replace(/\D/g, '');
   if (!digits) return null;
-  if (digits.startsWith('0') && digits.length === 11) {
-    digits = digits.substring(1);
+
+  // Reject dummy numbers where all digits are identical and length >= 7 (e.g. 0000000000, 1111111111)
+  if (/^(\d)\1+$/.test(digits) && digits.length >= 7) {
+    return null;
   }
-  if (digits.length === 10) {
-    digits = `${defaultCountry}${digits}`;
+
+  if (hasDoubleZero) {
+    digits = digits.replace(/^00/, '');
   }
-  if (digits.length >= 11 && digits.length <= 15) {
+
+  // If explicit international prefix (+ or 00) was provided
+  if (hasPlus || hasDoubleZero) {
+    // E.164 total digits between 10 and 15
+    if (digits.length < 10 || digits.length > 15) {
+      return null;
+    }
+    // Country codes never start with 0
+    if (digits.startsWith('0')) {
+      return null;
+    }
+    // Special validation for +91: must be 12 digits (+91 + 10 digits), and mobile starts with 6-9
+    if (digits.startsWith('91')) {
+      if (digits.length !== 12 || !/^[6-9]/.test(digits.slice(2))) {
+        return null;
+      }
+    }
     return `+${digits}`;
   }
+
+  // If NO international prefix (+ or 00) was entered:
+  // Case 1: Standard 10-digit national number
+  if (digits.length === 10) {
+    if (defaultCountry === '91') {
+      if (/^[6-9]/.test(digits)) {
+        return `+91${digits}`;
+      }
+      return null;
+    }
+    return `+${defaultCountry}${digits}`;
+  }
+
+  // Case 2: 11-digit national number starting with 0 (e.g. 09840123456)
+  if (digits.length === 11 && digits.startsWith('0')) {
+    const national = digits.slice(1);
+    if (defaultCountry === '91') {
+      if (/^[6-9]/.test(national)) {
+        return `+91${national}`;
+      }
+      return null;
+    }
+    return `+${defaultCountry}${national}`;
+  }
+
+  // Case 3: 12-digit number starting with 91 (e.g. 919840123456)
+  if (digits.length === 12 && digits.startsWith('91')) {
+    if (/^[6-9]/.test(digits.slice(2))) {
+      return `+${digits}`;
+    }
+    return null;
+  }
+
+  // Case 4: International number entered without '+' but has 10-15 digits
+  if (digits.length >= 10 && digits.length <= 15 && !digits.startsWith('0')) {
+    if (digits.startsWith('91')) {
+      return null;
+    }
+    return `+${digits}`;
+  }
+
+  // Incomplete numbers (< 10 digits like 554554 or 151654, or > 15 digits) are INVALID
   return null;
 }
 
@@ -109,8 +183,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
   // 2. CSV Upload State
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadedFileName, setUploadedFileName] = useState(data.audienceListName?.endsWith('.csv') ? data.audienceListName : null);
-  const [csvStats, setCsvStats] = useState(null);
+  const [uploadedFileName, setUploadedFileName] = useState(
+    data.audienceListName?.endsWith('.csv') || data.csvStats ? data.audienceListName : null
+  );
+  const [csvStats, setCsvStats] = useState(data.csvStats || null);
 
   // 3. Smart Segments State
   const [activeSegment, setActiveSegment] = useState(data.segment || 'hot');
@@ -125,6 +201,8 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
   const [manualRecipients, setManualRecipients] = useState(
     Array.isArray(data.recipients) && data.audienceType === 'Manual Entry' ? data.recipients : []
   );
+  const [manualInvalidCount, setManualInvalidCount] = useState(data.invalidRecipients || 0);
+  const [manualInvalidList, setManualInvalidList] = useState([]);
 
   // 5. Preflight Estimation State
   const [estimate, setEstimate] = useState(null);
@@ -199,6 +277,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
           recipientsCount: list.length,
           validRecipients: list.length,
           invalidRecipients: 0,
+          audienceHeaders: null,
           recipients: formatted,
         });
       })
@@ -242,12 +321,17 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
           recipientsCount: count,
           validRecipients: count,
           invalidRecipients: 0,
+          audienceHeaders: null,
+          csvStats: null,
           recipients: targetLeads.map((l) => ({
             lead_id: l.id,
             phone_number: l.phone,
             normalized_phone: normalizePhoneE164(l.phone),
             recipient_name: l.name,
-            variables: { name: l.name || 'Customer' },
+            variables: {
+              name: l.name || 'Customer',
+              phone: normalizePhoneE164(l.phone) || l.phone,
+            },
           })),
         });
       } else {
@@ -259,18 +343,34 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
           recipientsCount: total,
           validRecipients: total,
           invalidRecipients: 0,
+          audienceHeaders: null,
+          csvStats: null,
           recipients: [],
         });
       }
     } else if (typeId === 'Upload CSV') {
-      if (csvStats) {
+      const stats = csvStats || data.csvStats;
+      const listName = uploadedFileName || data.audienceListName || 'Uploaded CSV';
+      if (stats) {
         updateData({
           audienceType: 'Upload CSV',
-          audienceListName: uploadedFileName || 'Uploaded CSV',
-          recipientsCount: csvStats.total,
-          validRecipients: csvStats.valid_count,
-          invalidRecipients: csvStats.invalid_count,
-          recipients: csvStats.recipients || [],
+          audienceListName: listName,
+          recipientsCount: stats.total,
+          validRecipients: stats.valid_count,
+          invalidRecipients: stats.invalid_count,
+          recipients: stats.recipients || data.recipients || [],
+          audienceHeaders: stats.headers || data.audienceHeaders || [],
+          csvStats: stats,
+        });
+      } else if (data.recipients && data.recipients.length > 0) {
+        updateData({
+          audienceType: 'Upload CSV',
+          audienceListName: listName,
+          recipientsCount: data.recipientsCount || data.recipients.length,
+          validRecipients: data.validRecipients || data.recipients.length,
+          invalidRecipients: data.invalidRecipients || 0,
+          recipients: data.recipients,
+          csvStats: data.csvStats || null,
         });
       } else {
         updateData({
@@ -279,15 +379,19 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
           validRecipients: 0,
           invalidRecipients: 0,
           recipients: [],
+          audienceHeaders: null,
+          csvStats: null,
         });
       }
     } else if (typeId === 'Manual Entry') {
       updateData({
         audienceType: 'Manual Entry',
         audienceListName: `Manual Entry (${manualRecipients.length} contacts)`,
-        recipientsCount: manualRecipients.length,
+        recipientsCount: manualRecipients.length + manualInvalidCount,
         validRecipients: manualRecipients.length,
-        invalidRecipients: 0,
+        invalidRecipients: manualInvalidCount,
+        audienceHeaders: null,
+        csvStats: null,
         recipients: manualRecipients,
       });
     }
@@ -404,6 +508,8 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
         optedInCount: parsed.valid_count,
         optedOutCount: parsed.invalid_count,
         recipients: parsed.recipients || [],
+        audienceHeaders: parsed.headers || [],
+        csvStats: parsed,
       });
     } catch (err) {
       console.error('CSV upload failed:', err);
@@ -415,14 +521,21 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
 
   // Manual Entry: Add single contact
   const handleAddManualSingle = () => {
-    if (!manualPhone.trim()) {
+    setError('');
+    const trimmedPhone = manualPhone.trim();
+    if (!trimmedPhone) {
       setError('Please enter a WhatsApp phone number');
       return;
     }
 
-    const normalized = normalizePhoneE164(manualPhone);
+    if (/[,;]/.test(trimmedPhone)) {
+      setError('A single contact cannot contain commas. Use "Bulk Paste Numbers" below to add multiple numbers.');
+      return;
+    }
+
+    const normalized = normalizePhoneE164(trimmedPhone);
     if (!normalized) {
-      setError('Invalid phone number. Must have at least 10 digits (e.g. 9840123456 or +919840123456)');
+      setError(`Invalid phone number "${trimmedPhone}". Must be a valid phone number with at least 10 digits (e.g. 9840123456 or +1 555 123 4567).`);
       return;
     }
 
@@ -435,7 +548,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
       phone_number: normalized,
       normalized_phone: normalized,
       recipient_name: manualName.trim() || `Contact ${manualRecipients.length + 1}`,
-      variables: { name: manualName.trim() || 'Customer' },
+      variables: {
+        name: manualName.trim() || 'Customer',
+        phone: normalized,
+      },
     };
 
     const nextList = [newContact, ...manualRecipients];
@@ -444,26 +560,46 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
     setManualPhone('');
     setError('');
 
+    const totalCount = nextList.length + manualInvalidCount;
     updateData({
       audienceType: 'Manual Entry',
       audienceListName: `Manual Entry (${nextList.length} contacts)`,
-      recipientsCount: nextList.length,
+      recipientsCount: totalCount,
       validRecipients: nextList.length,
-      invalidRecipients: 0,
+      invalidRecipients: manualInvalidCount,
+      audienceHeaders: null,
+      csvStats: null,
       recipients: nextList,
     });
   };
 
   // Manual Entry: Parse bulk paste
   const handleAddManualBulk = () => {
+    setError('');
     if (!bulkInput.trim()) {
       setError('Please paste one or more phone numbers');
       return;
     }
 
-    const tokens = bulkInput.split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean);
+    // Split by newlines, commas, semicolons, tabs, and full-width delimiters
+    const rawChunks = bulkInput.split(/[\n\r,;\t\uFF0C\uFF1B]+/).map((s) => s.trim()).filter(Boolean);
+
+    // Support space-separated numbers if a chunk contains multiple items
+    const tokens = [];
+    rawChunks.forEach((chunk) => {
+      if (normalizePhoneE164(chunk)) {
+        tokens.push(chunk);
+      } else if (/\s{2,}/.test(chunk) || chunk.split(/\s+/).length > 1) {
+        const subTokens = chunk.split(/\s+/).map((s) => s.trim()).filter(Boolean);
+        tokens.push(...subTokens);
+      } else {
+        tokens.push(chunk);
+      }
+    });
+
     const added = [];
     const duplicates = [];
+    const invalid = [];
 
     const existingPhones = new Set(manualRecipients.map((r) => r.normalized_phone || r.phone_number));
 
@@ -478,14 +614,29 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
             phone_number: norm,
             normalized_phone: norm,
             recipient_name: `Contact ${manualRecipients.length + added.length + 1}`,
-            variables: { name: 'Customer' },
+            variables: {
+              name: 'Customer',
+              phone: norm,
+            },
           });
         }
+      } else {
+        invalid.push(raw);
       }
     });
 
+    const newInvalidCount = manualInvalidCount + invalid.length;
+    setManualInvalidCount(newInvalidCount);
+    if (invalid.length > 0) {
+      setManualInvalidList((prev) => [...prev, ...invalid]);
+    }
+
     if (added.length === 0) {
-      if (duplicates.length > 0) {
+      if (invalid.length > 0 && duplicates.length > 0) {
+        setError(`${duplicates.length} duplicate(s) and ${invalid.length} invalid phone number(s) skipped: ${invalid.slice(0, 4).join(', ')}${invalid.length > 4 ? '...' : ''}. Numbers must have at least 10 digits.`);
+      } else if (invalid.length > 0) {
+        setError(`All ${invalid.length} entered number(s) are invalid: ${invalid.slice(0, 4).join(', ')}${invalid.length > 4 ? '...' : ''}. Phone numbers must have at least 10 digits (e.g. 9840123456 or +1 555 123 4567).`);
+      } else if (duplicates.length > 0) {
         setError(`All ${duplicates.length} numbers were already in the list.`);
       } else {
         setError('No valid 10+ digit phone numbers could be extracted.');
@@ -496,14 +647,22 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
     const nextList = [...manualRecipients, ...added];
     setManualRecipients(nextList);
     setBulkInput('');
-    setError('');
 
+    if (invalid.length > 0) {
+      setError(`Added ${added.length} valid number(s). ${invalid.length} invalid number(s) excluded: ${invalid.slice(0, 3).join(', ')}${invalid.length > 3 ? '...' : ''} (must have at least 10 digits).`);
+    } else {
+      setError('');
+    }
+
+    const totalCount = nextList.length + newInvalidCount;
     updateData({
       audienceType: 'Manual Entry',
       audienceListName: `Manual Entry (${nextList.length} contacts)`,
-      recipientsCount: nextList.length,
+      recipientsCount: totalCount,
       validRecipients: nextList.length,
-      invalidRecipients: 0,
+      invalidRecipients: newInvalidCount,
+      audienceHeaders: null,
+      csvStats: null,
       recipients: nextList,
     });
   };
@@ -513,12 +672,15 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
     const nextList = manualRecipients.filter((r) => r.normalized_phone !== phoneToRemove && r.phone_number !== phoneToRemove);
     setManualRecipients(nextList);
 
+    const totalCount = nextList.length + manualInvalidCount;
     updateData({
       audienceType: 'Manual Entry',
       audienceListName: `Manual Entry (${nextList.length} contacts)`,
-      recipientsCount: nextList.length,
+      recipientsCount: totalCount,
       validRecipients: nextList.length,
-      invalidRecipients: 0,
+      invalidRecipients: manualInvalidCount,
+      audienceHeaders: null,
+      csvStats: null,
       recipients: nextList,
     });
   };
@@ -526,7 +688,8 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
   // Current valid count based on active audience mode
   const currentValidCount = useMemo(() => {
     if (audienceType === 'Upload CSV') {
-      return csvStats?.valid_count ?? data.validRecipients ?? 0;
+      const activeStats = csvStats || data.csvStats;
+      return activeStats?.valid_count ?? data.validRecipients ?? 0;
     }
     if (audienceType === 'Smart Segment') {
       return segmentLeads.length;
@@ -540,17 +703,29 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
     return contactLists
       .filter((l) => selectedListIds.includes(l.id))
       .reduce((acc, curr) => acc + (curr.validContacts || curr.valid_contacts || curr.totalContacts || 0), 0);
-  }, [audienceType, contactsSubTab, csvStats, data.validRecipients, segmentLeads, manualRecipients, selectedLeadIds, contactLists, selectedListIds]);
+  }, [audienceType, contactsSubTab, csvStats, data.csvStats, data.validRecipients, segmentLeads, manualRecipients, selectedLeadIds, contactLists, selectedListIds]);
+
+  const currentInvalidCount = useMemo(() => {
+    if (audienceType === 'Upload CSV') {
+      const activeStats = csvStats || data.csvStats;
+      return activeStats?.invalid_count ?? data.invalidRecipients ?? 0;
+    }
+    if (audienceType === 'Manual Entry') {
+      return manualInvalidCount;
+    }
+    return 0;
+  }, [audienceType, csvStats, data.csvStats, data.invalidRecipients, manualInvalidCount]);
 
   const currentTotalCount = useMemo(() => {
     if (audienceType === 'Upload CSV') {
-      return csvStats?.total ?? data.recipientsCount ?? 0;
+      const activeStats = csvStats || data.csvStats;
+      return activeStats?.total ?? data.recipientsCount ?? 0;
     }
     if (audienceType === 'Smart Segment') {
       return segmentLeads.length;
     }
     if (audienceType === 'Manual Entry') {
-      return manualRecipients.length;
+      return manualRecipients.length + manualInvalidCount;
     }
     if (contactsSubTab === 'leads') {
       return selectedLeadIds.length;
@@ -558,7 +733,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
     return contactLists
       .filter((l) => selectedListIds.includes(l.id))
       .reduce((acc, curr) => acc + (curr.totalContacts || curr.total_contacts || 0), 0);
-  }, [audienceType, contactsSubTab, csvStats, data.recipientsCount, segmentLeads, manualRecipients, selectedLeadIds, contactLists, selectedListIds]);
+  }, [audienceType, contactsSubTab, csvStats, data.csvStats, data.recipientsCount, segmentLeads, manualRecipients, manualInvalidCount, selectedLeadIds, contactLists, selectedListIds]);
 
   // Preflight cost estimation
   useEffect(() => {
@@ -591,6 +766,9 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
         setError('Please select at least one contact or list for your campaign.');
       }
       return;
+    }
+    if (audienceType !== 'Upload CSV') {
+      updateData({ audienceHeaders: null, csvStats: null });
     }
     onNext();
   };
@@ -917,7 +1095,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                       {uploadedFileName}
                     </span>
                     <span className="text-[11px] text-emerald-400 font-medium">
-                      ✓ Successfully parsed {(csvStats?.valid_count ?? data.validRecipients ?? 0).toLocaleString()} valid numbers
+                      ✓ Successfully parsed {((csvStats || data.csvStats)?.valid_count ?? data.validRecipients ?? 0).toLocaleString()} valid numbers
                     </span>
                     <p className="text-[10px] text-[#8c88a6]">Click to upload a different file</p>
                   </div>
@@ -935,19 +1113,21 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
             </div>
 
             {/* Invalid breakdown */}
-            {csvStats?.invalid_sample && csvStats.invalid_sample.length > 0 && (
+            {((csvStats || data.csvStats)?.invalid_sample?.length > 0 || ((csvStats || data.csvStats)?.invalid_count ?? data.invalidRecipients ?? 0) > 0) && (
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs space-y-1">
                 <div className="flex items-center gap-1.5 font-medium">
                   <AlertCircle size={14} className="text-amber-400 shrink-0" />
-                  <span>{csvStats.invalid_count} numbers were excluded:</span>
+                  <span>{((csvStats || data.csvStats)?.invalid_count ?? data.invalidRecipients ?? 0)} numbers were excluded:</span>
                 </div>
-                <ul className="text-[11px] text-[#a8a3c2] list-disc list-inside space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
-                  {csvStats.invalid_sample.slice(0, 5).map((inv, idx) => (
-                    <li key={idx}>
-                      Row {inv.row}: &ldquo;{inv.raw_phone || 'Empty'}&rdquo; — {inv.reason}
-                    </li>
-                  ))}
-                </ul>
+                {(csvStats || data.csvStats)?.invalid_sample && (csvStats || data.csvStats).invalid_sample.length > 0 && (
+                  <ul className="text-[11px] text-[#a8a3c2] list-disc list-inside space-y-0.5 max-h-24 overflow-y-auto custom-scrollbar">
+                    {(csvStats || data.csvStats).invalid_sample.slice(0, 5).map((inv, idx) => (
+                      <li key={idx}>
+                        Row {inv.row}: &ldquo;{inv.raw_phone || 'Empty'}&rdquo; — {inv.reason}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </div>
@@ -1111,7 +1291,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                 rows={2}
                 value={bulkInput}
                 onChange={(e) => setBulkInput(e.target.value)}
-                placeholder="e.g. 9840123456, 9840234567, +919840345678"
+                placeholder="e.g. 9840123456, +1 555 123 4567, +971 50 123 4567"
                 className="w-full px-3 py-2 rounded-xl bg-[#141226] border border-[#2a2347] text-xs text-white placeholder-[#585375] outline-none focus:border-[#814AC8] custom-scrollbar"
               />
               <div className="flex justify-end">
@@ -1125,6 +1305,37 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
               </div>
             </div>
 
+            {/* Invalid Numbers Alert Banner */}
+            {manualInvalidCount > 0 && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs flex items-start justify-between gap-2.5 animate-in fade-in">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold text-amber-300 block">
+                      {manualInvalidCount} Invalid Phone Number{manualInvalidCount > 1 ? 's' : ''} Excluded
+                    </span>
+                    <p className="text-[11px] text-amber-200/80 mt-0.5 leading-relaxed">
+                      Phone numbers must have at least 10 digits (e.g. 9840123456 or +1 555 123 4567). Invalid inputs ({manualInvalidList.slice(0, 5).join(', ')}{manualInvalidList.length > 5 ? '...' : ''}) are excluded from the campaign send.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManualInvalidCount(0);
+                    setManualInvalidList([]);
+                    updateData({
+                      invalidRecipients: 0,
+                      recipientsCount: manualRecipients.length,
+                    });
+                  }}
+                  className="text-[11px] text-amber-400 hover:text-amber-300 underline font-medium shrink-0"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
             {/* Added Manual Contacts List */}
             <div className="rounded-xl border border-[#251f42] bg-[#0c0b17] overflow-hidden">
               <div className="px-3.5 py-2.5 bg-[#121024] border-b border-[#251f42] flex items-center justify-between text-xs">
@@ -1136,7 +1347,9 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                     type="button"
                     onClick={() => {
                       setManualRecipients([]);
-                      updateData({ recipientsCount: 0, validRecipients: 0, recipients: [] });
+                      setManualInvalidCount(0);
+                      setManualInvalidList([]);
+                      updateData({ recipientsCount: 0, validRecipients: 0, invalidRecipients: 0, recipients: [] });
                     }}
                     className="text-[11px] text-rose-400 hover:text-rose-300 font-medium"
                   >
@@ -1215,14 +1428,15 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
         <AudienceSummary
           total={currentTotalCount}
           valid={currentValidCount}
-          invalid={audienceType === 'Upload CSV' ? (csvStats?.invalid_count ?? 0) : 0}
+          invalid={currentInvalidCount}
           optedIn={currentValidCount}
-          optedOut={0}
+          optedOut={currentInvalidCount}
           estimatedCost={estimate?.estimated_cost}
           ratePerMessage={estimate?.rate_per_message || 0.8}
           isBalanceSufficient={estimate?.is_balance_sufficient ?? true}
           shortfall={estimate?.shortfall || 0}
           portfolioRemainingToday={estimate?.portfolio_remaining_today ?? 0}
+          portfolioTierLimit={estimate?.portfolio_tier_limit ?? 0}
           isWhatsAppConnected={estimate?.is_whatsapp_connected ?? false}
           estimatedMessages={`~ ${currentValidCount.toLocaleString()} messages`}
         />

@@ -9,10 +9,18 @@ import {
   ChevronDown,
   Info,
   CheckCircle2,
-  Users
+  Users,
+  AlertCircle
 } from 'lucide-react';
 import ProTip from '../ProTip';
 import QuietHours from '../QuietHours';
+import DatePickerPopover from '../DatePickerPopover';
+import TimePickerPopover from '../TimePickerPopover';
+import {
+  isFutureSchedule,
+  getDefaultFutureSchedule,
+  formatTimeDisplay
+} from '@/lib/campaignScheduleUtils';
 
 const TIMEZONES = [
   '(GMT+05:30) Asia/Kolkata (IST)',
@@ -31,13 +39,24 @@ const SENDING_RATES = [
 ];
 
 export default function ScheduleStep({ data, updateData, onNext, onBack }) {
-  const todayFormatted = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const defaultFuture = getDefaultFutureSchedule();
+  const initialDate = data.scheduleDate || defaultFuture.date;
+  const initialTime =
+    data.scheduleTime && isFutureSchedule(initialDate, data.scheduleTime)
+      ? data.scheduleTime
+      : defaultFuture.time;
+
   const [sendType, setSendType] = useState(data.sendType || 'Send Now'); // 'Send Now' | 'Schedule for Later'
-  const [dateVal, setDateVal] = useState(data.scheduleDate || todayFormatted);
-  const [timeVal, setTimeVal] = useState(data.scheduleTime || '10:00 AM');
+  const [dateVal, setDateVal] = useState(initialDate);
+  const [timeVal, setTimeVal] = useState(initialTime);
   const [timezone, setTimezone] = useState(data.timezone || '(GMT+05:30) Asia/Kolkata (IST)');
+  const [isDateOpen, setIsDateOpen] = useState(false);
+  const [isTimeOpen, setIsTimeOpen] = useState(false);
   const [isTzOpen, setIsTzOpen] = useState(false);
   const [isRateOpen, setIsRateOpen] = useState(false);
+
+  // Future-time validation: If scheduled for later, must be strictly greater than current time
+  const isScheduleValid = sendType === 'Send Now' || isFutureSchedule(dateVal, timeVal);
 
   const [sendGradually, setSendGradually] = useState(data.sendGradually ?? true);
   const [sendingRate, setSendingRate] = useState(data.sendingRate || 100);
@@ -63,7 +82,19 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
     return `${minutes} min`;
   };
 
+  const handleSelectScheduleForLater = () => {
+    setSendType('Schedule for Later');
+    if (!isFutureSchedule(dateVal, timeVal)) {
+      const def = getDefaultFutureSchedule();
+      setDateVal(def.date);
+      setTimeVal(def.time);
+    }
+  };
+
   const handleProceed = () => {
+    if (sendType === 'Schedule for Later' && !isScheduleValid) {
+      return;
+    }
     updateData({
       sendType,
       scheduleDate: dateVal,
@@ -130,7 +161,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
 
           {/* Schedule for Later */}
           <div
-            onClick={() => setSendType('Schedule for Later')}
+            onClick={handleSelectScheduleForLater}
             className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col justify-between select-none ${
               sendType === 'Schedule for Later'
                 ? 'bg-[#1a0f2e] border-[#814AC8] shadow-[0_0_16px_rgba(129,74,200,0.25)]'
@@ -162,7 +193,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
             <div>
               <h4 className="text-xs font-semibold text-white">Schedule for Later</h4>
               <p className="text-[10px] text-[#8c88a6] mt-0.5 leading-snug">
-                Choose a date and time to send your campaign.
+                Choose any future date and time to send your campaign.
               </p>
             </div>
           </div>
@@ -170,44 +201,118 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
 
         {/* Date & Time Selectors */}
         {sendType === 'Schedule for Later' && (
-          <div className="space-y-4 pt-1">
-            <h4 className="text-xs font-semibold text-white">
-              Select Date & Time
-            </h4>
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-white">
+                Select Date & Time
+              </h4>
+              <span className="text-[10px] text-[#8c88a6]">
+                Choose any date and time in the future
+              </span>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Date */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-[#D4D4D4]">
-                  Date <span className="text-[#814AC8]">*</span>
+              {/* Date Picker */}
+              <div className="space-y-1 relative">
+                <label className="text-xs font-medium text-[#D4D4D4] flex items-center justify-between">
+                  <span>
+                    Date <span className="text-[#814AC8]">*</span>
+                  </span>
+                  <span className="text-[10px] text-[#8c88a6]">Click to select</span>
                 </label>
-                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#0f0e1c] border border-[#251f42] text-xs text-white">
-                  <CalendarIcon size={14} className="text-[#814AC8] shrink-0" />
-                  <input
-                    type="text"
-                    value={dateVal}
-                    onChange={(e) => setDateVal(e.target.value)}
-                    className="bg-transparent w-full text-xs text-white outline-none"
+                <div
+                  onClick={() => {
+                    setIsDateOpen(!isDateOpen);
+                    setIsTimeOpen(false);
+                    setIsTzOpen(false);
+                  }}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#0f0e1c] border transition-all cursor-pointer select-none ${
+                    !isScheduleValid
+                      ? 'border-rose-500/60 hover:border-rose-400 bg-rose-500/[0.04]'
+                      : 'border-[#251f42] hover:border-[#814AC8]/80 hover:bg-[#131126]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 text-xs text-white">
+                    <CalendarIcon size={14} className="text-[#814AC8] shrink-0" />
+                    <span className="font-medium">{dateVal}</span>
+                  </div>
+                  <ChevronDown
+                    size={14}
+                    className={`text-[#8c88a6] transition-transform ${isDateOpen ? 'rotate-180 text-white' : ''}`}
                   />
                 </div>
+
+                {isDateOpen && (
+                  <DatePickerPopover
+                    selectedDate={dateVal}
+                    onSelect={(newDate) => {
+                      setDateVal(newDate);
+                      setIsDateOpen(false);
+                    }}
+                    onClose={() => setIsDateOpen(false)}
+                  />
+                )}
               </div>
 
-              {/* Time */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-[#D4D4D4]">
-                  Time <span className="text-[#814AC8]">*</span>
+              {/* Time Picker */}
+              <div className="space-y-1 relative">
+                <label className="text-xs font-medium text-[#D4D4D4] flex items-center justify-between">
+                  <span>
+                    Time <span className="text-[#814AC8]">*</span>
+                  </span>
+                  <span className="text-[10px] text-[#8c88a6]">Click to select</span>
                 </label>
-                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#0f0e1c] border border-[#251f42] text-xs text-white">
-                  <Clock size={14} className="text-[#814AC8] shrink-0" />
-                  <input
-                    type="text"
-                    value={timeVal}
-                    onChange={(e) => setTimeVal(e.target.value)}
-                    className="bg-transparent w-full text-xs text-white outline-none"
+                <div
+                  onClick={() => {
+                    setIsTimeOpen(!isTimeOpen);
+                    setIsDateOpen(false);
+                    setIsTzOpen(false);
+                  }}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#0f0e1c] border transition-all cursor-pointer select-none ${
+                    !isScheduleValid
+                      ? 'border-rose-500/60 hover:border-rose-400 bg-rose-500/[0.04]'
+                      : 'border-[#251f42] hover:border-[#814AC8]/80 hover:bg-[#131126]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 text-xs text-white">
+                    <Clock size={14} className="text-[#814AC8] shrink-0" />
+                    <span className="font-medium">{timeVal}</span>
+                  </div>
+                  <ChevronDown
+                    size={14}
+                    className={`text-[#8c88a6] transition-transform ${isTimeOpen ? 'rotate-180 text-white' : ''}`}
                   />
                 </div>
+
+                {isTimeOpen && (
+                  <TimePickerPopover
+                    selectedTime={timeVal}
+                    selectedDate={dateVal}
+                    onSelect={(newTime) => {
+                      setTimeVal(newTime);
+                      setIsTimeOpen(false);
+                    }}
+                    onClose={() => setIsTimeOpen(false)}
+                  />
+                )}
               </div>
             </div>
+
+            {/* Validation Alert for past date/time */}
+            {!isScheduleValid && (
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs animate-in fade-in duration-200">
+                <AlertCircle size={15} className="text-rose-400 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <span className="font-semibold block text-rose-200">
+                    Scheduled time must be in the future
+                  </span>
+                  <span className="text-[11px] text-rose-300/80 mt-0.5 block leading-normal">
+                    You cannot schedule a campaign in the past. Current time is{' '}
+                    <strong className="text-white">{formatTimeDisplay(new Date())}</strong>. Please select a time after current time.
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Timezone Selector */}
             <div className="space-y-1 relative">
@@ -365,7 +470,13 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
           <button
             type="button"
             onClick={handleProceed}
-            className="px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_25px_rgba(129,74,200,0.6)] flex items-center gap-1.5 transition-all"
+            disabled={!isScheduleValid}
+            className={`px-5 py-2.5 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 transition-all ${
+              isScheduleValid
+                ? 'bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_25px_rgba(129,74,200,0.6)] cursor-pointer'
+                : 'bg-[#814AC8]/40 border border-[#814AC8]/20 text-white/50 cursor-not-allowed'
+            }`}
+            title={!isScheduleValid ? 'Scheduled time must be in the future to proceed' : 'Proceed to Review'}
           >
             <span>Next</span>
             <span>→</span>
@@ -384,16 +495,31 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
           <div className="space-y-4 relative before:absolute before:left-3.5 before:top-3 before:bottom-3 before:w-[2px] before:bg-[#251f42]">
             {/* Start Event */}
             <div className="flex items-start gap-3 relative z-10">
-              <div className="w-7 h-7 rounded-lg bg-blue-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
+              <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
+                sendType === 'Send Now'
+                  ? 'bg-blue-500/15 border-sky-500/30 text-sky-400'
+                  : isScheduleValid
+                  ? 'bg-purple-500/15 border-purple-500/30 text-[#C49FE0]'
+                  : 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+              }`}>
                 <CalendarIcon size={13} />
               </div>
               <div>
                 <span className="text-[10px] text-[#8c88a6] uppercase font-semibold tracking-wider block">
                   Campaign will start on
                 </span>
-                <span className="text-xs font-bold text-white">
-                  {sendType === 'Send Now' ? 'Immediately upon launch' : `${dateVal} at ${timeVal} (IST)`}
+                <span className={`text-xs font-bold block ${!isScheduleValid && sendType !== 'Send Now' ? 'text-rose-400' : 'text-white'}`}>
+                  {sendType === 'Send Now'
+                    ? 'Immediately upon launch'
+                    : isScheduleValid
+                    ? `${dateVal} at ${timeVal} (IST)`
+                    : `${dateVal} at ${timeVal} (Past time!)`}
                 </span>
+                {!isScheduleValid && sendType !== 'Send Now' && (
+                  <span className="text-[10px] text-rose-400/90 block mt-0.5">
+                    Requires a future time to proceed
+                  </span>
+                )}
               </div>
             </div>
 

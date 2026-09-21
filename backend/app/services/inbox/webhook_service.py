@@ -306,6 +306,43 @@ class WebhookService:
                     else:
                         logger.warning(f"No template found in DB for name: {tpl_name}, lang: {tpl_lang}, id: {tpl_id}")
                     continue
+
+                if field == "phone_number_quality_update":
+                    display_phone = value.get("display_phone_number")
+                    event_type = value.get("event")
+                    current_limit = value.get("current_limit")
+                    print(f"[DEBUG WEBHOOK] Phone Number Quality Update: {display_phone} -> {event_type} ({current_limit})")
+                    logger.info(f"Meta phone_number_quality_update received: phone={display_phone}, event={event_type}, limit={current_limit}")
+
+                    waba_id = entry.get("id")
+                    workspace = None
+                    if display_phone:
+                        clean_digits = "".join(filter(str.isdigit, str(display_phone)))
+                        workspace = db.query(Workspace).filter(
+                            (Workspace.meta_display_phone.ilike(f"%{clean_digits}%"))
+                            | (Workspace.meta_waba_id == str(waba_id))
+                        ).first()
+                    elif waba_id:
+                        workspace = db.query(Workspace).filter(Workspace.meta_waba_id == str(waba_id)).first()
+
+                    if workspace and current_limit:
+                        from app.services.marketing.whatsapp_tier_service import PORTFOLIO_TIER_LIMITS
+                        tier_label = str(current_limit).upper()
+                        new_limit = PORTFOLIO_TIER_LIMITS.get(tier_label)
+                        if new_limit:
+                            workspace.meta_tier_limit = new_limit
+                            db.commit()
+                            logger.info(f"Successfully updated workspace {workspace.id} meta_tier_limit to {new_limit} via Meta webhook")
+
+                            try:
+                                from app.routers.auth import _get_redis_client
+                                r = _get_redis_client()
+                                if r and (workspace.meta_phone_number_id or workspace.meta_waba_id):
+                                    cache_id = workspace.meta_phone_number_id or workspace.meta_waba_id
+                                    r.delete(f"wa:meta_tier:{cache_id}")
+                            except Exception as c_exc:
+                                logger.warning(f"Failed to clear Redis tier cache: {c_exc}")
+                    continue
                 
                 # In WhatsApp Cloud API, incoming messages usually have 'metadata' with 'phone_number_id'
                 metadata = value.get("metadata") or {}

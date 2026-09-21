@@ -565,15 +565,90 @@ async def get_portfolio_tier_info(
 
     display_phone = workspace.meta_display_phone or workspace.twilio_phone_number or ""
     phone_number_id = workspace.meta_phone_number_id or workspace.twilio_phone_number or ""
-    is_connected = bool((workspace.meta_access_token and workspace.meta_phone_number_id) or (workspace.twilio_account_sid and workspace.twilio_phone_number))
 
-    if not is_connected:
+    configured_tier = getattr(workspace, "meta_tier_limit", None)
+    has_meta = bool(
+        (workspace.meta_access_token and (workspace.meta_phone_number_id or workspace.meta_waba_id))
+        or (configured_tier and (workspace.meta_display_phone or workspace.meta_phone_number_id))
+    )
+    has_twilio = bool(workspace.twilio_account_sid and workspace.twilio_phone_number)
+
+    is_connected = False
+    tier_limit = 0
+    quality_score = "NOT_CONNECTED"
+
+    if has_meta:
+        if workspace.meta_access_token and (workspace.meta_phone_number_id or workspace.meta_waba_id):
+            cache_id = workspace.meta_phone_number_id or workspace.meta_waba_id
+            cache_key = f"wa:meta_tier:{cache_id}"
+            cached = None
+            if redis_client:
+                try:
+                    cached = redis_client.get(cache_key)
+                except Exception:
+                    cached = None
+
+            if cached:
+                try:
+                    tier_limit = int(cached.decode("utf-8") if isinstance(cached, bytes) else str(cached))
+                    is_connected = tier_limit > 0
+                    quality_score = "GREEN" if is_connected else "NOT_CONNECTED"
+                except (ValueError, TypeError):
+                    tier_limit = 0
+            elif configured_tier:
+                # Fast path: Use tier limit already retrieved and saved during WhatsApp channel connection
+                is_connected = True
+                tier_limit = int(configured_tier)
+                quality_score = "GREEN"
+                if redis_client and tier_limit:
+                    try:
+                        redis_client.setex(cache_key, 3600, str(tier_limit))
+                    except Exception:
+                        pass
+            else:
+                meta_tier = WhatsAppTierService.fetch_live_portfolio_tier(
+                    waba_id=workspace.meta_waba_id,
+                    access_token=workspace.meta_access_token,
+                    business_id=workspace.meta_business_id,
+                    phone_number_id=workspace.meta_phone_number_id,
+                )
+                if meta_tier.get("is_connected"):
+                    is_connected = True
+                    tier_limit = meta_tier.get("daily_limit", 1000)
+                    quality_score = meta_tier.get("quality_score", "GREEN")
+                    try:
+                        workspace.meta_tier_limit = tier_limit
+                        db.commit()
+                    except Exception:
+                        pass
+                    if redis_client and tier_limit:
+                        redis_client.setex(cache_key, 3600, str(tier_limit))
+                elif configured_tier:
+                    is_connected = True
+                    tier_limit = int(configured_tier)
+                    quality_score = "GREEN"
+                else:
+                    is_connected = False
+                    tier_limit = 0
+                    quality_score = "NOT_CONNECTED"
+        elif configured_tier:
+            is_connected = True
+            tier_limit = int(configured_tier)
+            quality_score = "GREEN"
+    elif has_twilio:
+        is_connected = True
+        tier_limit = int(configured_tier or 1000)
+        quality_score = "GREEN"
+
+    if not is_connected or tier_limit <= 0:
         usage = {"limit": 0, "used": 0, "remaining": 0, "next_unlock_at": None}
     else:
         usage = WhatsAppTierService.get_portfolio_usage(
             redis_client=redis_client,
             portfolio_id=portfolio_id,
-            portfolio_tier_limit=2000
+            portfolio_tier_limit=tier_limit,
+            db=db,
+            workspace_id=workspace.id,
         )
 
     return {
@@ -581,7 +656,7 @@ async def get_portfolio_tier_info(
         "phone_number_id": phone_number_id,
         "display_phone": display_phone,
         "is_connected": is_connected,
-        "quality_score": "GREEN" if is_connected else "NOT_CONNECTED",
+        "quality_score": quality_score,
         "tier_limit": usage.get("limit", 0),
         "used_today": usage.get("used", 0),
         "remaining_today": usage.get("remaining", 0),
