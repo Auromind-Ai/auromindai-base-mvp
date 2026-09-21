@@ -77,7 +77,12 @@ export function CrmNavigation({ section, onChange }) {
   );
 }
 
-export function CrmAnalytics({ overview = false, onBrowse, onSelect, workspaceId }) {
+export function CrmAnalytics({
+  overview = false,
+  onBrowse,
+  onSelect,
+  workspaceId,
+}) {
   const [period, setPeriod] = useState("30");
   const [custom, setCustom] = useState({ start: "", end: "" });
   const [data, setData] = useState(null);
@@ -139,18 +144,46 @@ export function CrmAnalytics({ overview = false, onBrowse, onSelect, workspaceId
         <div className="flex gap-2 flex-wrap">
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
-              <button aria-label="Analytics date range" className={`${crmControl} flex items-center gap-3 hover:border-[#654BCC] data-[state=open]:border-[#654BCC]`}>
-                {{ "1": "Today", "7": "7 days", "30": "30 days", custom: "Custom" }[period]}
+              <button
+                aria-label="Analytics date range"
+                className={`${crmControl} flex items-center gap-3 hover:border-[#654BCC] data-[state=open]:border-[#654BCC]`}
+              >
+                {
+                  { 1: "Today", 7: "7 days", 30: "30 days", custom: "Custom" }[
+                    period
+                  ]
+                }
                 <ChevronDown size={14} aria-hidden="true" />
               </button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
-              <DropdownMenu.Content align="end" sideOffset={6} className="z-[110] min-w-36 rounded-xl border border-white/10 bg-[#171322] p-1.5 text-sm text-white shadow-xl shadow-black/40">
-                <DropdownMenu.RadioGroup value={period} onValueChange={value => { setData(null); setPeriod(value); }}>
-                  {[["1", "Today"], ["7", "7 days"], ["30", "30 days"], ["custom", "Custom"]].map(([value, label]) => (
-                    <DropdownMenu.RadioItem key={value} value={value} className="flex cursor-pointer items-center justify-between gap-4 rounded-lg px-3 py-2 outline-none data-[state=checked]:bg-[#654BCC]/25 data-[highlighted]:bg-[#654BCC] data-[highlighted]:text-white">
+              <DropdownMenu.Content
+                align="end"
+                sideOffset={6}
+                className="z-[110] min-w-36 rounded-xl border border-white/10 bg-[#171322] p-1.5 text-sm text-white shadow-xl shadow-black/40"
+              >
+                <DropdownMenu.RadioGroup
+                  value={period}
+                  onValueChange={(value) => {
+                    setData(null);
+                    setPeriod(value);
+                  }}
+                >
+                  {[
+                    ["1", "Today"],
+                    ["7", "7 days"],
+                    ["30", "30 days"],
+                    ["custom", "Custom"],
+                  ].map(([value, label]) => (
+                    <DropdownMenu.RadioItem
+                      key={value}
+                      value={value}
+                      className="flex cursor-pointer items-center justify-between gap-4 rounded-lg px-3 py-2 outline-none data-[state=checked]:bg-[#654BCC]/25 data-[highlighted]:bg-[#654BCC] data-[highlighted]:text-white"
+                    >
                       {label}
-                      <DropdownMenu.ItemIndicator><Check size={14} aria-hidden="true" /></DropdownMenu.ItemIndicator>
+                      <DropdownMenu.ItemIndicator>
+                        <Check size={14} aria-hidden="true" />
+                      </DropdownMenu.ItemIndicator>
                     </DropdownMenu.RadioItem>
                   ))}
                 </DropdownMenu.RadioGroup>
@@ -298,7 +331,9 @@ export function CrmAnalytics({ overview = false, onBrowse, onSelect, workspaceId
           )}
         </>
       )}
-      {overview && <CrmFollowUps workspaceId={workspaceId} onSelect={onSelect} />}
+      {overview && (
+        <CrmFollowUps workspaceId={workspaceId} onSelect={onSelect} />
+      )}
     </main>
   );
 }
@@ -388,7 +423,14 @@ export function CrmHistory({ onSelect }) {
   );
 }
 
-export function CrmScoring({ options, lead, onRecalculate, loading, loadError, onRetry }) {
+export function CrmScoring({
+  options,
+  lead,
+  onRecalculate,
+  loading,
+  loadError,
+  onRetry,
+}) {
   const { showToast, showConfirm } = useToast?.() || { showToast: () => {} };
   const [activeSubtab, setActiveSubtab] = useState("rules"); // "rules" | "preview"
   const [busy, setBusy] = useState(false);
@@ -406,14 +448,20 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
   const [showThresholdModal, setShowThresholdModal] = useState(false);
   const [tempThresholds, setTempThresholds] = useState({ hot: 50, warm: 30 });
   const [showAddSignalModal, setShowAddSignalModal] = useState(false);
-  const [newSignal, setNewSignal] = useState({ name: "", example_message: "", points: 15 });
+  const [newSignal, setNewSignal] = useState({
+    name: "",
+    example_message: "",
+    points: 15,
+  });
   const [showTipsModal, setShowTipsModal] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
 
   const fetchRules = async () => {
     setRulesLoading(true);
     try {
-      const data = await api.get(`/lead-scoring/rules?workspace_id=${getWorkspaceIdFromToken()}`);
+      const data = await api.get(
+        `/lead-scoring/rules?workspace_id=${getWorkspaceIdFromToken()}`,
+      );
       if (data) {
         setAiEnabled(data.ai_qualification_enabled ?? true);
         if (data.thresholds) setThresholds(data.thresholds);
@@ -430,7 +478,11 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
     fetchRules();
   }, []);
 
-  const handleSaveRules = async (customSignals = signals, customThresholds = thresholds, customAi = aiEnabled) => {
+  const handleSaveRules = async (
+    customSignals = signals,
+    customThresholds = thresholds,
+    customAi = aiEnabled,
+  ) => {
     setRulesSaving(true);
     try {
       const payload = {
@@ -438,7 +490,10 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
         thresholds: customThresholds,
         signals: customSignals,
       };
-      await api.post(`/lead-scoring/rules?workspace_id=${getWorkspaceIdFromToken()}`, payload);
+      await api.post(
+        `/lead-scoring/rules?workspace_id=${getWorkspaceIdFromToken()}`,
+        payload,
+      );
       showToast("Scoring rules saved successfully!", "success");
     } catch (e) {
       showToast(e.message || "Failed to save scoring rules", "error");
@@ -451,7 +506,9 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
     setShowResetModal(false);
     setRulesSaving(true);
     try {
-      const data = await api.post(`/lead-scoring/rules/reset?workspace_id=${getWorkspaceIdFromToken()}`);
+      const data = await api.post(
+        `/lead-scoring/rules/reset?workspace_id=${getWorkspaceIdFromToken()}`,
+      );
       if (data) {
         setAiEnabled(data.ai_qualification_enabled ?? true);
         setThresholds(data.thresholds || { hot: 50, warm: 30, cold: 0 });
@@ -466,17 +523,24 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
   };
 
   const handleToggleSignal = (id) => {
-    const updated = signals.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s));
+    const updated = signals.map((s) =>
+      s.id === id ? { ...s, enabled: !s.enabled } : s,
+    );
     setSignals(updated);
   };
 
   const handlePointsChange = (id, delta) => {
-    const updated = signals.map((s) => (s.id === id ? { ...s, points: (s.points || 0) + delta } : s));
+    const updated = signals.map((s) =>
+      s.id === id ? { ...s, points: (s.points || 0) + delta } : s,
+    );
     setSignals(updated);
   };
 
   const handleDeleteSignal = (sigOrId) => {
-    const sig = typeof sigOrId === "object" ? sigOrId : signals.find((s) => s.id === sigOrId) || { id: sigOrId };
+    const sig =
+      typeof sigOrId === "object"
+        ? sigOrId
+        : signals.find((s) => s.id === sigOrId) || { id: sigOrId };
     const signalName = sig.name || "this custom signal";
     if (showConfirm) {
       showConfirm({
@@ -635,7 +699,8 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
         <div className="space-y-6">
           {rulesLoading ? (
             <div className="flex items-center justify-center py-12 text-zinc-400">
-              <Loader2 className="animate-spin mr-2" size={18} /> Loading scoring rules...
+              <Loader2 className="animate-spin mr-2" size={18} /> Loading
+              scoring rules...
             </div>
           ) : (
             <>
@@ -651,7 +716,8 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                         AI Lead Qualification
                       </h3>
                       <p className="text-xs text-zinc-400">
-                        AI will analyze conversations and detect buying signals automatically.
+                        AI will analyze conversations and detect buying signals
+                        automatically.
                       </p>
                     </div>
                   </div>
@@ -690,7 +756,9 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                       <div className="text-lg font-bold text-white">
                         &ge; {thresholds.hot}%
                       </div>
-                      <div className="text-[11px] text-zinc-400">High buying intent</div>
+                      <div className="text-[11px] text-zinc-400">
+                        High buying intent
+                      </div>
                     </div>
                   </div>
 
@@ -704,9 +772,12 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                         Warm Lead
                       </div>
                       <div className="text-lg font-bold text-white">
-                        {thresholds.warm}% To {Math.max(thresholds.warm, thresholds.hot - 1)}%
+                        {thresholds.warm}% To{" "}
+                        {Math.max(thresholds.warm, thresholds.hot - 1)}%
                       </div>
-                      <div className="text-[11px] text-zinc-400">Some interest</div>
+                      <div className="text-[11px] text-zinc-400">
+                        Some interest
+                      </div>
                     </div>
                   </div>
 
@@ -722,7 +793,9 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                       <div className="text-lg font-bold text-white">
                         0% To {Math.max(0, thresholds.warm - 1)}%
                       </div>
-                      <div className="text-[11px] text-zinc-400">Low intent</div>
+                      <div className="text-[11px] text-zinc-400">
+                        Low intent
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -730,7 +803,10 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                 <div className="flex justify-end">
                   <button
                     onClick={() => {
-                      setTempThresholds({ hot: thresholds.hot, warm: thresholds.warm });
+                      setTempThresholds({
+                        hot: thresholds.hot,
+                        warm: thresholds.warm,
+                      });
                       setShowThresholdModal(true);
                     }}
                     className="px-3.5 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-medium text-zinc-300 transition-colors"
@@ -752,7 +828,9 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                         Custom Conversation Signals
                       </h3>
                       <p className="text-xs text-zinc-400">
-                        Default scoring rules from system config are active. Define custom rules here to detect specific keywords or intents.
+                        Default scoring rules from system config are active.
+                        Define custom rules here to detect specific keywords or
+                        intents.
                       </p>
                     </div>
                   </div>
@@ -779,19 +857,29 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                     <tbody className="divide-y divide-white/5">
                       {signals.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="py-12 text-center text-zinc-500">
+                          <td
+                            colSpan={5}
+                            className="py-12 text-center text-zinc-500"
+                          >
                             <div className="flex flex-col items-center justify-center gap-2">
                               <Sparkles size={24} className="text-zinc-600" />
-                              <p className="text-sm font-medium text-zinc-300">No custom rules</p>
+                              <p className="text-sm font-medium text-zinc-300">
+                                No custom rules
+                              </p>
                               <p className="text-xs text-zinc-500 max-w-sm">
-                                Default signals from system scoring config are active. Click &quot;+ Add Custom Signal&quot; to define custom scoring rules.
+                                Default signals from system scoring config are
+                                active. Click &quot;+ Add Custom Signal&quot; to
+                                define custom scoring rules.
                               </p>
                             </div>
                           </td>
                         </tr>
                       ) : (
                         signals.map((sig) => (
-                          <tr key={sig.id} className="hover:bg-white/[0.02] transition-colors">
+                          <tr
+                            key={sig.id}
+                            className="hover:bg-white/[0.02] transition-colors"
+                          >
                             {/* Signal Icon & Name */}
                             <td className="py-3 px-3">
                               <div className="flex items-center gap-3">
@@ -809,7 +897,9 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
 
                             {/* Example Customer Message */}
                             <td className="py-3 px-3 text-zinc-400 text-xs max-w-xs font-mono">
-                              {sig.example_message || (sig.examples && sig.examples.join(", ")) || "ΓÇö"}
+                              {sig.example_message ||
+                                (sig.examples && sig.examples.join(", ")) ||
+                                "ΓÇö"}
                             </td>
 
                             {/* Points Controls */}
@@ -824,10 +914,16 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                                 </button>
                                 <span
                                   className={`w-10 text-center font-bold text-xs sm:text-sm ${
-                                    sig.points > 0 ? "text-emerald-400" : sig.points < 0 ? "text-rose-400" : "text-zinc-400"
+                                    sig.points > 0
+                                      ? "text-emerald-400"
+                                      : sig.points < 0
+                                        ? "text-rose-400"
+                                        : "text-zinc-400"
                                   }`}
                                 >
-                                  {sig.points > 0 ? `+${sig.points}` : sig.points}
+                                  {sig.points > 0
+                                    ? `+${sig.points}`
+                                    : sig.points}
                                 </span>
                                 <button
                                   onClick={() => handlePointsChange(sig.id, 5)}
@@ -850,7 +946,9 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                               >
                                 <span
                                   className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                    sig.enabled ? "translate-x-4" : "translate-x-0"
+                                    sig.enabled
+                                      ? "translate-x-4"
+                                      : "translate-x-0"
                                   }`}
                                 />
                               </button>
@@ -885,7 +983,9 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                       AI Scoring Tips
                     </h4>
                     <p className="text-xs text-zinc-400 mt-0.5">
-                      The AI understands context, not just keywords. It looks at the full conversation to detect intent, budget, timeline and decision maker signals.
+                      The AI understands context, not just keywords. It looks at
+                      the full conversation to detect intent, budget, timeline
+                      and decision maker signals.
                     </p>
                   </div>
                 </div>
@@ -938,9 +1038,12 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                 <Sparkles size={18} />
               </div>
               <div>
-                <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Lead Score Preview</h2>
+                <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                  Lead Score Preview
+                </h2>
                 <p className="text-xs text-zinc-400">
-                  Realtime qualification combining buying intent, activity, engagement, and custom signals.
+                  Realtime qualification combining buying intent, activity,
+                  engagement, and custom signals.
                 </p>
               </div>
             </div>
@@ -951,7 +1054,9 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
               </div>
               <div className="inline-flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/25 px-3 py-1.5 text-xs font-semibold text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.15)]">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
-                <span>Warm: {thresholds.warm} - {thresholds.hot - 1}</span>
+                <span>
+                  Warm: {thresholds.warm} - {thresholds.hot - 1}
+                </span>
               </div>
               <div className="inline-flex items-center gap-2 rounded-xl bg-sky-500/10 border border-sky-500/25 px-3 py-1.5 text-xs font-semibold text-sky-300 shadow-[0_0_10px_rgba(56,189,248,0.15)]">
                 <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.8)]" />
@@ -962,13 +1067,20 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
 
           {loading && (
             <div className="flex items-center justify-center py-8 text-zinc-400">
-              <Loader2 className="animate-spin mr-2" size={18} /> Loading lead details...
+              <Loader2 className="animate-spin mr-2" size={18} /> Loading lead
+              details...
             </div>
           )}
           {loadError && (
             <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 flex items-center justify-between text-xs">
               <span>{loadError}</span>
-              <button className={crmControl} disabled={loading} onClick={onRetry}>Retry</button>
+              <button
+                className={crmControl}
+                disabled={loading}
+                onClick={onRetry}
+              >
+                Retry
+              </button>
             </div>
           )}
           {!loading && !loadError && lead ? (
@@ -976,16 +1088,20 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-b from-[#161226] to-[#100D1D] border border-white/[0.08] rounded-3xl p-4 sm:p-5 shadow-xl">
                 <div className="flex items-center gap-3.5">
                   <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#7C4DFF] to-[#6A3DE8] text-white flex items-center justify-center font-bold text-sm shadow-lg shadow-[#7C4DFF]/25 shrink-0">
-                    {lead.name && lead.name.trim() !== "."
-                      ? lead.name.slice(0, 2).toUpperCase()
-                      : <Users size={18} />}
+                    {lead.name && lead.name.trim() !== "." ? (
+                      lead.name.slice(0, 2).toUpperCase()
+                    ) : (
+                      <Users size={18} />
+                    )}
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-bold text-white text-base">
                         {lead.name && lead.name.trim() !== "."
                           ? lead.name
-                          : lead.phone || lead.email || `Lead #${lead.id?.slice(0, 8) || ""}`}
+                          : lead.phone ||
+                            lead.email ||
+                            `Lead #${lead.id?.slice(0, 8) || ""}`}
                       </h3>
                       {lead.source && (
                         <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-[#7C4DFF]/15 border border-[#7C4DFF]/30 text-[#9E7BFF]">
@@ -1009,7 +1125,10 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                         `/lead-scoring/leads/${lead.id}/recalculate?workspace_id=${getWorkspaceIdFromToken()}`,
                       );
                       if (onRecalculate) await onRecalculate(lead.id);
-                      showToast("Lead score recalculated with current rules", "success");
+                      showToast(
+                        "Lead score recalculated with current rules",
+                        "success",
+                      );
                     } catch (e) {
                       setError(e.message);
                       showToast(e.message, "error");
@@ -1018,27 +1137,44 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                     }
                   }}
                 >
-                  <RotateCcw size={14} className={busy ? "animate-spin text-[#9E7BFF]" : "text-[#9E7BFF]"} />
-                  <span>{busy ? "RecalculatingΓÇª" : "Recalculate lead score"}</span>
+                  <RotateCcw
+                    size={14}
+                    className={
+                      busy ? "animate-spin text-[#9E7BFF]" : "text-[#9E7BFF]"
+                    }
+                  />
+                  <span>
+                    {busy ? "RecalculatingΓÇª" : "Recalculate lead score"}
+                  </span>
                 </button>
               </div>
-              {error && <p role="alert" className="text-xs text-rose-400">{error}</p>}
-              <ScoreBreakdown breakdown={lead.breakdown} score={lead.score} thresholds={thresholds} />
+              {error && (
+                <p role="alert" className="text-xs text-rose-400">
+                  {error}
+                </p>
+              )}
+              <ScoreBreakdown
+                breakdown={lead.breakdown}
+                score={lead.score}
+                thresholds={thresholds}
+              />
             </div>
           ) : (
             <div className="rounded-3xl bg-gradient-to-b from-[#151124] to-[#0E0B18] border border-white/[0.08] p-10 text-center text-zinc-400 space-y-3 shadow-xl">
               <div className="w-12 h-12 rounded-2xl bg-[#7C4DFF]/15 border border-[#7C4DFF]/30 text-[#9E7BFF] flex items-center justify-center mx-auto">
                 <Sparkles size={24} />
               </div>
-              <p className="text-sm font-semibold text-white">Select a lead in the Leads section to inspect its score.</p>
+              <p className="text-sm font-semibold text-white">
+                Select a lead in the Leads section to inspect its score.
+              </p>
               <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-                Or configure rules in the Scoring Rules tab to automatically qualify incoming chats.
+                Or configure rules in the Scoring Rules tab to automatically
+                qualify incoming chats.
               </p>
             </div>
           )}
         </div>
       )}
-
 
       {/* MODAL: RESET CONFIRMATION */}
       {showResetModal && (
@@ -1049,7 +1185,9 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                 <AlertCircle size={20} />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Reset Scoring Rules?</h3>
+                <h3 className="text-base font-bold text-white">
+                  Reset Scoring Rules?
+                </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">
                   Are you sure you want to reset scoring rules to defaults?
                 </p>
@@ -1059,7 +1197,9 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
             <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3 text-xs text-zinc-400 space-y-1.5">
               <p>ΓÇó Custom conversation signals will be removed.</p>
               <p>ΓÇó Default signals and points will be restored.</p>
-              <p>ΓÇó Hot/Warm/Cold thresholds will be reset to 50% / 30% / 0%.</p>
+              <p>
+                ΓÇó Hot/Warm/Cold thresholds will be reset to 50% / 30% / 0%.
+              </p>
             </div>
 
             <div className="flex items-center justify-end gap-2.5 pt-2">
@@ -1096,9 +1236,12 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
       {showThresholdModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#121218] border border-white/10 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="text-base font-bold text-white">Configure Lead Thresholds</h3>
+            <h3 className="text-base font-bold text-white">
+              Configure Lead Thresholds
+            </h3>
             <p className="text-xs text-zinc-400">
-              Customize score thresholds to automatically categorize leads into Hot, Warm, and Cold tiers.
+              Customize score thresholds to automatically categorize leads into
+              Hot, Warm, and Cold tiers.
             </p>
 
             <div className="space-y-3">
@@ -1112,7 +1255,10 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                   max="100"
                   value={tempThresholds.hot}
                   onChange={(e) =>
-                    setTempThresholds({ ...tempThresholds, hot: Number(e.target.value) })
+                    setTempThresholds({
+                      ...tempThresholds,
+                      hot: Number(e.target.value),
+                    })
                   }
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7C4DFF]"
                 />
@@ -1128,7 +1274,10 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                   max={tempThresholds.hot - 1}
                   value={tempThresholds.warm}
                   onChange={(e) =>
-                    setTempThresholds({ ...tempThresholds, warm: Number(e.target.value) })
+                    setTempThresholds({
+                      ...tempThresholds,
+                      warm: Number(e.target.value),
+                    })
                   }
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7C4DFF]"
                 />
@@ -1145,10 +1294,17 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
               <button
                 onClick={() => {
                   if (tempThresholds.warm >= tempThresholds.hot) {
-                    showToast("Warm threshold must be less than Hot threshold", "error");
+                    showToast(
+                      "Warm threshold must be less than Hot threshold",
+                      "error",
+                    );
                     return;
                   }
-                  const updated = { ...thresholds, hot: tempThresholds.hot, warm: tempThresholds.warm };
+                  const updated = {
+                    ...thresholds,
+                    hot: tempThresholds.hot,
+                    warm: tempThresholds.warm,
+                  };
                   setThresholds(updated);
                   setShowThresholdModal(false);
                   handleSaveRules(signals, updated, aiEnabled);
@@ -1166,9 +1322,12 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
       {showAddSignalModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#121218] border border-white/10 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="text-base font-bold text-white">Add Custom Conversation Signal</h3>
+            <h3 className="text-base font-bold text-white">
+              Add Custom Conversation Signal
+            </h3>
             <p className="text-xs text-zinc-400">
-              Define a keyword or intent signal. When detected in customer chats, the AI will award or deduct points.
+              Define a keyword or intent signal. When detected in customer
+              chats, the AI will award or deduct points.
             </p>
 
             <div className="space-y-3">
@@ -1180,7 +1339,9 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                   type="text"
                   placeholder="e.g. Asks about Enterprise Plan"
                   value={newSignal.name}
-                  onChange={(e) => setNewSignal({ ...newSignal, name: e.target.value })}
+                  onChange={(e) =>
+                    setNewSignal({ ...newSignal, name: e.target.value })
+                  }
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#7C4DFF]"
                 />
               </div>
@@ -1193,11 +1354,17 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                   type="text"
                   placeholder='e.g. "enterprise license", "bulk discount", "custom contract"'
                   value={newSignal.example_message}
-                  onChange={(e) => setNewSignal({ ...newSignal, example_message: e.target.value })}
+                  onChange={(e) =>
+                    setNewSignal({
+                      ...newSignal,
+                      example_message: e.target.value,
+                    })
+                  }
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#7C4DFF]"
                 />
                 <p className="text-[11px] text-zinc-500 mt-1">
-                  Separate multiple phrases with commas or quotes. The AI matches exact keywords and semantic similarity.
+                  Separate multiple phrases with commas or quotes. The AI
+                  matches exact keywords and semantic similarity.
                 </p>
               </div>
 
@@ -1209,7 +1376,12 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
                   type="number"
                   placeholder="15"
                   value={newSignal.points}
-                  onChange={(e) => setNewSignal({ ...newSignal, points: Number(e.target.value) })}
+                  onChange={(e) =>
+                    setNewSignal({
+                      ...newSignal,
+                      points: Number(e.target.value),
+                    })
+                  }
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7C4DFF]"
                 />
               </div>
@@ -1238,21 +1410,31 @@ export function CrmScoring({ options, lead, onRecalculate, loading, loadError, o
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#121218] border border-white/10 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
             <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Lightbulb size={18} className="text-violet-400" /> AI Scoring Intelligence
+              <Lightbulb size={18} className="text-violet-400" /> AI Scoring
+              Intelligence
             </h3>
             <div className="text-xs text-zinc-300 space-y-2 leading-relaxed">
-              <p>
-                Our lead scoring engine combines two complementary layers:
-              </p>
+              <p>Our lead scoring engine combines two complementary layers:</p>
               <ul className="list-disc pl-4 space-y-1 text-zinc-400">
                 <li>
-                  <strong className="text-white">Deterministic &amp; Keyword Matching:</strong> High-precision regex checks for phone numbers, pricing questions, emails, and custom phrases.
+                  <strong className="text-white">
+                    Deterministic &amp; Keyword Matching:
+                  </strong>{" "}
+                  High-precision regex checks for phone numbers, pricing
+                  questions, emails, and custom phrases.
                 </li>
                 <li>
-                  <strong className="text-white">Semantic AI Embeddings:</strong> Cosine similarity against prototype vectors, detecting intent even if customers use slang, different languages (Tanglish, Hinglish), or indirect phrasing.
+                  <strong className="text-white">
+                    Semantic AI Embeddings:
+                  </strong>{" "}
+                  Cosine similarity against prototype vectors, detecting intent
+                  even if customers use slang, different languages (Tanglish,
+                  Hinglish), or indirect phrasing.
                 </li>
                 <li>
-                  <strong className="text-white">Behavioral Scoring:</strong> Tracks response recency, inactivity decay, and flow progression.
+                  <strong className="text-white">Behavioral Scoring:</strong>{" "}
+                  Tracks response recency, inactivity decay, and flow
+                  progression.
                 </li>
               </ul>
             </div>
@@ -1286,7 +1468,11 @@ Regards,
 {workspace_name}`;
 
 const TEMPLATE_VARS = [
-  { key: "total_leads", label: "{total_leads}", desc: "Count of qualified leads" },
+  {
+    key: "total_leads",
+    label: "{total_leads}",
+    desc: "Count of qualified leads",
+  },
   { key: "date", label: "{date}", desc: "Current date (e.g. Sep 19, 2026)" },
   { key: "filename", label: "{filename}", desc: "CSV file name" },
   { key: "min_score", label: "{min_score}", desc: "Score threshold" },
@@ -1296,7 +1482,8 @@ const TEMPLATE_VARS = [
 
 export function CrmReports({ workspaceId: propWorkspaceId }) {
   const { workspaceId: authWsId } = useAuth?.() || {};
-  const effectiveWorkspaceId = propWorkspaceId || authWsId || getWorkspaceIdFromToken();
+  const effectiveWorkspaceId =
+    propWorkspaceId || authWsId || getWorkspaceIdFromToken();
 
   const { showToast } = useToast?.() || { showToast: () => {} };
   const [loading, setLoading] = useState(false);
@@ -1309,7 +1496,9 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
   const [minScore, setMinScore] = useState(() => {
     if (typeof window !== "undefined") {
       const wsId = propWorkspaceId || getWorkspaceIdFromToken();
-      const saved = localStorage.getItem(`crm_email_report_${wsId || "default"}_min_score`);
+      const saved = localStorage.getItem(
+        `crm_email_report_${wsId || "default"}_min_score`,
+      );
       if (saved !== null && !isNaN(Number(saved))) {
         return Number(saved);
       }
@@ -1319,12 +1508,15 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
   const [frequency, setFrequency] = useState(() => {
     if (typeof window !== "undefined") {
       const wsId = propWorkspaceId || getWorkspaceIdFromToken();
-      const saved = localStorage.getItem(`crm_email_report_${wsId || "default"}_frequency`);
+      const saved = localStorage.getItem(
+        `crm_email_report_${wsId || "default"}_frequency`,
+      );
       if (saved) return saved;
     }
     return "daily";
   });
-  const [sendTime, setSendTime] = useState("09:00 AM");
+  const [sendTimes, setSendTimes] = useState(["09:00"]);
+  const [reportTimezone, setReportTimezone] = useState("Asia/Kolkata");
   const [recipientEmails, setRecipientEmails] = useState([]);
   const [emailInput, setEmailInput] = useState("");
   const [attachCsv, setAttachCsv] = useState(true);
@@ -1359,10 +1551,13 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     api
-      .get(`/lead-scoring/email-report/settings?workspace_id=${effectiveWorkspaceId}&_t=${Date.now()}`, {
-        cache: "no-store",
-        headers: { "Cache-Control": "no-cache" },
-      })
+      .get(
+        `/lead-scoring/email-report/settings?workspace_id=${effectiveWorkspaceId}&_t=${Date.now()}`,
+        {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
+        },
+      )
       .then((res) => {
         const data = res?.data || res;
         if (data?.settings) {
@@ -1373,28 +1568,25 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
             const scoreNum = Number(s.min_score);
             setMinScore(scoreNum);
             if (typeof window !== "undefined") {
-              localStorage.setItem(`crm_email_report_${effectiveWorkspaceId}_min_score`, String(scoreNum));
+              localStorage.setItem(
+                `crm_email_report_${effectiveWorkspaceId}_min_score`,
+                String(scoreNum),
+              );
             }
           }
           if (s.frequency) {
             setFrequency(s.frequency);
             if (typeof window !== "undefined") {
-              localStorage.setItem(`crm_email_report_${effectiveWorkspaceId}_frequency`, s.frequency);
+              localStorage.setItem(
+                `crm_email_report_${effectiveWorkspaceId}_frequency`,
+                s.frequency,
+              );
             }
           }
-          if (s.send_time) {
-            // Convert HH:MM to 12h format if needed
-            const parts = s.send_time.split(":");
-            if (parts.length === 2) {
-              const h = parseInt(parts[0], 10);
-              const m = parts[1];
-              const ampm = h >= 12 ? "PM" : "AM";
-              const h12 = h % 12 || 12;
-              setSendTime(`${String(h12).padStart(2, "0")}:${m} ${ampm}`);
-            } else {
-              setSendTime(s.send_time);
-            }
-          }
+          setSendTimes(
+            s.send_times?.length ? s.send_times : [s.send_time || "09:00"],
+          );
+          setReportTimezone(s.timezone || "Asia/Kolkata");
           if (Array.isArray(s.recipient_emails)) {
             setRecipientEmails(s.recipient_emails);
           }
@@ -1421,7 +1613,12 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
         }
       })
       .catch((err) => {
-        setFeedback({ type: "error", message: err.message || "Unable to load email settings. Please refresh to try again." });
+        setFeedback({
+          type: "error",
+          message:
+            err.message ||
+            "Unable to load email settings. Please refresh to try again.",
+        });
       })
       .finally(() => {
         setLoading(false);
@@ -1436,12 +1633,25 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     setCountLoading(true);
     setPreviewError("");
     const timer = setTimeout(() => {
-      api.get(`/lead-scoring/email-report/sample-preview?${previewQuery}`)
-        .then(res => { if (active) setQualifyingCount((res?.data || res).total_count); })
-        .catch(err => { if (active) { setPreviewError(err.message || "Unable to preview these filters."); setQualifyingCount(0); } })
-        .finally(() => { if (active) setCountLoading(false); });
+      api
+        .get(`/lead-scoring/email-report/sample-preview?${previewQuery}`)
+        .then((res) => {
+          if (active) setQualifyingCount((res?.data || res).total_count);
+        })
+        .catch((err) => {
+          if (active) {
+            setPreviewError(err.message || "Unable to preview these filters.");
+            setQualifyingCount(0);
+          }
+        })
+        .finally(() => {
+          if (active) setCountLoading(false);
+        });
     }, 300);
-    return () => { active = false; clearTimeout(timer); };
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [effectiveWorkspaceId, previewQuery, loading]);
 
   const addEmail = (raw) => {
@@ -1449,7 +1659,10 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     if (!clean) return;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(clean)) {
-      setFeedback({ type: "error", message: `"${clean}" is not a valid email address.` });
+      setFeedback({
+        type: "error",
+        message: `"${clean}" is not a valid email address.`,
+      });
       return;
     }
     if (!recipientEmails.includes(clean)) {
@@ -1470,20 +1683,28 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
   };
 
   const handleToggleActive = async () => {
-    if (!effectiveWorkspaceId || !settingsLoaded || savingToggle || saving) return;
+    if (!effectiveWorkspaceId || !settingsLoaded || savingToggle || saving)
+      return;
     const previous = isActive;
     setIsActive(!previous);
     setSavingToggle(true);
     setFeedback(null);
     try {
-      const res = await api.post(`/lead-scoring/email-report/settings?workspace_id=${effectiveWorkspaceId}`, {
-        is_active: !previous,
-      });
+      const res = await api.post(
+        `/lead-scoring/email-report/settings?workspace_id=${effectiveWorkspaceId}`,
+        {
+          is_active: !previous,
+        },
+      );
       const data = res?.data || res;
       setIsActive(Boolean(data.settings.is_active));
     } catch (err) {
       setIsActive(previous);
-      setFeedback({ type: "error", message: err.message || "Unable to save report status. Please try again." });
+      setFeedback({
+        type: "error",
+        message:
+          err.message || "Unable to save report status. Please try again.",
+      });
     } finally {
       setSavingToggle(false);
     }
@@ -1493,7 +1714,21 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     if (!effectiveWorkspaceId) return;
 
     if (recipientEmails.length === 0) {
-      setFeedback({ type: "error", message: "Please add at least one recipient email address." });
+      setFeedback({
+        type: "error",
+        message: "Please add at least one recipient email address.",
+      });
+      return;
+    }
+
+    if (
+      sendTimes.some((time) => !time) ||
+      new Set(sendTimes).size !== sendTimes.length
+    ) {
+      setFeedback({
+        type: "error",
+        message: "Choose valid, different report times before saving.",
+      });
       return;
     }
 
@@ -1501,18 +1736,21 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     setFeedback(null);
 
     try {
-      const res = await api.post(`/lead-scoring/email-report/settings?workspace_id=${effectiveWorkspaceId}`, {
-        is_active: isActive,
-        min_score: minScore,
-        frequency,
-        send_time: sendTime,
-        recipient_emails: recipientEmails,
-        attach_csv: attachCsv,
-        report_filters: {},
-        csv_columns: csvColumns,
-        subject_template: subjectTemplate,
-        body_template: bodyTemplate,
-      });
+      const res = await api.post(
+        `/lead-scoring/email-report/settings?workspace_id=${effectiveWorkspaceId}`,
+        {
+          is_active: isActive,
+          min_score: minScore,
+          frequency,
+          send_times: sendTimes,
+          recipient_emails: recipientEmails,
+          attach_csv: attachCsv,
+          report_filters: {},
+          csv_columns: csvColumns,
+          subject_template: subjectTemplate,
+          body_template: bodyTemplate,
+        },
+      );
 
       const data = res?.data || res;
       if (data?.settings) {
@@ -1521,28 +1759,49 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
           const scoreNum = Number(s.min_score);
           setMinScore(scoreNum);
           if (typeof window !== "undefined") {
-            localStorage.setItem(`crm_email_report_${effectiveWorkspaceId}_min_score`, String(scoreNum));
+            localStorage.setItem(
+              `crm_email_report_${effectiveWorkspaceId}_min_score`,
+              String(scoreNum),
+            );
           }
         }
         if (s.frequency) {
           setFrequency(s.frequency);
           if (typeof window !== "undefined") {
-            localStorage.setItem(`crm_email_report_${effectiveWorkspaceId}_frequency`, s.frequency);
+            localStorage.setItem(
+              `crm_email_report_${effectiveWorkspaceId}_frequency`,
+              s.frequency,
+            );
           }
         }
       } else {
         if (typeof window !== "undefined") {
-          localStorage.setItem(`crm_email_report_${effectiveWorkspaceId}_min_score`, String(minScore));
-          localStorage.setItem(`crm_email_report_${effectiveWorkspaceId}_frequency`, frequency);
+          localStorage.setItem(
+            `crm_email_report_${effectiveWorkspaceId}_min_score`,
+            String(minScore),
+          );
+          localStorage.setItem(
+            `crm_email_report_${effectiveWorkspaceId}_frequency`,
+            frequency,
+          );
         }
       }
       if (data?.lead_count !== undefined) {
         setQualifyingCount(data.lead_count);
       }
-      setFeedback({ type: "success", message: "Email report settings and message format saved successfully!" });
-      showToast("Email report settings and message format saved successfully!", "success");
+      setFeedback({
+        type: "success",
+        message: "Email report settings and message format saved successfully!",
+      });
+      showToast(
+        "Email report settings and message format saved successfully!",
+        "success",
+      );
     } catch (err) {
-      const errMsg = err?.response?.data?.detail || err?.message || "Failed to save email report settings.";
+      const errMsg =
+        err?.response?.data?.detail ||
+        err?.message ||
+        "Failed to save email report settings.";
       setFeedback({ type: "error", message: errMsg });
       showToast(errMsg, "error");
     } finally {
@@ -1554,7 +1813,11 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     if (!effectiveWorkspaceId) return;
 
     if (recipientEmails.length === 0) {
-      setFeedback({ type: "error", message: "Please add at least one recipient email address before sending a test." });
+      setFeedback({
+        type: "error",
+        message:
+          "Please add at least one recipient email address before sending a test.",
+      });
       return;
     }
 
@@ -1562,10 +1825,21 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     setFeedback(null);
 
     try {
-      const res = await api.post(`/lead-scoring/email-report/send-test?workspace_id=${effectiveWorkspaceId}`, {
-        recipient_emails: recipientEmails,
-        settings: { min_score: minScore, frequency, attach_csv: attachCsv, report_filters: {}, csv_columns: csvColumns, subject_template: subjectTemplate, body_template: bodyTemplate },
-      });
+      const res = await api.post(
+        `/lead-scoring/email-report/send-test?workspace_id=${effectiveWorkspaceId}`,
+        {
+          recipient_emails: recipientEmails,
+          settings: {
+            min_score: minScore,
+            frequency,
+            attach_csv: attachCsv,
+            report_filters: {},
+            csv_columns: csvColumns,
+            subject_template: subjectTemplate,
+            body_template: bodyTemplate,
+          },
+        },
+      );
       const data = res?.data || res;
       const isSim = data?.delivery_result?.simulated;
       const msg = isSim
@@ -1574,7 +1848,10 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
       setFeedback({ type: "success", message: msg });
       showToast(msg, "success");
     } catch (err) {
-      const errMsg = err?.response?.data?.detail || err?.message || "Failed to send test email.";
+      const errMsg =
+        err?.response?.data?.detail ||
+        err?.message ||
+        "Failed to send test email.";
       setFeedback({ type: "error", message: errMsg });
       showToast(errMsg, "error");
     } finally {
@@ -1589,7 +1866,9 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     setSampleLeads([]);
     setSampleRows([]);
     try {
-      const res = await api.get(`/lead-scoring/email-report/sample-preview?${previewQuery}`);
+      const res = await api.get(
+        `/lead-scoring/email-report/sample-preview?${previewQuery}`,
+      );
       const data = res?.data || res;
       setSampleLeads(data?.sample_leads || []);
       setSampleColumns(data?.csv_columns || []);
@@ -1607,7 +1886,12 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     year: "numeric",
   });
   const dateSlug = new Date().toISOString().slice(0, 10);
-  const freqTitle = frequency === "daily" ? "Daily" : frequency === "weekly" ? "Weekly" : "Monthly";
+  const freqTitle =
+    frequency === "daily"
+      ? "Daily"
+      : frequency === "weekly"
+        ? "Weekly"
+        : "Monthly";
   const filenameStr = `qualified_leads_${dateSlug}.csv`;
 
   // Render client template variables
@@ -1629,8 +1913,12 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     return res;
   };
 
-  const renderedSubject = renderClientTemplate(subjectTemplate || defaultSubject || DEFAULT_SUBJ);
-  const renderedBody = renderClientTemplate(bodyTemplate || defaultBody || DEFAULT_BODY);
+  const renderedSubject = renderClientTemplate(
+    subjectTemplate || defaultSubject || DEFAULT_SUBJ,
+  );
+  const renderedBody = renderClientTemplate(
+    bodyTemplate || defaultBody || DEFAULT_BODY,
+  );
 
   const isCustomized =
     subjectTemplate !== (defaultSubject || DEFAULT_SUBJ) ||
@@ -1642,7 +1930,8 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
       <div>
         <h1 className="text-xl font-semibold text-white">Email Reports</h1>
         <p className="text-xs text-zinc-400 mt-1">
-          Automate scheduled exports of qualified CRM leads to your sales and executive team.
+          Automate scheduled exports of qualified CRM leads to your sales and
+          executive team.
         </p>
       </div>
 
@@ -1654,9 +1943,16 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
               : "bg-rose-500/10 border-rose-500/20 text-rose-300"
           }`}
         >
-          {feedback.type === "success" ? <Check size={16} /> : <AlertCircle size={16} />}
+          {feedback.type === "success" ? (
+            <Check size={16} />
+          ) : (
+            <AlertCircle size={16} />
+          )}
           <span>{feedback.message}</span>
-          <button onClick={() => setFeedback(null)} className="ml-auto text-zinc-400 hover:text-white">
+          <button
+            onClick={() => setFeedback(null)}
+            className="ml-auto text-zinc-400 hover:text-white"
+          >
             <X size={14} />
           </button>
         </div>
@@ -1671,7 +1967,9 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
               <Mail size={20} />
             </div>
             <div>
-              <h2 className="font-semibold text-base text-white">Qualified Lead Email Report</h2>
+              <h2 className="font-semibold text-base text-white">
+                Qualified Lead Email Report
+              </h2>
               <p className="text-xs text-zinc-400 mt-0.5">
                 Only leads that meet your qualification criteria will be sent.
               </p>
@@ -1707,7 +2005,9 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
         {/* Row: Score Dropdown & Frequency Dropdown */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-zinc-400">Send leads with score</label>
+            <label className="text-xs font-medium text-zinc-400">
+              Send leads with score
+            </label>
             <div className="relative">
               <select
                 value={minScore}
@@ -1715,7 +2015,10 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
                   const val = Number(e.target.value);
                   setMinScore(val);
                   if (typeof window !== "undefined" && effectiveWorkspaceId) {
-                    localStorage.setItem(`crm_email_report_${effectiveWorkspaceId}_min_score`, String(val));
+                    localStorage.setItem(
+                      `crm_email_report_${effectiveWorkspaceId}_min_score`,
+                      String(val),
+                    );
                   }
                 }}
                 className="w-full appearance-none bg-[#191328] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500 transition-colors pr-10"
@@ -1726,15 +2029,27 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
                 <option value={0}>All Leads (≥ 0%)</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-zinc-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </div>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-zinc-400">Send report</label>
+            <label className="text-xs font-medium text-zinc-400">
+              Send report
+            </label>
             <div className="relative">
               <select
                 value={frequency}
@@ -1742,7 +2057,10 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
                   const val = e.target.value;
                   setFrequency(val);
                   if (typeof window !== "undefined" && effectiveWorkspaceId) {
-                    localStorage.setItem(`crm_email_report_${effectiveWorkspaceId}_frequency`, val);
+                    localStorage.setItem(
+                      `crm_email_report_${effectiveWorkspaceId}_frequency`,
+                      val,
+                    );
                   }
                 }}
                 className="w-full appearance-none bg-[#191328] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500 transition-colors pr-10"
@@ -1752,34 +2070,94 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
                 <option value="monthly">Every month</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-zinc-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Row: Time Picker */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-zinc-400">Time</label>
-          <div className="relative flex items-center">
-            <div className="absolute left-3.5 text-zinc-400 pointer-events-none">
-              <Clock size={16} />
-            </div>
-            <input
-              type="text"
-              value={sendTime}
-              onChange={(e) => setSendTime(e.target.value)}
-              placeholder="09:00 AM"
-              className="w-full bg-[#191328] border border-white/10 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500 transition-colors placeholder-zinc-500"
-            />
+        <fieldset className="space-y-3">
+          <legend className="text-xs font-medium text-zinc-400">
+            Report times
+          </legend>
+          <p className="text-xs text-zinc-500">
+            {frequency === "daily"
+              ? "Send at each selected time every day."
+              : frequency === "weekly"
+                ? "Send at each selected time every Monday."
+                : "Send at each selected time on the 1st of each month."}{" "}
+            Times use {reportTimezone}.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {sendTimes.map((time, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#191328] px-3 py-2"
+              >
+                <Clock size={16} className="text-zinc-400" aria-hidden="true" />
+                <input
+                  type="time"
+                  aria-label={`Report time ${index + 1}`}
+                  value={time}
+                  onChange={(e) =>
+                    setSendTimes((values) =>
+                      values.map((value, i) =>
+                        i === index ? e.target.value : value,
+                      ),
+                    )
+                  }
+                  className="bg-transparent text-sm text-white [color-scheme:dark] outline-none focus:ring-2 focus:ring-violet-500 rounded"
+                />
+                {sendTimes.length > 1 && (
+                  <button
+                    type="button"
+                    aria-label={`Remove report time ${index + 1}`}
+                    onClick={() =>
+                      setSendTimes((values) =>
+                        values.filter((_, i) => i !== index),
+                      )
+                    }
+                    className="rounded p-1 text-zinc-400 hover:text-rose-300 focus-visible:ring-2 focus-visible:ring-violet-500"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              disabled={sendTimes.length >= 24}
+              onClick={() => {
+                const next = Array.from(
+                  { length: 24 },
+                  (_, hour) => `${String(hour).padStart(2, "0")}:00`,
+                ).find((value) => !sendTimes.includes(value));
+                if (next) setSendTimes((values) => [...values, next]);
+              }}
+              className="flex items-center gap-2 rounded-xl border border-violet-500/30 px-3 py-2 text-sm text-violet-300 hover:bg-violet-500/10 disabled:opacity-40"
+            >
+              <Plus size={15} /> Add time
+            </button>
           </div>
-        </div>
+        </fieldset>
 
         {/* Row: Send to (multiple emails) Chips */}
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-zinc-400">Send to (multiple emails)</label>
+          <label className="text-xs font-medium text-zinc-400">
+            Send to (multiple emails)
+          </label>
           <div className="min-h-[46px] bg-[#191328] border border-white/10 rounded-xl p-2 flex flex-wrap items-center gap-2 focus-within:border-violet-500 transition-colors">
             {recipientEmails.map((email) => (
               <span
@@ -1828,33 +2206,70 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
             />
             <div>
               <p className="text-sm font-medium text-white">Attach CSV file</p>
-              <p className="text-xs text-zinc-400">Include qualified leads as CSV</p>
+              <p className="text-xs text-zinc-400">
+                Include qualified leads as CSV
+              </p>
             </div>
           </label>
         </div>
 
-        {attachCsv && <ReportCsvOptions columns={csvColumns} onChange={setCsvColumns} options={availableCsvColumns} />}
-        {countLoading && <p role="status" className="text-xs text-zinc-400">Updating matching leads...</p>}
-        {previewError && <p role="alert" className="text-sm text-rose-300">{previewError}</p>}
+        {attachCsv && (
+          <ReportCsvOptions
+            columns={csvColumns}
+            onChange={setCsvColumns}
+            options={availableCsvColumns}
+          />
+        )}
+        {countLoading && (
+          <p role="status" className="text-xs text-zinc-400">
+            Updating matching leads...
+          </p>
+        )}
+        {previewError && (
+          <p role="alert" className="text-sm text-rose-300">
+            {previewError}
+          </p>
+        )}
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <button
             type="button"
             onClick={handleSendTest}
-            disabled={sendingTest || loading || countLoading || !!previewError || recipientEmails.length === 0}
+            disabled={
+              sendingTest ||
+              loading ||
+              countLoading ||
+              !!previewError ||
+              recipientEmails.length === 0
+            }
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-white text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {sendingTest ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+            {sendingTest ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Send size={14} />
+            )}
             <span>{sendingTest ? "Sending Test..." : "Send Test Email"}</span>
           </button>
 
           <button
             type="button"
             onClick={handleSaveSettings}
-            disabled={saving || savingToggle || !settingsLoaded || loading || countLoading || !!previewError}
+            disabled={
+              saving ||
+              savingToggle ||
+              !settingsLoaded ||
+              loading ||
+              countLoading ||
+              !!previewError
+            }
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold transition-all shadow-lg shadow-violet-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={15} />}
+            {saving ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Plus size={15} />
+            )}
             <span>{saving ? "Saving..." : "Save Email Settings"}</span>
           </button>
         </div>
@@ -1870,9 +2285,13 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
               </div>
             </div>
             <div>
-              <h2 className="font-semibold text-base text-white">Email Preview</h2>
+              <h2 className="font-semibold text-base text-white">
+                Email Preview
+              </h2>
               <p className="text-[11px] text-zinc-400">
-                {isEditingTemplate ? "Customize message text & subject template" : "Live preview of the outgoing email"}
+                {isEditingTemplate
+                  ? "Customize message text & subject template"
+                  : "Live preview of the outgoing email"}
               </p>
             </div>
           </div>
@@ -1889,7 +2308,9 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
               }`}
             >
               {isEditingTemplate ? <Eye size={13} /> : <Pencil size={13} />}
-              <span>{isEditingTemplate ? "Preview Email" : "Customize Message"}</span>
+              <span>
+                {isEditingTemplate ? "Preview Email" : "Customize Message"}
+              </span>
             </button>
 
             {/* Reset to Default Button */}
@@ -1921,8 +2342,12 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
           <div className="rounded-xl bg-[#0b0714] border border-violet-500/30 p-5 space-y-4 text-xs">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-zinc-300">Email Subject Template</label>
-                <span className="text-[10px] text-zinc-500">Supports variables</span>
+                <label className="text-xs font-medium text-zinc-300">
+                  Email Subject Template
+                </label>
+                <span className="text-[10px] text-zinc-500">
+                  Supports variables
+                </span>
               </div>
               <input
                 type="text"
@@ -1935,8 +2360,12 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-zinc-300">Message Body Template</label>
-                <span className="text-[10px] text-zinc-500">Edit text & placeholders</span>
+                <label className="text-xs font-medium text-zinc-300">
+                  Message Body Template
+                </label>
+                <span className="text-[10px] text-zinc-500">
+                  Edit text & placeholders
+                </span>
               </div>
               <textarea
                 rows={9}
@@ -1948,13 +2377,17 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
 
             {/* Variable Tags Bar */}
             <div className="space-y-1.5 pt-1">
-              <p className="text-[11px] text-zinc-400 font-medium">Click a variable to insert into body:</p>
+              <p className="text-[11px] text-zinc-400 font-medium">
+                Click a variable to insert into body:
+              </p>
               <div className="flex flex-wrap gap-1.5">
                 {TEMPLATE_VARS.map((v) => (
                   <button
                     key={v.key}
                     type="button"
-                    onClick={() => setBodyTemplate((prev) => `${prev} {${v.key}}`)}
+                    onClick={() =>
+                      setBodyTemplate((prev) => `${prev} {${v.key}}`)
+                    }
                     title={v.desc}
                     className="px-2.5 py-1 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/30 text-violet-300 text-[11px] font-mono transition-colors"
                   >
@@ -1989,17 +2422,23 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
               <div className="space-y-1 text-zinc-400">
                 <p>
                   <span className="text-zinc-500">From:</span>{" "}
-                  <span className="text-zinc-300">OrbionAgents &lt;noreply@orbionagents.com&gt;</span>
+                  <span className="text-zinc-300">
+                    OrbionAgents &lt;noreply@orbionagents.com&gt;
+                  </span>
                 </p>
                 <p>
                   <span className="text-zinc-500">To:</span>{" "}
                   <span className="text-zinc-200">
-                    {recipientEmails.length > 0 ? recipientEmails.join(", ") : "sales@orbionagents.com"}
+                    {recipientEmails.length > 0
+                      ? recipientEmails.join(", ")
+                      : "sales@orbionagents.com"}
                   </span>
                 </p>
                 <p>
                   <span className="text-zinc-500">Subject:</span>{" "}
-                  <span className="text-white font-medium">{renderedSubject}</span>
+                  <span className="text-white font-medium">
+                    {renderedSubject}
+                  </span>
                 </p>
               </div>
 
@@ -2009,7 +2448,9 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
                     <FileSpreadsheet size={16} />
                   </div>
                   <div>
-                    <p className="font-mono text-zinc-200 text-xs font-medium">{filenameStr}</p>
+                    <p className="font-mono text-zinc-200 text-xs font-medium">
+                      {filenameStr}
+                    </p>
                     <p className="text-[10px] text-zinc-500">~2.4 KB</p>
                   </div>
                 </div>
@@ -2029,9 +2470,12 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
           <div className="w-full max-w-3xl rounded-2xl bg-[#151022] border border-white/15 p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div>
-                <h3 className="text-base font-semibold text-white">Sample Qualified Leads</h3>
+                <h3 className="text-base font-semibold text-white">
+                  Sample Qualified Leads
+                </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">
-                  Showing leads matching score ≥ {minScore}% that will be exported in the CSV.
+                  Showing leads matching score ≥ {minScore}% that will be
+                  exported in the CSV.
                 </p>
               </div>
               <button
@@ -2051,20 +2495,41 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
                 </div>
               ) : sampleLeads.length === 0 ? (
                 <div className="text-center py-12 text-zinc-400 text-xs">
-                  No leads currently match score ≥ {minScore}%. Leads captured through chat or added manually with qualifying score will appear here.
+                  No leads currently match score ≥ {minScore}%. Leads captured
+                  through chat or added manually with qualifying score will
+                  appear here.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-white/10 text-zinc-400">
-                        {sampleColumns.map(column => <th key={column.key} className="pb-2.5 pr-4 font-medium">{column.label}</th>)}
+                        {sampleColumns.map((column) => (
+                          <th
+                            key={column.key}
+                            className="pb-2.5 pr-4 font-medium"
+                          >
+                            {column.label}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                      {sampleRows.map((row, index) => <tr key={index} className="hover:bg-white/5 transition-colors">
-                        {row.map((value, cell) => <td key={sampleColumns[cell]?.key || cell} className="py-2.5 pr-4 text-zinc-300">{value}</td>)}
-                      </tr>)}
+                      {sampleRows.map((row, index) => (
+                        <tr
+                          key={index}
+                          className="hover:bg-white/5 transition-colors"
+                        >
+                          {row.map((value, cell) => (
+                            <td
+                              key={sampleColumns[cell]?.key || cell}
+                              className="py-2.5 pr-4 text-zinc-300"
+                            >
+                              {value}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -2072,7 +2537,10 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
             </div>
 
             <div className="pt-3 border-t border-white/10 flex justify-between items-center text-xs text-zinc-400">
-              <span>Total Qualifying: <strong className="text-white">{qualifyingCount}</strong></span>
+              <span>
+                Total Qualifying:{" "}
+                <strong className="text-white">{qualifyingCount}</strong>
+              </span>
               <button
                 type="button"
                 onClick={() => setSampleModalOpen(false)}

@@ -83,6 +83,44 @@ def test_get_or_create_settings(db_session):
     assert setting.attach_csv is True
 
 
+@pytest.mark.parametrize("frequency,now,expected", [
+    ("daily", "2026-09-21T08:00:00", "2026-09-21T09:00:00"),
+    ("daily", "2026-09-21T09:00:00", "2026-09-21T13:00:00"),
+    ("daily", "2026-09-21T18:00:00", "2026-09-22T09:00:00"),
+    ("weekly", "2026-09-21T10:00:00", "2026-09-21T13:00:00"),
+    ("weekly", "2026-09-21T18:00:00", "2026-09-28T09:00:00"),
+    ("monthly", "2026-10-01T10:00:00", "2026-10-01T13:00:00"),
+    ("monthly", "2026-12-01T18:00:00", "2027-01-01T09:00:00"),
+])
+def test_multiple_time_slots(frequency, now, expected):
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo("Asia/Kolkata")
+    result = LeadEmailReportService.calculate_next_run(
+        frequency, ["18:00", "09:00", "13:00"], "Asia/Kolkata",
+        datetime.fromisoformat(now).replace(tzinfo=tz),
+    )
+    assert result == datetime.fromisoformat(expected).replace(tzinfo=tz).astimezone(timezone.utc)
+
+
+@pytest.mark.parametrize("times", [[], ["25:00"], ["09:00", "09:00 AM"], [""], ["09:00"] * 25])
+def test_invalid_time_slots(times):
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        LeadReportSettingsUpdate(send_times=times)
+
+
+def test_multiple_times_persist_and_legacy_fallback(db_session):
+    session, ws = db_session
+    setting = LeadEmailReportService.get_or_create_settings(session, ws.id)
+    assert LeadEmailReportService.settings_payload(session, ws.id, setting)["settings"]["send_times"] == ["09:00"]
+    LeadEmailReportService.update_settings(session, ws.id, {"send_times": ["06:00 PM", "09:00"]})
+    session.expire_all()
+    setting = LeadEmailReportService.update_settings(session, ws.id, {"is_active": True})
+    assert setting.send_times == ["09:00", "18:00"]
+    assert setting.send_time == "09:00"
+    assert LeadEmailReportService.settings_payload(session, ws.id, setting)["settings"]["send_times"] == ["09:00", "18:00"]
+
+
 def to_utc(dt):
     if dt is None:
         return None

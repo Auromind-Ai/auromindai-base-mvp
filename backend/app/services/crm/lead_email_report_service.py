@@ -134,11 +134,15 @@ class LeadEmailReportService:
     def calculate_next_run(
         cls,
         frequency: str,
-        send_time: str,
+        send_time: str | list[str],
         ws_tz_str: str = "Asia/Kolkata",
         from_time: Optional[datetime] = None
     ) -> datetime:
         now_utc = from_time or datetime.now(timezone.utc)
+        if isinstance(send_time, list):
+            if not send_time:
+                raise ValueError("Choose at least one report time")
+            return min(cls.calculate_next_run(frequency, value, ws_tz_str, now_utc) for value in send_time)
         try:
             tz = ZoneInfo(ws_tz_str)
         except Exception:
@@ -157,17 +161,12 @@ class LeadEmailReportService:
             if target_local <= now_local:
                 target_local += timedelta(days=7)
         elif freq == "monthly":
-            # Schedule 1st of next month at target time
-            if now_local.month == 12:
-                target_month = 1
-                target_year = now_local.year + 1
-            else:
-                target_month = now_local.month + 1
-                target_year = now_local.year
-            target_local = now_local.replace(
-                year=target_year, month=target_month, day=1,
-                hour=hour, minute=minute, second=0, microsecond=0
-            )
+            target_local = now_local.replace(day=1, hour=hour, minute=minute, second=0, microsecond=0)
+            if target_local <= now_local:
+                target_local = target_local.replace(
+                    year=now_local.year + (1 if now_local.month == 12 else 0),
+                    month=1 if now_local.month == 12 else now_local.month + 1,
+                )
         else:
             # Daily schedule
             target_local = now_local.replace(
@@ -195,10 +194,12 @@ class LeadEmailReportService:
             setting.min_score = int(data["min_score"])
         if "frequency" in data:
             setting.frequency = str(data["frequency"]).strip().lower()
-        if "send_time" in data:
-            # Normalize to HH:MM if possible
-            h, m = parse_time_str(str(data["send_time"]))
-            setting.send_time = f"{h:02d}:{m:02d}"
+        if "send_times" in data:
+            setting.send_times = data["send_times"]
+            setting.send_time = setting.send_times[0]
+        elif "send_time" in data:
+            setting.send_time = data["send_time"]
+            setting.send_times = [setting.send_time]
         if "recipient_emails" in data:
             emails = data["recipient_emails"]
             if isinstance(emails, list):
@@ -217,7 +218,7 @@ class LeadEmailReportService:
         if setting.is_active:
             setting.next_run_at = cls.calculate_next_run(
                 setting.frequency,
-                setting.send_time,
+                setting.send_times or [setting.send_time],
                 tz_str
             )
         else:
@@ -375,7 +376,7 @@ class LeadEmailReportService:
             tz_str = cls.get_workspace_timezone(db, workspace_id)
             setting.next_run_at = cls.calculate_next_run(
                 setting.frequency,
-                setting.send_time,
+                setting.send_times or [setting.send_time],
                 tz_str,
                 from_time=now_utc
             )
@@ -416,7 +417,7 @@ class LeadEmailReportService:
                     tz_str = cls.get_workspace_timezone(db, setting.workspace_id)
                     setting.next_run_at = cls.calculate_next_run(
                         setting.frequency,
-                        setting.send_time,
+                        setting.send_times or [setting.send_time],
                         tz_str,
                         from_time=now_utc
                     )
@@ -440,6 +441,8 @@ class LeadEmailReportService:
                 "min_score": setting.min_score,
                 "frequency": setting.frequency,
                 "send_time": setting.send_time,
+                "send_times": setting.send_times or [setting.send_time],
+                "timezone": cls.get_workspace_timezone(db, workspace_id),
                 "recipient_emails": setting.recipient_emails or [],
                 "attach_csv": setting.attach_csv,
                 "report_filters": setting.report_filters or {},

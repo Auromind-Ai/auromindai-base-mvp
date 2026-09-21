@@ -21,6 +21,7 @@ class LeadReportSetting(Base):
     min_score = Column(Integer, default=50, nullable=False)
     frequency = Column(String(50), default="daily", nullable=False)  # daily | weekly | monthly
     send_time = Column(String(10), default="09:00", nullable=False)  # 24hr format HH:MM
+    send_times = Column(JSON, nullable=True)  # null falls back to the legacy single time
     recipient_emails = Column(JSON, default=list, nullable=False)
     attach_csv = Column(Boolean, default=True, nullable=False)
 

@@ -64,6 +64,10 @@ class FollowUpTests(unittest.TestCase):
             with self.assertRaises(ValidationError):
                 LeadFollowUpRequest(selected_ids=ids)
 
+    def test_saved_selection_filters_ids_within_workspace(self):
+        found = lead_query(self.db, self.workspace, LeadFilters(lead_ids=[self.selected.id, self.foreign.id])).all()
+        self.assertEqual([lead.id for lead in found], [self.selected.id])
+
     def test_remove_keeps_lead_and_can_be_readded(self):
         self.add([self.selected.id])
         for _ in range(2):

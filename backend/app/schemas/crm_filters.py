@@ -2,11 +2,12 @@ from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 
 
 class LeadFilters(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    lead_ids: list[UUID] = Field(default_factory=list, max_length=5000)
     search: str | None = Field(None, max_length=255)
     sources: list[str] = Field(default_factory=list, max_length=30)
     statuses: list[str] = Field(default_factory=list, max_length=30)
@@ -77,7 +78,22 @@ class LeadExportRequest(BaseModel):
 class CrmSavedViewCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(..., min_length=1, max_length=100)
-    filters: LeadFilters | dict = Field(default_factory=dict)
+    filters: LeadFilters = Field(default_factory=LeadFilters)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value):
+        if not value.strip():
+            raise ValueError("Enter a view name")
+        return value.strip()
+
+    @model_validator(mode="after")
+    def require_view_criteria(self):
+        self.filters.search = self.filters.search.strip() or None if self.filters.search else None
+        criteria = self.filters.model_dump(exclude_none=True, exclude_defaults=True)
+        if not criteria:
+            raise ValueError("Apply at least one filter or select a lead before saving a view")
+        return self
 
 
 class CrmSavedViewResponse(BaseModel):
