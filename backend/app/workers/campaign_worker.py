@@ -21,6 +21,7 @@ from app.services.marketing.outbound_gateway import (
 
 from app.services.config_service import config_service
 from app.services.marketing.campaign_service import CampaignService
+from app.services.wcc_service import WCCService
 from app.core.redis_lock import get_redis_client
 
 logger = logging.getLogger(__name__)
@@ -217,7 +218,22 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
             except Exception as e:
                 logger.warning("Failed to fetch live tier in worker: %s", e)
 
-        rate_per_msg = Decimal(str(campaign.estimated_cost or "0.00")) / Decimal(str(max(1, campaign.valid_recipients)))
+        campaign_cat = "marketing"
+        if template and getattr(template, "category", None):
+            campaign_cat = str(template.category).lower()
+        elif campaign.campaign_type:
+            campaign_cat = str(campaign.campaign_type).lower()
+
+        rate_card = WCCService.get_active_rate(db, campaign_cat, "IN")
+        rate_per_msg = (
+            Decimal(str(rate_card.customer_price))
+            if rate_card and rate_card.customer_price is not None
+            else (
+                Decimal(str(campaign.estimated_cost or "0.00")) / Decimal(str(max(1, campaign.valid_recipients)))
+                if campaign.estimated_cost and campaign.valid_recipients
+                else Decimal("1.25")
+            )
+        )
 
         for r_id in recipient_ids:
             # Re-check campaign status before sending each message

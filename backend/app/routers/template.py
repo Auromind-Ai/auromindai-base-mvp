@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 import logging
 logger = logging.getLogger(__name__)
 import requests
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 import os
 import re
 from dotenv import load_dotenv
@@ -257,12 +257,79 @@ Return JSON only.
         logger.error(f"Template generation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="AI template generation failed. Please try again.")
 
-@router.post("/templates/create")
-def create_template(
-    data: TemplateCreate,
+@router.post(
+    "/templates/create",
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "application/json": {
+                    "schema": TemplateCreate.model_json_schema()
+                },
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "type": {"type": "string"},
+                            "message": {"type": "string"},
+                            "category": {"type": "string"},
+                            "language": {"type": "string"},
+                            "header": {"type": "string"},
+                            "footer": {"type": "string"},
+                            "cta": {"type": "string"},
+                            "cta_btn_title": {"type": "string"},
+                            "workspace_id": {"type": "string"},
+                            "media": {"type": "string", "format": "binary"}
+                        },
+                        "required": ["name", "message", "category", "language"]
+                    }
+                }
+            }
+        }
+    }
+)
+async def create_template(
+    request: Request,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    content_type = request.headers.get("content-type", "").lower()
+
+    raw_data = {}
+    if "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
+        form = await request.form()
+        for key, value in form.items():
+            if key == "media":
+                continue
+            if isinstance(value, str):
+                v_str = value.strip()
+                if v_str in ("null", "undefined"):
+                    raw_data[key] = None
+                elif v_str == "" and key in ("header", "footer", "cta", "cta_btn_title", "workspace_id"):
+                    raw_data[key] = None
+                else:
+                    raw_data[key] = value
+            else:
+                raw_data[key] = value
+    else:
+        try:
+            raw_data = await request.json()
+        except Exception:
+            raise HTTPException(400, "Invalid JSON payload in request body")
+        if not isinstance(raw_data, dict):
+            raise HTTPException(422, "Input should be a valid dictionary or object")
+
+    try:
+        data = TemplateCreate.model_validate(raw_data)
+    except ValidationError as ve:
+        errors = []
+        for err in ve.errors():
+            loc = err.get("loc", ())
+            field_name = loc[-1] if loc else "field"
+            msg = err.get("msg", "Invalid value").replace("Value error, ", "").replace("Assertion failed, ", "")
+            errors.append(f"{field_name}: {msg}")
+        raise HTTPException(422, detail=", ".join(errors) if errors else str(ve))
+
     if not data.name or data.name.strip() == "":
         raise HTTPException(400, "Template name is required")
     if not re.match(r"^[a-z0-9_]+$", data.name):
