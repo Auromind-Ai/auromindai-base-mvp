@@ -6,6 +6,7 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import { setToken } from '@/lib/auth';
 import { useAuth } from '@/context/AuthContext';
+import { User, Mail } from 'lucide-react';
 
 const getErrorMessage = (err) => {
   let msg = err?.message || '';
@@ -108,26 +109,23 @@ export default function SignupFormCard() {
   };
 
   return (
-    <div style={{
-      background: '#111111',
-      border: '1px solid rgba(255,255,255,0.08)',
-      borderRadius: '20px',
-      padding: '40px 36px',
-      width: '100%',
-      maxWidth: '440px',
-      fontFamily: "'Poppins', sans-serif",
-    }}>
-      <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-        <h2 style={{ color: '#ffffff', fontSize: '26px', fontWeight: '700', margin: '0 0 6px', letterSpacing: '-0.3px' }}>
+    <div 
+      className="w-full max-w-[430px] rounded-[22px] sm:rounded-[28px] bg-[#111111] border border-white/[0.08] p-5 sm:p-8 md:p-9 shadow-2xl z-10"
+      style={{
+        fontFamily: "'Poppins', sans-serif",
+      }}
+    >
+      <div style={{ textAlign: 'center', marginBottom: '22px' }}>
+        <h2 style={{ color: '#ffffff', fontSize: '24px', smFontSize: '26px', fontWeight: '700', margin: '0 0 6px', letterSpacing: '-0.3px' }} className="text-[22px] sm:text-[26px]">
           {step === 'form' ? 'Create Account' : 'Enter OTP'}
         </h2>
-        <p style={{ color: '#adb2bd', fontSize: '14px', margin: 0 }}>
+        <p style={{ color: '#9ca3af', margin: 0 }} className="text-[13px] sm:text-[14px]">
           {step === 'form' ? 'Start your free account today' : `OTP sent to ${email}`}
         </p>
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', padding: '12px 14px', color: '#f87171', fontSize: '13px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '12px', padding: '10px 14px', color: '#f87171', fontSize: '13px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <div>{error}</div>
           {(error.includes("already registered") || error.includes("log in") || error.includes("registered")) && (
             <Link href="/login" style={{ color: '#a78bfa', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -145,8 +143,8 @@ export default function SignupFormCard() {
               width: '100%', 
               background: '#ffffff', 
               border: '1px solid #e5e7eb', 
-              borderRadius: '20px', 
-              padding: '16px', 
+              borderRadius: '9999px', 
+              padding: '14px 20px', 
               color: '#111827', 
               fontSize: '15px', 
               fontWeight: '600', 
@@ -155,12 +153,12 @@ export default function SignupFormCard() {
               alignItems: 'center', 
               justifyContent: 'center', 
               gap: '12px',
-              boxShadow: '0 4px 14px 0 rgba(255,255,255,0.1)',
-              transition: 'box-shadow 0.3s ease',
-              marginBottom: '4px'
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              transition: 'all 0.2s ease',
+              marginBottom: '2px'
             }}
-            onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 6px 20px rgba(255,255,255,0.15)'}
-            onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 4px 14px 0 rgba(255,255,255,0.1)'}
+            onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.15)'}
+            onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -171,55 +169,99 @@ export default function SignupFormCard() {
             Continue with Google
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '20px 0' }}>
-            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
-            <span style={{ color: '#6b7280', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>or continue with email</span>
-            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: '22px 0 20px' }}>
+            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
+            <span style={{ color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.2px', fontWeight: '600' }}>or continue with email</span>
+            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
-              <label style={{ display: 'block', color: '#9ca3af', fontSize: '13px', marginBottom: '8px' }}>Full Name</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '8px' }}>
+                <User size={15} style={{ color: '#a855f7' }} strokeWidth={2} />
+                <span>Full Name</span>
+              </label>
               <input
                 type="text"
                 placeholder="Sarah Jenkins"
                 disabled={siteKeyMissing}
                 value={fullName}
                 onChange={e => setFullName(e.target.value)}
-                style={{ width: '100%', background: '#1c1c1c', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '10px', padding: '14px 16px', color: '#ffffff', fontSize: '15px', outline: 'none', boxSizing: 'border-box', boxShadow: 'inset 0px 4px 20px 0px rgba(255,255,255,0.18)' }}
+                style={{ 
+                  width: '100%', 
+                  background: '#1d1d21', 
+                  border: '1px solid rgba(255,255,255,0.08)', 
+                  borderRadius: '14px', 
+                  padding: '14px 18px', 
+                  color: '#ffffff', 
+                  fontSize: '15px', 
+                  outline: 'none', 
+                  boxSizing: 'border-box',
+                  boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.5)'
+                }}
               />
             </div>
             <div>
-              <label style={{ display: 'block', color: '#9ca3af', fontSize: '13px', marginBottom: '8px' }}>Email</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#9ca3af', fontSize: '13px', fontWeight: '500', marginBottom: '8px' }}>
+                <Mail size={15} style={{ color: '#a855f7' }} strokeWidth={2} />
+                <span>Email</span>
+              </label>
               <input
                 type="email"
                 placeholder="your@email.com"
                 disabled={siteKeyMissing}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                style={{ width: '100%', background: '#1c1c1c', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '10px', padding: '14px 16px', color: '#ffffff', fontSize: '15px', outline: 'none', boxSizing: 'border-box', boxShadow: 'inset 0px 4px 20px 0px rgba(255,255,255,0.18)' }}
+                style={{ 
+                  width: '100%', 
+                  background: '#1d1d21', 
+                  border: '1px solid rgba(255,255,255,0.08)', 
+                  borderRadius: '14px', 
+                  padding: '14px 18px', 
+                  color: '#ffffff', 
+                  fontSize: '15px', 
+                  outline: 'none', 
+                  boxSizing: 'border-box',
+                  boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.5)'
+                }}
               />
             </div>
             <button
               onClick={handleSignup}
               disabled={loading || turnstileLoading || siteKeyMissing}
-              style={{ width: '100%', background: '#814AC8', color: '#ffffff', border: 'none', borderRadius: '28px', padding: '16px', fontSize: '16px', fontWeight: '700', cursor: 'pointer', marginTop: '4px', opacity: (loading || turnstileLoading || siteKeyMissing) ? 0.7 : 1 }}
+              style={{ 
+                width: '100%', 
+                background: '#814AC8', 
+                color: '#ffffff', 
+                border: 'none', 
+                borderRadius: '9999px', 
+                padding: '16px', 
+                fontSize: '16px', 
+                fontWeight: '700', 
+                cursor: 'pointer', 
+                marginTop: '4px', 
+                opacity: (loading || turnstileLoading || siteKeyMissing) ? 0.7 : 1, 
+                boxShadow: '0 4px 22px rgba(129, 74, 200, 0.45)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 6px 26px rgba(129, 74, 200, 0.6)'}
+              onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 4px 22px rgba(129, 74, 200, 0.45)'}
             >
               {loading || turnstileLoading ? 'Verifying...' : 'Sign Up Free'}
             </button>
           </div>
           
-          <p style={{ textAlign: 'center', marginTop: '24px', marginBottom: 0, color: '#6b7280', fontSize: '13px' }}>
+          <p style={{ textAlign: 'center', marginTop: '22px', marginBottom: 0, color: '#9ca3af', fontSize: '13px' }}>
             Already have an account?{' '}
-            <Link href="/login" style={{ color: '#ffffff', fontWeight: '600', textDecoration: 'none' }}>
+            <Link href="/login" style={{ color: '#ffffff', fontWeight: '700', textDecoration: 'none' }}>
               Login
             </Link>
           </p>
         </>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={{ display: 'block', color: '#9ca3af', fontSize: '13px', marginBottom: '8px' }}>6-digit OTP</label>
+            <label style={{ display: 'block', color: '#9ca3af', fontSize: '12px', marginBottom: '6px' }}>6-digit OTP</label>
             <input
               type="text"
               placeholder="Enter OTP"
@@ -227,21 +269,21 @@ export default function SignupFormCard() {
               value={otp}
               onChange={e => setOtp(e.target.value)}
               maxLength={6}
-              style={{ width: '100%', background: '#1c1c1c', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '10px', padding: '14px 16px', color: '#ffffff', fontSize: '20px', letterSpacing: '8px', outline: 'none', boxSizing: 'border-box', textAlign: 'center' }}
+              style={{ width: '100%', background: '#1d1d21', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '14px 18px', color: '#ffffff', fontSize: '18px', letterSpacing: '8px', outline: 'none', boxSizing: 'border-box', textAlign: 'center', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.5)' }}
             />
           </div>
           <button
             onClick={handleVerifyOTP}
             disabled={loading || turnstileLoading || siteKeyMissing || otp.length < 6}
-            style={{ width: '100%', background: '#7c3aed', color: '#ffffff', border: 'none', borderRadius: '28px', padding: '16px', fontSize: '16px', fontWeight: '700', cursor: 'pointer', opacity: (loading || turnstileLoading || siteKeyMissing) ? 0.7 : 1 }}
+            style={{ width: '100%', background: '#814AC8', color: '#ffffff', border: 'none', borderRadius: '9999px', padding: '16px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', opacity: (loading || turnstileLoading || siteKeyMissing) ? 0.7 : 1, boxShadow: '0 4px 22px rgba(129, 74, 200, 0.45)' }}
           >
             {loading || turnstileLoading ? 'Verifying...' : 'Verify & Continue'}
           </button>
           <button
             onClick={() => { setStep('form'); setOtp(''); setError(''); }}
-            style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '13px', cursor: 'pointer', textAlign: 'center' }}
+            style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '12px', cursor: 'pointer', textAlign: 'center', padding: '6px' }}
           >
-            ← Back
+            ← Back to details
           </button>
         </div>
       )}
