@@ -86,33 +86,102 @@ class AudienceService:
     def parse_csv_contacts(
         cls,
         file_content: bytes,
-        default_country_code: str = "91"
+        default_country_code: str = "91",
+        filename: str = "",
     ) -> Dict[str, Any]:
         """
-        Parses an uploaded CSV file containing contacts.
+        Parses an uploaded CSV or Excel (.xlsx, .xls) file containing contacts.
         Extracts Name, Phone, Email, and dynamic variables.
         """
-        # Try multiple encodings
-        text_content = ""
-        for enc in ["utf-8-sig", "utf-8", "latin1", "cp1252"]:
+        is_excel = False
+        if filename and any(filename.lower().endswith(ext) for ext in [".xlsx", ".xls"]):
+            is_excel = True
+        elif file_content.startswith(b"PK\x03\x04") or file_content.startswith(b"\xd0\xcf\x11\xe0"):
+            is_excel = True
+
+        fieldnames = []
+        rows = []
+
+        if is_excel:
             try:
-                text_content = file_content.decode(enc)
-                break
-            except Exception:
-                continue
-        if not text_content:
-            text_content = file_content.decode("utf-8", errors="replace")
+                import openpyxl
+                wb = openpyxl.load_workbook(io.BytesIO(file_content), data_only=True, read_only=True)
+                sheet = wb.active
+                raw_rows = list(sheet.iter_rows(values_only=True))
+                if raw_rows:
+                    header_row = raw_rows[0]
+                    fieldnames = [str(c).strip() for c in header_row if c is not None and str(c).strip()]
+                    for r in raw_rows[1:]:
+                        if not any(v is not None and str(v).strip() for v in r):
+                            continue
+                        row_dict = {}
+                        for idx, col_name in enumerate(fieldnames):
+                            val = r[idx] if idx < len(r) else ""
+                            if isinstance(val, float) and val.is_integer():
+                                val = str(int(val))
+                            elif val is not None:
+                                val = str(val).strip()
+                            else:
+                                val = ""
+                            row_dict[col_name] = val
+                        rows.append(row_dict)
+            except Exception as e:
+                logger.warning(f"openpyxl failed to parse excel, attempting pandas fallback: {e}")
+                try:
+                    import pandas as pd
+                    df = pd.read_excel(io.BytesIO(file_content))
+                    fieldnames = [str(c).strip() for c in df.columns]
+                    for _, s_row in df.iterrows():
+                        row_dict = {}
+                        for col in fieldnames:
+                            val = s_row[col]
+                            if pd.isna(val):
+                                val = ""
+                            elif isinstance(val, float) and val.is_integer():
+                                val = str(int(val))
+                            else:
+                                val = str(val).strip()
+                            row_dict[col] = val
+                        rows.append(row_dict)
+                except Exception as e2:
+                    logger.error(f"Failed to parse excel file: {e2}")
+                    return {
+                        "total": 0,
+                        "valid_count": 0,
+                        "invalid_count": 0,
+                        "recipients": [],
+                        "invalid_sample": [{
+                            "row": 0,
+                            "raw_phone": "",
+                            "name": "",
+                            "reason": f"Failed to parse Excel file: {str(e2)}"
+                        }]
+                    }
+        else:
+            # Try multiple encodings for CSV
+            text_content = ""
+            for enc in ["utf-8-sig", "utf-8", "latin1", "cp1252"]:
+                try:
+                    text_content = file_content.decode(enc)
+                    break
+                except Exception:
+                    continue
+            if not text_content:
+                text_content = file_content.decode("utf-8", errors="replace")
 
-        # Detect delimiter (comma, semicolon, tab)
-        delimiter = ","
-        first_line = text_content.strip().split("\n")[0] if text_content.strip() else ""
-        if ";" in first_line and first_line.count(";") > first_line.count(","):
-            delimiter = ";"
-        elif "\t" in first_line and first_line.count("\t") > first_line.count(","):
-            delimiter = "\t"
+            # Detect delimiter (comma, semicolon, tab)
+            delimiter = ","
+            first_line = text_content.strip().split("\n")[0] if text_content.strip() else ""
+            if ";" in first_line and first_line.count(";") > first_line.count(","):
+                delimiter = ";"
+            elif "\t" in first_line and first_line.count("\t") > first_line.count(","):
+                delimiter = "\t"
 
-        reader = csv.DictReader(io.StringIO(text_content), delimiter=delimiter)
-        if not reader.fieldnames:
+            reader = csv.DictReader(io.StringIO(text_content), delimiter=delimiter)
+            fieldnames = list(reader.fieldnames or [])
+            rows = list(reader)
+
+        if not fieldnames:
             return {
                 "total": 0,
                 "valid_count": 0,
@@ -123,7 +192,7 @@ class AudienceService:
 
         # Flexible alphanumeric header mapping
         field_map = {}
-        for fn in reader.fieldnames:
+        for fn in fieldnames:
             if fn:
                 clean = re.sub(r"[^a-z0-9]", "", str(fn).strip().lower())
                 field_map[clean] = fn
@@ -140,8 +209,8 @@ class AudienceService:
                     phone_key = orig
                     break
 
-        if not phone_key and reader.fieldnames:
-            phone_key = reader.fieldnames[0]
+        if not phone_key and fieldnames:
+            phone_key = fieldnames[0]
 
         # Detect name column
         name_key = None
@@ -171,7 +240,7 @@ class AudienceService:
         opted_out_count = 0
         seen_phones = set()
 
-        for idx, row in enumerate(reader, start=1):
+        for idx, row in enumerate(rows, start=1):
             # Check for completely empty row
             if not any(str(v).strip() for v in row.values() if v is not None):
                 continue
@@ -242,7 +311,7 @@ class AudienceService:
                 "variables": variables
             })
 
-        headers = [str(f).strip() for f in (reader.fieldnames or []) if f and str(f).strip()]
+        headers = [str(f).strip() for f in fieldnames if f and str(f).strip()]
         total = len(valid_recipients) + invalid_count + duplicate_count
         usable_count = len([r for r in valid_recipients if not r.get("is_opted_out")])
 

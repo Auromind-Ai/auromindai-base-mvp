@@ -498,27 +498,29 @@ class CampaignService:
         campaign.valid_recipients = len([r for r in recipient_objs if r.status == "pending"])
         campaign.invalid_recipients = campaign.total_recipients - campaign.valid_recipients
 
+        # Always calculate estimated cost accurately on server from actual recipient count
+        recipients_to_charge = campaign.valid_recipients if campaign.skip_invalid_numbers else campaign.total_recipients
+        campaign_cat = "marketing"
+        if tpl and getattr(tpl, "category", None):
+            campaign_cat = str(tpl.category).lower()
+        elif data.get("category"):
+            campaign_cat = str(data.get("category")).lower()
+        elif data.get("campaign_type"):
+            campaign_cat = str(data.get("campaign_type")).lower()
+
+        est = cls.calculate_preflight_estimation(
+            db=db,
+            workspace_id=workspace_id,
+            valid_recipients_count=recipients_to_charge,
+            category=campaign_cat
+        )
+        cost_decimal = Decimal(str(est["estimated_cost"]))
+        campaign.estimated_cost = float(cost_decimal)
+
         # Lock escrow for scheduled campaign
         if is_scheduled:
-            recipients_to_charge = campaign.valid_recipients if campaign.skip_invalid_numbers else campaign.total_recipients
-            campaign_cat = "marketing"
-            if tpl and getattr(tpl, "category", None):
-                campaign_cat = tpl.category
-            elif data.get("category"):
-                campaign_cat = data.get("category")
-            elif data.get("campaign_type"):
-                campaign_cat = data.get("campaign_type")
-
-            est = cls.calculate_preflight_estimation(
-                db=db,
-                workspace_id=workspace_id,
-                valid_recipients_count=recipients_to_charge,
-                category=campaign_cat
-            )
-            cost_decimal = Decimal(str(est["estimated_cost"]))
             cls.reserve_campaign_escrow(db, workspace_id, cost_decimal)
             campaign.held_cost = float(cost_decimal)
-            campaign.estimated_cost = float(cost_decimal)
 
         if recipient_objs:
             db.bulk_save_objects(recipient_objs)
@@ -554,10 +556,13 @@ class CampaignService:
         )
         cost_decimal = Decimal(str(est["estimated_cost"]))
 
-        # 2. Lock escrow in wallet
-        cls.reserve_campaign_escrow(db, campaign.workspace_id, cost_decimal)
+        # 2. Lock escrow in wallet if not already locked
+        already_held = Decimal(str(campaign.held_cost or 0.0))
+        if already_held < cost_decimal:
+            diff = cost_decimal - already_held
+            cls.reserve_campaign_escrow(db, campaign.workspace_id, diff)
+            campaign.held_cost = float(cost_decimal)
 
-        campaign.held_cost = float(cost_decimal)
         campaign.estimated_cost = float(cost_decimal)
 
         # 3. Schedule or start immediately
