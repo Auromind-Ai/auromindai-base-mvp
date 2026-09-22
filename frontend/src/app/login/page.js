@@ -92,12 +92,6 @@ function LoginContent() {
     }, [initTurnstileWidget]);
 
     useEffect(() => {
-        if (siteKeyMissing) {
-            setError("Verification service is misconfigured. Please contact support.");
-        }
-    }, [siteKeyMissing]);
-
-    useEffect(() => {
         // Delay mounting of 3D Canvas until after initial form animations finish
         const timer = setTimeout(() => {
             setShowCanvas(true);
@@ -363,7 +357,7 @@ function LoginContent() {
             </div>
 
             {/* Right Pane - Authentication Form */}
-            <div className="w-full flex-1 flex flex-col justify-between p-4 sm:p-6 lg:p-8 xl:p-10 relative z-10 bg-[#06050C] min-h-screen lg:h-screen overflow-y-auto overflow-x-hidden">
+            <div className="w-full flex-1 flex flex-col justify-between p-4 sm:p-6 lg:p-6 xl:p-8 relative z-10 bg-[#06050C] min-h-screen lg:h-screen overflow-y-auto lg:overflow-hidden overflow-x-hidden">
                 {/* Subtle ambient glows matching clean dark theme */}
                 <div className="absolute top-[-5%] right-[-5%] w-[420px] h-[420px] bg-purple-600/[0.07] rounded-full blur-[130px] pointer-events-none" />
                 <div className="absolute bottom-[-5%] left-[-5%] w-[420px] h-[420px] bg-indigo-600/[0.05] rounded-full blur-[140px] pointer-events-none" />
@@ -391,12 +385,12 @@ function LoginContent() {
 
                 {/* Form Wrapper Card matching exact SignupFormCard design */}
                 <div 
-                    className="my-auto mx-auto shrink-0 w-full max-w-[430px] rounded-[22px] sm:rounded-[28px] bg-[#111111] border border-white/[0.08] p-5 sm:p-8 md:p-9 shadow-2xl z-10"
+                    className="my-auto mx-auto shrink-0 w-full max-w-[430px] rounded-[22px] sm:rounded-[28px] bg-[#111111] border border-white/[0.08] p-5 sm:p-7 md:p-8 shadow-2xl z-10"
                     style={{
                         fontFamily: "'Poppins', sans-serif",
                     }}
                 >
-                    <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                    <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                         <h2 style={{ color: '#ffffff', fontWeight: '700', margin: '0 0 6px', letterSpacing: '-0.3px' }} className="text-[22px] sm:text-[26px]">
                             {step === 'email' ? 'Welcome Back'
                                 : step === 'otp' ? 'Enter OTP'

@@ -49,12 +49,6 @@ export default function SignupFormCard() {
   useEffect(() => {
     initTurnstileWidget();
   }, [initTurnstileWidget]);
-
-  useEffect(() => {
-    if (siteKeyMissing) {
-      setError("Verification service is misconfigured. Please contact support.");
-    }
-  }, [siteKeyMissing]);
   const [step, setStep] = useState('form'); // 'form' | 'otp'
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
