@@ -1,12 +1,7 @@
 "use client";
 import Link from 'next/link';
 import { useBranding } from '@/context/BrandingContext';
-import { Plus_Jakarta_Sans } from 'next/font/google';
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['500', '600', '700', '800'],
-});
+import { jakarta } from '@/lib/fonts';
 
 const footerLinks = {
   Links: [

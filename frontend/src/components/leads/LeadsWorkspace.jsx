@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Poppins } from 'next/font/google';
+import { poppins } from '@/lib/fonts';
 import {
     Search, Plus, Filter, Phone, Instagram, Globe, Mail,
     MessageSquare, Clock, User, ChevronDown, ArrowUpRight,
@@ -19,12 +19,6 @@ import { useAuth } from '@/context/AuthContext';
 import { getWorkspaceIdFromToken } from '@/lib/auth';
 import MessageRenderer from '@/components/chat/MessageRenderer';
 import { SYSTEM_TIERS, AGENT_LABELS, STATUS_STYLES } from '@/lib/labelStyles';
-
-const poppins = Poppins({
-    subsets: ['latin'],
-    weight: ['300', '400', '500', '600', '700', '800'],
-    variable: '--font-poppins',
-});
 
 // ─ DATA META ─
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Script from 'next/script';
-import { Poppins } from 'next/font/google';
+import { poppins } from '@/lib/fonts';
 import { useAuth } from '@/context/AuthContext';
 import {
   Zap, TrendingUp, Clock, Wallet, Info,
@@ -17,11 +17,7 @@ import HistoryModal from '@/components/common/HistoryModal';
 import { TABLE_PREVIEW_LIMIT, TRANSACTION_TYPES } from '@/lib/constants/billingConstants';
 import { formatBillingDate, formatBillingAmount, getActivityMeta, formatPaymentMethod } from '@/lib/utils/activityMapper';
 
-const poppins = Poppins({
-    subsets: ['latin'],
-    weight: ['300', '400', '500', '600', '700', '800'],
-    variable: '--font-poppins',
-});
+
 
 export default function CreditsPage() {
     const { workspaceId } = useAuth();

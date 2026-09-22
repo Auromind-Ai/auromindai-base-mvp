@@ -111,7 +111,7 @@ export default function AudienceSummary({
 
         {/* Balance Warning if insufficient */}
         {!isBalanceSufficient && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs sm:text-sm flex items-center gap-2 font-normal">
+          <div className="p-3 rounded-xl bg-gradient-to-br from-[#2A0D14]/80 via-[#180A0E]/70 to-[#08080A] text-white/80 text-xs sm:text-sm flex items-center gap-2 font-normal">
             <AlertTriangle size={15} className="text-rose-400 shrink-0" />
             <span>
               Insufficient wallet balance. Shortfall: <strong>₹{Number(shortfall || 0).toFixed(2)}</strong>. Please recharge before blast.
@@ -143,35 +143,35 @@ export default function AudienceSummary({
 
         {/* Meta 24h Quota Exceeded Warning */}
         {isWhatsAppConnected && portfolioRemainingToday !== null && portfolioRemainingToday !== undefined && valid > portfolioRemainingToday && (
-          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200 space-y-2 animate-in fade-in duration-200">
+          <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#3b2a08]/80 via-[#261b05]/60 to-[#0d0902] border border-amber-500/25 text-xs text-amber-200 space-y-2 animate-in fade-in duration-200">
             <div className="flex items-start gap-2 text-amber-300 font-semibold">
               <AlertTriangle size={15} className="shrink-0 mt-0.5 text-amber-400" />
               <span>Meta 24h Daily Limit Exceeded</span>
             </div>
-            <p className="text-[11px] text-amber-200/90 leading-relaxed font-normal">
+            <p className="text-[11px] text-white/70 leading-relaxed font-normal">
               Your audience ({valid.toLocaleString()} contacts) exceeds your remaining Meta 24h quota ({Number(portfolioRemainingToday || 0).toLocaleString()}). Sending will be split across multiple days:
             </p>
             <div className="p-2.5 rounded-lg bg-[#080a12] border border-amber-500/20 text-[11px] space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-amber-300 font-medium flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="text-white font-medium flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
                   Sending Today:
                 </span>
-                <span className="text-white font-bold">
+                <span className="text-white font-semibold">
                   {Math.max(0, Number(portfolioRemainingToday) || 0).toLocaleString()} msgs
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-amber-300 font-medium flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                <span className="text-white font-medium flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
                   Sending Tomorrow:
                 </span>
-                <span className="text-amber-300 font-bold">
+                <span className="text-white font-semibold">
                   {Math.max(0, valid - Math.max(0, Number(portfolioRemainingToday) || 0)).toLocaleString()} msgs
                 </span>
               </div>
             </div>
-            <p className="text-[10px] text-amber-300/80 leading-normal">
+            <p className="text-[10px] text-white/70 leading-normal">
               Remaining messages will be automatically held and dispatched tomorrow once Meta&apos;s 24-hour rolling limit resets.
             </p>
           </div>

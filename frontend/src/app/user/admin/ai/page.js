@@ -42,20 +42,14 @@ import {
     ChevronDown as ArrowDown,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { useSettings } from '@/context/SettingsContext';
 import { useAuth } from '@/context/AuthContext';
 import ChatSidebar from '@/components/ChatSidebar';
 import api from '@/lib/api';
 import { ALLOWED_FILE_EXTENSIONS, isFileExtensionAllowed } from '@/lib/fileValidation';
-import { useRouter } from 'next/navigation';
-import { Poppins } from 'next/font/google';
+import { poppins } from '@/lib/fonts';
 import ReactMarkdown from "react-markdown";
-
-const poppins = Poppins({
-    subsets: ['latin'],
-    weight: ['300', '400', '500', '600', '700'],
-    variable: '--font-poppins',
-});
 
 // Helpers
 function getGreeting() {

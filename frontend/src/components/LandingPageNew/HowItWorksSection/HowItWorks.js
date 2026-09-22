@@ -2,14 +2,9 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Poppins } from "next/font/google";
+import { poppins } from "@/lib/fonts";
 import Image from 'next/image';
 import { Activity, Cpu, Zap, Network } from 'lucide-react';
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["500"],
-});
 
 const steps = [
   {

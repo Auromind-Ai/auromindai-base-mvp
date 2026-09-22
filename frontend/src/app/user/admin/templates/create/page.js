@@ -1,17 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Poppins } from 'next/font/google';
+import { poppins } from '@/lib/fonts';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import UpgradeModal from '@/components/UpgradeModal';
-
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '800'],
-  variable: '--font-poppins',
-});
 
 //  Icons (inline SVG to avoid extra deps) 
 const Icon = ({ d, size = 16, className = '' }) => (

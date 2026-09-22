@@ -22,7 +22,7 @@ import {
   ChevronUp,
 } from "lucide-react"
 
-import { Poppins } from "next/font/google"
+import { poppins } from "@/lib/fonts"
 import api from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
 import HistoryModal from "@/components/common/HistoryModal"
@@ -36,11 +36,7 @@ import {
   formatPaymentMethod,
 } from "@/lib/utils/activityMapper"
 
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-  variable: "--font-poppins",
-})
+
 
 export default function BillingHistoryPage() {
   const { workspaceId } = useAuth()

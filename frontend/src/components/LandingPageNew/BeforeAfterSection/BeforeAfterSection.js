@@ -3,14 +3,9 @@
 import { useRef } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
-import { Poppins } from "next/font/google";
+import { poppins } from "@/lib/fonts";
 import { useState } from "react";
 import NeatCTAButton from "@/components/ui/NeatCTAButton";
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["300", "600"],
-});
 
 const BeforeAfterSection = () => {
   const containerRef = useRef(null);

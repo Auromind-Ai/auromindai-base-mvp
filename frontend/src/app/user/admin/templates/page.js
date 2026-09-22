@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Poppins } from 'next/font/google';
+import { poppins } from '@/lib/fonts';
 import {
   Search, Plus, X, Send, Eye,
   LayoutGrid, List, ArrowUpRight, ChevronRight,
@@ -16,11 +16,7 @@ import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '800'],
-  variable: '--font-poppins',
-});
+
 
 /* ─
    Config

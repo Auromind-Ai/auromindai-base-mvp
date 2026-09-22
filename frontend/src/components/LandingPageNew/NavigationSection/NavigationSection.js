@@ -1,21 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { Poppins, Plus_Jakarta_Sans } from "next/font/google";
+import { poppins, jakarta } from '@/lib/fonts';
 import { Zap, Menu, X, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useBranding } from '@/context/BrandingContext';
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
-});
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
-});
 
 const NavigationSection = () => {
   const { appName, appLogoUrl } = useBranding();
