@@ -57,7 +57,7 @@ RUN adduser --disabled-password --gecos "" appuser && \
 USER appuser
 
 # Default command for worker
-CMD celery -A app.core.celery_app worker --loglevel=info --pool=prefork --concurrency=2 -Q default,beat
+CMD celery -A app.core.celery_app worker --loglevel=info --pool=prefork --concurrency=2 -Q default,beat,campaigns_queue,critical_queue
 
 # ==========================================
 # STAGE 4: Security & Quality Checks (CI Target)
