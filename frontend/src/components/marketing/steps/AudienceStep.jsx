@@ -477,8 +477,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      setError('Please upload a valid .csv file format.');
+    const fileName = (file.name || '').toLowerCase();
+    const isCsvOrExcel = fileName.endsWith('.csv') || fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+    if (!isCsvOrExcel) {
+      setError('Please upload a valid .csv, .xlsx, or .xls file format.');
       return;
     }
 
@@ -1059,18 +1061,18 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
           <div className="space-y-4 pt-1">
             <div>
               <h4 className="text-sm sm:text-base font-medium text-white">
-                Upload Contacts CSV
+                Upload Contacts (CSV or Excel)
               </h4>
 
               <p className="text-sm text-white/70 mt-0.5 font-normal leading-relaxed">
-                Upload any CSV with phone numbers. Automatically normalizes to E.164 standard with country code.
+                Upload any CSV or Excel (.xlsx, .xls) with phone numbers. Automatically normalizes to E.164 standard with country code.
               </p>
             </div>
 
             <input
               type="file"
               ref={fileInputRef}
-              accept=".csv"
+              accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
               onChange={handleCsvFileSelect}
               className="hidden"
             />
@@ -1092,7 +1094,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
 
                 {isUploading ? (
                   <span className="text-xs sm:text-sm font-medium text-white">
-                    Parsing CSV & validating numbers...
+                    Parsing file & validating numbers...
                   </span>
                 ) : uploadedFileName ? (
                   <div className="space-y-1">
@@ -1107,10 +1109,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                 ) : (
                   <div>
                     <span className="text-xs sm:text-sm font-medium text-white block">
-                      Click to upload CSV or drag and drop
+                      Click to upload CSV / Excel or drag and drop
                     </span>
                     <span className="text-xs text-white/70 font-normal mt-0.5 block">
-                      Supported headers: Phone, Mobile, Contact, Name, Email, Variables
+                      Supported formats: .csv, .xlsx, .xls (Phone, Mobile, Name, Email, Variables)
                     </span>
                   </div>
                 )}
