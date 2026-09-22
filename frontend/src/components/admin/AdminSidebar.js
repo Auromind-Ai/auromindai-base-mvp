@@ -4,12 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useBranding } from "@/context/BrandingContext"
-import { Plus_Jakarta_Sans } from "next/font/google"
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
-});
+import { jakarta } from "@/lib/fonts";
 
 import {
   LayoutDashboard,

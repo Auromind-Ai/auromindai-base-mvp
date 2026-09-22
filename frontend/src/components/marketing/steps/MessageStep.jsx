@@ -680,26 +680,6 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
             )}
           </div>
 
-          {/* Dynamic WhatsApp Preview with live variable substitution from Row 1 */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-xs sm:text-sm font-medium text-white flex items-center gap-1.5">
-                Message Preview <Info size={13} className="text-[#814AC8]" />
-              </span>
-              {displayedVariables.length > 0 && (
-                <span className="text-xs text-[#C49FE0] font-normal flex items-center gap-1 truncate max-w-[200px]" title={data?.recipients?.[0] ? `Previewing with contact: ${data.recipients[0].recipient_name || data.recipients[0].name || data.recipients[0].phone_number}` : 'Live sample preview'}>
-                  <Sparkles size={12} className="shrink-0" />
-                  <span className="truncate">{data?.recipients?.[0] ? `Contact 1: ${data.recipients[0].recipient_name || data.recipients[0].name || 'Sample contact'}` : 'Live preview'}</span>
-                </span>
-              )}
-            </div>
-            <WhatsAppPreview
-              businessName={data.name || 'Your Business'}
-              messageText={livePreviewText}
-              mediaUrl={data.mediaUrl || null}
-              mediaName={data.mediaName || ''}
-            />
-          </div>
 
           {/* Quick Tips */}
           <QuickTips

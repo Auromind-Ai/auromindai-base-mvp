@@ -477,20 +477,20 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
           <div className="space-y-4 relative before:absolute before:left-3.5 before:top-3 before:bottom-3 before:w-[2px] before:bg-[#1b2238]">
             {/* Start Event */}
             <div className="flex items-start gap-3 relative z-10">
-              <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-white ${
                 sendType === 'Send Now'
-                  ? 'bg-blue-500/15 border-sky-500/30 text-sky-400'
+                  ? 'bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40'
                   : isScheduleValid
-                  ? 'bg-purple-500/15 border-purple-500/30 text-[#C49FE0]'
-                  : 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                  ? 'bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40'
+                  : 'bg-rose-900/60'
               }`}>
-                <CalendarIcon size={13} />
+                <CalendarIcon size={13} className="text-white" />
               </div>
               <div>
-                <span className="text-xs text-white/70 font-medium block">
+                <span className="text-xs text-[#c4c0db] font-normal block">
                   Campaign will start on
                 </span>
-                <span className={`text-xs font-bold block ${!isScheduleValid && sendType !== 'Send Now' ? 'text-rose-400' : 'text-white'}`}>
+                <span className={`text-xs sm:text-sm font-medium block mt-0.5 ${!isScheduleValid && sendType !== 'Send Now' ? 'text-rose-400' : 'text-white'}`}>
                   {sendType === 'Send Now'
                     ? 'Immediately upon launch'
                     : isScheduleValid
@@ -498,7 +498,7 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
                     : `${dateVal} at ${timeVal} (Past time!)`}
                 </span>
                 {!isScheduleValid && sendType !== 'Send Now' && (
-                  <span className="text-[10px] text-rose-400/90 block mt-0.5">
+                  <span className="text-xs text-rose-400/90 block mt-0.5 font-normal">
                     Requires a future time to proceed
                   </span>
                 )}
@@ -507,17 +507,17 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
 
             {/* Estimated Completion Event */}
             <div className="flex items-start gap-3 relative z-10">
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
-                <Send size={14} />
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] flex items-center justify-center text-white shrink-0 mt-0.5">
+                <Send size={13} className="text-white" />
               </div>
               <div>
-                <span className="text-xs text-white/70 font-medium block">
+                <span className="text-xs text-[#c4c0db] font-normal block">
                   Estimated completion
                 </span>
                 <span className={`text-xs sm:text-sm font-medium mt-0.5 block ${isQuotaExceeded ? 'text-amber-300' : 'text-white'}`}>
                   ~ {calculateEstimatedDuration()}
                 </span>
-                <span className="text-xs text-white/70 font-normal block mt-0.5">
+                <span className="text-xs text-[#c4c0db] font-normal block mt-0.5">
                   {isQuotaExceeded ? (
                     portfolioRemainingToday === 0
                       ? `All ${validRecipients.toLocaleString()} msgs held until Meta 24h limit resets tomorrow`
@@ -533,17 +533,17 @@ export default function ScheduleStep({ data, updateData, onNext, onBack }) {
 
             {/* Recipients Event */}
             <div className="flex items-start gap-3 relative z-10">
-              <div className="w-7 h-7 rounded-lg bg-[#814AC8]/15 border border-[#814AC8]/30 flex items-center justify-center text-[#a78bfa] shrink-0 mt-0.5">
-                <Users size={14} />
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 flex items-center justify-center text-white shrink-0 mt-0.5">
+                <Users size={13} className="text-white" />
               </div>
               <div>
-                <span className="text-xs text-white/70 font-medium block">
+                <span className="text-xs text-[#c4c0db] font-normal block">
                   Total recipients
                 </span>
                 <span className="text-sm sm:text-base font-semibold text-white block leading-tight mt-0.5">
                   {totalRecipients.toLocaleString()}
                 </span>
-                <span className="text-xs text-white/70 block mt-1 font-normal">
+                <span className="text-xs text-[#c4c0db] block mt-1 font-normal">
                   Valid numbers: {validRecipients.toLocaleString()}
                 </span>
                 <span className="text-xs text-amber-300 font-normal block mt-0.5">

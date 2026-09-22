@@ -1,6 +1,5 @@
 'use client';
 
-import { Poppins } from 'next/font/google';
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -27,7 +26,7 @@ import WhatsAppPreviewModal from './modals/WhatsAppPreviewModal';
 import FlowConversationPreviewModal from './modals/FlowConversationPreviewModal';
 import FlowModals from './modals/FlowModals';
 
-// Helper Imports
+import { poppins } from '@/lib/fonts';
 import {
   MAX_BUTTONS,
   MAX_KEYWORDS,
@@ -53,12 +52,6 @@ const getNodeDefaultHeight = (node) => {
   }
   return 228;
 };
-
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '800'],
-  variable: '--font-poppins',
-});
 
 export default function AutomationCanvas() {
   const [automations, setAutomations] = useState([]);

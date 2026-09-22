@@ -3,17 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, CreditCard, Check, ShieldCheck, CheckCircle2, ArrowLeft, Video, Phone, Send } from 'lucide-react';
-import { Plus_Jakarta_Sans, Poppins } from 'next/font/google';
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['500', '600', '700', '800'],
-});
-
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-});
+import { jakarta, poppins } from '@/lib/fonts';
 
 export default function WhatsAppShowcase() {
   const [activeTab, setActiveTab] = useState('forms'); // 'forms' | 'payments'

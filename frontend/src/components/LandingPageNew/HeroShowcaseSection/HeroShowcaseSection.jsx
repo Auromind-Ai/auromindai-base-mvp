@@ -3,7 +3,6 @@
 import { useState, useRef } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion";
-import { Poppins } from "next/font/google";
 import Link from "next/link";
 import NeatCTAButton from "@/components/ui/NeatCTAButton";
 import {
@@ -38,13 +37,8 @@ import {
   GitFork,
   Split,
 } from "lucide-react";
+import { poppins } from "@/lib/fonts";
 import ThreeAiAgentsSection from "./ThreeAiAgentsSection";
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-poppins-hero",
-});
 
 function AnimatedHeadline({ text }) {
   const words = text.split(" ");

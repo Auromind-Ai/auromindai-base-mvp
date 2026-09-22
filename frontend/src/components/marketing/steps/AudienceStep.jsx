@@ -750,9 +750,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
             });
           }
         })
-        .catch((e) => console.warn('Failed to estimate campaign:', e));
     } else {
-      setEstimate(null);
+      Promise.resolve().then(() => {
+        if (isSubscribed) setEstimate(null);
+      });
     }
     return () => {
       isSubscribed = false;
@@ -1077,17 +1078,27 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
 
             <div
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
+              className={`rounded-2xl p-6 text-center cursor-pointer transition-all ${
                 isUploading
-                  ? 'border-[#814AC8] bg-[#814AC8]/10 animate-pulse'
+                  ? 'border-2 border-dashed border-[#814AC8] bg-[#814AC8]/10 animate-pulse'
                   : uploadedFileName
-                  ? 'border-emerald-500/40 bg-emerald-500/5'
-                  : 'border-[#1e253b] bg-[#080a12] hover:border-[#814AC8]/50 hover:bg-[#16132d]'
+                  ? 'border-0 bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08]'
+                  : 'border-2 border-dashed border-[#1e253b] bg-[#080a12] hover:border-[#814AC8]/50 hover:bg-[#16132d]'
               }`}
             >
               <div className="flex flex-col items-center justify-center gap-2.5">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white flex items-center justify-center">
-                  {uploadedFileName ? <FileSpreadsheet size={24} className="text-emerald-400" /> : <UploadCloud size={24} className="text-white"/>}
+                <div
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                    uploadedFileName
+                      ? 'bg-gradient-to-b from-[#063b27] to-[#020c08] border border-[#0d4a32]/50 text-white shadow-sm'
+                      : 'bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white'
+                  }`}
+                >
+                  {uploadedFileName ? (
+                    <FileSpreadsheet size={24} className="text-white" />
+                  ) : (
+                    <UploadCloud size={24} className="text-white" />
+                  )}
                 </div>
 
                 {isUploading ? (
@@ -1099,17 +1110,17 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                     <span className="text-xs sm:text-sm font-medium text-white block">
                       {uploadedFileName}
                     </span>
-                    <span className="text-[11px] text-emerald-400 font-medium">
-                      ✓ Successfully parsed {((csvStats || data.csvStats)?.valid_count ?? data.validRecipients ?? 0).toLocaleString()} valid numbers
+                    <span className="text-xs text-white font-medium block">
+                      <span className="text-emerald-400">✓</span> Successfully parsed {((csvStats || data.csvStats)?.valid_count ?? data.validRecipients ?? 0).toLocaleString()} valid numbers
                     </span>
-                    <p className="text-xs text-white/70 font-normal">Click to upload a different file</p>
+                    <p className="text-xs text-[#c4c0db] font-normal">Click to upload a different file</p>
                   </div>
                 ) : (
                   <div>
                     <span className="text-xs sm:text-sm font-medium text-white block">
                       Click to upload CSV or drag and drop
                     </span>
-                    <span className="text-xs text-white/70 font-normal mt-0.5 block">
+                    <span className="text-xs text-[#c4c0db] font-normal mt-0.5 block">
                       Supported headers: Phone, Mobile, Contact, Name, Email, Variables
                     </span>
                   </div>

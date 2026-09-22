@@ -2,18 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Poppins } from 'next/font/google';
+import { poppins } from '@/lib/fonts';
 import { Check, ChevronsDown } from 'lucide-react';
 import NavigationSection from '@/components/LandingPageNew/NavigationSection/NavigationSection';
 import ModernSaaSBackground from '@/components/LandingPageNew/ModernSaaSBackground/ModernSaaSBackground';
 import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
 import api from '@/lib/api';
 import PricingComparisonTable from '@/components/LandingPageNew/PricingSectionNewSection/PricingComparisonTable';
-
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800', '900'],
-});
 
 const TOKENS_PER_CREDIT = 1000;
 

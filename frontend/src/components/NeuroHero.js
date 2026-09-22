@@ -3,14 +3,8 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { Poppins } from "next/font/google";
+import { poppins } from "@/lib/fonts";
 import { Check, Zap } from "lucide-react";
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-  display: "swap",
-});
 
 export default function NeuroHero() {
   const [stage, setStage] = useState(1);

@@ -8,7 +8,7 @@ export default function QuietHours({ enabled, onChange }) {
     <div className="rounded-xl bg-[#0a0d17] border border-[#1a2136] p-4 sm:p-5 text-xs sm:text-sm transition-all duration-200">
       <div className="flex items-center justify-between gap-3 mb-2.5">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-[#814AC8]/20 flex items-center justify-center text-[#C49FE0]">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 flex items-center justify-center text-white">
             <Moon size={15} />
           </div>
           <span className="font-medium text-white text-xs sm:text-sm">Quiet Hours</span>

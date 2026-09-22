@@ -194,7 +194,7 @@ export default function ScoreBreakdown({
                 Behavioral Score
               </p>
             </div>
-            <span className="text-[11px] text-zinc-500 font-mono">Weight: 40%</span>
+            <span className="text-[11px] text-zinc-500">Weight: 40%</span>
           </div>
 
           <div className="flex items-baseline gap-2 mb-2">
@@ -228,7 +228,7 @@ export default function ScoreBreakdown({
                 Semantic Intent
               </p>
             </div>
-            <span className="text-[11px] text-zinc-500 font-mono">Weight: 60%</span>
+            <span className="text-[11px] text-zinc-500">Weight: 60%</span>
           </div>
 
           <div className="flex items-baseline gap-2 mb-2">
@@ -318,7 +318,7 @@ export default function ScoreBreakdown({
                       <MessageSquare size={11} className="text-[#9E7BFF]" />
                       <span>Customer Message Snippet</span>
                     </div>
-                    <p className="text-xs text-zinc-200 bg-white/[0.03] border border-white/[0.05] px-2.5 py-1.5 rounded-lg font-mono leading-relaxed select-all">
+                    <p className="text-xs text-zinc-200 bg-white/[0.03] border border-white/[0.05] px-2.5 py-1.5 rounded-lg leading-relaxed select-all">
                       &ldquo;{signal.snippet}&rdquo;
                     </p>
                     {signal.reasoning && (

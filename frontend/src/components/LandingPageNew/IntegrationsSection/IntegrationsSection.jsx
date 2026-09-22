@@ -2,12 +2,7 @@
 
 import { useState } from "react";
 import { useBranding } from "@/context/BrandingContext";
-import { Poppins } from "next/font/google";
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
-});
+import { poppins } from "@/lib/fonts";
 
 // ─── All apps across 4 rows — all using local SVG icons ────────────────────
 const ROW_1 = [

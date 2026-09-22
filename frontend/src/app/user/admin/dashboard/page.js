@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import AnimatedCounter from "../AnimatedCounter";
@@ -25,18 +26,11 @@ import {
   Bell,
   X,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { Poppins } from 'next/font/google';
+import { poppins } from '@/lib/fonts';
 import { useDashboard } from '@/lib/useDashboard';
 import AddLeadModal from '@/components/leads/AddLeadModal';
 import CreditRingDropdown from '@/components/CreditRingDropdown';
 import WhatsAppStatusIndicator from '@/components/dashboard/WhatsAppStatusIndicator';
-
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-poppins',
-})
 
 // Magic Bento helpers
 function parseRgb(hex) {

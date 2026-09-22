@@ -9,13 +9,8 @@ import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useBranding } from '@/context/BrandingContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus_Jakarta_Sans } from 'next/font/google';
 import { useTurnstile } from '@/hooks/useTurnstile';
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['500', '600', '700', '800'],
-});
+import { jakarta } from '@/lib/fonts';
 
 const features = [
     {
