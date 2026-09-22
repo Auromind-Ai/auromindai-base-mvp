@@ -3,18 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check } from 'lucide-react';
-import { Poppins, Plus_Jakarta_Sans } from 'next/font/google';
+import { poppins, jakarta } from '@/lib/fonts';
 import { useBranding } from '@/context/BrandingContext';
-
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-});
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['500', '600', '700', '800'],
-});
 
 // The exact 7-step conversational flow for Lead Qualification
 const CONVERSATION_STEPS = [
@@ -55,9 +45,7 @@ const CONVERSATION_STEPS = [
   },
 ];
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   CARD 1: Lead Qualification & Automation (Animated Conversation)
-───────────────────────────────────────────────────────────────────────────── */
+/*  CARD 1: Lead Qualification & Automation (Animated Conversation) */
 function LeadQualificationAnimatedCard() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
@@ -363,9 +351,9 @@ function LeadQualificationAnimatedCard() {
   );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   CARD 2: Payment (Animated Interactive Payment Flow with Dynamic Top & Bottom)
-───────────────────────────────────────────────────────────────────────────── */
+/* MAIN SECTION */
+
+/* CARD 2: Payment (Animated Interactive Payment Flow with Dynamic Top & Bottom) */
 function PaymentAnimatedCard() {
   const [paymentState, setPaymentState] = useState('link'); // 'link' | 'clicking' | 'success'
 
@@ -597,9 +585,7 @@ function PaymentAnimatedCard() {
   );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   MAIN SECTION
-───────────────────────────────────────────────────────────────────────────── */
+/* MAIN SECTION */
 export default function SalesJourneySection() {
   const { appLogoUrl } = useBranding();
 
@@ -638,13 +624,13 @@ export default function SalesJourneySection() {
 
         {/* 3-Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-7 items-stretch">
-          {/* ════════════════════ Card 1: Lead Qualification & Automation (Animated) ════════════════════ */}
+          {/* Card 1: Lead Qualification & Automation (Animated)*/}
           <LeadQualificationAnimatedCard />
 
-          {/* ════════════════════ Card 2: Payment (Animated Interaction) ════════════════════ */}
+          {/* Card 2: Payment (Animated Interaction) */}
           <PaymentAnimatedCard />
 
-          {/* ════════════════════ Card 3: Integration ════════════════════ */}
+          {/* Card 3: Integration */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}

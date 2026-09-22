@@ -1,15 +1,9 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
-import { Poppins } from 'next/font/google'
+import { poppins } from '@/lib/fonts'
 import { Coins, TrendingUp, Calendar, Zap, Layers } from "lucide-react"
 import api from "@/lib/api"
-
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '800'],
-  variable: '--font-poppins',
-})
 
 export default function TokenUsagePage() {
 

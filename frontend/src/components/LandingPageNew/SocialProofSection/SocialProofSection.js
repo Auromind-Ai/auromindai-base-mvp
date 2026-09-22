@@ -2,12 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { MessageSquare, Users, Clock, Sparkles } from 'lucide-react';
-import { Poppins } from "next/font/google";
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "600", "700", "900"],
-});
+import { poppins } from "@/lib/fonts";
 
 // Brand SVG Logos
 const ShopifyLogo = () => (

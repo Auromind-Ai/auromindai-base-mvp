@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Poppins } from 'next/font/google';
+import { poppins } from '@/lib/fonts';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { getToken, isTokenExpired } from '@/lib/auth';
@@ -72,10 +72,7 @@ const SYSTEM_NAV_ITEMS = [
     { label: 'Settings', icon: Settings, href: '#' },
 ];
 
-const poppins = Poppins({
-    subsets: ['latin'],
-    weight: ['400', '500', '600', '700'],
-});
+
 
 export default function AdminLayout({ children }) {
     return (

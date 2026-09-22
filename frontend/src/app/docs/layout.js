@@ -1,20 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Poppins } from 'next/font/google';
+import { poppins } from '@/lib/fonts';
 import Link from 'next/link';
 
 import DocsSidebar from '@/components/docs/DocsSidebar';
 import DocsSearchModal from '@/components/docs/DocsSearchModal';
 import { Menu, Search, X } from 'lucide-react';
-
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-poppins',
-  display: 'swap',
-  preload: false,
-});
 
 export default function DocsLayout({ children }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);

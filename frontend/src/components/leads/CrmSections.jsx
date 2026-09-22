@@ -896,7 +896,7 @@ export function CrmScoring({
                             </td>
 
                             {/* Example Customer Message */}
-                            <td className="py-3 px-3 text-zinc-400 text-xs max-w-xs font-mono">
+                            <td className="py-3 px-3 text-zinc-400 text-xs max-w-xs">
                               {sig.example_message ||
                                 (sig.examples && sig.examples.join(", ")) ||
                                 "ΓÇö"}
@@ -2354,7 +2354,7 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
                 value={subjectTemplate}
                 onChange={(e) => setSubjectTemplate(e.target.value)}
                 placeholder="{frequency} Qualified Leads Report ({date})"
-                className="w-full bg-[#191328] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500 font-mono"
+                className="w-full bg-[#191328] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500"
               />
             </div>
 
@@ -2371,7 +2371,7 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
                 rows={9}
                 value={bodyTemplate}
                 onChange={(e) => setBodyTemplate(e.target.value)}
-                className="w-full bg-[#191328] border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-violet-500 font-mono leading-relaxed resize-y"
+                className="w-full bg-[#191328] border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-violet-500 leading-relaxed resize-y"
               />
             </div>
 
@@ -2389,7 +2389,7 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
                       setBodyTemplate((prev) => `${prev} {${v.key}}`)
                     }
                     title={v.desc}
-                    className="px-2.5 py-1 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/30 text-violet-300 text-[11px] font-mono transition-colors"
+                    className="px-2.5 py-1 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/30 text-violet-300 text-[11px] transition-colors"
                   >
                     +{v.label}
                   </button>
@@ -2448,7 +2448,7 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
                     <FileSpreadsheet size={16} />
                   </div>
                   <div>
-                    <p className="font-mono text-zinc-200 text-xs font-medium">
+                    <p className="text-zinc-200 text-xs font-medium">
                       {filenameStr}
                     </p>
                     <p className="text-[10px] text-zinc-500">~2.4 KB</p>

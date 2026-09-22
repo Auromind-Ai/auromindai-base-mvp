@@ -1,5 +1,6 @@
 import uuid
 import re
+import os
 import logging
 import pytz
 from decimal import Decimal
@@ -17,6 +18,8 @@ from app.services.marketing.outbound_gateway import (
     WhatsAppOutboundGateway,
     ORBION_SAFE_DISPATCH_MPS,
 )
+
+from app.services.config_service import config_service
 from app.services.marketing.campaign_service import CampaignService
 from app.core.redis_lock import get_redis_client
 
@@ -154,14 +157,23 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
         if campaign.stop_on_high_failure_rate and evaluate_circuit_breaker(campaign, db):
             return
 
+     
         workspace = db.query(Workspace).filter(Workspace.id == campaign.workspace_id).first()
-        if not workspace or not workspace.meta_access_token:
+        access_token = (
+            config_service.get("meta_system_user_token")
+            or os.getenv("META_SYSTEM_USER_TOKEN")
+            or (workspace.meta_access_token if workspace else None)
+        )
+
+        if not workspace or not access_token:
             logger.error("Workspace or Meta access token missing for campaign %s", campaign_id)
+            campaign.status = "failed"
+            campaign.paused_reason = "META_ACCESS_TOKEN_MISSING"
+            db.commit()
             return
 
         portfolio_id = campaign.portfolio_id or workspace.meta_business_id or workspace.meta_waba_id or str(workspace.id)
-        phone_number_id = campaign.phone_number_id or workspace.meta_phone_number_id
-        access_token = workspace.meta_access_token
+        phone_number_id = workspace.meta_phone_number_id or campaign.phone_number_id
 
         # Load Template if template campaign
         template = None
@@ -190,11 +202,11 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
         elif WhatsAppOutboundGateway._test_provider is not None:
             tier_limit = 1000
 
-        if not tier_limit and workspace.meta_access_token and (workspace.meta_phone_number_id or workspace.meta_waba_id):
+        if not tier_limit and access_token and (workspace.meta_phone_number_id or workspace.meta_waba_id):
             try:
                 meta_tier = WhatsAppTierService.fetch_live_portfolio_tier(
                     waba_id=workspace.meta_waba_id,
-                    access_token=workspace.meta_access_token,
+                    access_token=access_token,
                     business_id=workspace.meta_business_id,
                     phone_number_id=workspace.meta_phone_number_id,
                 )
@@ -304,15 +316,18 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
                         "parameters": body_params
                     })
 
+                template_payload = {
+                    "name": template.name,
+                    "language": {"code": template.language or "en_US"},
+                }
+                if components:
+                    template_payload["components"] = components
+
                 payload = {
                     "messaging_product": "whatsapp",
                     "to": clean_phone,
                     "type": "template",
-                    "template": {
-                        "name": template.name,
-                        "language": {"code": template.language or "en"},
-                        "components": components if components else None
-                    }
+                    "template": template_payload,
                 }
             else:
                 # Custom text or media payload

@@ -62,7 +62,7 @@ export default function CampaignStepper({ currentStep, onStepClick }) {
                   >
                     {step.title}
                   </span>
-                  <span className="text-[10px] sm:text-xs text-[#717b96] font-normal leading-tight">
+                  <span className="text-[10px] sm:text-xs text-white/70 font-normal leading-tight">
                     {step.subtitle}
                   </span>
                 </div>

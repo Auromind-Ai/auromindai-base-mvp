@@ -51,7 +51,7 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
       });
     }
     return text;
-  }, [data.messageBody, data.variableMapping, data?.recipients]);
+  }, [data.messageBody, data.variableMapping, data.recipients]);
 
   const handleConfirmLaunch = () => {
     if (!isScheduleValid) {
@@ -77,14 +77,33 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 xl:gap-10 items-start">
-        {/* Left Column (7 cols): Summary Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+        {/* Left Column (5 cols): WhatsApp Preview (Non-scrolling / Sticky) */}
+        <div className="lg:col-span-5 xl:col-span-5 lg:sticky lg:top-0 self-start space-y-2.5">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs sm:text-sm font-medium text-white">
+              Message Preview
+            </span>
+          </div>
+
+          <WhatsAppPreview
+            businessName={data.name || 'Your Business'}
+            messageText={previewMessage}
+            mediaUrl={data.mediaUrl}
+            mediaName={data.mediaName}
+            buttons={data.templateButtons || data.buttons || []}
+            headerText={data.headerText}
+            footerText={data.footerText}
+          />
+        </div>
+
+        {/* Right Column (7 cols): Summary Cards (Scrollable) */}
         <div className="lg:col-span-7 xl:col-span-7 space-y-4">
           {/* Card 1: Campaign Details */}
           <div className="p-4 sm:p-5 rounded-xl bg-[#0a0d17] border border-[#1b2238] hover:border-[#283250] transition-all">
             <div className="flex items-center justify-between pb-3 border-b border-[#1b2238] mb-3.5">
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-[#814AC8]/20 flex items-center justify-center text-[#C49FE0]">
+                <div className="w-7 h-7 rounded-lg bg-[#2c144e] flex items-center justify-center text-white">
                   <Send size={15} />
                 </div>
                 <h4 className="text-sm sm:text-base font-medium text-white">
@@ -121,7 +140,7 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
           <div className="p-4 sm:p-5 rounded-xl bg-[#0a0d17] border border-[#1b2238] hover:border-[#283250] transition-all">
             <div className="flex items-center justify-between pb-3 border-b border-[#1b2238] mb-3.5">
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+                <div className="w-7 h-7 rounded-lg bg-[#073824] flex items-center justify-center text-white">
                   <Users size={15} />
                 </div>
                 <h4 className="text-sm sm:text-base font-medium text-white">
@@ -177,7 +196,7 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
           <div className="p-4 sm:p-5 rounded-xl bg-[#0a0d17] border border-[#1b2238] hover:border-[#283250] transition-all">
             <div className="flex items-center justify-between pb-3 border-b border-[#1b2238] mb-3.5">
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-[#814AC8]/20 flex items-center justify-center text-[#C49FE0]">
+                <div className="w-7 h-7 rounded-lg bg-[#2c144e] flex items-center justify-center text-white">
                   <MessageSquare size={15} />
                 </div>
                 <h4 className="text-sm sm:text-base font-medium text-white">
@@ -226,7 +245,7 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
           <div className="p-4 sm:p-5 rounded-xl bg-[#0a0d17] border border-[#1b2238] hover:border-[#283250] transition-all">
             <div className="flex items-center justify-between pb-3 border-b border-[#1b2238] mb-3.5">
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-purple-500/15 flex items-center justify-center text-[#C49FE0]">
+                <div className="w-7 h-7 rounded-lg bg-[#2c144e] flex items-center justify-center text-white">
                   <CalendarIcon size={15} />
                 </div>
                 <h4 className="text-sm sm:text-base font-medium text-white">
@@ -288,26 +307,6 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
             </div>
           </div>
         </div>
-
-        {/* Right Column (5 cols): WhatsApp Preview with View Switcher */}
-        <div className="lg:col-span-5 space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-xs sm:text-sm font-medium text-white">
-              Message Preview
-            </span>
-
-            <div className="px-2.5 py-1 rounded-lg bg-[#101424] border border-[#1e263c] text-xs text-[#C49FE0] flex items-center gap-1 cursor-pointer font-medium">
-              <span>WhatsApp View</span>
-              <ChevronDown size={13} />
-            </div>
-          </div>
-
-          <WhatsAppPreview
-            businessName={data.name || 'Your Business'}
-            messageText={previewMessage}
-            mediaUrl={data.mediaUrl}
-          />
-        </div>
       </div>
 
       {/* Confirmation & Bottom Action Bar */}
@@ -330,10 +329,10 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
         </div>
 
         {data.isBalanceSufficient === false && (
-          <div className="p-3.5 sm:p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs sm:text-sm flex items-center gap-2.5 font-normal">
-            <ShieldCheck size={17} className="text-amber-400 shrink-0" />
+          <div className="p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-[#3b2a08]/80 via-[#261b05]/60 to-[#0d0902] text-xs sm:text-sm flex items-center gap-2.5 font-normal">
+            <ShieldCheck size={17} className="text-white/80 shrink-0" />
             <span>
-              Notice: Your current WCC wallet available balance may be below the full escrow required for this campaign. Please ensure your wallet has sufficient funds.
+              <span className="text-amber-400">Notice:</span> Your current WCC wallet available balance may be below the full escrow required for this campaign. Please ensure your wallet has sufficient funds.
             </span>
           </div>
         )}
