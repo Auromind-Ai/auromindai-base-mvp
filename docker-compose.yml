@@ -44,6 +44,7 @@ services:
       sh -c "alembic upgrade heads &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --timeout-keep-alive 75 --no-access-log --log-level error"
     environment:
+      PYTHONUNBUFFERED: "1"
       LOG_LEVEL: ${LOG_LEVEL:-error}
       DATABASE_URL: ${DATABASE_URL:-}
       POSTGRES_DB: ${POSTGRES_DB:-yogeshdb}
@@ -91,6 +92,7 @@ services:
               time.sleep(1)
       '''))\" && celery -A app.core.celery_app worker --loglevel=error --pool=prefork --concurrency=2 -Q default,beat,campaigns_queue,critical_queue"
     environment:
+      PYTHONUNBUFFERED: "1"
       LOG_LEVEL: ${LOG_LEVEL:-error}
       DATABASE_URL: ${DATABASE_URL:-}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -134,6 +136,7 @@ services:
               time.sleep(1)
       '''))\" && celery -A app.core.celery_app beat --loglevel=error"
     environment:
+      PYTHONUNBUFFERED: "1"
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       HF_HOME: /models/huggingface

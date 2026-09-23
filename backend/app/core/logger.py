@@ -91,8 +91,18 @@ formatter = logging.Formatter(
     "%(asctime)s | %(levelname)s | %(message)s"
 )
 
-# Console handler (always available)
-console_handler = logging.StreamHandler()
+class FlushingStreamHandler(logging.StreamHandler):
+    """Guarantees immediate flush to stdout so docker compose logs -f streams instantly without buffering."""
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            super().emit(record)
+            if self.stream and hasattr(self.stream, "flush"):
+                self.stream.flush()
+        except Exception:
+            self.handleError(record)
+
+# Console handler (always available, flushed to sys.stdout)
+console_handler = FlushingStreamHandler(sys.stdout)
 console_handler.setLevel(LOG_LEVEL)
 console_handler.setFormatter(formatter)
 console_handler.addFilter(sensitive_filter)
@@ -131,9 +141,9 @@ root_logger = logging.getLogger()
 root_logger.setLevel(LOG_LEVEL)
 root_logger.addFilter(ws_noise_filter)
 root_logger.addFilter(error_filter)
-for h in root_logger.handlers:
-    h.setLevel(LOG_LEVEL)
-    h.addFilter(error_filter)
+for h in list(root_logger.handlers):
+    root_logger.removeHandler(h)
+root_logger.addHandler(console_handler)
 
 # Silence noisy external libraries and uvicorn access logs completely
 for _lib in (
