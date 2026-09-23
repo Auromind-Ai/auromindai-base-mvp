@@ -142,9 +142,6 @@ class EmailMonitor:
         
 
     def crawel_validate(self, db, config):
-
-        print("Running crawl validation...")
-
         workspace_id = config["workspace_id"]
         access_token = config["access_token"]
         refresh_token = config["refresh_token"]
@@ -176,26 +173,20 @@ class EmailMonitor:
         )
 
         if isinstance(result, dict):
-
             message_id = result["message_id"]
 
             # Save last processed id
             self.update_last_processed_id(db, workspace_id, message_id)
-
-            print("New primary email found")
             result["workspace_id"] = workspace_id
             return [result]
 
         elif result == "No new email":
-            print("No new email")
             return []
 
         elif result == "No primary emails":
-            print("No primary emails")
             return []
 
         else:
-            print("Skipped email")
             return []
         
     def get_last_processed_id(self, db, workspace_id):
@@ -252,9 +243,6 @@ class EmailMonitor:
 
     
     def tool_caller(self, db, email_data):
-
-        print("Running tool caller...")
-
         try:
             workspace_id = email_data.get("workspace_id")
 
@@ -266,18 +254,7 @@ class EmailMonitor:
             )
 
             if not mcp_result:
-                print("MCP returned no action")
                 return
-
-            print("MCP decision:", mcp_result)
-
-            #Call Automation Layer
-            # self.engine.execute(
-            #     # db=db,
-            #     # workspace_id=workspace_id,
-            #     # message_id=message_id,
-            #     mcp_decision=mcp_result
-            # )
 
             self.engine.execute(
                 db=db,
@@ -285,7 +262,5 @@ class EmailMonitor:
                 mcp_decision=mcp_result
             )
 
-            print("Automation triggered")
-
         except Exception as e:
-            print("Tool caller error:", e)
+            logger.error(f"Tool caller error: {e}", exc_info=True)

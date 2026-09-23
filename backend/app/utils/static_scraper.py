@@ -37,7 +37,6 @@ class Staticscraper():
         return text
 
     def static_scrap (self):
-        print("web scrapping started")
         visited = set()
         to_visit = [(self.url, 0)]
         page_content = []
@@ -54,7 +53,6 @@ class Staticscraper():
             if current_url in visited:
                 continue
 
-            print(f"Scraping: {current_url}")
             visited.add(current_url)
 
             from app.utils.ssrf_protection import safe_requests_get, is_safe_url

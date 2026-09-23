@@ -172,9 +172,6 @@ class EmailMCPService:
         
     # Classify category
     async def classify_category(self, email_data, context, db=None, workspace_id=None):
-
-        print("Classifying email category...")
-
         try:
             subject = email_data.get("subject", "")
             body = email_data.get("body", "")
@@ -269,9 +266,6 @@ class EmailMCPService:
     
     #Extract structured entities
     async def extract_entities(self, email_data, category, db=None, workspace_id=None):
-
-        print("Extracting entities...")
-
         try:
             subject = email_data.get("subject", "")
             body = email_data.get("body", "")
@@ -373,9 +367,6 @@ class EmailMCPService:
     
     #Calculate priority
     def calculate_priority(self, email_data, category, entities):
-
-        print("Calculating priority...")
-
         try:
             subject = email_data.get("subject", "").lower()
             body = email_data.get("body", "").lower()
@@ -438,9 +429,6 @@ class EmailMCPService:
 
     # Generate summary
     async def generate_summary(self, email_data, db=None, workspace_id=None):
-
-        print("Generating summary...")
-
         try:
             subject = email_data.get("subject", "")
             body = email_data.get("body", "")
@@ -519,8 +507,6 @@ class EmailMCPService:
     
     #Generate suggested reply
     async def generate_suggested_reply(self, email_data, category, context, db=None, workspace_id=None):
-        print("Generating suggested reply...")
-
         try:
             subject = email_data.get("subject", "")
             body = email_data.get("body", "")
@@ -611,9 +597,6 @@ class EmailMCPService:
         summary,
         suggested_reply
     ):
-
-        print("Building MCP decision object...")
-
         try:
             requires_user_permission = False
             actions = []

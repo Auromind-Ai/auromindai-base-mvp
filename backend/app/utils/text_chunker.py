@@ -261,6 +261,5 @@ class Schunker:
         if embed_func:
             units = self.semantic_boundary_split(units, embed_func)
         chunks = self.chunk(units)
-        print("chunks completed")
 
         return chunks

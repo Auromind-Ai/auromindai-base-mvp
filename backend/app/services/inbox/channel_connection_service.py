@@ -242,11 +242,6 @@ class ChannelConnectionService:
         except Exception as e:
             logger.error(f"Failed to fetch WABA details for Business ID: {e}")
 
-        print("================================")
-        print("DISPLAY NUMBER:", display_number)
-        print("PHONE NUMBER ID:", phone_number_id)
-        print("WABA ID:", waba_id)
-        print("================================")
         workspace = db.query(models.Workspace).filter(models.Workspace.id == workspace_id).first()
         if not workspace:
             raise HTTPException(status_code=404, detail="Workspace not found")

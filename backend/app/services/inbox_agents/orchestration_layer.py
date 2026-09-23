@@ -1098,15 +1098,5 @@ class AgentOrchestration:
                                     reservation_id=reservation.id,
                                     actual_units=float(total_tokens)
                                 )
-                                credits_deducted = float(total_tokens) / 1000.0
-                                print(
-                                    f"\n=========================================\n"
-                                    f"AGENT BILLING DEBIT LOG ({curr_agent}):\n"
-                                    f"Workspace: {workspace_id}\n"
-                                    f"Actual Tokens Consumed: {total_tokens}\n"
-                                    f"Credits Deducted: -{credits_deducted:.4f} credits (Rate: 1000 tokens = 1 credit)\n"
-                                    f"=========================================\n",
-                                    flush=True
-                                )
             except Exception as bill_err:
                 self.logger.error(f"Failed to charge tokens for agent execution: {bill_err}")

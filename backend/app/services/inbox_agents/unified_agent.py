@@ -247,7 +247,6 @@ class UnifiedAgent:
     lead_fields=None,
         calendar_enabled=False,
     ):
-        print(f"lead_data: {lead_data}")
         lead_fields = lead_fields or []
         all_fields_collected = len(missing_fields) == 0 and len(lead_fields) > 0
 

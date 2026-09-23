@@ -275,16 +275,13 @@ class WebhookService:
 
     @staticmethod
     async def handle_meta_whatsapp_webhook(payload: dict, db: Session):
-        print("\n[DEBUG WEBHOOK] WebhookService.handle_meta_whatsapp_webhook started")
         logger.info("Starting WebhookService.handle_meta_whatsapp_webhook")
         for entry in payload.get("entry", []):
             entry_id = entry.get('id')
-            print(f"[DEBUG WEBHOOK] Processing entry: {entry_id}")
             logger.info(f"Processing entry: {entry_id}")
             for change in entry.get("changes", []):
                 field = change.get("field")
                 value = change.get("value", {})
-                print(f"[DEBUG WEBHOOK] Processing change field: {field}")
                 logger.info(f"Processing change field: {field}, value keys: {list(value.keys())}")
                 
                 if field == "message_template_status_update":
@@ -292,7 +289,6 @@ class WebhookService:
                     tpl_lang = value.get("message_template_language")
                     tpl_event = value.get("event")
                     tpl_id = value.get("message_template_id")
-                    print(f"[DEBUG WEBHOOK] Template Status Update: {tpl_name} -> {tpl_event}")
                     logger.info(f"Template status update webhook hit: {tpl_name} ({tpl_lang}) -> {tpl_event}")
                     
                     waba_id = entry.get("id")
@@ -319,7 +315,6 @@ class WebhookService:
                     if template:
                         if tpl_event:
                             new_status = tpl_event.lower()
-                            print(f"[DEBUG WEBHOOK] Updating template {template.id} status to {new_status}")
                             logger.info(f"Updating template {template.id} status to {new_status}")
                             template.status = new_status
                             db.commit()
@@ -333,7 +328,6 @@ class WebhookService:
                     display_phone = value.get("display_phone_number")
                     event_type = value.get("event")
                     current_limit = value.get("current_limit")
-                    print(f"[DEBUG WEBHOOK] Phone Number Quality Update: {display_phone} -> {event_type} ({current_limit})")
                     logger.info(f"Meta phone_number_quality_update received: phone={display_phone}, event={event_type}, limit={current_limit}")
 
                     waba_id = entry.get("id")
@@ -369,33 +363,22 @@ class WebhookService:
                 # In WhatsApp Cloud API, incoming messages usually have 'metadata' with 'phone_number_id'
                 metadata = value.get("metadata") or {}
                 phone_number_id = metadata.get("phone_number_id")
-                print(f"[DEBUG WEBHOOK] Metadata: {metadata}")
-                print(f"[DEBUG WEBHOOK] Phone Number ID: {phone_number_id}")
                 
                 if not phone_number_id:
-                    print("[DEBUG WEBHOOK] No phone_number_id found. Skipping change.")
                     logger.warning("No phone_number_id found in webhook change value. Skipping.")
                     continue
 
-                print(f"[DEBUG WEBHOOK] Looking up workspace for phone_number_id: {phone_number_id}")
-                logger.info(f"Looking up workspace for phone_number_id: {phone_number_id}")
                 workspace = ConversationService.get_workspace_for_meta_whatsapp_phone_number_id(
                     db,
                     phone_number_id,
                 )
                 
                 if not workspace:
-                    print(f"[DEBUG WEBHOOK] ERROR: No workspace found for phone_number_id: {phone_number_id}!")
                     logger.error(f"No workspace found attached to phone_number_id: {phone_number_id}. Message dropped.")
                     continue
-                
-                print(f"[DEBUG WEBHOOK] Workspace found: {workspace.id} (Name: {workspace.name})")
-                logger.info(f"Found workspace: {workspace.id}")
 
                 statuses = value.get("statuses") or []
                 if statuses:
-                    print("WHATSAPP STATUS UPDATE")
-                    print(json.dumps(payload, indent=2))
                     
                     # Pre-fetch and cache active rate cards for region 'IN' to eliminate N+1 queries
                     active_cards = {}

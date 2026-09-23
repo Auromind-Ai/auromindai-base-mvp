@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     TWILIO_STATUS_CALLBACK_URL: Optional[str] = None
 
     # LOGGING
-    LOG_LEVEL: str = "INFO"
+    LOG_LEVEL: str = "ERROR"
 
     # INGESTION & TEXT VALIDATION CONFIGURATION
     MIN_INGESTION_TEXT_LENGTH: int = 20
