@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Send,
   Users,
@@ -11,13 +12,17 @@ import {
   Rocket,
   ShieldCheck,
   ChevronDown,
-  AlertTriangle
+  AlertTriangle,
+  Info,
+  Coins,
+  ArrowRight
 } from 'lucide-react';
 import WhatsAppPreview from '../WhatsAppPreview';
 import { isFutureSchedule } from '@/lib/campaignScheduleUtils';
 
 export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunching }) {
-  const [confirmedPolicy, setConfirmedPolicy] = useState(true);
+  const router = useRouter();
+  const [confirmedPolicy, setConfirmedPolicy] = useState(false);
   const [viewMode, setViewMode] = useState('whatsapp');
   const [error, setError] = useState('');
 
@@ -60,6 +65,10 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
     }
     if (!confirmedPolicy) {
       setError('Please accept WhatsApp Business Policy confirmation before launching.');
+      return;
+    }
+    if (data.isBalanceSufficient === false) {
+      setError('Upgrade Required: Your current WCC wallet available balance is below the required escrow. Please recharge your WhatsApp credits to launch.');
       return;
     }
     setError('');
@@ -158,7 +167,7 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-y-3 text-xs sm:text-sm">
+            <div className="grid grid-cols-2 gap-y-3 text-xs sm:text-sm pb-4 border-b border-[#1b2238]">
               <span className="text-white/70 font-normal">Audience Type</span>
               <span className="text-white font-medium text-right sm:text-left">{data.audienceType || 'Existing Contacts'}</span>
 
@@ -176,19 +185,57 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
               <span className="text-amber-300 font-medium text-right sm:text-left">
                 {(data.invalidRecipients || 0).toLocaleString()} ({data.recipientsCount > 0 ? ((data.invalidRecipients / data.recipientsCount) * 100).toFixed(1) : '0.0'}%)
               </span>
+            </div>
 
-              <span className="text-white/70 font-normal">Estimated Cost</span>
-              <span className="text-emerald-400 font-medium text-right sm:text-left">
-                {data.estimatedCost ? `₹${Number(data.estimatedCost).toFixed(2)}` : `~ ₹${((data.validRecipients || 0) * (data.ratePerMessage || 1.25)).toFixed(2)}`}
-                {data.ratePerMessage ? ` (₹${Number(data.ratePerMessage).toFixed(2)}/msg · ${String(data.templateCategory || data.category || data.type || 'Marketing').toUpperCase()})` : ''}
-              </span>
+            {/* Estimated Cost Section */}
+            <div className="pt-4 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs sm:text-sm font-medium text-white/90 flex items-center gap-1.5">
+                  Estimated Cost <Info size={13} className="text-white/90" />
+                </span>
+                <span className="text-xs text-white/70 font-normal">
+                  ₹{Number(data.ratePerMessage || 1.25).toFixed(2)} / msg
+                </span>
+              </div>
 
-              <span className="text-[#c4c0db] font-normal">Meta 24h Quota</span>
-              <span className="text-white font-medium text-right sm:text-left">
-                {data.portfolioRemainingToday !== null && data.portfolioRemainingToday !== undefined
-                  ? `${Number(data.portfolioRemainingToday || 0).toLocaleString()} remaining`
-                  : 'Unlimited / Not connected'}
-              </span>
+              <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#080a12] border border-[#1b2238]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-[#25D366]/20 flex items-center justify-center text-white shrink-0">
+                    <MessageSquare size={13} />
+                  </div>
+                  <span className="text-xs sm:text-sm font-medium text-white">
+                    ~ {(data.validRecipients ?? 3).toLocaleString()} messages
+                  </span>
+                </div>
+                <span className="text-xs sm:text-sm font-medium text-white">
+                  {data.estimatedCost !== undefined && data.estimatedCost !== null
+                    ? `₹${Number(data.estimatedCost).toFixed(2)}`
+                    : `₹${((data.validRecipients ?? 3) * (data.ratePerMessage || 1.25)).toFixed(2)}`}
+                </span>
+              </div>
+
+              {/* Meta 24h Quota */}
+              <div className="flex items-center justify-between text-xs text-white/70 px-1 pt-1 font-normal">
+                <span>Meta 24h Quota:</span>
+                {data.isWhatsAppConnected === false ? (
+                  <span className="text-[#814AC8] font-medium">
+                    0 remaining (Not Connected)
+                  </span>
+                ) : data.portfolioRemainingToday !== null && data.portfolioRemainingToday !== undefined ? (
+                  <span className="text-white/80 font-medium">
+                    {Number(data.portfolioRemainingToday).toLocaleString()} remaining
+                  </span>
+                ) : (
+                  <span className="text-white/80 font-medium">
+                    9,996 remaining
+                  </span>
+                )}
+              </div>
+
+              {/* Settlement note */}
+              <p className="text-xs text-[#a1a1aa] leading-relaxed pt-1 font-normal">
+                Final cost settled atomically upon Meta delivery receipt. Unused escrow is refunded instantly.
+              </p>
             </div>
           </div>
 
@@ -311,7 +358,9 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
 
       {/* Confirmation & Bottom Action Bar */}
       <div className="pt-6 border-t border-[#1b2238] space-y-4">
-        <div className="flex items-start gap-3 p-3.5 sm:p-4 rounded-xl bg-[#0a0d17] border border-[#814AC8]/25">
+        <div className={`flex items-start gap-3 p-3.5 sm:p-4 rounded-xl bg-[#0a0d17] border transition-all ${
+          error && !confirmedPolicy ? 'border-rose-500/50 bg-rose-950/10' : 'border-[#814AC8]/25'
+        }`}>
           <input
             type="checkbox"
             id="policy-agree"
@@ -322,22 +371,63 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
             }}
             className="w-4 h-4 mt-0.5 rounded bg-[#080a12] border-[#1e253b] text-[#814AC8] accent-[#814AC8] cursor-pointer"
           />
-          <label htmlFor="policy-agree" className="text-xs sm:text-sm text-[#e4e4e7] cursor-pointer select-none font-normal leading-relaxed">
+          <label htmlFor="policy-agree" className="text-xs sm:text-sm text-[#e4e4e7] select-none font-normal leading-relaxed">
             I confirm that this campaign complies with{' '}
-            <span className="text-[#C49FE0] underline font-medium">WhatsApp&apos;s Business Policy</span> and guidelines.
+            <a
+              href="https://whatsappbusiness.com/policy/"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[#C49FE0] underline font-medium hover:text-white transition-colors"
+            >
+              WhatsApp&apos;s Business Policy
+            </a>{' '}
+            and guidelines.
           </label>
         </div>
 
         {data.isBalanceSufficient === false && (
-          <div className="p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-[#3b2a08]/80 via-[#261b05]/60 to-[#0d0902] text-xs sm:text-sm flex items-center gap-2.5 font-normal">
-            <ShieldCheck size={17} className="text-white/80 shrink-0" />
-            <span>
-              <span className="text-amber-400">Notice:</span> Your current WCC wallet available balance may be below the full escrow required for this campaign. Please ensure your wallet has sufficient funds.
-            </span>
+          <div className="p-4 rounded-xl bg-gradient-to-r from-[#2A0D14]/90 via-[#1e0a12]/80 to-[#0d0408] border border-rose-500/40 text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-normal shadow-[0_0_20px_rgba(244,63,94,0.15)] animate-in fade-in duration-200">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0 mt-0.5">
+                <AlertTriangle size={16} />
+              </div>
+              <div className="space-y-1">
+                <div className="text-rose-300 font-semibold flex items-center gap-1.5 text-xs sm:text-sm">
+                  <span>Upgrade Required</span>
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    Insufficient Balance
+                  </span>
+                </div>
+                <p className="text-white/80 text-xs leading-relaxed">
+                  <span className="text-amber-400 font-medium">Notice:</span> Your current WCC wallet available balance may be below the full escrow required for this campaign. Please ensure your wallet has sufficient funds.
+                  {data.shortfall > 0 && (
+                    <span className="block mt-0.5 text-rose-300 font-medium">
+                      Shortfall: ₹{Number(data.shortfall).toFixed(2)}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => router.push('/user/admin/credits?tab=wcc')}
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.4)] flex items-center justify-center gap-1.5 shrink-0 transition-all active:scale-[0.98] self-start sm:self-center cursor-pointer"
+            >
+              <Coins size={14} />
+              <span>Recharge WhatsApp Credits</span>
+              <ArrowRight size={13} />
+            </button>
           </div>
         )}
 
-        {error && <p className="text-xs sm:text-sm text-rose-400 font-medium">{error}</p>}
+        {error && (
+          <div className="p-3 sm:p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs sm:text-sm text-rose-400 font-medium flex items-center gap-2 animate-in fade-in duration-150">
+            <AlertTriangle size={16} className="shrink-0 text-rose-400" />
+            <span>{error}</span>
+          </div>
+        )}
 
         <div className="flex items-center justify-between">
           <button

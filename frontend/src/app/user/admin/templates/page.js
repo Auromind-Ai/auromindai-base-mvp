@@ -33,12 +33,54 @@ const STATUS = {
 };
 
 const STAT_CFG = [
-  { key: 'total',    label: 'Total templates', Icon: FileText,    color: '#60a5fa', iconBg: 'rgba(96,165,250,0.12)',  pct: 12 },
-  { key: 'draft',    label: 'Draft',           Icon: PenLine,     color: '#22d3ee', iconBg: 'rgba(34,211,238,0.12)',  pct: 6  },
-  { key: 'pending',  label: 'Pending',         Icon: Clock,       color: '#fb923c', iconBg: 'rgba(251,146,60,0.12)',  pct: 3  },
-  { key: 'approved', label: 'Approved',        Icon: CheckCircle, color: '#34d399', iconBg: 'rgba(52,211,153,0.12)',  pct: 5  },
-  { key: 'rejected', label: 'Rejected',        Icon: AlertCircle, color: '#f87171', iconBg: 'rgba(248,113,113,0.12)', pct: 2  },
-  { key: 'action',   label: 'Action Required', Icon: Bell,        color: '#C49FE0', iconBg: 'rgba(167,139,250,0.12)', pct: 8  },
+  {
+    key: 'total',
+    label: 'Total templates',
+    Icon: FileText,
+    glowColor: 'bg-[#245bb5]/20',
+    iconStyle: 'bg-[#245bb5] text-white shadow-[0_0_24px_rgba(36,91,181,0.65)]',
+    pct: 12
+  },
+  {
+    key: 'draft',
+    label: 'Draft',
+    Icon: PenLine,
+    glowColor: 'bg-[#5851ea]/20',
+    iconStyle: 'bg-[#5851ea] text-white shadow-[0_0_24px_rgba(88,81,234,0.65)]',
+    pct: 6
+  },
+  {
+    key: 'pending',
+    label: 'Pending',
+    Icon: Clock,
+    glowColor: 'bg-[#a45422]/20',
+    iconStyle: 'bg-[#a45422] text-white shadow-[0_0_24px_rgba(164,84,34,0.65)]',
+    pct: 3
+  },
+  {
+    key: 'approved',
+    label: 'Approved',
+    Icon: CheckCircle,
+    glowColor: 'bg-[#0f8b6c]/20',
+    iconStyle: 'bg-[#0f8b6c] text-white shadow-[0_0_24px_rgba(15,139,108,0.65)]',
+    pct: 5
+  },
+  {
+    key: 'rejected',
+    label: 'Rejected',
+    Icon: AlertCircle,
+    glowColor: 'bg-[#9f1239]/20',
+    iconStyle: 'bg-[#9f1239] text-white shadow-[0_0_20px_rgba(159,18,57,0.5)]',
+    pct: 2
+  },
+  {
+    key: 'action',
+    label: 'Action Required',
+    Icon: Bell,
+    glowColor: 'bg-[#814AC8]/20',
+    iconStyle: 'bg-[#814AC8] text-white shadow-[0_0_24px_rgba(129,74,200,0.65)]',
+    pct: 8
+  },
 ];
 
 const CARD_ICONS = [
@@ -215,44 +257,46 @@ function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
 ─ */
 function StatCard({ cfg, count, onClick, isActive }) {
   const [hov, setHov] = useState(false);
-  const { label, Icon, color, iconBg, pct } = cfg;
-  const active = hov || isActive;
+  const { label, Icon, iconStyle, glowColor, pct } = cfg;
 
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      className={`rounded-2xl p-4 transition-all duration-200 relative overflow-hidden flex items-center gap-3.5 min-h-[96px] w-full min-w-0 border ${
+      className={`rounded-2xl p-4 sm:p-5 transition-all duration-200 relative overflow-hidden flex items-center gap-4 min-h-[96px] w-full min-w-0 border shadow-2xl shadow-black/70 backdrop-blur-xl ${
         onClick ? 'cursor-pointer' : 'cursor-default'
       } ${
-        hov ? '-translate-y-1' : 'translate-y-0'
+        hov ? '-translate-y-0.5 border-white/[0.18] bg-[#1a1a20]' : 'border-white/[0.08] bg-[#16161a]/95'
+      } ${
+        isActive ? 'ring-1 ring-white/20 border-white/25 bg-[#1c1c24]' : ''
       }`}
-      style={{
-        background: active ? `${color}08` : '#070012',
-        borderColor: active ? `${color}60` : `${color}35`,
-        boxShadow: hov ? `0 8px 24px ${color}15` : 'none',
-      }}
     >
+      {/* Atmospheric Ambient Glow */}
       <div
-        className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center self-start"
-        style={{
-          background: iconBg,
-          border: `1px solid ${color}30`,
-        }}
+        className={`absolute -top-10 -right-10 w-32 h-32 ${glowColor} rounded-full blur-3xl pointer-events-none opacity-30`}
+      />
+      <div
+        className={`absolute -bottom-10 -left-10 w-24 h-24 ${glowColor} rounded-full blur-3xl pointer-events-none opacity-15`}
+      />
+
+      {/* Icon */}
+      <div
+        className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 relative z-10 transition-transform duration-200 ${iconStyle}`}
       >
-        <Icon size={18} color={color} strokeWidth={1.8} />
+        <Icon className="w-5 h-5" strokeWidth={2} />
       </div>
 
-      <div className="flex flex-col gap-0.5 min-w-0">
+      {/* Content */}
+      <div className="flex-1 min-w-0 flex flex-col gap-0.5 relative z-10">
         <p className="m-0 text-2xl font-extrabold text-white tracking-tight leading-none">
           {count}
         </p>
-        <p className="m-0 text-xs text-white/70 font-semibold truncate">
+        <p className="m-0 text-xs text-zinc-300 font-semibold truncate">
           {label}
         </p>
-        <p className="m-0 mt-2 text-[11px] text-emerald-400 font-semibold truncate">
-          {pct}% <span className="text-white/50 font-normal">from last month</span>
+        <p className="m-0 mt-1.5 text-[11px] text-emerald-400 font-semibold truncate">
+          {pct}% <span className="text-zinc-400 font-normal">from last month</span>
         </p>
       </div>
     </div>
@@ -732,7 +776,7 @@ export default function TemplatesPage() {
 
           <button
             onClick={handleNewTemplateClick}
-            className="flex items-center justify-center gap-1.5 shrink-0 w-full sm:w-auto px-5 py-2.5 rounded-xl border-none text-white text-xs sm:text-sm font-bold cursor-pointer transition-all bg-[#814AC8] hover:shadow-[0_4px_28px_rgba(129,74,200,0.7)] hover:-translate-y-0.5 active:translate-y-0"
+            className="flex items-center justify-center gap-1.5 shrink-0 w-full sm:w-auto px-5 py-2.5 rounded-xl border-none text-white text-xs sm:text-sm font-semibold cursor-pointer transition-all bg-[#814AC8] hover:shadow-[0_4px_28px_rgba(129,74,200,0.7)] hover:-translate-y-0.5 active:translate-y-0"
           >
             <Plus size={15} strokeWidth={2.5} /> New Template
           </button>
@@ -891,10 +935,10 @@ export default function TemplatesPage() {
               </div>
             ) : filtered.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-6 sm:p-10 bg-[#111122] border border-[#1e1e3f] rounded-2xl w-full min-h-[340px] md:min-h-[440px]">
-                <div className="w-14 h-14 bg-purple-500/10 border border-purple-500/25 rounded-2xl flex items-center justify-center mx-auto mb-4 text-[#C49FE0] shadow-[0_0_30px_rgba(129,74,200,0.15)]">
+                <div className="w-14 h-14 bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-[0_0_30px_rgba(129,74,200,0.15)]">
                   <FileText size={26} strokeWidth={1.6} />
                 </div>
-                <p className="m-0 mb-1.5 text-base font-bold text-[#f0f0ff]">
+                <p className="m-0 mb-1.5 text-base font-semibold text-white">
                   No templates found
                 </p>
                 <p className="m-0 mb-5 text-xs sm:text-sm text-[#7f7fa3] max-w-xs leading-relaxed">

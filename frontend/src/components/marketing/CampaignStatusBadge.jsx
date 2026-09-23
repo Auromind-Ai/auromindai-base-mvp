@@ -1,7 +1,35 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle2, Clock, Send, PauseCircle, AlertCircle, FileText } from 'lucide-react';
+import { CheckCircle2, Clock, PauseCircle, AlertCircle, FileText } from 'lucide-react';
+
+function Spinner({ size = 13, className = '', style = {} }) {
+  return (
+    <svg
+      className={`animate-spin shrink-0 ${className}`}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ animation: 'spin 0.85s linear infinite', ...style }}
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="3.5"
+      />
+      <path
+        className="opacity-95"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
+  );
+}
 
 const STATUS_CONFIGS = {
   Completed: {
@@ -24,7 +52,18 @@ const STATUS_CONFIGS = {
   },
   Sending: {
     label: 'Sending',
-    icon: Send,
+    icon: Spinner,
+    spin: true,
+    bg: 'bg-[#5E5CE6]',
+    shadow: 'shadow-[0_0_12px_rgba(94,92,230,0.4)]',
+    border: 'border-[#818CF8]/40',
+    text: 'text-white',
+    iconColor: 'text-white',
+  },
+  In_progress: {
+    label: 'Sending',
+    icon: Spinner,
+    spin: true,
     bg: 'bg-[#5E5CE6]',
     shadow: 'shadow-[0_0_12px_rgba(94,92,230,0.4)]',
     border: 'border-[#818CF8]/40',
@@ -61,7 +100,10 @@ const STATUS_CONFIGS = {
 };
 
 export default function CampaignStatusBadge({ status }) {
-  const normalized = status ? (status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()) : 'Draft';
+  const rawStatus = (status || '').toLowerCase();
+  const normalized = (rawStatus === 'in_progress' || rawStatus === 'sending')
+    ? 'Sending'
+    : (status ? (status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()) : 'Draft');
   const cfg = STATUS_CONFIGS[normalized] || STATUS_CONFIGS.Draft;
   const Icon = cfg.icon;
 
@@ -69,7 +111,11 @@ export default function CampaignStatusBadge({ status }) {
     <span
       className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${cfg.bg} ${cfg.text} ${cfg.border} ${cfg.shadow || ''} shrink-0`}
     >
-      <Icon size={13} className={`${cfg.iconColor} shrink-0`} />
+      <Icon
+        size={13}
+        className={`${cfg.iconColor} ${cfg.spin ? 'animate-spin' : ''} shrink-0`}
+        style={cfg.spin ? { animation: 'spin 0.85s linear infinite' } : undefined}
+      />
       <span>{cfg.label}</span>
     </span>
   );

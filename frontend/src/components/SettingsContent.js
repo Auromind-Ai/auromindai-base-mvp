@@ -358,42 +358,6 @@ function PreferencesSection() {
 
       <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
 
-      <section
-        className="
-          mb-6 rounded-2xl border border-[rgba(157,157,157,0.43)]
-          bg-[#0b111b] overflow-hidden
-          shadow-[0_4px_24px_rgba(0,0,0,0.3)]
-        "
-      >
-        <div className="mx-0">
-          <div
-            className="
-              flex flex-col sm:flex-row sm:items-center justify-between
-              gap-4 px-5 py-5
-            "
-          >
-            <div>
-              <p className="text-[15px] font-semibold text-white">Appearance</p>
-              <p className="mt-0.5 text-[13px] text-white/65">
-                Customize how auromind looks on your device.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="
-                shrink-0 h-10 px-4 rounded-xl text-sm font-medium text-zinc-200
-                bg-white/5 border border-white/10
-                hover:bg-white/10 active:scale-95
-                transition-all duration-200
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500
-                whitespace-nowrap
-              "
-            >
-              Use system setting
-            </button>
-          </div>
-        </div>
-      </section>
 
       <div className="mb-4">
         <h2 className="text-base font-semibold text-white tracking-tight">

@@ -138,3 +138,37 @@ class CampaignDuplicateResponse(BaseModel):
     campaign_name: str
     campaign_status: str = "draft"
 
+
+class CampaignUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    campaign_type: Optional[str] = None
+    campaign_goal: Optional[str] = None
+    phone_number_id: Optional[str] = None
+    whatsapp_number: Optional[str] = None
+    audience_source: Optional[str] = None
+    message_type: Optional[str] = None
+    template_id: Optional[str] = None
+    message_content: Optional[str] = None
+    media_url: Optional[str] = None
+    media_type: Optional[str] = None
+    schedule_type: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
+    timezone: Optional[str] = None
+    send_gradually: Optional[bool] = None
+    messages_per_minute: Optional[int] = None
+    skip_invalid_numbers: Optional[bool] = None
+    stop_on_high_failure_rate: Optional[bool] = None
+    failure_rate_threshold: Optional[float] = None
+    quiet_hours_enabled: Optional[bool] = None
+    quiet_hours_start: Optional[str] = None
+    quiet_hours_end: Optional[str] = None
+    estimated_cost: Optional[float] = None
+    auto_launch: Optional[bool] = False
+    status: Optional[str] = None
+    segment: Optional[str] = None
+    contact_list_ids: Optional[List[str]] = None
+    lead_ids: Optional[List[str]] = None
+    variable_mapping: Optional[Dict[str, Any]] = None
+    recipients: Optional[List[RecipientInput]] = None
+
+

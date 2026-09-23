@@ -709,3 +709,282 @@ class CampaignService:
         db.commit()
         db.refresh(cloned)
         return cloned
+
+    @classmethod
+    def update_campaign(
+        cls,
+        db: Session,
+        campaign_id: uuid.UUID,
+        data: Dict[str, Any],
+        user_id: Optional[uuid.UUID] = None,
+    ) -> Campaign:
+        campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+
+        if campaign.status in ("in_progress", "completed"):
+            raise HTTPException(status_code=400, detail="Cannot edit an actively running or completed campaign")
+
+        # Update scalar fields if present in data
+        if "name" in data and data["name"] is not None:
+            campaign.name = data["name"]
+        if "campaign_type" in data and data["campaign_type"] is not None:
+            campaign.campaign_type = data["campaign_type"]
+        if "campaign_goal" in data:
+            campaign.campaign_goal = data["campaign_goal"]
+        if "phone_number_id" in data and data["phone_number_id"] is not None:
+            campaign.phone_number_id = data["phone_number_id"]
+        elif "whatsapp_number" in data and data["whatsapp_number"] is not None:
+            campaign.phone_number_id = data["whatsapp_number"]
+
+        if "audience_source" in data and data["audience_source"] is not None:
+            campaign.audience_source = data["audience_source"]
+
+        if "message_type" in data and data["message_type"] is not None:
+            campaign.message_type = data["message_type"]
+
+        if "template_id" in data:
+            template_id_raw = data.get("template_id")
+            campaign.template_id = to_uuid(template_id_raw) if template_id_raw else None
+
+        if "message_content" in data:
+            campaign.message_content = data["message_content"]
+        if "media_url" in data:
+            campaign.media_url = data["media_url"]
+        if "media_type" in data:
+            campaign.media_type = data["media_type"]
+
+        if "schedule_type" in data and data["schedule_type"] is not None:
+            campaign.schedule_type = data["schedule_type"]
+        if "scheduled_at" in data:
+            campaign.scheduled_at = data["scheduled_at"]
+        if "timezone" in data and data["timezone"] is not None:
+            campaign.timezone = data["timezone"]
+        if "send_gradually" in data and data["send_gradually"] is not None:
+            campaign.send_gradually = data["send_gradually"]
+        if "messages_per_minute" in data and data["messages_per_minute"] is not None:
+            campaign.messages_per_minute = data["messages_per_minute"]
+        if "skip_invalid_numbers" in data and data["skip_invalid_numbers"] is not None:
+            campaign.skip_invalid_numbers = data["skip_invalid_numbers"]
+        if "stop_on_high_failure_rate" in data and data["stop_on_high_failure_rate"] is not None:
+            campaign.stop_on_high_failure_rate = data["stop_on_high_failure_rate"]
+        if "failure_rate_threshold" in data and data["failure_rate_threshold"] is not None:
+            campaign.failure_rate_threshold = data["failure_rate_threshold"]
+        if "quiet_hours_enabled" in data and data["quiet_hours_enabled"] is not None:
+            campaign.quiet_hours_enabled = data["quiet_hours_enabled"]
+        if "quiet_hours_start" in data and data["quiet_hours_start"] is not None:
+            campaign.quiet_hours_start = data["quiet_hours_start"]
+        if "quiet_hours_end" in data and data["quiet_hours_end"] is not None:
+            campaign.quiet_hours_end = data["quiet_hours_end"]
+
+        # If recipients, contact lists, or lead IDs are provided, rebuild recipients
+        raw_recipients = data.get("recipients")
+        contact_list_ids = data.get("contact_list_ids")
+        lead_ids = data.get("lead_ids")
+        segment = data.get("segment")
+
+        has_audience_update = (
+            raw_recipients is not None
+            or contact_list_ids is not None
+            or lead_ids is not None
+            or segment is not None
+        )
+
+        if has_audience_update:
+            # Delete old recipients
+            db.query(CampaignRecipient).filter(CampaignRecipient.campaign_id == campaign.id).delete(synchronize_session=False)
+
+            recipient_objs = []
+            seen_phones = set()
+
+            if raw_recipients:
+                for r in raw_recipients:
+                    if isinstance(r, dict):
+                        phone = r.get("phone_number") or r.get("phone") or ""
+                        norm = r.get("normalized_phone") or normalize_phone(phone, default_country_code="91")
+                        if not norm:
+                            norm = phone.strip()
+
+                        if norm and norm in seen_phones:
+                            continue
+                        if norm:
+                            seen_phones.add(norm)
+
+                        is_valid = bool(normalize_phone(phone, default_country_code="91"))
+                        is_opted_out = False
+                        if r.get("variables") and isinstance(r.get("variables"), dict):
+                            is_opted_out = bool(r["variables"].get("opt_out") or r["variables"].get("is_opted_out"))
+
+                        if is_opted_out:
+                            rec_status = "skipped_opted_out"
+                            err_msg = "Contact opted out from marketing"
+                        elif is_valid:
+                            rec_status = "pending"
+                            err_msg = None
+                        else:
+                            rec_status = "pending" if not campaign.skip_invalid_numbers else "skipped_invalid"
+                            err_msg = "Unverified format (Will attempt dispatch)" if not campaign.skip_invalid_numbers else "Skipped (Invalid phone number)"
+
+                        recipient_objs.append(CampaignRecipient(
+                            campaign_id=campaign.id,
+                            workspace_id=campaign.workspace_id,
+                            lead_id=to_uuid(r.get("lead_id")) if r.get("lead_id") else None,
+                            phone_number=phone,
+                            normalized_phone=norm or phone,
+                            recipient_name=r.get("recipient_name") or r.get("name"),
+                            variables=r.get("variables") or {"name": r.get("recipient_name") or r.get("name") or "Customer"},
+                            status=rec_status,
+                            error_message=err_msg
+                        ))
+            elif contact_list_ids:
+                valid_list_uuids = [to_uuid(lid) for lid in contact_list_ids if to_uuid(lid)]
+                leads_in_lists = (
+                    db.query(Lead)
+                    .join(ContactListMember, ContactListMember.lead_id == Lead.id)
+                    .filter(
+                        ContactListMember.contact_list_id.in_(valid_list_uuids),
+                        Lead.workspace_id == campaign.workspace_id
+                    )
+                    .all()
+                )
+                for lead in leads_in_lists:
+                    norm = normalize_phone(lead.phone, default_country_code="91") or (lead.phone or "").strip()
+                    if not norm or norm in seen_phones:
+                        continue
+                    seen_phones.add(norm)
+
+                    is_valid = bool(normalize_phone(lead.phone, default_country_code="91"))
+                    is_opted_out = bool(lead.custom_fields and isinstance(lead.custom_fields, dict) and (lead.custom_fields.get("opt_out") or lead.custom_fields.get("is_opted_out")))
+
+                    if is_opted_out:
+                        rec_status = "skipped_opted_out"
+                        err_msg = "Contact opted out from marketing"
+                    elif is_valid:
+                        rec_status = "pending"
+                        err_msg = None
+                    else:
+                        rec_status = "pending" if not campaign.skip_invalid_numbers else "skipped_invalid"
+                        err_msg = "Unverified format (Will attempt dispatch)" if not campaign.skip_invalid_numbers else "Skipped (Invalid phone number)"
+
+                    recipient_objs.append(CampaignRecipient(
+                        campaign_id=campaign.id,
+                        workspace_id=campaign.workspace_id,
+                        lead_id=lead.id,
+                        phone_number=lead.phone or "",
+                        normalized_phone=norm,
+                        recipient_name=lead.name or "Contact",
+                        variables={"name": lead.name or "Customer", "phone": lead.phone or ""},
+                        status=rec_status,
+                        error_message=err_msg
+                    ))
+            elif lead_ids:
+                valid_lead_uuids = [to_uuid(lid) for lid in lead_ids if to_uuid(lid)]
+                specific_leads = db.query(Lead).filter(
+                    Lead.id.in_(valid_lead_uuids),
+                    Lead.workspace_id == campaign.workspace_id
+                ).all()
+                for lead in specific_leads:
+                    norm = normalize_phone(lead.phone, default_country_code="91") or (lead.phone or "").strip()
+                    if not norm or norm in seen_phones:
+                        continue
+                    seen_phones.add(norm)
+
+                    is_valid = bool(normalize_phone(lead.phone, default_country_code="91"))
+                    is_opted_out = bool(lead.custom_fields and isinstance(lead.custom_fields, dict) and (lead.custom_fields.get("opt_out") or lead.custom_fields.get("is_opted_out")))
+
+                    if is_opted_out:
+                        rec_status = "skipped_opted_out"
+                        err_msg = "Contact opted out from marketing"
+                    elif is_valid:
+                        rec_status = "pending"
+                        err_msg = None
+                    else:
+                        rec_status = "pending" if not campaign.skip_invalid_numbers else "skipped_invalid"
+                        err_msg = "Unverified format (Will attempt dispatch)" if not campaign.skip_invalid_numbers else "Skipped (Invalid phone number)"
+
+                    recipient_objs.append(CampaignRecipient(
+                        campaign_id=campaign.id,
+                        workspace_id=campaign.workspace_id,
+                        lead_id=lead.id,
+                        phone_number=lead.phone or "",
+                        normalized_phone=norm,
+                        recipient_name=lead.name or "Contact",
+                        variables={"name": lead.name or "Customer", "phone": lead.phone or ""},
+                        status=rec_status,
+                        error_message=err_msg
+                    ))
+            elif campaign.audience_source in ("existing_contacts", "all_crm_contacts", "smart_segment"):
+                lead_query = db.query(Lead).filter(Lead.workspace_id == campaign.workspace_id)
+                if segment == "hot":
+                    lead_query = lead_query.filter(Lead.score >= 70)
+                elif segment == "warm":
+                    lead_query = lead_query.filter(Lead.score >= 40, Lead.score < 70)
+                elif segment == "new":
+                    lead_query = lead_query.filter(Lead.status == "new")
+                elif segment == "converted":
+                    lead_query = lead_query.filter(Lead.status == "converted")
+                elif segment == "cold":
+                    lead_query = lead_query.filter(Lead.score < 40)
+
+                crm_leads = lead_query.all()
+                for lead in crm_leads:
+                    norm = normalize_phone(lead.phone, default_country_code="91") or (lead.phone or "").strip()
+                    if not norm or norm in seen_phones:
+                        continue
+                    seen_phones.add(norm)
+
+                    is_valid = bool(normalize_phone(lead.phone, default_country_code="91"))
+                    is_opted_out = bool(lead.custom_fields and isinstance(lead.custom_fields, dict) and (lead.custom_fields.get("opt_out") or lead.custom_fields.get("is_opted_out")))
+
+                    if is_opted_out:
+                        rec_status = "skipped_opted_out"
+                        err_msg = "Contact opted out from marketing"
+                    elif is_valid:
+                        rec_status = "pending"
+                        err_msg = None
+                    else:
+                        rec_status = "pending" if not campaign.skip_invalid_numbers else "skipped_invalid"
+                        err_msg = "Unverified format (Will attempt dispatch)" if not campaign.skip_invalid_numbers else "Skipped (Invalid phone number)"
+
+                    recipient_objs.append(CampaignRecipient(
+                        campaign_id=campaign.id,
+                        workspace_id=campaign.workspace_id,
+                        lead_id=lead.id,
+                        phone_number=lead.phone or "",
+                        normalized_phone=norm,
+                        recipient_name=lead.name or "Contact",
+                        variables={"name": lead.name or "Customer", "phone": lead.phone or ""},
+                        status=rec_status,
+                        error_message=err_msg
+                    ))
+
+            campaign.total_recipients = len(recipient_objs)
+            campaign.valid_recipients = len([r for r in recipient_objs if r.status == "pending"])
+            campaign.invalid_recipients = campaign.total_recipients - campaign.valid_recipients
+
+            if recipient_objs:
+                db.bulk_save_objects(recipient_objs)
+
+        # Recalculate estimated cost
+        recipients_to_charge = campaign.valid_recipients if campaign.skip_invalid_numbers else campaign.total_recipients
+        campaign_cat = "marketing"
+        if campaign.template_id:
+            tpl = db.query(Template).filter(Template.id == campaign.template_id).first()
+            if tpl and getattr(tpl, "category", None):
+                campaign_cat = str(tpl.category).lower()
+        elif campaign.campaign_type:
+            campaign_cat = str(campaign.campaign_type).lower()
+
+        est = cls.calculate_preflight_estimation(
+            db=db,
+            workspace_id=campaign.workspace_id,
+            valid_recipients_count=recipients_to_charge,
+            category=campaign_cat
+        )
+        cost_decimal = Decimal(str(est["estimated_cost"]))
+        campaign.estimated_cost = float(cost_decimal)
+
+        db.commit()
+        db.refresh(campaign)
+        return campaign
+
