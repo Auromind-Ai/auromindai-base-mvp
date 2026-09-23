@@ -894,7 +894,7 @@ export default function TemplatesPage() {
                 <div className="w-14 h-14 bg-purple-500/10 border border-purple-500/25 rounded-2xl flex items-center justify-center mx-auto mb-4 text-[#C49FE0] shadow-[0_0_30px_rgba(129,74,200,0.15)]">
                   <FileText size={26} strokeWidth={1.6} />
                 </div>
-                <p className="m-0 mb-1.5 text-base font-bold text-[#f0f0ff]">
+                <p className="m-0 mb-1.5 text-base font-semibold text-white">
                   No templates found
                 </p>
                 <p className="m-0 mb-5 text-xs sm:text-sm text-[#7f7fa3] max-w-xs leading-relaxed">

@@ -497,7 +497,7 @@ export default function BillingHistoryPage() {
           <div>
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-xs text-white/70 mb-1.5 font-medium">Your current plan</p>
+                <p className="text-xs text-white/80 mb-1.5 font-medium">Your current plan</p>
                 {loading ? (
                   <div className="w-28 h-8 rounded-lg bg-white/10 animate-pulse my-1" />
                 ) : (
@@ -505,14 +505,14 @@ export default function BillingHistoryPage() {
                     <h2 className="text-2xl font-bold tracking-tight text-white m-0">
                       {currentPlanLabel}
                     </h2>
-                    <p className="text-xs sm:text-[13px] text-zinc-400 mt-0.5">
+                    <p className="text-xs sm:text-[13px] text-white/65 mt-0.5">
                       {isFreePlan ? "Free" : `${currentPlanPrice} / ${rawCycle === "yearly" ? "year" : "month"}`}
                     </p>
                   </>
                 )}
               </div>
               {!loading && (
-                <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-full px-2.5 py-0.5 text-[11px] font-semibold">
+                <span className="bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] text-white rounded-full px-2.5 py-0.5 text-[11px] font-semibold">
                   Active
                 </span>
               )}
