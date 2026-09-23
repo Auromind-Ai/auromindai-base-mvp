@@ -137,7 +137,7 @@ async def websocket_endpoint(
                 continue
 
     except WebSocketDisconnect as exc:
-        logger.info("WebSocket disconnect | user=%s code=%s", user_id, exc.code)
+        logger.debug("WebSocket disconnect | user=%s code=%s", user_id, exc.code)
     except Exception as exc:
         logger.warning("WebSocket error | user=%s | %s", user_id, exc)
     finally:
@@ -160,7 +160,7 @@ async def websocket_endpoint(
                 if not manager.is_conversation_subscribed(conv_id):
                     await pubsub_svc.unsubscribe(conversation_channel(conv_id))
 
-        logger.info("WebSocket cleanup done | user=%s", user_id)
+        logger.debug("WebSocket cleanup done | user=%s", user_id)
 
 
 async def _heartbeat_loop(websocket: WebSocket, user_id: str) -> None:
@@ -207,7 +207,7 @@ async def _handle_client_message(
                 return
             manager.subscribe_conversation(user_id, websocket, conv_id)
             await pubsub_service.subscribe(conversation_channel(conv_id))
-            logger.info(
+            logger.debug(
                 "Client subscribed to conversation channel | user=%s conv=%s",
                 user_id,
                 conv_id,
@@ -221,7 +221,7 @@ async def _handle_client_message(
                 and not manager.is_conversation_subscribed(conv_id)
             ):
                 await pubsub_service.unsubscribe(conversation_channel(conv_id))
-            logger.info(
+            logger.debug(
                 "Client unsubscribed from conversation channel | user=%s conv=%s",
                 user_id,
                 conv_id,
