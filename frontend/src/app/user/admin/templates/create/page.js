@@ -344,7 +344,7 @@ export default function CreateTemplatePage() {
   const { showToast } = useToast();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [form, setForm] = useState({
-    category: 'UTILITY',
+    category: 'MARKETING',
     language: 'en_US',
     name: '',
     type: 'TEXT',
@@ -528,11 +528,11 @@ export default function CreateTemplatePage() {
     const isImage = form.type === 'IMAGE';
     const allowedTypes = isImage
       ? ['image/jpeg', 'image/png', 'image/webp']
-      : ['video/mp4', 'video/quicktime'];
+      : ['video/mp4'];
     const maxSize = isImage ? 5 * 1024 * 1024 : 16 * 1024 * 1024;
 
     if (!allowedTypes.includes(file.type)) {
-      showToast(isImage ? 'Only JPG, PNG, WEBP allowed' : 'Only MP4, MOV allowed', 'warning');
+      showToast(isImage ? 'Only JPG, PNG, WEBP allowed' : 'Only MP4 video allowed', 'warning');
       return;
     }
     if (file.size > maxSize) {
@@ -581,6 +581,8 @@ export default function CreateTemplatePage() {
         <nav className="flex-1 overflow-y-auto p-3 space-y-1 template-scroll">
           <div className="pt-4 pb-1">
             <p className="text-[14px] text-white font-medium tracking-widest px-3 mb-2">Categories</p>
+            <CatItem iconKey="sparkle" label="Marketing"       active={form.category === 'MARKETING'}
+              onClick={() => { setForm({ ...form, category: 'MARKETING' }); setSidebarOpen(false); }} />
             <CatItem iconKey="template" label="Utility"        active={form.category === 'UTILITY'}
               onClick={() => { setForm({ ...form, category: 'UTILITY' }); setSidebarOpen(false); }} />
             <CatItem iconKey="template" label="Authentication" active={form.category === 'AUTHENTICATION'}
@@ -777,11 +779,11 @@ export default function CreateTemplatePage() {
                         Drag &amp; Drop or <span className="text-[#c490e8] underline">Browse File</span>
                       </span>
                       <span className="text-[10px] sm:text-[11px] text-[#4A4359]">
-                        {form.type === 'IMAGE' ? 'JPG, PNG, WEBP • Max 5MB' : 'MP4, MOV • Max 16MB'}
+                        {form.type === 'IMAGE' ? 'JPG, PNG, WEBP • Max 5MB' : 'MP4 • Max 16MB'}
                       </span>
                       <input
                         type="file"
-                        accept={form.type === 'IMAGE' ? 'image/jpeg,image/png,image/webp' : 'video/mp4,video/quicktime'}
+                        accept={form.type === 'IMAGE' ? 'image/jpeg,image/png,image/webp' : 'video/mp4'}
                         className="hidden"
                         onChange={handleMediaUpload}
                       />
@@ -801,7 +803,7 @@ export default function CreateTemplatePage() {
                         Replace
                         <input
                           type="file"
-                          accept={form.type === 'IMAGE' ? 'image/jpeg,image/png,image/webp' : 'video/mp4,video/quicktime'}
+                          accept={form.type === 'IMAGE' ? 'image/jpeg,image/png,image/webp' : 'video/mp4'}
                           className="hidden"
                           onChange={handleMediaUpload}
                         />
