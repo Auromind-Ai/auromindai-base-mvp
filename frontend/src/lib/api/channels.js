@@ -8,6 +8,19 @@ export async function connectWhatsApp(payload) {
   return client.post('/api/whatsapp/connect', payload);
 }
 
+export async function getWhatsAppProfile(workspace_id) {
+  return client.get(`/api/whatsapp/profile?workspace_id=${workspace_id}`);
+}
+
+export async function updateWhatsAppProfile(payload) {
+  return client.post('/api/whatsapp/profile', payload);
+}
+
+export async function uploadWhatsAppProfilePhoto(formData) {
+  return client.post('/api/whatsapp/profile/photo', formData);
+}
+
+
 export async function connectInstagram(payload) {
   return client.post('/api/instagram/connect', payload);
 }

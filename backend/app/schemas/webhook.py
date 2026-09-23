@@ -67,3 +67,16 @@ class TwilioConnectRequest(BaseModel):
             raise ValueError("Messaging Service SID must start with 'MG' followed by 32 alphanumeric characters")
         return v
 
+
+class MetaWhatsAppProfileUpdateRequest(BaseModel):
+    workspace_id: str
+    new_display_name: str | None = Field(None, max_length=256)
+    about: str | None = Field(None, max_length=139)
+    address: str | None = Field(None, max_length=256)
+    description: str | None = Field(None, max_length=512)
+    email: str | None = Field(None, max_length=128)
+    websites: list[str] | None = None
+    vertical: str | None = Field(None, max_length=50)
+
+
+

@@ -470,3 +470,263 @@ class ChannelConnectionService:
             "ig_id": ig_id,
             "username": username,
         }
+
+    @staticmethod
+    def get_whatsapp_profile(db: Session, workspace_id: str):
+        from app.core.security import to_uuid
+        from app.services.config_service import config_service
+        ws_uuid = to_uuid(workspace_id)
+        workspace = db.query(models.Workspace).filter(models.Workspace.id == ws_uuid).first()
+        if not workspace:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+        
+        if not workspace.meta_phone_number_id or not workspace.meta_access_token:
+            raise HTTPException(status_code=400, detail="WhatsApp is not connected to this workspace")
+        
+        phone_number_id = workspace.meta_phone_number_id
+        access_token = workspace.meta_access_token
+        
+        profile_data = {}
+        try:
+            profile_res = requests.get(
+                f"https://graph.facebook.com/v19.0/{phone_number_id}/whatsapp_business_profile",
+                params={
+                    "fields": "about,address,description,email,profile_picture_url,websites,vertical,messaging_product",
+                    "access_token": access_token
+                },
+                timeout=10
+            )
+            if profile_res.status_code == 200:
+                data_list = profile_res.json().get("data", [])
+                if data_list:
+                    profile_data = data_list[0]
+            else:
+                logger.warning("WhatsApp business profile fetch status %s: %s", profile_res.status_code, profile_res.text)
+        except Exception as e:
+            logger.error("Failed to fetch WhatsApp business profile from Meta: %s", e)
+        
+        phone_meta = {}
+        try:
+            phone_res = requests.get(
+                f"https://graph.facebook.com/v19.0/{phone_number_id}",
+                params={
+                    "fields": "verified_name,display_phone_number,name_status,quality_rating,code_verification_status",
+                    "access_token": access_token
+                },
+                timeout=10
+            )
+            if phone_res.status_code == 200:
+                phone_meta = phone_res.json()
+            else:
+                logger.warning("WhatsApp phone details fetch status %s: %s", phone_res.status_code, phone_res.text)
+        except Exception as e:
+            logger.error("Failed to fetch WhatsApp phone metadata from Meta: %s", e)
+
+        return {
+            "phone_number_id": phone_number_id,
+            "waba_id": workspace.meta_waba_id,
+            "display_phone_number": phone_meta.get("display_phone_number") or workspace.meta_display_phone or "",
+            "verified_name": phone_meta.get("verified_name") or "WhatsApp Business",
+            "name_status": phone_meta.get("name_status") or "APPROVED",
+            "quality_rating": phone_meta.get("quality_rating") or "UNKNOWN",
+            "code_verification_status": phone_meta.get("code_verification_status") or "",
+            "about": profile_data.get("about") or "",
+            "address": profile_data.get("address") or "",
+            "description": profile_data.get("description") or "",
+            "email": profile_data.get("email") or "",
+            "profile_picture_url": profile_data.get("profile_picture_url") or "",
+            "websites": profile_data.get("websites") or [],
+            "vertical": profile_data.get("vertical") or "OTHER",
+        }
+
+    @staticmethod
+    def update_whatsapp_profile(db: Session, data: dict):
+        from app.core.security import to_uuid
+        workspace_id = to_uuid(data.get("workspace_id"))
+        workspace = db.query(models.Workspace).filter(models.Workspace.id == workspace_id).first()
+        if not workspace:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+        
+        if not workspace.meta_phone_number_id or not workspace.meta_access_token:
+            raise HTTPException(status_code=400, detail="WhatsApp is not connected to this workspace")
+        
+        phone_number_id = workspace.meta_phone_number_id
+        access_token = workspace.meta_access_token
+        
+        body = {
+            "messaging_product": "whatsapp"
+        }
+        if "about" in data and data["about"] is not None:
+            body["about"] = data["about"]
+        if "address" in data and data["address"] is not None:
+            body["address"] = data["address"]
+        if "description" in data and data["description"] is not None:
+            body["description"] = data["description"]
+        if "email" in data and data["email"] is not None:
+            body["email"] = data["email"]
+        if "websites" in data and data["websites"] is not None:
+            clean_websites = [w.strip() for w in data["websites"] if w and isinstance(w, str) and w.strip()]
+            body["websites"] = clean_websites[:2]
+        if "vertical" in data and data["vertical"] is not None:
+            body["vertical"] = data["vertical"]
+        
+        try:
+            name_msg = ""
+            new_name = data.get("new_display_name")
+            if new_name and isinstance(new_name, str) and new_name.strip():
+                try:
+                    name_res = requests.post(
+                        f"https://graph.facebook.com/v19.0/{phone_number_id}",
+                        headers={
+                            "Authorization": f"Bearer {access_token}",
+                            "Content-Type": "application/json"
+                        },
+                        json={"new_display_name": new_name.strip()},
+                        timeout=15
+                    )
+                    name_json = name_res.json()
+                    if name_res.status_code != 200 or not name_json.get("success"):
+                        name_err = name_json.get("error", {}).get("message") or "Meta rejected display name update."
+                        logger.warning("Meta display name update issue (%s): %s", name_res.status_code, name_json)
+                        name_msg = f" (Display Name notice: {name_err})"
+                    else:
+                        name_msg = " Display name submitted to Meta."
+                except Exception as ne:
+                    logger.error("Error submitting display name to Meta: %s", ne)
+
+            update_res = requests.post(
+                f"https://graph.facebook.com/v19.0/{phone_number_id}/whatsapp_business_profile",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                },
+                json=body,
+                timeout=15
+            )
+            update_json = update_res.json()
+            if update_res.status_code != 200 or not update_json.get("success"):
+                error_obj = update_json.get("error", {})
+                error_msg = error_obj.get("message") or "Failed to update WhatsApp profile on Meta."
+                logger.error("Meta WhatsApp profile update failed (%s): %s", update_res.status_code, update_json)
+                raise HTTPException(status_code=400, detail=f"Meta API Error: {error_msg}")
+            
+            logger.info("WhatsApp business profile updated successfully for workspace %s", workspace_id)
+            return {"status": "success", "message": f"WhatsApp profile updated successfully.{name_msg}"}
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("Error updating WhatsApp business profile: %s", e)
+            raise HTTPException(status_code=500, detail=f"Failed to update profile: {str(e)}")
+
+
+    @staticmethod
+    def update_whatsapp_profile_photo(db: Session, workspace_id: str, file_bytes: bytes, content_type: str):
+        from app.core.security import to_uuid
+        from app.services.config_service import config_service
+        ws_uuid = to_uuid(workspace_id)
+        workspace = db.query(models.Workspace).filter(models.Workspace.id == ws_uuid).first()
+        if not workspace:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+        
+        if not workspace.meta_phone_number_id or not workspace.meta_access_token:
+            raise HTTPException(status_code=400, detail="WhatsApp is not connected to this workspace")
+        
+        phone_number_id = workspace.meta_phone_number_id
+        access_token = workspace.meta_access_token
+        app_id = config_service.get("meta_app_id") or config_service.get("ig_app_id")
+        
+        if not app_id:
+            raise HTTPException(status_code=400, detail="Meta App ID is not configured in settings.")
+        
+        if len(file_bytes) > 5 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Image size exceeds 5MB limit.")
+        
+        if content_type not in ["image/jpeg", "image/jpg", "image/png"]:
+            raise HTTPException(status_code=400, detail="Only JPEG and PNG image formats are supported.")
+        
+        try:
+            # Step 1: Create Resumable Upload Session
+            session_res = requests.post(
+                f"https://graph.facebook.com/v19.0/{app_id}/uploads",
+                params={
+                    "file_length": len(file_bytes),
+                    "file_type": content_type,
+                    "access_token": access_token
+                },
+                timeout=15
+            )
+            session_json = session_res.json()
+            upload_session_id = session_json.get("id")
+            if not upload_session_id:
+                error_obj = session_json.get("error", {})
+                error_msg = error_obj.get("message") or "Failed to initiate photo upload session with Meta."
+                logger.error("Failed to create upload session: %s", session_json)
+                raise HTTPException(status_code=400, detail=f"Meta Upload Error: {error_msg}")
+            
+            # Step 2: Upload image binary to session
+            upload_res = requests.post(
+                f"https://graph.facebook.com/v19.0/{upload_session_id}",
+                headers={
+                    "Authorization": f"OAuth {access_token}",
+                    "file_offset": "0",
+                    "Content-Type": content_type
+                },
+                data=file_bytes,
+                timeout=30
+            )
+            upload_json = upload_res.json()
+            handle = upload_json.get("h")
+            if not handle:
+                error_obj = upload_json.get("error", {})
+                error_msg = error_obj.get("message") or "Failed to complete binary upload to Meta."
+                logger.error("Failed to upload binary to session: %s", upload_json)
+                raise HTTPException(status_code=400, detail=f"Meta Upload Error: {error_msg}")
+            
+            # Step 3: Attach profile picture handle to WhatsApp Business Profile
+            profile_res = requests.post(
+                f"https://graph.facebook.com/v19.0/{phone_number_id}/whatsapp_business_profile",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "messaging_product": "whatsapp",
+                    "profile_picture_handle": handle
+                },
+                timeout=15
+            )
+            profile_json = profile_res.json()
+            if profile_res.status_code != 200 or not profile_json.get("success"):
+                error_obj = profile_json.get("error", {})
+                error_msg = error_obj.get("message") or "Failed to update profile picture on WhatsApp."
+                logger.error("Failed to set profile picture handle: %s", profile_json)
+                raise HTTPException(status_code=400, detail=f"Meta API Error: {error_msg}")
+            
+            # Step 4: Fetch newly updated profile picture URL
+            new_photo_url = ""
+            try:
+                fetch_res = requests.get(
+                    f"https://graph.facebook.com/v19.0/{phone_number_id}/whatsapp_business_profile",
+                    params={
+                        "fields": "profile_picture_url",
+                        "access_token": access_token
+                    },
+                    timeout=10
+                )
+                if fetch_res.status_code == 200:
+                    data_list = fetch_res.json().get("data", [])
+                    if data_list:
+                        new_photo_url = data_list[0].get("profile_picture_url") or ""
+            except Exception as fe:
+                logger.warning("Could not immediately fetch new photo URL: %s", fe)
+            
+            return {
+                "status": "success",
+                "profile_picture_url": new_photo_url,
+                "message": "Profile picture updated successfully."
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("Error updating WhatsApp profile photo: %s", e)
+            raise HTTPException(status_code=500, detail=f"Failed to upload profile picture: {str(e)}")

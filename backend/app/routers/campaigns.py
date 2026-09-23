@@ -12,7 +12,14 @@ from app.models.campaign import Campaign, CampaignRecipient, ContactList, Contac
 from app.models.templates import Template
 from app.models.workspace import Workspace, WorkspaceMember
 from app.models.ai_action import Lead
-from app.schemas.campaign import (PreflightEstimateRequest,PreflightEstimateResponse,CampaignCreateRequest,CampaignResponse,ContactListCreateRequest,)
+from app.schemas.campaign import (
+    PreflightEstimateRequest,
+    PreflightEstimateResponse,
+    CampaignCreateRequest,
+    CampaignUpdateRequest,
+    CampaignResponse,
+    ContactListCreateRequest,
+)
 from app.services.marketing.campaign_service import CampaignService
 from app.services.marketing.audience_service import AudienceService
 from app.services.marketing.whatsapp_tier_service import WhatsAppTierService
@@ -303,7 +310,11 @@ async def get_campaign_detail(
         "held_cost": float(campaign.held_cost or 0.0),
         "actual_cost": float(campaign.actual_cost or 0.0),
         "whatsappNumber": campaign.phone_number_id,
+        "phone_number_id": campaign.phone_number_id,
+        "audience_source": campaign.audience_source,
         "audienceListName": campaign.campaign_goal or "All Customers",
+        "message_type": campaign.message_type,
+        "template_id": str(campaign.template_id) if campaign.template_id else None,
         "paused_reason": campaign.paused_reason,
         "next_available_capacity_at": campaign.next_available_capacity_at.isoformat() if campaign.next_available_capacity_at else None,
         "schedule_type": campaign.schedule_type,
@@ -323,11 +334,86 @@ async def get_campaign_detail(
         "quiet_hours_end": campaign.quiet_hours_end,
         "message_content": campaign.message_content,
         "media_url": campaign.media_url,
+        "media_type": campaign.media_type,
         "started_at": campaign.started_at.isoformat() if campaign.started_at else None,
         "completed_at": campaign.completed_at.isoformat() if campaign.completed_at else None,
         "created_at": campaign.created_at.isoformat() if campaign.created_at else None,
         "date": campaign.created_at.strftime("%b %d, %Y") if campaign.created_at else "Today",
+        "recipients": [
+            {
+                "lead_id": str(r.lead_id) if r.lead_id else None,
+                "phone_number": r.phone_number,
+                "phone": r.phone_number,
+                "normalized_phone": r.normalized_phone,
+                "recipient_name": r.recipient_name,
+                "name": r.recipient_name,
+                "variables": r.variables or {},
+                "status": r.status,
+            }
+            for r in campaign.recipients
+        ],
     }
+
+
+@router.patch("/campaigns/{campaign_id}")
+@router.put("/campaigns/{campaign_id}")
+async def update_campaign_endpoint(
+    campaign_id: str,
+    payload: CampaignUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Updates an existing campaign (especially drafts).
+    """
+    c_uuid = to_uuid(campaign_id)
+    campaign = db.query(Campaign).filter(Campaign.id == c_uuid).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    verify_workspace_access(current_user, db, campaign.workspace_id)
+    user_id = to_uuid(current_user.id) if getattr(current_user, "id", None) else None
+
+    # Validate template ownership if specified
+    if payload.template_id:
+        tmpl_uuid = to_uuid(payload.template_id)
+        tmpl = db.query(Template).filter(Template.id == tmpl_uuid).first()
+        if not tmpl:
+            raise HTTPException(status_code=404, detail="Template not found")
+        if tmpl.workspace_id and tmpl.workspace_id != campaign.workspace_id:
+            if not tmpl.system_tag and (not user_id or tmpl.user_id != user_id):
+                raise HTTPException(status_code=403, detail="Access denied to specified template")
+
+    data = payload.model_dump(exclude_unset=True)
+
+    try:
+        updated = CampaignService.update_campaign(
+            db=db,
+            campaign_id=c_uuid,
+            data=data,
+            user_id=user_id,
+        )
+
+        if getattr(payload, "auto_launch", False) or data.get("status") in ("in_progress", "scheduled"):
+            try:
+                updated = CampaignService.launch_campaign(db, updated.id)
+            except Exception as launch_err:
+                logger.warning("Auto-launch failed for updated campaign %s: %s", updated.id, launch_err)
+
+        return {
+            "status": "success",
+            "campaign_id": str(updated.id),
+            "campaign_name": updated.name,
+            "total_recipients": updated.total_recipients,
+            "campaign_status": updated.status,
+            "held_cost": float(getattr(updated, "held_cost", 0.0) or 0.0),
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Error updating campaign %s: %s", c_uuid, exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
 
 
 @router.post("/campaigns/{campaign_id}/launch")

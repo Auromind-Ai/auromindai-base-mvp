@@ -86,18 +86,40 @@ export function mapBackendCampaignToFrontend(c) {
     year: 'numeric'
   }) : 'Today');
 
+  let scheduleDateVal = null;
+  let scheduleTimeVal = null;
+  if (c.scheduled_at || c.scheduledAt) {
+    try {
+      const d = new Date(c.scheduled_at || c.scheduledAt);
+      if (!isNaN(d.getTime())) {
+        scheduleDateVal = d.toISOString().split('T')[0];
+        scheduleTimeVal = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      }
+    } catch {}
+  }
+
+  let audienceTypeDisplay = 'Existing Contacts';
+  const rawAudienceSrc = (c.audience_source || c.audienceType || '').toLowerCase();
+  if (rawAudienceSrc.includes('csv')) audienceTypeDisplay = 'Upload CSV';
+  else if (rawAudienceSrc.includes('segment')) audienceTypeDisplay = 'Smart Segment';
+  else if (rawAudienceSrc.includes('manual')) audienceTypeDisplay = 'Manual Entry';
+
   return {
     id: String(c.id),
     workspaceId: c.workspace_id,
     name: c.name || 'Untitled Campaign',
     type: (c.campaign_type || c.type || 'Promotional').charAt(0).toUpperCase() + (c.campaign_type || c.type || 'Promotional').slice(1),
+    category: c.category || 'marketing',
     whatsappNumber: c.whatsappNumber || c.phone_number_id || '',
-    goal: c.campaign_goal || c.goal || 'General Announcements',
-    audienceType: c.audience_source === 'upload_csv' ? 'Upload CSV' : (c.audienceType || 'Existing Contacts'),
+    phoneNumberId: c.phone_number_id || c.whatsappNumber || '',
+    goal: c.campaign_goal || c.goal || 'Increase sales',
+    audienceType: audienceTypeDisplay,
+    audience_source: c.audience_source,
     audienceListName: c.audienceListName || c.campaign_goal || 'Custom Audience',
     recipientsCount: tRecipients,
     validRecipients: vRecipients,
     invalidRecipients: c.invalid_recipients ?? c.invalidRecipients ?? 0,
+    recipients: Array.isArray(c.recipients) ? c.recipients : [],
     sentCount: sCount,
     deliveredCount: dCount,
     failedCount: fCount,
@@ -109,14 +131,22 @@ export function mapBackendCampaignToFrontend(c) {
     createdAt: c.created_at || c.createdAt || null,
     scheduled_at: c.scheduled_at || c.scheduledAt || null,
     scheduledAt: c.scheduled_at || c.scheduledAt || null,
+    selectedTemplateId: c.template_id || c.templateId || c.selectedTemplateId || null,
+    messageMode: c.message_type === 'template' ? 'template' : (c.message_type === 'ai_generated' ? 'ai' : (c.messageMode || 'custom')),
     messageBody: c.message_content || c.messageBody || '',
-    mediaUrl: c.media_url || c.mediaUrl,
+    mediaUrl: c.media_url || c.mediaUrl || '',
+    mediaType: c.media_type || c.mediaType || (c.media_url ? 'image' : null),
+    variableMapping: c.variable_mapping || c.variableMapping || null,
     sendType: c.schedule_type === 'later' ? 'Schedule for Later' : (c.sendType || 'Send Now'),
+    scheduleDate: scheduleDateVal || c.scheduleDate,
+    scheduleTime: scheduleTimeVal || c.scheduleTime,
     sendGradually: c.send_gradually ?? c.sendGradually ?? true,
     sendingRate: c.messages_per_minute ?? c.sendingRate ?? 100,
     skipInvalid: c.skip_invalid_numbers ?? c.skipInvalid ?? true,
     stopOnFailure: c.stop_on_high_failure_rate ?? c.stopOnFailure ?? true,
     quietHours: c.quiet_hours_enabled ?? c.quietHours ?? true,
+    quietHoursStart: c.quiet_hours_start || '22:00',
+    quietHoursEnd: c.quiet_hours_end || '08:00',
   };
 }
 
@@ -162,7 +192,7 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
     quiet_hours_enabled: Boolean(c.quietHours ?? true),
     quiet_hours_start: c.quietHoursStart || '22:00',
     quiet_hours_end: c.quietHoursEnd || '08:00',
-    auto_launch: sendType === 'now',
+    auto_launch: c.autoLaunch !== undefined ? Boolean(c.autoLaunch) : (sendType === 'now'),
     estimated_cost: Number(c.estimatedCost || 0.0),
     segment: c.segment || null,
     recipients: (c.recipients || []).map((r) => {
@@ -237,22 +267,26 @@ export async function getCampaignById(id) {
     const item = res?.data || res;
     if (item?.id) return mapBackendCampaignToFrontend(item);
   } catch (e) {
-    // Fallback
+    console.warn('getCampaignById notice:', e);
   }
   const all = getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
   return all.find(c => c.id === id) || null;
 }
 
-export async function createCampaign(campaignData, workspaceId) {
+export async function createCampaign(campaignData, workspaceId, options = {}) {
   const wsId = workspaceId || getStoredWorkspaceId();
-  const payload = mapFrontendCampaignToBackend(campaignData, wsId);
+  const isDraft = Boolean(options.saveAsDraft || campaignData.saveAsDraft);
+  const payload = mapFrontendCampaignToBackend({
+    ...campaignData,
+    autoLaunch: isDraft ? false : (campaignData.sendType !== 'Schedule for Later'),
+  }, wsId);
 
   const res = await client.post('/api/marketing/campaigns', payload);
   const result = res?.data || res;
 
-  // If 'Send Now' and not auto-launched, trigger launch endpoint
+  // If 'Send Now' and not saving as draft, trigger launch endpoint
   const campaignId = result?.campaign_id || result?.id;
-  if (campaignId && payload.schedule_type === 'now' && !result?.campaign_status?.includes('progress')) {
+  if (!isDraft && campaignId && payload.schedule_type === 'now' && !result?.campaign_status?.includes('progress')) {
     try {
       await client.post(`/api/marketing/campaigns/${campaignId}/launch`);
     } catch (lErr) {
@@ -269,17 +303,21 @@ export async function duplicateCampaign(id) {
   return res?.data || res;
 }
 
-export async function updateCampaign(id, updateData) {
+export async function updateCampaign(id, updateData, workspaceId) {
+  const wsId = workspaceId || getStoredWorkspaceId();
+  const payload = mapFrontendCampaignToBackend(updateData, wsId);
   try {
-    const res = await client.patch(`/api/marketing/campaigns/${id}`, updateData);
-    if (res?.data || res?.id) return res?.data || res;
+    const res = await client.patch(`/api/marketing/campaigns/${id}`, payload);
+    const result = res?.data || res;
+    clearCampaignDraft();
+    return result;
   } catch (e) {
-    // Fallback
+    console.warn('updateCampaign API notice, falling back:', e);
+    const existing = getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
+    const updated = existing.map(c => c.id === id ? { ...c, ...updateData } : c);
+    setStoredItems(STORAGE_KEYS.CAMPAIGNS, updated);
+    return updated.find(c => c.id === id);
   }
-  const existing = getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
-  const updated = existing.map(c => c.id === id ? { ...c, ...updateData } : c);
-  setStoredItems(STORAGE_KEYS.CAMPAIGNS, updated);
-  return updated.find(c => c.id === id);
 }
 
 export async function deleteCampaign(id) {
