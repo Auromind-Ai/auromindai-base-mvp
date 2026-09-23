@@ -439,7 +439,7 @@ function ChannelAvatar({ channel, size = 'md', avatar = null, name = '' }) {
 
 function LeadSkeleton() {
     return (
-        <div className="w-full p-4 rounded-2xl border border-white/[0.04] bg-[#111119] animate-pulse">
+        <div className="w-full p-4 rounded-2xl border border-white/[0.04] bg-[#111827] animate-pulse">
             <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-white/5 flex-shrink-0" />
                 <div className="flex-1 min-w-0 space-y-2">
@@ -459,8 +459,8 @@ function LeadSkeleton() {
 
 function ChatSkeleton() {
     return (
-        <div className="flex-1 flex flex-col min-w-0 bg-[#07010F] animate-pulse">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] bg-[#0D0D17]">
+        <div className="flex-1 flex flex-col min-w-0 bg-[#05080e] animate-pulse">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] bg-[#0b111b]">
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-white/5" />
                     <div className="space-y-2">
@@ -524,7 +524,7 @@ function LeadsPanel({
         <div className={`
             w-full ${upgraded ? 'xl:w-[300px] 2xl:w-[340px]' : 'xl:w-[380px]'} flex-shrink-0
             flex flex-col
-            bg-[#0D0D17] border-r border-white/[0.06]
+            bg-[#0b111b] border-r border-white/[0.06]
             overflow-hidden
             ${show ? 'flex' : 'hidden xl:flex'}
         `}>
@@ -614,7 +614,7 @@ function LeadsPanel({
                                 className={`w-full text-left p-4 rounded-2xl transition-all border
                                     ${active
                                         ? `bg-[#16162A] ${theme.cardBorder}`
-                                        : 'bg-[#111119] border-white/[0.04] hover:bg-[#16162A] hover:border-white/[0.08]'
+                                        : 'bg-[#111827] border-white/[0.04] hover:bg-[#16162A] hover:border-white/[0.08]'
                                     }`}
                             >
                                 <div className="flex items-center gap-3">
@@ -693,7 +693,7 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onToggleFavorite
 
     if (!lead) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center bg-[#07010F] text-zinc-500 p-6 text-center">
+            <div className="flex-1 flex flex-col items-center justify-center bg-[#05080e] text-zinc-500 p-6 text-center">
                 <Inbox size={48} className="text-zinc-700 mb-4 animate-pulse" />
                 <p className="text-base font-semibold text-zinc-400">Select a lead to start messaging</p>
                 <p className="text-xs text-zinc-600 mt-1">Manage conversation logs, scores, and timeline history in real time.</p>
@@ -747,7 +747,7 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onToggleFavorite
     const isFavorite = leadDetail?.is_favorite || lead?.is_favorite;
 
     return (
-        <div className="flex-1 flex flex-col min-w-0 bg-[#07010F]">
+        <div className="flex-1 flex flex-col min-w-0 bg-[#05080e]">
             {/* Lead Header - Designed according to "Responsive User Info - Mobile View" */}
             <div className={`flex items-center justify-between px-3 sm:px-5 md:px-6 py-2.5 sm:py-3.5 bg-[#0A0A10] border-b border-white/[0.08] flex-shrink-0 relative z-10 transition-all ${theme.headerBorder}`}>
                 {/* Left Side: Avatar & Lead Info */}
@@ -928,7 +928,7 @@ function RightPanel({ lead, details, history, loadingHistory, onBackToChat, isTa
 
     if (!lead) {
         return (
-            <div className={`${isOverlayOrTablet ? 'flex-1 w-full flex' : 'hidden xl:flex w-[380px]'} flex-shrink-0 flex-col bg-[#0D0D17] border-l border-white/[0.06] items-center justify-center text-zinc-500 text-sm p-6 text-center`}>
+            <div className={`${isOverlayOrTablet ? 'flex-1 w-full flex' : 'hidden xl:flex w-[380px]'} flex-shrink-0 flex-col bg-[#0b111b] border-l border-white/[0.06] items-center justify-center text-zinc-500 text-sm p-6 text-center`}>
                 <Users size={32} className="text-zinc-700 mb-2" />
                 Select a lead to view details
             </div>
@@ -1062,10 +1062,10 @@ function RightPanel({ lead, details, history, loadingHistory, onBackToChat, isTa
     const isLeadConverted = details?.is_converted || lead.status === 'converted' || lead.is_converted;
 
     return (
-        <div className={`${isOverlayOrTablet ? 'flex-1 w-full flex' : 'hidden xl:flex w-[380px]'} flex-shrink-0 flex-col bg-[#0D0D17] border-l border-white/[0.06] overflow-y-auto`}>
+        <div className={`${isOverlayOrTablet ? 'flex-1 w-full flex' : 'hidden xl:flex w-[380px]'} flex-shrink-0 flex-col bg-[#0b111b] border-l border-white/[0.06] overflow-y-auto`}>
             {/* Tablet / Mobile / Desktop Drawer Top Header */}
             {isOverlayOrTablet && (
-                <div className="flex items-center justify-between px-5 py-3.5 bg-[#0D0D17] border-b border-white/[0.06] flex-shrink-0">
+                <div className="flex items-center justify-between px-5 py-3.5 bg-[#0b111b] border-b border-white/[0.06] flex-shrink-0">
                     <button
                         onClick={onBackToChat}
                         className="flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs font-semibold bg-white/5 border border-white/10 text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
@@ -1133,7 +1133,7 @@ function RightPanel({ lead, details, history, loadingHistory, onBackToChat, isTa
                             </span>
                         </div>
                         {(details?.conversion_notes || lead?.conversion_notes) && (
-                            <div className="text-xs mt-2 bg-[#07010F] p-2.5 rounded-lg border border-white/[0.04]">
+                            <div className="text-xs mt-2 bg-[#05080e] p-2.5 rounded-lg border border-white/[0.04]">
                                 <span className="text-[10px] text-zinc-500 uppercase block font-bold mb-1">Conversion Notes</span>
                                 <p className="text-zinc-400 break-words leading-relaxed">{details?.conversion_notes || lead?.conversion_notes}</p>
                             </div>
@@ -1267,7 +1267,7 @@ function RightPanel({ lead, details, history, loadingHistory, onBackToChat, isTa
                 {timelineEvents.length > 3 && (
                     <button
                         onClick={() => setIsTimelineExpanded(!isTimelineExpanded)}
-                        className="w-full mt-6 py-3 rounded-xl bg-[#111119] border border-white/[0.08] text-xs text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all font-medium cursor-pointer"
+                        className="w-full mt-6 py-3 rounded-xl bg-[#111827] border border-white/[0.08] text-xs text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all font-medium cursor-pointer"
                     >
                         {isTimelineExpanded ? 'Collapse timeline' : 'View full timeline'}
                     </button>
@@ -1629,7 +1629,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     };
 
     return (
-        <div className={`${poppins.className} h-screen flex flex-col lg:flex-row bg-[#07010F] text-white overflow-hidden`}>
+        <div className={`${poppins.className} h-screen flex flex-col lg:flex-row bg-[#05080e] text-white overflow-hidden`}>
             {upgraded && <CrmNavigation section={section} onChange={setSection} />}
             <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
                 {section === 'overview' && <CrmAnalytics overview workspaceId={workspaceId} onBrowse={() => setSection('leads')} onSelect={id => { setSelectedLeadId(id); setSection('scoring'); }} />}
@@ -1639,7 +1639,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                 {section === 'reports' && <CrmReports workspaceId={workspaceId} />}
                 {section === 'leads' && <>
                 {/* Header */}
-                <header className="h-12 sm:h-14 flex items-center justify-between px-3 sm:px-4 md:px-6 border-b border-white/[0.06] bg-[#0D0D17] flex-shrink-0 gap-2 sm:gap-4">
+                <header className="h-12 sm:h-14 flex items-center justify-between px-3 sm:px-4 md:px-6 border-b border-white/[0.06] bg-[#0b111b] flex-shrink-0 gap-2 sm:gap-4">
                     <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                         <span className="text-sm sm:text-base md:text-lg font-bold text-white whitespace-nowrap">{upgraded ? 'CRM' : 'Leads'}</span>
                     </div>
@@ -1651,7 +1651,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             placeholder="Search leads..."
-                            className="h-8 sm:h-9 pl-7 sm:pl-8 pr-3 w-full rounded-lg sm:rounded-xl bg-[#111119] border border-white/[0.06] text-xs sm:text-sm text-white placeholder:text-zinc-500 outline-none focus:border-[#7C4DFF]/40 transition-all"
+                            className="h-8 sm:h-9 pl-7 sm:pl-8 pr-3 w-full rounded-lg sm:rounded-xl bg-[#111827] border border-white/[0.06] text-xs sm:text-sm text-white placeholder:text-zinc-500 outline-none focus:border-[#7C4DFF]/40 transition-all"
                         />
                     </div>
 
@@ -1669,7 +1669,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
 
                 {upgraded && <>
                 <CrmControls workspaceId={workspaceId} filters={filters} onApply={values => { setSelectedFilter('all'); setFilters(values); }} options={filterOptions} selectedIds={selectedIds} search={debouncedSearch} quickFilter={selectedFilter} onClear={() => restoreFilters({})} onRestore={restoreFilters} />
-                <div className="flex gap-2 px-3 py-2 overflow-x-auto bg-[#0D0D17] border-b border-white/10 shrink-0">{FILTER_OPTIONS.map(({ id, label }) => <button key={id} className={`whitespace-nowrap rounded-lg text-xs px-3 py-2 ${selectedFilter === id ? 'bg-violet-500/20 text-violet-200' : 'text-zinc-400 hover:bg-white/5'}`} onClick={() => changeQuickFilter(id)}>{label}</button>)}</div>
+                <div className="flex gap-2 px-3 py-2 overflow-x-auto bg-[#0b111b] border-b border-white/10 shrink-0">{FILTER_OPTIONS.map(({ id, label }) => <button key={id} className={`whitespace-nowrap rounded-lg text-xs px-3 py-2 ${selectedFilter === id ? 'bg-violet-500/20 text-violet-200' : 'text-zinc-400 hover:bg-white/5'}`} onClick={() => changeQuickFilter(id)}>{label}</button>)}</div>
                 </>}
                 {optionsError && <p role="alert" className="px-4 py-2 text-sm text-rose-300">{optionsError} <button onClick={() => setOptionsRetry(v => v + 1)}>Retry filter options</button></p>}
                 {!upgraded && detailErrors[selectedLeadId] && <p role="alert" className="px-4 py-2 text-sm text-rose-300">{detailErrors[selectedLeadId]} <button disabled={detailsLoading[selectedLeadId]} onClick={() => fetchSelectedLeadData(selectedLeadId)}>Retry lead details</button></p>}
@@ -1825,7 +1825,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                         </div>
 
                         {/* Tablet & Mobile Bottom Navigation Bar */}
-                        <nav className="flex items-center justify-around bg-[#0D0D17] border-t border-white/[0.06] px-4 py-2.5 flex-shrink-0 z-30">
+                        <nav className="flex items-center justify-around bg-[#0b111b] border-t border-white/[0.06] px-4 py-2.5 flex-shrink-0 z-30">
                             <button
                                 onClick={() => setActiveView('leads')}
                                 className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-all px-4 py-1 rounded-xl ${activeView === 'leads' ? 'text-[#7C4DFF] bg-[#7C4DFF]/10' : 'text-zinc-500 hover:text-zinc-300'}`}

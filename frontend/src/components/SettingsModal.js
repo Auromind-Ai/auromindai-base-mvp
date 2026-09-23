@@ -35,7 +35,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="fixed inset-2 sm:inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-[90vw] lg:w-[85vw] lg:max-w-[1000px] h-[calc(100%-1rem)] sm:h-[calc(100%-2rem)] md:h-[85vh] lg:h-[80vh] lg:max-h-[750px] bg-[#070012] rounded-2xl border border-[rgba(157,157,157,0.43)] shadow-2xl z-[310] overflow-hidden flex flex-col"
+                        className="fixed inset-2 sm:inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-[90vw] lg:w-[85vw] lg:max-w-[1000px] h-[calc(100%-1rem)] sm:h-[calc(100%-2rem)] md:h-[85vh] lg:h-[80vh] lg:max-h-[750px] bg-[#0b111b] rounded-2xl border border-[rgba(157,157,157,0.43)] shadow-2xl z-[310] overflow-hidden flex flex-col"
                     >
                         {/* Close Button - Desktop Only Top Right Absolute */}
                         <button
