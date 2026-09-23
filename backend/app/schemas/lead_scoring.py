@@ -182,6 +182,7 @@ class LeadScoreListItem(BaseModel):
     current_node: Optional[int] = None
     total_nodes: Optional[int] = None
     last_activity_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     assigned_to: Optional[UUID] = None
     conversation_id: Optional[UUID] = None  # FIX 6
     is_converted: bool = False

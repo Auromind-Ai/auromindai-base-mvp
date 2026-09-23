@@ -479,7 +479,11 @@ async def upload_audience_csv(
     if not content:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
 
-    parsed = AudienceService.parse_csv_contacts(content, default_country_code=default_country_code)
+    parsed = AudienceService.parse_csv_contacts(
+        content,
+        default_country_code=default_country_code,
+        filename=file.filename or "",
+    )
     return parsed
 
 

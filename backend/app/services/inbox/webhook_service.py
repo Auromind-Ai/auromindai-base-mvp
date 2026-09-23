@@ -11,6 +11,7 @@ from app.models.ai_action import Lead
 from app.models.templates import Template
 from app.models.workspace import Workspace
 import requests
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from twilio.twiml.messaging_response import MessagingResponse
 from app.models.conversation import ChannelType
@@ -34,9 +35,11 @@ def _derive_source(metadata: dict[str, Any] | None) -> str:
     """Map webhook metadata → lead source label."""
     provider = (metadata or {}).get("provider", "")
     mapping = {
+        "whatsapp": "whatsapp",
         "meta_whatsapp": "whatsapp",
-        "twilio": "twilio",
         "instagram": "instagram",
+        "twilio": "twilio",
+        "gmail": "gmail",
     }
     return mapping.get(provider, provider or "unknown")
 
@@ -61,6 +64,22 @@ def upsert_lead(
     conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     conv_name = conv.contact_name if conv else None
 
+    now_utc = datetime.now(timezone.utc)
+
+    # If not found by conversation_id, look up by phone in this workspace
+    if not lead and phone:
+        clean_phone = phone.strip().lstrip("+")
+        possible_phones = [phone, f"+{clean_phone}", clean_phone]
+        lead = db.query(Lead).filter(
+            Lead.workspace_id == ws_uuid,
+            or_(
+                Lead.phone.in_(possible_phones),
+                Lead.normalized_phone.in_(possible_phones),
+            )
+        ).first()
+        if lead and not lead.conversation_id:
+            lead.conversation_id = conversation_id
+
     if not lead:
         lead = Lead(
             workspace_id=ws_uuid,
@@ -73,7 +92,8 @@ def upsert_lead(
             current_node=0,
             total_nodes=0,
             semantic_intent_score=0,
-            last_activity_at=datetime.now(timezone.utc),
+            last_activity_at=now_utc,
+            updated_at=now_utc,
         )
         db.add(lead)
         # Emit dynamic lead.created event via EventBus (handles all recipient routing & channels)
@@ -98,7 +118,8 @@ def upsert_lead(
             import logging
             logging.getLogger(__name__).warning(f"Failed to emit lead.created event: {evt_exc}")
     else:
-        lead.last_activity_at = datetime.now(timezone.utc)
+        lead.last_activity_at = now_utc
+        lead.updated_at = now_utc
         if (not lead.name or lead.name == lead.phone) and conv_name and conv_name != lead.phone:
             lead.name = conv_name
         db.flush()

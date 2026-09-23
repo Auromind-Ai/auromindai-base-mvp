@@ -753,8 +753,8 @@ async def list_leads_with_scores(
     search: str | None = Query(default=None, description="Search term for name or phone"),
     filters: str | None = Query(default=None, max_length=16000),
     sort_by: str = Query(
-        default="score_desc",
-        description="Sort: score_desc, score_asc, recent",
+        default="recent",
+        description="Sort: recent, score_desc, score_asc",
     ),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
