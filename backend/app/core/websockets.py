@@ -42,7 +42,7 @@ class ConnectionManager:
             "conversations": set(),
         }
         self._total_connected += 1
-        logger.info(
+        logger.debug(
             "WebSocket connected | user=%s workspace=%s total=%d",
             user_id,
             workspace_id,
@@ -82,7 +82,7 @@ class ConnectionManager:
                 self.conversation_connections.pop(conversation_id, None)
 
         self._total_connected = max(0, self._total_connected - 1)
-        logger.info(
+        logger.debug(
             "WebSocket disconnected | user=%s remaining=%d total=%d",
             user_id,
             len(connections),
@@ -117,7 +117,7 @@ class ConnectionManager:
         if context is not None:
             context.setdefault("conversations", set()).add(conversation_id)
 
-        logger.info(
+        logger.debug(
             "WebSocket conversation subscribed | user=%s conversation=%s",
             user_id,
             conversation_id,
@@ -141,7 +141,7 @@ class ConnectionManager:
         if context is not None:
             context.setdefault("conversations", set()).discard(conversation_id)
 
-        logger.info(
+        logger.debug(
             "WebSocket conversation unsubscribed | user=%s conversation=%s",
             user_id,
             conversation_id,

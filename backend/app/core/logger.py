@@ -38,6 +38,24 @@ class SensitiveDataFilter(logging.Filter):
         return True
 
 
+class WebSocketNoiseFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno < logging.ERROR:
+            msg = record.getMessage()
+            if any(term in msg for term in (
+                "WebSocket connected",
+                "WebSocket disconnected",
+                "WebSocket disconnect",
+                "WebSocket cleanup",
+                "conversation subscribed",
+                "conversation unsubscribed",
+                "connection open",
+                "connection closed",
+            )):
+                return False
+        return True
+
+
 # project root path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 LOG_DIR = os.path.join(BASE_DIR, "logs")
@@ -50,7 +68,10 @@ logger.setLevel(logging.INFO)
 logger.propagate = False
 
 sensitive_filter = SensitiveDataFilter()
+ws_noise_filter = WebSocketNoiseFilter()
+
 logger.addFilter(sensitive_filter)
+logger.addFilter(ws_noise_filter)
 
 formatter = logging.Formatter(
     "%(asctime)s | %(levelname)s | %(message)s"
@@ -60,6 +81,7 @@ formatter = logging.Formatter(
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 console_handler.addFilter(sensitive_filter)
+console_handler.addFilter(ws_noise_filter)
 logger.addHandler(console_handler)
 
 # File handler (fallback to temp directory if primary directory/file is not writable)
@@ -68,6 +90,7 @@ try:
     file_handler = logging.FileHandler(LOG_FILE)
     file_handler.setFormatter(formatter)
     file_handler.addFilter(sensitive_filter)
+    file_handler.addFilter(ws_noise_filter)
     logger.addHandler(file_handler)
 except Exception as primary_err:
     try:
@@ -75,10 +98,18 @@ except Exception as primary_err:
         fallback_handler = logging.FileHandler(FALLBACK_LOG_FILE)
         fallback_handler.setFormatter(formatter)
         fallback_handler.addFilter(sensitive_filter)
+        fallback_handler.addFilter(ws_noise_filter)
         logger.addHandler(fallback_handler)
     except Exception as fallback_err:
         sys.stderr.write(
             f"Warning: Could not initialize file logging to {LOG_FILE} ({primary_err}) "
             f"or fallback {FALLBACK_LOG_FILE} ({fallback_err}). Console logging active.\n"
         )
+
+# Apply filter to root logger as well to catch any propagated logs
+logging.getLogger().addFilter(ws_noise_filter)
+
+# Silence noisy external websockets libraries
+for _lib in ("websockets", "websockets.server", "websockets.protocol"):
+    logging.getLogger(_lib).setLevel(logging.WARNING)
 

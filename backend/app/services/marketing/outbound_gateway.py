@@ -147,9 +147,21 @@ class WhatsAppOutboundGateway:
             status_code = resp.status_code
             data = resp.json() if resp.content else {}
 
+            recipient_to = payload.get("to")
+            msg_type = payload.get("type")
+            template_name = payload.get("template", {}).get("name") if msg_type == "template" else None
+
             if status_code in (200, 201):
                 messages = data.get("messages", [])
                 wamid = messages[0].get("id") if messages else None
+                logger.info(
+                    "[Meta Outbound ACCEPTED] to=%s | phone_id=%s | type=%s | template=%s | wamid=%s",
+                    recipient_to,
+                    phone_number_id,
+                    msg_type,
+                    template_name,
+                    wamid,
+                )
                 return {
                     "success": True,
                     "status": "accepted",
@@ -160,36 +172,96 @@ class WhatsAppOutboundGateway:
             # Handle Meta Cloud API Errors
             error_data = data.get("error", {})
             error_code = error_data.get("code")
+            error_subcode = error_data.get("error_subcode")
             error_msg = error_data.get("message", "Unknown Meta API error")
+            error_user_title = error_data.get("error_user_title")
+            error_user_msg = error_data.get("error_user_msg")
+            error_details = (error_data.get("error_data") or {}).get("details")
+            fbtrace_id = error_data.get("fbtrace_id")
 
             # Meta Error 131049: Per-user marketing template frequency cap hit
             if error_code == 131049:
+                logger.warning(
+                    "[Meta Outbound FREQUENCY_CAP (131049)] to=%s | phone_id=%s | template=%s | subcode=%s | msg=%s | fbtrace_id=%s",
+                    recipient_to,
+                    phone_number_id,
+                    template_name,
+                    error_subcode,
+                    error_msg,
+                    fbtrace_id,
+                )
                 return {
                     "success": False,
                     "status": "skipped_marketing_frequency_limit",
                     "error_code": "131049",
+                    "error_subcode": error_subcode,
                     "error_message": error_msg,
-                    "is_marketing_frequency_limit": True
+                    "error_details": error_details,
+                    "fbtrace_id": fbtrace_id,
+                    "is_marketing_frequency_limit": True,
+                    "raw_error": error_data
                 }
 
             # Meta Error 130429: Cloud API Rate Limit exceeded
             if error_code == 130429 or status_code == 429:
+                logger.warning(
+                    "[Meta Outbound RATE_LIMIT (130429/429)] to=%s | phone_id=%s | HTTP=%s | subcode=%s | msg=%s | fbtrace_id=%s",
+                    recipient_to,
+                    phone_number_id,
+                    status_code,
+                    error_subcode,
+                    error_msg,
+                    fbtrace_id,
+                )
                 return {
                     "success": False,
                     "status": "rate_limited",
                     "error_code": "130429",
+                    "error_subcode": error_subcode,
                     "error_message": error_msg,
-                    "is_rate_limited": True
+                    "error_details": error_details,
+                    "fbtrace_id": fbtrace_id,
+                    "is_rate_limited": True,
+                    "raw_error": error_data
                 }
+
+            # All other Meta Cloud API Errors (131047, 131026, 132000, 132001, 100, 190, 400, 401, 403, 500, etc.)
+            logger.error(
+                "[Meta Outbound FAILED] HTTP %s | to=%s | phone_id=%s | type=%s | template=%s | code=%s | subcode=%s | title=%s | message=%s | details=%s | fbtrace_id=%s",
+                status_code,
+                recipient_to,
+                phone_number_id,
+                msg_type,
+                template_name,
+                error_code,
+                error_subcode,
+                error_user_title or error_user_msg,
+                error_msg,
+                error_details,
+                fbtrace_id,
+            )
 
             return {
                 "success": False,
                 "status": "failed",
                 "error_code": str(error_code) if error_code else str(status_code),
-                "error_message": error_msg
+                "error_subcode": error_subcode,
+                "error_message": error_msg,
+                "error_details": error_details,
+                "error_user_title": error_user_title,
+                "error_user_msg": error_user_msg,
+                "fbtrace_id": fbtrace_id,
+                "raw_error": error_data,
+                "raw": data
             }
         except Exception as exc:
-            logger.error("Outbound Gateway HTTP transport error for phone %s: %s", phone_number_id, exc)
+            logger.error(
+                "[Meta Outbound TRANSPORT_ERROR] phone_id=%s | to=%s: %s",
+                phone_number_id,
+                payload.get("to"),
+                exc,
+                exc_info=True
+            )
             return {
                 "success": False,
                 "status": "failed",
