@@ -182,6 +182,8 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
   const sendType = c.sendType === 'Schedule for Later' ? 'later' : 'now';
   const scheduledIso = sendType === 'later' ? parseScheduleDatetime(c.scheduleDate, c.scheduleTime) : null;
 
+  const isDraft = Boolean(c.saveAsDraft || c.status === 'draft' || c.status === 'Draft');
+
   return {
     workspace_id: wsId,
     name: c.name || 'Untitled Campaign',
@@ -190,7 +192,7 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
     campaign_goal: c.goal || null,
     phone_number_id: c.phoneNumberId || c.phone_number_id || c.whatsappNumber || null,
     whatsapp_number: c.whatsappNumber || null,
-    status: c.status ? String(c.status).toLowerCase() : undefined,
+    status: isDraft ? 'draft' : (c.status ? String(c.status).toLowerCase() : undefined),
     audience_source: (c.audienceType || 'existing_contacts').toLowerCase().replace(/\s+/g, '_'),
     contact_list_ids: c.selectedListIds || c.contact_list_ids || [],
     lead_ids: c.selectedLeadIds || c.lead_ids || [],
@@ -211,7 +213,7 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
     quiet_hours_enabled: Boolean(c.quietHours ?? true),
     quiet_hours_start: c.quietHoursStart || '22:00',
     quiet_hours_end: c.quietHoursEnd || '08:00',
-    auto_launch: c.autoLaunch !== undefined ? Boolean(c.autoLaunch) : (sendType === 'now'),
+    auto_launch: isDraft ? false : (c.autoLaunch !== undefined ? Boolean(c.autoLaunch) : (sendType === 'now')),
     estimated_cost: Number(c.estimatedCost || 0.0),
     segment: c.segment || null,
     recipients: (c.recipients || []).map((r) => {
@@ -265,19 +267,20 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
 // API Service functions with live backend + persistent fallback
 export async function getCampaigns(workspaceId) {
   const wsId = workspaceId || getStoredWorkspaceId();
+  const cacheKey = wsId ? `${STORAGE_KEYS.CAMPAIGNS}_${wsId}` : STORAGE_KEYS.CAMPAIGNS;
   try {
     const url = wsId ? `/api/marketing/campaigns?workspace_id=${wsId}` : '/api/marketing/campaigns';
     const res = await client.get(url);
     const rawItems = res?.items || res?.data?.items || (Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : null));
     if (rawItems && Array.isArray(rawItems)) {
       const mapped = rawItems.map(mapBackendCampaignToFrontend);
-      setStoredItems(STORAGE_KEYS.CAMPAIGNS, mapped);
+      setStoredItems(cacheKey, mapped);
       return mapped;
     }
   } catch (e) {
     console.warn('Live getCampaigns notice, falling back to local store:', e.message || e);
   }
-  return getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
+  return getStoredItems(cacheKey, INITIAL_CAMPAIGNS);
 }
 
 export async function getCampaignById(id) {

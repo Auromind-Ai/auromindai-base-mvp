@@ -368,6 +368,15 @@ class CampaignService:
         seen_phones = set()
 
         if raw_recipients:
+            valid_lead_ids = set()
+            candidate_lead_ids = [to_uuid(r.get("lead_id")) for r in raw_recipients if isinstance(r, dict) and r.get("lead_id") and to_uuid(r.get("lead_id"))]
+            if candidate_lead_ids:
+                found_leads = db.query(Lead.id).filter(
+                    Lead.workspace_id == workspace_id,
+                    Lead.id.in_(candidate_lead_ids)
+                ).all()
+                valid_lead_ids = {row[0] for row in found_leads}
+
             for r in raw_recipients:
                 phone = r.get("phone_number") or r.get("phone") or ""
                 norm = r.get("normalized_phone") or normalize_phone(phone, default_country_code="91")
@@ -397,10 +406,13 @@ class CampaignService:
                     rec_status = "pending" if not campaign.skip_invalid_numbers else "skipped_invalid"
                     err_msg = "Unverified format (Will attempt dispatch)" if not campaign.skip_invalid_numbers else "Skipped (Invalid phone number)"
 
+                lid = to_uuid(r.get("lead_id")) if r.get("lead_id") else None
+                safe_lead_id = lid if (lid and lid in valid_lead_ids) else None
+
                 recipient_objs.append(CampaignRecipient(
                     campaign_id=campaign.id,
                     workspace_id=workspace_id,
-                    lead_id=to_uuid(r.get("lead_id")) if r.get("lead_id") else None,
+                    lead_id=safe_lead_id,
                     phone_number=phone,
                     normalized_phone=norm or phone,
                     recipient_name=r.get("recipient_name") or r.get("name"),
@@ -778,12 +790,23 @@ class CampaignService:
 
         # Clone recipients as pending
         orig_recipients = db.query(CampaignRecipient).filter(CampaignRecipient.campaign_id == orig.id).all()
+        
+        valid_lead_ids = set()
+        candidate_lead_ids = [r.lead_id for r in orig_recipients if r.lead_id]
+        if candidate_lead_ids:
+            found_leads = db.query(Lead.id).filter(
+                Lead.workspace_id == orig.workspace_id,
+                Lead.id.in_(candidate_lead_ids)
+            ).all()
+            valid_lead_ids = {row[0] for row in found_leads}
+
         cloned_recipients = []
         for r in orig_recipients:
+            safe_lead_id = r.lead_id if (r.lead_id and r.lead_id in valid_lead_ids) else None
             cloned_recipients.append(CampaignRecipient(
                 campaign_id=cloned.id,
                 workspace_id=cloned.workspace_id,
-                lead_id=r.lead_id,
+                lead_id=safe_lead_id,
                 phone_number=r.phone_number,
                 normalized_phone=r.normalized_phone,
                 recipient_name=r.recipient_name,
@@ -830,6 +853,8 @@ class CampaignService:
                     detail=f"A campaign named '{updated_name}' already exists. Please choose a different name."
                 )
             campaign.name = updated_name
+        if "status" in data and data["status"] is not None:
+            campaign.status = data["status"]
         if "campaign_type" in data and data["campaign_type"] is not None:
             campaign.campaign_type = data["campaign_type"]
         if "category" in data and data["category"] is not None:
@@ -902,6 +927,15 @@ class CampaignService:
             seen_phones = set()
 
             if raw_recipients:
+                valid_lead_ids = set()
+                candidate_lead_ids = [to_uuid(r.get("lead_id")) for r in raw_recipients if isinstance(r, dict) and r.get("lead_id") and to_uuid(r.get("lead_id"))]
+                if candidate_lead_ids:
+                    found_leads = db.query(Lead.id).filter(
+                        Lead.workspace_id == campaign.workspace_id,
+                        Lead.id.in_(candidate_lead_ids)
+                    ).all()
+                    valid_lead_ids = {row[0] for row in found_leads}
+
                 for r in raw_recipients:
                     if isinstance(r, dict):
                         phone = r.get("phone_number") or r.get("phone") or ""
@@ -929,10 +963,13 @@ class CampaignService:
                             rec_status = "pending" if not campaign.skip_invalid_numbers else "skipped_invalid"
                             err_msg = "Unverified format (Will attempt dispatch)" if not campaign.skip_invalid_numbers else "Skipped (Invalid phone number)"
 
+                        lid = to_uuid(r.get("lead_id")) if r.get("lead_id") else None
+                        safe_lead_id = lid if (lid and lid in valid_lead_ids) else None
+
                         recipient_objs.append(CampaignRecipient(
                             campaign_id=campaign.id,
                             workspace_id=campaign.workspace_id,
-                            lead_id=to_uuid(r.get("lead_id")) if r.get("lead_id") else None,
+                            lead_id=safe_lead_id,
                             phone_number=phone,
                             normalized_phone=norm or phone,
                             recipient_name=r.get("recipient_name") or r.get("name"),

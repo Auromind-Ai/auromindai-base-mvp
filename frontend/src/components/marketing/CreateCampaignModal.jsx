@@ -161,6 +161,7 @@ export default function CreateCampaignModal({
         name: campaignData.name?.trim() || 'Untitled Draft Campaign',
         status: 'draft',
         saveAsDraft: true,
+        autoLaunch: false,
       };
 
       let res;

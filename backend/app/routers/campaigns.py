@@ -626,7 +626,15 @@ async def update_campaign_endpoint(
             user_id=user_id,
         )
 
-        if getattr(payload, "auto_launch", False) or data.get("status") in ("in_progress", "scheduled"):
+        is_draft = data.get("status") == "draft" or str(payload.status or "").lower() == "draft"
+        should_launch = (
+            not is_draft
+            and (
+                getattr(payload, "auto_launch", False)
+                or data.get("status") in ("in_progress", "scheduled")
+            )
+        )
+        if should_launch:
             try:
                 updated = CampaignService.launch_campaign(db, updated.id)
             except Exception as launch_err:

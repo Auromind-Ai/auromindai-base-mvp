@@ -767,6 +767,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                               const canPause = statusLower === 'sending' || statusLower === 'in_progress';
                               const canResume = statusLower === 'paused';
                               const canDuplicate = !isDraft;
+                              const canDelete = statusLower !== 'sending' && statusLower !== 'in_progress';
 
                               return (
                                 <>
@@ -837,17 +838,19 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                                     </button>
                                   )}
 
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveMenuId(null);
-                                      handleDelete(camp.id);
-                                    }}
-                                    className="w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
-                                  >
-                                    <Trash2 size={12} />
-                                    <span>Delete</span>
-                                  </button>
+                                  {canDelete && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveMenuId(null);
+                                        handleDelete(camp.id);
+                                      }}
+                                      className="w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                    >
+                                      <Trash2 size={12} />
+                                      <span>Delete</span>
+                                    </button>
+                                  )}
                                 </>
                               );
                             })()}
