@@ -823,6 +823,8 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
     const [variables, setVariables] = useState({});
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
+    const [uploadingMedia, setUploadingMedia] = useState(false);
+    const modalFileInputRef = useRef(null);
 
     useEffect(() => {
         if (!isOpen || !workspace?.id) return;
@@ -859,6 +861,9 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
 
     if (!isOpen) return null;
 
+    const isMediaType = selectedTemplate?.type === 'IMAGE' || selectedTemplate?.type === 'VIDEO';
+    const resolvedMedia = selectedTemplate?.media_url || (selectedTemplate?.header?.startsWith('http') ? selectedTemplate?.header : null);
+
     const getPreviewContent = () => {
         if (!selectedTemplate) return '';
         let text = selectedTemplate.content;
@@ -871,6 +876,11 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
 
     const handleSend = async () => {
         if (!selectedTemplate || !workspace?.id || !lead?.phone) return;
+        if (isMediaType && !resolvedMedia) {
+            showToast(`Please upload a ${selectedTemplate.type.toLowerCase()} header first!`, 'warning');
+            modalFileInputRef.current?.click();
+            return;
+        }
         setLoading(true);
         try {
             const varArray = Object.keys(variables)
@@ -881,7 +891,8 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
                 workspace_id: workspace.id,
                 phone: lead.phone,
                 template_name: selectedTemplate.name,
-                variables: varArray
+                variables: varArray,
+                media_url: resolvedMedia
             });
             onSuccess(getPreviewContent());
             showToast("Template message sent successfully", "success");
@@ -928,6 +939,65 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
                                     ))}
                                 </select>
                             </div>
+
+                            {/* Header Media Upload/Preview if IMAGE or VIDEO template */}
+                            {isMediaType && (
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
+                                        Header {selectedTemplate?.type === 'VIDEO' ? 'Video' : 'Image'}
+                                    </label>
+                                    <input
+                                        ref={modalFileInputRef}
+                                        type="file"
+                                        accept={selectedTemplate?.type === 'VIDEO' ? 'video/*' : 'image/*'}
+                                        className="hidden"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file || !selectedTemplate) return;
+                                            setUploadingMedia(true);
+                                            try {
+                                                const fd = new FormData();
+                                                fd.append('file', file);
+                                                const res = await api.post(`/api/templates/${selectedTemplate.id}/media`, fd);
+                                                setSelectedTemplate(prev => ({ ...prev, media_url: res.media_url }));
+                                                setTemplates(prev => prev.map(t => t.id === selectedTemplate.id ? { ...t, media_url: res.media_url } : t));
+                                                showToast('Media attached successfully!', 'success');
+                                            } catch (err) {
+                                                showToast(err?.message || 'Failed to upload media', 'error');
+                                            } finally {
+                                                setUploadingMedia(false);
+                                                if (modalFileInputRef.current) modalFileInputRef.current.value = '';
+                                            }
+                                        }}
+                                    />
+                                    {resolvedMedia ? (
+                                        <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                                            {selectedTemplate?.type === 'VIDEO' ? (
+                                                <video src={resolvedMedia} className="w-full h-28 object-cover" controls />
+                                            ) : (
+                                                <img src={resolvedMedia} alt="Header Preview" className="w-full h-28 object-cover" />
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => modalFileInputRef.current?.click()}
+                                                disabled={uploadingMedia}
+                                                className="absolute top-2 right-2 px-2 py-1 rounded bg-black/80 hover:bg-indigo-600 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                                            >
+                                                {uploadingMedia ? 'Uploading...' : 'Change'}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => modalFileInputRef.current?.click()}
+                                            disabled={uploadingMedia}
+                                            className="w-full py-3 px-3 rounded-xl border border-dashed border-indigo-500/50 hover:border-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[12px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                                        >
+                                            <span>{uploadingMedia ? 'Uploading media...' : `Click to upload ${selectedTemplate?.type?.toLowerCase() || 'media'} header`}</span>
+                                        </button>
+                                    )}
+                                </div>
+                            )}
 
                             {varKeys.length > 0 && (
                                 <div className="space-y-3">

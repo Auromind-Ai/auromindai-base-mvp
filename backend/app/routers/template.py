@@ -771,10 +771,13 @@ def send_message(
 
 
     # Query template language from database
+    ws_uuid = to_uuid(workspace_id)
     template = db.query(Template).filter(
         Template.name == data.template_name,
-        Template.workspace_id == workspace_id
+        (Template.workspace_id == ws_uuid) | (Template.user_id == current_user.id)
     ).first()
+    if not template:
+        template = db.query(Template).filter(Template.name == data.template_name).first()
     lang_code = template.language if template else "en_US"
 
     components = []
@@ -844,11 +847,20 @@ def send_message(
         )
 
     headers = {
-    "Authorization": f"Bearer {system_token}",
-    "Content-Type": "application/json",
+        "Authorization": f"Bearer {system_token}",
+        "Content-Type": "application/json",
     }
     
     res = requests.post(url, json=payload, headers=headers, timeout=10)
+    if res.status_code >= 400:
+        err_data = {}
+        try:
+            err_data = res.json()
+        except Exception:
+            pass
+        err_msg = err_data.get("error", {}).get("message") or res.text
+        logger.error(f"[Template Send FAILED] {res.status_code}: {err_data}")
+        raise HTTPException(status_code=res.status_code, detail=f"Meta error: {err_msg}")
     return res.json()
 
 
@@ -947,6 +959,88 @@ def submit_template(
 
     db.commit()
     return {"status": "submitted"}
+
+
+@router.post("/templates/{template_id}/media")
+@router.put("/templates/{template_id}/media")
+async def update_template_media(
+    template_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    try:
+        t_uuid = to_uuid(template_id)
+        template = db.query(Template).filter(Template.id == t_uuid).first()
+    except Exception:
+        template = None
+
+    if not template:
+        template = db.query(Template).filter(Template.id == template_id).first()
+
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    if template.workspace_id:
+        verify_workspace_access(current_user, db, str(template.workspace_id))
+
+    content_type = request.headers.get("content-type", "").lower()
+    media_url = None
+
+    if "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
+        form = await request.form()
+        uploaded_file = form.get("file") or form.get("media")
+        if uploaded_file and hasattr(uploaded_file, "read"):
+            file_bytes = await uploaded_file.read()
+            if file_bytes and len(file_bytes) > 0:
+                from app.services.storage_service import get_storage
+                import uuid, os
+                storage = get_storage()
+                tmpl_type = (template.type or "IMAGE").upper()
+                default_ext = ".png" if tmpl_type == "IMAGE" else ".mp4"
+                filename = getattr(uploaded_file, "filename", None) or f"media{default_ext}"
+                _, ext = os.path.splitext(filename)
+                ext = ext or default_ext
+                default_mime = "image/png" if tmpl_type == "IMAGE" else "video/mp4"
+                mime = getattr(uploaded_file, "content_type", None) or default_mime
+                unique_name = f"{uuid.uuid4()}{ext}"
+                ws_folder = str(template.workspace_id) if template.workspace_id else "global"
+                rel_path = f"{ws_folder}/templates/{unique_name}"
+                media_url = await storage.save_file(rel_path, file_bytes, mime)
+        if not media_url:
+            raw_url = form.get("media_url")
+            if raw_url and isinstance(raw_url, str) and raw_url.strip():
+                media_url = raw_url.strip()
+    else:
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                media_url = body.get("media_url")
+        except Exception:
+            pass
+
+    if not media_url:
+        raise HTTPException(status_code=400, detail="No media file or media_url was provided.")
+
+    template.media_url = media_url
+    if not template.header or template.header.startswith("4:"):
+        template.header = media_url
+    db.commit()
+    db.refresh(template)
+
+    return {
+        "status": "success",
+        "media_url": template.media_url,
+        "template": {
+            "id": str(template.id),
+            "name": template.name,
+            "type": template.type,
+            "media_url": template.media_url,
+            "header": template.header,
+            "status": template.status,
+            "content": template.content,
+        }
+    }
 
 
 @router.delete("/templates/{template_id}")
