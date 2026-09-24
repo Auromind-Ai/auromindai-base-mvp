@@ -471,7 +471,7 @@ def seed_marketing_data():
                         "campaign_type": "promotional",
                         "campaign_goal": "B2B partner outreach",
                         "phone_number_id": ws.meta_display_phone or ws.billing_phone or "+1 (415) 523-8886",
-                        "status": "failed",
+                        "status": "completed",
                         "paused_reason": "High failure rate exceeded threshold (15.6%)",
                         "audience_source": "upload_csv",
                         "total_recipients": 500,

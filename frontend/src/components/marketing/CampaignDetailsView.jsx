@@ -108,7 +108,7 @@ export default function CampaignDetailsView({ campaignId }) {
         if (!isMounted) return;
         if (!camp) {
           showToast('Campaign not found', 'error');
-          router.push('/user/admin/marketing');
+          router.push('/user/admin/marketing/bulkmessages');
           return;
         }
         setCampaign(camp);
@@ -410,7 +410,7 @@ export default function CampaignDetailsView({ campaignId }) {
       <div className="flex flex-col gap-4">
         {/* Back Link */}
         <Link
-          href="/user/admin/marketing"
+          href="/user/admin/marketing/bulkmessages"
           className="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-[#814AC8] hover:text-[#9d62eb] transition-colors w-fit group"
         >
           <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
@@ -621,7 +621,7 @@ export default function CampaignDetailsView({ campaignId }) {
                   ({stats.failed.toLocaleString()} undelivered messages)
                 </span>
               </div>
-              <span className="text-[11px] text-[#a78bfa]">
+              <span className="text-[11px] text-white">
                 Click a reason to filter recipients
               </span>
             </div>
@@ -772,20 +772,20 @@ export default function CampaignDetailsView({ campaignId }) {
                       {/* Status Badge */}
                       <td className="px-5 py-3.5 whitespace-nowrap">
                         {activeTab === 'sent' && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#132240] border border-[#1e3a8a] text-[#60a5fa] text-[11px] font-semibold">
-                            <Send size={11} />
-                            <span>✓ Sent</span>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#06263b]/80 via-[#031824]/60 to-[#02080c] border border-white/10 text-white text-[11px] font-medium">
+                            <Send size={11} className="text-white" />
+                            <span>Sent</span>
                           </span>
                         )}
                         {activeTab === 'delivered' && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0d281e] border border-[#155e3c] text-[#22c55e] text-[11px] font-semibold">
-                            <CheckCircle2 size={11} />
-                            <span>✓ Delivered</span>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-white/10 text-white text-[11px] font-medium">
+                            <CheckCircle2 size={11} className="text-white" />
+                            <span>Delivered</span>
                           </span>
                         )}
                         {activeTab === 'failed' && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#2a0e14] border border-[#7f1d1d] text-[#f87171] text-[11px] font-semibold">
-                            <XCircle size={11} />
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] border border-white/10 text-white text-[11px] font-medium">
+                            <XCircle size={11} className="text-white" />
                             <span>Failed</span>
                           </span>
                         )}
@@ -891,7 +891,7 @@ export default function CampaignDetailsView({ campaignId }) {
                             e.stopPropagation();
                             setSelectedRecipient(rec);
                           }}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#a78bfa] bg-[#1a172c] hover:bg-[#814AC8] hover:text-white transition-all inline-flex items-center gap-1 cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-white/80 bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 hover:bg-[#814AC8] hover:text-white transition-all inline-flex items-center gap-1 cursor-pointer"
                         >
                           <span>{activeTab === 'failed' ? 'View Reason' : 'View'}</span>
                           <ChevronRight size={13} />
@@ -1026,15 +1026,15 @@ export default function CampaignDetailsView({ campaignId }) {
                   </div>
                   <div>
                     {isFailed ? (
-                      <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] border border-rose-500/30 text-white text-xs font-semibold">
+                      <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] text-white text-xs font-semibold">
                         Failed
                       </span>
                     ) : isDelivered ? (
-                      <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-emerald-500/30 text-white text-xs font-semibold">
+                      <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] text-white text-xs font-semibold">
                         ✓ Delivered
                       </span>
                     ) : (
-                      <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-[#06263b]/80 via-[#031824]/60 to-[#02080c] border border-blue-500/30 text-white text-xs font-semibold">
+                      <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-[#06263b]/80 via-[#031824]/60 to-[#02080c] text-white text-xs font-semibold">
                         ✓ Sent
                       </span>
                     )}

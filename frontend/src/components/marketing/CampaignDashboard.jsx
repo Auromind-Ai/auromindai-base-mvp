@@ -86,7 +86,6 @@ const TABS = [
   { id: 'sending', label: 'Sending' },
   { id: 'completed', label: 'Completed' },
   { id: 'paused', label: 'Paused' },
-  { id: 'failed', label: 'Failed' },
 ];
 
 const ITEMS_PER_PAGE = 7;
@@ -173,16 +172,14 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
       sending: 0,
       completed: 0,
       paused: 0,
-      failed: 0,
     };
     campaigns.forEach((c) => {
       const st = (c.status || '').toLowerCase();
       if (st === 'draft' || st === 'pending') counts.draft++;
       else if (st === 'scheduled') counts.scheduled++;
       else if (st === 'sending' || st === 'in_progress') counts.sending++;
-      else if (st === 'completed') counts.completed++;
       else if (st === 'paused') counts.paused++;
-      else if (st === 'failed' || st === 'cancelled') counts.failed++;
+      else counts.completed++;
     });
     return counts;
   }, [campaigns]);
@@ -252,8 +249,12 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
           if (st !== 'sending' && st !== 'in_progress') return false;
         } else if (activeTab === 'draft') {
           if (st !== 'draft' && st !== 'pending') return false;
-        } else if (activeTab === 'failed') {
-          if (st !== 'failed' && st !== 'cancelled') return false;
+        } else if (activeTab === 'scheduled') {
+          if (st !== 'scheduled') return false;
+        } else if (activeTab === 'paused') {
+          if (st !== 'paused') return false;
+        } else if (activeTab === 'completed') {
+          if (st !== 'completed' && st !== 'failed' && st !== 'cancelled') return false;
         } else if (st !== activeTab.toLowerCase()) {
           return false;
         }
@@ -470,7 +471,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
               <span className="text-2xl sm:text-3xl font-medium text-white tracking-tight">
                 {stats.deliveredCount}
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-[#0d281e] border border-[#155e3c] text-[#22c55e] text-[11px] font-medium">
+              <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-[#155e3c] text-white text-[11px] font-medium">
                 {stats.deliveredRate}
               </span>
             </div>
@@ -672,8 +673,8 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                         const st = (camp.status || '').toLowerCase();
                         if (st === 'draft' || st === 'pending') {
                           handleEditDraft(camp);
-                        } else if (st === 'completed') {
-                          router.push(`/user/admin/marketing/${camp.id}`);
+                        } else {
+                          router.push(`/user/admin/marketing/bulkmessages/${camp.id}`);
                         }
                       }}
                       className={`transition-colors duration-150 cursor-pointer ${
@@ -711,21 +712,14 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                               </button>
                             );
                           }
-                          if (st === 'completed') {
-                            return (
-                              <Link
-                                href={`/user/admin/marketing/${camp.id}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="font-semibold text-white tracking-tight text-[13px] hover:text-[#a78bfa] transition-colors inline-block"
-                              >
-                                {camp.name}
-                              </Link>
-                            );
-                          }
                           return (
-                            <span className="font-semibold text-white tracking-tight text-[13px] inline-block">
+                            <Link
+                              href={`/user/admin/marketing/bulkmessages/${camp.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="font-semibold text-white tracking-tight text-[13px] hover:text-[#a78bfa] transition-colors inline-block"
+                            >
                               {camp.name}
-                            </span>
+                            </Link>
                           );
                         })()}
                         <div className="text-[11px] text-white/60 mt-0.5">
@@ -844,16 +838,14 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                             {(() => {
                               const statusLower = (camp.status || '').toLowerCase();
                               const isDraft = statusLower === 'draft' || statusLower === 'pending';
-                              const isCompleted = statusLower === 'completed';
-
                               return (
                                 <>
-                                  {isCompleted && (
+                                  {!isDraft && (
                                     <button
                                       type="button"
                                       onClick={() => {
                                         setActiveMenuId(null);
-                                        router.push(`/user/admin/marketing/${camp.id}`);
+                                        router.push(`/user/admin/marketing/bulkmessages/${camp.id}`);
                                       }}
                                       className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
                                     >

@@ -55,8 +55,7 @@ function normalizeStatus(status) {
   if (lower === 'draft' || lower === 'pending') return 'Draft';
   if (lower === 'scheduled') return 'Scheduled';
   if (lower === 'paused') return 'Paused';
-  if (lower === 'completed') return 'Completed';
-  if (lower === 'failed' || lower === 'cancelled') return 'Failed';
+  if (lower === 'completed' || lower === 'failed' || lower === 'cancelled') return 'Completed';
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
