@@ -23,6 +23,7 @@ from app.services.crm.lead_scoring_service import recalculate_lead_score
 from app.workers.scoring_worker import analyze_message_intent
 from decimal import Decimal
 from app.services.wcc_service import WCCService
+from app.services.marketing.campaign_service import CampaignService
 from app.models.wcc import WCCRateCard
 from app.core.logger import logger
 from app.services.notification_service import NotificationService
@@ -530,7 +531,24 @@ class WebhookService:
                                             db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
                                                 Campaign.failed_count: Campaign.failed_count + 1
                                             })
-                                            db.flush()
+
+                                           
+                                            cost_to_refund = Decimal(str(recipient.cost or "0.00"))
+                                            if cost_to_refund > Decimal("0.00"):
+                                                camp = db.query(Campaign).filter(Campaign.id == recipient.campaign_id).first()
+                                                if camp:
+                                                    camp.actual_cost = max(Decimal("0.00"), Decimal(str(camp.actual_cost or "0.00")) - cost_to_refund)
+                                                    camp.held_cost = max(Decimal("0.00"), Decimal(str(camp.held_cost or "0.00")) - cost_to_refund)
+
+                                                recipient.cost = Decimal("0.00")
+                                                db.flush()
+                                                CampaignService.refund_failed_delivery(db, recipient.workspace_id, cost_to_refund)
+                                                logger.info(
+                                                    "[WCC Refund] Reconciled failed delivery for recipient %s (wamid=%s): refunded %s WCC to workspace %s",
+                                                    recipient.id, wamid, cost_to_refund, recipient.workspace_id
+                                                )
+                                            else:
+                                                db.flush()
                             except Exception as camp_exc:
                                 logger.error(f"Failed to update CampaignRecipient status for {wamid}: {camp_exc}")
 
@@ -1000,9 +1018,9 @@ class WebhookService:
                     unsupported_info = message.get("unsupported") or {}
                     sub_type = unsupported_info.get("type") or ""
                     if sub_type:
-                        text = f"[Unsupported Message ({sub_type}): Incoming message format is not supported by WhatsApp Cloud API]"
+                        text = f"[Business Promotional Message ({sub_type}): Incoming interactive template from another account cannot be displayed on WhatsApp API]"
                     else:
-                        text = "[Unsupported Message: Incoming promotional template or unsupported format from another business account]"
+                        text = "[Business Promotional Message: Incoming interactive template from another account cannot be displayed on WhatsApp API]"
                     media_type = "unsupported"
                 elif msg_type == "template":
                     template_obj = message.get("template") or {}

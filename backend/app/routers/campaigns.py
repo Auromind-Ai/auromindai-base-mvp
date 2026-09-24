@@ -3,7 +3,7 @@ import uuid
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 
 from app.database import get_db
 from app.routers.auth import get_current_user, CurrentUser
@@ -23,6 +23,7 @@ from app.schemas.campaign import (
 from app.services.marketing.campaign_service import CampaignService
 from app.services.marketing.audience_service import AudienceService
 from app.services.marketing.whatsapp_tier_service import WhatsAppTierService
+from app.services.marketing.error_classification import ErrorClassificationService
 from app.core.redis_lock import get_redis_client
 
 logger = logging.getLogger(__name__)
@@ -259,15 +260,55 @@ async def list_campaigns(
     return {"total": total, "items": items, "limit": limit, "offset": offset}
 
 
+def serialize_campaign_recipient(r: CampaignRecipient) -> dict:
+    error_info = {}
+    is_failed_state = (
+        r.status in ("failed", "skipped_marketing_frequency_limit", "skipped_invalid", "skipped_opted_out", "held_portfolio_limit")
+        or bool(r.error_code)
+    )
+    if is_failed_state:
+        code = r.error_code or (
+            "131049" if r.status == "skipped_marketing_frequency_limit"
+            else ("SKIPPED_INVALID" if r.status == "skipped_invalid"
+            else ("SKIPPED_OPTED_OUT" if r.status == "skipped_opted_out" else "131026"))
+        )
+        error_info = ErrorClassificationService.classify(code, r.error_message)
+
+    return {
+        "id": str(r.id),
+        "campaign_id": str(r.campaign_id),
+        "lead_id": str(r.lead_id) if r.lead_id else None,
+        "phone_number": r.phone_number,
+        "phone": r.phone_number,
+        "normalized_phone": r.normalized_phone,
+        "recipient_name": r.recipient_name,
+        "name": r.recipient_name or r.phone_number,
+        "variables": r.variables or {},
+        "status": r.status,
+        "wamid": r.wamid,
+        "error_code": r.error_code or error_info.get("error_code"),
+        "error_message": r.error_message,
+        "error_title": error_info.get("title"),
+        "error_category": error_info.get("category"),
+        "what_this_means": error_info.get("what_this_means"),
+        "what_you_can_do": error_info.get("what_you_can_do"),
+        "severity": error_info.get("severity", "error"),
+        "is_retryable": error_info.get("is_retryable", False),
+        "sent_at": r.sent_at.isoformat() if r.sent_at else (r.accepted_at.isoformat() if r.accepted_at else None),
+        "accepted_at": r.accepted_at.isoformat() if r.accepted_at else None,
+        "delivered_at": r.delivered_at.isoformat() if r.delivered_at else (r.read_at.isoformat() if r.read_at else None),
+        "read_at": r.read_at.isoformat() if r.read_at else None,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+        "cost": float(r.cost or 0.0),
+    }
+
+
 @router.get("/campaigns/{campaign_id}")
 async def get_campaign_detail(
     campaign_id: str,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    Returns single campaign metrics, live progress, and delivery percentages.
-    """
     c_uuid = to_uuid(campaign_id)
     campaign = db.query(Campaign).filter(Campaign.id == c_uuid).first()
     if not campaign:
@@ -276,10 +317,41 @@ async def get_campaign_detail(
     verify_workspace_access(current_user, db, campaign.workspace_id)
 
     # Calculate deliverability percentages
-    total = campaign.valid_recipients or 1
-    sent = campaign.accepted_count or 0
+    total = campaign.valid_recipients or campaign.total_recipients or 1
+    sent = campaign.sent_count or campaign.accepted_count or 0
     delivered = campaign.delivered_count or 0
     read = campaign.read_count or 0
+    failed = campaign.failed_count or 0
+
+    delivery_rate = round((delivered / total) * 100, 1) if total > 0 else 0.0
+    failed_rate = round((failed / total) * 100, 1) if total > 0 else 0.0
+    sent_rate = round((sent / total) * 100, 1) if total > 0 else 0.0
+    read_rate = round((read / total) * 100, 1) if total > 0 else 0.0
+
+    # Calculate error breakdown for failed messages
+    failed_recipients = [
+        r for r in campaign.recipients
+        if r.status in ("failed", "skipped_marketing_frequency_limit", "skipped_invalid", "skipped_opted_out") or r.error_code
+    ]
+
+    breakdown_map = {}
+    for fr in failed_recipients:
+        code = fr.error_code or (
+            "131049" if fr.status == "skipped_marketing_frequency_limit"
+            else ("SKIPPED_INVALID" if fr.status == "skipped_invalid"
+            else ("SKIPPED_OPTED_OUT" if fr.status == "skipped_opted_out" else "131026"))
+        )
+        if code not in breakdown_map:
+            cls_info = ErrorClassificationService.classify(code, fr.error_message)
+            breakdown_map[code] = {
+                "error_code": code,
+                "error_title": cls_info.get("title", "Delivery Failed"),
+                "error_category": cls_info.get("category", "GENERAL_DELIVERY_FAILURE"),
+                "count": 0
+            }
+        breakdown_map[code]["count"] += 1
+
+    error_breakdown = sorted(list(breakdown_map.values()), key=lambda x: x["count"], reverse=True)
 
     return {
         "id": str(campaign.id),
@@ -304,8 +376,10 @@ async def get_campaign_detail(
         "failed_count": campaign.failed_count,
         "failedCount": campaign.failed_count,
         "skipped_marketing_cap_count": campaign.skipped_marketing_cap_count,
-        "delivery_rate": round((delivered / total) * 100, 1),
-        "read_rate": round((read / total) * 100, 1),
+        "sent_rate": sent_rate,
+        "delivery_rate": delivery_rate,
+        "failed_rate": failed_rate,
+        "read_rate": read_rate,
         "estimated_cost": float(campaign.estimated_cost or 0.0),
         "held_cost": float(campaign.held_cost or 0.0),
         "actual_cost": float(campaign.actual_cost or 0.0),
@@ -339,20 +413,149 @@ async def get_campaign_detail(
         "completed_at": campaign.completed_at.isoformat() if campaign.completed_at else None,
         "created_at": campaign.created_at.isoformat() if campaign.created_at else None,
         "date": campaign.created_at.strftime("%b %d, %Y") if campaign.created_at else "Today",
-        "recipients": [
-            {
-                "lead_id": str(r.lead_id) if r.lead_id else None,
-                "phone_number": r.phone_number,
-                "phone": r.phone_number,
-                "normalized_phone": r.normalized_phone,
-                "recipient_name": r.recipient_name,
-                "name": r.recipient_name,
-                "variables": r.variables or {},
-                "status": r.status,
-            }
-            for r in campaign.recipients
-        ],
+        "error_breakdown": error_breakdown,
+        "recipients": [serialize_campaign_recipient(r) for r in campaign.recipients],
     }
+
+
+@router.get("/campaigns/{campaign_id}/recipients")
+async def list_campaign_recipients(
+    campaign_id: str,
+    status_filter: Optional[str] = Query(None, alias="status"),
+    search: Optional[str] = Query(None),
+    error_code: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    c_uuid = to_uuid(campaign_id)
+    campaign = db.query(Campaign).filter(Campaign.id == c_uuid).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    verify_workspace_access(current_user, db, campaign.workspace_id)
+
+    query = db.query(CampaignRecipient).filter(CampaignRecipient.campaign_id == c_uuid)
+
+    # Status filter
+    if status_filter and isinstance(status_filter, str):
+        sf = status_filter.lower().strip()
+        if sf == "sent":
+            query = query.filter(
+                or_(
+                    CampaignRecipient.status.in_(["sent", "accepted", "delivered", "read"]),
+                    CampaignRecipient.sent_at.isnot(None),
+                    CampaignRecipient.accepted_at.isnot(None),
+                    CampaignRecipient.wamid.isnot(None),
+                )
+            )
+        elif sf == "delivered":
+            query = query.filter(
+                or_(
+                    CampaignRecipient.status.in_(["delivered", "read"]),
+                    CampaignRecipient.delivered_at.isnot(None),
+                    CampaignRecipient.read_at.isnot(None),
+                )
+            )
+        elif sf == "failed":
+            query = query.filter(
+                or_(
+                    CampaignRecipient.status.in_(["failed", "skipped_marketing_frequency_limit", "skipped_invalid", "skipped_opted_out", "held_portfolio_limit"]),
+                    CampaignRecipient.error_code.isnot(None),
+                )
+            )
+        elif sf not in ("all", ""):
+            query = query.filter(CampaignRecipient.status == sf)
+
+    # Search filter
+    if search and isinstance(search, str) and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                CampaignRecipient.phone_number.ilike(term),
+                CampaignRecipient.normalized_phone.ilike(term),
+                CampaignRecipient.recipient_name.ilike(term),
+                CampaignRecipient.wamid.ilike(term),
+            )
+        )
+
+    # Error code filter
+    if error_code and isinstance(error_code, str) and error_code.strip() and error_code.strip().lower() != "all":
+        ec = error_code.strip().upper()
+        if ec == "131049":
+            query = query.filter(
+                or_(
+                    CampaignRecipient.error_code == "131049",
+                    CampaignRecipient.status == "skipped_marketing_frequency_limit"
+                )
+            )
+        else:
+            query = query.filter(CampaignRecipient.error_code == ec)
+
+    total_filtered = query.count()
+    recipients = query.order_by(CampaignRecipient.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    # Pre-calculate counts across the whole campaign for UI tabs
+    total_count = campaign.valid_recipients if campaign.valid_recipients is not None else (campaign.total_recipients or 0)
+    sent_count = campaign.sent_count if campaign.sent_count is not None else (campaign.accepted_count or 0)
+    delivered_count = campaign.delivered_count or 0
+    failed_count = campaign.failed_count or 0
+
+    # Error breakdown across all failed messages in campaign
+    aggregated_errors = db.query(
+        CampaignRecipient.error_code, 
+        func.count(CampaignRecipient.id)
+    ).filter(
+        CampaignRecipient.campaign_id == c_uuid,
+        CampaignRecipient.error_code.isnot(None)
+    ).group_by(CampaignRecipient.error_code).all()
+
+    breakdown_map = {}
+    for code, count in aggregated_errors:
+        info = ErrorClassificationService.classify(code)
+        breakdown_map[code] = {
+            "error_code": code,
+            "error_title": info.get("title", "Delivery Failed"),
+            "error_category": info.get("category", "GENERAL_DELIVERY_FAILURE"),
+            "count": count
+        }
+
+    # Also account for any skipped_marketing_frequency_limit
+    skipped_count = db.query(func.count(CampaignRecipient.id)).filter(
+        CampaignRecipient.campaign_id == c_uuid,
+        CampaignRecipient.status == "skipped_marketing_frequency_limit",
+        CampaignRecipient.error_code.is_(None)
+    ).scalar() or 0
+    if skipped_count > 0:
+        if "131049" in breakdown_map:
+            breakdown_map["131049"]["count"] += skipped_count
+        else:
+            info = ErrorClassificationService.classify("131049")
+            breakdown_map["131049"] = {
+                "error_code": "131049",
+                "error_title": info.get("title", "Marketing message limit reached"),
+                "error_category": info.get("category", "MARKETING_FREQUENCY_LIMIT"),
+                "count": skipped_count
+            }
+
+    error_breakdown = sorted(list(breakdown_map.values()), key=lambda x: x["count"], reverse=True)
+
+    return {
+        "items": [serialize_campaign_recipient(r) for r in recipients],
+        "total": total_filtered,
+        "page": page,
+        "limit": limit,
+        "total_pages": max(1, (total_filtered + limit - 1) // limit),
+        "counts": {
+            "total": total_count,
+            "sent": sent_count,
+            "delivered": delivered_count,
+            "failed": failed_count,
+        },
+        "error_breakdown": error_breakdown,
+    }
+
 
 
 @router.patch("/campaigns/{campaign_id}")
