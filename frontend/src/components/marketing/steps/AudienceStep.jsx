@@ -167,10 +167,61 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
   // 2. CSV Upload State
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadedFileName, setUploadedFileName] = useState(
-    data.audienceListName?.endsWith('.csv') || data.csvStats ? data.audienceListName : null
-  );
-  const [csvStats, setCsvStats] = useState(data.csvStats || null);
+  const [uploadedFileName, setUploadedFileName] = useState(() => {
+    if (data.csvStats?.filename || data.csvStats?.file_name) {
+      return data.csvStats.filename || data.csvStats.file_name;
+    }
+    if (data.audienceType === 'Upload CSV' || (data.audience_source && String(data.audience_source).toLowerCase().includes('csv'))) {
+      if (data.audienceListName && !['Increase sales', 'General Announcements', 'All Customers', 'Custom Audience', 'Existing Contacts', 'Smart Segment', 'Manual Entry'].includes(data.audienceListName)) {
+        return data.audienceListName;
+      }
+      if ((data.recipients && data.recipients.length > 0) || (data.validRecipients || 0) > 0 || (data.recipientsCount || 0) > 0) {
+        return (data.audienceListName && data.audienceListName.includes('.')) ? data.audienceListName : 'uploaded_contacts.csv';
+      }
+    }
+    if (data.audienceListName && (data.audienceListName.endsWith('.csv') || data.audienceListName.endsWith('.xlsx') || data.audienceListName.endsWith('.xls'))) {
+      return data.audienceListName;
+    }
+    return null;
+  });
+  const [csvStats, setCsvStats] = useState(() => {
+    if (data.csvStats) return data.csvStats;
+    if ((data.audienceType === 'Upload CSV' || (data.audience_source && String(data.audience_source).toLowerCase().includes('csv'))) && ((data.recipients && data.recipients.length > 0) || (data.validRecipients || 0) > 0)) {
+      return {
+        total: data.recipientsCount || data.recipients?.length || 0,
+        valid_count: data.validRecipients || data.recipients?.length || 0,
+        invalid_count: data.invalidRecipients || 0,
+        recipients: data.recipients || [],
+        headers: data.audienceHeaders || [],
+        invalid_sample: [],
+      };
+    }
+    return null;
+  });
+
+  // Synchronize CSV state when editing draft campaigns
+  useEffect(() => {
+    if (data.audienceType === 'Upload CSV' || (data.audience_source && String(data.audience_source).toLowerCase().includes('csv'))) {
+      if (!uploadedFileName) {
+        const name = (data.audienceListName && !['Increase sales', 'General Announcements', 'All Customers', 'Custom Audience', 'Existing Contacts', 'Smart Segment', 'Manual Entry'].includes(data.audienceListName))
+          ? data.audienceListName
+          : (((data.recipients && data.recipients.length > 0) || (data.validRecipients || 0) > 0) ? 'uploaded_contacts.csv' : null);
+        if (name) {
+          setUploadedFileName(name);
+        }
+      }
+      if (!csvStats && ((data.recipients && data.recipients.length > 0) || (data.validRecipients || 0) > 0)) {
+        setCsvStats({
+          total: data.recipientsCount || data.recipients?.length || 0,
+          valid_count: data.validRecipients || data.recipients?.length || 0,
+          invalid_count: data.invalidRecipients || 0,
+          recipients: data.recipients || [],
+          headers: data.audienceHeaders || [],
+          invalid_sample: [],
+        });
+      }
+    }
+  }, [data.audienceType, data.audience_source, data.audienceListName, data.recipients, data.validRecipients, data.recipientsCount, data.audienceHeaders, uploadedFileName, csvStats]);
 
   // 3. Smart Segments State
   const [activeSegment, setActiveSegment] = useState(data.segment || 'hot');
@@ -217,14 +268,25 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
     };
   }, [workspaceId]);
 
+  // Helper to ensure only WhatsApp-capable contacts are admitted
+  const isWhatsAppEligible = (l) => {
+    if (!l) return false;
+    const src = String(l.source || '').toLowerCase();
+    if (src.includes('instagram') || src === 'ig' || src.includes('gmail') || src.includes('email')) {
+      return false;
+    }
+    const phoneStr = String(l.phone || '').trim();
+    return phoneStr.length >= 7;
+  };
+
   // Load CRM Leads for Existing Contacts
   useEffect(() => {
     let isSubscribed = true;
-    getMarketingLeads(workspaceId, 'all', searchQuery)
+    getMarketingLeads(workspaceId, 'all', searchQuery, 'whatsapp')
       .then((res) => {
         if (!isSubscribed) return;
         if (res) {
-          const list = res.leads || [];
+          const list = (res.leads || []).filter(isWhatsAppEligible);
           setCrmLeads(list);
           if (res.segment_counts) {
             setSegmentCounts(res.segment_counts);
@@ -245,10 +307,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
   useEffect(() => {
     if (audienceType !== 'Smart Segment') return;
     let isSubscribed = true;
-    getMarketingLeads(workspaceId, activeSegment)
+    getMarketingLeads(workspaceId, activeSegment, '', 'whatsapp')
       .then((res) => {
         if (!isSubscribed) return;
-        const list = res?.leads || [];
+        const list = (res?.leads || []).filter(isWhatsAppEligible);
         setSegmentLeads(list);
         const formatted = list.map((l) => ({
           lead_id: l.id,
@@ -280,9 +342,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
   const handleRefreshLeads = async () => {
     setIsLoadingLeads(true);
     try {
-      const res = await getMarketingLeads(workspaceId, 'all', searchQuery);
+      const res = await getMarketingLeads(workspaceId, 'all', searchQuery, 'whatsapp');
       if (res) {
-        setCrmLeads(res.leads || []);
+        const list = (res.leads || []).filter(isWhatsAppEligible);
+        setCrmLeads(list);
         if (res.segment_counts) setSegmentCounts(res.segment_counts);
       }
     } finally {
@@ -682,7 +745,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
   const currentValidCount = useMemo(() => {
     if (audienceType === 'Upload CSV') {
       const activeStats = csvStats || data.csvStats;
-      return activeStats?.valid_count ?? data.validRecipients ?? 0;
+      return activeStats?.valid_count ?? data.validRecipients ?? (data.recipients ? data.recipients.filter((r) => r.status !== 'skipped_invalid').length : 0);
     }
     if (audienceType === 'Smart Segment') {
       return segmentLeads.length;
@@ -696,23 +759,23 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
     return contactLists
       .filter((l) => selectedListIds.includes(l.id))
       .reduce((acc, curr) => acc + (curr.validContacts || curr.valid_contacts || curr.totalContacts || 0), 0);
-  }, [audienceType, contactsSubTab, csvStats, data.csvStats, data.validRecipients, segmentLeads, manualRecipients, selectedLeadIds, contactLists, selectedListIds]);
+  }, [audienceType, contactsSubTab, csvStats, data.csvStats, data.validRecipients, data.recipients, segmentLeads, manualRecipients, selectedLeadIds, contactLists, selectedListIds]);
 
   const currentInvalidCount = useMemo(() => {
     if (audienceType === 'Upload CSV') {
       const activeStats = csvStats || data.csvStats;
-      return activeStats?.invalid_count ?? data.invalidRecipients ?? 0;
+      return activeStats?.invalid_count ?? data.invalidRecipients ?? (data.recipients ? data.recipients.filter((r) => r.status === 'skipped_invalid').length : 0);
     }
     if (audienceType === 'Manual Entry') {
       return manualInvalidList.length;
     }
     return 0;
-  }, [audienceType, csvStats, data.csvStats, data.invalidRecipients, manualInvalidList.length]);
+  }, [audienceType, csvStats, data.csvStats, data.invalidRecipients, data.recipients, manualInvalidList.length]);
 
   const currentTotalCount = useMemo(() => {
     if (audienceType === 'Upload CSV') {
       const activeStats = csvStats || data.csvStats;
-      return activeStats?.total ?? data.recipientsCount ?? 0;
+      return activeStats?.total ?? data.recipientsCount ?? (data.recipients?.length || 0);
     }
     if (audienceType === 'Smart Segment') {
       return segmentLeads.length;
@@ -726,7 +789,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
     return contactLists
       .filter((l) => selectedListIds.includes(l.id))
       .reduce((acc, curr) => acc + (curr.totalContacts || curr.total_contacts || 0), 0);
-  }, [audienceType, contactsSubTab, csvStats, data.csvStats, data.recipientsCount, segmentLeads, manualRecipients, manualInvalidList.length, selectedLeadIds, contactLists, selectedListIds]);
+  }, [audienceType, contactsSubTab, csvStats, data.csvStats, data.recipientsCount, data.recipients, segmentLeads, manualRecipients, manualInvalidList.length, selectedLeadIds, contactLists, selectedListIds]);
 
   const categoryToEstimate = data.templateCategory || data.category || data.type || 'marketing';
 
@@ -782,9 +845,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
   };
 
   const filteredCrmLeads = useMemo(() => {
-    if (!searchQuery.trim()) return crmLeads;
+    const waLeads = crmLeads.filter(isWhatsAppEligible);
+    if (!searchQuery.trim()) return waLeads;
     const q = searchQuery.toLowerCase();
-    return crmLeads.filter(
+    return waLeads.filter(
       (l) => (l.name || '').toLowerCase().includes(q) || (l.phone || '').toLowerCase().includes(q)
     );
   }, [crmLeads, searchQuery]);
@@ -1113,7 +1177,7 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
                       {uploadedFileName}
                     </span>
                     <span className="text-xs text-white font-medium block">
-                      <span className="text-emerald-400">✓</span> Successfully parsed {((csvStats || data.csvStats)?.valid_count ?? data.validRecipients ?? 0).toLocaleString()} valid numbers
+                      <span className="text-emerald-400">✓</span> Successfully parsed {((csvStats || data.csvStats)?.valid_count ?? data.validRecipients ?? (data.recipients ? data.recipients.filter((r) => r.status !== 'skipped_invalid').length : 0)).toLocaleString()} valid numbers
                     </span>
                     <p className="text-xs text-[#c4c0db] font-normal">Click to upload a different file</p>
                   </div>

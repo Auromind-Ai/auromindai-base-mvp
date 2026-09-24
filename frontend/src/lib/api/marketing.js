@@ -33,8 +33,7 @@ function getStoredItems(key, fallback) {
     const raw = localStorage.getItem(key);
     if (!raw) return fallback;
     return JSON.parse(raw);
-  } catch (err) {
-    console.error(`Failed to read ${key} from storage:`, err);
+  } catch {
     return fallback;
   }
 }
@@ -42,9 +41,24 @@ function getStoredItems(key, fallback) {
 function setStoredItems(key, data) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(key, JSON.stringify(data));
+    // Strip heavy payload (e.g. recipients arrays) before saving to localStorage to prevent quota exhaustion
+    let toStore = data;
+    if (key === STORAGE_KEYS.CAMPAIGNS && Array.isArray(data)) {
+      toStore = data.map((item) => {
+        if (item && typeof item === 'object') {
+          const { recipients, raw_recipients, ...rest } = item;
+          return rest;
+        }
+        return item;
+      });
+    }
+    localStorage.setItem(key, JSON.stringify(toStore));
   } catch (err) {
-    console.error(`Failed to write ${key} to storage:`, err);
+    // If quota is exceeded, clear old marketing caches safely without error popups
+    try {
+      localStorage.removeItem(STORAGE_KEYS.CAMPAIGNS);
+      localStorage.removeItem(STORAGE_KEYS.CONTACT_LISTS);
+    } catch {}
   }
 }
 
@@ -55,8 +69,7 @@ function normalizeStatus(status) {
   if (lower === 'draft' || lower === 'pending') return 'Draft';
   if (lower === 'scheduled') return 'Scheduled';
   if (lower === 'paused') return 'Paused';
-  if (lower === 'completed') return 'Completed';
-  if (lower === 'failed' || lower === 'cancelled') return 'Failed';
+  if (lower === 'completed' || lower === 'failed' || lower === 'cancelled') return 'Completed';
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
@@ -147,6 +160,11 @@ export function mapBackendCampaignToFrontend(c) {
     quietHours: c.quiet_hours_enabled ?? c.quietHours ?? true,
     quietHoursStart: c.quiet_hours_start || '22:00',
     quietHoursEnd: c.quiet_hours_end || '08:00',
+    error_breakdown: c.error_breakdown || c.errorBreakdown || [],
+    errorBreakdown: c.error_breakdown || c.errorBreakdown || [],
+    sent_rate: c.sent_rate ?? (tRecipients > 0 ? Number(((sCount / tRecipients) * 100).toFixed(1)) : 0),
+    delivery_rate: c.delivery_rate ?? (sCount > 0 ? Number(((dCount / sCount) * 100).toFixed(1)) : 0),
+    failed_rate: c.failed_rate ?? (sCount > 0 ? Number(((fCount / sCount) * 100).toFixed(1)) : 0),
   };
 }
 
@@ -164,20 +182,23 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
   const sendType = c.sendType === 'Schedule for Later' ? 'later' : 'now';
   const scheduledIso = sendType === 'later' ? parseScheduleDatetime(c.scheduleDate, c.scheduleTime) : null;
 
+  const isDraft = Boolean(c.saveAsDraft || c.status === 'draft' || c.status === 'Draft');
+
   return {
     workspace_id: wsId,
     name: c.name || 'Untitled Campaign',
     campaign_type: (c.type || 'promotional').toLowerCase().replace(/\s+/g, '_'),
     category: mapCampaignCategory(c.templateCategory || c.category || c.type),
     campaign_goal: c.goal || null,
-    phone_number_id: c.phoneNumberId || c.whatsappNumber || null,
+    phone_number_id: c.phoneNumberId || c.phone_number_id || c.whatsappNumber || null,
     whatsapp_number: c.whatsappNumber || null,
+    status: isDraft ? 'draft' : (c.status ? String(c.status).toLowerCase() : undefined),
     audience_source: (c.audienceType || 'existing_contacts').toLowerCase().replace(/\s+/g, '_'),
     contact_list_ids: c.selectedListIds || c.contact_list_ids || [],
     lead_ids: c.selectedLeadIds || c.lead_ids || [],
     variable_mapping: c.variableMapping || null,
     message_type: c.messageMode === 'template' ? 'template' : (c.messageMode === 'ai' ? 'ai_generated' : 'custom'),
-    template_id: c.selectedTemplateId || null,
+    template_id: c.selectedTemplateId || c.template_id || c.templateId || null,
     message_content: c.messageBody || '',
     media_url: c.mediaUrl || null,
     media_type: c.mediaType || (c.mediaUrl ? 'image' : null),
@@ -192,7 +213,7 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
     quiet_hours_enabled: Boolean(c.quietHours ?? true),
     quiet_hours_start: c.quietHoursStart || '22:00',
     quiet_hours_end: c.quietHoursEnd || '08:00',
-    auto_launch: c.autoLaunch !== undefined ? Boolean(c.autoLaunch) : (sendType === 'now'),
+    auto_launch: isDraft ? false : (c.autoLaunch !== undefined ? Boolean(c.autoLaunch) : (sendType === 'now')),
     estimated_cost: Number(c.estimatedCost || 0.0),
     segment: c.segment || null,
     recipients: (c.recipients || []).map((r) => {
@@ -246,19 +267,20 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
 // API Service functions with live backend + persistent fallback
 export async function getCampaigns(workspaceId) {
   const wsId = workspaceId || getStoredWorkspaceId();
+  const cacheKey = wsId ? `${STORAGE_KEYS.CAMPAIGNS}_${wsId}` : STORAGE_KEYS.CAMPAIGNS;
   try {
     const url = wsId ? `/api/marketing/campaigns?workspace_id=${wsId}` : '/api/marketing/campaigns';
     const res = await client.get(url);
     const rawItems = res?.items || res?.data?.items || (Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : null));
     if (rawItems && Array.isArray(rawItems)) {
       const mapped = rawItems.map(mapBackendCampaignToFrontend);
-      setStoredItems(STORAGE_KEYS.CAMPAIGNS, mapped);
+      setStoredItems(cacheKey, mapped);
       return mapped;
     }
   } catch (e) {
     console.warn('Live getCampaigns notice, falling back to local store:', e.message || e);
   }
-  return getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
+  return getStoredItems(cacheKey, INITIAL_CAMPAIGNS);
 }
 
 export async function getCampaignById(id) {
@@ -271,6 +293,23 @@ export async function getCampaignById(id) {
   }
   const all = getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
   return all.find(c => c.id === id) || null;
+}
+
+export async function getCampaignRecipients(id, { status = 'all', search = '', errorCode = '', page = 1, limit = 50 } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (status && status !== 'all') params.append('status', status);
+    if (search && search.trim()) params.append('search', search.trim());
+    if (errorCode && errorCode !== 'all') params.append('error_code', errorCode);
+    if (page) params.append('page', String(page));
+    if (limit) params.append('limit', String(limit));
+
+    const res = await client.get(`/api/marketing/campaigns/${id}/recipients?${params.toString()}`);
+    return res?.data || res;
+  } catch (e) {
+    console.warn('getCampaignRecipients API notice:', e.message || e);
+    return null;
+  }
 }
 
 export async function createCampaign(campaignData, workspaceId, options = {}) {
@@ -312,11 +351,11 @@ export async function updateCampaign(id, updateData, workspaceId) {
     clearCampaignDraft();
     return result;
   } catch (e) {
-    console.warn('updateCampaign API notice, falling back:', e);
+    console.warn('updateCampaign API notice, falling back:', e?.message || e);
     const existing = getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
     const updated = existing.map(c => c.id === id ? { ...c, ...updateData } : c);
     setStoredItems(STORAGE_KEYS.CAMPAIGNS, updated);
-    return updated.find(c => c.id === id);
+    return updated.find(c => c.id === id) || { id, ...updateData };
   }
 }
 
@@ -384,13 +423,14 @@ export async function uploadAudienceCSV(file, workspaceId, defaultCountryCode = 
   return res?.data || res;
 }
 
-export async function getMarketingLeads(workspaceId, segment = 'all', search = '') {
+export async function getMarketingLeads(workspaceId, segment = 'all', search = '', channel = 'whatsapp') {
   const wsId = workspaceId || getStoredWorkspaceId();
   try {
     const params = new URLSearchParams();
     if (wsId) params.append('workspace_id', wsId);
     if (segment) params.append('segment', segment);
     if (search) params.append('search', search);
+    if (channel) params.append('channel', channel);
     const url = `/api/marketing/audiences/leads?${params.toString()}`;
     const res = await client.get(url);
     return res?.data || res || { total: 0, segment_counts: {}, leads: [] };
@@ -553,9 +593,18 @@ export function getCampaignDraft() {
 export function saveCampaignDraft(draft) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEYS.DRAFT, JSON.stringify(draft));
+    let toStore = draft;
+    if (draft?.recipients && Array.isArray(draft.recipients) && draft.recipients.length > 100) {
+      toStore = {
+        ...draft,
+        recipients: draft.recipients.slice(0, 50),
+      };
+    }
+    localStorage.setItem(STORAGE_KEYS.DRAFT, JSON.stringify(toStore));
   } catch (err) {
-    console.warn('Failed to save campaign draft:', err);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.DRAFT);
+    } catch {}
   }
 }
 

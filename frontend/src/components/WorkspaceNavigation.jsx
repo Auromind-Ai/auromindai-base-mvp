@@ -206,7 +206,7 @@ function MarketingMenu({ collapsed, active, onExpand, onNavigate }) {
       {!collapsed && open && (
         <div className="ml-5 mt-0.5 border-l border-white/10 pl-3">
           <Link
-            href="/user/admin/marketing"
+            href="/user/admin/marketing/bulkmessages"
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
             className={rowClass(active, false)}

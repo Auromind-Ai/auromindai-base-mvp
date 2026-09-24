@@ -54,6 +54,7 @@ class CampaignCreateRequest(BaseModel):
     workspace_id: str
     name: str
     campaign_type: str = "promotional"
+    category: Optional[str] = "marketing"
     campaign_goal: Optional[str] = None
     phone_number_id: Optional[str] = None
     audience_source: str = "existing_contacts"
@@ -142,6 +143,7 @@ class CampaignDuplicateResponse(BaseModel):
 class CampaignUpdateRequest(BaseModel):
     name: Optional[str] = None
     campaign_type: Optional[str] = None
+    category: Optional[str] = None
     campaign_goal: Optional[str] = None
     phone_number_id: Optional[str] = None
     whatsapp_number: Optional[str] = None

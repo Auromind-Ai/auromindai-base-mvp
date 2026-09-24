@@ -1,19 +1,9 @@
 'use client';
 
 import React from 'react';
-import { FileText, Download } from 'lucide-react';
+import { FileText, Download, Info } from 'lucide-react';
 
-/**
- * Shared message renderer for Omni Inbox and Leads CRM.
- *
- * Media detection priority:
- *   1. metadata.media_url + metadata.message_type  (structured — preferred)
- *   2. [IMAGE] / [VIDEO] / [DOCUMENT] text tags     (legacy fallback)
- *
- * Button detection priority:
- *   1. metadata.buttons array                       (structured — preferred)
- *   2. Inline [Button1] | [Button2] text format     (legacy fallback)
- */
+
 const FAILED_MEDIA_URLS = new Set();
 
 export default function MessageRenderer({
@@ -63,6 +53,33 @@ export default function MessageRenderer({
 
   // Nothing to render
   if (!content && !mediaUrl) return null;
+
+  //  0. Business Promotional Message / Unsupported format card ─
+  const isUnsupportedMsg =
+    meta.is_unsupported ||
+    messageType === 'unsupported' ||
+    (typeof content === 'string' && (
+      content.includes('Business Promotional Message') ||
+      content.includes('[Unsupported Message')
+    ));
+
+  if (isUnsupportedMsg) {
+    return (
+      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#814AC8]/10 border border-[#814AC8]/25 text-white/90 max-w-[320px] select-none my-1 shadow-sm">
+        <div className="w-5 h-5 rounded-full bg-[#814AC8]/20 flex items-center justify-center shrink-0 mt-0.5">
+          <Info size={12} className="text-[#a77bee]" />
+        </div>
+        <div className="flex flex-col gap-0.5 text-left">
+          <span className="text-[12px] font-semibold text-white/90">
+            Business Promotional Message
+          </span>
+          <span className="text-[11px] text-white/60 leading-relaxed">
+            Incoming interactive template from another account cannot be displayed on WhatsApp API.
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   //  Template layout rendering (header, body, footer, buttons) ─
   if (templateHeader || templateFooter || (buttons && Array.isArray(buttons) && buttons.length > 0)) {

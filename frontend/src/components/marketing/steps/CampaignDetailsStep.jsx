@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Send, FileText, MessageSquare, ChevronDown, Check, MessageCircle, ShieldCheck } from 'lucide-react';
 import QuickTips from '../QuickTips';
-import { getTierInfo } from '@/lib/api/marketing';
+import { getTierInfo, getCampaigns } from '@/lib/api/marketing';
 
 // Authentic WhatsApp SVG Icon Component
 function WhatsAppLogo({ className = 'w-6 h-6', size = 24 }) {
@@ -54,7 +54,14 @@ const CAMPAIGN_GOALS = [
   'Customer feedback & NPS',
 ];
 
-export default function CampaignDetailsStep({ data, updateData, onNext, onCancel, workspaceId }) {
+export default function CampaignDetailsStep({
+  data,
+  updateData,
+  onNext,
+  onCancel,
+  workspaceId,
+  existingCampaigns = [],
+}) {
   const router = useRouter();
   const [errors, setErrors] = useState({});
   const [isPhoneOpen, setIsPhoneOpen] = useState(false);
@@ -62,9 +69,42 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
   const [phoneNumbers, setPhoneNumbers] = useState([]);
   const [tierInfo, setTierInfo] = useState(null);
   const [isLoadingPhone, setIsLoadingPhone] = useState(true);
+  const [campaignList, setCampaignList] = useState(existingCampaigns || []);
 
   const goalDropdownRef = useRef(null);
   const phoneDropdownRef = useRef(null);
+
+  // Sync existing campaigns or fetch if needed
+  useEffect(() => {
+    if (existingCampaigns && existingCampaigns.length > 0) {
+      setCampaignList(existingCampaigns);
+    } else if (workspaceId) {
+      let isMounted = true;
+      getCampaigns(workspaceId)
+        .then((res) => {
+          if (isMounted && Array.isArray(res)) {
+            setCampaignList(res);
+          }
+        })
+        .catch(() => {});
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [workspaceId, existingCampaigns]);
+
+  // Check unique campaign name helper
+  const isNameDuplicate = (nameToTest) => {
+    if (!nameToTest || !nameToTest.trim()) return false;
+    const clean = nameToTest.trim().toLowerCase();
+    const currentId = String(data?.id || '');
+    return (campaignList || []).some((c) => {
+      if (!c || !c.name) return false;
+      const cId = String(c.id || '');
+      if (currentId && cId === currentId) return false;
+      return c.name.trim().toLowerCase() === clean;
+    });
+  };
 
   // Close dropdowns on outside clicks
   useEffect(() => {
@@ -121,9 +161,13 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
 
   const validateAndProceed = () => {
     const errs = {};
-    if (!data.name || !data.name.trim()) {
+    const trimmedName = (data.name || '').trim();
+    if (!trimmedName) {
       errs.name = 'Campaign name is required';
+    } else if (isNameDuplicate(trimmedName)) {
+      errs.name = 'A campaign with this name already exists. Please choose a different name.';
     }
+
     if (!data.type) {
       errs.type = 'Please select a campaign type';
     }
@@ -165,12 +209,29 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
             maxLength={100}
             value={data.name || ''}
             onChange={(e) => {
-              updateData({ name: e.target.value });
-              if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
+              const val = e.target.value;
+              updateData({ name: val });
+              if (val.trim() && isNameDuplicate(val.trim())) {
+                setErrors((prev) => ({
+                  ...prev,
+                  name: 'A campaign with this name already exists. Please choose a different name.',
+                }));
+              } else if (errors.name) {
+                setErrors((prev) => ({ ...prev, name: null }));
+              }
+            }}
+            onBlur={() => {
+              const trimmed = (data.name || '').trim();
+              if (trimmed && isNameDuplicate(trimmed)) {
+                setErrors((prev) => ({
+                  ...prev,
+                  name: 'A campaign with this name already exists. Please choose a different name.',
+                }));
+              }
             }}
             placeholder="e.g. Summer Sale 2026"
             className={`w-full px-4 py-3 rounded-xl bg-[#080a12] border text-xs sm:text-sm text-white placeholder-[#586174] outline-none transition-all duration-200 focus:border-[#814AC8] ${
-              errors.name ? 'border-rose-500/70' : 'border-[#1b2238]'
+              errors.name ? 'border-rose-500/70 shadow-[0_0_10px_rgba(244,63,94,0.15)]' : 'border-[#1b2238]'
             }`}
           />
           <div className="flex items-center justify-between text-[11px] sm:text-xs mt-1">
@@ -331,7 +392,7 @@ export default function CampaignDetailsStep({ data, updateData, onNext, onCancel
                     }`}
                   />
                 ) : (
-                  <span className="px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shrink-0">
+                  <span className="px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-emerald-500/30 text-white shrink-0">
                     Active
                   </span>
                 )}

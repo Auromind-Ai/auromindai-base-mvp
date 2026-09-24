@@ -8,6 +8,7 @@ import {
   CheckCircle,
   Search,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
 import WhatsAppPreview from '../WhatsAppPreview';
 import QuickTips from '../QuickTips';
@@ -21,6 +22,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
   const [templateCategoryFilter, setTemplateCategoryFilter] = useState('ALL');
   const [selectedTemplateId, setSelectedTemplateId] = useState(data.selectedTemplateId || '');
   const [variableMapping, setVariableMapping] = useState(data.variableMapping || {});
+  const [invalidVarKeys, setInvalidVarKeys] = useState([]);
   const [error, setError] = useState('');
 
   const mappingRef = useRef(variableMapping);
@@ -237,17 +239,37 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
       fallback: cleanKey === '1' ? 'Customer' : '',
       customValue: '',
     };
+    const merged = { ...current, ...updates };
     const next = {
       ...mappingRef.current,
-      [cleanKey]: { ...current, ...updates },
+      [cleanKey]: merged,
     };
     setVariableMapping(next);
     updateData({ variableMapping: next });
+
+    // Validate if updated variable is now satisfied
+    let isNowValid = true;
+    if (merged.source === 'custom') {
+      if (!merged.customValue || !String(merged.customValue).trim()) {
+        isNowValid = false;
+      }
+    } else if (!merged.source) {
+      isNowValid = false;
+    }
+
+    if (isNowValid) {
+      setInvalidVarKeys((prev) => {
+        const remaining = prev.filter((k) => k !== cleanKey);
+        if (remaining.length === 0) setError('');
+        return remaining;
+      });
+    }
   };
 
   const handleSelectTemplate = (tpl) => {
     setSelectedTemplateId(tpl.id);
     setError('');
+    setInvalidVarKeys([]);
     const bodyContent = tpl.body || tpl.content || '';
     setMessage(bodyContent);
 
@@ -370,6 +392,39 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
       setError('Please select an approved message template to proceed.');
       return;
     }
+
+    if (displayedVariables.length > 0) {
+      const missingVars = [];
+      const invalidKeys = [];
+
+      displayedVariables.forEach(({ tag, cleanKey }) => {
+        const current = variableMapping[cleanKey];
+        if (!current) {
+          missingVars.push(tag);
+          invalidKeys.push(cleanKey);
+        } else if (current.source === 'custom') {
+          if (!current.customValue || !String(current.customValue).trim()) {
+            missingVars.push(tag);
+            invalidKeys.push(cleanKey);
+          }
+        } else if (!current.source) {
+          missingVars.push(tag);
+          invalidKeys.push(cleanKey);
+        }
+      });
+
+      if (missingVars.length > 0) {
+        setInvalidVarKeys(invalidKeys);
+        setError(
+          `Please enter value / credentials for template variable${missingVars.length > 1 ? 's' : ''} ${missingVars.join(', ')} before proceeding.`
+        );
+        return;
+      }
+    }
+
+    setError('');
+    setInvalidVarKeys([]);
+
     updateData({
       messageBody: message,
       messageMode: 'template',
@@ -661,11 +716,16 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                   };
 
                   const isCustom = current.source === 'custom';
+                  const isInvalid = invalidVarKeys.includes(cleanKey);
 
                   return (
                     <div
                       key={cleanKey}
-                      className="p-3.5 rounded-xl bg-[#141228] border border-[#251f42] space-y-3 hover:border-[#3d3363] transition-colors"
+                      className={`p-3.5 rounded-xl space-y-3 transition-all duration-200 ${
+                        isInvalid
+                          ? 'bg-rose-950/25 border-2 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.2)]'
+                          : 'bg-[#141228] border border-[#251f42] hover:border-[#3d3363]'
+                      }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-xs sm:text-sm font-medium text-[#C49FE0] px-2.5 py-0.5 rounded-lg bg-[#814AC8]/20 border border-[#814AC8]/40">
@@ -684,7 +744,11 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                         <select
                           value={current.source}
                           onChange={(e) => handleUpdateMapping(cleanKey, { source: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs sm:text-sm text-white font-normal outline-none focus:border-[#814AC8] cursor-pointer"
+                          className={`w-full px-3 py-2 rounded-lg bg-[#0c0b17] text-xs sm:text-sm text-white font-normal outline-none cursor-pointer transition-all ${
+                            isInvalid && !current.source
+                              ? 'border-2 border-rose-500 focus:border-rose-400'
+                              : 'border border-[#2d2650] focus:border-[#814AC8]'
+                          }`}
                         >
                           {mappingOptions.map((opt) => (
                             <option key={opt.id} value={opt.id} className="bg-[#121026] text-white font-normal">
@@ -697,15 +761,27 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                       {/* Custom text input if custom value is selected */}
                       {isCustom && (
                         <div className="space-y-1.5">
-                          <label className="text-xs sm:text-sm font-normal text-white/70 block">
-                            Value for {tag}:
-                          </label>
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs sm:text-sm font-normal text-white/70 block">
+                              Value for {tag} <span className="text-rose-400">*</span>:
+                            </label>
+                            {isInvalid && (
+                              <span className="text-[11px] text-rose-400 font-medium flex items-center gap-1 animate-pulse">
+                                <AlertCircle size={12} />
+                                <span>Value required</span>
+                              </span>
+                            )}
+                          </div>
                           <input
                             type="text"
                             value={current.customValue || ''}
                             onChange={(e) => handleUpdateMapping(cleanKey, { customValue: e.target.value })}
-                            placeholder="e.g. DIWALI25, 20% OFF, Special Pass"
-                            className="w-full px-3 py-2 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs sm:text-sm text-white font-normal placeholder-[#716d8a] outline-none focus:border-[#814AC8]"
+                            placeholder="e.g. DIWALI25, 20% OFF, Special Pass, OTP/Secret"
+                            className={`w-full px-3 py-2 rounded-lg bg-[#0c0b17] text-xs sm:text-sm text-white font-normal placeholder-[#716d8a] outline-none transition-all ${
+                              isInvalid
+                                ? 'border-2 border-rose-500 focus:border-rose-400 ring-1 ring-rose-500/30'
+                                : 'border border-[#2d2650] focus:border-[#814AC8]'
+                            }`}
                           />
                         </div>
                       )}
@@ -752,6 +828,14 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
           />
         </div>
       </div>
+
+      {/* Validation Error Banner */}
+      {error && (
+        <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs sm:text-sm text-rose-300 flex items-center gap-2.5 font-medium animate-in fade-in duration-200">
+          <AlertCircle size={16} className="text-rose-400 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="pt-6 mt-4 border-t border-[#1b2238] flex items-center justify-between">
