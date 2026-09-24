@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle2, Clock, PauseCircle, AlertCircle, FileText } from 'lucide-react';
+import { CheckCircle2, Clock, PauseCircle, FileText } from 'lucide-react';
 
 function Spinner({ size = 13, className = '', style = {} }) {
   return (
@@ -88,23 +88,24 @@ const STATUS_CONFIGS = {
     text: 'text-white',
     iconColor: 'text-white',
   },
-  Failed: {
-    label: 'Failed',
-    icon: AlertCircle,
-    bg: 'bg-[#B91C1C]',
-    shadow: 'shadow-[0_0_12px_rgba(185,28,28,0.4)]',
-    border: 'border-[#EF4444]/40',
-    text: 'text-white',
-    iconColor: 'text-white',
-  },
 };
 
 export default function CampaignStatusBadge({ status }) {
   const rawStatus = (status || '').toLowerCase();
-  const normalized = (rawStatus === 'in_progress' || rawStatus === 'sending')
-    ? 'Sending'
-    : (status ? (status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()) : 'Draft');
-  const cfg = STATUS_CONFIGS[normalized] || STATUS_CONFIGS.Draft;
+  let normalized = 'Draft';
+  if (rawStatus === 'in_progress' || rawStatus === 'sending') {
+    normalized = 'Sending';
+  } else if (rawStatus === 'scheduled') {
+    normalized = 'Scheduled';
+  } else if (rawStatus === 'paused') {
+    normalized = 'Paused';
+  } else if (rawStatus === 'draft' || rawStatus === 'pending') {
+    normalized = 'Draft';
+  } else {
+    // completed, failed, cancelled or any finished state maps to Completed
+    normalized = 'Completed';
+  }
+  const cfg = STATUS_CONFIGS[normalized] || STATUS_CONFIGS.Completed;
   const Icon = cfg.icon;
 
   return (

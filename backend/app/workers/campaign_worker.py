@@ -168,7 +168,7 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
 
         if not workspace or not access_token:
             logger.error("Workspace or Meta access token missing for campaign %s", campaign_id)
-            campaign.status = "failed"
+            campaign.status = "paused"
             campaign.paused_reason = "META_ACCESS_TOKEN_MISSING"
             db.commit()
             return

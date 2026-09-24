@@ -65,6 +65,7 @@ export default function CreateCampaignModal({
   onSuccess,
   workspaceId,
   initialCampaign = null,
+  existingCampaigns = [],
 }) {
   const { workspaceId: authWsId } = useAuth();
   const activeWsId = workspaceId || authWsId;
@@ -281,6 +282,7 @@ export default function CreateCampaignModal({
                   onNext={handleNext}
                   onCancel={handleRequestClose}
                   workspaceId={activeWsId}
+                  existingCampaigns={existingCampaigns}
                 />
               )}
 

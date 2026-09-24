@@ -4,7 +4,7 @@ from decimal import Decimal
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, func, or_, and_
 from fastapi import HTTPException
 from app.core.security import to_uuid
 from app.models.campaign import ContactListMember
@@ -13,6 +13,7 @@ from app.models.wcc import WCCWallet, WCCRateCard
 from app.models.workspace import Workspace
 from app.models.templates import Template
 from app.models.ai_action import Lead
+from app.models.conversation import Conversation, ChannelType
 from app.services.wcc_service import WCCService, InsufficientWCCBalanceError
 from app.services.marketing.audience_service import normalize_phone
 from app.services.marketing.whatsapp_tier_service import WhatsAppTierService
@@ -281,6 +282,21 @@ class CampaignService:
         if not workspace:
             raise HTTPException(status_code=404, detail="Workspace not found")
 
+        # Check unique campaign name within workspace (case-insensitive)
+        campaign_name = (data.get("name") or "").strip()
+        if not campaign_name:
+            raise HTTPException(status_code=400, detail="Campaign name is required.")
+
+        existing_campaign = db.query(Campaign).filter(
+            Campaign.workspace_id == workspace_id,
+            func.lower(Campaign.name) == campaign_name.lower()
+        ).first()
+        if existing_campaign:
+            raise HTTPException(
+                status_code=400,
+                detail=f"A campaign named '{campaign_name}' already exists. Please choose a different name."
+            )
+
         # Verify sender line belongs to this workspace
         phone_number_id = (
             data.get("phone_number_id")
@@ -393,14 +409,28 @@ class CampaignService:
                     error_message=err_msg
                 ))
         elif contact_list_ids:
-            # Query only leads belonging to the selected contact lists
+            # Query only leads belonging to the selected contact lists (WhatsApp eligible only)
             valid_list_uuids = [to_uuid(lid) for lid in contact_list_ids if to_uuid(lid)]
             leads_in_lists = (
                 db.query(Lead)
                 .join(ContactListMember, ContactListMember.lead_id == Lead.id)
+                .outerjoin(Conversation, Lead.conversation_id == Conversation.id)
                 .filter(
                     ContactListMember.contact_list_id.in_(valid_list_uuids),
-                    Lead.workspace_id == workspace_id
+                    Lead.workspace_id == workspace_id,
+                    Lead.phone.isnot(None),
+                    func.length(func.trim(Lead.phone)) >= 7,
+                    ~func.lower(func.coalesce(Lead.source, "")).like("%instagram%"),
+                    ~func.lower(func.coalesce(Lead.source, "")).like("%gmail%"),
+                    ~func.lower(func.coalesce(Lead.source, "")).like("%email%"),
+                    func.lower(func.coalesce(Lead.source, "")) != "ig",
+                    or_(
+                        Lead.conversation_id.is_(None),
+                        and_(
+                            Conversation.channel != ChannelType.INSTAGRAM,
+                            Conversation.channel != ChannelType.EMAIL,
+                        ),
+                    ),
                 )
                 .all()
             )
@@ -435,12 +465,30 @@ class CampaignService:
                     error_message=err_msg
                 ))
         elif lead_ids:
-            # Query specific selected leads
+            # Query specific selected leads (WhatsApp eligible only)
             valid_lead_uuids = [to_uuid(lid) for lid in lead_ids if to_uuid(lid)]
-            specific_leads = db.query(Lead).filter(
-                Lead.id.in_(valid_lead_uuids),
-                Lead.workspace_id == workspace_id
-            ).all()
+            specific_leads = (
+                db.query(Lead)
+                .outerjoin(Conversation, Lead.conversation_id == Conversation.id)
+                .filter(
+                    Lead.id.in_(valid_lead_uuids),
+                    Lead.workspace_id == workspace_id,
+                    Lead.phone.isnot(None),
+                    func.length(func.trim(Lead.phone)) >= 7,
+                    ~func.lower(func.coalesce(Lead.source, "")).like("%instagram%"),
+                    ~func.lower(func.coalesce(Lead.source, "")).like("%gmail%"),
+                    ~func.lower(func.coalesce(Lead.source, "")).like("%email%"),
+                    func.lower(func.coalesce(Lead.source, "")) != "ig",
+                    or_(
+                        Lead.conversation_id.is_(None),
+                        and_(
+                            Conversation.channel != ChannelType.INSTAGRAM,
+                            Conversation.channel != ChannelType.EMAIL,
+                        ),
+                    ),
+                )
+                .all()
+            )
             for lead in specific_leads:
                 norm = normalize_phone(lead.phone, default_country_code="91") or (lead.phone or "").strip()
                 if not norm or norm in seen_phones:
@@ -472,7 +520,26 @@ class CampaignService:
                     error_message=err_msg
                 ))
         elif campaign.audience_source in ("existing_contacts", "all_crm_contacts", "smart_segment"):
-            lead_query = db.query(Lead).filter(Lead.workspace_id == workspace_id)
+            lead_query = (
+                db.query(Lead)
+                .outerjoin(Conversation, Lead.conversation_id == Conversation.id)
+                .filter(
+                    Lead.workspace_id == workspace_id,
+                    Lead.phone.isnot(None),
+                    func.length(func.trim(Lead.phone)) >= 7,
+                    ~func.lower(func.coalesce(Lead.source, "")).like("%instagram%"),
+                    ~func.lower(func.coalesce(Lead.source, "")).like("%gmail%"),
+                    ~func.lower(func.coalesce(Lead.source, "")).like("%email%"),
+                    func.lower(func.coalesce(Lead.source, "")) != "ig",
+                    or_(
+                        Lead.conversation_id.is_(None),
+                        and_(
+                            Conversation.channel != ChannelType.INSTAGRAM,
+                            Conversation.channel != ChannelType.EMAIL,
+                        ),
+                    ),
+                )
+            )
             if segment == "hot":
                 lead_query = lead_query.filter(Lead.score >= 70)
             elif segment == "warm":
@@ -749,7 +816,20 @@ class CampaignService:
 
         # Update scalar fields if present in data
         if "name" in data and data["name"] is not None:
-            campaign.name = data["name"]
+            updated_name = data["name"].strip()
+            if not updated_name:
+                raise HTTPException(status_code=400, detail="Campaign name cannot be empty.")
+            existing_campaign = db.query(Campaign).filter(
+                Campaign.workspace_id == campaign.workspace_id,
+                Campaign.id != campaign.id,
+                func.lower(Campaign.name) == updated_name.lower()
+            ).first()
+            if existing_campaign:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"A campaign named '{updated_name}' already exists. Please choose a different name."
+                )
+            campaign.name = updated_name
         if "campaign_type" in data and data["campaign_type"] is not None:
             campaign.campaign_type = data["campaign_type"]
         if "campaign_goal" in data:

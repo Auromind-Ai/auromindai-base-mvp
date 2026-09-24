@@ -12,6 +12,7 @@ from app.models.campaign import Campaign, CampaignRecipient, ContactList, Contac
 from app.models.templates import Template
 from app.models.workspace import Workspace, WorkspaceMember
 from app.models.ai_action import Lead
+from app.models.conversation import Conversation, ChannelType
 from app.schemas.campaign import (
     PreflightEstimateRequest,
     PreflightEstimateResponse,
@@ -804,6 +805,24 @@ async def upload_audience_csv(
     return parsed
 
 
+def get_whatsapp_lead_filters():
+    return [
+        Lead.phone.isnot(None),
+        func.length(func.trim(Lead.phone)) >= 7,
+        ~func.lower(func.coalesce(Lead.source, "")).like("%instagram%"),
+        ~func.lower(func.coalesce(Lead.source, "")).like("%gmail%"),
+        ~func.lower(func.coalesce(Lead.source, "")).like("%email%"),
+        func.lower(func.coalesce(Lead.source, "")) != "ig",
+        or_(
+            Lead.conversation_id.is_(None),
+            and_(
+                Conversation.channel != ChannelType.INSTAGRAM,
+                Conversation.channel != ChannelType.EMAIL,
+            ),
+        ),
+    ]
+
+
 @router.get("/audiences/lists")
 @router.get("/contact-lists")
 async def list_contact_lists(
@@ -814,7 +833,13 @@ async def list_contact_lists(
     ws_uuid = resolve_workspace_id(current_user, db, workspace_id)
 
     lists = db.query(ContactList).filter(ContactList.workspace_id == ws_uuid).order_by(ContactList.created_at.desc()).all()
-    leads_count = db.query(Lead).filter(Lead.workspace_id == ws_uuid).count()
+    wa_filters = get_whatsapp_lead_filters()
+    leads_count = (
+        db.query(Lead)
+        .outerjoin(Conversation, Lead.conversation_id == Conversation.id)
+        .filter(Lead.workspace_id == ws_uuid, *wa_filters)
+        .count()
+    )
 
     res = []
     if leads_count > 0:
@@ -864,15 +889,23 @@ async def list_marketing_crm_leads(
     workspace_id: Optional[str] = Query(None),
     segment: Optional[str] = Query("all"),
     search: Optional[str] = Query(None),
+    channel: Optional[str] = Query("whatsapp"),
     limit: int = Query(200, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """
     Returns real CRM leads for Step 2 Audience selection & Smart Segments.
+    Filters out Instagram/non-WhatsApp leads so that only WhatsApp eligible contacts are returned.
     """
     ws_uuid = resolve_workspace_id(current_user, db, workspace_id)
-    query = db.query(Lead).filter(Lead.workspace_id == ws_uuid)
+    wa_filters = get_whatsapp_lead_filters() if (not channel or channel.lower() == "whatsapp") else []
+
+    base_filter = [Lead.workspace_id == ws_uuid]
+    if wa_filters:
+        base_filter.extend(wa_filters)
+
+    query = db.query(Lead).outerjoin(Conversation, Lead.conversation_id == Conversation.id).filter(*base_filter)
 
     if segment == "hot":
         query = query.filter(Lead.score >= 70)
@@ -891,11 +924,12 @@ async def list_marketing_crm_leads(
 
     leads = query.order_by(Lead.score.desc().nullslast(), Lead.created_at.desc()).limit(limit).all()
 
-    total_count = db.query(Lead).filter(Lead.workspace_id == ws_uuid).count()
-    hot_count = db.query(Lead).filter(Lead.workspace_id == ws_uuid, Lead.score >= 70).count()
-    warm_count = db.query(Lead).filter(Lead.workspace_id == ws_uuid, Lead.score >= 40, Lead.score < 70).count()
-    new_count = db.query(Lead).filter(Lead.workspace_id == ws_uuid, Lead.status == "new").count()
-    converted_count = db.query(Lead).filter(Lead.workspace_id == ws_uuid, Lead.status == "converted").count()
+    total_count = db.query(Lead).outerjoin(Conversation, Lead.conversation_id == Conversation.id).filter(*base_filter).count()
+    hot_count = db.query(Lead).outerjoin(Conversation, Lead.conversation_id == Conversation.id).filter(*base_filter, Lead.score >= 70).count()
+    warm_count = db.query(Lead).outerjoin(Conversation, Lead.conversation_id == Conversation.id).filter(*base_filter, Lead.score >= 40, Lead.score < 70).count()
+    new_count = db.query(Lead).outerjoin(Conversation, Lead.conversation_id == Conversation.id).filter(*base_filter, Lead.status == "new").count()
+    converted_count = db.query(Lead).outerjoin(Conversation, Lead.conversation_id == Conversation.id).filter(*base_filter, Lead.status == "converted").count()
+    cold_count = db.query(Lead).outerjoin(Conversation, Lead.conversation_id == Conversation.id).filter(*base_filter, Lead.score < 40).count()
 
     return {
         "total": len(leads),
@@ -905,6 +939,7 @@ async def list_marketing_crm_leads(
             "warm": warm_count,
             "new": new_count,
             "converted": converted_count,
+            "cold": cold_count,
         },
         "leads": [
             {
@@ -913,6 +948,7 @@ async def list_marketing_crm_leads(
                 "phone": l.phone,
                 "score": l.score or 0,
                 "status": l.status or "new",
+                "source": l.source or "whatsapp",
                 "created_at": l.created_at.isoformat() if l.created_at else None,
             }
             for l in leads

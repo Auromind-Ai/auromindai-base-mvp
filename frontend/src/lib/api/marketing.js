@@ -55,8 +55,7 @@ function normalizeStatus(status) {
   if (lower === 'draft' || lower === 'pending') return 'Draft';
   if (lower === 'scheduled') return 'Scheduled';
   if (lower === 'paused') return 'Paused';
-  if (lower === 'completed') return 'Completed';
-  if (lower === 'failed' || lower === 'cancelled') return 'Failed';
+  if (lower === 'completed' || lower === 'failed' || lower === 'cancelled') return 'Completed';
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
@@ -406,13 +405,14 @@ export async function uploadAudienceCSV(file, workspaceId, defaultCountryCode = 
   return res?.data || res;
 }
 
-export async function getMarketingLeads(workspaceId, segment = 'all', search = '') {
+export async function getMarketingLeads(workspaceId, segment = 'all', search = '', channel = 'whatsapp') {
   const wsId = workspaceId || getStoredWorkspaceId();
   try {
     const params = new URLSearchParams();
     if (wsId) params.append('workspace_id', wsId);
     if (segment) params.append('segment', segment);
     if (search) params.append('search', search);
+    if (channel) params.append('channel', channel);
     const url = `/api/marketing/audiences/leads?${params.toString()}`;
     const res = await client.get(url);
     return res?.data || res || { total: 0, segment_counts: {}, leads: [] };

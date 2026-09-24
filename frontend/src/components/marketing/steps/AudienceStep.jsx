@@ -268,14 +268,25 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
     };
   }, [workspaceId]);
 
+  // Helper to ensure only WhatsApp-capable contacts are admitted
+  const isWhatsAppEligible = (l) => {
+    if (!l) return false;
+    const src = String(l.source || '').toLowerCase();
+    if (src.includes('instagram') || src === 'ig' || src.includes('gmail') || src.includes('email')) {
+      return false;
+    }
+    const phoneStr = String(l.phone || '').trim();
+    return phoneStr.length >= 7;
+  };
+
   // Load CRM Leads for Existing Contacts
   useEffect(() => {
     let isSubscribed = true;
-    getMarketingLeads(workspaceId, 'all', searchQuery)
+    getMarketingLeads(workspaceId, 'all', searchQuery, 'whatsapp')
       .then((res) => {
         if (!isSubscribed) return;
         if (res) {
-          const list = res.leads || [];
+          const list = (res.leads || []).filter(isWhatsAppEligible);
           setCrmLeads(list);
           if (res.segment_counts) {
             setSegmentCounts(res.segment_counts);
@@ -296,10 +307,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
   useEffect(() => {
     if (audienceType !== 'Smart Segment') return;
     let isSubscribed = true;
-    getMarketingLeads(workspaceId, activeSegment)
+    getMarketingLeads(workspaceId, activeSegment, '', 'whatsapp')
       .then((res) => {
         if (!isSubscribed) return;
-        const list = res?.leads || [];
+        const list = (res?.leads || []).filter(isWhatsAppEligible);
         setSegmentLeads(list);
         const formatted = list.map((l) => ({
           lead_id: l.id,
@@ -331,9 +342,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
   const handleRefreshLeads = async () => {
     setIsLoadingLeads(true);
     try {
-      const res = await getMarketingLeads(workspaceId, 'all', searchQuery);
+      const res = await getMarketingLeads(workspaceId, 'all', searchQuery, 'whatsapp');
       if (res) {
-        setCrmLeads(res.leads || []);
+        const list = (res.leads || []).filter(isWhatsAppEligible);
+        setCrmLeads(list);
         if (res.segment_counts) setSegmentCounts(res.segment_counts);
       }
     } finally {
@@ -833,9 +845,10 @@ export default function AudienceStep({ data, updateData, onNext, onBack, workspa
   };
 
   const filteredCrmLeads = useMemo(() => {
-    if (!searchQuery.trim()) return crmLeads;
+    const waLeads = crmLeads.filter(isWhatsAppEligible);
+    if (!searchQuery.trim()) return waLeads;
     const q = searchQuery.toLowerCase();
-    return crmLeads.filter(
+    return waLeads.filter(
       (l) => (l.name || '').toLowerCase().includes(q) || (l.phone || '').toLowerCase().includes(q)
     );
   }, [crmLeads, searchQuery]);

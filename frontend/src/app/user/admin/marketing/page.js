@@ -1,8 +1,5 @@
-'use client';
-
-import React from 'react';
-import CampaignDashboard from '@/components/marketing/CampaignDashboard';
+import { redirect } from 'next/navigation';
 
 export default function MarketingMainPage() {
-  return <CampaignDashboard activeSubmenu="Campaigns" />;
+  redirect('/user/admin/marketing/bulkmessages');
 }

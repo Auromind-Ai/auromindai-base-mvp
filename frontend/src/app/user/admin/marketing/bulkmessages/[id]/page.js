@@ -4,7 +4,7 @@ import React from 'react';
 import { useParams } from 'next/navigation';
 import CampaignDetailsView from '@/components/marketing/CampaignDetailsView';
 
-export default function CampaignDetailsPage({ params: propParams }) {
+export default function BulkMessageDetailsPage({ params: propParams }) {
   const routeParams = useParams();
   const campaignId = routeParams?.id || propParams?.id;
 
