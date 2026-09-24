@@ -17,6 +17,7 @@ from app.services.template import submit_to_meta
 from app.routers.auth import get_current_user, CurrentUser
 from app.core.security import verify_workspace_access,to_uuid
 from app.core.exceptions import BillingError, WorkspaceAccessError, AIProviderError
+from app.services.storage.service import get_storage
 router = APIRouter()
 
 from app.schemas.template import (
@@ -414,7 +415,6 @@ async def create_template(
     media_url_to_save = None
     if media_file_bytes and len(media_file_bytes) > 0:
         try:
-            from app.services.storage_service import get_storage
             import uuid
             import os
             storage = get_storage()
@@ -993,7 +993,6 @@ async def update_template_media(
         if uploaded_file and hasattr(uploaded_file, "read"):
             file_bytes = await uploaded_file.read()
             if file_bytes and len(file_bytes) > 0:
-                from app.services.storage_service import get_storage
                 import uuid, os
                 storage = get_storage()
                 tmpl_type = (template.type or "IMAGE").upper()
