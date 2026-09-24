@@ -100,7 +100,7 @@ function BentoMetricCard({ metric, i, rgb }) {
       onPointerMove={onMove}
       onPointerLeave={onLeave}
       onClick={onClick}
-      className="relative group rounded-2xl p-4 border border-purple-300/30 bg-[#070012] hover:border-white/10 transition-all cursor-default overflow-hidden bento-card"
+      className="relative group rounded-2xl p-4 border border-purple-300/30 bg-[#0b111b] hover:border-white/10 transition-all cursor-default overflow-hidden bento-card"
       style={{
         '--r': rgb.r, '--g': rgb.g, '--b': rgb.b,
         '--gx': '50%', '--gy': '50%', '--gi': 0,
@@ -817,7 +817,7 @@ function RecentActivityCard({ activities = [] }) {
 
   return (
     <section
-      className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-visible flex flex-col relative h-full"
+      className="rounded-2xl border border-purple-300/30 bg-[#0b111b] backdrop-blur-xl overflow-visible flex flex-col relative h-full"
       onMouseLeave={handleMouseLeave}
     >
       <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-white/10 flex-shrink-0">
@@ -998,7 +998,7 @@ function QuickActionsCard({ onAddLeadClick }) {
   };
 
   return (
-    <section className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden h-full">
+    <section className="rounded-2xl border border-purple-300/30 bg-[#0b111b] backdrop-blur-xl overflow-hidden h-full">
       <div className="px-5 pt-4 pb-1">
         <h2 className="text-[15px] font-semibold text-white/90">Quick Actions</h2>
         <p className="text-[13px] text-white/70 mt-0.5">Perform important task in one click</p>
@@ -1050,7 +1050,7 @@ function AIInsightsCard({ insights = [] }) {
     bot: Bot
   };
   return (
-    <section className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden flex flex-col h-full relative">
+    <section className="rounded-2xl border border-purple-300/30 bg-[#0b111b] backdrop-blur-xl overflow-hidden flex flex-col h-full relative">
       <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-white/10">
         <h2 className="text-[15px] font-semibold text-white/90">AI Insights</h2>
         <button 
@@ -1594,7 +1594,7 @@ export default function DashboardPage() {
         {/* ROW 1: Monthly Revenue + Recent Activity */}
         <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5 overflow-visible ${cardStateClass}`}>
           {/* Monthly Revenue — 2/3 */}
-          <section className="lg:col-span-2 rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden flex flex-col justify-between">
+          <section className="lg:col-span-2 rounded-2xl border border-purple-300/30 bg-[#0b111b] backdrop-blur-xl overflow-hidden flex flex-col justify-between">
             {/* Header: Title on Left, 2 Toggle buttons on Right */}
             <div className="px-5 pt-4 pb-1 flex items-center justify-between">
               <div>

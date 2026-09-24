@@ -1,19 +1,58 @@
 import logging
 import json
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, File, UploadFile, Form
 from sqlalchemy.orm import Session
 from app.core.security import verify_workspace_access
 from app.database import get_db
 from app.routers.auth import CurrentUser, get_current_user
 from app.services.inbox.channel_connection_service import ChannelConnectionService
 from app.services.inbox.webhook_service import WebhookService
-from app.schemas.webhook import MetaWhatsAppConnectRequest
+from app.schemas.webhook import MetaWhatsAppConnectRequest, MetaWhatsAppProfileUpdateRequest
 from app.services.config_service import config_service
 
 from app.core.logger import logger
 router = APIRouter()
 
 
+
+@router.get("/whatsapp/profile")
+async def get_whatsapp_profile(
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    verified_ws = verify_workspace_access(current_user, db, workspace_id)
+    return ChannelConnectionService.get_whatsapp_profile(db, verified_ws)
+
+
+@router.post("/whatsapp/profile")
+async def update_whatsapp_profile(
+    data: MetaWhatsAppProfileUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    verified_ws = verify_workspace_access(current_user, db, data.workspace_id)
+    payload_dict = data.model_dump()
+    payload_dict["workspace_id"] = verified_ws
+    return ChannelConnectionService.update_whatsapp_profile(db, payload_dict)
+
+
+@router.post("/whatsapp/profile/photo")
+async def update_whatsapp_profile_photo(
+    workspace_id: str = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    verified_ws = verify_workspace_access(current_user, db, workspace_id)
+    file_bytes = await file.read()
+    content_type = file.content_type or "image/jpeg"
+    return ChannelConnectionService.update_whatsapp_profile_photo(
+        db,
+        verified_ws,
+        file_bytes,
+        content_type
+    )
 
 
 @router.post("/whatsapp/connect")
@@ -34,6 +73,7 @@ async def connect_whatsapp(
     except Exception as exc:
         logger.error("WhatsApp connect error: %s", exc)
         raise HTTPException(status_code=500, detail="WhatsApp connection operation failed. Please verify credentials.")
+
 
 
 

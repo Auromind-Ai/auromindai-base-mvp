@@ -18,6 +18,7 @@ import {
   Copy,
   Pause,
   Play,
+  Edit2,
   ArrowLeft,
   ArrowRight,
   ArrowDown,
@@ -28,7 +29,7 @@ import {
 } from 'lucide-react';
 import CampaignStatusBadge from './CampaignStatusBadge';
 import CreateCampaignModal from './CreateCampaignModal';
-import { getCampaigns, deleteCampaign, updateCampaign, pauseCampaign, resumeCampaign, duplicateCampaign } from '@/lib/api/marketing';
+import { getCampaigns, getCampaignById, deleteCampaign, updateCampaign, pauseCampaign, resumeCampaign, duplicateCampaign } from '@/lib/api/marketing';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 
@@ -98,6 +99,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCampaignIds, setSelectedCampaignIds] = useState([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState(null);
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [dateFilter, setDateFilter] = useState('All time');
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
@@ -350,8 +352,19 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
     setActiveMenuId(null);
   };
 
+  const handleEditDraft = async (camp) => {
+    setActiveMenuId(null);
+    try {
+      const fullCamp = await getCampaignById(camp.id);
+      setEditingCampaign(fullCamp || camp);
+    } catch {
+      setEditingCampaign(camp);
+    }
+    setIsCreateOpen(true);
+  };
+
   return (
-    <div className="w-full min-h-screen bg-[#07080d] text-white flex flex-col p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1400px] mx-auto">
+    <div className="w-full min-h-screen bg-[#05080e] text-white flex flex-col p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1400px] mx-auto">
 
       {/* 1. Breadcrumb & Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
@@ -387,8 +400,11 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
 
           <button
             type="button"
-            onClick={() => setIsCreateOpen(true)}
-            className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#814AC8] hover:bg-[#723db5] shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_28px_rgba(129,74,200,0.65)] flex items-center gap-2 transition-all active:scale-[0.98]"
+            onClick={() => {
+              setEditingCampaign(null);
+              setIsCreateOpen(true);
+            }}
+            className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#814AC8] hover:bg-[#723db5] shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_28px_rgba(129,74,200,0.65)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
           >
             <Plus size={16} strokeWidth={2.5} />
             <span>Create Campaign</span>
@@ -399,7 +415,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
       {/* 2. Metrics Cards (4 Dynamic Cards with Premium Backgrounds & White Icons) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Campaigns */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#0a0c14] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#0b111b] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-[#5E5CE6] shadow-[0_0_20px_rgba(94,92,230,0.4)] flex items-center justify-center text-white shrink-0">
             <Send size={18} className="text-white" />
           </div>
@@ -419,7 +435,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
         </div>
 
         {/* Card 2: Messages Sent */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#0a0c14] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#0b111b] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-[#1E4BB8] shadow-[0_0_20px_rgba(30,75,184,0.4)] flex items-center justify-center text-white shrink-0">
             <Users size={18} className="text-white" />
           </div>
@@ -439,7 +455,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
         </div>
 
         {/* Card 3: Delivered */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#0a0c14] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#0b111b] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-[#0E845A] shadow-[0_0_20px_rgba(14,132,90,0.4)] flex items-center justify-center text-white shrink-0">
             <CheckCircle2 size={18} className="text-white" />
           </div>
@@ -462,7 +478,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
         </div>
 
         {/* Card 4: Replies */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#0a0c14] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#0b111b] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-[#9A5328] shadow-[0_0_20px_rgba(154,83,40,0.4)] flex items-center justify-center text-white shrink-0">
             <MessageSquare size={18} className="text-white" />
           </div>
@@ -527,7 +543,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                 setCurrentPage(1);
               }}
               placeholder="Search campaigns..."
-              className="w-full pl-9 pr-3.5 py-1.5 rounded-xl bg-[#0a0c14] border border-[#161a28] text-xs text-white placeholder-[#586174] outline-none focus:border-[#814AC8] transition-all"
+              className="w-full pl-9 pr-3.5 py-1.5 rounded-xl bg-[#0b111b] border border-[#161a28] text-xs text-white placeholder-[#586174] outline-none focus:border-[#814AC8] transition-all"
             />
           </div>
 
@@ -539,7 +555,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
               className={`px-3.5 py-1.5 rounded-xl border text-xs flex items-center gap-2 transition-colors cursor-pointer select-none ${
                 dateFilter !== 'All time'
                   ? 'bg-[#814AC8]/20 border-[#814AC8] text-white font-medium shadow-[0_0_15px_rgba(129,74,200,0.25)]'
-                  : 'bg-[#0a0c14] border-[#161a28] hover:border-[#283049] text-[#cbd5e1] hover:text-white'
+                  : 'bg-[#0b111b] border-[#161a28] hover:border-[#283049] text-[#cbd5e1] hover:text-white'
               }`}
             >
               <Calendar size={13} className={dateFilter !== 'All time' ? 'text-[#a78bfa]' : 'text-white/60'} />
@@ -575,7 +591,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
       </div>
 
       {/* 4. Campaign Data Table */}
-      <div className="rounded-2xl border border-[#161a28] bg-[#0a0c14] overflow-hidden shadow-xl">
+      <div className="rounded-2xl border border-[#161a28] bg-[#0b111b] overflow-hidden shadow-xl">
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#0b0e18] border-b border-[#161a28] text-white text-[13px] font-normal">
@@ -773,35 +789,68 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                         {/* Action Menu Flyout */}
                         {activeMenuId === camp.id && (
                           <div className="absolute right-4 top-10 w-36 bg-[#101320] border border-[#22283d] rounded-xl shadow-2xl p-1 z-30 space-y-0.5 text-left animate-in fade-in zoom-in-95 duration-100">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleTogglePause(camp);
-                                setActiveMenuId(null);
-                              }}
-                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
-                            >
-                              {(camp.status || '').toLowerCase() === 'paused' ? <Play size={12} /> : <Pause size={12} />}
-                              <span>{(camp.status || '').toLowerCase() === 'paused' ? 'Resume' : 'Pause'}</span>
-                            </button>
+                            {(() => {
+                              const isDraft = (camp.status || '').toLowerCase() === 'draft' || (camp.status || '').toLowerCase() === 'pending';
+                              if (isDraft) {
+                                return (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEditDraft(camp)}
+                                      className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                    >
+                                      <Edit2 size={12} />
+                                      <span>Edit</span>
+                                    </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleDuplicate(camp)}
-                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
-                            >
-                              <Copy size={12} />
-                              <span>Duplicate</span>
-                            </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDelete(camp.id)}
+                                      className="w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                    >
+                                      <Trash2 size={12} />
+                                      <span>Delete</span>
+                                    </button>
+                                  </>
+                                );
+                              }
 
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(camp.id)}
-                              className="w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
-                            >
-                              <Trash2 size={12} />
-                              <span>Delete</span>
-                            </button>
+                              return (
+                                <>
+                                  {!['completed', 'failed', 'cancelled'].includes((camp.status || '').toLowerCase()) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleTogglePause(camp);
+                                        setActiveMenuId(null);
+                                      }}
+                                      className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                    >
+                                      {(camp.status || '').toLowerCase() === 'paused' ? <Play size={12} /> : <Pause size={12} />}
+                                      <span>{(camp.status || '').toLowerCase() === 'paused' ? 'Resume' : 'Pause'}</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDuplicate(camp)}
+                                    className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                  >
+                                    <Copy size={12} />
+                                    <span>Duplicate</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDelete(camp.id)}
+                                    className="w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                  >
+                                    <Trash2 size={12} />
+                                    <span>Delete</span>
+                                  </button>
+                                </>
+                              );
+                            })()}
                           </div>
                         )}
                       </td>
@@ -914,12 +963,19 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
       </div>
 
       {/* 6. Create WhatsApp Campaign Modal */}
-      <CreateCampaignModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onSuccess={() => loadData()}
-        workspaceId={workspaceId}
-      />
+      {isCreateOpen && (
+        <CreateCampaignModal
+          key={editingCampaign?.id || 'new-campaign'}
+          isOpen={isCreateOpen}
+          onClose={() => {
+            setIsCreateOpen(false);
+            setEditingCampaign(null);
+          }}
+          onSuccess={() => loadData()}
+          workspaceId={workspaceId}
+          initialCampaign={editingCampaign}
+        />
+      )}
     </div>
   );
 }

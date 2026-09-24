@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { poppins } from '@/lib/fonts';
-import { Instagram, Search, ChevronDown, Check, X, ChevronRight, Eye, EyeOff, ExternalLink, Settings, Copy } from 'lucide-react';
+import { Instagram, Search, ChevronDown, Check, X, ChevronRight, Eye, EyeOff, ExternalLink, Settings, Copy, UserPen } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
+
 
 
 
@@ -846,8 +847,18 @@ export default function ChannelsPage() {
     });
 
     const [selectedChannelDetails, setSelectedChannelDetails] = useState(null);
+    const [isWhatsAppProfileOpen, setIsWhatsAppProfileOpen] = useState(false);
     const [detailsRevealedSecrets, setDetailsRevealedSecrets] = useState({});
     const [copiedKey, setCopiedKey] = useState(null);
+
+    const handleOpenWhatsAppProfile = (isConnected) => {
+        if (!isConnected) {
+            showToast("Please connect your WhatsApp Business account first to edit profile.", "warning");
+            return;
+        }
+        setIsWhatsAppProfileOpen(true);
+    };
+
 
     const handleCopyText = (text, key) => {
         if (!text) return;
@@ -1483,6 +1494,17 @@ export default function ChannelsPage() {
                                         </div>
 
                                         <div className="flex items-center gap-1.5 shrink-0">
+                                            {/* {item.id === 'whatsapp' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleOpenWhatsAppProfile(isConnected)}
+                                                    className="group/edit-btn relative overflow-hidden flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all duration-200 border border-[#4EED6E]/40 bg-[#4EED6E]/10 text-[#4EED6E] hover:bg-[#4EED6E]/20 hover:border-[#4EED6E]/80 hover:shadow-[0_0_16px_rgba(78,237,110,0.35)] hover:-translate-y-0.5 active:scale-95 cursor-pointer shrink-0"
+                                                >
+                                                    <UserPen size={13} className="text-[#4EED6E]" />
+                                                    <span>Edit Profile</span>
+                                                </button>
+                                            )} */}
+
                                             {isConnected ? (
                                                 <>
                                                     <button
@@ -1733,7 +1755,18 @@ export default function ChannelsPage() {
                     handleCopyText={handleCopyText}
                 />
 
+                {/* WhatsApp Profile Modal */}
+                {/* <WhatsAppProfileModal
+                    isOpen={isWhatsAppProfileOpen}
+                    onClose={() => setIsWhatsAppProfileOpen(false)}
+                    workspaceId={workspace?.id}
+                    phoneId={whatsappPhoneId}
+                    displayPhone={connectedInfo.whatsapp}
+                    wabaId={whatsappWabaId}
+                /> */}
+
                 {/* Disconnect Modal */}
+
                 {disconnectModal && (
                     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
                         <div className="w-full max-w-[384px] rounded-2xl border border-white/[0.12] bg-[#111111] p-6 shadow-2xl">

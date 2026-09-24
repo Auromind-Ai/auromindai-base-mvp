@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { X } from 'lucide-react';
+import { X, Bookmark, Trash2, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CampaignStepper from './CampaignStepper';
 import CampaignDetailsStep from './steps/CampaignDetailsStep';
@@ -9,7 +9,13 @@ import AudienceStep from './steps/AudienceStep';
 import MessageStep from './steps/MessageStep';
 import ScheduleStep from './steps/ScheduleStep';
 import ReviewStep from './steps/ReviewStep';
-import { createCampaign, getCampaignDraft, saveCampaignDraft, clearCampaignDraft } from '@/lib/api/marketing';
+import {
+  createCampaign,
+  updateCampaign,
+  getCampaignDraft,
+  saveCampaignDraft,
+  clearCampaignDraft,
+} from '@/lib/api/marketing';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { getDefaultFutureSchedule, isFutureSchedule } from '@/lib/campaignScheduleUtils';
@@ -17,6 +23,7 @@ import { getDefaultFutureSchedule, isFutureSchedule } from '@/lib/campaignSchedu
 const getInitialDraftState = () => {
   const defaultSchedule = getDefaultFutureSchedule();
   return {
+    id: null,
     name: '',
     type: 'Promotional',
     whatsappNumber: '',
@@ -25,6 +32,7 @@ const getInitialDraftState = () => {
     audienceType: 'Existing Contacts',
     audienceListName: '',
     selectedListIds: [],
+    selectedLeadIds: [],
     recipientsCount: 0,
     validRecipients: 0,
     invalidRecipients: 0,
@@ -32,10 +40,13 @@ const getInitialDraftState = () => {
     optedOutCount: 0,
     recipients: [],
     csvStats: null,
+    selectedTemplateId: null,
     messageMode: 'template',
     messageBody: '',
     mediaUrl: '',
     mediaName: '',
+    mediaType: null,
+    variableMapping: null,
     sendType: 'Send Now',
     scheduleDate: defaultSchedule.date,
     scheduleTime: defaultSchedule.time,
@@ -48,12 +59,21 @@ const getInitialDraftState = () => {
   };
 };
 
-export default function CreateCampaignModal({ isOpen, onClose, onSuccess, workspaceId }) {
+export default function CreateCampaignModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  workspaceId,
+  initialCampaign = null,
+}) {
   const { workspaceId: authWsId } = useAuth();
   const activeWsId = workspaceId || authWsId;
 
   const [currentStep, setCurrentStep] = useState(1);
   const [campaignData, setCampaignData] = useState(() => {
+    if (initialCampaign) {
+      return { ...getInitialDraftState(), ...initialCampaign };
+    }
     const initial = getInitialDraftState();
     const saved = typeof window !== 'undefined' ? getCampaignDraft() : null;
     if (
@@ -67,7 +87,6 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
       return initial;
     }
     if (saved) {
-      // Ensure saved draft doesn't have an expired past schedule
       if (saved.sendType === 'Schedule for Later' && !isFutureSchedule(saved.scheduleDate, saved.scheduleTime)) {
         const fresh = getDefaultFutureSchedule();
         return { ...initial, ...saved, scheduleDate: fresh.date, scheduleTime: fresh.time };
@@ -76,13 +95,19 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
     }
     return initial;
   });
+
+  const [showExitPrompt, setShowExitPrompt] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
   const { showToast } = useToast();
 
   const updateData = useCallback((fields) => {
     setCampaignData((prev) => {
       const updated = { ...prev, ...fields };
-      saveCampaignDraft(updated);
+      // Only cache in local storage if not editing an existing persisted campaign ID
+      if (!updated.id) {
+        saveCampaignDraft(updated);
+      }
       return updated;
     });
   }, []);
@@ -103,11 +128,90 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
     setCurrentStep(stepNumber);
   };
 
+  // Helper to check if any data was entered
+  const hasEnteredData = () => {
+    return Boolean(
+      campaignData.id ||
+      campaignData.name?.trim() ||
+      campaignData.selectedTemplateId ||
+      campaignData.messageBody?.trim() ||
+      (campaignData.recipients && campaignData.recipients.length > 0) ||
+      (campaignData.selectedListIds && campaignData.selectedListIds.length > 0) ||
+      campaignData.mediaUrl
+    );
+  };
+
+  // Close request handler: prompt for Save Draft vs Discard if data is present
+  const handleRequestClose = () => {
+    if (hasEnteredData()) {
+      setShowExitPrompt(true);
+    } else {
+      clearCampaignDraft();
+      onClose();
+    }
+  };
+
+  // Save as Draft action
+  const handleSaveDraft = async () => {
+    setIsSavingDraft(true);
+    try {
+      const draftPayload = {
+        ...campaignData,
+        name: campaignData.name?.trim() || 'Untitled Draft Campaign',
+        status: 'draft',
+        saveAsDraft: true,
+      };
+
+      let res;
+      if (campaignData.id) {
+        res = await updateCampaign(campaignData.id, draftPayload, activeWsId);
+      } else {
+        res = await createCampaign(draftPayload, activeWsId, { saveAsDraft: true });
+      }
+
+      showToast('Campaign saved as draft', 'success');
+      clearCampaignDraft();
+      setShowExitPrompt(false);
+      if (onSuccess) onSuccess(res);
+      onClose();
+    } catch (err) {
+      console.error('Save draft failed:', err);
+      const detail = err?.response?.data?.detail || err?.message || 'Failed to save draft. Please try again.';
+      showToast(detail, 'error');
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  // Discard action
+  const handleDiscard = () => {
+    clearCampaignDraft();
+    setShowExitPrompt(false);
+    showToast('Draft changes discarded', 'info');
+    onClose();
+  };
+
+  // Launch Campaign (Step 5)
   const handleLaunch = async () => {
     setIsLaunching(true);
     try {
-      const res = await createCampaign(campaignData, activeWsId);
-      showToast('Campaign created and queued successfully!', 'success');
+      let res;
+      if (campaignData.id) {
+        res = await updateCampaign(campaignData.id, {
+          ...campaignData,
+          autoLaunch: true,
+          status: campaignData.sendType === 'Schedule for Later' ? 'scheduled' : 'in_progress',
+        }, activeWsId);
+      } else {
+        res = await createCampaign(campaignData, activeWsId);
+      }
+
+      showToast(
+        campaignData.sendType === 'Schedule for Later'
+          ? 'Campaign scheduled successfully!'
+          : 'Campaign launched and queued successfully!',
+        'success'
+      );
       clearCampaignDraft();
       if (onSuccess) onSuccess(res);
       onClose();
@@ -124,12 +228,18 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 md:p-8 overflow-hidden animate-in fade-in duration-200">
-      <div className="w-full max-w-5xl xl:max-w-6xl 2xl:max-w-[1240px] max-h-[92vh] flex flex-col rounded-2xl bg-[#0d101c] border border-[#1e253b] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden">
+      <div className="relative w-full max-w-5xl xl:max-w-6xl 2xl:max-w-[1240px] max-h-[92vh] flex flex-col rounded-2xl bg-[#0d101c] border border-[#1e253b] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden">
+        
         {/* Modal Top Header */}
         <div className="px-6 sm:px-8 pt-5 pb-4 border-b border-[#1b2238] flex items-center justify-between shrink-0 bg-[#0d101c]">
           <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
-              Create WhatsApp Campaign
+            <h2 className="text-lg sm:text-xl font-semibold text-white tracking-tight flex items-center gap-2">
+              <span>{campaignData.id ? 'Edit WhatsApp Campaign' : 'Create WhatsApp Campaign'}</span>
+              {campaignData.id && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#814AC8]/25 border border-[#814AC8]/40 text-[#c4b5fd]">
+                  Draft Mode
+                </span>
+              )}
             </h2>
             <p className="text-xs sm:text-sm text-[#8c94a6] mt-0.5">
               Send personalized messages to your customers at scale.
@@ -138,8 +248,8 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
 
           <button
             type="button"
-            onClick={onClose}
-            className="p-2 rounded-xl text-[#8c94a6] hover:text-white hover:bg-[#1a2136] transition-colors"
+            onClick={handleRequestClose}
+            className="p-2 rounded-xl text-[#8c94a6] hover:text-white hover:bg-[#1a2136] transition-colors cursor-pointer"
             title="Close"
           >
             <X size={20} />
@@ -169,7 +279,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
                   data={campaignData}
                   updateData={updateData}
                   onNext={handleNext}
-                  onCancel={onClose}
+                  onCancel={handleRequestClose}
                   workspaceId={activeWsId}
                 />
               )}
@@ -217,7 +327,78 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess, worksp
             </motion.div>
           </AnimatePresence>
         </div>
+
+        {/* Exit Confirmation Dialog (Save Draft / Discard / Keep Editing) */}
+        {showExitPrompt && (
+          <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-md rounded-2xl bg-[#0f1322] border border-[#262f4d] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] p-6 space-y-5 animate-in zoom-in-95 duration-150 text-left">
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-xl bg-[#814AC8]/20 border border-[#814AC8]/40 flex items-center justify-center text-[#a78bfa] shrink-0 shadow-[0_0_15px_rgba(129,74,200,0.3)]">
+                  <Bookmark size={22} />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white tracking-tight">
+                    Save Campaign as Draft?
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[#8c94a6] mt-1 leading-relaxed">
+                    You have entered campaign information. Would you like to save your progress as a draft to resume later, or discard these changes?
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#0a0c16] border border-[#1b2238] flex items-center justify-between text-xs">
+                <span className="text-[#8c94a6]">Campaign:</span>
+                <span className="text-white font-medium truncate max-w-[200px]">
+                  {campaignData.name || 'Untitled Draft Campaign'}
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  disabled={isSavingDraft}
+                  className="w-full sm:flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#814AC8] hover:bg-[#723db5] shadow-[0_0_18px_rgba(129,74,200,0.4)] flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingDraft ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Saving Draft...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bookmark size={14} />
+                      <span>Save Draft</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDiscard}
+                  disabled={isSavingDraft}
+                  className="w-full sm:w-auto py-2.5 px-4 rounded-xl text-xs sm:text-sm font-medium text-rose-400 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Trash2 size={13} />
+                  <span>Discard</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowExitPrompt(false)}
+                  disabled={isSavingDraft}
+                  className="w-full sm:w-auto py-2.5 px-4 rounded-xl text-xs sm:text-sm font-medium text-white/70 bg-[#15192c] border border-[#222a42] hover:bg-[#1a2038] hover:text-white transition-all cursor-pointer"
+                >
+                  Keep Editing
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
 }
+
