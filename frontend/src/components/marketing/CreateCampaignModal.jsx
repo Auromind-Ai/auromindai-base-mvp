@@ -236,7 +236,7 @@ export default function CreateCampaignModal({
             <h2 className="text-lg sm:text-xl font-semibold text-white tracking-tight flex items-center gap-2">
               <span>{campaignData.id ? 'Edit WhatsApp Campaign' : 'Create WhatsApp Campaign'}</span>
               {campaignData.id && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#814AC8]/25 border border-[#814AC8]/40 text-[#c4b5fd]">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white">
                   Draft Mode
                 </span>
               )}
@@ -333,7 +333,7 @@ export default function CreateCampaignModal({
           <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
             <div className="w-full max-w-md rounded-2xl bg-[#0f1322] border border-[#262f4d] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] p-6 space-y-5 animate-in zoom-in-95 duration-150 text-left">
               <div className="flex items-start gap-4">
-                <div className="w-11 h-11 rounded-xl bg-[#814AC8]/20 border border-[#814AC8]/40 flex items-center justify-center text-[#a78bfa] shrink-0 shadow-[0_0_15px_rgba(129,74,200,0.3)]">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 flex items-center justify-center text-white shrink-0 shadow-[0_0_15px_rgba(129,74,200,0.3)]">
                   <Bookmark size={22} />
                 </div>
                 <div>

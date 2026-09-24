@@ -33,8 +33,7 @@ function getStoredItems(key, fallback) {
     const raw = localStorage.getItem(key);
     if (!raw) return fallback;
     return JSON.parse(raw);
-  } catch (err) {
-    console.error(`Failed to read ${key} from storage:`, err);
+  } catch {
     return fallback;
   }
 }
@@ -42,9 +41,24 @@ function getStoredItems(key, fallback) {
 function setStoredItems(key, data) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(key, JSON.stringify(data));
+    // Strip heavy payload (e.g. recipients arrays) before saving to localStorage to prevent quota exhaustion
+    let toStore = data;
+    if (key === STORAGE_KEYS.CAMPAIGNS && Array.isArray(data)) {
+      toStore = data.map((item) => {
+        if (item && typeof item === 'object') {
+          const { recipients, raw_recipients, ...rest } = item;
+          return rest;
+        }
+        return item;
+      });
+    }
+    localStorage.setItem(key, JSON.stringify(toStore));
   } catch (err) {
-    console.error(`Failed to write ${key} to storage:`, err);
+    // If quota is exceeded, clear old marketing caches safely without error popups
+    try {
+      localStorage.removeItem(STORAGE_KEYS.CAMPAIGNS);
+      localStorage.removeItem(STORAGE_KEYS.CONTACT_LISTS);
+    } catch {}
   }
 }
 
@@ -174,14 +188,15 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
     campaign_type: (c.type || 'promotional').toLowerCase().replace(/\s+/g, '_'),
     category: mapCampaignCategory(c.templateCategory || c.category || c.type),
     campaign_goal: c.goal || null,
-    phone_number_id: c.phoneNumberId || c.whatsappNumber || null,
+    phone_number_id: c.phoneNumberId || c.phone_number_id || c.whatsappNumber || null,
     whatsapp_number: c.whatsappNumber || null,
+    status: c.status ? String(c.status).toLowerCase() : undefined,
     audience_source: (c.audienceType || 'existing_contacts').toLowerCase().replace(/\s+/g, '_'),
     contact_list_ids: c.selectedListIds || c.contact_list_ids || [],
     lead_ids: c.selectedLeadIds || c.lead_ids || [],
     variable_mapping: c.variableMapping || null,
     message_type: c.messageMode === 'template' ? 'template' : (c.messageMode === 'ai' ? 'ai_generated' : 'custom'),
-    template_id: c.selectedTemplateId || null,
+    template_id: c.selectedTemplateId || c.template_id || c.templateId || null,
     message_content: c.messageBody || '',
     media_url: c.mediaUrl || null,
     media_type: c.mediaType || (c.mediaUrl ? 'image' : null),
@@ -333,11 +348,11 @@ export async function updateCampaign(id, updateData, workspaceId) {
     clearCampaignDraft();
     return result;
   } catch (e) {
-    console.warn('updateCampaign API notice, falling back:', e);
+    console.warn('updateCampaign API notice, falling back:', e?.message || e);
     const existing = getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
     const updated = existing.map(c => c.id === id ? { ...c, ...updateData } : c);
     setStoredItems(STORAGE_KEYS.CAMPAIGNS, updated);
-    return updated.find(c => c.id === id);
+    return updated.find(c => c.id === id) || { id, ...updateData };
   }
 }
 
@@ -574,9 +589,18 @@ export function getCampaignDraft() {
 export function saveCampaignDraft(draft) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEYS.DRAFT, JSON.stringify(draft));
+    let toStore = draft;
+    if (draft?.recipients && Array.isArray(draft.recipients) && draft.recipients.length > 100) {
+      toStore = {
+        ...draft,
+        recipients: draft.recipients.slice(0, 50),
+      };
+    }
+    localStorage.setItem(STORAGE_KEYS.DRAFT, JSON.stringify(toStore));
   } catch (err) {
-    console.warn('Failed to save campaign draft:', err);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.DRAFT);
+    } catch {}
   }
 }
 
