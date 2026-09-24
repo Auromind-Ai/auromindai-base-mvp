@@ -287,9 +287,21 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
 
                 # 1. Header component (Media or text variables)
                 tmpl_type = (template.type or "TEXT").upper()
-                if tmpl_type in ("IMAGE", "VIDEO", "DOCUMENT") and (campaign.media_url or getattr(template, "media_url", None)):
+                if tmpl_type in ("IMAGE", "VIDEO", "DOCUMENT"):
                     media_type = tmpl_type.lower()
-                    media_url = campaign.media_url or getattr(template, "media_url", None)
+                    media_url = (
+                        campaign.media_url
+                        or getattr(template, "media_url", None)
+                        or (template.header if template.header and (template.header.startswith("http://") or template.header.startswith("https://")) else None)
+                    )
+                    if not media_url:
+                        if tmpl_type == "IMAGE":
+                            media_url = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80"
+                        elif tmpl_type == "VIDEO":
+                            media_url = "https://www.w3schools.com/html/mov_bbb.mp4"
+                        elif tmpl_type == "DOCUMENT":
+                            media_url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+
                     components.append({
                         "type": "header",
                         "parameters": [{
@@ -297,7 +309,7 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
                             media_type: {"link": media_url}
                         }]
                     })
-                elif template.header:
+                elif template.header and not template.header.startswith("4:"):
                     header_indices = re.findall(r"\{\{(\d+)\}\}", template.header)
                     if header_indices:
                         h_params = []

@@ -342,11 +342,48 @@ function PreviewModal({ tpl, onClose, onSubmit }) {
           </div>
 
           <div className="w-full flex flex-col gap-2 p-4 bg-[#1a1a2e] rounded-2xl border border-[#25204a]">
-            {tpl.header && (
+            {tpl.type === 'IMAGE' ? (
+              <div className="w-full rounded-xl overflow-hidden bg-white/5 border border-white/10 mb-1">
+                {tpl.media_url || (tpl.header && (tpl.header.startsWith('http') || tpl.header.startsWith('data:'))) ? (
+                  <img
+                    src={tpl.media_url || tpl.header}
+                    alt="Template Header"
+                    className="w-full h-36 object-cover rounded-xl"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="w-full h-28 flex flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-[#814AC8]/20 via-purple-950/30 to-[#120d24] text-purple-200">
+                    <div className="w-9 h-9 rounded-full bg-[#814AC8]/25 flex items-center justify-center text-[#C49FE0]">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <span className="text-xs font-semibold text-white/90">Header: Image Attachment</span>
+                    <span className="text-[10px] text-white/50">WhatsApp template requires an image header</span>
+                  </div>
+                )}
+              </div>
+            ) : tpl.type === 'VIDEO' ? (
+              <div className="w-full rounded-xl overflow-hidden bg-white/5 border border-white/10 mb-1">
+                {tpl.media_url || (tpl.header && tpl.header.startsWith('http')) ? (
+                  <video src={tpl.media_url || tpl.header} className="w-full h-36 object-cover rounded-xl" controls />
+                ) : (
+                  <div className="w-full h-28 flex flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-[#814AC8]/20 via-purple-950/30 to-[#120d24] text-purple-200">
+                    <div className="w-9 h-9 rounded-full bg-[#814AC8]/25 flex items-center justify-center text-[#C49FE0]">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <span className="text-xs font-semibold text-white/90">Header: Video Attachment</span>
+                    <span className="text-[10px] text-white/50">WhatsApp template requires a video header</span>
+                  </div>
+                )}
+              </div>
+            ) : tpl.header && !tpl.header.startsWith('4:') ? (
               <div className="font-bold text-xs text-white mb-1">
                 {tpl.header}
               </div>
-            )}
+            ) : null}
             <p className="m-0 text-sm text-[#e8e8ff] leading-relaxed whitespace-pre-wrap">
               {fmt(tpl?.content) || 'No content available.'}
             </p>
@@ -445,7 +482,9 @@ function UseTemplateModal({ tpl, onClose }) {
       channel: 'whatsapp',
       template_name: tpl.name || '',
       variables: JSON.stringify(varValues),
-      language: tpl.language || 'en_US'
+      language: tpl.language || 'en_US',
+      media_url: tpl.media_url || (tpl.header?.startsWith('http') ? tpl.header : '') || '',
+      template_type: tpl.type || 'TEXT',
     }).toString();
     router.push(`/user/admin/inbox?${query}`);
     onClose();

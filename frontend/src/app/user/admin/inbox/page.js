@@ -1701,6 +1701,9 @@ function InboxContent() {
     const [templateName, setTemplateName] = useState(null);
     const [templateVariables, setTemplateVariables] = useState([]);
     const [templateLanguage, setTemplateLanguage] = useState('en_US');
+    const [templateMediaUrl, setTemplateMediaUrl] = useState(null);
+    const [templateMediaType, setTemplateMediaType] = useState(null);
+    const [inboxTemplateMediaUrl, setInboxTemplateMediaUrl] = useState('');
     const [showTemplateSelect, setShowTemplateSelect] = useState(false);
     const [inboxTemplates, setInboxTemplates] = useState([]);
     const [selectedInboxTemplate, setSelectedInboxTemplate] = useState(null);
@@ -1747,8 +1750,14 @@ function InboxContent() {
                 vars[match[1]] = '';
             }
             setInboxTemplateVariables(vars);
+            setInboxTemplateMediaUrl(
+                selectedInboxTemplate?.media_url
+                || (selectedInboxTemplate?.header && (selectedInboxTemplate.header.startsWith('http://') || selectedInboxTemplate.header.startsWith('https://')) ? selectedInboxTemplate.header : '')
+                || ''
+            );
         } else {
             setInboxTemplateVariables({});
+            setInboxTemplateMediaUrl('');
         }
     }, [selectedInboxTemplate]);
 
@@ -1767,6 +1776,12 @@ function InboxContent() {
         setTemplateName(selectedInboxTemplate.name);
         setTemplateVariables(varKeys.map(k => inboxTemplateVariables[k]));
         setTemplateLanguage(selectedInboxTemplate.language || 'en_US');
+        setTemplateMediaUrl(
+            inboxTemplateMediaUrl
+            || selectedInboxTemplate.media_url
+            || (selectedInboxTemplate.header && (selectedInboxTemplate.header.startsWith('http://') || selectedInboxTemplate.header.startsWith('https://')) ? selectedInboxTemplate.header : null)
+        );
+        setTemplateMediaType(selectedInboxTemplate.type || 'TEXT');
         setShowTemplateSelect(false);
     };
 
@@ -1781,6 +1796,8 @@ function InboxContent() {
         const tplNameParam = searchParams.get('template_name');
         const tplVarsParam = searchParams.get('variables');
         const tplLangParam = searchParams.get('language');
+        const tplMediaParam = searchParams.get('media_url');
+        const tplTypeParam = searchParams.get('template_type');
 
         const timer = setTimeout(() => {
             if (msgParam) setMsg(msgParam);
@@ -1793,6 +1810,8 @@ function InboxContent() {
                 try { setTemplateVariables(JSON.parse(tplVarsParam)); } catch { }
             }
             if (tplLangParam) setTemplateLanguage(tplLangParam);
+            if (tplMediaParam) setTemplateMediaUrl(tplMediaParam);
+            if (tplTypeParam) setTemplateMediaType(tplTypeParam);
         }, 0);
         return () => clearTimeout(timer);
     }, [searchParams]);
@@ -2196,6 +2215,9 @@ function InboxContent() {
                     template_name: templateName,
                     variables: templateVariables,
                     language: templateLanguage,
+                    media_url: templateMediaUrl || (uploadedMediaUrl || null),
+                    header_url: templateMediaUrl || (uploadedMediaUrl || null),
+                    template_type: templateMediaType || 'TEXT',
                 };
             }
 
@@ -2206,6 +2228,8 @@ function InboxContent() {
             setTemplateName(null);
             setTemplateVariables([]);
             setTemplateLanguage('en_US');
+            setTemplateMediaUrl(null);
+            setTemplateMediaType(null);
             fetchMessages(lead.id);
         } catch (e) {
             if (e?.status === 401 || e?.isSessionExpired) {
@@ -2214,6 +2238,10 @@ function InboxContent() {
             console.error('Send error:', e);
             if (e.status === 503) {
                 showToast("This channel isn't configured for this workspace yet. Please contact admin to set up channel credentials.");
+            } else if (e?.data?.detail) {
+                showToast(e.data.detail);
+            } else if (e?.message) {
+                showToast(e.message);
             } else {
                 showToast("Failed to send message. Please try again.");
             }
@@ -2677,9 +2705,46 @@ function InboxContent() {
                                         <div className="flex flex-col gap-2">
                                             <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Preview</div>
                                             <div className="bg-[#100b21] border border-[#251d3b] p-4 rounded-2xl max-w-md">
-                                                {selectedInboxTemplate.header && (
+                                                {selectedInboxTemplate.type === 'IMAGE' ? (
+                                                    <div className="w-full rounded-xl overflow-hidden bg-white/5 border border-white/10 mb-2">
+                                                        {(inboxTemplateMediaUrl || selectedInboxTemplate.media_url || (selectedInboxTemplate.header && (selectedInboxTemplate.header.startsWith('http://') || selectedInboxTemplate.header.startsWith('https://')))) ? (
+                                                            <img
+                                                                src={inboxTemplateMediaUrl || selectedInboxTemplate.media_url || selectedInboxTemplate.header}
+                                                                alt="Template Header"
+                                                                className="w-full h-32 object-cover rounded-xl"
+                                                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                            />
+                                                        ) : (
+                                                            <div className="w-full h-24 flex flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-[#814AC8]/20 via-purple-950/30 to-[#120d24] text-purple-200">
+                                                                <div className="w-7 h-7 rounded-full bg-[#814AC8]/25 flex items-center justify-center text-[#C49FE0]">
+                                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                    </svg>
+                                                                </div>
+                                                                <span className="text-[11px] font-semibold text-white/90">Header: Image Media</span>
+                                                                <span className="text-[9px] text-white/50">Required for WhatsApp template delivery</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : selectedInboxTemplate.type === 'VIDEO' ? (
+                                                    <div className="w-full rounded-xl overflow-hidden bg-white/5 border border-white/10 mb-2">
+                                                        {(inboxTemplateMediaUrl || selectedInboxTemplate.media_url || (selectedInboxTemplate.header && (selectedInboxTemplate.header.startsWith('http://') || selectedInboxTemplate.header.startsWith('https://')))) ? (
+                                                            <video src={inboxTemplateMediaUrl || selectedInboxTemplate.media_url || selectedInboxTemplate.header} className="w-full h-32 object-cover rounded-xl" controls />
+                                                        ) : (
+                                                            <div className="w-full h-24 flex flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-[#814AC8]/20 via-purple-950/30 to-[#120d24] text-purple-200">
+                                                                <div className="w-7 h-7 rounded-full bg-[#814AC8]/25 flex items-center justify-center text-[#C49FE0]">
+                                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                                    </svg>
+                                                                </div>
+                                                                <span className="text-[11px] font-semibold text-white/90">Header: Video Media</span>
+                                                                <span className="text-[9px] text-white/50">Required for WhatsApp template delivery</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : selectedInboxTemplate.header && !selectedInboxTemplate.header.startsWith('4:') ? (
                                                     <div className="font-bold text-white text-[13px] mb-1">{selectedInboxTemplate.header}</div>
-                                                )}
+                                                ) : null}
                                                 <div className="text-[13px] text-white/90 whitespace-pre-wrap leading-relaxed">
                                                     {getInboxTemplatePreviewText()}
                                                 </div>
@@ -2688,6 +2753,22 @@ function InboxContent() {
                                                 )}
                                             </div>
                                         </div>
+
+                                        {['IMAGE', 'VIDEO', 'DOCUMENT'].includes(selectedInboxTemplate.type) && (
+                                            <div className="flex flex-col gap-1.5 bg-[#140d2b] border border-[#2a1f4a] p-3 rounded-xl">
+                                                <label className="text-[10px] font-bold text-purple-300 uppercase tracking-wider flex items-center justify-between">
+                                                    <span>Header {selectedInboxTemplate.type === 'IMAGE' ? 'Image' : selectedInboxTemplate.type === 'VIDEO' ? 'Video' : 'Document'} URL</span>
+                                                    <span className="text-[10px] text-gray-400 font-normal">Auto-detected or custom link</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={inboxTemplateMediaUrl}
+                                                    onChange={e => setInboxTemplateMediaUrl(e.target.value)}
+                                                    placeholder={selectedInboxTemplate.type === 'IMAGE' ? "https://example.com/banner.png" : "https://example.com/video.mp4"}
+                                                    className="w-full px-3 py-2 rounded-lg border border-[#2a1f4a] bg-[#100b21] text-white text-[13px] outline-none focus:border-[#7c3aed]"
+                                                />
+                                            </div>
+                                        )}
 
                                         {Object.keys(inboxTemplateVariables).length > 0 && (
                                             <div className="flex flex-col gap-3">

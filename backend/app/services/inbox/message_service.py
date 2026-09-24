@@ -279,7 +279,7 @@ class MessageService:
                     Template.workspace_id == workspace_id
                 ).first()
                 if template:
-                    if template.header:
+                    if template.header and not template.header.startswith("4:"):
                         enriched_metadata["template_header"] = template.header
                     if template.footer:
                         enriched_metadata["template_footer"] = template.footer
@@ -292,7 +292,12 @@ class MessageService:
                             }
                         ]
                     if template.type in {"IMAGE", "VIDEO", "DOCUMENT"}:
-                        media_url = enriched_metadata.get("media_url") or enriched_metadata.get("header_url")
+                        media_url = (
+                            enriched_metadata.get("media_url")
+                            or enriched_metadata.get("header_url")
+                            or getattr(template, "media_url", None)
+                            or (template.header if template.header and (template.header.startswith("http://") or template.header.startswith("https://")) else None)
+                        )
                         if media_url:
                             enriched_metadata["media_url"] = media_url
                             enriched_metadata["message_type"] = template.type.lower()
@@ -312,9 +317,11 @@ class MessageService:
             external_id = ChannelService.send_message(conversation, message, enriched_metadata)
         except RuntimeError as e:
             from fastapi import HTTPException
+            err_str = str(e)
+            status_code = 400 if "WhatsApp API Error" in err_str or "template" in err_str.lower() else 503
             raise HTTPException(
-                status_code=503,
-                detail=f"This channel is not configured yet: {str(e)}"
+                status_code=status_code,
+                detail=err_str
             )
         stored_message.external_id = external_id
         MessageService._trigger_human_takeover(db, conversation)

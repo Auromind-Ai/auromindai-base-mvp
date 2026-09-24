@@ -11,6 +11,7 @@ class TemplateCreate(BaseModel):
     category: str = Field(..., min_length=1, max_length=50)
     language: str = Field(..., min_length=2, max_length=20)
     header: str | None = Field(None, max_length=1000)
+    media_url: str | None = Field(None, max_length=2048)
     footer: str | None = Field(None, max_length=1000)
     cta: str | None = Field(None, max_length=2048)
     cta_btn_title: str | None = Field(None, max_length=255)
@@ -33,6 +34,7 @@ class TemplateRead(BaseModel):
     language: str | None = None
     content: str
     header: str | None = None
+    media_url: str | None = None
     footer: str | None = None
     cta: str | None = None
     cta_btn_title: str | None = None
@@ -56,6 +58,7 @@ class TemplateSendRequest(BaseModel):
     template_name: str = Field(..., min_length=1, max_length=512)
     workspace_id: str | None = None
     variables: list[Any] = Field(default_factory=list, max_length=50)
+    media_url: str | None = Field(None, max_length=2048)
 
 
 class GenerateRequest(BaseModel):

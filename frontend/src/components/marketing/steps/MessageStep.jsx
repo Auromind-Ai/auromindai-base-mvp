@@ -285,6 +285,17 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
       syncedType = 'Transactional';
     }
 
+    const tplType = (tpl.type || 'TEXT').toUpperCase();
+    const isMediaTpl = ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(tplType);
+    let resolvedMediaUrl = data.mediaUrl || '';
+    if (isMediaTpl) {
+      if (tpl.media_url) {
+        resolvedMediaUrl = tpl.media_url;
+      } else if (tpl.header && (tpl.header.startsWith('http://') || tpl.header.startsWith('https://'))) {
+        resolvedMediaUrl = tpl.header;
+      }
+    }
+
     updateData({
       selectedTemplateId: tpl.id,
       templateName: tpl.name,
@@ -294,6 +305,8 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
       type: syncedType,
       messageMode: 'template',
       variableMapping: newMapping,
+      mediaUrl: resolvedMediaUrl,
+      mediaType: isMediaTpl ? tplType.toLowerCase() : null,
     });
 
     // Dynamic cost estimation based on template category
@@ -523,11 +536,23 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                       </div>
                     </div>
 
-                    {tpl.header && (
+                    {tpl.type === 'IMAGE' ? (
+                      <div className="flex items-center gap-1.5 text-xs text-[#C49FE0] bg-purple-950/40 border border-purple-500/20 px-2 py-0.5 rounded-md mb-2 w-fit">
+                        <span>🖼️ Header: Image</span>
+                      </div>
+                    ) : tpl.type === 'VIDEO' ? (
+                      <div className="flex items-center gap-1.5 text-xs text-[#C49FE0] bg-purple-950/40 border border-purple-500/20 px-2 py-0.5 rounded-md mb-2 w-fit">
+                        <span>🎥 Header: Video</span>
+                      </div>
+                    ) : tpl.type === 'DOCUMENT' ? (
+                      <div className="flex items-center gap-1.5 text-xs text-[#C49FE0] bg-purple-950/40 border border-purple-500/20 px-2 py-0.5 rounded-md mb-2 w-fit">
+                        <span>📄 Header: Document</span>
+                      </div>
+                    ) : tpl.header && !tpl.header.startsWith('4:') ? (
                       <div className="text-xs sm:text-[13px] font-medium text-white mb-1.5">
                         {tpl.header}
                       </div>
-                    )}
+                    ) : null}
 
                     <p className={`text-xs sm:text-sm leading-relaxed line-clamp-3 font-normal ${isSelected ? 'text-white/90' : 'text-white/70'}`}>
                       {tpl.body || tpl.content}
@@ -554,6 +579,41 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
         {/* Right Column (5 cols): Variable Mapping + Preview + Quick Tips */}
         <div className="lg:col-span-5 space-y-4">
+          {/* Header Media Attachment Box for IMAGE / VIDEO / DOCUMENT */}
+          {selectedTemplate && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes((selectedTemplate.type || '').toUpperCase()) && (
+            <div className="rounded-xl bg-[#0f0e1c] border border-[#814AC8]/50 p-4 sm:p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm sm:text-base font-medium text-white flex items-center gap-2">
+                    <span>Header {(selectedTemplate.type || '').toUpperCase()} Attachment</span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#814AC8]/30 text-[#C49FE0] border border-[#814AC8]/50">
+                      Required
+                    </span>
+                  </h4>
+                  <p className="text-xs text-white/70 mt-1 font-normal leading-relaxed">
+                    Meta requires an image/media URL to deliver this template to recipients.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-purple-300 block">
+                  Media Direct URL:
+                </label>
+                <input
+                  type="text"
+                  value={data.mediaUrl || ''}
+                  onChange={(e) => updateData({ mediaUrl: e.target.value, mediaType: selectedTemplate.type.toLowerCase() })}
+                  placeholder={(selectedTemplate.type || '').toUpperCase() === 'IMAGE' ? "https://example.com/banner.jpg" : "https://example.com/video.mp4"}
+                  className="w-full px-3 py-2 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs sm:text-sm text-white font-normal placeholder-[#716d8a] outline-none focus:border-[#814AC8]"
+                />
+                <span className="text-[11px] text-white/50 block">
+                  Leave blank to automatically use the verified template default image during campaign launch.
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Variable Mapping Box */}
           <div className="rounded-xl bg-[#0f0e1c] border border-[#251f42] p-4 sm:p-5 space-y-3.5">
             <div className="flex items-center justify-between">

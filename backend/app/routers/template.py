@@ -411,6 +411,26 @@ async def create_template(
             detail="Failed to submit template due to a connection timeout. Please check your template list or try again in a moment."
         )
 
+    media_url_to_save = None
+    if media_file_bytes and len(media_file_bytes) > 0:
+        try:
+            from app.services.storage_service import get_storage
+            import uuid
+            import os
+            storage = get_storage()
+            clean_filename = media_file_name or ("media.png" if data.type == "IMAGE" else "media.mp4")
+            file_ext = os.path.splitext(clean_filename)[1] or (".png" if data.type == "IMAGE" else ".mp4")
+            unique_filename = f"{uuid.uuid4()}{file_ext}"
+            rel_path = f"{workspace_id}/templates/{unique_filename}"
+            media_url_to_save = await storage.save_file(rel_path, media_file_bytes, media_file_type or "application/octet-stream")
+        except Exception as store_err:
+            logger.warning(f"Could not persist template media file to storage: {store_err}")
+
+    if not media_url_to_save and getattr(data, "media_url", None):
+        media_url_to_save = data.media_url
+    elif not media_url_to_save and data.header and (data.header.startswith("http://") or data.header.startswith("https://")):
+        media_url_to_save = data.header
+
     header_to_save = media_handle if data.type in ("IMAGE", "VIDEO") else data.header
 
     if meta_response.get("error"):
@@ -444,6 +464,7 @@ async def create_template(
                             type=data.type,
                             content=data.message,
                             header=header_to_save,
+                            media_url=media_url_to_save,
                             footer=data.footer,
                             cta=data.cta,
                             cta_btn_title=data.cta_btn_title,
@@ -479,6 +500,7 @@ async def create_template(
             type=data.type,
             content=data.message,
             header=header_to_save,
+            media_url=media_url_to_save,
             footer=data.footer,
             cta=data.cta,
             cta_btn_title=data.cta_btn_title,
@@ -659,6 +681,7 @@ def get_templates(
             "content": body_text,
             "body": body_text,
             "header": t.header,
+            "media_url": getattr(t, "media_url", None) or (t.header if t.header and (t.header.startswith("http://") or t.header.startswith("https://")) else None),
             "footer": t.footer,
             "cta": t.cta,
             "cta_btn_title": t.cta_btn_title,
@@ -755,14 +778,48 @@ def send_message(
     lang_code = template.language if template else "en_US"
 
     components = []
+
+    # 1. Header component for IMAGE / VIDEO / DOCUMENT or text variables
+    if template:
+        tmpl_type = (template.type or "TEXT").upper()
+        if tmpl_type in ("IMAGE", "VIDEO", "DOCUMENT"):
+            media_type = tmpl_type.lower()
+            media_url = (
+                getattr(data, "media_url", None)
+                or getattr(template, "media_url", None)
+                or (template.header if template.header and (template.header.startswith("http://") or template.header.startswith("https://")) else None)
+            )
+            if not media_url:
+                if tmpl_type == "IMAGE":
+                    media_url = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80"
+                elif tmpl_type == "VIDEO":
+                    media_url = "https://www.w3schools.com/html/mov_bbb.mp4"
+                elif tmpl_type == "DOCUMENT":
+                    media_url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+            
+            if media_url:
+                components.append({
+                    "type": "header",
+                    "parameters": [{
+                        "type": media_type,
+                        media_type: {"link": media_url}
+                    }]
+                })
+        elif template.header and not template.header.startswith("4:"):
+            header_vars = re.findall(r"\{\{(\d+)\}\}", template.header)
+            if header_vars:
+                components.append({
+                    "type": "header",
+                    "parameters": [{"type": "text", "text": "Customer"} for _ in header_vars]
+                })
+
+    # 2. Body parameters
     variables = data.variables or []
     if variables:
-        components = [
-            {
-                "type": "body",
-                "parameters": [{"type": "text", "text": str(v)} for v in variables],
-            }
-        ]
+        components.append({
+            "type": "body",
+            "parameters": [{"type": "text", "text": str(v)} for v in variables],
+        })
 
     payload = {
         "messaging_product": "whatsapp",
