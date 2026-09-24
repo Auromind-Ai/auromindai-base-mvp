@@ -487,7 +487,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-medium text-white/60">
-              Replies
+              Read
             </div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-2xl sm:text-3xl font-medium text-white tracking-tight">
@@ -495,7 +495,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
               </span>
             </div>
             <div className="text-[11px] text-white/40 mt-0.5">
-              {stats.replyRate} response rate
+              {stats.replyRate} read rate
             </div>
           </div>
         </div>
@@ -667,9 +667,8 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                   return (
                     <tr
                       key={camp.id}
-                      onClick={() => router.push(`/user/admin/marketing/${camp.id}`)}
-                      className={`transition-colors duration-150 cursor-pointer ${
-                        isChecked ? 'bg-[#814AC8]/15 hover:bg-[#814AC8]/25' : 'hover:bg-[#101424]'
+                      className={`transition-colors duration-150 ${
+                        isChecked ? 'bg-[#814AC8]/15 hover:bg-[#814AC8]/25' : 'hover:bg-[#101424]/60'
                       }`}
                     >
                       {/* Premium Custom Checkbox */}
@@ -685,13 +684,9 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
 
                       {/* Campaign Name & Subtitle */}
                       <td className="px-4 py-3.5">
-                        <Link
-                          href={`/user/admin/marketing/${camp.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-semibold text-white tracking-tight text-[13px] hover:text-[#a78bfa] transition-colors inline-block"
-                        >
+                        <div className="font-semibold text-white tracking-tight text-[13px]">
                           {camp.name}
-                        </Link>
+                        </div>
                         <div className="text-[11px] text-white/60 mt-0.5">
                           {camp.goal || camp.subtitle || `${camp.type || 'Promotional'} Campaign`}
                         </div>

@@ -3,7 +3,7 @@ import uuid
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import or_, and_, func
 
 from app.database import get_db
 from app.routers.auth import get_current_user, CurrentUser
@@ -270,7 +270,7 @@ def serialize_campaign_recipient(r: CampaignRecipient) -> dict:
         code = r.error_code or (
             "131049" if r.status == "skipped_marketing_frequency_limit"
             else ("SKIPPED_INVALID" if r.status == "skipped_invalid"
-            else ("SKIPPED_OPTED_OUT" if r.status == "skipped_opted_out" else "131026"))
+            else ("SKIPPED_OPTED_OUT" if r.status == "skipped_opted_out" else "FAILED"))
         )
         error_info = ErrorClassificationService.classify(code, r.error_message)
 
@@ -490,6 +490,16 @@ async def list_campaign_recipients(
                     CampaignRecipient.status == "skipped_marketing_frequency_limit"
                 )
             )
+        elif ec == "FAILED":
+            query = query.filter(
+                or_(
+                    CampaignRecipient.error_code == "FAILED",
+                    and_(
+                        CampaignRecipient.status == "failed",
+                        CampaignRecipient.error_code.is_(None)
+                    )
+                )
+            )
         else:
             query = query.filter(CampaignRecipient.error_code == ec)
 
@@ -537,6 +547,24 @@ async def list_campaign_recipients(
                 "error_title": info.get("title", "Marketing message limit reached"),
                 "error_category": info.get("category", "MARKETING_FREQUENCY_LIMIT"),
                 "count": skipped_count
+            }
+
+    # Also account for any failed recipients where error_code was not recorded
+    unspecified_failed = db.query(func.count(CampaignRecipient.id)).filter(
+        CampaignRecipient.campaign_id == c_uuid,
+        CampaignRecipient.status == "failed",
+        CampaignRecipient.error_code.is_(None)
+    ).scalar() or 0
+    if unspecified_failed > 0:
+        if "FAILED" in breakdown_map:
+            breakdown_map["FAILED"]["count"] += unspecified_failed
+        else:
+            info = ErrorClassificationService.classify("FAILED")
+            breakdown_map["FAILED"] = {
+                "error_code": "FAILED",
+                "error_title": info.get("title", "Delivery Failed"),
+                "error_category": info.get("category", "GENERAL_DELIVERY_FAILURE"),
+                "count": unspecified_failed
             }
 
     error_breakdown = sorted(list(breakdown_map.values()), key=lambda x: x["count"], reverse=True)

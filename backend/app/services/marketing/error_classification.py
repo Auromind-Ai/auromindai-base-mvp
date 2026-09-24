@@ -1,4 +1,5 @@
 
+import re
 from typing import Dict, Any, Optional
 
 META_ERROR_CATALOG: Dict[str, Dict[str, Any]] = {
@@ -306,6 +307,9 @@ class ErrorClassificationService:
         if raw_message and raw_message.strip():
             # If the raw message is informative, use it as title or details
             clean_msg = raw_message.split(":")[0].strip()
+            # Strip Meta's (#12345) prefix if present
+            clean_msg = re.sub(r'^\s*\(\s*#\d+\s*\)\s*', '', clean_msg)
             if len(clean_msg) < 60 and clean_msg.lower() not in ("failed", "delivery failed", "unknown"):
                 data["title"] = clean_msg
+            data["what_this_means"] = raw_message
         return data
