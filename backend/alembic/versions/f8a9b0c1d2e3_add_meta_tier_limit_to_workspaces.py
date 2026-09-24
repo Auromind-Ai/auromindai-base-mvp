@@ -15,8 +15,16 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('workspaces', sa.Column('meta_tier_limit', sa.Integer(), nullable=True))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    cols = [c["name"] for c in inspector.get_columns("workspaces")]
+    if "meta_tier_limit" not in cols:
+        op.add_column('workspaces', sa.Column('meta_tier_limit', sa.Integer(), nullable=True))
 
 
 def downgrade():
-    op.drop_column('workspaces', 'meta_tier_limit')
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    cols = [c["name"] for c in inspector.get_columns("workspaces")]
+    if "meta_tier_limit" in cols:
+        op.drop_column('workspaces', 'meta_tier_limit')

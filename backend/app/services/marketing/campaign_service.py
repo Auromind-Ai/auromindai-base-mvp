@@ -225,6 +225,8 @@ class CampaignService:
             curr_held = Decimal(str(wallet.held_balance or "0.00"))
             wallet.balance = curr_bal - message_cost
             wallet.held_balance = max(Decimal("0.00"), curr_held - message_cost)
+            if wallet.purchased_balance is not None and wallet.purchased_balance > Decimal("0.00"):
+                wallet.purchased_balance = max(Decimal("0.00"), Decimal(str(wallet.purchased_balance)) - message_cost)
             db.commit()
 
     @classmethod
@@ -243,6 +245,26 @@ class CampaignService:
         if wallet:
             curr_held = Decimal(str(wallet.held_balance or "0.00"))
             wallet.held_balance = max(Decimal("0.00"), curr_held - unused_amount)
+            db.commit()
+
+    @classmethod
+    def refund_failed_delivery(
+        cls,
+        db: Session,
+        workspace_id: uuid.UUID,
+        refund_amount: Decimal
+    ):
+        if refund_amount <= Decimal("0.00"):
+            return
+
+        wallet = db.query(WCCWallet).filter(
+            WCCWallet.workspace_id == workspace_id
+        ).first()
+        if wallet:
+            curr_bal = Decimal(str(wallet.balance or "0.00"))
+            wallet.balance = curr_bal + refund_amount
+            if wallet.purchased_balance is not None:
+                wallet.purchased_balance = Decimal(str(wallet.purchased_balance or "0.00")) + refund_amount
             db.commit()
 
     @classmethod
