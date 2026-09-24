@@ -595,7 +595,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
 
       {/* 4. Campaign Data Table */}
       <div className="rounded-2xl border border-[#161a28] bg-[#0b111b] overflow-hidden shadow-xl">
-        <div className="overflow-x-auto custom-scrollbar">
+        <div className="overflow-x-auto custom-scrollbar min-h-[300px]">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#0b0e18] border-b border-[#161a28] text-white text-[13px] font-normal">
               <tr>
@@ -653,8 +653,9 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                   </td>
                 </tr>
               ) : (
-                paginatedCampaigns.map((camp) => {
+                paginatedCampaigns.map((camp, index) => {
                   const isChecked = selectedCampaignIds.includes(camp.id);
+                  const isNearBottom = paginatedCampaigns.length > 2 && index >= paginatedCampaigns.length - 2;
                   const sentCount = Number(camp.sentCount) || 0;
                   const deliveredCount = Number(camp.deliveredCount) || 0;
                   const failedCount = Number(camp.failedCount) || 0;
@@ -667,8 +668,17 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                   return (
                     <tr
                       key={camp.id}
-                      onClick={() => router.push(`/user/admin/marketing/${camp.id}`)}
+                      onClick={() => {
+                        const st = (camp.status || '').toLowerCase();
+                        if (st === 'draft' || st === 'pending') {
+                          handleEditDraft(camp);
+                        } else if (st === 'completed') {
+                          router.push(`/user/admin/marketing/${camp.id}`);
+                        }
+                      }}
                       className={`transition-colors duration-150 cursor-pointer ${
+                        activeMenuId === camp.id ? 'relative z-20' : ''
+                      } ${
                         isChecked ? 'bg-[#814AC8]/15 hover:bg-[#814AC8]/25' : 'hover:bg-[#101424]'
                       }`}
                     >
@@ -685,13 +695,39 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
 
                       {/* Campaign Name & Subtitle */}
                       <td className="px-4 py-3.5">
-                        <Link
-                          href={`/user/admin/marketing/${camp.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-semibold text-white tracking-tight text-[13px] hover:text-[#a78bfa] transition-colors inline-block"
-                        >
-                          {camp.name}
-                        </Link>
+                        {(() => {
+                          const st = (camp.status || '').toLowerCase();
+                          if (st === 'draft' || st === 'pending') {
+                            return (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditDraft(camp);
+                                }}
+                                className="font-semibold text-white tracking-tight text-[13px] hover:text-[#a78bfa] transition-colors text-left"
+                              >
+                                {camp.name}
+                              </button>
+                            );
+                          }
+                          if (st === 'completed') {
+                            return (
+                              <Link
+                                href={`/user/admin/marketing/${camp.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="font-semibold text-white tracking-tight text-[13px] hover:text-[#a78bfa] transition-colors inline-block"
+                              >
+                                {camp.name}
+                              </Link>
+                            );
+                          }
+                          return (
+                            <span className="font-semibold text-white tracking-tight text-[13px] inline-block">
+                              {camp.name}
+                            </span>
+                          );
+                        })()}
                         <div className="text-[11px] text-white/60 mt-0.5">
                           {camp.goal || camp.subtitle || `${camp.type || 'Promotional'} Campaign`}
                         </div>
@@ -782,7 +818,11 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                       </td>
 
                       {/* Actions */}
-                      <td className="px-4 py-3.5 text-right relative" data-action-menu-cell onClick={(e) => e.stopPropagation()}>
+                      <td
+                        className={`px-4 py-3.5 text-right relative ${activeMenuId === camp.id ? 'z-30' : ''}`}
+                        data-action-menu-cell
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
                           type="button"
                           onClick={(e) => {
@@ -796,78 +836,87 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
 
                         {/* Action Menu Flyout */}
                         {activeMenuId === camp.id && (
-                          <div className="absolute right-4 top-10 w-36 bg-[#101320] border border-[#22283d] rounded-xl shadow-2xl p-1 z-30 space-y-0.5 text-left animate-in fade-in zoom-in-95 duration-100">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveMenuId(null);
-                                router.push(`/user/admin/marketing/${camp.id}`);
-                              }}
-                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
-                            >
-                              <Eye size={12} />
-                              <span>View Details</span>
-                            </button>
-
+                          <div
+                            className={`absolute right-4 ${
+                              isNearBottom ? 'bottom-8' : 'top-10'
+                            } w-36 bg-[#101320] border border-[#22283d] rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.85)] p-1 z-50 space-y-0.5 text-left animate-in fade-in zoom-in-95 duration-100`}
+                          >
                             {(() => {
-                              const isDraft = (camp.status || '').toLowerCase() === 'draft' || (camp.status || '').toLowerCase() === 'pending';
-                              if (isDraft) {
-                                return (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleEditDraft(camp)}
-                                      className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
-                                    >
-                                      <Edit2 size={12} />
-                                      <span>Edit</span>
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDelete(camp.id)}
-                                      className="w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
-                                    >
-                                      <Trash2 size={12} />
-                                      <span>Delete</span>
-                                    </button>
-                                  </>
-                                );
-                              }
+                              const statusLower = (camp.status || '').toLowerCase();
+                              const isDraft = statusLower === 'draft' || statusLower === 'pending';
+                              const isCompleted = statusLower === 'completed';
 
                               return (
                                 <>
-                                  {!['completed', 'failed', 'cancelled'].includes((camp.status || '').toLowerCase()) && (
+                                  {isCompleted && (
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        handleTogglePause(camp);
                                         setActiveMenuId(null);
+                                        router.push(`/user/admin/marketing/${camp.id}`);
                                       }}
                                       className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
                                     >
-                                      {(camp.status || '').toLowerCase() === 'paused' ? <Play size={12} /> : <Pause size={12} />}
-                                      <span>{(camp.status || '').toLowerCase() === 'paused' ? 'Resume' : 'Pause'}</span>
+                                      <Eye size={12} />
+                                      <span>View Details</span>
                                     </button>
                                   )}
 
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDuplicate(camp)}
-                                    className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
-                                  >
-                                    <Copy size={12} />
-                                    <span>Duplicate</span>
-                                  </button>
+                                  {isDraft ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleEditDraft(camp)}
+                                        className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                      >
+                                        <Edit2 size={12} />
+                                        <span>Edit</span>
+                                      </button>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDelete(camp.id)}
-                                    className="w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
-                                  >
-                                    <Trash2 size={12} />
-                                    <span>Delete</span>
-                                  </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDelete(camp.id)}
+                                        className="w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                      >
+                                        <Trash2 size={12} />
+                                        <span>Delete</span>
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      {!['completed', 'failed', 'cancelled'].includes(statusLower) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            handleTogglePause(camp);
+                                            setActiveMenuId(null);
+                                          }}
+                                          className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                        >
+                                          {statusLower === 'paused' ? <Play size={12} /> : <Pause size={12} />}
+                                          <span>{statusLower === 'paused' ? 'Resume' : 'Pause'}</span>
+                                        </button>
+                                      )}
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDuplicate(camp)}
+                                        className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                      >
+                                        <Copy size={12} />
+                                        <span>Duplicate</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDelete(camp.id)}
+                                        className="w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                      >
+                                        <Trash2 size={12} />
+                                        <span>Delete</span>
+                                      </button>
+                                    </>
+                                  )}
                                 </>
                               );
                             })()}

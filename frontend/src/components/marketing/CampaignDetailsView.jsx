@@ -206,53 +206,6 @@ export default function CampaignDetailsView({ campaignId }) {
     };
   }, [campaignId, activeTab, selectedErrorCode, searchQuery, currentPage]);
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      const camp = await getCampaignById(campaignId);
-      if (camp) {
-        setCampaign(camp);
-        const resp = await getCampaignRecipients(campaignId, {
-          status: activeTab,
-          errorCode: selectedErrorCode !== 'all' ? selectedErrorCode : '',
-          search: searchQuery,
-          page: currentPage,
-          limit: ITEMS_PER_PAGE,
-        });
-        if (resp && Array.isArray(resp.items)) {
-          const enriched = resp.items.map((r) => {
-            const st = (r.status || '').toLowerCase();
-            const isFailed = st === 'failed' || st.includes('skipped') || Boolean(r.error_code);
-            if (isFailed) {
-              const code = r.error_code || (st === 'skipped_marketing_frequency_limit' ? '131049' : '131026');
-              const cls = classifyMetaError(code, r.error_message);
-              return {
-                ...r,
-                error_title: r.error_title || cls.title,
-                error_category: r.error_category || cls.category,
-                what_this_means: r.what_this_means || cls.whatThisMeans,
-                what_you_can_do: r.what_you_can_do || cls.whatYouCanDo,
-              };
-            }
-            return r;
-          });
-          setServerItems(enriched);
-          setServerTotal(typeof resp.total === 'number' ? resp.total : resp.items.length);
-          if (resp.counts) setCounts(resp.counts);
-          if (resp.error_breakdown && resp.error_breakdown.length > 0) {
-            setErrorBreakdown(resp.error_breakdown);
-          } else if (camp.error_breakdown) {
-            setErrorBreakdown(camp.error_breakdown);
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Refresh error:', err);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
   // Dynamic Metrics & Percentages strictly computed for this specific campaign
   const stats = useMemo(() => {
     const totalRecipients = 
@@ -494,17 +447,6 @@ export default function CampaignDetailsView({ campaignId }) {
           <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto">
             <button
               type="button"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-[#cbd5e1] bg-[#0d0f18] border border-[#1e2436] hover:bg-[#141826] hover:text-white transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
-              title="Refresh campaign stats"
-            >
-              <RefreshCw size={13} className={isRefreshing ? 'animate-spin text-[#814AC8]' : 'text-white/60'} />
-              <span>Refresh</span>
-            </button>
-
-            <button
-              type="button"
               onClick={handleExportCSV}
               className="px-3.5 py-2 rounded-xl text-xs font-semibold text-[#cbd5e1] bg-[#0d0f18] border border-[#1e2436] hover:bg-[#141826] hover:text-white transition-all flex items-center gap-2 shadow-sm cursor-pointer"
             >
@@ -553,7 +495,7 @@ export default function CampaignDetailsView({ campaignId }) {
               <span className="text-2xl sm:text-3xl font-medium text-white tracking-tight">
                 {stats.sent.toLocaleString()}
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-[#132240] border border-[#1e3a8a] text-[#60a5fa] text-[11px] font-medium">
+              <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-[#06263b]/80 via-[#031824]/60 to-[#02080c] border border-white/10 text-white text-[11px] font-medium">
                 {stats.sentPct}
               </span>
             </div>
@@ -576,7 +518,7 @@ export default function CampaignDetailsView({ campaignId }) {
               <span className="text-2xl sm:text-3xl font-medium text-white tracking-tight">
                 {stats.delivered.toLocaleString()}
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-[#0d281e] border border-[#155e3c] text-[#22c55e] text-[11px] font-medium">
+              <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-white/10 text-white text-[11px] font-medium">
                 {stats.deliveredPct}
               </span>
             </div>
@@ -599,7 +541,7 @@ export default function CampaignDetailsView({ campaignId }) {
               <span className="text-2xl sm:text-3xl font-medium text-white tracking-tight">
                 {stats.failed.toLocaleString()}
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-[#2a0e14] border border-[#7f1d1d] text-[#f87171] text-[11px] font-medium">
+              <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] border border-white/10 text-white text-[11px] font-medium">
                 {stats.failedPct}
               </span>
             </div>
@@ -817,7 +759,7 @@ export default function CampaignDetailsView({ campaignId }) {
                     >
                       {/* Phone Number & Contact Name */}
                       <td className="px-5 py-3.5">
-                        <div className="font-semibold text-white tracking-tight text-[13px] font-mono group-hover:text-[#a78bfa] transition-colors">
+                        <div className="font-semibold text-white tracking-tight text-[13px] group-hover:text-[#a78bfa] transition-colors">
                           {rec.phone_number || rec.phone || rec.normalized_phone || '—'}
                         </div>
                         {rec.recipient_name && rec.recipient_name !== rec.phone_number && (
@@ -855,7 +797,7 @@ export default function CampaignDetailsView({ campaignId }) {
                           <td className="px-5 py-3.5 text-xs text-[#cbd5e1] whitespace-nowrap">
                             {formatTimeOnly(rec.sent_at || rec.accepted_at || rec.created_at || campaign?.created_at)}
                           </td>
-                          <td className="px-5 py-3.5 font-mono text-[11px] text-white/60">
+                          <td className="px-5 py-3.5 text-[11px] text-white/60">
                             <div className="flex items-center gap-1.5 max-w-[180px]">
                               <span className="truncate">{rec.wamid || 'wamid...'}</span>
                               {rec.wamid && (
@@ -885,7 +827,7 @@ export default function CampaignDetailsView({ campaignId }) {
                               {formatDateTime(rec.delivered_at || rec.sent_at || campaign?.created_at)}
                             </div>
                           </td>
-                          <td className="px-5 py-3.5 font-mono text-[11px] text-white/60">
+                          <td className="px-5 py-3.5 text-[11px] text-white/60">
                             <div className="flex items-center gap-1.5 max-w-[180px]">
                               <span className="truncate">{rec.wamid || 'wamid...'}</span>
                               {rec.wamid && (
@@ -917,7 +859,7 @@ export default function CampaignDetailsView({ campaignId }) {
                               {rec.what_this_means || cls.whatThisMeans}
                             </div>
                           </td>
-                          <td className="px-5 py-3.5 font-mono text-[11px] text-white/60">
+                          <td className="px-5 py-3.5 text-[11px] text-white/60">
                             <div className="flex items-center gap-1.5 max-w-[180px]">
                               <span className="truncate">{rec.wamid || 'wamid...'}</span>
                               {rec.wamid && (
@@ -1037,15 +979,15 @@ export default function CampaignDetailsView({ campaignId }) {
               <div className="px-6 py-4 bg-[#121629] border-b border-[#202740] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   {isFailed ? (
-                    <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-white flex items-center justify-center shrink-0">
                       <AlertTriangle size={18} />
                     </div>
                   ) : isDelivered ? (
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-white flex items-center justify-center shrink-0">
                       <CheckCircle2 size={18} />
                     </div>
                   ) : (
-                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-white flex items-center justify-center shrink-0">
                       <Send size={18} />
                     </div>
                   )}
@@ -1073,7 +1015,7 @@ export default function CampaignDetailsView({ campaignId }) {
                 {/* Recipient Profile Bar */}
                 <div className="p-4 rounded-xl bg-[#090b14] border border-[#1b2138] flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-semibold text-white font-mono">
+                    <div className="text-sm font-semibold text-white">
                       {rec.phone_number || rec.phone || rec.normalized_phone}
                     </div>
                     {rec.recipient_name && (
@@ -1084,15 +1026,15 @@ export default function CampaignDetailsView({ campaignId }) {
                   </div>
                   <div>
                     {isFailed ? (
-                      <span className="px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold">
+                      <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] border border-rose-500/30 text-white text-xs font-semibold">
                         Failed
                       </span>
                     ) : isDelivered ? (
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+                      <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-emerald-500/30 text-white text-xs font-semibold">
                         ✓ Delivered
                       </span>
                     ) : (
-                      <span className="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-semibold">
+                      <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-[#06263b]/80 via-[#031824]/60 to-[#02080c] border border-blue-500/30 text-white text-xs font-semibold">
                         ✓ Sent
                       </span>
                     )}
@@ -1165,7 +1107,7 @@ export default function CampaignDetailsView({ campaignId }) {
 
                   <div className="pt-2 border-t border-white/5 flex items-center justify-between">
                     <span className="text-white/60">Message ID:</span>
-                    <div className="flex items-center gap-1 font-mono text-[11px] text-[#cbd5e1]">
+                    <div className="flex items-center gap-1 text-[11px] text-[#cbd5e1]">
                       <span className="truncate max-w-[200px]">{rec.wamid || 'wamid...'}</span>
                       {rec.wamid && (
                         <button
