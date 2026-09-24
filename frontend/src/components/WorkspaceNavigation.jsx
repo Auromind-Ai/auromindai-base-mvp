@@ -75,17 +75,17 @@ export default function WorkspaceNavigation({
   return (
     <nav
       aria-label="Workspace navigation"
-      className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-2.5 py-3 custom-scrollbar"
+      className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-2.5 py-3 custom-scrollbar [@media(min-height:600px)]:overflow-clip lg:overflow-clip [@media(min-height:701px)_and_(max-height:880px)]:py-2 [@media(max-height:700px)]:py-1.5"
     >
-      <div className="space-y-2">
+      <div className="space-y-2 [@media(min-height:781px)_and_(max-height:880px)]:space-y-1.5 [@media(min-height:701px)_and_(max-height:780px)]:space-y-1 [@media(max-height:700px)]:space-y-0.5">
         {sections.map((section) => (
           <section key={section.title} aria-label={section.title}>
             {!collapsed && (
-              <h2 className="px-3 py-1 mb-1 text-[11px] font-medium uppercase tracking-wider text-[#787878]">
+              <h2 className="px-3 py-1 mb-1 [@media(min-height:781px)_and_(max-height:880px)]:py-0.5 [@media(min-height:701px)_and_(max-height:780px)]:py-px [@media(min-height:701px)_and_(max-height:780px)]:mb-0.5 [@media(max-height:700px)]:py-0 [@media(max-height:700px)]:mb-px text-[11px] font-medium uppercase tracking-wider text-[#787878]">
                 {section.title}
               </h2>
             )}
-            <div className="space-y-0.5">
+            <div className="space-y-0.5 [@media(max-height:780px)]:space-y-px">
               {section.items.map(([label, Icon, route]) => {
                 const href = `/user/admin/${route}`;
                 const active =
@@ -122,11 +122,11 @@ export default function WorkspaceNavigation({
         ))}
         <section aria-label="System">
           {!collapsed && (
-            <h2 className="px-3 py-1 mb-1 text-[11px] font-medium uppercase tracking-wider text-[#787878]">
+            <h2 className="px-3 py-1 mb-1 [@media(min-height:781px)_and_(max-height:880px)]:py-0.5 [@media(min-height:701px)_and_(max-height:780px)]:py-px [@media(min-height:701px)_and_(max-height:780px)]:mb-0.5 [@media(max-height:700px)]:py-0 [@media(max-height:700px)]:mb-px text-[11px] font-medium uppercase tracking-wider text-[#787878]">
               System
             </h2>
           )}
-          <div className="space-y-0.5">
+          <div className="space-y-0.5 [@media(max-height:780px)]:space-y-px">
             <button
               type="button"
               onClick={() => {
@@ -168,7 +168,7 @@ export default function WorkspaceNavigation({
 }
 
 function rowClass(active, collapsed) {
-  return `relative flex w-full items-center gap-2.5 py-[7px] rounded-[6px] text-left text-sm group select-none transition-all duration-150 active:scale-[0.97] active:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 ${collapsed ? "justify-center px-0" : "px-3"} ${active ? "bg-[var(--notion-hover)] text-white font-medium shadow-sm" : "text-[#9b9b9b] hover:bg-white/5 hover:text-white"}`;
+  return `relative flex w-full items-center gap-2.5 py-[7px] [@media(min-height:781px)_and_(max-height:880px)]:py-[5px] [@media(min-height:701px)_and_(max-height:780px)]:py-1 [@media(max-height:700px)]:py-0.5 rounded-[6px] text-left text-sm group select-none transition-all duration-150 active:scale-[0.97] active:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 ${collapsed ? "justify-center px-0" : "px-3"} ${active ? "bg-[var(--notion-hover)] text-white font-medium shadow-sm" : "text-[#9b9b9b] hover:bg-white/5 hover:text-white"}`;
 }
 
 function MarketingMenu({ collapsed, active, onExpand, onNavigate }) {

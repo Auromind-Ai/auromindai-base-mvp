@@ -204,12 +204,12 @@ function AdminLayoutContent({ children }) {
 
                 {/* Desktop Collapsible Sidebar */}
                 <aside
-                    className={`${poppins.className} hidden lg:flex shrink-0 flex-col border-r border-[var(--notion-border)] bg-[#080c14] h-dvh sticky top-0 z-10 transition-all duration-300 ease-in-out ${
+                        className={`${poppins.className} hidden lg:flex shrink-0 flex-col border-r border-[var(--notion-border)] bg-[#080c14] h-dvh max-h-dvh min-h-0 overflow-clip sticky top-0 z-10 transition-all duration-300 ease-in-out ${
                         isCollapsed ? 'w-[68px]' : 'w-[240px]'
                     }`}
                 >
                     {/* Top Profile & Toggle Section */}
-                    <div className={`flex items-center shrink-0 pt-5 pb-4 border-b border-white/5 ${
+                    <div className={`flex items-center shrink-0 pt-5 pb-4 [@media(min-height:781px)_and_(max-height:880px)]:py-3 [@media(min-height:701px)_and_(max-height:780px)]:py-2.5 [@media(max-height:700px)]:py-1.5 border-b border-white/5 ${
                         isCollapsed ? 'justify-center px-2 flex-col gap-2' : 'justify-between px-4'
                     }`}>
                         <div className="flex items-center gap-2.5 overflow-hidden">
@@ -242,7 +242,7 @@ function AdminLayoutContent({ children }) {
                     />
 
                     {/* Sidebar Bottom Actions */}
-                    <div className="shrink-0 p-2.5 border-t border-[var(--notion-border)] space-y-1">
+                    <div className="shrink-0 p-2.5 [@media(min-height:701px)_and_(max-height:880px)]:py-2 [@media(max-height:700px)]:py-1.5 border-t border-[var(--notion-border)] space-y-1">
                         {/* Logout */}
                         <button
                             onClick={() => setShowLogoutConfirm(true)}
@@ -295,11 +295,11 @@ function AdminLayoutContent({ children }) {
                 <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
                     <SheetContent
                         side="left"
-                        className="p-0 w-[200px] max-w-[calc(100vw-2rem)] h-dvh bg-[#080c14] border-r border-[var(--notion-border)] text-[var(--notion-text)] shadow-2xl"
+                        className="p-0 w-[200px] max-w-[calc(100vw-2rem)] h-dvh max-h-dvh overflow-clip bg-[#080c14] border-r border-[var(--notion-border)] text-[var(--notion-text)] shadow-2xl"
                     >
                         <div className={`${poppins.className} flex flex-col h-full min-h-0 bg-[#080c14]`}>
                             {/* Workspace Brand */}
-                            <div className="h-14 flex items-center pl-3 pr-10 border-b border-white/5 shrink-0">
+                            <div className="h-14 [@media(max-height:700px)]:h-12 flex items-center pl-3 pr-10 border-b border-white/5 shrink-0">
                                 <div className="flex items-center gap-2.5 overflow-hidden">
                                     <div className="w-5 h-5 rounded-[4px] bg-[#814AC8] flex items-center justify-center flex-shrink-0 text-[10px] text-white font-bold">
                                         {(currentWorkspaceName || 'A').charAt(0).toUpperCase()}
@@ -317,7 +317,7 @@ function AdminLayoutContent({ children }) {
                                 onSettings={() => setIsSettingsOpen(true)}
                                 onNavigate={() => setIsMobileOpen(false)}
                             />
-                            <div className="shrink-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/5 bg-[#080c14]">
+                            <div className="shrink-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] [@media(max-height:700px)]:pt-1.5 [@media(max-height:700px)]:pb-[max(0.375rem,env(safe-area-inset-bottom))] border-t border-white/5 bg-[#080c14]">
                                 <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors">
                                     <div className="w-8 h-8 rounded-lg bg-[#814AC8] flex items-center justify-center text-xs text-white font-bold">
                                         {(user?.full_name || user?.name || user?.email || 'U').charAt(0).toUpperCase()}
