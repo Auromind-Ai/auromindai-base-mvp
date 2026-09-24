@@ -392,7 +392,7 @@ export default function CampaignDetailsStep({
                     }`}
                   />
                 ) : (
-                  <span className="px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shrink-0">
+                  <span className="px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-emerald-500/30 text-white shrink-0">
                     Active
                   </span>
                 )}

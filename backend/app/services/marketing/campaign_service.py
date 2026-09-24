@@ -832,6 +832,8 @@ class CampaignService:
             campaign.name = updated_name
         if "campaign_type" in data and data["campaign_type"] is not None:
             campaign.campaign_type = data["campaign_type"]
+        if "category" in data and data["category"] is not None:
+            campaign.category = data["category"]
         if "campaign_goal" in data:
             campaign.campaign_goal = data["campaign_goal"]
         if "phone_number_id" in data and data["phone_number_id"] is not None:
