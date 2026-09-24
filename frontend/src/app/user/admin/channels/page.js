@@ -6,6 +6,7 @@ import { Instagram, Search, ChevronDown, Check, X, ChevronRight, Eye, EyeOff, Ex
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
+import WhatsAppProfileModal from './WhatsAppProfileModal';
 
 
 
@@ -1494,7 +1495,7 @@ export default function ChannelsPage() {
                                         </div>
 
                                         <div className="flex items-center gap-1.5 shrink-0">
-                                            {/* {item.id === 'whatsapp' && (
+                                            {item.id === 'whatsapp' && (
                                                 <button
                                                     type="button"
                                                     onClick={() => handleOpenWhatsAppProfile(isConnected)}
@@ -1503,9 +1504,10 @@ export default function ChannelsPage() {
                                                     <UserPen size={13} className="text-[#4EED6E]" />
                                                     <span>Edit Profile</span>
                                                 </button>
-                                            )} */}
+                                            )}
 
                                             {isConnected ? (
+
                                                 <>
                                                     <button
                                                         type="button"
@@ -1756,14 +1758,14 @@ export default function ChannelsPage() {
                 />
 
                 {/* WhatsApp Profile Modal */}
-                {/* <WhatsAppProfileModal
+                <WhatsAppProfileModal
                     isOpen={isWhatsAppProfileOpen}
                     onClose={() => setIsWhatsAppProfileOpen(false)}
                     workspaceId={workspace?.id}
                     phoneId={whatsappPhoneId}
                     displayPhone={connectedInfo.whatsapp}
                     wabaId={whatsappWabaId}
-                /> */}
+                />
 
                 {/* Disconnect Modal */}
 

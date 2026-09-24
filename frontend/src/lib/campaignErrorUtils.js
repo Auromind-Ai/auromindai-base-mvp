@@ -1,244 +1,179 @@
+/**
+ * Meta WhatsApp Cloud API Error Classification and Troubleshooting Utilities
+ * Provides human-readable descriptions, categories, and actionable guidance for campaign errors.
+ */
 
 export const META_ERROR_CATALOG = {
-  '131026': {
-    category: 'RECIPIENT_UNDELIVERABLE',
-    title: 'Recipient cannot receive this message',
-    whatThisMeans:
-      'WhatsApp was unable to deliver the message to this number. This usually happens when the phone number is not active on WhatsApp, the device has been offline/turned off for an extended period, or the recipient has blocked business messaging. The exact underlying reason may not always be disclosed by Meta to protect user privacy.',
-    whatYouCanDo:
-      'Check whether this number is active on WhatsApp before sending again. You can also contact the customer via SMS or call to verify their phone number.',
-    severity: 'error',
-    isRetryable: false,
-  },
   '131049': {
-    category: 'MARKETING_RECIPIENT_LIMIT',
-    title: 'Marketing message limit reached',
+    code: '131049',
+    title: 'Marketing Message Frequency Cap Reached',
+    category: 'WhatsApp Policy & Frequency Limit',
     whatThisMeans:
-      'Meta limited delivery to protect the WhatsApp user experience. This recipient has reached their marketing-message limit set by Meta to prevent message fatigue and maintain healthy user engagement.',
+      'WhatsApp limits how many marketing template messages a single user can receive across all businesses in a given timeframe to protect user experience.',
     whatYouCanDo:
-      'Do not retry sending immediately. Try sending at a later date, or use an approved Utility or Service template if your message is non-promotional.',
-    severity: 'warning',
-    isRetryable: true,
+      'No action needed on your account. The message was skipped safely without counting against your campaign deliverability. You can re-target this contact in a subsequent campaign after 24–48 hours.',
+  },
+  '131026': {
+    code: '131026',
+    title: 'Message Undeliverable / Recipient Unavailable',
+    category: 'Recipient Status',
+    whatThisMeans:
+      'The recipient phone number is either not registered on WhatsApp, has blocked business messages, or is temporarily unreachable (device powered off/offline for >14 days).',
+    whatYouCanDo:
+      'Verify the recipient’s WhatsApp registration status. If the contact is inactive, remove or update the phone number in your CRM list to improve deliverability rates.',
   },
   '131047': {
-    category: 'CUSTOMER_SERVICE_WINDOW_EXPIRED',
-    title: 'Customer service window expired',
+    code: '131047',
+    title: '24-Hour Customer Service Window Closed',
+    category: 'Session Policy',
     whatThisMeans:
-      'More than 24 hours have passed since the customer last replied. WhatsApp requires an approved template message to re-open the conversation window.',
+      'Free-form session messages can only be sent within 24 hours of the user’s last message. After 24 hours, only approved Meta templates can be sent.',
     whatYouCanDo:
-      'Send an approved Meta template message instead of a free-form custom message to re-open the 24-hour window.',
-    severity: 'warning',
-    isRetryable: false,
-  },
-  '131056': {
-    category: 'RECIPIENT_PAIR_RATE_LIMIT',
-    title: 'Too many messages sent to recipient too quickly',
-    whatThisMeans:
-      'WhatsApp temporarily limited messages to this recipient because too many messages were sent to this specific recipient pair in a short period of time.',
-    whatYouCanDo:
-      'Slow down messages to this number and try again after a few hours.',
-    severity: 'warning',
-    isRetryable: true,
+      'Ensure you select an approved Meta template for outbound broadcasts, or wait for the user to initiate a new conversation.',
   },
   '130429': {
-    category: 'THROUGHPUT_RATE_LIMIT',
-    title: 'Sending speed limit reached',
+    code: '130429',
+    title: 'Cloud API Rate Limit Exceeded',
+    category: 'API Rate Limit',
     whatThisMeans:
-      'Your WhatsApp Business phone number reached its message throughput limit (messages per second). This is an account-level sending speed limit, not an individual recipient issue.',
+      'Your WhatsApp Business Account has temporarily exceeded the allowed requests per second throughput limit.',
     whatYouCanDo:
-      'Slow down the campaign sending rate (messages per minute). The campaign will automatically pace and continue when capacity is available.',
-    severity: 'warning',
-    isRetryable: true,
-  },
-  '131009': {
-    category: 'INVALID_PARAMETER',
-    title: 'Parameter value is invalid',
-    whatThisMeans:
-      'One or more parameter values or variables supplied in the message template do not match the expected format, length, or character requirements.',
-    whatYouCanDo:
-      'Review your campaign variable mapping and ensure recipient fields (e.g. name or amounts) do not contain excessive length or invalid characters.',
-    severity: 'error',
-    isRetryable: false,
-  },
-  '131008': {
-    category: 'REQUIRED_PARAMETER_MISSING',
-    title: 'Required parameter is missing',
-    whatThisMeans:
-      'The approved template expects parameters (such as {{1}} or {{2}}), but one or more values were not provided.',
-    whatYouCanDo:
-      'Verify that all template placeholders have corresponding variable mappings in your audience list.',
-    severity: 'error',
-    isRetryable: false,
+      'The platform automatically throttles and retries rate-limited requests. Consider lowering the sending rate per minute in Campaign Schedule settings.',
   },
   '131051': {
-    category: 'UNSUPPORTED_MESSAGE_TYPE',
-    title: 'Unsupported message type',
+    code: '131051',
+    title: 'Unsupported Message Type',
+    category: 'Payload Format',
     whatThisMeans:
-      'The message type or media attachment format is not supported by WhatsApp Business API.',
+      'The message content or attachment format is not supported by the recipient’s WhatsApp client version.',
     whatYouCanDo:
-      'Ensure attachments use supported formats (JPG, PNG, MP4, PDF) and stay within Meta file size limits.',
-    severity: 'error',
-    isRetryable: false,
+      'Use standard image (JPG, PNG), document (PDF), or video (MP4) formats supported by WhatsApp.',
   },
   '131052': {
-    category: 'MEDIA_DOWNLOAD_ERROR',
-    title: 'Media download error',
+    code: '131052',
+    title: 'Media Download / Upload Failed',
+    category: 'Media Attachment',
     whatThisMeans:
-      'WhatsApp servers were unable to download media from the provided URL.',
+      'WhatsApp servers could not fetch the media file from the provided media URL, or the file size exceeded the Meta limit.',
     whatYouCanDo:
-      'Ensure the media URL is publicly accessible over HTTPS and does not require private authentication.',
-    severity: 'error',
-    isRetryable: true,
-  },
-  '131053': {
-    category: 'MEDIA_UPLOAD_ERROR',
-    title: 'Media upload error',
-    whatThisMeans:
-      'WhatsApp failed to process or store the uploaded media asset.',
-    whatYouCanDo:
-      'Verify that the media file is not corrupted and try uploading the file again.',
-    severity: 'error',
-    isRetryable: true,
+      'Verify that the media URL is publicly accessible (HTTPS) and does not require authentication. Ensure file size is within limits (Images: 5MB, Videos: 16MB, Documents: 100MB).',
   },
   '132000': {
-    category: 'TEMPLATE_NOT_FOUND',
-    title: 'Template does not exist',
+    code: '132000',
+    title: 'Template Variable Parameter Mismatch',
+    category: 'Template Formatting',
     whatThisMeans:
-      'The template name or language code does not exist in your WhatsApp Business Account.',
+      'The number of variables provided in the campaign does not match the parameters expected by the approved template.',
     whatYouCanDo:
-      'Verify the template name and language in Meta WhatsApp Manager and synchronize templates.',
-    severity: 'error',
-    isRetryable: false,
+      'Check the template definition and ensure all required variables (e.g. {{1}}, {{2}}) have mapped values or fallbacks.',
   },
   '132001': {
-    category: 'TEMPLATE_NOT_APPROVED',
-    title: 'Template is not approved',
+    code: '132001',
+    title: 'Template Not Found or Not Approved',
+    category: 'Template Status',
     whatThisMeans:
-      'The template has not been approved by Meta yet, or has been paused or rejected.',
+      'The selected template ID is not found or is still pending/rejected in Meta Business Manager.',
     whatYouCanDo:
-      'Check template approval status in WhatsApp Manager. Messages can only be dispatched using APPROVED templates.',
-    severity: 'error',
-    isRetryable: false,
+      'Select only templates marked as "APPROVED" in Template Studio before launching the campaign.',
   },
   '132005': {
-    category: 'TEMPLATE_VARIABLE_MISMATCH',
-    title: 'Template variable count mismatch',
+    code: '132005',
+    title: 'Template Language or Locale Mismatch',
+    category: 'Template Formatting',
     whatThisMeans:
-      'The number of variable values provided does not match the placeholder count in the template definition.',
+      'The template language code specified does not match the approved translation in WhatsApp Business Manager.',
     whatYouCanDo:
-      'Ensure the number of values passed matches the template placeholder count.',
-    severity: 'error',
-    isRetryable: false,
-  },
-  '130428': {
-    category: 'CLOUD_API_RATE_LIMIT',
-    title: 'Cloud API rate limit hit',
-    whatThisMeans:
-      'Your application has temporarily exceeded the Meta Cloud API request rate limit.',
-    whatYouCanDo:
-      'The system will automatically back off and retry. Consider lowering the campaign dispatch speed.',
-    severity: 'warning',
-    isRetryable: true,
-  },
-  '131057': {
-    category: 'ACCOUNT_RESTRICTED',
-    title: 'Account sending restricted',
-    whatThisMeans:
-      'Your WhatsApp Business phone number has been temporarily restricted due to policy or quality rating violations.',
-    whatYouCanDo:
-      'Check WhatsApp Manager quality rating and review Meta policy notifications.',
-    severity: 'error',
-    isRetryable: false,
+      'Ensure the campaign language matches the approved template language (e.g., en_US).',
   },
   '133010': {
-    category: 'PHONE_NUMBER_NOT_REGISTERED',
-    title: 'Phone number not registered',
+    code: '133010',
+    title: 'WhatsApp Business Account Restricted or Inactive',
+    category: 'Account Compliance',
     whatThisMeans:
-      'The recipient’s phone number is not registered on WhatsApp.',
+      'Your Meta WhatsApp Business Account has policy restrictions, unverified payment method, or pending compliance verification.',
     whatYouCanDo:
-      'Remove this contact from the audience or verify their active WhatsApp number.',
-    severity: 'error',
-    isRetryable: false,
+      'Log in to Meta WhatsApp Business Manager (business.facebook.com) and check your Account Quality tab to resolve restrictions.',
   },
-  SKIPPED_INVALID: {
-    category: 'INVALID_PHONE_NUMBER',
-    title: 'Invalid phone number format',
+  'SKIPPED_INVALID': {
+    code: 'SKIPPED_INVALID',
+    title: 'Invalid Phone Number Format',
+    category: 'Recipient Validation',
     whatThisMeans:
-      'The phone number is missing a valid country code or has an incorrect number of digits.',
+      'The phone number does not conform to the E.164 international standard (missing country code or insufficient digits).',
     whatYouCanDo:
-      'Format numbers in standard E.164 format with country code (e.g. +91 98765 43210).',
-    severity: 'warning',
-    isRetryable: false,
+      'Ensure phone numbers include the full country code without extra symbols (e.g., +91 9840123456).',
   },
-  SKIPPED_OPTED_OUT: {
-    category: 'CONTACT_OPTED_OUT',
-    title: 'Contact opted out',
+  'SKIPPED_OPTED_OUT': {
+    code: 'SKIPPED_OPTED_OUT',
+    title: 'Recipient Opted Out',
+    category: 'Compliance & Consent',
     whatThisMeans:
-      'The recipient previously requested to unsubscribe or opt out from marketing communications.',
+      'The contact has previously unsubscribed or requested not to receive marketing communications.',
     whatYouCanDo:
-      'Do not contact this recipient for marketing purposes. Respect customer preferences.',
-    severity: 'info',
-    isRetryable: false,
+      'Respect user consent. Do not attempt to re-message unsubscribed contacts without explicit re-opt-in.',
   },
-  PORTFOLIO_TIER_LIMIT: {
-    category: 'PORTFOLIO_DAILY_LIMIT',
-    title: '24-hour portfolio limit reached',
+  'HELD_PORTFOLIO_LIMIT': {
+    code: 'HELD_PORTFOLIO_LIMIT',
+    title: '24-Hour Messaging Tier Limit Reached',
+    category: 'Portfolio Tier Capacity',
     whatThisMeans:
-      'Your Meta WhatsApp Business account reached its daily unique recipient tier limit.',
+      'You have reached your current 24-hour unique business-initiated conversation tier limit set by Meta.',
     whatYouCanDo:
-      'The campaign is paused and will automatically resume once the 24-hour window rolls over.',
-    severity: 'warning',
-    isRetryable: true,
+      'Your campaign will automatically resume once your 24-hour quota rolls over tomorrow. Maintain high message quality to automatically upgrade your tier limit.',
   },
 };
 
-const DEFAULT_ERROR = {
-  category: 'GENERAL_DELIVERY_FAILURE',
-  title: 'Message delivery failed',
-  whatThisMeans:
-    'WhatsApp was unable to deliver this message. Meta returned an error during transmission or delivery confirmation.',
-  whatYouCanDo:
-    'Check recipient phone number validity and inspect the error details before retrying.',
-  severity: 'error',
-  isRetryable: true,
-};
-
-export function classifyMetaError(errorCode, rawMessage = '') {
+/**
+ * Classifies an error code and message into human-friendly troubleshooting details.
+ *
+ * @param {string|number} errorCode - The error code or status string
+ * @param {string} [errorMessage] - Optional raw error message
+ * @returns {{ code: string, title: string, category: string, whatThisMeans: string, whatYouCanDo: string }}
+ */
+export function classifyMetaError(errorCode, errorMessage = '') {
   const codeStr = String(errorCode || '').trim().toUpperCase();
 
   if (META_ERROR_CATALOG[codeStr]) {
-    return {
-      errorCode: codeStr,
-      ...META_ERROR_CATALOG[codeStr],
-    };
+    return META_ERROR_CATALOG[codeStr];
   }
 
-  const rawLower = String(rawMessage || '').toLowerCase();
-  if (rawLower.includes('131049') || (rawLower.includes('marketing') && rawLower.includes('limit')) || rawLower.includes('engagement')) {
-    return { errorCode: '131049', ...META_ERROR_CATALOG['131049'] };
+  // Check by partial match or semantic status
+  if (codeStr.includes('131049') || codeStr.includes('FREQUENCY') || codeStr.includes('CAP')) {
+    return META_ERROR_CATALOG['131049'];
   }
-  if (rawLower.includes('131026') || rawLower.includes('undeliverable') || rawLower.includes('cannot receive')) {
-    return { errorCode: '131026', ...META_ERROR_CATALOG['131026'] };
+  if (codeStr.includes('131026') || codeStr.includes('UNDELIVERABLE')) {
+    return META_ERROR_CATALOG['131026'];
   }
-  if (rawLower.includes('131047') || rawLower.includes('window')) {
-    return { errorCode: '131047', ...META_ERROR_CATALOG['131047'] };
+  if (codeStr.includes('131047') || codeStr.includes('24H') || codeStr.includes('WINDOW')) {
+    return META_ERROR_CATALOG['131047'];
   }
-  if (rawLower.includes('131056') || rawLower.includes('rate limit') || rawLower.includes('too many')) {
-    return { errorCode: '131056', ...META_ERROR_CATALOG['131056'] };
+  if (codeStr.includes('130429') || codeStr.includes('RATE_LIMIT') || codeStr === '429') {
+    return META_ERROR_CATALOG['130429'];
   }
-  if (rawLower.includes('invalid') && rawLower.includes('number')) {
-    return { errorCode: 'SKIPPED_INVALID', ...META_ERROR_CATALOG.SKIPPED_INVALID };
+  if (codeStr.includes('INVALID') || codeStr.includes('PHONE')) {
+    return META_ERROR_CATALOG['SKIPPED_INVALID'];
   }
-  if (rawLower.includes('opt_out') || rawLower.includes('opted out')) {
-    return { errorCode: 'SKIPPED_OPTED_OUT', ...META_ERROR_CATALOG.SKIPPED_OPTED_OUT };
+  if (codeStr.includes('OPT_OUT') || codeStr.includes('OPTED_OUT')) {
+    return META_ERROR_CATALOG['SKIPPED_OPTED_OUT'];
+  }
+  if (codeStr.includes('PORTFOLIO') || codeStr.includes('TIER')) {
+    return META_ERROR_CATALOG['HELD_PORTFOLIO_LIMIT'];
   }
 
-  const res = { errorCode: codeStr || 'FAILED', ...DEFAULT_ERROR };
-  if (rawMessage && rawMessage.trim()) {
-    const cleanMsg = rawMessage.split(':')[0].trim();
-    if (cleanMsg.length < 60 && !['failed', 'delivery failed', 'unknown'].includes(cleanMsg.toLowerCase())) {
-      res.title = cleanMsg;
-    }
-  }
-  return res;
+  // Fallback for generic or unknown errors
+  return {
+    code: codeStr || 'UNKNOWN',
+    title: errorMessage || 'Message Delivery Unsuccessful',
+    category: 'General Delivery Issue',
+    whatThisMeans:
+      errorMessage ||
+      'WhatsApp Cloud API was unable to deliver the message to the destination phone number.',
+    whatYouCanDo:
+      'Verify that the recipient number is valid, connected to WhatsApp, and that your template meets Meta Business policies.',
+  };
 }
+
+export default {
+  META_ERROR_CATALOG,
+  classifyMetaError,
+};
