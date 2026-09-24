@@ -42,8 +42,10 @@ services:
     restart: unless-stopped
     command: >
       sh -c "alembic upgrade heads &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --timeout-keep-alive 75"
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --timeout-keep-alive 75 --no-access-log --log-level error"
     environment:
+      PYTHONUNBUFFERED: "1"
+      LOG_LEVEL: ${LOG_LEVEL:-error}
       DATABASE_URL: ${DATABASE_URL:-}
       POSTGRES_DB: ${POSTGRES_DB:-yogeshdb}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -85,15 +87,13 @@ services:
       for i in range(60):
           try:
               with engine.connect():
-                  print('Database connection successful!')
                   break
           except Exception as e:
-              print(f'Waiting for database ({i}/60)...')
               time.sleep(1)
-      else:
-          print('Database connection timed out!')
-      '''))\" && celery -A app.core.celery_app worker --loglevel=info --pool=prefork --concurrency=2 -Q default,beat,campaigns_queue,critical_queue"
+      '''))\" && celery -A app.core.celery_app worker --loglevel=error --pool=prefork --concurrency=2 -Q default,beat,campaigns_queue,critical_queue"
     environment:
+      PYTHONUNBUFFERED: "1"
+      LOG_LEVEL: ${LOG_LEVEL:-error}
       DATABASE_URL: ${DATABASE_URL:-}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -131,15 +131,12 @@ services:
       for i in range(60):
           try:
               with engine.connect():
-                  print('Database connection successful!')
                   break
           except Exception as e:
-              print(f'Waiting for database ({i}/60)...')
               time.sleep(1)
-      else:
-          print('Database connection timed out!')
-      '''))\" && celery -A app.core.celery_app beat --loglevel=info"
+      '''))\" && celery -A app.core.celery_app beat --loglevel=error"
     environment:
+      PYTHONUNBUFFERED: "1"
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       HF_HOME: /models/huggingface

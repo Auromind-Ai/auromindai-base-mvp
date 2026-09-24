@@ -27,8 +27,9 @@ class RequestLoggingMiddleware:
             raise e
         finally:
             process_time = time.time() - start
-            if request.method != "OPTIONS":
-                logger.info(
+            # Only log errors (HTTP 4xx and 5xx); suppress all routine 2xx/3xx polling requests
+            if status_code[0] >= 400 and request.method != "OPTIONS":
+                logger.error(
                     f"{request.method} {request.url.path} | "
                     f"Status {status_code[0]} | "
                     f"{process_time:.3f}s"

@@ -7,16 +7,17 @@ from app.models.user import User
 from app.models.campaign import Campaign, CampaignRecipient, ContactList, ContactListMember
 from app.models.templates import Template
 from app.models.ai_action import Lead
+from app.core.logger import logger
 
 def seed_marketing_data():
     db: Session = SessionLocal()
     try:
         workspaces = db.query(Workspace).all()
         if not workspaces:
-            print("No workspaces found in DB.")
+            logger.info("No workspaces found in DB.")
             return
 
-        print(f"Seeding marketing campaigns and templates across {len(workspaces)} workspaces...")
+        logger.info(f"Seeding marketing campaigns and templates across {len(workspaces)} workspaces...")
 
         for ws in workspaces:
             user = db.query(User).filter(User.id == ws.created_by).first() if ws.created_by else db.query(User).first()
@@ -497,14 +498,14 @@ def seed_marketing_data():
                     )
                     db.add(camp)
                 
-                print(f"  Successfully seeded {len(campaign_seeds)} campaigns for workspace: {ws.name} ({ws.id})")
+                logger.info(f"  Successfully seeded {len(campaign_seeds)} campaigns for workspace: {ws.name} ({ws.id})")
 
             db.commit()
 
-        print("Seeding completed successfully!")
+        logger.info("Seeding completed successfully!")
     except Exception as e:
         db.rollback()
-        print(f"Error seeding marketing data: {e}")
+        logger.error(f"Error seeding marketing data: {e}")
         raise
     finally:
         db.close()

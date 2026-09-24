@@ -6,6 +6,7 @@ import re
 from app.services.agentic_rag.embedding_service import get_embedding_generator
 from app.services.agentic_rag.vector_store_service import VectorStoreService
 from app.models.brain import EmailMessage
+from app.core.logger import logger
 
 
 
@@ -57,13 +58,10 @@ class EmailsCrawlerService:
                 return "Unknown category skipped"
         
         except Exception as e:
-            print("Crawler error:", e)
+            logger.error(f"Crawler error: {e}", exc_info=True)
             return "Crawler failed"
         
     def start_crawler(self, service, db, workspace_id, last_processed_id=None):
-
-        print("Starting email crawler...")
-
         response = service.users().messages().list(
             userId="me",
             q="category:primary -label:spam",
@@ -112,7 +110,6 @@ class EmailsCrawlerService:
             raw_message
         )
 
-        print("Processed:", subject)
         return parsed_email
     
     def extract_body_from_email(self, email_message):
@@ -232,5 +229,4 @@ class EmailsCrawlerService:
     #         embeddings=embeddings,
     #         parent_id=entry.id 
     #     )
-
-        print("Email embedded and stored successfully")
+        pass

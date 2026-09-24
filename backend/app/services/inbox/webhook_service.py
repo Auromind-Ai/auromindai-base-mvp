@@ -275,16 +275,13 @@ class WebhookService:
 
     @staticmethod
     async def handle_meta_whatsapp_webhook(payload: dict, db: Session):
-        print("\n[DEBUG WEBHOOK] WebhookService.handle_meta_whatsapp_webhook started")
         logger.info("Starting WebhookService.handle_meta_whatsapp_webhook")
         for entry in payload.get("entry", []):
             entry_id = entry.get('id')
-            print(f"[DEBUG WEBHOOK] Processing entry: {entry_id}")
             logger.info(f"Processing entry: {entry_id}")
             for change in entry.get("changes", []):
                 field = change.get("field")
                 value = change.get("value", {})
-                print(f"[DEBUG WEBHOOK] Processing change field: {field}")
                 logger.info(f"Processing change field: {field}, value keys: {list(value.keys())}")
                 
                 if field == "message_template_status_update":
@@ -292,7 +289,6 @@ class WebhookService:
                     tpl_lang = value.get("message_template_language")
                     tpl_event = value.get("event")
                     tpl_id = value.get("message_template_id")
-                    print(f"[DEBUG WEBHOOK] Template Status Update: {tpl_name} -> {tpl_event}")
                     logger.info(f"Template status update webhook hit: {tpl_name} ({tpl_lang}) -> {tpl_event}")
                     
                     waba_id = entry.get("id")
@@ -319,7 +315,6 @@ class WebhookService:
                     if template:
                         if tpl_event:
                             new_status = tpl_event.lower()
-                            print(f"[DEBUG WEBHOOK] Updating template {template.id} status to {new_status}")
                             logger.info(f"Updating template {template.id} status to {new_status}")
                             template.status = new_status
                             db.commit()
@@ -333,7 +328,6 @@ class WebhookService:
                     display_phone = value.get("display_phone_number")
                     event_type = value.get("event")
                     current_limit = value.get("current_limit")
-                    print(f"[DEBUG WEBHOOK] Phone Number Quality Update: {display_phone} -> {event_type} ({current_limit})")
                     logger.info(f"Meta phone_number_quality_update received: phone={display_phone}, event={event_type}, limit={current_limit}")
 
                     waba_id = entry.get("id")
@@ -369,33 +363,22 @@ class WebhookService:
                 # In WhatsApp Cloud API, incoming messages usually have 'metadata' with 'phone_number_id'
                 metadata = value.get("metadata") or {}
                 phone_number_id = metadata.get("phone_number_id")
-                print(f"[DEBUG WEBHOOK] Metadata: {metadata}")
-                print(f"[DEBUG WEBHOOK] Phone Number ID: {phone_number_id}")
                 
                 if not phone_number_id:
-                    print("[DEBUG WEBHOOK] No phone_number_id found. Skipping change.")
                     logger.warning("No phone_number_id found in webhook change value. Skipping.")
                     continue
 
-                print(f"[DEBUG WEBHOOK] Looking up workspace for phone_number_id: {phone_number_id}")
-                logger.info(f"Looking up workspace for phone_number_id: {phone_number_id}")
                 workspace = ConversationService.get_workspace_for_meta_whatsapp_phone_number_id(
                     db,
                     phone_number_id,
                 )
                 
                 if not workspace:
-                    print(f"[DEBUG WEBHOOK] ERROR: No workspace found for phone_number_id: {phone_number_id}!")
                     logger.error(f"No workspace found attached to phone_number_id: {phone_number_id}. Message dropped.")
                     continue
-                
-                print(f"[DEBUG WEBHOOK] Workspace found: {workspace.id} (Name: {workspace.name})")
-                logger.info(f"Found workspace: {workspace.id}")
 
                 statuses = value.get("statuses") or []
                 if statuses:
-                    print("WHATSAPP STATUS UPDATE")
-                    print(json.dumps(payload, indent=2))
                     
                     # Pre-fetch and cache active rate cards for region 'IN' to eliminate N+1 queries
                     active_cards = {}
@@ -443,6 +426,11 @@ class WebhookService:
                                     # Never demote an already DELIVERED message back to SENT
                                     if not (msg.status == MessageStatus.DELIVERED and mapped_status == MessageStatus.SENT):
                                         msg.status = mapped_status
+                                        if mapped_status == MessageStatus.FAILED:
+                                            logger.error(
+                                                "[Webhook DLR FAILED] Inbox message %s marked FAILED: errors=%s",
+                                                wamid, status_update.get("errors")
+                                            )
                                         db.flush()
                                         logger.info(f"Updated message status for {wamid} to {status_str}")
 
@@ -453,6 +441,11 @@ class WebhookService:
                                     # Only advance status forward, NEVER demote delivered/read back to sent!
                                     if new_rank >= current_rank or status_str.lower() in ("failed", "cancelled"):
                                         outbound.status = status_str.lower()
+                                        if status_str.lower() in ("failed", "cancelled"):
+                                            logger.error(
+                                                "[Webhook DLR FAILED] OutboundMessage %s marked as %s: errors=%s",
+                                                wamid, status_str, status_update.get("errors")
+                                            )
                                         db.flush()
                                         logger.info(f"Updated OutboundMessage status for {wamid} to {status_str}")
                                     else:
@@ -521,9 +514,19 @@ class WebhookService:
                                         if recipient.status != "failed" and current_c_rank < 2:
                                             recipient.status = "failed"
                                             errors = status_update.get("errors", [])
+                                            err_code = "FAILED"
+                                            err_msg = "Delivery failed"
+                                            err_details = None
                                             if errors:
-                                                recipient.error_code = str(errors[0].get("code", "FAILED"))
-                                                recipient.error_message = errors[0].get("message", "Delivery failed")
+                                                err_code = str(errors[0].get("code", "FAILED"))
+                                                err_msg = errors[0].get("message") or errors[0].get("title", "Delivery failed")
+                                                err_details = (errors[0].get("error_data") or {}).get("details")
+                                                recipient.error_code = err_code
+                                                recipient.error_message = f"{err_msg}: {err_details}" if err_details else err_msg
+                                            logger.error(
+                                                "[Webhook DLR FAILED] Campaign message %s to %s failed: Code=%s, Msg=%s, Details=%s",
+                                                wamid, recipient.normalized_phone, err_code, err_msg, err_details
+                                            )
                                             db.query(Campaign).filter(Campaign.id == recipient.campaign_id).update({
                                                 Campaign.failed_count: Campaign.failed_count + 1
                                             })
@@ -672,6 +675,18 @@ class WebhookService:
                         except Exception as token_err:
                             logger.error(f"Failed to generate media token: {token_err}")
 
+                    is_unsupported_msg = (media_type == "unsupported" or (message.get("type") or "").lower() == "unsupported")
+                    if is_unsupported_msg:
+                        logger.warning(
+                            "[Webhook Inbound UNSUPPORTED] Phone=%s | MsgID=%s | Type=%s | Errors=%s",
+                            from_number, message.get("id"), message.get("type"), message.get("errors")
+                        )
+                    elif message.get("errors"):
+                        logger.error(
+                            "[Webhook Inbound ERROR] Phone=%s | MsgID=%s | Type=%s | Errors=%s",
+                            from_number, message.get("id"), message.get("type"), message.get("errors")
+                        )
+
                     logger.info(f"Forwarding message from {from_number} to unified pipeline...")
                     try:
                         result = await WebhookService.process_incoming_message(
@@ -690,7 +705,9 @@ class WebhookService:
                                         "media_url": media_url,
                                         "media_type": media_type,
                                         "mime_type": mime_type,
-                                        "media_id": media_id   
+                                        "media_id": media_id,
+                                        "is_unsupported": is_unsupported_msg,
+                                        "errors": message.get("errors") if is_unsupported_msg else None,
                                     },
                         )
                         logger.info(f"Pipeline processing result: {result}")
@@ -898,15 +915,20 @@ class WebhookService:
             if message_external_id:
                 message_metadata["message_external_id"] = message_external_id
 
-            #  Step 4: FIX 2 — Async Intent detection + score (inbound only) 
-            analyze_message_intent.delay(str(conversation.id), body, message_external_id)
-
-            #  Step 5: Enqueue bot reply processing 
-            MessageService.enqueue_incoming_processing(
-                str(conversation.id),
-                body,
-                message_metadata,
-            )
+            #  Step 4 & 5: Process intent and bot reply only for supported messages
+            if not message_metadata.get("is_unsupported"):
+                analyze_message_intent.delay(str(conversation.id), body, message_external_id)
+                MessageService.enqueue_incoming_processing(
+                    str(conversation.id),
+                    body,
+                    message_metadata,
+                )
+            else:
+                logger.info(
+                    "[%s] Unsupported message received; skipping intent analysis and bot processing | external_id=%s",
+                    normalized_channel.value,
+                    message_external_id,
+                )
             return {"status": "queued", "conversation_id": str(conversation.id)}
         except Exception as exc:
             db.rollback()
@@ -974,7 +996,20 @@ class WebhookService:
                     text = caption or filename or f"[{media_type.upper()}]"
 
             if not text:
-                if msg_type in [
+                if msg_type == "unsupported":
+                    unsupported_info = message.get("unsupported") or {}
+                    sub_type = unsupported_info.get("type") or ""
+                    if sub_type:
+                        text = f"[Unsupported Message ({sub_type}): Incoming message format is not supported by WhatsApp Cloud API]"
+                    else:
+                        text = "[Unsupported Message: Incoming promotional template or unsupported format from another business account]"
+                    media_type = "unsupported"
+                elif msg_type == "template":
+                    template_obj = message.get("template") or {}
+                    t_name = template_obj.get("name") or "Promotional/Marketing Template"
+                    text = f"[Promotional Template: {t_name}]"
+                    media_type = "template"
+                elif msg_type in [
                     "video",
                     "document",
                     "sticker",

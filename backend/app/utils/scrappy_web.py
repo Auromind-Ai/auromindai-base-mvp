@@ -25,7 +25,6 @@ class Scrappyweb(scrapy.Spider):
 
 
     async def start(self):
-        print("request started")
         for url in self.start_urls:
             yield scrapy.Request(
                 url,
@@ -39,7 +38,6 @@ class Scrappyweb(scrapy.Spider):
             )
 
     def start_site(self):
-        print("send request")
         for url in self.start_urls:
             yield scrapy.Request (
                 url,
@@ -59,7 +57,6 @@ class Scrappyweb(scrapy.Spider):
     ]
 
     async def parse_site(self, response):
-        print("start parse_site")
         if response.url in self.visited:
             return
         response.selector.remove_namespaces()

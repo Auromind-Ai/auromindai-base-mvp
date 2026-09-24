@@ -1,7 +1,10 @@
 import asyncio
+import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 from urllib.parse import quote
+
+logger = logging.getLogger(__name__)
 
 try:
     from supabase import create_client  # type: ignore[import-untyped]
@@ -192,13 +195,13 @@ class StorageService:
             try:
                 return SupabaseStorageProvider()
             except Exception as e:
-                print(f"[STORAGE FALLBACK] SupabaseStorageProvider failed ({e}), using LocalStorageProvider.")
+                logger.error(f"[STORAGE FALLBACK] SupabaseStorageProvider failed ({e}), using LocalStorageProvider.")
                 return LocalStorageProvider()
         if name == "S3":
             try:
                 return S3StorageProvider()
             except Exception as e:
-                print(f"[STORAGE FALLBACK] S3StorageProvider failed ({e}), using LocalStorageProvider.")
+                logger.error(f"[STORAGE FALLBACK] S3StorageProvider failed ({e}), using LocalStorageProvider.")
                 return LocalStorageProvider()
         return LocalStorageProvider()
 

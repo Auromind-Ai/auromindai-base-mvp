@@ -34,7 +34,6 @@ async def process_document_background(
     billing_service = BillingService()
 
     try:
-        print(f"\n>>> [WORKER START] Starting background processing for entry {entry_id} (File: '{original_filename}', Size: {file_size} bytes)")
         logger.info(f"Starting background processing for entry {entry_id}")
 
         # SECURITY CHECK 
@@ -135,7 +134,6 @@ async def process_document_background(
             except Exception:
                 final_credits_charged = round(actual_units * 10.0, 4)
 
-        print(f"\n>>> [BILLING SUCCESS] Finalized charge of {final_credits_charged:.4f} credits for entry '{entry_id}' (file: '{original_filename}', size: {file_size} bytes / {actual_units:.4f} MB)\n")
         logger.info(
             f"[INGEST BILLING SUCCESS] Finalized charge of {final_credits_charged} credits for entry '{entry_id}' (file: '{original_filename}', size: {file_size} bytes / {actual_units:.4f} MB)"
         )
@@ -162,8 +160,7 @@ async def process_document_background(
         )
 
     except Exception as e:
-        logger.error(f"Background processing failed: {e}")
-        traceback.print_exc()
+        logger.error(f"Background processing failed: {e}", exc_info=True)
 
         try:
             db.rollback()
@@ -178,7 +175,6 @@ async def process_document_background(
                     reason="knowledge_base_processing_failed"
                 )
                 db.commit()
-                print(f"\n>>> [BILLING FAILURE] Released reservation for entry '{entry_id}' (file: '{original_filename}', reason: 'knowledge_base_processing_failed')\n")
             except Exception as release_err:
                 logger.error(f"Failed to release reservation {reservation_id} on worker failure: {release_err}")
                 try:

@@ -1,78 +1,27 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { poppins } from '@/lib/fonts';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { getToken, isTokenExpired } from '@/lib/auth';
-import {
-    Sparkles,
-    LayoutDashboard,
-    MessageSquare,
-    Zap,
-    Send,
-    CheckCircle2,
-    TrendingUp,
-    Brain,
-    CreditCard,
-    Settings,
-    LogOut,
-    Users,
-    FileText,
-    Shield,
-    Share2,
-    ChevronDown,
-    Menu,
-    Wand2,
-    Plug,
-    Calendar as CalendarIcon,
-    Mail,
-    Coins,
-    PanelLeftClose,
-    PanelLeftOpen,
-    Crown
-} from 'lucide-react';
+import { LogOut, Shield, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from '@/context/AuthContext';
 import dynamic from 'next/dynamic';
 
 const GlobalAIChat = dynamic(() => import('@/components/AIChat'), { ssr: false });
 const SettingsModal = dynamic(() => import('@/components/SettingsModal'), { ssr: false });
-const FeedbackModal = dynamic(
-    () => import('@/components/UserFeedback/UserFeedbackPanel'),
-    { ssr: false }
-);
 const GlobalAudioNotification = dynamic(
     () => import('@/components/GlobalAudioNotification'),
     { ssr: false }
 );
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 import { RealtimeProvider } from '@/context/RealtimeContext';
-import CreditRingDropdown from '@/components/CreditRingDropdown';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
-
-const MAIN_NAV_ITEMS = [
-    { label: 'Dashboard', icon: LayoutDashboard, href: '/user/admin/dashboard' },
-    { label: 'AI Workspace', icon: Sparkles, href: '/user/admin/ai' },
-    { label: 'Brain', icon: Brain, href: '/user/admin/brain' },
-    { label: 'Omni-Inbox', icon: MessageSquare, href: '/user/admin/inbox' },
-    { label: 'Automations', icon: Zap, href: '/user/admin/automation' },
-    { label: 'Leads', icon: Users, href: '/user/admin/leads' },
-    { label: 'CRM', icon: TrendingUp, href: '/user/admin/crm' },
-    { label: 'Channels', icon: Share2, href: '/user/admin/channels' },
-    { label: 'Templates', icon: FileText, href: '/user/admin/templates' },
-    { label: 'Marketing', icon: Send, href: '/user/admin/marketing' },
-    { label: 'Credits & Wallet', icon: Coins, href: '/user/admin/credits' },
-    { label: 'Billing', icon: CreditCard, href: '/user/admin/billing' },
-];
-
-const SYSTEM_NAV_ITEMS = [
-    { label: 'Settings', icon: Settings, href: '#' },
-];
-
-
+import WorkspaceNavigation from '@/components/WorkspaceNavigation';
 
 export default function AdminLayout({ children }) {
     return (
@@ -88,7 +37,6 @@ function AdminLayoutContent({ children }) {
     const { user, workspaces, workspaceId, loading, logout, refreshUser } = useAuth();
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel } = useSettings();
 
-    const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(() => {
         if (typeof window === 'undefined') return false;
@@ -213,62 +161,9 @@ function AdminLayoutContent({ children }) {
         }
     }, [isMobileOpen]);
 
-    const isAIPage = pathname && (pathname === '/user/admin/ai' || pathname.includes('/admin/ai'));
-
-    const renderNavItem = (item, isMobile = false) => {
-        const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-        const Icon = item.icon;
-
-        const handleClick = (e) => {
-            if (item.label === 'Settings') {
-                e.preventDefault();
-                setIsSettingsOpen(true);
-                if (isMobile) setIsMobileOpen(false);
-            } else if (isMobile) {
-                setIsMobileOpen(false);
-            }
-        };
-
-        return (
-            <Link
-                key={item.href}
-                href={item.href}
-                onClick={handleClick}
-                title={!isMobile && isCollapsed ? item.label : undefined}
-                className={`relative flex items-center gap-2.5 py-[7px] rounded-[6px] text-sm group select-none
-                    transition-all duration-150 active:scale-[0.97] active:opacity-80
-                    ${!isMobile && isCollapsed ? 'justify-center px-0' : 'px-3'}
-                    ${isActive
-                        ? 'bg-white/10 text-white font-medium shadow-sm'
-                        : 'text-[#9b9b9b] hover:bg-white/5 hover:text-white'}
-                `}
-            >
-                {isActive && (
-                    <motion.span
-                        layoutId="sidebar-active-pill"
-                        className="absolute inset-0 rounded-[6px] bg-white/10 pointer-events-none"
-                        transition={{ type: 'spring', stiffness: 400, damping: 35 }}
-                    />
-                )}
-                <Icon
-                    size={16}
-                    strokeWidth={2}
-                    className={`relative z-10 shrink-0 transition-colors duration-150 ${
-                        isActive
-                            ? 'text-white'
-                            : 'text-[#7e7e7e] group-hover:text-white'
-                    }`}
-                />
-                {(isMobile || !isCollapsed) && (
-                    <span className="relative z-10 truncate">{item.label}</span>
-                )}
-            </Link>
-        );
-    };
-
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#191919] p-6">
+            <div className="min-h-screen flex items-center justify-center bg-[#0b111b] p-6">
                 <div className="w-full max-w-sm space-y-4">
                     <div className="h-4 w-3/4 rounded-full shimmer-container shimmer-bg mx-auto" />
                     <div className="h-4 w-1/2 rounded-full shimmer-container shimmer-bg mx-auto" />
@@ -305,16 +200,16 @@ function AdminLayoutContent({ children }) {
 
     return (
         <RealtimeProvider user={user} workspace={workspace}>
-            <div className="flex min-h-screen text-[var(--notion-text)] font-sans relative bg-transparent">
+            <div className="[--notion-bg:#05080e] [--notion-sidebar:#080c14] [--notion-hover:#111827] [--notion-active:#111827] [--notion-border:#1b2432] flex min-h-screen text-[var(--notion-text)] font-sans relative bg-transparent">
 
                 {/* Desktop Collapsible Sidebar */}
                 <aside
-                    className={`${poppins.className} hidden md:flex shrink-0 flex-col border-r border-[var(--notion-border)] bg-[var(--notion-sidebar)] h-screen sticky top-0 z-10 transition-all duration-300 ease-in-out ${
+                    className={`${poppins.className} hidden lg:flex shrink-0 flex-col border-r border-[var(--notion-border)] bg-[#080c14] h-dvh sticky top-0 z-10 transition-all duration-300 ease-in-out ${
                         isCollapsed ? 'w-[68px]' : 'w-[240px]'
                     }`}
                 >
                     {/* Top Profile & Toggle Section */}
-                    <div className={`flex items-center pt-5 pb-4 border-b border-white/5 ${
+                    <div className={`flex items-center shrink-0 pt-5 pb-4 border-b border-white/5 ${
                         isCollapsed ? 'justify-center px-2 flex-col gap-2' : 'justify-between px-4'
                     }`}>
                         <div className="flex items-center gap-2.5 overflow-hidden">
@@ -331,55 +226,28 @@ function AdminLayoutContent({ children }) {
                         <button
                             onClick={toggleSidebar}
                             title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+                            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                             className="p-1.5 rounded-[6px] text-[#9b9b9b] hover:text-white hover:bg-white/5 transition-colors shrink-0"
                         >
                             {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
                         </button>
                     </div>
 
-                    {/* Nav Items */}
-                    <div className="flex-1 px-2.5 py-3 overflow-y-auto custom-scrollbar overflow-x-hidden">
-                        <div className="space-y-0.5">
-                            {MAIN_NAV_ITEMS.map(item => renderNavItem(item))}
-                        </div>
-
-                        <div className="mt-5 space-y-0.5">
-                            {!isCollapsed && (
-                                <div className="px-3 py-1 text-[11px] font-medium text-[#555] uppercase tracking-wider mb-1">
-                                    System
-                                </div>
-                            )}
-
-                            {SYSTEM_NAV_ITEMS.map(item => renderNavItem(item))}
-
-                            {user?.platform_role === 'platform_admin' &&
-                                renderNavItem({
-                                    label: 'Admin Console',
-                                    icon: Shield,
-                                    href: '/admin'
-                                })
-                            }
-                        </div>
-                    </div>
+                    <WorkspaceNavigation
+                        pathname={pathname}
+                        collapsed={isCollapsed}
+                        isAdmin={user?.platform_role === 'platform_admin'}
+                        onSettings={() => setIsSettingsOpen(true)}
+                        onExpand={toggleSidebar}
+                    />
 
                     {/* Sidebar Bottom Actions */}
-                    <div className="p-2.5 border-t border-[var(--notion-border)] space-y-1">
-                        {/* Feedback / Report Issue */}
-                        <button
-                            onClick={() => setIsFeedbackOpen(true)}
-                            title={isCollapsed ? "Feedback / Report Issue" : undefined}
-                            className={`flex items-center gap-2.5 py-1.5 text-[13px] text-[#9b9b9b] hover:text-white transition-colors rounded-[4px] hover:bg-[var(--notion-hover)] w-full ${
-                                isCollapsed ? 'justify-center px-0' : 'px-2'
-                            }`}
-                        >
-                            <MessageSquare size={15} className="shrink-0" />
-                            {!isCollapsed && <span className="truncate">Feedback / Report Issue</span>}
-                        </button>
-
+                    <div className="shrink-0 p-2.5 border-t border-[var(--notion-border)] space-y-1">
                         {/* Logout */}
                         <button
                             onClick={() => setShowLogoutConfirm(true)}
                             title={isCollapsed ? "Log out" : undefined}
+                            aria-label="Log out"
                             className={`flex items-center gap-2.5 py-1.5 text-[13px] text-[#9b9b9b] hover:text-white transition-colors rounded-[4px] hover:bg-[var(--notion-hover)] w-full ${
                                 isCollapsed ? 'justify-center px-0' : 'px-2'
                             }`}
@@ -392,7 +260,7 @@ function AdminLayoutContent({ children }) {
 
                 {showLogoutConfirm && (
                     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50">
-                        <div className="w-[360px] rounded-xl border border-[#2a2a2a] bg-[#191919] p-5 shadow-2xl">
+                        <div className="w-[calc(100%-2rem)] max-w-[360px] rounded-xl border border-[#1b2432] bg-[#0b111b] p-5 shadow-2xl">
                             <h3 className="text-[16px] font-medium text-white">
                                 Log out?
                             </h3>
@@ -404,7 +272,7 @@ function AdminLayoutContent({ children }) {
                             <div className="mt-5 flex justify-end gap-2">
                                 <button
                                     onClick={() => setShowLogoutConfirm(false)}
-                                    className="rounded-md px-4 py-2 text-[13px] text-[#b5b5b5] hover:bg-[#2a2a2a] hover:text-white"
+                                    className="rounded-md px-4 py-2 text-[13px] text-[#b5b5b5] hover:bg-[#111827] hover:text-white"
                                 >
                                     Cancel
                                 </button>
@@ -423,13 +291,13 @@ function AdminLayoutContent({ children }) {
                     </div>
                 )}
 
-                {/* Mobile Drawer (width remains unchanged at original w-[200px]) */}
+                {/* Mobile and tablet navigation drawer */}
                 <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
                     <SheetContent
                         side="left"
-                        className="p-0 w-[200px] bg-[var(--notion-sidebar)] border-r border-[var(--notion-border)] text-[var(--notion-text)] shadow-2xl"
+                        className="p-0 w-[200px] max-w-[calc(100vw-2rem)] h-dvh bg-[#080c14] border-r border-[var(--notion-border)] text-[var(--notion-text)] shadow-2xl"
                     >
-                        <div className={`${poppins.className} flex flex-col h-full bg-[#0f0f12]`}>
+                        <div className={`${poppins.className} flex flex-col h-full min-h-0 bg-[#080c14]`}>
                             {/* Workspace Brand */}
                             <div className="h-14 flex items-center pl-3 pr-10 border-b border-white/5 shrink-0">
                                 <div className="flex items-center gap-2.5 overflow-hidden">
@@ -443,42 +311,13 @@ function AdminLayoutContent({ children }) {
                                 </div>
                             </div>
 
-                            {/* Navigation */}
-                            <div className="flex-1 px-2 py-4 overflow-y-auto custom-scrollbar">
-                                <div className="space-y-6">
-                                    <div className="space-y-0.5">
-                                        {MAIN_NAV_ITEMS.map((item) =>
-                                            renderNavItem(item, true)
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-0.5">
-                                        <div className="px-3 py-1.5 text-xs font-medium text-[#787878] mb-1">
-                                            System
-                                        </div>
-
-                                        {SYSTEM_NAV_ITEMS.map((item) =>
-                                            renderNavItem(item, true)
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* User Profile + Feedback Button */}
-                            <div className="p-3 border-t border-white/5 bg-[#141418] space-y-1">
-                                {/* Mobile Feedback Button */}
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsMobileOpen(false);
-                                        setIsFeedbackOpen(true);
-                                    }}
-                                    className="flex items-center gap-2.5 px-2 py-1.5 text-xs text-[#9b9b9b] hover:text-white hover:bg-white/5 rounded-lg transition-colors w-full"
-                                >
-                                    <MessageSquare size={14} className="shrink-0" />
-                                    <span className="truncate">Feedback</span>
-                                </button>
-
+                            <WorkspaceNavigation
+                                pathname={pathname}
+                                isAdmin={user?.platform_role === 'platform_admin'}
+                                onSettings={() => setIsSettingsOpen(true)}
+                                onNavigate={() => setIsMobileOpen(false)}
+                            />
+                            <div className="shrink-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/5 bg-[#080c14]">
                                 <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors">
                                     <div className="w-8 h-8 rounded-lg bg-[#814AC8] flex items-center justify-center text-xs text-white font-bold">
                                         {(user?.full_name || user?.name || user?.email || 'U').charAt(0).toUpperCase()}
@@ -495,7 +334,8 @@ function AdminLayoutContent({ children }) {
                                     </div>
 
                                     <button
-                                        onClick={handleLogout}
+                                        onClick={() => { setIsMobileOpen(false); setShowLogoutConfirm(true); }}
+                                        aria-label="Log out"
                                         className="text-[#9b9b9b] hover:text-white transition-colors p-1"
                                     >
                                         <LogOut size={16} />
@@ -529,9 +369,11 @@ function AdminLayoutContent({ children }) {
                     )}
 
                     {/* Mobile Top Navigation */}
-                    <div className="md:hidden flex items-center justify-between h-14 px-4 border-b border-[var(--notion-border)] bg-[var(--notion-bg)]/80 backdrop-blur-md sticky top-0 z-50">
+                    <div className="lg:hidden flex items-center justify-between h-14 shrink-0 px-4 border-b border-[var(--notion-border)] bg-[var(--notion-bg)]/80 backdrop-blur-md sticky top-0 z-50">
                         <div className="flex items-center gap-3">
                             <button
+                                aria-label="Open navigation"
+                                aria-expanded={isMobileOpen}
                                 onClick={() => setIsMobileOpen(true)}
                                 className="p-2 -ml-2 rounded-lg hover:bg-[var(--notion-hover)] transition-colors active:scale-95"
                             >
@@ -583,12 +425,6 @@ function AdminLayoutContent({ children }) {
                     onClose={() => setIsSettingsOpen(false)}
                     selectedModel={selectedModel}
                     onModelChange={setSelectedModel}
-                />
-
-                {/* Feedback Modal */}
-                <FeedbackModal
-                    isOpen={isFeedbackOpen}
-                    onClose={() => setIsFeedbackOpen(false)}
                 />
 
                 {/* Global AI Chat - Hidden on Orbion Agents page */}

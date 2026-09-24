@@ -86,10 +86,7 @@ class Webscrapper:
             return None
         
     def website_extract(self, html):
-        print("choose tool")
-
         try:
-
             script_tag = self.soup.find_all("script")
             tag_count = len(script_tag)
 
@@ -100,10 +97,6 @@ class Webscrapper:
 
             text_length = len(clean_text)
             html_length = len(html)
-
-            print("Text length:", text_length)
-            print("HTML length:", html_length)
-            print("Script count:", tag_count)
             
             if html_length == 0:
                 return "dynamic"
@@ -124,12 +117,9 @@ class Webscrapper:
 
 
     def static_scrapper(self):
-        print("static called")
         return self.static.static_scrap()
 
     def dynamic_scrapper(self):
-        print("dynamic called")
-
         temp_dir = tempfile.gettempdir()
         output_file = os.path.join(temp_dir, f"dynamic_output_{uuid.uuid4().hex}.json")
         
@@ -162,7 +152,6 @@ class Webscrapper:
 
         try:
             if single_page:
-                print("single page mode")
 
                 if site_type == "static":
                     self.static.max_depth = 0

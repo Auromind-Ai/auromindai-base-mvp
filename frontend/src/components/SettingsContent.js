@@ -8,9 +8,11 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import TwoFactorSetupModal    from '@/components/TwoFactorSetupModal';
 import TwoFactorDisableModal  from '@/components/TwoFactorDisableModal';
+import UserFeedbackPanel from '@/components/UserFeedback/UserFeedbackPanel';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
 import {
   User,
+  MessageSquare,
   Settings,
   Bell,
   Globe,
@@ -54,6 +56,7 @@ const NAV_SECTIONS = [
     title: 'Account',
     items: [
       { id: 'security', label: 'Security', icon: <Shield size={15} /> },
+      { id: 'feedback', label: 'Feedback / Report Issue', icon: <MessageSquare size={15} /> },
       { id: 'about', label: 'About', icon: <Info size={15} /> },
     ],
   },
@@ -365,11 +368,11 @@ function PreferencesSection() {
       <section
         className="
           rounded-2xl border border-[rgba(157,157,157,0.43)]
-          bg-[#070012] overflow-hidden
+          bg-[#0b111b] overflow-hidden
           shadow-[0_4px_24px_rgba(0,0,0,0.3)]
         "
       >
-        <div className="mx-0 rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden">
+        <div className="mx-0 rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#0b111b] overflow-hidden">
           <div
             className="
               flex flex-col sm:flex-row sm:items-center justify-between
@@ -576,7 +579,7 @@ function NotificationsSection() {
       <section
         className="
           rounded-2xl border border-[rgba(157,157,157,0.43)]
-          bg-[#070012] p-6
+          bg-[#0b111b] p-6
           shadow-[0_4px_24px_rgba(0,0,0,0.3)]
         "
       >
@@ -584,7 +587,7 @@ function NotificationsSection() {
           Notification Preferences
         </h2>
 
-        <div className="rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden">
+        <div className="rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#0b111b] overflow-hidden">
           {notifItems.map((item, idx) => (
             <div
               key={item.key}
@@ -625,7 +628,7 @@ function PlaceholderSection({ title, desc }) {
         <p className="mt-1.5 text-sm text-zinc-400">{desc}</p>
       </div>
       <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
-      <div className="flex items-center justify-center h-48 rounded-2xl border border-dashed border-[rgba(157,157,157,0.43)] bg-[#070012] text-zinc-500 text-sm">
+      <div className="flex items-center justify-center h-48 rounded-2xl border border-dashed border-[rgba(157,157,157,0.43)] bg-[#0b111b] text-zinc-500 text-sm">
         Content coming soon…
       </div>
     </div>
@@ -662,7 +665,7 @@ function PeopleSection() {
 
       <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
 
-      <section className="rounded-2xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
+      <section className="rounded-2xl border border-[rgba(157,157,157,0.43)] bg-[#0b111b] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-[rgba(157,157,157,0.43)]">
           <div className="relative flex-1 max-w-xs">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -1103,7 +1106,7 @@ function SecuritySection() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.2 }}
-            className="rounded-2xl border border-white/[0.08] bg-[#070012] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]"
+            className="rounded-2xl border border-white/[0.08] bg-[#0b111b] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]"
           >
             <div
               onClick={() => {
@@ -1505,8 +1508,8 @@ function AboutSection() {
 
       <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
 
-      <section className="rounded-2xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
-        <div className="rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden mx-0">
+      <section className="rounded-2xl border border-[rgba(157,157,157,0.43)] bg-[#0b111b] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
+        <div className="rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#0b111b] overflow-hidden mx-0">
           {items.map((item, idx) => (
             <div
               key={item.label}
@@ -1600,7 +1603,7 @@ function MyAccountSection({
       <section
         className="
           mb-4 sm:mb-6 rounded-2xl border border-[rgba(157,157,157,0.43)]
-          bg-[#070012] p-3.5 sm:p-6
+          bg-[#0b111b] p-3.5 sm:p-6
           shadow-[0_4px_24px_rgba(0,0,0,0.3)]
         "
       >
@@ -1674,7 +1677,7 @@ function MyAccountSection({
       <section
         className="
           rounded-2xl border border-[rgba(157,157,157,0.43)]
-          bg-[#070012] overflow-hidden
+          bg-[#0b111b] overflow-hidden
           shadow-[0_4px_24px_rgba(0,0,0,0.3)]
         "
       >
@@ -1684,7 +1687,7 @@ function MyAccountSection({
           </h2>
         </div>
 
-        <div className="mx-3.5 sm:mx-6 mb-3.5 sm:mb-6 rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden">
+        <div className="mx-3.5 sm:mx-6 mb-3.5 sm:mb-6 rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#0b111b] overflow-hidden">
           {/* Email row */}
           <div
             className="
@@ -1904,6 +1907,8 @@ export default function SettingsContent({ email, onClose }) {
         return <NotificationsSection />;
       case 'security':
         return <SecuritySection />;
+      case 'feedback':
+        return <UserFeedbackPanel isOpen embedded onClose={() => setActiveSection('my-account')} />;
       case 'about':
         return <AboutSection />;
       default:
@@ -1920,12 +1925,12 @@ export default function SettingsContent({ email, onClose }) {
             rounded-3xl overflow-hidden
             flex-1 min-h-0
             border border-[rgba(157,157,157,0.43)]
-            bg-[#070012]
+            bg-[#0b111b]
             shadow-[0_0_60px_rgba(124,58,237,0.08)]
           "
         >
           {/* MOBILE/TABLET HEADER */}
-          <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-[rgba(157,157,157,0.43)] bg-[#070012] shrink-0">
+          <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-[rgba(157,157,157,0.43)] bg-[#0b111b] shrink-0">
             <button
               type="button"
               onClick={() => setSidebarOpen((v) => !v)}
@@ -1948,10 +1953,10 @@ export default function SettingsContent({ email, onClose }) {
           {/* LEFT SIDEBAR */}
           <aside
             className={`
-              lg:w-[220px] lg:min-w-[220px] lg:shrink-0
+              lg:w-[240px] lg:min-w-[240px] lg:shrink-0
               lg:block
               border-b lg:border-b-0 border-[rgba(157,157,157,0.43)]
-              bg-[#070012] p-3
+              bg-[#0b111b] p-3 min-h-0 overflow-y-auto
               ${sidebarOpen ? 'block' : 'hidden'}
               lg:!block
             `}
@@ -1959,7 +1964,7 @@ export default function SettingsContent({ email, onClose }) {
             <div
               className="
                 rounded-2xl border border-[rgba(157,157,157,0.43)]
-                bg-[#070012] p-4
+                bg-[#0b111b] p-4
                 h-full min-h-full
               "
             >
@@ -2010,7 +2015,7 @@ export default function SettingsContent({ email, onClose }) {
           </aside>
 
           {/* RIGHT CONTENT AREA */}
-          <main ref={mainContentRef} className={`flex-1 bg-[#070012] p-4 sm:p-6 md:p-8 lg:p-10 min-w-0 min-h-0 overflow-y-auto ${sidebarOpen ? 'hidden xl:block' : 'block'}`}>
+          <main ref={mainContentRef} className={`flex-1 bg-[#0b111b] p-4 sm:p-6 md:p-8 lg:p-10 min-w-0 min-h-0 overflow-y-auto ${sidebarOpen ? 'hidden lg:block' : 'block'}`}>
             {renderContent()}
           </main>
         </div>

@@ -296,10 +296,18 @@ async def create_template(
     content_type = request.headers.get("content-type", "").lower()
 
     raw_data = {}
+    media_file_bytes = None
+    media_file_name = None
+    media_file_type = None
+
     if "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
         form = await request.form()
         for key, value in form.items():
             if key == "media":
+                if hasattr(value, "read"):
+                    media_file_bytes = await value.read()
+                    media_file_name = getattr(value, "filename", "media")
+                    media_file_type = getattr(value, "content_type", None)
                 continue
             if isinstance(value, str):
                 v_str = value.strip()
@@ -347,6 +355,10 @@ async def create_template(
     if data.footer:
         data.footer = format_template_variables(data.footer)
 
+    data.category = (data.category or "MARKETING").strip().upper()
+    data.type = (data.type or "TEXT").strip().upper()
+    validate_category(data)
+
     workspace_id = verify_workspace_access(current_user, db, data.workspace_id)
 
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
@@ -362,9 +374,27 @@ async def create_template(
             "WhatsApp channel is not connected or configured. Please connect your WhatsApp channel in Channel Settings or contact support."
         )
 
-    # PASS WORKSPACE
-    validate_category(data)
-    components = build_components(data)
+    # Process media for IMAGE / VIDEO templates
+    media_handle = None
+    if data.type in ("IMAGE", "VIDEO"):
+        from app.services.meta_upload import get_or_create_media_handle
+        try:
+            media_handle = get_or_create_media_handle(
+                file_bytes=media_file_bytes,
+                file_name=media_file_name,
+                file_type=media_file_type,
+                media_category=data.type,
+                existing_handle=data.header,
+                system_token=system_token
+            )
+        except Exception as upload_err:
+            logger.error(f"Failed to prepare media handle for Meta: {upload_err}", exc_info=True)
+            raise HTTPException(
+                400,
+                f"Failed to process {data.type.lower()} media for template: {upload_err}"
+            )
+
+    components = build_components(data, media_handle=media_handle)
     meta_payload = {
         "name": data.name,
         "category": data.category,
@@ -380,6 +410,8 @@ async def create_template(
             status_code=503,
             detail="Failed to submit template due to a connection timeout. Please check your template list or try again in a moment."
         )
+
+    header_to_save = media_handle if data.type in ("IMAGE", "VIDEO") else data.header
 
     if meta_response.get("error"):
         error_info = meta_response.get("error", {})
@@ -411,7 +443,7 @@ async def create_template(
                             name=data.name,
                             type=data.type,
                             content=data.message,
-                            header=data.header,
+                            header=header_to_save,
                             footer=data.footer,
                             cta=data.cta,
                             cta_btn_title=data.cta_btn_title,
@@ -435,7 +467,10 @@ async def create_template(
         db.rollback()
 
         error_msg = error_info.get("message", "Template submission was rejected. Please review your template content.")
-        raise HTTPException(400, f"Template rejected: {error_msg}")
+        error_user_title = error_info.get("error_user_title")
+        error_user_msg = error_info.get("error_user_msg")
+        detailed_msg = error_user_msg or error_user_title or error_msg
+        raise HTTPException(400, f"Template rejected: {detailed_msg}")
     
     else:
         logger.info(f"META SUCCESS: {meta_response}")
@@ -443,7 +478,7 @@ async def create_template(
             name=data.name,
             type=data.type,
             content=data.message,
-            header=data.header,
+            header=header_to_save,
             footer=data.footer,
             cta=data.cta,
             cta_btn_title=data.cta_btn_title,
@@ -461,79 +496,94 @@ async def create_template(
     return {"status": "submitted"}
 
 
-def build_components(data):
-
+def build_components(data, media_handle: str | None = None):
     components = []
+    data_type = (getattr(data, "type", None) or "TEXT").strip().upper()
+
     # HEADER (TEXT / IMAGE / VIDEO)
-    if data.type == "TEXT":
-        if data.header:
-            components.append({"type": "HEADER", "format": "TEXT", "text": data.header})
+    if data_type == "TEXT":
+        if getattr(data, "header", None):
+            header_text = str(data.header).strip()[:60]
+            header_comp = {"type": "HEADER", "format": "TEXT", "text": header_text}
+            header_vars = re.findall(r"\{\{(\d+)\}\}", header_text)
+            if header_vars:
+                max_h_var = max(map(int, header_vars))
+                header_comp["example"] = {
+                    "header_text": [f"sample_{i}" for i in range(1, max_h_var + 1)]
+                }
+            components.append(header_comp)
 
-    elif data.type == "IMAGE":
-        components.append(
-            {
-                "type": "HEADER",
-                "format": "IMAGE",
-                "example": {"header_handle": ["https://via.placeholder.com/300"]},
-            }
-        )
+    elif data_type in ("IMAGE", "VIDEO", "DOCUMENT"):
+        handle = media_handle or getattr(data, "header_handle", None)
+        if not handle and getattr(data, "header", None) and str(data.header).startswith("4:"):
+            handle = str(data.header)
 
-    elif data.type == "VIDEO":
-
-        components.append(
-            {
-                "type": "HEADER",
-                "format": "VIDEO",
-                "example": {
-                    "header_handle": [
-                        "https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4"
-                    ]
-                },
-            }
-        )
+        if handle:
+            components.append(
+                {
+                    "type": "HEADER",
+                    "format": data_type,
+                    "example": {"header_handle": [str(handle)]},
+                }
+            )
 
     # BODY (COMMON)
-    body = {"type": "BODY", "text": data.message}
+    body_text = str(getattr(data, "message", None) or "").strip()
+    body = {"type": "BODY", "text": body_text}
 
-    # variables example (IMPORTANT)
-    vars_in_body = re.findall(r"\{\{(\d+)\}\}", data.message)
+    # variables example (IMPORTANT: Meta requires 2D array: [["val1", "val2"]])
+    vars_in_body = re.findall(r"\{\{(\d+)\}\}", body_text)
     if vars_in_body:
-
         max_var = max(map(int, vars_in_body))
-
         body["example"] = {
             "body_text": [[f"sample_{i}" for i in range(1, max_var + 1)]]
         }
 
     components.append(body)
 
-    # FOOTER
-    if data.footer:
-        components.append({"type": "FOOTER", "text": data.footer})
+    # FOOTER (Max 60 characters, no variables allowed)
+    if getattr(data, "footer", None):
+        footer_text = str(data.footer).strip()[:60]
+        if footer_text:
+            components.append({"type": "FOOTER", "text": footer_text})
 
-    # CTA BUTTON
-    if data.cta:
-        btn_text = data.cta_btn_title if (hasattr(data, 'cta_btn_title') and data.cta_btn_title) else "Open"
-        components.append(
-            {
-                "type": "BUTTONS",
-                "buttons": [{"type": "URL", "text": btn_text, "url": data.cta}],
-            }
-        )
+    # CTA BUTTON (Max 25 characters for title, valid URL protocol)
+    if getattr(data, "cta", None):
+        raw_cta = str(data.cta).strip()
+        if raw_cta:
+            clean_url = raw_cta if (raw_cta.startswith("http://") or raw_cta.startswith("https://")) else f"https://{raw_cta}"
+            btn_text = str(getattr(data, "cta_btn_title", None) or "Open").strip()[:25] or "Open"
+            btn_obj = {"type": "URL", "text": btn_text, "url": clean_url}
+            if "{{1}}" in clean_url:
+                btn_obj["example"] = [clean_url.replace("{{1}}", "sample")]
+            components.append(
+                {
+                    "type": "BUTTONS",
+                    "buttons": [btn_obj],
+                }
+            )
 
     return components
 
 
 def validate_category(data):
-    if data.category == "AUTHENTICATION":
-        if "{{1}}" not in data.message:
-
+    cat = (getattr(data, "category", None) or "").strip().upper()
+    if cat not in ("MARKETING", "UTILITY", "AUTHENTICATION"):
+        raise HTTPException(
+            400,
+            f"Invalid category '{data.category}'. Allowed categories are MARKETING, UTILITY, and AUTHENTICATION."
+        )
+    if cat == "AUTHENTICATION":
+        if "{{1}}" not in (getattr(data, "message", None) or ""):
             raise HTTPException(
                 400, "Authentication templates must include OTP variable {{1}}"
             )
-    if data.category == "MARKETING":
-        if "OTP" in data.message:
-            raise HTTPException(400, "OTP not allowed in marketing templates")
+    if cat == "MARKETING":
+        msg = (getattr(data, "message", None) or "").upper()
+        if "OTP" in msg and "{{1}}" in (getattr(data, "message", None) or "") and len(msg) < 60:
+            raise HTTPException(
+                400, "Authentication OTP messages should use the AUTHENTICATION category, not MARKETING."
+            )
 
 
 # GET SYSTEM TEMPLATES
@@ -773,7 +823,27 @@ def submit_template(
 
     # Auto-correct variables format
     template.content = format_template_variables(template.content)
+    template.category = (template.category or "MARKETING").strip().upper()
+    template.type = (template.type or "TEXT").strip().upper()
     db.commit()
+
+    media_handle = None
+    if template.type in ("IMAGE", "VIDEO"):
+        from app.services.meta_upload import get_or_create_media_handle
+        try:
+            media_handle = get_or_create_media_handle(
+                media_category=template.type,
+                existing_handle=template.header,
+                system_token=system_token
+            )
+            template.header = media_handle
+            db.commit()
+        except Exception as upload_err:
+            logger.error(f"Failed to prepare media handle on submit: {upload_err}")
+            raise HTTPException(
+                400,
+                f"Failed to process {template.type.lower()} media for template: {upload_err}"
+            )
 
     class TempData:
         def __init__(self, t):
@@ -784,7 +854,7 @@ def submit_template(
             self.cta = t.cta
             self.cta_btn_title = t.cta_btn_title
 
-    components = build_components(TempData(template))
+    components = build_components(TempData(template), media_handle=media_handle)
 
     meta_payload = {
         "name": template.name,
@@ -806,10 +876,12 @@ def submit_template(
         logger.error(f"META SUBMIT ERROR: {meta_response}")
         template.status = "rejected"
         db.commit()
-        error_msg = meta_response.get("error", {}).get(
-            "message", "Template submission was rejected. Please review your template content."
-        )
-        raise HTTPException(400, f"Template rejected: {error_msg}")
+        error_info = meta_response.get("error", {})
+        error_msg = error_info.get("message", "Template submission was rejected. Please review your template content.")
+        error_user_title = error_info.get("error_user_title")
+        error_user_msg = error_info.get("error_user_msg")
+        detailed_msg = error_user_msg or error_user_title or error_msg
+        raise HTTPException(400, f"Template rejected: {detailed_msg}")
     
     else:
         logger.info(f"META SUBMIT SUCCESS: {meta_response}")

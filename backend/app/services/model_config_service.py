@@ -2,6 +2,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.models.model_configs import ModelConfig
+from app.core.logger import logger
 
 ALLOWED_ENV_KEYS = [
     "GROQ_API_KEY",
@@ -394,7 +395,7 @@ class ModelConfigService:
                 try:
                     self.create_config(config_data)
                 except Exception as e:
-                    print(f"Error seeding config {config_data['feature_key']}:{config_data['experience_level']}: {e}")
+                    logger.error(f"Error seeding config {config_data['feature_key']}:{config_data['experience_level']}: {e}")
             else:
                 # Update fallback fields if they are not configured yet
                 if not existing.fallback_provider:
@@ -405,4 +406,4 @@ class ModelConfigService:
                             'fallback_model': config_data.get('fallback_model')
                         })
                     except Exception as e:
-                        print(f"Error updating seeded fallback config {existing.feature_key}:{existing.experience_level}: {e}")
+                        logger.error(f"Error updating seeded fallback config {existing.feature_key}:{existing.experience_level}: {e}")

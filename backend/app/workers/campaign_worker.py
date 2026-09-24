@@ -263,7 +263,15 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
                     campaign.next_available_capacity_at = datetime.fromtimestamp(wake_up_ts, tz=timezone.utc)
                     resume_delay = max(5, int(wake_up_ts - datetime.now(timezone.utc).timestamp()))
                     orchestrate_campaign.apply_async(args=[campaign_id], countdown=resume_delay)
-                    logger.info("Portfolio tier limit hit. Auto-scheduled wake up in %s seconds", resume_delay)
+                    logger.warning(
+                        "[Campaign %s] Portfolio tier limit hit (%s/day) for portfolio %s. Recipient %s paused. Auto-scheduled wake up in %s seconds",
+                        campaign_id, tier_limit, portfolio_id, recipient.normalized_phone, resume_delay
+                    )
+                else:
+                    logger.warning(
+                        "[Campaign %s] Portfolio tier limit hit (%s/day) for portfolio %s. Recipient %s paused.",
+                        campaign_id, tier_limit, portfolio_id, recipient.normalized_phone
+                    )
                 db.commit()
                 return
 
@@ -395,6 +403,11 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
 
                 # Shift escrow from held to deducted
                 CampaignService.settle_message_cost(db, campaign.workspace_id, rate_per_msg)
+
+                logger.info(
+                    "[Campaign %s] Message ACCEPTED for recipient %s (%s) | wamid=%s",
+                    campaign.id, recipient.id, clean_phone, res.get("wamid")
+                )
             elif res.get("is_marketing_frequency_limit"):
                 # Meta Error 131049: Circuit Breaker Immune
                 recipient.status = "skipped_marketing_frequency_limit"
@@ -404,17 +417,37 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
 
                 # Instant Escrow Refund
                 CampaignService.release_unspent_escrow(db, campaign.workspace_id, rate_per_msg)
+
+                logger.warning(
+                    "[Campaign %s] Recipient %s (%s) SKIPPED (Marketing Frequency Cap 131049): "
+                    "subcode=%s | msg=%s | fbtrace_id=%s",
+                    campaign.id, recipient.id, clean_phone,
+                    res.get("error_subcode"), res.get("error_message"), res.get("fbtrace_id")
+                )
             else:
                 # Other delivery failure
                 recipient.status = "failed"
-                recipient.error_code = res.get("error_code")
-                recipient.error_message = res.get("error_message")
+                err_code = str(res.get("error_code") or "FAILED")
+                err_msg = str(res.get("error_message") or "Unknown error")
+                err_details = res.get("error_details")
+                recipient.error_code = err_code
+                recipient.error_message = f"{err_msg}: {err_details}" if err_details else err_msg
                 campaign.failed_count = (campaign.failed_count or 0) + 1
 
                 # Refund unused escrow for failed attempt
                 CampaignService.release_unspent_escrow(db, campaign.workspace_id, rate_per_msg)
 
+                logger.error(
+                    "[Campaign %s] Recipient %s (%s) FAILED: code=%s | subcode=%s | msg=%s | details=%s | fbtrace_id=%s",
+                    campaign.id, recipient.id, clean_phone,
+                    err_code, res.get("error_subcode"), err_msg, err_details, res.get("fbtrace_id")
+                )
+
                 if campaign.stop_on_high_failure_rate and evaluate_circuit_breaker(campaign, db):
+                    logger.error(
+                        "[Campaign %s] Circuit breaker tripped! Aborting remaining chunk processing.",
+                        campaign.id
+                    )
                     break
 
         db.commit()

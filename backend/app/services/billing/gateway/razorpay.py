@@ -6,6 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from app.models.workspace import Workspace
 from app.utils.money import to_paise
 from app.services.billing.gateway.base import BillingPlanConfig, GatewayPayment, GatewaySubscription, GatewayWebhookEvent, PaymentGateway
+from app.core.logger import logger
 
 
 class RazorpayGateway(PaymentGateway):
@@ -128,7 +129,7 @@ class RazorpayGateway(PaymentGateway):
                 db.commit()
             clear_settings_cache()
         except Exception as db_err:
-            print(f"Warning: Failed to persist plan_id {plan_id} to settings DB: {db_err}")
+            logger.error(f"Warning: Failed to persist plan_id {plan_id} to settings DB: {db_err}")
 
         return plan_id
 

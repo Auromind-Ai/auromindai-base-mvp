@@ -364,7 +364,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#07080d] text-white flex flex-col p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1400px] mx-auto">
+    <div className="w-full min-h-screen bg-[#05080e] text-white flex flex-col p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1400px] mx-auto">
 
       {/* 1. Breadcrumb & Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
@@ -415,7 +415,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
       {/* 2. Metrics Cards (4 Dynamic Cards with Premium Backgrounds & White Icons) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Campaigns */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#0a0c14] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#0b111b] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-[#5E5CE6] shadow-[0_0_20px_rgba(94,92,230,0.4)] flex items-center justify-center text-white shrink-0">
             <Send size={18} className="text-white" />
           </div>
@@ -435,7 +435,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
         </div>
 
         {/* Card 2: Messages Sent */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#0a0c14] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#0b111b] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-[#1E4BB8] shadow-[0_0_20px_rgba(30,75,184,0.4)] flex items-center justify-center text-white shrink-0">
             <Users size={18} className="text-white" />
           </div>
@@ -455,7 +455,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
         </div>
 
         {/* Card 3: Delivered */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#0a0c14] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#0b111b] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-[#0E845A] shadow-[0_0_20px_rgba(14,132,90,0.4)] flex items-center justify-center text-white shrink-0">
             <CheckCircle2 size={18} className="text-white" />
           </div>
@@ -478,7 +478,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
         </div>
 
         {/* Card 4: Replies */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#0a0c14] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#0b111b] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-[#9A5328] shadow-[0_0_20px_rgba(154,83,40,0.4)] flex items-center justify-center text-white shrink-0">
             <MessageSquare size={18} className="text-white" />
           </div>
@@ -543,7 +543,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                 setCurrentPage(1);
               }}
               placeholder="Search campaigns..."
-              className="w-full pl-9 pr-3.5 py-1.5 rounded-xl bg-[#0a0c14] border border-[#161a28] text-xs text-white placeholder-[#586174] outline-none focus:border-[#814AC8] transition-all"
+              className="w-full pl-9 pr-3.5 py-1.5 rounded-xl bg-[#0b111b] border border-[#161a28] text-xs text-white placeholder-[#586174] outline-none focus:border-[#814AC8] transition-all"
             />
           </div>
 
@@ -555,7 +555,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
               className={`px-3.5 py-1.5 rounded-xl border text-xs flex items-center gap-2 transition-colors cursor-pointer select-none ${
                 dateFilter !== 'All time'
                   ? 'bg-[#814AC8]/20 border-[#814AC8] text-white font-medium shadow-[0_0_15px_rgba(129,74,200,0.25)]'
-                  : 'bg-[#0a0c14] border-[#161a28] hover:border-[#283049] text-[#cbd5e1] hover:text-white'
+                  : 'bg-[#0b111b] border-[#161a28] hover:border-[#283049] text-[#cbd5e1] hover:text-white'
               }`}
             >
               <Calendar size={13} className={dateFilter !== 'All time' ? 'text-[#a78bfa]' : 'text-white/60'} />
@@ -591,7 +591,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
       </div>
 
       {/* 4. Campaign Data Table */}
-      <div className="rounded-2xl border border-[#161a28] bg-[#0a0c14] overflow-hidden shadow-xl">
+      <div className="rounded-2xl border border-[#161a28] bg-[#0b111b] overflow-hidden shadow-xl">
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#0b0e18] border-b border-[#161a28] text-white text-[13px] font-normal">
