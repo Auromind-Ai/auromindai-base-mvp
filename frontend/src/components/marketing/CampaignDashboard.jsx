@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Plus,
   Search,
@@ -25,7 +26,8 @@ import {
   RefreshCw,
   Check,
   Minus,
-  Clock
+  Clock,
+  Eye
 } from 'lucide-react';
 import CampaignStatusBadge from './CampaignStatusBadge';
 import CreateCampaignModal from './CreateCampaignModal';
@@ -90,6 +92,7 @@ const TABS = [
 const ITEMS_PER_PAGE = 7;
 
 export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', workspaceId: propWorkspaceId }) {
+  const router = useRouter();
   const { workspaceId: authWsId } = useAuth();
   const workspaceId = propWorkspaceId || authWsId;
 
@@ -664,12 +667,13 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                   return (
                     <tr
                       key={camp.id}
-                      className={`transition-colors duration-150 ${
-                        isChecked ? 'bg-[#814AC8]/10' : 'hover:bg-[#0f121e]/70'
+                      onClick={() => router.push(`/user/admin/marketing/${camp.id}`)}
+                      className={`transition-colors duration-150 cursor-pointer ${
+                        isChecked ? 'bg-[#814AC8]/15 hover:bg-[#814AC8]/25' : 'hover:bg-[#101424]'
                       }`}
                     >
                       {/* Premium Custom Checkbox */}
-                      <td className="px-4 py-3.5 text-center">
+                      <td className="px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center">
                           <PremiumCheckbox
                             checked={isChecked}
@@ -681,9 +685,13 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
 
                       {/* Campaign Name & Subtitle */}
                       <td className="px-4 py-3.5">
-                        <div className="font-medium text-white tracking-tight text-[13px]">
+                        <Link
+                          href={`/user/admin/marketing/${camp.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-semibold text-white tracking-tight text-[13px] hover:text-[#a78bfa] transition-colors inline-block"
+                        >
                           {camp.name}
-                        </div>
+                        </Link>
                         <div className="text-[11px] text-white/60 mt-0.5">
                           {camp.goal || camp.subtitle || `${camp.type || 'Promotional'} Campaign`}
                         </div>
@@ -774,7 +782,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                       </td>
 
                       {/* Actions */}
-                      <td className="px-4 py-3.5 text-right relative" data-action-menu-cell>
+                      <td className="px-4 py-3.5 text-right relative" data-action-menu-cell onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           onClick={(e) => {
@@ -789,6 +797,18 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                         {/* Action Menu Flyout */}
                         {activeMenuId === camp.id && (
                           <div className="absolute right-4 top-10 w-36 bg-[#101320] border border-[#22283d] rounded-xl shadow-2xl p-1 z-30 space-y-0.5 text-left animate-in fade-in zoom-in-95 duration-100">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveMenuId(null);
+                                router.push(`/user/admin/marketing/${camp.id}`);
+                              }}
+                              className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
+                            >
+                              <Eye size={12} />
+                              <span>View Details</span>
+                            </button>
+
                             {(() => {
                               const isDraft = (camp.status || '').toLowerCase() === 'draft' || (camp.status || '').toLowerCase() === 'pending';
                               if (isDraft) {

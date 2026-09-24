@@ -147,6 +147,11 @@ export function mapBackendCampaignToFrontend(c) {
     quietHours: c.quiet_hours_enabled ?? c.quietHours ?? true,
     quietHoursStart: c.quiet_hours_start || '22:00',
     quietHoursEnd: c.quiet_hours_end || '08:00',
+    error_breakdown: c.error_breakdown || c.errorBreakdown || [],
+    errorBreakdown: c.error_breakdown || c.errorBreakdown || [],
+    sent_rate: c.sent_rate ?? (tRecipients > 0 ? Number(((sCount / tRecipients) * 100).toFixed(1)) : 0),
+    delivery_rate: c.delivery_rate ?? (sCount > 0 ? Number(((dCount / sCount) * 100).toFixed(1)) : 0),
+    failed_rate: c.failed_rate ?? (sCount > 0 ? Number(((fCount / sCount) * 100).toFixed(1)) : 0),
   };
 }
 
@@ -271,6 +276,23 @@ export async function getCampaignById(id) {
   }
   const all = getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
   return all.find(c => c.id === id) || null;
+}
+
+export async function getCampaignRecipients(id, { status = 'all', search = '', errorCode = '', page = 1, limit = 50 } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (status && status !== 'all') params.append('status', status);
+    if (search && search.trim()) params.append('search', search.trim());
+    if (errorCode && errorCode !== 'all') params.append('error_code', errorCode);
+    if (page) params.append('page', String(page));
+    if (limit) params.append('limit', String(limit));
+
+    const res = await client.get(`/api/marketing/campaigns/${id}/recipients?${params.toString()}`);
+    return res?.data || res;
+  } catch (e) {
+    console.warn('getCampaignRecipients API notice:', e.message || e);
+    return null;
+  }
 }
 
 export async function createCampaign(campaignData, workspaceId, options = {}) {
