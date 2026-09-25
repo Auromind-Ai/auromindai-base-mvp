@@ -47,11 +47,13 @@ async def update_whatsapp_profile_photo(
     verified_ws = verify_workspace_access(current_user, db, workspace_id)
     file_bytes = await file.read()
     content_type = file.content_type or "image/jpeg"
+    filename = file.filename or "profile.jpg"
     return ChannelConnectionService.update_whatsapp_profile_photo(
         db,
         verified_ws,
         file_bytes,
-        content_type
+        content_type,
+        filename
     )
 
 

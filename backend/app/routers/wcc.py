@@ -14,6 +14,7 @@ from app.schemas.wcc import (
     WCCEstimateResponse,
     WCCRechargeInitiateRequest,
     WCCRechargeInitiateResponse,
+    WCCRechargePreviewResponse,
     WCCRechargeVerifyRequest,
     WCCSessionHistoryResponse,
     WCCSessionItem,
@@ -162,6 +163,32 @@ def estimate_wcc_campaign(
         raise _safe_error(e, status_code=500, default="Campaign cost estimation failed. Please try again.")
 
 
+@router.get("/recharge/preview", response_model=WCCRechargePreviewResponse)
+def get_wcc_recharge_preview(
+    amount: float = Query(..., ge=100.0, le=500000.0, description="Recharge amount between ₹100 and ₹500,000"),
+    workspace_id: str | None = None,
+    x_workspace_id: str | None = Header(None),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    try:
+        resolved_ws_id = resolve_and_verify_workspace(
+            current_user, db, workspace_id, x_workspace_id
+        )
+        from decimal import Decimal
+        result = WCCService.get_recharge_preview(
+            db=db,
+            workspace_id=resolved_ws_id,
+            amount=Decimal(str(amount))
+        )
+        return WCCRechargePreviewResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching WCC recharge preview: {e}")
+        raise _safe_error(e, status_code=500, default="Unable to calculate recharge tax preview. Please try again.")
+
+
 @router.post("/recharge/initiate", response_model=WCCRechargeInitiateResponse)
 def initiate_wcc_recharge(
     payload: WCCRechargeInitiateRequest,
@@ -192,7 +219,15 @@ def initiate_wcc_recharge(
             amount=result["amount"],
             currency=result["currency"],
             public_key=result["public_key"],
-            recharge_log_id=result["recharge_log_id"]
+            recharge_log_id=result["recharge_log_id"],
+            subtotal=result.get("subtotal"),
+            taxable_amount=result.get("taxable_amount"),
+            gst_rate=result.get("gst_rate"),
+            gst_amount=result.get("gst_amount"),
+            cgst=result.get("cgst"),
+            sgst=result.get("sgst"),
+            igst=result.get("igst"),
+            total_amount=result.get("total_amount"),
         )
     except HTTPException:
         db.rollback()

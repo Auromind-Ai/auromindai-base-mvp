@@ -548,7 +548,15 @@ class WCCService:
                 "amount": amount_paise,
                 "currency": "INR",
                 "public_key": gateway.get_public_key(),
-                "recharge_log_id": str(recharge_log.id)
+                "recharge_log_id": str(recharge_log.id),
+                "subtotal": recharge_log.subtotal,
+                "taxable_amount": recharge_log.taxable_amount,
+                "gst_rate": recharge_log.gst_rate,
+                "gst_amount": recharge_log.gst_amount,
+                "cgst": recharge_log.cgst,
+                "sgst": recharge_log.sgst,
+                "igst": recharge_log.igst,
+                "total_amount": recharge_log.total_amount,
             }
 
         except Exception as e:
@@ -556,6 +564,54 @@ class WCCService:
             recharge_log.status = "failed"
             db.flush()
             raise e
+
+    @classmethod
+    def get_recharge_preview(
+        cls,
+        db: Session,
+        workspace_id: uuid.UUID | str,
+        amount: Decimal
+    ) -> Dict[str, Any]:
+        """
+        Calculate GST preview quote for WCC recharge based on workspace state and platform settings.
+        """
+        workspace_id = normalize_workspace_id(workspace_id)
+        workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+        if not workspace:
+            raise ValueError(f"Workspace {workspace_id} not found")
+
+        from app.services.billing.gst_service import GSTService
+        from app.services.platform_settings_service import get_setting
+
+        gst_calcs = GSTService.calculate_gst(
+            amount=amount,
+            customer_state=workspace.billing_state,
+            customer_country=workspace.billing_country or "IN",
+            product_type="wcc_recharge",
+            db=db
+        )
+
+        gst_enabled = bool(get_setting(db, "gst_enabled", True) and get_setting(db, "gst_enabled_wcc_recharge", True))
+        supplier_state = get_setting(db, "supplier_state", "Tamil Nadu")
+
+        return {
+            "amount": amount,
+            "subtotal": gst_calcs["subtotal"],
+            "taxable_amount": gst_calcs["taxable_amount"],
+            "gst_rate": gst_calcs["gst_rate"],
+            "gst_enabled": gst_enabled,
+            "gst_amount": gst_calcs["gst_amount"],
+            "cgst": gst_calcs["cgst"],
+            "sgst": gst_calcs["sgst"],
+            "igst": gst_calcs["igst"],
+            "total_amount": gst_calcs["total_amount"],
+            "currency": "INR",
+            "customer_state": gst_calcs["customer_state"],
+            "customer_country": gst_calcs["customer_country"],
+            "customer_gstin": workspace.billing_gstin,
+            "place_of_supply": gst_calcs["place_of_supply"],
+            "supplier_state": supplier_state,
+        }
     @classmethod
     def process_recharge_webhook(
         cls,
