@@ -20,7 +20,6 @@ class InvoiceStatus(str, enum.Enum):
     void = "void"
     cancelled = "cancelled"
     refunded = "refunded"
-
 class PlatformRole(str, enum.Enum):
     USER = "user"
     PLATFORM_ADMIN = "platform_admin"
