@@ -1,8 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
-
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
     X,
     Camera,
@@ -21,7 +20,8 @@ import {
     ChevronDown,
     AlertCircle,
     Phone,
-    RefreshCw
+    RefreshCw,
+    Clock
 } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
@@ -58,17 +58,20 @@ export default function WhatsAppProfileModal({
     const fileInputRef = useRef(null);
 
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
-    const [showNameModal, setShowNameModal] = useState(false);
+    const [initialVerifiedName, setInitialVerifiedName] = useState('');
 
     const [form, setForm] = useState({
         phone_number_id: initialPhoneId || '',
         waba_id: initialWabaId || '',
         display_phone_number: initialDisplayPhone || '',
-        verified_name: 'WhatsApp Business',
+        verified_name: '',
         name_status: 'APPROVED',
-        quality_rating: 'GREEN',
+        quality_rating: 'UNKNOWN',
+        new_display_name: '',
+        new_name_status: '',
         profile_picture_url: '',
         vertical: 'PROF_SERVICES',
         description: '',
@@ -81,50 +84,57 @@ export default function WhatsAppProfileModal({
     const [photoPreview, setPhotoPreview] = useState('');
     const [selectedPhotoFile, setSelectedPhotoFile] = useState(null);
 
-    // Fetch initial profile from backend & Meta
-    useEffect(() => {
-        if (!isOpen || !workspaceId) return;
-
-        let isMounted = true;
-        const fetchProfile = async () => {
+    const fetchProfile = useCallback(async (isRefresh = false) => {
+        if (!workspaceId) return;
+        if (isRefresh) {
+            setRefreshing(true);
+        } else {
             setLoading(true);
-            try {
-                const data = await api.getWhatsAppProfile(workspaceId);
-                if (isMounted && data) {
-                    const websitesList = Array.isArray(data.websites) ? data.websites : [];
-                    setForm({
-                        phone_number_id: data.phone_number_id || initialPhoneId || '',
-                        waba_id: data.waba_id || initialWabaId || '',
-                        display_phone_number: data.display_phone_number || initialDisplayPhone || '',
-                        verified_name: data.verified_name || 'Auromind Ai',
-                        name_status: data.name_status || 'APPROVED',
-                        quality_rating: data.quality_rating || 'UNKNOWN',
-                        profile_picture_url: data.profile_picture_url || '',
-                        vertical: data.vertical || 'PROF_SERVICES',
-                        description: data.description || '',
-                        address: data.address || '',
-                        email: data.email || '',
-                        websites: [websitesList[0] || '', websitesList[1] || ''],
-                        about: data.about || '',
-                    });
-                    setPhotoPreview(data.profile_picture_url || '');
-                }
-            } catch (err) {
-                console.error('Failed to load WhatsApp profile:', err);
-                showToast(
-                    err?.data?.detail || err?.detail || err?.message || 'Could not fetch live WhatsApp profile from Meta.',
-                    'warning'
-                );
-            } finally {
-                if (isMounted) setLoading(false);
-            }
-        };
+        }
 
-        fetchProfile();
-        return () => {
-            isMounted = false;
-        };
-    }, [isOpen, workspaceId, initialPhoneId, initialDisplayPhone, initialWabaId, showToast]);
+        try {
+            const data = await api.getWhatsAppProfile(workspaceId);
+            if (data) {
+                const websitesList = Array.isArray(data.websites) ? data.websites : [];
+                const currentName = data.verified_name || '';
+                setInitialVerifiedName(currentName);
+                setForm({
+                    phone_number_id: data.phone_number_id || initialPhoneId || '',
+                    waba_id: data.waba_id || initialWabaId || '',
+                    display_phone_number: data.display_phone_number || initialDisplayPhone || '',
+                    verified_name: currentName,
+                    name_status: data.name_status || 'APPROVED',
+                    quality_rating: data.quality_rating || 'UNKNOWN',
+                    new_display_name: data.new_display_name || '',
+                    new_name_status: data.new_name_status || '',
+                    profile_picture_url: data.profile_picture_url || '',
+                    vertical: data.vertical && data.vertical !== 'UNDEFINED' ? data.vertical : 'PROF_SERVICES',
+                    description: data.description || '',
+                    address: data.address || '',
+                    email: data.email || '',
+                    websites: [websitesList[0] || '', websitesList[1] || ''],
+                    about: data.about || '',
+                });
+                setPhotoPreview(data.profile_picture_url || '');
+                if (isRefresh) {
+                    showToast('WhatsApp profile refreshed from Meta Cloud API.', 'success');
+                }
+            }
+        } catch (err) {
+            console.error('Failed to load WhatsApp profile:', err);
+            const msg = err?.data?.detail || err?.detail || err?.message || 'Could not fetch live WhatsApp profile from Meta.';
+            showToast(msg, 'warning');
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, [workspaceId, initialPhoneId, initialDisplayPhone, initialWabaId, showToast]);
+
+    useEffect(() => {
+        if (isOpen && workspaceId) {
+            fetchProfile();
+        }
+    }, [isOpen, workspaceId, fetchProfile]);
 
     if (!isOpen) return null;
 
@@ -179,9 +189,18 @@ export default function WhatsAppProfileModal({
     const handleSaveProfile = async () => {
         if (!workspaceId) return;
 
+        // Validation for email
+        if (form.email && form.email.trim()) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(form.email.trim())) {
+                showToast('Please enter a valid email address (e.g., info@business.com).', 'error');
+                return;
+            }
+        }
+
         setSaving(true);
         try {
-            // If user has a pending photo selected, upload it first
+            // Step 1: If user has a pending photo selected, upload it first
             if (selectedPhotoFile) {
                 const formData = new FormData();
                 formData.append('workspace_id', workspaceId);
@@ -194,13 +213,14 @@ export default function WhatsAppProfileModal({
                 setSelectedPhotoFile(null);
             }
 
+            // Step 2: Format clean websites with https://
             const cleanWebsites = form.websites
                 .map(w => w.trim())
-                .filter(w => w.length > 0);
+                .filter(w => w.length > 0)
+                .map(w => /^https?:\/\//i.test(w) ? w : `https://${w}`);
 
             const payload = {
                 workspace_id: workspaceId,
-                new_display_name: form.verified_name.trim(),
                 vertical: form.vertical,
                 description: form.description.trim(),
                 address: form.address.trim(),
@@ -209,10 +229,24 @@ export default function WhatsAppProfileModal({
                 about: form.about.trim(),
             };
 
+            // Only submit display name if user actually altered it
+            if (form.verified_name && form.verified_name.trim() !== initialVerifiedName.trim()) {
+                payload.new_display_name = form.verified_name.trim();
+                payload.current_verified_name = initialVerifiedName.trim();
+            }
 
             const res = await api.updateWhatsAppProfile(payload);
             if (res?.status === 'success') {
-                showToast('WhatsApp profile updated successfully and synced with Meta Business Suite!', 'success');
+                showToast(res.message || 'WhatsApp profile updated successfully and synced with Meta!', 'success');
+                if (res.profile) {
+                    const websitesList = Array.isArray(res.profile.websites) ? res.profile.websites : [];
+                    setInitialVerifiedName(res.profile.verified_name || '');
+                    setForm(prev => ({
+                        ...prev,
+                        ...res.profile,
+                        websites: [websitesList[0] || '', websitesList[1] || ''],
+                    }));
+                }
                 onClose();
             } else {
                 throw new Error(res?.message || 'Failed to save profile on Meta');
@@ -227,7 +261,39 @@ export default function WhatsAppProfileModal({
     };
 
     const selectedCategoryObj = META_CATEGORIES.find(c => c.value === form.vertical) || META_CATEGORIES[0];
-    const previewWebsites = form.websites.filter(w => w.trim().length > 0);
+    const previewWebsites = form.websites
+        .map(w => w.trim())
+        .filter(w => w.length > 0)
+        .map(w => /^https?:\/\//i.test(w) ? w : `https://${w}`);
+
+    const getQualityBadge = () => {
+        const rating = (form.quality_rating || '').toUpperCase();
+        if (rating === 'GREEN') {
+            return (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                    High Quality
+                </span>
+            );
+        }
+        if (rating === 'YELLOW') {
+            return (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    Medium Quality
+                </span>
+            );
+        }
+        if (rating === 'RED') {
+            return (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 border border-rose-500/30 text-rose-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                    Low Quality
+                </span>
+            );
+        }
+        return null;
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md overflow-y-auto custom-scrollbar">
@@ -255,21 +321,31 @@ export default function WhatsAppProfileModal({
                                         ID: {form.phone_number_id}
                                     </span>
                                 )}
+                                {getQualityBadge()}
                             </div>
                             <p className="text-xs text-white/50 truncate">
-                                Choose the photo, name and number that people will see when they get a message from you.
+                                Choose the photo, name and information that customers see on WhatsApp.
                             </p>
                         </div>
                     </div>
 
-                    <button
-                        onClick={onClose}
-                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.05] border border-white/[0.08] transition-all cursor-pointer shrink-0 ml-2"
-                    >
-                        <X size={15} className="text-white/60 hover:text-white" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => fetchProfile(true)}
+                            disabled={loading || refreshing}
+                            title="Refresh from Meta Cloud API"
+                            className="p-2 rounded-lg flex items-center justify-center bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-white/70 hover:text-[#4EED6E] transition-all cursor-pointer disabled:opacity-40"
+                        >
+                            <RefreshCw size={14} className={refreshing ? 'animate-spin text-[#4EED6E]' : ''} />
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] transition-all cursor-pointer text-white/60 hover:text-white"
+                        >
+                            <X size={15} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Modal Body: Two Columns */}
@@ -289,7 +365,7 @@ export default function WhatsAppProfileModal({
                                 <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.07] space-y-3">
                                     <div>
                                         <h3 className="text-sm font-semibold text-white">Profile picture</h3>
-                                        <p className="text-xs text-white/50">This will be visible on your business profile</p>
+                                        <p className="text-xs text-white/50">This will be visible on your WhatsApp Business profile</p>
                                     </div>
 
                                     <div className="flex items-center gap-4 pt-1">
@@ -302,7 +378,7 @@ export default function WhatsAppProfileModal({
                                                 />
                                             ) : (
                                                 <div className="w-full h-full bg-gradient-to-br from-[#4EED6E]/20 to-green-900/40 flex items-center justify-center text-xl font-bold text-[#4EED6E]">
-                                                    {form.verified_name?.charAt(0)?.toUpperCase() || 'A'}
+                                                    {form.verified_name?.charAt(0)?.toUpperCase() || 'W'}
                                                 </div>
                                             )}
                                         </div>
@@ -322,7 +398,7 @@ export default function WhatsAppProfileModal({
                                                     className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 transition-all flex items-center gap-1.5 cursor-pointer"
                                                 >
                                                     <Camera size={13} className="text-[#4EED6E]" />
-                                                    Choose file
+                                                    {photoPreview ? 'Change photo' : 'Choose file'}
                                                 </button>
 
                                                 {selectedPhotoFile && (
@@ -340,14 +416,19 @@ export default function WhatsAppProfileModal({
                                                         ) : (
                                                             <>
                                                                 <UploadCloud size={13} />
-                                                                Upload to Meta
+                                                                Upload to Meta now
                                                             </>
                                                         )}
                                                     </button>
                                                 )}
                                             </div>
+                                            {selectedPhotoFile && (
+                                                <p className="text-[11px] text-[#4EED6E]/80">
+                                                    Selected: {selectedPhotoFile.name} ({(selectedPhotoFile.size / 1024).toFixed(0)} KB) — Ready to upload.
+                                                </p>
+                                            )}
                                             <p className="text-[11px] text-white/40">
-                                                Recommended: Square image 640x640px (JPG or PNG, max 5MB).
+                                                Square JPG or PNG image recommended (minimum 192x192, up to 5MB). Images are automatically centered and optimized for WhatsApp.
                                             </p>
                                         </div>
                                     </div>
@@ -376,18 +457,25 @@ export default function WhatsAppProfileModal({
                                             onChange={e => setForm(prev => ({ ...prev, verified_name: e.target.value }))}
                                             className="w-full bg-[#070012] border border-white/15 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder:text-white/30 outline-none focus:border-[#4EED6E]/60 transition-colors"
                                         />
+                                        {form.new_display_name && form.new_name_status && (
+                                            <div className="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center gap-2 text-[11px] text-amber-300">
+                                                <Clock size={13} className="shrink-0" />
+                                                <span>
+                                                    Pending Meta review: <strong>{form.new_display_name}</strong> ({form.new_name_status})
+                                                </span>
+                                            </div>
+                                        )}
                                         <p className="text-[11px] text-white/40 mt-1.5">
-                                            Display name updates will be submitted to Meta for validation and review.
+                                            Display name changes require Meta verification and review (up to 10 changes per 30 days).
                                         </p>
                                     </div>
                                 </div>
-
 
                                 {/* Business Information Form Fields */}
                                 <div className="space-y-4">
                                     <div className="border-b border-white/[0.06] pb-2">
                                         <h3 className="text-sm font-semibold text-white">Business information</h3>
-                                        <p className="text-xs text-white/50">Add some details about your business</p>
+                                        <p className="text-xs text-white/50">Add details about your business to show customers</p>
                                     </div>
 
                                     {/* Category */}
@@ -465,7 +553,7 @@ export default function WhatsAppProfileModal({
                                             type="email"
                                             value={form.email}
                                             maxLength={128}
-                                            placeholder="Enter business email address"
+                                            placeholder="info@yourcompany.com"
                                             onChange={e => setForm(prev => ({ ...prev, email: e.target.value }))}
                                             className="w-full bg-[#070012] border border-white/15 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder:text-white/30 outline-none focus:border-[#4EED6E]/60 transition-colors"
                                         />
@@ -477,7 +565,7 @@ export default function WhatsAppProfileModal({
                                             Websites <span className="text-white/40 font-normal">· Optional (up to 2)</span>
                                         </label>
                                         <input
-                                            type="url"
+                                            type="text"
                                             value={form.websites[0] || ''}
                                             maxLength={256}
                                             placeholder="https://yourwebsite.com"
@@ -489,7 +577,7 @@ export default function WhatsAppProfileModal({
                                             className="w-full bg-[#070012] border border-white/15 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder:text-white/30 outline-none focus:border-[#4EED6E]/60 transition-colors"
                                         />
                                         <input
-                                            type="url"
+                                            type="text"
                                             value={form.websites[1] || ''}
                                             maxLength={256}
                                             placeholder="https://blog.yourwebsite.com (Optional)"
@@ -562,28 +650,25 @@ export default function WhatsAppProfileModal({
                                                 />
                                             ) : (
                                                 <div className="w-full h-full bg-gradient-to-br from-[#4EED6E]/30 to-green-950 flex items-center justify-center text-2xl font-bold text-[#4EED6E]">
-                                                    {form.verified_name?.charAt(0)?.toUpperCase() || 'A'}
+                                                    {form.verified_name?.charAt(0)?.toUpperCase() || 'W'}
                                                 </div>
                                             )}
                                         </div>
 
                                         <h4 className="text-base font-bold text-white tracking-tight flex items-center gap-1.5">
-                                            {form.verified_name || 'Auromind Ai'}
+                                            {form.verified_name || 'WhatsApp Business'}
                                         </h4>
 
                                         <p className="text-xs text-white/60 mt-0.5">
-                                            {form.display_phone_number || '+91 84287 58307'}
+                                            {form.display_phone_number || initialDisplayPhone || 'Connected WhatsApp Number'}
                                         </p>
 
-                                        {/* Share button */}
-                                        <div className="mt-3">
-                                            <button
-                                                type="button"
-                                                className="px-4 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-xs font-medium text-white/90 flex items-center gap-1.5 transition-all pointer-events-none"
-                                            >
+                                        {/* Action buttons */}
+                                        <div className="mt-3 flex items-center gap-2">
+                                            <div className="px-3.5 py-1.5 rounded-full bg-white/[0.06] border border-white/10 text-xs font-medium text-white/80 flex items-center gap-1.5">
                                                 <Share2 size={13} className="text-[#4EED6E]" />
                                                 Share
-                                            </button>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -662,7 +747,7 @@ export default function WhatsAppProfileModal({
                                     {/* Device notice footer */}
                                     <div className="px-4 py-2 bg-[#090c10] border-t border-white/[0.04] text-center">
                                         <p className="text-[10px] text-white/35 italic">
-                                            This experience may look different across devices.
+                                            Preview updates in real-time as you edit.
                                         </p>
                                     </div>
                                 </div>

@@ -71,6 +71,7 @@ class TwilioConnectRequest(BaseModel):
 class MetaWhatsAppProfileUpdateRequest(BaseModel):
     workspace_id: str
     new_display_name: str | None = Field(None, max_length=256)
+    current_verified_name: str | None = Field(None, max_length=256)
     about: str | None = Field(None, max_length=139)
     address: str | None = Field(None, max_length=256)
     description: str | None = Field(None, max_length=512)
