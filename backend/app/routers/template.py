@@ -279,6 +279,8 @@ Return JSON only.
                             "footer": {"type": "string"},
                             "cta": {"type": "string"},
                             "cta_btn_title": {"type": "string"},
+                            "body_examples": {"type": "array", "items": {"type": "string"}},
+                            "header_examples": {"type": "array", "items": {"type": "string"}},
                             "workspace_id": {"type": "string"},
                             "media": {"type": "string", "format": "binary"}
                         },
@@ -316,6 +318,12 @@ async def create_template(
                     raw_data[key] = None
                 elif v_str == "" and key in ("header", "footer", "cta", "cta_btn_title", "workspace_id"):
                     raw_data[key] = None
+                elif key in ("body_examples", "header_examples"):
+                    try:
+                        import json
+                        raw_data[key] = json.loads(v_str) if v_str.startswith("[") else [x.strip() for x in v_str.split(",") if x.strip()]
+                    except Exception:
+                        raw_data[key] = [x.strip() for x in v_str.split(",") if x.strip()]
                 else:
                     raw_data[key] = value
             else:
@@ -518,6 +526,86 @@ async def create_template(
     return {"status": "submitted"}
 
 
+def infer_realistic_sample(before: str, after: str, index: int) -> str:
+    b_clause = re.split(r"[,.!?;\n]|\{\{\d+\}\}", before)[-1].strip()
+    a_clause = re.split(r"[,.!?;\n]|\{\{\d+\}\}", after)[0].strip()
+
+    b_words = re.findall(r"\b[a-zA-Z$₹]+\b", b_clause)
+    immediate_before = " ".join(b_words[-3:]).lower() if b_words else ""
+
+    a_words = re.findall(r"\b[a-zA-Z$₹]+\b", a_clause)
+    immediate_after = " ".join(a_words[:3]).lower() if a_words else ""
+
+    clause_context = f"{immediate_before} {immediate_after}".strip()
+
+    # 1. Organization / Store / Community if 'welcome to'
+    if "welcome to" in immediate_before:
+        items = ["Acme Store", "Orbion Team", "Our Community", "Prime Services"]
+        return items[(index - 1) % len(items)]
+
+    # 2. Greeting / Name
+    if any(k in immediate_before for k in ["hello", "hi", "hey", "dear", "mr", "ms", "mrs", "dr", "vanakkam", "namaste", "welcome", "name", "customer", "user", "member", "guest"]):
+        names = ["Alex", "Karthik", "John", "Priya", "Rahul"]
+        return names[(index - 1) % len(names)]
+
+    # 3. OTP / Verification Code / PIN
+    if any(k in clause_context for k in ["otp", "pin", "verification code", "passcode", "security code"]):
+        return "592814"
+
+    # 4. Coupon / Promo / Voucher
+    if any(k in clause_context for k in ["coupon", "promo", "voucher", "discount code", "code", "deal"]):
+        return "SAVE20"
+
+    # 5. Order / Invoice / Booking / Ticket ID
+    if any(k in clause_context for k in ["order", "invoice", "booking", "ticket", "awb", "tracking", "consignment", "package", "ref", "reference", "receipt", "bill"]):
+        ids = ["ORD-10923", "INV-84920", "TCK-55102", "TRK-99210"]
+        return ids[(index - 1) % len(ids)]
+
+    # 6. Currency / Price / Amount
+    if any(k in clause_context for k in ["rs", "inr", "usd", "dollar", "$", "₹", "amount", "price", "cost", "total", "fee", "pay", "paid", "due", "balance"]):
+        amounts = ["499", "1250", "99", "2500"]
+        return amounts[(index - 1) % len(amounts)]
+
+    # 7. Date / Time / Delivery
+    if any(k in clause_context for k in ["date", "time", "scheduled", "delivery", "delivered", "arrive", "slot", "tomorrow", "valid till", "expires", "deadline"]):
+        dates = ["Monday at 10:00 AM", "Tomorrow at 5:00 PM", "25th October", "3 business days"]
+        return dates[(index - 1) % len(dates)]
+
+    # 8. Organization / Store / Team / Brand / Product
+    if any(k in clause_context for k in ["store", "shop", "company", "brand", "team", "service", "item", "product", "plan", "course"]):
+        items = ["Acme Store", "Orbion Team", "Premium Plan", "Standard Delivery"]
+        return items[(index - 1) % len(items)]
+
+    fallbacks = ["John", "ORD-1029", "Rs. 499", "Tomorrow", "Premium Plan", "Confirmed", "Support Team"]
+    return fallbacks[(index - 1) % len(fallbacks)]
+
+
+def generate_smart_variable_examples(text: str, custom_examples: list[str] | None = None) -> list[str]:
+    if not text:
+        return []
+    var_matches = list(re.finditer(r"\{\{(\d+)\}\}", text))
+    if not var_matches:
+        return []
+    vars_found = [(int(m.group(1)), m.start(), m.end()) for m in var_matches]
+    max_var = max(v[0] for v in vars_found)
+    examples = []
+    for i in range(1, max_var + 1):
+        if custom_examples and len(custom_examples) >= i:
+            cand = str(custom_examples[i - 1]).strip()
+            if cand and not re.match(r"^sample[_\-\s]?\d*$", cand, re.IGNORECASE):
+                examples.append(cand)
+                continue
+        match_info = next((v for v in vars_found if v[0] == i), None)
+        if match_info:
+            _, start, end = match_info
+            before = text[:start]
+            after = text[end:]
+            examples.append(infer_realistic_sample(before, after, i))
+        else:
+            examples.append(infer_realistic_sample("", "", i))
+    return examples
+
+
 def build_components(data, media_handle: str | None = None):
     components = []
     data_type = (getattr(data, "type", None) or "TEXT").strip().upper()
@@ -529,9 +617,10 @@ def build_components(data, media_handle: str | None = None):
             header_comp = {"type": "HEADER", "format": "TEXT", "text": header_text}
             header_vars = re.findall(r"\{\{(\d+)\}\}", header_text)
             if header_vars:
-                max_h_var = max(map(int, header_vars))
+                h_custom = getattr(data, "header_examples", None)
+                h_examples = generate_smart_variable_examples(header_text, h_custom)
                 header_comp["example"] = {
-                    "header_text": [f"sample_{i}" for i in range(1, max_h_var + 1)]
+                    "header_text": h_examples
                 }
             components.append(header_comp)
 
@@ -556,9 +645,10 @@ def build_components(data, media_handle: str | None = None):
     # variables example (IMPORTANT: Meta requires 2D array: [["val1", "val2"]])
     vars_in_body = re.findall(r"\{\{(\d+)\}\}", body_text)
     if vars_in_body:
-        max_var = max(map(int, vars_in_body))
+        b_custom = getattr(data, "body_examples", None)
+        b_examples = generate_smart_variable_examples(body_text, b_custom)
         body["example"] = {
-            "body_text": [[f"sample_{i}" for i in range(1, max_var + 1)]]
+            "body_text": [b_examples]
         }
 
     components.append(body)
@@ -577,7 +667,7 @@ def build_components(data, media_handle: str | None = None):
             btn_text = str(getattr(data, "cta_btn_title", None) or "Open").strip()[:25] or "Open"
             btn_obj = {"type": "URL", "text": btn_text, "url": clean_url}
             if "{{1}}" in clean_url:
-                btn_obj["example"] = [clean_url.replace("{{1}}", "sample")]
+                btn_obj["example"] = [clean_url.replace("{{1}}", "track1029")]
             components.append(
                 {
                     "type": "BUTTONS",
@@ -922,6 +1012,8 @@ def submit_template(
             self.footer = t.footer
             self.cta = t.cta
             self.cta_btn_title = t.cta_btn_title
+            self.body_examples = None
+            self.header_examples = None
 
     components = build_components(TempData(template), media_handle=media_handle)
 
