@@ -160,6 +160,7 @@ export default function CreateCampaignModal({
         name: campaignData.name?.trim() || 'Untitled Draft Campaign',
         status: 'draft',
         saveAsDraft: true,
+        autoLaunch: false,
       };
 
       let res;
@@ -246,14 +247,36 @@ export default function CreateCampaignModal({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleRequestClose}
-            className="p-2 rounded-xl text-[#8c94a6] hover:text-white hover:bg-[#1a2136] transition-colors cursor-pointer"
-            title="Close"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={handleSaveDraft}
+              disabled={isSavingDraft || isLaunching}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-[#C49FE0] bg-[#814AC8]/15 border border-[#814AC8]/30 hover:bg-[#814AC8]/25 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Save progress as draft"
+            >
+              {isSavingDraft ? (
+                <>
+                  <span className="w-3 h-3 border-2 border-[#C49FE0]/30 border-t-[#C49FE0] rounded-full animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Bookmark size={13} />
+                  <span>Save Draft</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleRequestClose}
+              className="p-2 rounded-xl text-[#8c94a6] hover:text-white hover:bg-[#1a2136] transition-colors cursor-pointer"
+              title="Close"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* 5-Step Stepper Bar */}
@@ -319,8 +342,10 @@ export default function CreateCampaignModal({
                   data={campaignData}
                   onEditStep={handleEditStep}
                   onLaunch={handleLaunch}
+                  onSaveDraft={handleSaveDraft}
                   onBack={handleBack}
                   isLaunching={isLaunching}
+                  isSavingDraft={isSavingDraft}
                   workspaceId={activeWsId}
                 />
               )}

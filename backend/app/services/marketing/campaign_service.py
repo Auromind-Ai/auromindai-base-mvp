@@ -311,7 +311,8 @@ class CampaignService:
         schedule_type = data.get("schedule_type", "now")
         now_utc = datetime.now(timezone.utc)
         scheduled_at = data.get("scheduled_at")
-        is_scheduled = schedule_type == "later" and scheduled_at and scheduled_at > now_utc
+        status_input = (data.get("status") or "").lower()
+        is_scheduled = (status_input != "draft") and (schedule_type == "later" and scheduled_at and scheduled_at > now_utc)
 
         campaign = Campaign(
             workspace_id=workspace_id,
@@ -321,7 +322,7 @@ class CampaignService:
             campaign_goal=data.get("campaign_goal"),
             portfolio_id=portfolio_id,
             phone_number_id=phone_number_id,
-            status="scheduled" if is_scheduled else "draft",
+            status="scheduled" if is_scheduled else ("draft" if status_input == "draft" else (status_input or "draft")),
             audience_source=data.get("audience_source", "existing_contacts"),
             total_recipients=0,
             valid_recipients=0,
@@ -352,6 +353,21 @@ class CampaignService:
         seen_phones = set()
 
         if raw_recipients:
+            # Pre-validate candidate lead_ids against workspace leads to prevent foreign key constraint violations
+            candidate_lead_ids = {
+                to_uuid(r.get("lead_id"))
+                for r in raw_recipients
+                if isinstance(r, dict) and r.get("lead_id") and to_uuid(r.get("lead_id"))
+            }
+            valid_lead_ids_set = set()
+            if candidate_lead_ids:
+                valid_leads = (
+                    db.query(Lead.id)
+                    .filter(Lead.id.in_(candidate_lead_ids), Lead.workspace_id == workspace_id)
+                    .all()
+                )
+                valid_lead_ids_set = {row[0] for row in valid_leads}
+
             for r in raw_recipients:
                 phone = r.get("phone_number") or r.get("phone") or ""
                 norm = r.get("normalized_phone") or normalize_phone(phone, default_country_code="91")
@@ -381,10 +397,13 @@ class CampaignService:
                     rec_status = "pending" if not campaign.skip_invalid_numbers else "skipped_invalid"
                     err_msg = "Unverified format (Will attempt dispatch)" if not campaign.skip_invalid_numbers else "Skipped (Invalid phone number)"
 
+                raw_lead_uuid = to_uuid(r.get("lead_id")) if r.get("lead_id") else None
+                valid_lead_id = raw_lead_uuid if (raw_lead_uuid and raw_lead_uuid in valid_lead_ids_set) else None
+
                 recipient_objs.append(CampaignRecipient(
                     campaign_id=campaign.id,
                     workspace_id=workspace_id,
-                    lead_id=to_uuid(r.get("lead_id")) if r.get("lead_id") else None,
+                    lead_id=valid_lead_id,
                     phone_number=phone,
                     normalized_phone=norm or phone,
                     recipient_name=r.get("recipient_name") or r.get("name"),
@@ -711,12 +730,23 @@ class CampaignService:
 
         # Clone recipients as pending
         orig_recipients = db.query(CampaignRecipient).filter(CampaignRecipient.campaign_id == orig.id).all()
+        candidate_lead_ids = {r.lead_id for r in orig_recipients if r.lead_id}
+        valid_lead_ids_set = set()
+        if candidate_lead_ids:
+            valid_leads = (
+                db.query(Lead.id)
+                .filter(Lead.id.in_(candidate_lead_ids), Lead.workspace_id == orig.workspace_id)
+                .all()
+            )
+            valid_lead_ids_set = {row[0] for row in valid_leads}
+
         cloned_recipients = []
         for r in orig_recipients:
+            valid_lead_id = r.lead_id if (r.lead_id and r.lead_id in valid_lead_ids_set) else None
             cloned_recipients.append(CampaignRecipient(
                 campaign_id=cloned.id,
                 workspace_id=cloned.workspace_id,
-                lead_id=r.lead_id,
+                lead_id=valid_lead_id,
                 phone_number=r.phone_number,
                 normalized_phone=r.normalized_phone,
                 recipient_name=r.recipient_name,
@@ -746,6 +776,18 @@ class CampaignService:
 
         if campaign.status in ("in_progress", "completed"):
             raise HTTPException(status_code=400, detail="Cannot edit an actively running or completed campaign")
+
+        # Update status if explicitly provided
+        if "status" in data and data["status"] is not None:
+            new_status = str(data["status"]).lower().strip()
+            campaign.status = new_status
+            if new_status == "draft":
+                # Release held escrow if campaign was previously scheduled and now saved back as draft
+                if campaign.held_cost and float(campaign.held_cost) > 0:
+                    unspent = max(Decimal("0.00"), Decimal(str(campaign.held_cost)) - Decimal(str(campaign.actual_cost or 0.0)))
+                    if unspent > Decimal("0.00"):
+                        cls.release_unspent_escrow(db, campaign.workspace_id, unspent)
+                        campaign.held_cost = float(Decimal(str(campaign.actual_cost or 0.0)))
 
         # Update scalar fields if present in data
         if "name" in data and data["name"] is not None:
@@ -822,6 +864,21 @@ class CampaignService:
             seen_phones = set()
 
             if raw_recipients:
+                # Pre-validate candidate lead_ids against workspace leads to prevent foreign key constraint violations
+                candidate_lead_ids = {
+                    to_uuid(r.get("lead_id"))
+                    for r in raw_recipients
+                    if isinstance(r, dict) and r.get("lead_id") and to_uuid(r.get("lead_id"))
+                }
+                valid_lead_ids_set = set()
+                if candidate_lead_ids:
+                    valid_leads = (
+                        db.query(Lead.id)
+                        .filter(Lead.id.in_(candidate_lead_ids), Lead.workspace_id == campaign.workspace_id)
+                        .all()
+                    )
+                    valid_lead_ids_set = {row[0] for row in valid_leads}
+
                 for r in raw_recipients:
                     if isinstance(r, dict):
                         phone = r.get("phone_number") or r.get("phone") or ""
@@ -849,10 +906,13 @@ class CampaignService:
                             rec_status = "pending" if not campaign.skip_invalid_numbers else "skipped_invalid"
                             err_msg = "Unverified format (Will attempt dispatch)" if not campaign.skip_invalid_numbers else "Skipped (Invalid phone number)"
 
+                        raw_lead_uuid = to_uuid(r.get("lead_id")) if r.get("lead_id") else None
+                        valid_lead_id = raw_lead_uuid if (raw_lead_uuid and raw_lead_uuid in valid_lead_ids_set) else None
+
                         recipient_objs.append(CampaignRecipient(
                             campaign_id=campaign.id,
                             workspace_id=campaign.workspace_id,
-                            lead_id=to_uuid(r.get("lead_id")) if r.get("lead_id") else None,
+                            lead_id=valid_lead_id,
                             phone_number=phone,
                             normalized_phone=norm or phone,
                             recipient_name=r.get("recipient_name") or r.get("name"),

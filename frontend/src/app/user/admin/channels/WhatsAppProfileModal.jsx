@@ -361,7 +361,7 @@ export default function WhatsAppProfileModal({
                                             <p className="text-xs text-white/50">The business name customers see on WhatsApp</p>
                                         </div>
 
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-green-500/15 border border-green-500/30 text-green-400">
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-green-500/30 text-white">
                                             <Check size={11} />
                                             {form.name_status === 'APPROVED' ? 'Approved' : form.name_status}
                                         </span>

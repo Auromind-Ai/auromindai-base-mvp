@@ -495,8 +495,8 @@ function ChannelDetailsModal({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold bg-green-500/15 border border-green-500/30 text-green-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.8)]" />
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-green-500/30 text-white">
+                            <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] shadow-[0_0_6px_rgba(74,222,128,0.8)]" />
                             Connected
                         </span>
                         <button
@@ -574,7 +574,7 @@ function ChannelDetailsModal({
                                     WhatsApp Phone Number
                                 </label>
                                 <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-                                    <span className="text-xs sm:text-[13px] text-green-400 font-medium truncate">
+                                    <span className="text-xs sm:text-[13px] text-white font-medium truncate">
                                         {info || twilioForm.phone || "Connected"}
                                     </span>
                                     {(info || twilioForm.phone) && (
@@ -599,7 +599,7 @@ function ChannelDetailsModal({
                                     WhatsApp Business Number
                                 </label>
                                 <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-                                    <span className="text-xs sm:text-[13px] text-green-400 font-medium truncate">
+                                    <span className="text-xs sm:text-[13px] text-white font-medium truncate">
                                         {info || "Connected"}
                                     </span>
                                     {info && info !== "Connected" && (

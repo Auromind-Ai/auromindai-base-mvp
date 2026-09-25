@@ -181,6 +181,7 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
   const wsId = workspaceId || getStoredWorkspaceId();
   const sendType = c.sendType === 'Schedule for Later' ? 'later' : 'now';
   const scheduledIso = sendType === 'later' ? parseScheduleDatetime(c.scheduleDate, c.scheduleTime) : null;
+  const isDraft = Boolean(c.saveAsDraft || c.status === 'draft' || c.status === 'Draft');
 
   return {
     workspace_id: wsId,
@@ -190,7 +191,7 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
     campaign_goal: c.goal || null,
     phone_number_id: c.phoneNumberId || c.phone_number_id || c.whatsappNumber || null,
     whatsapp_number: c.whatsappNumber || null,
-    status: c.status ? String(c.status).toLowerCase() : undefined,
+    status: isDraft ? 'draft' : (c.status ? String(c.status).toLowerCase() : undefined),
     audience_source: (c.audienceType || 'existing_contacts').toLowerCase().replace(/\s+/g, '_'),
     contact_list_ids: c.selectedListIds || c.contact_list_ids || [],
     lead_ids: c.selectedLeadIds || c.lead_ids || [],
@@ -211,7 +212,7 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
     quiet_hours_enabled: Boolean(c.quietHours ?? true),
     quiet_hours_start: c.quietHoursStart || '22:00',
     quiet_hours_end: c.quietHoursEnd || '08:00',
-    auto_launch: c.autoLaunch !== undefined ? Boolean(c.autoLaunch) : (sendType === 'now'),
+    auto_launch: isDraft ? false : (c.autoLaunch !== undefined ? Boolean(c.autoLaunch) : (sendType === 'now')),
     estimated_cost: Number(c.estimatedCost || 0.0),
     segment: c.segment || null,
     recipients: (c.recipients || []).map((r) => {
@@ -251,7 +252,7 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
       }
 
       return {
-        lead_id: r.lead_id || r.id || null,
+        lead_id: r.lead_id || null,
         phone_number: recipientPhone,
         phone: recipientPhone,
         recipient_name: recipientName,
@@ -349,10 +350,15 @@ export async function updateCampaign(id, updateData, workspaceId) {
     return result;
   } catch (e) {
     console.warn('updateCampaign API notice, falling back:', e?.message || e);
+    const isDraft = Boolean(updateData.saveAsDraft || updateData.status === 'draft' || updateData.status === 'Draft');
     const existing = getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
-    const updated = existing.map(c => c.id === id ? { ...c, ...updateData } : c);
+    const updated = existing.map(c => c.id === id ? {
+      ...c,
+      ...updateData,
+      status: isDraft ? 'Draft' : normalizeStatus(updateData.status || c.status)
+    } : c);
     setStoredItems(STORAGE_KEYS.CAMPAIGNS, updated);
-    return updated.find(c => c.id === id) || { id, ...updateData };
+    return updated.find(c => c.id === id) || { id, ...updateData, status: isDraft ? 'Draft' : 'Draft' };
   }
 }
 
