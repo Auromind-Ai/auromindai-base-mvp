@@ -1499,9 +1499,9 @@ export default function ChannelsPage() {
                                                 <button
                                                     type="button"
                                                     onClick={() => handleOpenWhatsAppProfile(isConnected)}
-                                                    className="group/edit-btn relative overflow-hidden flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all duration-200 border border-[#4EED6E]/40 bg-[#4EED6E]/10 text-[#4EED6E] hover:bg-[#4EED6E]/20 hover:border-[#4EED6E]/80 hover:shadow-[0_0_16px_rgba(78,237,110,0.35)] hover:-translate-y-0.5 active:scale-95 cursor-pointer shrink-0"
+                                                    className="group/edit-btn relative overflow-hidden flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full text-xs sm:text-[13px] font-medium transition-all duration-200 border border-white/20 bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] text-white hover:bg-[#4EED6E]/20 hover:border-[#4EED6E]/80 hover:shadow-[0_0_16px_rgba(78,237,110,0.35)] hover:-translate-y-0.5 active:scale-95 cursor-pointer shrink-0"
                                                 >
-                                                    <UserPen size={13} className="text-[#4EED6E]" />
+                                                    <UserPen size={13} className="text-white" />
                                                     <span>Edit Profile</span>
                                                 </button>
                                             )}

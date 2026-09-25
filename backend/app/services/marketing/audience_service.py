@@ -4,8 +4,10 @@ import re
 import logging
 from typing import List, Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import or_, and_, func
 from app.models.ai_action import Lead
 from app.models.campaign import ContactList, ContactListMember
+from app.models.conversation import Conversation, ChannelType
 
 logger = logging.getLogger(__name__)
 
@@ -336,7 +338,26 @@ class AudienceService:
         contact_list_id: Optional[Any] = None,
         default_country_code: str = "91"
     ) -> List[Dict[str, Any]]:
-        query = db.query(Lead).filter(Lead.workspace_id == workspace_id)
+        query = (
+            db.query(Lead)
+            .outerjoin(Conversation, Lead.conversation_id == Conversation.id)
+            .filter(
+                Lead.workspace_id == workspace_id,
+                Lead.phone.isnot(None),
+                func.length(func.trim(Lead.phone)) >= 7,
+                ~func.lower(func.coalesce(Lead.source, "")).like("%instagram%"),
+                ~func.lower(func.coalesce(Lead.source, "")).like("%gmail%"),
+                ~func.lower(func.coalesce(Lead.source, "")).like("%email%"),
+                func.lower(func.coalesce(Lead.source, "")) != "ig",
+                or_(
+                    Lead.conversation_id.is_(None),
+                    and_(
+                        Conversation.channel != ChannelType.INSTAGRAM,
+                        Conversation.channel != ChannelType.EMAIL,
+                    ),
+                ),
+            )
+        )
 
         if contact_list_id:
             query = query.join(

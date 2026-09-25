@@ -325,7 +325,7 @@ export class APIClient {
           }
         }
 
-        if (response.status >= 502 && response.status <= 504) {
+        if ((response.status >= 500 && response.status <= 504) || (response.status >= 520 && response.status <= 526)) {
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('server-connection-error', { detail: { status: response.status } }));
           }

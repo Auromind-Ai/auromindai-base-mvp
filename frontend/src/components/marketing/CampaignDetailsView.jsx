@@ -117,7 +117,7 @@ export default function CampaignDetailsView({ campaignId }) {
           // Enriched full recipients strictly for this campaign
           const enriched = camp.recipients.map((r) => {
             if (r.error_code || r.status === 'failed' || r.status === 'skipped_marketing_frequency_limit') {
-              const cls = classifyMetaError(r.error_code || (r.status === 'skipped_marketing_frequency_limit' ? '131049' : '131026'), r.error_message);
+              const cls = classifyMetaError(r.error_code || (r.status === 'skipped_marketing_frequency_limit' ? '131049' : (r.status || 'FAILED')), r.error_message);
               return {
                 ...r,
                 error_title: r.error_title || cls.title,
@@ -172,7 +172,7 @@ export default function CampaignDetailsView({ campaignId }) {
             const st = (r.status || '').toLowerCase();
             const isFailed = st === 'failed' || st.includes('skipped') || Boolean(r.error_code);
             if (isFailed) {
-              const code = r.error_code || (st === 'skipped_marketing_frequency_limit' ? '131049' : '131026');
+              const code = r.error_code || (st === 'skipped_marketing_frequency_limit' ? '131049' : (st || 'FAILED'));
               const cls = classifyMetaError(code, r.error_message);
               return {
                 ...r,
@@ -261,7 +261,7 @@ export default function CampaignDetailsView({ campaignId }) {
       const st = (r.status || '').toLowerCase();
       const isFailed = st === 'failed' || st === 'skipped_marketing_frequency_limit' || st === 'skipped_invalid' || st === 'skipped_opted_out' || Boolean(r.error_code);
       if (isFailed) {
-        const code = r.error_code || (st === 'skipped_marketing_frequency_limit' ? '131049' : (st === 'skipped_invalid' ? 'SKIPPED_INVALID' : '131026'));
+        const code = r.error_code || (st === 'skipped_marketing_frequency_limit' ? '131049' : (st === 'skipped_invalid' ? 'SKIPPED_INVALID' : (st || 'FAILED')));
         if (!map[code]) {
           const cls = classifyMetaError(code, r.error_message);
           map[code] = {
@@ -749,17 +749,16 @@ export default function CampaignDetailsView({ campaignId }) {
                 paginatedRecipients.map((rec, idx) => {
                   const isDelivered = (rec.status || '').toLowerCase() === 'delivered' || (rec.status || '').toLowerCase() === 'read';
                   const isFailed = (rec.status || '').toLowerCase() === 'failed' || (rec.status || '').toLowerCase().includes('skipped') || Boolean(rec.error_code);
-                  const cls = classifyMetaError(rec.error_code || (rec.status === 'skipped_marketing_frequency_limit' ? '131049' : '131026'), rec.error_message);
+                  const cls = classifyMetaError(rec.error_code || (rec.status === 'skipped_marketing_frequency_limit' ? '131049' : (rec.status || 'FAILED')), rec.error_message);
 
                   return (
                     <tr
                       key={rec.id || `rec-${idx}`}
-                      onClick={() => setSelectedRecipient(rec)}
-                      className="hover:bg-[#101424] transition-colors cursor-pointer group"
+                      className="hover:bg-[#101424]/50 transition-colors"
                     >
                       {/* Phone Number & Contact Name */}
                       <td className="px-5 py-3.5">
-                        <div className="font-semibold text-white tracking-tight text-[13px] group-hover:text-[#a78bfa] transition-colors">
+                        <div className="font-semibold text-white tracking-tight text-[13px]">
                           {rec.phone_number || rec.phone || rec.normalized_phone || '—'}
                         </div>
                         {rec.recipient_name && rec.recipient_name !== rec.phone_number && (
@@ -821,11 +820,8 @@ export default function CampaignDetailsView({ campaignId }) {
                       {/* Delivered Tab Specific Columns */}
                       {activeTab === 'delivered' && (
                         <>
-                          <td className="px-5 py-3.5 text-xs text-[#cbd5e1] whitespace-nowrap">
-                            <div className="font-medium text-emerald-400">✓ Delivered</div>
-                            <div className="text-[11px] text-white/50 mt-0.5">
-                              {formatDateTime(rec.delivered_at || rec.sent_at || campaign?.created_at)}
-                            </div>
+                          <td className="px-5 py-3.5 text-xs text-[#cbd5e1] whitespace-nowrap" title={formatDateTime(rec.delivered_at || rec.sent_at || campaign?.created_at)}>
+                            {formatTimeOnly(rec.delivered_at || rec.sent_at || campaign?.created_at)}
                           </td>
                           <td className="px-5 py-3.5 text-[11px] text-white/60">
                             <div className="flex items-center gap-1.5 max-w-[180px]">
@@ -964,7 +960,7 @@ export default function CampaignDetailsView({ campaignId }) {
         const st = (rec.status || '').toLowerCase();
         const isFailed = st === 'failed' || st.includes('skipped') || Boolean(rec.error_code);
         const isDelivered = st === 'delivered' || st === 'read';
-        const cls = classifyMetaError(rec.error_code || (st === 'skipped_marketing_frequency_limit' ? '131049' : '131026'), rec.error_message);
+        const cls = classifyMetaError(rec.error_code || (st === 'skipped_marketing_frequency_limit' ? '131049' : (st || 'FAILED')), rec.error_message);
 
         return (
           <div

@@ -3,7 +3,7 @@ import uuid
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import or_, and_, func
 
 from app.database import get_db
 from app.routers.auth import get_current_user, CurrentUser
@@ -12,6 +12,7 @@ from app.models.campaign import Campaign, CampaignRecipient, ContactList, Contac
 from app.models.templates import Template
 from app.models.workspace import Workspace, WorkspaceMember
 from app.models.ai_action import Lead
+from app.models.conversation import Conversation, ChannelType
 from app.schemas.campaign import (
     PreflightEstimateRequest,
     PreflightEstimateResponse,
@@ -270,7 +271,7 @@ def serialize_campaign_recipient(r: CampaignRecipient) -> dict:
         code = r.error_code or (
             "131049" if r.status == "skipped_marketing_frequency_limit"
             else ("SKIPPED_INVALID" if r.status == "skipped_invalid"
-            else ("SKIPPED_OPTED_OUT" if r.status == "skipped_opted_out" else "131026"))
+            else ("SKIPPED_OPTED_OUT" if r.status == "skipped_opted_out" else "FAILED"))
         )
         error_info = ErrorClassificationService.classify(code, r.error_message)
 
@@ -490,6 +491,16 @@ async def list_campaign_recipients(
                     CampaignRecipient.status == "skipped_marketing_frequency_limit"
                 )
             )
+        elif ec == "FAILED":
+            query = query.filter(
+                or_(
+                    CampaignRecipient.error_code == "FAILED",
+                    and_(
+                        CampaignRecipient.status == "failed",
+                        CampaignRecipient.error_code.is_(None)
+                    )
+                )
+            )
         else:
             query = query.filter(CampaignRecipient.error_code == ec)
 
@@ -537,6 +548,24 @@ async def list_campaign_recipients(
                 "error_title": info.get("title", "Marketing message limit reached"),
                 "error_category": info.get("category", "MARKETING_FREQUENCY_LIMIT"),
                 "count": skipped_count
+            }
+
+    # Also account for any failed recipients where error_code was not recorded
+    unspecified_failed = db.query(func.count(CampaignRecipient.id)).filter(
+        CampaignRecipient.campaign_id == c_uuid,
+        CampaignRecipient.status == "failed",
+        CampaignRecipient.error_code.is_(None)
+    ).scalar() or 0
+    if unspecified_failed > 0:
+        if "FAILED" in breakdown_map:
+            breakdown_map["FAILED"]["count"] += unspecified_failed
+        else:
+            info = ErrorClassificationService.classify("FAILED")
+            breakdown_map["FAILED"] = {
+                "error_code": "FAILED",
+                "error_title": info.get("title", "Delivery Failed"),
+                "error_category": info.get("category", "GENERAL_DELIVERY_FAILURE"),
+                "count": unspecified_failed
             }
 
     error_breakdown = sorted(list(breakdown_map.values()), key=lambda x: x["count"], reverse=True)
@@ -597,8 +626,15 @@ async def update_campaign_endpoint(
             user_id=user_id,
         )
 
-        should_launch = bool(getattr(payload, "auto_launch", False)) and data.get("status") != "draft"
-        if should_launch or (data.get("status") in ("in_progress", "scheduled") and data.get("status") != "draft"):
+        is_draft = data.get("status") == "draft" or str(payload.status or "").lower() == "draft"
+        should_launch = (
+            not is_draft
+            and (
+                getattr(payload, "auto_launch", False)
+                or data.get("status") in ("in_progress", "scheduled")
+            )
+        )
+        if should_launch:
             try:
                 updated = CampaignService.launch_campaign(db, updated.id)
             except Exception as launch_err:
@@ -777,6 +813,24 @@ async def upload_audience_csv(
     return parsed
 
 
+def get_whatsapp_lead_filters():
+    return [
+        Lead.phone.isnot(None),
+        func.length(func.trim(Lead.phone)) >= 7,
+        ~func.lower(func.coalesce(Lead.source, "")).like("%instagram%"),
+        ~func.lower(func.coalesce(Lead.source, "")).like("%gmail%"),
+        ~func.lower(func.coalesce(Lead.source, "")).like("%email%"),
+        func.lower(func.coalesce(Lead.source, "")) != "ig",
+        or_(
+            Lead.conversation_id.is_(None),
+            and_(
+                Conversation.channel != ChannelType.INSTAGRAM,
+                Conversation.channel != ChannelType.EMAIL,
+            ),
+        ),
+    ]
+
+
 @router.get("/audiences/lists")
 @router.get("/contact-lists")
 async def list_contact_lists(
@@ -787,7 +841,13 @@ async def list_contact_lists(
     ws_uuid = resolve_workspace_id(current_user, db, workspace_id)
 
     lists = db.query(ContactList).filter(ContactList.workspace_id == ws_uuid).order_by(ContactList.created_at.desc()).all()
-    leads_count = db.query(Lead).filter(Lead.workspace_id == ws_uuid).count()
+    wa_filters = get_whatsapp_lead_filters()
+    leads_count = (
+        db.query(Lead)
+        .outerjoin(Conversation, Lead.conversation_id == Conversation.id)
+        .filter(Lead.workspace_id == ws_uuid, *wa_filters)
+        .count()
+    )
 
     res = []
     if leads_count > 0:
@@ -837,15 +897,23 @@ async def list_marketing_crm_leads(
     workspace_id: Optional[str] = Query(None),
     segment: Optional[str] = Query("all"),
     search: Optional[str] = Query(None),
+    channel: Optional[str] = Query("whatsapp"),
     limit: int = Query(200, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """
     Returns real CRM leads for Step 2 Audience selection & Smart Segments.
+    Filters out Instagram/non-WhatsApp leads so that only WhatsApp eligible contacts are returned.
     """
     ws_uuid = resolve_workspace_id(current_user, db, workspace_id)
-    query = db.query(Lead).filter(Lead.workspace_id == ws_uuid)
+    wa_filters = get_whatsapp_lead_filters() if (not channel or channel.lower() == "whatsapp") else []
+
+    base_filter = [Lead.workspace_id == ws_uuid]
+    if wa_filters:
+        base_filter.extend(wa_filters)
+
+    query = db.query(Lead).outerjoin(Conversation, Lead.conversation_id == Conversation.id).filter(*base_filter)
 
     if segment == "hot":
         query = query.filter(Lead.score >= 70)
@@ -864,11 +932,12 @@ async def list_marketing_crm_leads(
 
     leads = query.order_by(Lead.score.desc().nullslast(), Lead.created_at.desc()).limit(limit).all()
 
-    total_count = db.query(Lead).filter(Lead.workspace_id == ws_uuid).count()
-    hot_count = db.query(Lead).filter(Lead.workspace_id == ws_uuid, Lead.score >= 70).count()
-    warm_count = db.query(Lead).filter(Lead.workspace_id == ws_uuid, Lead.score >= 40, Lead.score < 70).count()
-    new_count = db.query(Lead).filter(Lead.workspace_id == ws_uuid, Lead.status == "new").count()
-    converted_count = db.query(Lead).filter(Lead.workspace_id == ws_uuid, Lead.status == "converted").count()
+    total_count = db.query(Lead).outerjoin(Conversation, Lead.conversation_id == Conversation.id).filter(*base_filter).count()
+    hot_count = db.query(Lead).outerjoin(Conversation, Lead.conversation_id == Conversation.id).filter(*base_filter, Lead.score >= 70).count()
+    warm_count = db.query(Lead).outerjoin(Conversation, Lead.conversation_id == Conversation.id).filter(*base_filter, Lead.score >= 40, Lead.score < 70).count()
+    new_count = db.query(Lead).outerjoin(Conversation, Lead.conversation_id == Conversation.id).filter(*base_filter, Lead.status == "new").count()
+    converted_count = db.query(Lead).outerjoin(Conversation, Lead.conversation_id == Conversation.id).filter(*base_filter, Lead.status == "converted").count()
+    cold_count = db.query(Lead).outerjoin(Conversation, Lead.conversation_id == Conversation.id).filter(*base_filter, Lead.score < 40).count()
 
     return {
         "total": len(leads),
@@ -878,6 +947,7 @@ async def list_marketing_crm_leads(
             "warm": warm_count,
             "new": new_count,
             "converted": converted_count,
+            "cold": cold_count,
         },
         "leads": [
             {
@@ -886,6 +956,7 @@ async def list_marketing_crm_leads(
                 "phone": l.phone,
                 "score": l.score or 0,
                 "status": l.status or "new",
+                "source": l.source or "whatsapp",
                 "created_at": l.created_at.isoformat() if l.created_at else None,
             }
             for l in leads

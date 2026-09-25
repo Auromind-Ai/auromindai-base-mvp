@@ -251,7 +251,7 @@ export default function WhatsAppProfileModal({
                                     Phone profile
                                 </h2>
                                 {form.phone_number_id && (
-                                    <span className="text-[11px] px-2 py-0.5 rounded-md bg-white/[0.06] border border-white/[0.1] text-[#4EED6E]/90">
+                                    <span className="text-[11px] px-2 py-0.5 rounded-md bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-white/[0.1] text-white">
                                         ID: {form.phone_number_id}
                                     </span>
                                 )}
@@ -288,7 +288,7 @@ export default function WhatsAppProfileModal({
                                 {/* Profile Picture Section */}
                                 <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.07] space-y-3">
                                     <div>
-                                        <h3 className="text-sm font-semibold text-white">Profile picture</h3>
+                                        <h3 className="text-sm font-medium text-white">Profile picture</h3>
                                         <p className="text-xs text-white/50">This will be visible on your business profile</p>
                                     </div>
 

@@ -17,6 +17,7 @@ from app.services.template import submit_to_meta
 from app.routers.auth import get_current_user, CurrentUser
 from app.core.security import verify_workspace_access,to_uuid
 from app.core.exceptions import BillingError, WorkspaceAccessError, AIProviderError
+from app.services.storage.service import get_storage
 router = APIRouter()
 
 from app.schemas.template import (
@@ -411,6 +412,25 @@ async def create_template(
             detail="Failed to submit template due to a connection timeout. Please check your template list or try again in a moment."
         )
 
+    media_url_to_save = None
+    if media_file_bytes and len(media_file_bytes) > 0:
+        try:
+            import uuid
+            import os
+            storage = get_storage()
+            clean_filename = media_file_name or ("media.png" if data.type == "IMAGE" else "media.mp4")
+            file_ext = os.path.splitext(clean_filename)[1] or (".png" if data.type == "IMAGE" else ".mp4")
+            unique_filename = f"{uuid.uuid4()}{file_ext}"
+            rel_path = f"{workspace_id}/templates/{unique_filename}"
+            media_url_to_save = await storage.save_file(rel_path, media_file_bytes, media_file_type or "application/octet-stream")
+        except Exception as store_err:
+            logger.warning(f"Could not persist template media file to storage: {store_err}")
+
+    if not media_url_to_save and getattr(data, "media_url", None):
+        media_url_to_save = data.media_url
+    elif not media_url_to_save and data.header and (data.header.startswith("http://") or data.header.startswith("https://")):
+        media_url_to_save = data.header
+
     header_to_save = media_handle if data.type in ("IMAGE", "VIDEO") else data.header
 
     if meta_response.get("error"):
@@ -444,6 +464,7 @@ async def create_template(
                             type=data.type,
                             content=data.message,
                             header=header_to_save,
+                            media_url=media_url_to_save,
                             footer=data.footer,
                             cta=data.cta,
                             cta_btn_title=data.cta_btn_title,
@@ -479,6 +500,7 @@ async def create_template(
             type=data.type,
             content=data.message,
             header=header_to_save,
+            media_url=media_url_to_save,
             footer=data.footer,
             cta=data.cta,
             cta_btn_title=data.cta_btn_title,
@@ -659,6 +681,7 @@ def get_templates(
             "content": body_text,
             "body": body_text,
             "header": t.header,
+            "media_url": getattr(t, "media_url", None) or (t.header if t.header and (t.header.startswith("http://") or t.header.startswith("https://")) else None),
             "footer": t.footer,
             "cta": t.cta,
             "cta_btn_title": t.cta_btn_title,
@@ -748,21 +771,58 @@ def send_message(
 
 
     # Query template language from database
+    ws_uuid = to_uuid(workspace_id)
     template = db.query(Template).filter(
         Template.name == data.template_name,
-        Template.workspace_id == workspace_id
+        (Template.workspace_id == ws_uuid) | (Template.user_id == current_user.id)
     ).first()
+    if not template:
+        template = db.query(Template).filter(Template.name == data.template_name).first()
     lang_code = template.language if template else "en_US"
 
     components = []
+
+    # 1. Header component for IMAGE / VIDEO / DOCUMENT or text variables
+    if template:
+        tmpl_type = (template.type or "TEXT").upper()
+        if tmpl_type in ("IMAGE", "VIDEO", "DOCUMENT"):
+            media_type = tmpl_type.lower()
+            media_url = (
+                getattr(data, "media_url", None)
+                or getattr(template, "media_url", None)
+                or (template.header if template.header and (template.header.startswith("http://") or template.header.startswith("https://")) else None)
+            )
+            if not media_url:
+                if tmpl_type == "IMAGE":
+                    media_url = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80"
+                elif tmpl_type == "VIDEO":
+                    media_url = "https://www.w3schools.com/html/mov_bbb.mp4"
+                elif tmpl_type == "DOCUMENT":
+                    media_url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+            
+            if media_url:
+                components.append({
+                    "type": "header",
+                    "parameters": [{
+                        "type": media_type,
+                        media_type: {"link": media_url}
+                    }]
+                })
+        elif template.header and not template.header.startswith("4:"):
+            header_vars = re.findall(r"\{\{(\d+)\}\}", template.header)
+            if header_vars:
+                components.append({
+                    "type": "header",
+                    "parameters": [{"type": "text", "text": "Customer"} for _ in header_vars]
+                })
+
+    # 2. Body parameters
     variables = data.variables or []
     if variables:
-        components = [
-            {
-                "type": "body",
-                "parameters": [{"type": "text", "text": str(v)} for v in variables],
-            }
-        ]
+        components.append({
+            "type": "body",
+            "parameters": [{"type": "text", "text": str(v)} for v in variables],
+        })
 
     payload = {
         "messaging_product": "whatsapp",
@@ -787,11 +847,20 @@ def send_message(
         )
 
     headers = {
-    "Authorization": f"Bearer {system_token}",
-    "Content-Type": "application/json",
+        "Authorization": f"Bearer {system_token}",
+        "Content-Type": "application/json",
     }
     
     res = requests.post(url, json=payload, headers=headers, timeout=10)
+    if res.status_code >= 400:
+        err_data = {}
+        try:
+            err_data = res.json()
+        except Exception:
+            pass
+        err_msg = err_data.get("error", {}).get("message") or res.text
+        logger.error(f"[Template Send FAILED] {res.status_code}: {err_data}")
+        raise HTTPException(status_code=res.status_code, detail=f"Meta error: {err_msg}")
     return res.json()
 
 
@@ -890,6 +959,87 @@ def submit_template(
 
     db.commit()
     return {"status": "submitted"}
+
+
+@router.post("/templates/{template_id}/media")
+@router.put("/templates/{template_id}/media")
+async def update_template_media(
+    template_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    try:
+        t_uuid = to_uuid(template_id)
+        template = db.query(Template).filter(Template.id == t_uuid).first()
+    except Exception:
+        template = None
+
+    if not template:
+        template = db.query(Template).filter(Template.id == template_id).first()
+
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    if template.workspace_id:
+        verify_workspace_access(current_user, db, str(template.workspace_id))
+
+    content_type = request.headers.get("content-type", "").lower()
+    media_url = None
+
+    if "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
+        form = await request.form()
+        uploaded_file = form.get("file") or form.get("media")
+        if uploaded_file and hasattr(uploaded_file, "read"):
+            file_bytes = await uploaded_file.read()
+            if file_bytes and len(file_bytes) > 0:
+                import uuid, os
+                storage = get_storage()
+                tmpl_type = (template.type or "IMAGE").upper()
+                default_ext = ".png" if tmpl_type == "IMAGE" else ".mp4"
+                filename = getattr(uploaded_file, "filename", None) or f"media{default_ext}"
+                _, ext = os.path.splitext(filename)
+                ext = ext or default_ext
+                default_mime = "image/png" if tmpl_type == "IMAGE" else "video/mp4"
+                mime = getattr(uploaded_file, "content_type", None) or default_mime
+                unique_name = f"{uuid.uuid4()}{ext}"
+                ws_folder = str(template.workspace_id) if template.workspace_id else "global"
+                rel_path = f"{ws_folder}/templates/{unique_name}"
+                media_url = await storage.save_file(rel_path, file_bytes, mime)
+        if not media_url:
+            raw_url = form.get("media_url")
+            if raw_url and isinstance(raw_url, str) and raw_url.strip():
+                media_url = raw_url.strip()
+    else:
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                media_url = body.get("media_url")
+        except Exception:
+            pass
+
+    if not media_url:
+        raise HTTPException(status_code=400, detail="No media file or media_url was provided.")
+
+    template.media_url = media_url
+    if not template.header or template.header.startswith("4:"):
+        template.header = media_url
+    db.commit()
+    db.refresh(template)
+
+    return {
+        "status": "success",
+        "media_url": template.media_url,
+        "template": {
+            "id": str(template.id),
+            "name": template.name,
+            "type": template.type,
+            "media_url": template.media_url,
+            "header": template.header,
+            "status": template.status,
+            "content": template.content,
+        }
+    }
 
 
 @router.delete("/templates/{template_id}")

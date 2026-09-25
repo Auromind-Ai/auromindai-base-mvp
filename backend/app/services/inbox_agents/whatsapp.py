@@ -102,16 +102,19 @@ class WhatsAppService:
 
             if response.status_code != 200:
                 logger.error(f"Template send error: {data}")
-                return None
+                err_detail = data.get("error", {}).get("message") or data.get("error", {}).get("error_user_msg") or str(data)
+                raise RuntimeError(f"WhatsApp API Error ({response.status_code}): {err_detail}")
 
             message_id = data.get("messages", [{}])[0].get("id")
             logger.info(f"Template sent: {message_id}")
 
             return message_id
 
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.error(f"Send template failed: {str(e)}")
-            return None
+            raise RuntimeError(f"Send template failed: {str(e)}")
 
     # MARK MESSAGE AS READ
     def mark_as_read(self, message_id: str):

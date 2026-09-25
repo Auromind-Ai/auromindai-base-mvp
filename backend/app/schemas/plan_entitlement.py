@@ -145,7 +145,6 @@ class PlanEntitlementResponse(PlanEntitlementBase):
 
     class Config:
         from_attributes = True
-        orm_mode = True
 
 
 class EntitlementCheckRequest(BaseModel):

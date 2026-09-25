@@ -266,19 +266,20 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
 // API Service functions with live backend + persistent fallback
 export async function getCampaigns(workspaceId) {
   const wsId = workspaceId || getStoredWorkspaceId();
+  const cacheKey = wsId ? `${STORAGE_KEYS.CAMPAIGNS}_${wsId}` : STORAGE_KEYS.CAMPAIGNS;
   try {
     const url = wsId ? `/api/marketing/campaigns?workspace_id=${wsId}` : '/api/marketing/campaigns';
     const res = await client.get(url);
     const rawItems = res?.items || res?.data?.items || (Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : null));
     if (rawItems && Array.isArray(rawItems)) {
       const mapped = rawItems.map(mapBackendCampaignToFrontend);
-      setStoredItems(STORAGE_KEYS.CAMPAIGNS, mapped);
+      setStoredItems(cacheKey, mapped);
       return mapped;
     }
   } catch (e) {
     console.warn('Live getCampaigns notice, falling back to local store:', e.message || e);
   }
-  return getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
+  return getStoredItems(cacheKey, INITIAL_CAMPAIGNS);
 }
 
 export async function getCampaignById(id) {
@@ -426,13 +427,14 @@ export async function uploadAudienceCSV(file, workspaceId, defaultCountryCode = 
   return res?.data || res;
 }
 
-export async function getMarketingLeads(workspaceId, segment = 'all', search = '') {
+export async function getMarketingLeads(workspaceId, segment = 'all', search = '', channel = 'whatsapp') {
   const wsId = workspaceId || getStoredWorkspaceId();
   try {
     const params = new URLSearchParams();
     if (wsId) params.append('workspace_id', wsId);
     if (segment) params.append('segment', segment);
     if (search) params.append('search', search);
+    if (channel) params.append('channel', channel);
     const url = `/api/marketing/audiences/leads?${params.toString()}`;
     const res = await client.get(url);
     return res?.data || res || { total: 0, segment_counts: {}, leads: [] };

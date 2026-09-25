@@ -823,6 +823,8 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
     const [variables, setVariables] = useState({});
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
+    const [uploadingMedia, setUploadingMedia] = useState(false);
+    const modalFileInputRef = useRef(null);
 
     useEffect(() => {
         if (!isOpen || !workspace?.id) return;
@@ -859,6 +861,9 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
 
     if (!isOpen) return null;
 
+    const isMediaType = selectedTemplate?.type === 'IMAGE' || selectedTemplate?.type === 'VIDEO';
+    const resolvedMedia = selectedTemplate?.media_url || (selectedTemplate?.header?.startsWith('http') ? selectedTemplate?.header : null);
+
     const getPreviewContent = () => {
         if (!selectedTemplate) return '';
         let text = selectedTemplate.content;
@@ -871,6 +876,11 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
 
     const handleSend = async () => {
         if (!selectedTemplate || !workspace?.id || !lead?.phone) return;
+        if (isMediaType && !resolvedMedia) {
+            showToast(`Please upload a ${selectedTemplate.type.toLowerCase()} header first!`, 'warning');
+            modalFileInputRef.current?.click();
+            return;
+        }
         setLoading(true);
         try {
             const varArray = Object.keys(variables)
@@ -881,7 +891,8 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
                 workspace_id: workspace.id,
                 phone: lead.phone,
                 template_name: selectedTemplate.name,
-                variables: varArray
+                variables: varArray,
+                media_url: resolvedMedia
             });
             onSuccess(getPreviewContent());
             showToast("Template message sent successfully", "success");
@@ -928,6 +939,65 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
                                     ))}
                                 </select>
                             </div>
+
+                            {/* Header Media Upload/Preview if IMAGE or VIDEO template */}
+                            {isMediaType && (
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
+                                        Header {selectedTemplate?.type === 'VIDEO' ? 'Video' : 'Image'}
+                                    </label>
+                                    <input
+                                        ref={modalFileInputRef}
+                                        type="file"
+                                        accept={selectedTemplate?.type === 'VIDEO' ? 'video/*' : 'image/*'}
+                                        className="hidden"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file || !selectedTemplate) return;
+                                            setUploadingMedia(true);
+                                            try {
+                                                const fd = new FormData();
+                                                fd.append('file', file);
+                                                const res = await api.post(`/api/templates/${selectedTemplate.id}/media`, fd);
+                                                setSelectedTemplate(prev => ({ ...prev, media_url: res.media_url }));
+                                                setTemplates(prev => prev.map(t => t.id === selectedTemplate.id ? { ...t, media_url: res.media_url } : t));
+                                                showToast('Media attached successfully!', 'success');
+                                            } catch (err) {
+                                                showToast(err?.message || 'Failed to upload media', 'error');
+                                            } finally {
+                                                setUploadingMedia(false);
+                                                if (modalFileInputRef.current) modalFileInputRef.current.value = '';
+                                            }
+                                        }}
+                                    />
+                                    {resolvedMedia ? (
+                                        <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                                            {selectedTemplate?.type === 'VIDEO' ? (
+                                                <video src={resolvedMedia} className="w-full h-28 object-cover" controls />
+                                            ) : (
+                                                <img src={resolvedMedia} alt="Header Preview" className="w-full h-28 object-cover" />
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => modalFileInputRef.current?.click()}
+                                                disabled={uploadingMedia}
+                                                className="absolute top-2 right-2 px-2 py-1 rounded bg-black/80 hover:bg-indigo-600 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                                            >
+                                                {uploadingMedia ? 'Uploading...' : 'Change'}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => modalFileInputRef.current?.click()}
+                                            disabled={uploadingMedia}
+                                            className="w-full py-3 px-3 rounded-xl border border-dashed border-indigo-500/50 hover:border-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[12px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                                        >
+                                            <span>{uploadingMedia ? 'Uploading media...' : `Click to upload ${selectedTemplate?.type?.toLowerCase() || 'media'} header`}</span>
+                                        </button>
+                                    )}
+                                </div>
+                            )}
 
                             {varKeys.length > 0 && (
                                 <div className="space-y-3">
@@ -1701,6 +1771,9 @@ function InboxContent() {
     const [templateName, setTemplateName] = useState(null);
     const [templateVariables, setTemplateVariables] = useState([]);
     const [templateLanguage, setTemplateLanguage] = useState('en_US');
+    const [templateMediaUrl, setTemplateMediaUrl] = useState(null);
+    const [templateMediaType, setTemplateMediaType] = useState(null);
+    const [inboxTemplateMediaUrl, setInboxTemplateMediaUrl] = useState('');
     const [showTemplateSelect, setShowTemplateSelect] = useState(false);
     const [inboxTemplates, setInboxTemplates] = useState([]);
     const [selectedInboxTemplate, setSelectedInboxTemplate] = useState(null);
@@ -1747,8 +1820,14 @@ function InboxContent() {
                 vars[match[1]] = '';
             }
             setInboxTemplateVariables(vars);
+            setInboxTemplateMediaUrl(
+                selectedInboxTemplate?.media_url
+                || (selectedInboxTemplate?.header && (selectedInboxTemplate.header.startsWith('http://') || selectedInboxTemplate.header.startsWith('https://')) ? selectedInboxTemplate.header : '')
+                || ''
+            );
         } else {
             setInboxTemplateVariables({});
+            setInboxTemplateMediaUrl('');
         }
     }, [selectedInboxTemplate]);
 
@@ -1767,6 +1846,12 @@ function InboxContent() {
         setTemplateName(selectedInboxTemplate.name);
         setTemplateVariables(varKeys.map(k => inboxTemplateVariables[k]));
         setTemplateLanguage(selectedInboxTemplate.language || 'en_US');
+        setTemplateMediaUrl(
+            inboxTemplateMediaUrl
+            || selectedInboxTemplate.media_url
+            || (selectedInboxTemplate.header && (selectedInboxTemplate.header.startsWith('http://') || selectedInboxTemplate.header.startsWith('https://')) ? selectedInboxTemplate.header : null)
+        );
+        setTemplateMediaType(selectedInboxTemplate.type || 'TEXT');
         setShowTemplateSelect(false);
     };
 
@@ -1781,6 +1866,8 @@ function InboxContent() {
         const tplNameParam = searchParams.get('template_name');
         const tplVarsParam = searchParams.get('variables');
         const tplLangParam = searchParams.get('language');
+        const tplMediaParam = searchParams.get('media_url');
+        const tplTypeParam = searchParams.get('template_type');
 
         const timer = setTimeout(() => {
             if (msgParam) setMsg(msgParam);
@@ -1793,6 +1880,8 @@ function InboxContent() {
                 try { setTemplateVariables(JSON.parse(tplVarsParam)); } catch { }
             }
             if (tplLangParam) setTemplateLanguage(tplLangParam);
+            if (tplMediaParam) setTemplateMediaUrl(tplMediaParam);
+            if (tplTypeParam) setTemplateMediaType(tplTypeParam);
         }, 0);
         return () => clearTimeout(timer);
     }, [searchParams]);
@@ -2196,6 +2285,9 @@ function InboxContent() {
                     template_name: templateName,
                     variables: templateVariables,
                     language: templateLanguage,
+                    media_url: templateMediaUrl || (uploadedMediaUrl || null),
+                    header_url: templateMediaUrl || (uploadedMediaUrl || null),
+                    template_type: templateMediaType || 'TEXT',
                 };
             }
 
@@ -2206,6 +2298,8 @@ function InboxContent() {
             setTemplateName(null);
             setTemplateVariables([]);
             setTemplateLanguage('en_US');
+            setTemplateMediaUrl(null);
+            setTemplateMediaType(null);
             fetchMessages(lead.id);
         } catch (e) {
             if (e?.status === 401 || e?.isSessionExpired) {
@@ -2214,6 +2308,10 @@ function InboxContent() {
             console.error('Send error:', e);
             if (e.status === 503) {
                 showToast("This channel isn't configured for this workspace yet. Please contact admin to set up channel credentials.");
+            } else if (e?.data?.detail) {
+                showToast(e.data.detail);
+            } else if (e?.message) {
+                showToast(e.message);
             } else {
                 showToast("Failed to send message. Please try again.");
             }
@@ -2677,9 +2775,46 @@ function InboxContent() {
                                         <div className="flex flex-col gap-2">
                                             <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Preview</div>
                                             <div className="bg-[#100b21] border border-[#251d3b] p-4 rounded-2xl max-w-md">
-                                                {selectedInboxTemplate.header && (
+                                                {selectedInboxTemplate.type === 'IMAGE' ? (
+                                                    <div className="w-full rounded-xl overflow-hidden bg-white/5 border border-white/10 mb-2">
+                                                        {(inboxTemplateMediaUrl || selectedInboxTemplate.media_url || (selectedInboxTemplate.header && (selectedInboxTemplate.header.startsWith('http://') || selectedInboxTemplate.header.startsWith('https://')))) ? (
+                                                            <img
+                                                                src={inboxTemplateMediaUrl || selectedInboxTemplate.media_url || selectedInboxTemplate.header}
+                                                                alt="Template Header"
+                                                                className="w-full h-32 object-cover rounded-xl"
+                                                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                            />
+                                                        ) : (
+                                                            <div className="w-full h-24 flex flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-[#814AC8]/20 via-purple-950/30 to-[#120d24] text-purple-200">
+                                                                <div className="w-7 h-7 rounded-full bg-[#814AC8]/25 flex items-center justify-center text-[#C49FE0]">
+                                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                    </svg>
+                                                                </div>
+                                                                <span className="text-[11px] font-semibold text-white/90">Header: Image Media</span>
+                                                                <span className="text-[9px] text-white/50">Required for WhatsApp template delivery</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : selectedInboxTemplate.type === 'VIDEO' ? (
+                                                    <div className="w-full rounded-xl overflow-hidden bg-white/5 border border-white/10 mb-2">
+                                                        {(inboxTemplateMediaUrl || selectedInboxTemplate.media_url || (selectedInboxTemplate.header && (selectedInboxTemplate.header.startsWith('http://') || selectedInboxTemplate.header.startsWith('https://')))) ? (
+                                                            <video src={inboxTemplateMediaUrl || selectedInboxTemplate.media_url || selectedInboxTemplate.header} className="w-full h-32 object-cover rounded-xl" controls />
+                                                        ) : (
+                                                            <div className="w-full h-24 flex flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-[#814AC8]/20 via-purple-950/30 to-[#120d24] text-purple-200">
+                                                                <div className="w-7 h-7 rounded-full bg-[#814AC8]/25 flex items-center justify-center text-[#C49FE0]">
+                                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                                    </svg>
+                                                                </div>
+                                                                <span className="text-[11px] font-semibold text-white/90">Header: Video Media</span>
+                                                                <span className="text-[9px] text-white/50">Required for WhatsApp template delivery</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : selectedInboxTemplate.header && !selectedInboxTemplate.header.startsWith('4:') ? (
                                                     <div className="font-bold text-white text-[13px] mb-1">{selectedInboxTemplate.header}</div>
-                                                )}
+                                                ) : null}
                                                 <div className="text-[13px] text-white/90 whitespace-pre-wrap leading-relaxed">
                                                     {getInboxTemplatePreviewText()}
                                                 </div>
@@ -2688,6 +2823,22 @@ function InboxContent() {
                                                 )}
                                             </div>
                                         </div>
+
+                                        {['IMAGE', 'VIDEO', 'DOCUMENT'].includes(selectedInboxTemplate.type) && (
+                                            <div className="flex flex-col gap-1.5 bg-[#140d2b] border border-[#2a1f4a] p-3 rounded-xl">
+                                                <label className="text-[10px] font-bold text-purple-300 uppercase tracking-wider flex items-center justify-between">
+                                                    <span>Header {selectedInboxTemplate.type === 'IMAGE' ? 'Image' : selectedInboxTemplate.type === 'VIDEO' ? 'Video' : 'Document'} URL</span>
+                                                    <span className="text-[10px] text-gray-400 font-normal">Auto-detected or custom link</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={inboxTemplateMediaUrl}
+                                                    onChange={e => setInboxTemplateMediaUrl(e.target.value)}
+                                                    placeholder={selectedInboxTemplate.type === 'IMAGE' ? "https://example.com/banner.png" : "https://example.com/video.mp4"}
+                                                    className="w-full px-3 py-2 rounded-lg border border-[#2a1f4a] bg-[#100b21] text-white text-[13px] outline-none focus:border-[#7c3aed]"
+                                                />
+                                            </div>
+                                        )}
 
                                         {Object.keys(inboxTemplateVariables).length > 0 && (
                                             <div className="flex flex-col gap-3">

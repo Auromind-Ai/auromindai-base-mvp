@@ -25,7 +25,6 @@ import {
   ArrowDown,
   RefreshCw,
   Check,
-  Minus,
   Clock,
   Eye
 } from 'lucide-react';
@@ -34,34 +33,6 @@ import CreateCampaignModal from './CreateCampaignModal';
 import { getCampaigns, getCampaignById, deleteCampaign, updateCampaign, pauseCampaign, resumeCampaign, duplicateCampaign } from '@/lib/api/marketing';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
-
-// Premium Custom Checkbox Component
-function PremiumCheckbox({ checked, indeterminate = false, onChange, ariaLabel = 'Select' }) {
-  return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={indeterminate ? 'mixed' : checked}
-      aria-label={ariaLabel}
-      onClick={(e) => {
-        e.stopPropagation();
-        onChange?.();
-      }}
-      className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center transition-all duration-150 cursor-pointer select-none shrink-0 ${
-        checked || indeterminate
-          ? 'bg-[#814AC8] border border-[#a78bfa] shadow-[0_0_10px_rgba(129,74,200,0.55)] scale-100'
-          : 'bg-[#0d101c] border border-[#22293e] hover:border-[#814AC8] hover:bg-[#141829]'
-      } active:scale-90`}
-    >
-      {checked && !indeterminate && (
-        <Check size={12} strokeWidth={3} className="text-white drop-shadow-sm" />
-      )}
-      {indeterminate && (
-        <Minus size={12} strokeWidth={3} className="text-white drop-shadow-sm" />
-      )}
-    </button>
-  );
-}
 
 // Authentic WhatsApp SVG Icon Component
 function WhatsAppLogo({ className = 'w-6 h-6', size = 24 }) {
@@ -99,7 +70,6 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCampaignIds, setSelectedCampaignIds] = useState([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState(null);
   const [activeMenuId, setActiveMenuId] = useState(null);
@@ -300,22 +270,6 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
     return filteredCampaigns.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredCampaigns, safeCurrentPage]);
 
-  const toggleSelectAll = () => {
-    if (selectedCampaignIds.length === paginatedCampaigns.length && paginatedCampaigns.length > 0) {
-      setSelectedCampaignIds([]);
-    } else {
-      setSelectedCampaignIds(paginatedCampaigns.map((c) => c.id));
-    }
-  };
-
-  const toggleSelectOne = (id) => {
-    if (selectedCampaignIds.includes(id)) {
-      setSelectedCampaignIds((prev) => prev.filter((item) => item !== id));
-    } else {
-      setSelectedCampaignIds((prev) => [...prev, id]);
-    }
-  };
-
   const handleDelete = async (id) => {
     try {
       await deleteCampaign(id);
@@ -488,7 +442,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-medium text-white/60">
-              Replies
+              Read
             </div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-2xl sm:text-3xl font-medium text-white tracking-tight">
@@ -496,7 +450,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
               </span>
             </div>
             <div className="text-[11px] text-white/40 mt-0.5">
-              {stats.replyRate} response rate
+              {stats.replyRate} read rate
             </div>
           </div>
         </div>
@@ -600,22 +554,6 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
           <table className="w-full text-left text-xs">
             <thead className="bg-[#0b0e18] border-b border-[#161a28] text-white text-[13px] font-normal">
               <tr>
-                <th className="w-12 px-4 py-3.5 text-center font-normal">
-                  <div className="flex items-center justify-center">
-                    <PremiumCheckbox
-                      checked={
-                        paginatedCampaigns.length > 0 &&
-                        paginatedCampaigns.every((c) => selectedCampaignIds.includes(c.id))
-                      }
-                      indeterminate={
-                        paginatedCampaigns.some((c) => selectedCampaignIds.includes(c.id)) &&
-                        !paginatedCampaigns.every((c) => selectedCampaignIds.includes(c.id))
-                      }
-                      onChange={toggleSelectAll}
-                      ariaLabel="Select all campaigns"
-                    />
-                  </div>
-                </th>
                 <th className="px-4 py-3.5 font-normal text-white">Campaign Name</th>
                 <th className="px-4 py-3.5 font-normal text-white">Audience</th>
                 <th className="px-4 py-3.5 font-normal text-white">Messages</th>
@@ -635,7 +573,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
             <tbody className="divide-y divide-[#131624]">
               {isLoading && campaigns.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-white/60">
+                  <td colSpan={9} className="py-12 text-center text-white/60">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw size={20} className="animate-spin text-[#814AC8]" />
                       <span className="text-sm font-medium text-white">Loading campaigns...</span>
@@ -644,7 +582,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                 </tr>
               ) : paginatedCampaigns.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-white/60">
+                  <td colSpan={9} className="py-12 text-center text-white/60">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <span className="text-sm font-medium text-white">No campaigns found</span>
                       <p className="text-xs text-white/50">
@@ -655,7 +593,6 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                 </tr>
               ) : (
                 paginatedCampaigns.map((camp, index) => {
-                  const isChecked = selectedCampaignIds.includes(camp.id);
                   const isNearBottom = paginatedCampaigns.length > 2 && index >= paginatedCampaigns.length - 2;
                   const sentCount = Number(camp.sentCount) || 0;
                   const deliveredCount = Number(camp.deliveredCount) || 0;
@@ -669,53 +606,40 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                   return (
                     <tr
                       key={camp.id}
-                      onClick={() => {
-                        const st = (camp.status || '').toLowerCase();
-                        if (st === 'draft' || st === 'pending') {
-                          handleEditDraft(camp);
-                        } else {
-                          router.push(`/user/admin/marketing/bulkmessages/${camp.id}`);
-                        }
-                      }}
-                      className={`transition-colors duration-150 cursor-pointer ${
+                      className={`transition-colors duration-150 hover:bg-[#101424]/60 ${
                         activeMenuId === camp.id ? 'relative z-20' : ''
-                      } ${
-                        isChecked ? 'bg-[#814AC8]/15 hover:bg-[#814AC8]/25' : 'hover:bg-[#101424]'
                       }`}
                     >
-                      {/* Premium Custom Checkbox */}
-                      <td className="px-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center">
-                          <PremiumCheckbox
-                            checked={isChecked}
-                            onChange={() => toggleSelectOne(camp.id)}
-                            ariaLabel={`Select ${camp.name}`}
-                          />
-                        </div>
-                      </td>
-
                       {/* Campaign Name & Subtitle */}
                       <td className="px-4 py-3.5">
                         {(() => {
-                          const st = (camp.status || '').toLowerCase();
-                          if (st === 'draft' || st === 'pending') {
+                          const statusLower = (camp.status || '').toLowerCase().trim();
+                          const isDraft = statusLower === 'draft' || statusLower === 'pending';
+                          const isScheduledOrSending = ['scheduled', 'sending', 'in_progress'].includes(statusLower);
+
+                          if (isDraft) {
                             return (
                               <button
                                 type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditDraft(camp);
-                                }}
-                                className="font-semibold text-white tracking-tight text-[13px] hover:text-[#a78bfa] transition-colors text-left"
+                                onClick={() => handleEditDraft(camp)}
+                                className="font-semibold text-white tracking-tight text-[13px] hover:text-[#a78bfa] transition-colors text-left cursor-pointer inline-block"
                               >
                                 {camp.name}
                               </button>
                             );
                           }
+
+                          if (isScheduledOrSending) {
+                            return (
+                              <span className="font-semibold text-white tracking-tight text-[13px] inline-block">
+                                {camp.name}
+                              </span>
+                            );
+                          }
+
                           return (
                             <Link
                               href={`/user/admin/marketing/bulkmessages/${camp.id}`}
-                              onClick={(e) => e.stopPropagation()}
                               className="font-semibold text-white tracking-tight text-[13px] hover:text-[#a78bfa] transition-colors inline-block"
                             >
                               {camp.name}
@@ -836,11 +760,18 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                             } w-36 bg-[#101320] border border-[#22283d] rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.85)] p-1 z-50 space-y-0.5 text-left animate-in fade-in zoom-in-95 duration-100`}
                           >
                             {(() => {
-                              const statusLower = (camp.status || '').toLowerCase();
+                              const statusLower = (camp.status || '').toLowerCase().trim();
                               const isDraft = statusLower === 'draft' || statusLower === 'pending';
+                              const isScheduledOrSending = ['scheduled', 'sending', 'in_progress'].includes(statusLower);
+                              const canViewDetails = !isDraft && !isScheduledOrSending;
+                              const canPause = statusLower === 'sending' || statusLower === 'in_progress';
+                              const canResume = statusLower === 'paused';
+                              const canDuplicate = !isDraft;
+                              const canDelete = statusLower !== 'sending' && statusLower !== 'in_progress';
+
                               return (
                                 <>
-                                  {!isDraft && (
+                                  {canViewDetails && (
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -854,60 +785,71 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                                     </button>
                                   )}
 
-                                  {isDraft ? (
-                                    <>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleEditDraft(camp)}
-                                        className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
-                                      >
-                                        <Edit2 size={12} />
-                                        <span>Edit</span>
-                                      </button>
+                                  {isDraft && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEditDraft(camp)}
+                                      className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                    >
+                                      <Edit2 size={12} />
+                                      <span>Edit</span>
+                                    </button>
+                                  )}
 
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDelete(camp.id)}
-                                        className="w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
-                                      >
-                                        <Trash2 size={12} />
-                                        <span>Delete</span>
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <>
-                                      {!['completed', 'failed', 'cancelled'].includes(statusLower) && (
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            handleTogglePause(camp);
-                                            setActiveMenuId(null);
-                                          }}
-                                          className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
-                                        >
-                                          {statusLower === 'paused' ? <Play size={12} /> : <Pause size={12} />}
-                                          <span>{statusLower === 'paused' ? 'Resume' : 'Pause'}</span>
-                                        </button>
-                                      )}
+                                  {canPause && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleTogglePause(camp);
+                                        setActiveMenuId(null);
+                                      }}
+                                      className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                    >
+                                      <Pause size={12} />
+                                      <span>Pause</span>
+                                    </button>
+                                  )}
 
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDuplicate(camp)}
-                                        className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
-                                      >
-                                        <Copy size={12} />
-                                        <span>Duplicate</span>
-                                      </button>
+                                  {canResume && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleTogglePause(camp);
+                                        setActiveMenuId(null);
+                                      }}
+                                      className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                    >
+                                      <Play size={12} />
+                                      <span>Resume</span>
+                                    </button>
+                                  )}
 
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDelete(camp.id)}
-                                        className="w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
-                                      >
-                                        <Trash2 size={12} />
-                                        <span>Delete</span>
-                                      </button>
-                                    </>
+                                  {canDuplicate && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveMenuId(null);
+                                        handleDuplicate(camp);
+                                      }}
+                                      className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                    >
+                                      <Copy size={12} />
+                                      <span>Duplicate</span>
+                                    </button>
+                                  )}
+
+                                  {canDelete && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveMenuId(null);
+                                        handleDelete(camp.id);
+                                      }}
+                                      className="w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/20 rounded flex items-center gap-2 cursor-pointer transition-colors"
+                                    >
+                                      <Trash2 size={12} />
+                                      <span>Delete</span>
+                                    </button>
                                   )}
                                 </>
                               );
@@ -1035,6 +977,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
           onSuccess={() => loadData()}
           workspaceId={workspaceId}
           initialCampaign={editingCampaign}
+          existingCampaigns={campaigns}
         />
       )}
     </div>

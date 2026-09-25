@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { poppins } from '@/lib/fonts';
 import {
   Search, Plus, X, Send, Eye,
@@ -9,7 +9,8 @@ import {
   BookOpen, Landmark, Heart, MapPin, Plane,
   Bell, PenLine, Clock, CheckCircle, AlertCircle,
   FileText, ShoppingCart, Rocket, Gift, Zap,
-  Package, Sparkles, Users, Tag, MoreHorizontal
+  Package, Sparkles, Users, Tag, MoreHorizontal,
+  UploadCloud, Upload
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
@@ -306,7 +307,22 @@ function StatCard({ cfg, count, onClick, isActive }) {
 /* ─
    Preview Drawer
 ─ */
-function PreviewModal({ tpl, onClose, onSubmit }) {
+function PreviewModal({ tpl, onClose, onSubmit, onUse, onUpdateTemplate }) {
+  const { showToast } = useToast();
+  const fileInputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState(
+    tpl?.media_url || (tpl?.header && (tpl.header.startsWith('http') || tpl.header.startsWith('data:')) ? tpl.header : '')
+  );
+
+  useEffect(() => {
+    if (tpl) {
+      setMediaUrl(
+        tpl.media_url || (tpl.header && (tpl.header.startsWith('http') || tpl.header.startsWith('data:')) ? tpl.header : '')
+      );
+    }
+  }, [tpl]);
+
   const open = !!tpl;
 
   const fmt = (msg = '') => {
@@ -317,7 +333,45 @@ function PreviewModal({ tpl, onClose, onSubmit }) {
     });
   };
 
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !tpl) return;
+
+    const isVideo = (tpl.type || '').toUpperCase() === 'VIDEO';
+    if (isVideo && !file.type.startsWith('video/')) {
+      showToast('Please select a valid video file (MP4, etc.)', 'warning');
+      return;
+    }
+    if (!isVideo && !file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, etc.)', 'warning');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await api.post(`/templates/${tpl.id}/media`, fd);
+      const savedUrl = res.media_url;
+      setMediaUrl(savedUrl);
+      if (onUpdateTemplate) {
+        onUpdateTemplate({ ...tpl, media_url: savedUrl, header: savedUrl });
+      }
+      showToast(`${isVideo ? 'Video' : 'Image'} uploaded and saved to template!`, 'success');
+    } catch (err) {
+      console.error('Failed to upload template media:', err);
+      showToast(err?.message || err?.data?.detail || 'Failed to upload media', 'error');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   if (!open) return null;
+
+  const isMediaType = tpl.type === 'IMAGE' || tpl.type === 'VIDEO';
+  const isApproved = String(tpl?.status || '').toLowerCase() === 'approved';
+  const isDraft = String(tpl?.status || 'draft').toLowerCase() === 'draft';
 
   return (
     <>
@@ -326,7 +380,7 @@ function PreviewModal({ tpl, onClose, onSubmit }) {
         className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm"
       />
 
-      <div className={`fixed z-[101] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[420px] max-w-[95vw] bg-gradient-to-b from-[#1a1030] to-[#0d0820] rounded-3xl border border-[#2a1f4a] shadow-[0_32px_80px_rgba(0,0,0,0.7)] flex flex-col overflow-hidden ${poppins.className}`} style={{ fontFamily: "'Poppins', sans-serif" }}>
+      <div className={`fixed z-[101] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] max-w-[95vw] bg-gradient-to-b from-[#1a1030] to-[#0d0820] rounded-3xl border border-[#2a1f4a] shadow-[0_32px_80px_rgba(0,0,0,0.7)] flex flex-col overflow-hidden ${poppins.className}`} style={{ fontFamily: "'Poppins', sans-serif" }}>
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-10 flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white cursor-pointer transition-colors"
@@ -335,18 +389,149 @@ function PreviewModal({ tpl, onClose, onSubmit }) {
         </button>
 
         <div className="p-6 flex flex-col gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[#25D366] flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="#ffffff">
-              <path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.96 9.96 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.96 7.96 0 0 1-4.073-1.117l-.291-.173-3.017.897.897-3.017-.173-.291A7.96 7.96 0 0 1 4 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8zm4.406-5.884c-.242-.121-1.432-.707-1.654-.787-.222-.081-.384-.121-.545.121-.161.242-.626.787-.768.949-.141.161-.282.181-.524.06-.242-.121-1.021-.376-1.945-1.199-.718-.641-1.203-1.432-1.344-1.674-.141-.242-.015-.373.106-.494.109-.109.242-.282.363-.424.121-.141.161-.242.242-.404.081-.161.04-.303-.02-.424-.061-.121-.545-1.314-.747-1.799-.196-.473-.396-.409-.545-.416l-.464-.008c-.161 0-.424.06-.646.303-.222.242-.848.829-.848 2.022s.868 2.346.989 2.507c.121.161 1.708 2.608 4.139 3.656.579.25 1.031.399 1.382.511.581.185 1.11.159 1.527.097.466-.069 1.432-.585 1.634-1.151.202-.565.202-1.049.141-1.151-.06-.101-.222-.161-.464-.282z"/>
-            </svg>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-[#25D366] flex items-center justify-center shrink-0">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="#ffffff">
+                <path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.96 9.96 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.96 7.96 0 0 1-4.073-1.117l-.291-.173-3.017.897.897-3.017-.173-.291A7.96 7.96 0 0 1 4 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8zm4.406-5.884c-.242-.121-1.432-.707-1.654-.787-.222-.081-.384-.121-.545.121-.161.242-.626.787-.768.949-.141.161-.282.181-.524.06-.242-.121-1.021-.376-1.945-1.199-.718-.641-1.203-1.432-1.344-1.674-.141-.242-.015-.373.106-.494.109-.109.242-.282.363-.424.121-.141.161-.242.242-.404.081-.161.04-.303-.02-.424-.061-.121-.545-1.314-.747-1.799-.196-.473-.396-.409-.545-.416l-.464-.008c-.161 0-.424.06-.646.303-.222.242-.848.829-.848 2.022s.868 2.346.989 2.507c.121.161 1.708 2.608 4.139 3.656.579.25 1.031.399 1.382.511.581.185 1.11.159 1.527.097.466-.069 1.432-.585 1.634-1.151.202-.565.202-1.049.141-1.151-.06-.101-.222-.161-.464-.282z"/>
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-bold text-white truncate m-0">{tpl.name}</h4>
+              <div className="flex items-center gap-2 mt-1">
+                <StatusPill status={tpl.status} />
+                <TypeTag type={tpl.type} />
+              </div>
+            </div>
           </div>
 
           <div className="w-full flex flex-col gap-2 p-4 bg-[#1a1a2e] rounded-2xl border border-[#25204a]">
-            {tpl.header && (
+            {/* Hidden file input for uploading header media */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={tpl.type === 'VIDEO' ? 'video/*' : 'image/*'}
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            {tpl.type === 'IMAGE' ? (
+              <div className="w-full rounded-xl overflow-hidden bg-white/5 border border-white/10 mb-1 relative group">
+                {mediaUrl ? (
+                  <div className="relative">
+                    <img
+                      src={mediaUrl}
+                      alt="Template Header"
+                      className="w-full h-36 object-cover rounded-xl"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                    <div className="absolute top-2 right-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="px-2.5 py-1 rounded-lg bg-black/75 hover:bg-[#814AC8] text-white text-[11px] font-semibold flex items-center gap-1.5 border border-white/20 shadow-md transition-all cursor-pointer"
+                      >
+                        {uploading ? (
+                          <>
+                            <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <UploadCloud size={13} />
+                            <span>Change Image</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => !uploading && fileInputRef.current?.click()}
+                    className="w-full h-32 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#814AC8]/25 via-purple-950/40 to-[#120d24] text-purple-200 cursor-pointer border-2 border-dashed border-[#814AC8]/60 hover:border-[#814AC8] hover:bg-[#814AC8]/30 transition-all rounded-xl p-3"
+                  >
+                    {uploading ? (
+                      <div className="flex flex-col items-center gap-1.5">
+                        <div className="w-7 h-7 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs font-semibold text-white">Uploading image...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-9 h-9 rounded-full bg-[#814AC8]/35 flex items-center justify-center text-[#C49FE0] shadow-[0_0_15px_rgba(129,74,200,0.5)]">
+                          <UploadCloud size={18} />
+                        </div>
+                        <div className="text-center">
+                          <span className="text-xs font-bold text-white block">Click to upload Image</span>
+                          <span className="text-[10px] text-purple-300/80 block mt-0.5">Required to send this approved template</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : tpl.type === 'VIDEO' ? (
+              <div className="w-full rounded-xl overflow-hidden bg-white/5 border border-white/10 mb-1 relative group">
+                {mediaUrl ? (
+                  <div className="relative">
+                    <video src={mediaUrl} className="w-full h-36 object-cover rounded-xl" controls />
+                    <div className="absolute top-2 right-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="px-2.5 py-1 rounded-lg bg-black/75 hover:bg-[#814AC8] text-white text-[11px] font-semibold flex items-center gap-1.5 border border-white/20 shadow-md transition-all cursor-pointer"
+                      >
+                        {uploading ? (
+                          <>
+                            <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <UploadCloud size={13} />
+                            <span>Change Video</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => !uploading && fileInputRef.current?.click()}
+                    className="w-full h-32 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#814AC8]/25 via-purple-950/40 to-[#120d24] text-purple-200 cursor-pointer border-2 border-dashed border-[#814AC8]/60 hover:border-[#814AC8] hover:bg-[#814AC8]/30 transition-all rounded-xl p-3"
+                  >
+                    {uploading ? (
+                      <div className="flex flex-col items-center gap-1.5">
+                        <div className="w-7 h-7 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs font-semibold text-white">Uploading video...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-9 h-9 rounded-full bg-[#814AC8]/35 flex items-center justify-center text-[#C49FE0] shadow-[0_0_15px_rgba(129,74,200,0.5)]">
+                          <UploadCloud size={18} />
+                        </div>
+                        <div className="text-center">
+                          <span className="text-xs font-bold text-white block">Click to upload Video</span>
+                          <span className="text-[10px] text-purple-300/80 block mt-0.5">Required to send this approved template</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : tpl.header && !tpl.header.startsWith('4:') ? (
               <div className="font-bold text-xs text-white mb-1">
                 {tpl.header}
               </div>
+            ) : null}
+
+            {isMediaType && !mediaUrl && isApproved && (
+              <div className="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2 text-amber-300 text-xs">
+                <AlertCircle size={14} className="shrink-0 text-amber-400" />
+                <span>Upload a {tpl.type.toLowerCase()} header above to use and send this template.</span>
+              </div>
             )}
+
             <p className="m-0 text-sm text-[#e8e8ff] leading-relaxed whitespace-pre-wrap">
               {fmt(tpl?.content) || 'No content available.'}
             </p>
@@ -380,13 +565,46 @@ function PreviewModal({ tpl, onClose, onSubmit }) {
         </div>
 
         <div className="px-6 pb-6">
-          {String(tpl?.status || 'draft').toLowerCase() === 'draft' ? (
-            <button
-              onClick={() => { onSubmit(tpl); onClose(); }}
-              className="w-full py-3.5 rounded-xl border-none text-white text-sm font-bold cursor-pointer bg-[#814AC8] hover:shadow-[0_4px_24px_rgba(129,74,200,0.5)] transition-all"
-            >
-              Review &amp; Submit
-            </button>
+          {isDraft ? (
+            <div className="flex gap-2">
+              <button
+                onClick={onClose}
+                className="px-4 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-xs sm:text-sm font-semibold cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { onSubmit(tpl); onClose(); }}
+                className="flex-1 py-3 rounded-xl border-none text-white text-xs sm:text-sm font-bold cursor-pointer bg-[#814AC8] hover:shadow-[0_4px_24px_rgba(129,74,200,0.5)] transition-all"
+              >
+                Review &amp; Submit
+              </button>
+            </div>
+          ) : isApproved ? (
+            <div className="flex gap-2.5">
+              <button
+                onClick={onClose}
+                className="px-4 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/80 text-xs sm:text-sm font-semibold cursor-pointer transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  if (isMediaType && !mediaUrl) {
+                    showToast(`Please upload a ${tpl.type.toLowerCase()} header first! Click the box above to upload.`, 'warning');
+                    fileInputRef.current?.click();
+                    return;
+                  }
+                  onClose();
+                  if (onUse) {
+                    onUse({ ...tpl, media_url: mediaUrl, header: mediaUrl });
+                  }
+                }}
+                className="flex-1 py-3 px-4 rounded-xl border-none text-white text-xs sm:text-sm font-bold cursor-pointer bg-gradient-to-r from-purple-600 to-indigo-600 hover:shadow-[0_4px_24px_rgba(129,74,200,0.6)] flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Send size={14} /> Use &amp; Send Template
+              </button>
+            </div>
           ) : (
             <button
               onClick={onClose}
@@ -401,33 +619,77 @@ function PreviewModal({ tpl, onClose, onSubmit }) {
   );
 }
 
-function UseTemplateModal({ tpl, onClose }) {
+function UseTemplateModal({ tpl, onClose, onUpdateTemplate }) {
   const router = useRouter();
+  const { showToast } = useToast();
+  const fileInputRef = useRef(null);
   const [variables, setVariables] = useState({});
+  const [uploading, setUploading] = useState(false);
+  const [currentMediaUrl, setCurrentMediaUrl] = useState('');
   const open = !!tpl;
 
   useEffect(() => {
-    if (tpl && tpl.content) {
-      const regex = /\{\{(\d+)\}\}/g;
-      let match;
-      const initialVars = {};
-      while ((match = regex.exec(tpl.content)) !== null) {
-        const varNum = match[1];
-        initialVars[varNum] = '';
+    if (tpl) {
+      setCurrentMediaUrl(
+        tpl.media_url || (tpl.header && (tpl.header.startsWith('http') || tpl.header.startsWith('data:')) ? tpl.header : '')
+      );
+      if (tpl.content) {
+        const regex = /\{\{(\d+)\}\}/g;
+        let match;
+        const initialVars = {};
+        while ((match = regex.exec(tpl.content)) !== null) {
+          const varNum = match[1];
+          initialVars[varNum] = '';
+        }
+        const timer = setTimeout(() => {
+          setVariables(initialVars);
+        }, 0);
+        return () => clearTimeout(timer);
       }
-      const timer = setTimeout(() => {
-        setVariables(initialVars);
-      }, 0);
-      return () => clearTimeout(timer);
     }
   }, [tpl]);
 
   if (!open) return null;
 
+  const isMediaType = tpl.type === 'IMAGE' || tpl.type === 'VIDEO';
   const varKeys = Object.keys(variables).sort((a, b) => Number(a) - Number(b));
 
   const handleInputChange = (key, val) => {
     setVariables(prev => ({ ...prev, [key]: val }));
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !tpl) return;
+
+    const isVideo = (tpl.type || '').toUpperCase() === 'VIDEO';
+    if (isVideo && !file.type.startsWith('video/')) {
+      showToast('Please select a valid video file (MP4, etc.)', 'warning');
+      return;
+    }
+    if (!isVideo && !file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, etc.)', 'warning');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await api.post(`/templates/${tpl.id}/media`, fd);
+      const savedUrl = res.media_url;
+      setCurrentMediaUrl(savedUrl);
+      if (onUpdateTemplate) {
+        onUpdateTemplate({ ...tpl, media_url: savedUrl, header: savedUrl });
+      }
+      showToast(`${isVideo ? 'Video' : 'Image'} uploaded and saved to template!`, 'success');
+    } catch (err) {
+      console.error('Failed to upload template media:', err);
+      showToast(err?.message || err?.data?.detail || 'Failed to upload media', 'error');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const getPreviewText = () => {
@@ -438,6 +700,11 @@ function UseTemplateModal({ tpl, onClose }) {
   };
 
   const handleUseTemplate = () => {
+    if (isMediaType && !currentMediaUrl) {
+      showToast(`Please upload a ${tpl.type.toLowerCase()} header first!`, 'warning');
+      fileInputRef.current?.click();
+      return;
+    }
     const finalMsg = getPreviewText();
     const varValues = varKeys.map(key => variables[key]);
     const query = new URLSearchParams({
@@ -445,7 +712,10 @@ function UseTemplateModal({ tpl, onClose }) {
       channel: 'whatsapp',
       template_name: tpl.name || '',
       variables: JSON.stringify(varValues),
-      language: tpl.language || 'en_US'
+      language: tpl.language || 'en_US',
+      media_url: currentMediaUrl || '',
+      header_url: currentMediaUrl || '',
+      template_type: tpl.type || 'TEXT',
     }).toString();
     router.push(`/user/admin/inbox?${query}`);
     onClose();
@@ -460,9 +730,11 @@ function UseTemplateModal({ tpl, onClose }) {
 
       <div className={`fixed z-[101] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] max-w-[95vw] bg-gradient-to-b from-[#1a1030] to-[#0d0820] rounded-3xl border border-[#2a1f4a] shadow-[0_32px_80px_rgba(0,0,0,0.7)] flex flex-col overflow-hidden ${poppins.className}`} style={{ fontFamily: "'Poppins', sans-serif" }}>
         <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-[#2a1f4a]/50">
-          <h2 className="m-0 text-base font-bold text-white tracking-tight">
-            Fill Template Variables
-          </h2>
+          <div className="flex items-center gap-2.5">
+            <h2 className="m-0 text-base font-bold text-white tracking-tight">
+              Use Template: {tpl.name}
+            </h2>
+          </div>
           <button
             onClick={onClose}
             className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white cursor-pointer transition-colors"
@@ -472,6 +744,60 @@ function UseTemplateModal({ tpl, onClose }) {
         </div>
 
         <div className="p-6 flex flex-col gap-4 max-h-[50vh] overflow-y-auto">
+          {/* Header Attachment (for Image/Video templates) */}
+          {isMediaType && (
+            <div className="flex flex-col gap-2 p-3.5 bg-[#140D1F] rounded-2xl border border-[#25204a]">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={tpl.type === 'VIDEO' ? 'video/*' : 'image/*'}
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-purple-300">
+                  Header {tpl.type === 'VIDEO' ? 'Video' : 'Image'} Attachment
+                </span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="px-2.5 py-1 rounded-lg bg-[#814AC8]/30 hover:bg-[#814AC8] text-white text-[11px] font-semibold flex items-center gap-1.5 border border-[#814AC8]/50 transition-all cursor-pointer"
+                >
+                  {uploading ? (
+                    <>
+                      <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UploadCloud size={13} />
+                      <span>{currentMediaUrl ? 'Change' : 'Upload'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {currentMediaUrl ? (
+                <div className="w-full rounded-xl overflow-hidden bg-black/40 border border-white/10 mt-1">
+                  {tpl.type === 'VIDEO' ? (
+                    <video src={currentMediaUrl} className="w-full h-32 object-cover" controls />
+                  ) : (
+                    <img src={currentMediaUrl} alt="Header Preview" className="w-full h-32 object-cover" />
+                  )}
+                </div>
+              ) : (
+                <div
+                  onClick={() => !uploading && fileInputRef.current?.click()}
+                  className="w-full py-4 px-3 flex items-center justify-center gap-2 rounded-xl border border-dashed border-[#814AC8]/60 bg-[#814AC8]/10 hover:bg-[#814AC8]/20 cursor-pointer text-purple-200 text-xs transition-colors"
+                >
+                  <UploadCloud size={16} className="text-purple-400" />
+                  <span>Click to upload {tpl.type.toLowerCase()} header</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {varKeys.length > 0 ? (
             <div className="flex flex-col gap-3.5">
               {varKeys.map(key => (
@@ -490,7 +816,7 @@ function UseTemplateModal({ tpl, onClose }) {
               ))}
             </div>
           ) : (
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-400 m-0">
               {'No variables found in this template. Click "Proceed to Inbox" to use the message as is.'}
             </p>
           )}
@@ -976,8 +1302,24 @@ export default function TemplatesPage() {
         </div>
       </div>
 
-      <PreviewModal tpl={selected} onClose={() => setSelected(null)} onSubmit={handleSubmit} />
-      <UseTemplateModal tpl={useTemplate} onClose={() => setUseTemplate(null)} />
+      <PreviewModal
+        tpl={selected}
+        onClose={() => setSelected(null)}
+        onSubmit={handleSubmit}
+        onUse={(t) => setUseTemplate(t)}
+        onUpdateTemplate={(updated) => {
+          setSelected(prev => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
+          setTemplates(prev => prev.map(t => (t.id === updated.id ? { ...t, ...updated } : t)));
+        }}
+      />
+      <UseTemplateModal
+        tpl={useTemplate}
+        onClose={() => setUseTemplate(null)}
+        onUpdateTemplate={(updated) => {
+          setUseTemplate(prev => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
+          setTemplates(prev => prev.map(t => (t.id === updated.id ? { ...t, ...updated } : t)));
+        }}
+      />
       <ConnectWhatsAppModal
         open={showConnectModal}
         onClose={() => setShowConnectModal(false)}
