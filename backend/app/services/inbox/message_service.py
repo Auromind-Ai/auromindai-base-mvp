@@ -442,13 +442,14 @@ User Message:
         )
         return {"status": "trigger tested", "handled": handled}
 
-    @staticmethod
-    def local_conversations():
-        return get_all_conversations()
-
-    @staticmethod
-    def local_messages(user_id: str):
-        return get_local_messages(user_id)
+    # Legacy mock methods (get_all_conversations and get_local_messages are deprecated/removed)
+    # @staticmethod
+    # def local_conversations():
+    #     return []
+    #
+    # @staticmethod
+    # def local_messages(user_id: str):
+    #     return []
 
     @staticmethod
     def handle_twilio_status_callback(form_data, db: Session, outbound_message_id: Optional[str] = None):

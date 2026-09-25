@@ -297,7 +297,7 @@ export default function WhatsAppProfileModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md overflow-y-auto custom-scrollbar">
-            <div className="relative w-full max-w-5xl my-auto max-h-[92vh] flex flex-col rounded-2xl overflow-hidden bg-gradient-to-br from-[#0c1410] via-[#0d0d0d] to-[#070e0a] border border-[#4EED6E]/30 shadow-[0_0_80px_rgba(78,237,110,0.14),0_24px_60px_rgba(0,0,0,0.8)]">
+            <div className="relative w-full max-w-5xl my-auto max-h-[92vh] flex flex-col rounded-2xl overflow-hidden bg-gradient-to-br from-[#0c1410] via-[#0d0d0d] to-[#070e0a] border border-[#063b27]/80 shadow-[0_0_80px_rgba(78,237,110,0.14),0_24px_60px_rgba(0,0,0,0.8)]">
                 
                 {/* Top Green Accent Bar */}
                 <div className="h-1 w-full shrink-0 bg-gradient-to-r from-transparent via-[#4EED6E] to-transparent" />
@@ -317,7 +317,7 @@ export default function WhatsAppProfileModal({
                                     Phone profile
                                 </h2>
                                 {form.phone_number_id && (
-                                    <span className="text-[11px] px-2 py-0.5 rounded-md bg-white/[0.06] border border-white/[0.1] text-[#4EED6E]/90">
+                                    <span className="text-[11px] px-2 py-0.5 rounded-md bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-white/[0.1] text-white">
                                         ID: {form.phone_number_id}
                                     </span>
                                 )}
@@ -364,8 +364,8 @@ export default function WhatsAppProfileModal({
                                 {/* Profile Picture Section */}
                                 <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.07] space-y-3">
                                     <div>
-                                        <h3 className="text-sm font-semibold text-white">Profile picture</h3>
-                                        <p className="text-xs text-white/50">This will be visible on your WhatsApp Business profile</p>
+                                        <h3 className="text-sm font-medium text-white">Profile picture</h3>
+                                        <p className="text-xs text-white/50">This will be visible on your business profile</p>
                                     </div>
 
                                     <div className="flex items-center gap-4 pt-1">
@@ -377,7 +377,7 @@ export default function WhatsAppProfileModal({
                                                     className="w-full h-full object-cover"
                                                 />
                                             ) : (
-                                                <div className="w-full h-full bg-gradient-to-br from-[#4EED6E]/20 to-green-900/40 flex items-center justify-center text-xl font-bold text-[#4EED6E]">
+                                                <div className="w-full h-full bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] flex items-center justify-center text-xl font-semibold text-white">
                                                     {form.verified_name?.charAt(0)?.toUpperCase() || 'W'}
                                                 </div>
                                             )}
@@ -395,9 +395,9 @@ export default function WhatsAppProfileModal({
                                                 <button
                                                     type="button"
                                                     onClick={() => fileInputRef.current?.click()}
-                                                    className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 transition-all flex items-center gap-1.5 cursor-pointer"
+                                                    className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] hover:bg-white/[0.14] border border-white/10 transition-all flex items-center gap-1.5 cursor-pointer"
                                                 >
-                                                    <Camera size={13} className="text-[#4EED6E]" />
+                                                    <Camera size={13} className="text-white" />
                                                     {photoPreview ? 'Change photo' : 'Choose file'}
                                                 </button>
 
@@ -438,11 +438,11 @@ export default function WhatsAppProfileModal({
                                 <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.07] space-y-3">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <h3 className="text-sm font-semibold text-white">Display name</h3>
+                                            <h3 className="text-sm font-medium text-white">Display name</h3>
                                             <p className="text-xs text-white/50">The business name customers see on WhatsApp</p>
                                         </div>
 
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-green-500/15 border border-green-500/30 text-green-400">
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-green-500/30 text-white">
                                             <Check size={11} />
                                             {form.name_status === 'APPROVED' ? 'Approved' : form.name_status}
                                         </span>
@@ -474,7 +474,7 @@ export default function WhatsAppProfileModal({
                                 {/* Business Information Form Fields */}
                                 <div className="space-y-4">
                                     <div className="border-b border-white/[0.06] pb-2">
-                                        <h3 className="text-sm font-semibold text-white">Business information</h3>
+                                        <h3 className="text-sm font-medium text-white">Business information</h3>
                                         <p className="text-xs text-white/50">Add details about your business to show customers</p>
                                     </div>
 
@@ -649,13 +649,13 @@ export default function WhatsAppProfileModal({
                                                     className="w-full h-full object-cover"
                                                 />
                                             ) : (
-                                                <div className="w-full h-full bg-gradient-to-br from-[#4EED6E]/30 to-green-950 flex items-center justify-center text-2xl font-bold text-[#4EED6E]">
+                                                <div className="w-full h-full bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] flex items-center justify-center text-2xl font-semibold text-white">
                                                     {form.verified_name?.charAt(0)?.toUpperCase() || 'W'}
                                                 </div>
                                             )}
                                         </div>
 
-                                        <h4 className="text-base font-bold text-white tracking-tight flex items-center gap-1.5">
+                                        <h4 className="text-base font-semibold text-white tracking-tight flex items-center gap-1.5">
                                             {form.verified_name || 'WhatsApp Business'}
                                         </h4>
 
@@ -665,8 +665,8 @@ export default function WhatsAppProfileModal({
 
                                         {/* Action buttons */}
                                         <div className="mt-3 flex items-center gap-2">
-                                            <div className="px-3.5 py-1.5 rounded-full bg-white/[0.06] border border-white/10 text-xs font-medium text-white/80 flex items-center gap-1.5">
-                                                <Share2 size={13} className="text-[#4EED6E]" />
+                                            <div className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-white/10 text-xs font-medium text-white/80 flex items-center gap-1.5">
+                                                <Share2 size={13} className="text-white" />
                                                 Share
                                             </div>
                                         </div>
