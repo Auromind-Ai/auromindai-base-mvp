@@ -15,12 +15,13 @@ import {
   AlertTriangle,
   Info,
   Coins,
-  ArrowRight
+  ArrowRight,
+  Bookmark,
 } from 'lucide-react';
 import WhatsAppPreview from '../WhatsAppPreview';
 import { isFutureSchedule } from '@/lib/campaignScheduleUtils';
 
-export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunching }) {
+export default function ReviewStep({ data, onEditStep, onLaunch, onSaveDraft, onBack, isLaunching, isSavingDraft }) {
   const router = useRouter();
   const [confirmedPolicy, setConfirmedPolicy] = useState(false);
   const [viewMode, setViewMode] = useState('whatsapp');
@@ -438,24 +439,47 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onBack, isLaunc
             ← Back
           </button>
 
-          <button
-            type="button"
-            onClick={handleConfirmLaunch}
-            disabled={isLaunching}
-            className="px-6 py-2.5 sm:px-7 sm:py-3 rounded-xl text-xs sm:text-sm font-medium text-white bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.45)] hover:shadow-[0_0_28px_rgba(129,74,200,0.65)] flex items-center gap-2 transition-all disabled:opacity-60 active:scale-[0.98]"
-          >
-            {isLaunching ? (
-              <>
-                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Launching Campaign...</span>
-              </>
-            ) : (
-              <>
-                <Send size={15} />
-                <span>Launch Campaign</span>
-              </>
+          <div className="flex items-center gap-3">
+            {onSaveDraft && (
+              <button
+                type="button"
+                onClick={onSaveDraft}
+                disabled={isSavingDraft || isLaunching}
+                className="px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl text-xs sm:text-sm font-medium text-[#C49FE0] bg-[#161a2e] border border-[#814AC8]/30 hover:bg-[#814AC8]/20 hover:text-white transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isSavingDraft ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-[#C49FE0]/30 border-t-[#C49FE0] rounded-full animate-spin" />
+                    <span>Saving Draft...</span>
+                  </>
+                ) : (
+                  <>
+                    <Bookmark size={15} />
+                    <span>Save as Draft</span>
+                  </>
+                )}
+              </button>
             )}
-          </button>
+
+            <button
+              type="button"
+              onClick={handleConfirmLaunch}
+              disabled={isLaunching || isSavingDraft}
+              className="px-6 py-2.5 sm:px-7 sm:py-3 rounded-xl text-xs sm:text-sm font-medium text-white bg-[#814AC8] hover:bg-[#703db5] shadow-[0_0_20px_rgba(129,74,200,0.45)] hover:shadow-[0_0_28px_rgba(129,74,200,0.65)] flex items-center gap-2 transition-all disabled:opacity-60 active:scale-[0.98]"
+            >
+              {isLaunching ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Launching Campaign...</span>
+                </>
+              ) : (
+                <>
+                  <Send size={15} />
+                  <span>Launch Campaign</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
