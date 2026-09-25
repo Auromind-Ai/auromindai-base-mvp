@@ -221,13 +221,26 @@ export default function WhatsAppProfileModal({
 
             const payload = {
                 workspace_id: workspaceId,
-                vertical: form.vertical,
-                description: form.description.trim(),
-                address: form.address.trim(),
-                email: form.email.trim(),
-                websites: cleanWebsites,
-                about: form.about.trim(),
             };
+
+            if (form.vertical && form.vertical !== 'UNDEFINED') {
+                payload.vertical = form.vertical;
+            }
+            if (form.description.trim()) {
+                payload.description = form.description.trim();
+            }
+            if (form.address.trim()) {
+                payload.address = form.address.trim();
+            }
+            if (form.email.trim()) {
+                payload.email = form.email.trim();
+            }
+            if (cleanWebsites.length > 0) {
+                payload.websites = cleanWebsites;
+            }
+            if (form.about.trim()) {
+                payload.about = form.about.trim();
+            }
 
             // Only submit display name if user actually altered it
             if (form.verified_name && form.verified_name.trim() !== initialVerifiedName.trim()) {
