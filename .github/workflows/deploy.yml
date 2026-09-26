@@ -10,9 +10,9 @@ on:
   workflow_dispatch: # Allows manual trigger from GitHub Actions tab
 
 jobs:
-  # ==========================================
+
   # 1. CI: Continuous Integration & Verification
-  # ==========================================
+
   ci-check:
     name: Backend Lint & Compile Check
     runs-on: ubuntu-latest
@@ -36,9 +36,9 @@ jobs:
         run: |
           python -m compileall backend/
 
-  # ==========================================
+
   # 2. CD: Continuous Deployment via SSH
-  # ==========================================
+
   cd-deploy:
     name: Deploy to Production Server
     runs-on: ubuntu-latest
@@ -66,9 +66,9 @@ jobs:
 
             echo "✅ Deployment completed successfully!"
 
-  # ==========================================
+
   # 3. Notification: Email Alert on Success / Failure
-  # ==========================================
+
   notify:
     name: Send Email Notification
     runs-on: ubuntu-latest
