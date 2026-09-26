@@ -8,14 +8,11 @@ from decimal import Decimal
 from datetime import datetime, timezone
 from typing import Any, Dict
 from unittest.mock import patch, MagicMock
-
 from fastapi import FastAPI, Depends, Request, Header, HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-
 # Add backend directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-
 from app.database import Base, engine, SessionLocal, get_db
 from app.routers import billing, wcc
 from app.routers.auth import get_current_user, CurrentUser
