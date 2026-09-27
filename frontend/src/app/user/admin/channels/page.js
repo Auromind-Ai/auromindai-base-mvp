@@ -803,7 +803,7 @@ function ChannelDetailsModal({
 
 export default function ChannelsPage() {
     const { showToast } = useToast();
-    const WA_CONFIG_ID = process.env.NEXT_PUBLIC_META_CONFIG_ID;
+    const WA_CONFIG_ID = process.env.NEXT_PUBLIC_META_CONFIG_ID || '2100178990543175';
 
     const { workspaces, workspaceId } = useAuth();
     const workspace = workspaces?.find((item) => item.id === workspaceId) || null;
@@ -1091,8 +1091,9 @@ export default function ChannelsPage() {
                 response_type: 'code',
                 override_default_response_type: true,
                 extras: {
+                    feature: 'whatsapp_embedded_signup',
                     featureType: 'whatsapp_business_app_onboarding',
-                    sessionInfoVersion: 3,
+                    sessionInfoVersion: '3',
                     coex: true,
                     version: 'v4',
                     setup: {}
