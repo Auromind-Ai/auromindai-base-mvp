@@ -28,7 +28,7 @@ async def approve_action(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission="automation.manage")
     decision = db.query(MCPDecision).filter(
         MCPDecision.message_id == str(decision_id),
         MCPDecision.workspace_id == str(verified_workspace_id),
@@ -46,7 +46,7 @@ async def generate_flow(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission="automation.manage")
     
     try:
         flow = await agentic_wiring_service.generate_flow(
@@ -70,12 +70,12 @@ async def get_flows(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission="automation.manage")
     ws_uuid = uuid.UUID(verified_workspace_id) if isinstance(verified_workspace_id, str) else verified_workspace_id
     
     flows = db.query(AutomationFlow).filter(
         AutomationFlow.workspace_id == ws_uuid
-    ).all()
+    ).order_by(AutomationFlow.created_at.desc()).all()
     
     return flows
 
@@ -86,7 +86,7 @@ async def save_flow(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission="automation.manage")
     ws_uuid = uuid.UUID(verified_workspace_id) if isinstance(verified_workspace_id, str) else verified_workspace_id
 
     # Validate flow structure
@@ -176,7 +176,7 @@ async def get_flow(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission="automation.manage")
     ws_uuid = uuid.UUID(verified_workspace_id) if isinstance(verified_workspace_id, str) else verified_workspace_id
     
     # Query flow with workspace boundary check
@@ -200,7 +200,7 @@ async def delete_flow(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission="automation.manage")
     ws_uuid = uuid.UUID(verified_workspace_id) if isinstance(verified_workspace_id, str) else verified_workspace_id
     
     # Query flow with workspace boundary check
@@ -228,7 +228,7 @@ async def update_flow_status(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission="automation.manage")
     ws_uuid = uuid.UUID(verified_workspace_id) if isinstance(verified_workspace_id, str) else verified_workspace_id
 
     flow = db.query(AutomationFlow).filter(

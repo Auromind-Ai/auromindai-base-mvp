@@ -63,8 +63,7 @@ export default function ServerHealthMonitor() {
   useEffect(() => {
     const handleConnectionError = () => {
       errorCountRef.current += 1;
-      // If 2 or more failures occur, activate maintenance / reconnecting overlay
-      if (errorCountRef.current >= 2 && !isOffline) {
+            if (errorCountRef.current >= 1 && !isOffline) {
         setIsOffline(true);
         setCountdown(RETRY_INTERVAL_SEC);
       }
@@ -92,6 +91,35 @@ export default function ServerHealthMonitor() {
       window.removeEventListener('server-connection-error', handleConnectionError);
       window.removeEventListener('server-connection-success', handleConnectionSuccess);
     };
+  }, [isOffline]);
+
+  useEffect(() => {
+    if (isOffline) return;
+
+    const heartbeatInterval = setInterval(async () => {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3500);
+
+        const res = await fetch(HEALTH_CHECK_URL, {
+          method: 'GET',
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeout);
+
+        if (!res.ok && ((res.status >= 500 && res.status <= 504) || (res.status >= 520 && res.status <= 526))) {
+          setIsOffline(true);
+          setCountdown(RETRY_INTERVAL_SEC);
+        }
+      } catch {
+        setIsOffline(true);
+        setCountdown(RETRY_INTERVAL_SEC);
+      }
+    }, 10000);
+
+    return () => clearInterval(heartbeatInterval);
   }, [isOffline]);
 
   // Handle countdown & auto-retry loop when offline

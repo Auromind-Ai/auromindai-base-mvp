@@ -38,6 +38,7 @@ from app.routers.user_feedback import router as user_feedback_router
 from app.routers.calendar import router as calendar_router
 from app.routers.contact import router as contact_inquiry_router
 from app.routers.campaigns import router as campaigns_router
+from app.routers.workspace import router as workspace_router
 
 #Lifespan 
 @asynccontextmanager
@@ -200,4 +201,6 @@ app.include_router(calendar_router, prefix="/api")
 app.include_router(contact_inquiry_router)
 app.include_router(campaigns_router)
 app.include_router(campaigns_router, prefix="/api")
+app.include_router(workspace_router)
+app.include_router(workspace_router, prefix="/api")
 

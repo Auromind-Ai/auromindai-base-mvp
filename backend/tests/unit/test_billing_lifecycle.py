@@ -14,8 +14,8 @@ from app.services.billing.subscription_service import SubscriptionService
 from app.services.billing.entitlement_service import EntitlementService
 from app.services.billing.entitlement_orchestrator import EntitlementOrchestrator
 from app.services.billing.billing_service import enforce_execution_policy, BillingService
-from app.services.wcc_service import WCCService 
-from app.routers.admin.billing import reset_credits, reset_wallet, ResetResourceRequest
+from app.services.wcc_service import WCCService
+from app.routers.admin.billing import reset_credits, reset_wallet
 
 
 @pytest.fixture

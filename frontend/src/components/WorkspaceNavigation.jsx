@@ -19,43 +19,44 @@ import {
   Shield,
   ChevronDown,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
-const sections = [
+const sectionsDefinition = [
   {
     title: "Workspace",
     items: [
-      ["Dashboard", LayoutDashboard, "dashboard"],
-      ["AI Workspace", Sparkles, "ai"],
+      ["Dashboard", LayoutDashboard, "dashboard", "dashboard.overview"],
+      ["AI Workspace", Sparkles, "ai", "ai.chat"],
     ],
   },
   {
     title: "Customers",
     items: [
-      ["Omni-Inbox", MessageSquare, "inbox"],
-      ["Leads", Users, "leads"],
-      ["CRM", TrendingUp, "crm"],
+      ["Omni-Inbox", MessageSquare, "inbox", "inbox.conversations"],
+      ["Leads", Users, "leads", "leads.view"],
+      ["CRM", TrendingUp, "crm", "crm.view"],
     ],
   },
   {
     title: "Automation",
     items: [
-      ["Automations", Zap, "automation"],
-      ["Templates", FileText, "templates"],
+      ["Automations", Zap, "automation", "automation.manage"],
+      ["Templates", FileText, "templates", "templates.manage"],
     ],
   },
   {
     title: "Growth",
     items: [
-      ["Marketing", Send, "marketing"],
-      ["Channels", Share2, "channels"],
+      ["Marketing", Send, "marketing", "marketing.campaigns"],
+      ["Channels", Share2, "channels", "channels.manage"],
     ],
   },
   {
     title: "AI & Usage",
     items: [
-      ["Brain", Brain, "brain"],
-      ["Credits & Wallet", Coins, "credits"],
-      ["Billing", CreditCard, "billing"],
+      ["Brain", Brain, "brain", "brain.manage"],
+      ["Credits & Wallet", Coins, "credits", "credits.view"],
+      ["Billing", CreditCard, "billing", "billing.manage"],
     ],
   },
 ];
@@ -68,17 +69,38 @@ export default function WorkspaceNavigation({
   onNavigate,
   onExpand,
 }) {
+  const { hasPermission } = useAuth();
+
   const marketingActive =
     pathname === "/user/admin/marketing" ||
     pathname?.startsWith("/user/admin/marketing/");
-  // A route change remounts the disclosure so direct campaign links reveal their parent.
+
+  // Filter sections based on permissions
+  const visibleSections = sectionsDefinition
+    .map((section) => {
+      const allowedItems = section.items.filter(([, , route, permKey]) => {
+        if (!hasPermission) return true;
+        if (route === "inbox") {
+          return hasPermission("inbox.conversations") || hasPermission("inbox");
+        }
+        return hasPermission(permKey) || hasPermission(route);
+      });
+      return {
+        ...section,
+        items: allowedItems,
+      };
+    })
+    .filter((section) => section.items.length > 0);
+
+  const canAccessSettings = hasPermission ? hasPermission("settings.general") : true;
+
   return (
     <nav
       aria-label="Workspace navigation"
       className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-2.5 py-3 custom-scrollbar [@media(min-height:600px)]:overflow-clip lg:overflow-clip [@media(min-height:701px)_and_(max-height:880px)]:py-2 [@media(max-height:700px)]:py-1.5"
     >
       <div className="space-y-2 [@media(min-height:781px)_and_(max-height:880px)]:space-y-1.5 [@media(min-height:701px)_and_(max-height:780px)]:space-y-1 [@media(max-height:700px)]:space-y-0.5">
-        {sections.map((section) => (
+        {visibleSections.map((section) => (
           <section key={section.title} aria-label={section.title}>
             {!collapsed && (
               <h2 className="px-3 py-1 mb-1 [@media(min-height:781px)_and_(max-height:880px)]:py-0.5 [@media(min-height:701px)_and_(max-height:780px)]:py-px [@media(min-height:701px)_and_(max-height:780px)]:mb-0.5 [@media(max-height:700px)]:py-0 [@media(max-height:700px)]:mb-px text-[11px] font-medium uppercase tracking-wider text-[#787878]">
@@ -120,6 +142,7 @@ export default function WorkspaceNavigation({
             </div>
           </section>
         ))}
+
         <section aria-label="System">
           {!collapsed && (
             <h2 className="px-3 py-1 mb-1 [@media(min-height:781px)_and_(max-height:880px)]:py-0.5 [@media(min-height:701px)_and_(max-height:780px)]:py-px [@media(min-height:701px)_and_(max-height:780px)]:mb-0.5 [@media(max-height:700px)]:py-0 [@media(max-height:700px)]:mb-px text-[11px] font-medium uppercase tracking-wider text-[#787878]">
@@ -127,23 +150,25 @@ export default function WorkspaceNavigation({
             </h2>
           )}
           <div className="space-y-0.5 [@media(max-height:780px)]:space-y-px">
-            <button
-              type="button"
-              onClick={() => {
-                onNavigate?.();
-                onSettings();
-              }}
-              title={collapsed ? "Settings" : undefined}
-              aria-label={collapsed ? "Settings" : undefined}
-              className={rowClass(false, collapsed)}
-            >
-              <Settings
-                size={16}
-                strokeWidth={2}
-                className="shrink-0 text-[#7e7e7e] group-hover:text-white"
-              />
-              {!collapsed && <span>Settings</span>}
-            </button>
+            {canAccessSettings && (
+              <button
+                type="button"
+                onClick={() => {
+                  onNavigate?.();
+                  onSettings();
+                }}
+                title={collapsed ? "Settings" : undefined}
+                aria-label={collapsed ? "Settings" : undefined}
+                className={rowClass(false, collapsed)}
+              >
+                <Settings
+                  size={16}
+                  strokeWidth={2}
+                  className="shrink-0 text-[#7e7e7e] group-hover:text-white"
+                />
+                {!collapsed && <span>Settings</span>}
+              </button>
+            )}
             {isAdmin && (
               <Link
                 href="/admin"

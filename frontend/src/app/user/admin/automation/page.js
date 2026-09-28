@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getToken, getWorkspaceIdFromToken, getUser } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 
 // Component Imports
 import DashboardView from './dashboard/DashboardView';
@@ -54,6 +55,7 @@ const getNodeDefaultHeight = (node) => {
 };
 
 export default function AutomationCanvas() {
+  const { workspaceId, user: currentUser, workspaces } = useAuth();
   const [automations, setAutomations] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [activeNodeId, setActiveNodeId] = useState(null);
@@ -185,7 +187,7 @@ export default function AutomationCanvas() {
     if (!flow || !flow.id) return;
     setPreviewFlowModal({ open: true, flow: null, loading: true });
     try {
-      const fresh = await api.getFlowById(flow.id);
+      const fresh = await api.getFlowById(flow.id, workspaceId);
       setPreviewFlowModal({ open: true, flow: sanitizeFlowData(fresh), loading: false });
     } catch (err) {
       console.error('Failed to fetch fresh flow for preview:', err);
@@ -231,7 +233,7 @@ export default function AutomationCanvas() {
     setIsGenerating(true);
     setError(null);
     try {
-      const data = await api.generateAIFlow(aiInput);
+      const data = await api.generateAIFlow(aiInput, workspaceId);
       if (data.nodes && data.nodes.length > 0) {
         setNodes(data.nodes);
         setEdges(data.edges || []);
@@ -318,8 +320,8 @@ export default function AutomationCanvas() {
     return { sx, sy, tx, ty };
   }, [edgeTick]);
 
-  const fetchFlowQuota = useCallback(async () => {
-    const wsId = getWorkspaceIdFromToken();
+  const fetchFlowQuota = useCallback(async (targetWsId) => {
+    const wsId = targetWsId || workspaceId || getWorkspaceIdFromToken();
     if (!wsId) return;
     try {
       const quota = await api.getFlowQuota(wsId);
@@ -327,16 +329,18 @@ export default function AutomationCanvas() {
     } catch (e) {
       console.error("Failed to fetch flow quota:", e);
     }
-  }, []);
+  }, [workspaceId]);
 
-  async function fetchFlows(shouldSelectCanvas = false) {
+  const fetchFlows = useCallback(async (shouldSelectCanvas = false, targetWsId) => {
+    const wsId = targetWsId || workspaceId || getWorkspaceIdFromToken();
+    if (!wsId) return;
     try {
-      const data = await api.getFlows();
+      const data = await api.getFlows(wsId);
       if (Array.isArray(data)) {
         const sanitizedFlows = data.map(sanitizeFlowData);
         setAutomations(sanitizedFlows);
         
-        const savedId = localStorage.getItem("selected_wire_id");
+        const savedId = localStorage.getItem(`selected_wire_id_${wsId}`) || localStorage.getItem("selected_wire_id");
         let itemToSelect = null;
         if (savedId) {
           itemToSelect = sanitizedFlows.find(a => a.id === savedId);
@@ -347,7 +351,7 @@ export default function AutomationCanvas() {
         
         if (itemToSelect) {
           try {
-            const freshItem = await api.getFlowById(itemToSelect.id);
+            const freshItem = await api.getFlowById(itemToSelect.id, wsId);
             const sanitizedItem = sanitizeFlowData(freshItem);
             setSelectedItem(sanitizedItem);
             setNodes(sanitizedItem.nodes || []);
@@ -361,16 +365,25 @@ export default function AutomationCanvas() {
           if (shouldSelectCanvas) {
             setCurrentView('canvas');
           }
+        } else {
+          setSelectedItem(null);
+          setNodes([]);
+          setEdges([]);
         }
       }
-    } catch (e) { console.error(e); }
-  }
+    } catch (e) { console.error("Failed to fetch flows for workspace:", wsId, e); }
+  }, [workspaceId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
-    fetchFlows(false);
-    fetchFlowQuota();
+    if (workspaceId) {
+      fetchFlows(false, workspaceId);
+      fetchFlowQuota(workspaceId);
+    }
+  }, [workspaceId, fetchFlows, fetchFlowQuota]);
+
+  useEffect(() => {
     const handleKeyDown = (e) => { if (e.code === 'Space') setIsSpacePressed(true); };
     const handleKeyUp = (e) => { if (e.code === 'Space') setIsSpacePressed(false); };
     window.addEventListener('keydown', handleKeyDown);
@@ -379,13 +392,13 @@ export default function AutomationCanvas() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchFlowQuota]);
+  }, []);
 
   async function handleSelectAutomation(item) {
     if (!item) return;
+    const wsId = workspaceId || getWorkspaceIdFromToken();
     try {
-      const freshItem = await api.getFlowById(item.id);
+      const freshItem = await api.getFlowById(item.id, wsId);
       const sanitizedItem = sanitizeFlowData(freshItem);
       setSelectedItem(sanitizedItem);
       setNodes(sanitizedItem.nodes || []);
@@ -395,6 +408,7 @@ export default function AutomationCanvas() {
       setZoom(1);
       setCurrentView('canvas');
       
+      if (wsId) localStorage.setItem(`selected_wire_id_${wsId}`, item.id);
       localStorage.setItem("selected_wire_id", item.id);
     } catch (e) {
       console.error("Failed to load flow config from API, falling back to local data:", e);
@@ -414,13 +428,13 @@ export default function AutomationCanvas() {
 
     const performToggle = async () => {
       try {
-        const updated = await api.updateFlowStatus(flow.id, newStatus);
+        const updated = await api.updateFlowStatus(flow.id, newStatus, workspaceId);
         const sanitizedUpdated = sanitizeFlowData(updated);
         setAutomations(prev => prev.map(a => a.id === sanitizedUpdated.id ? sanitizedUpdated : a));
         if (selectedItem?.id === flow.id) {
           setSelectedItem(sanitizedUpdated);
         }
-        fetchFlowQuota();
+        fetchFlowQuota(workspaceId);
         showToast(`Flow status updated to ${newStatus}!`, "success");
       } catch (e) {
         console.error(e);
@@ -476,9 +490,9 @@ export default function AutomationCanvas() {
           nodes: flow.nodes || [],
           edges: flow.edges || [],
           status: 'Draft'
-        });
+        }, workspaceId);
         setAutomations(prev => [...prev, newFlow]);
-        fetchFlowQuota();
+        fetchFlowQuota(workspaceId);
         setCustomModal({
           open: true,
           title: 'Flow Duplicated',
@@ -523,13 +537,13 @@ export default function AutomationCanvas() {
 
     const performDelete = async () => {
       try {
-        await api.deleteFlow(flowId);
+        await api.deleteFlow(flowId, workspaceId);
         setAutomations(prev => prev.filter(a => a.id !== flowId));
         if (selectedItem?.id === flowId) {
           setSelectedItem(null);
           setCurrentView('dashboard');
         }
-        fetchFlowQuota();
+        fetchFlowQuota(workspaceId);
       } catch (e) {
         console.error(e);
         setCustomModal({
@@ -576,12 +590,12 @@ export default function AutomationCanvas() {
         ],
         edges: [],
         status: 'Active'
-      });
+      }, workspaceId);
       setAutomations(prev => [...prev, newFlow]);
       setNewFlowName('');
       setIsCreateModalOpen(false);
       handleSelectAutomation(newFlow);
-      fetchFlowQuota();
+      fetchFlowQuota(workspaceId);
     } catch (e) {
       console.error(e);
       setCustomModal({
@@ -1120,16 +1134,16 @@ export default function AutomationCanvas() {
     setUploading(true);
     setUploadError(null);
     try {
-      const workspace_id = getWorkspaceIdFromToken();
+      const ws = workspaceId || getWorkspaceIdFromToken();
       const activeNode = nodes.find(n => n.id === activeNodeId);
       const agentType = activeNode?.config?.agent_type || 'sales_agent';
       let data;
       if (agentType === 'sales_agent') {
-        data = await api.uploadSalesDocument(file, workspace_id);
+        data = await api.uploadSalesDocument(file, ws);
       } else if (agentType === 'support_agent') {
-        data = await api.uploadSupportDocument(file, workspace_id);
+        data = await api.uploadSupportDocument(file, ws);
       } else {
-        data = await api.uploadDocument(file, workspace_id, 'general');
+        data = await api.uploadDocument(file, ws, 'general');
       }
       const newEntryId = data.entry_id;
       if (newEntryId && activeNodeId) {
@@ -1165,13 +1179,13 @@ export default function AutomationCanvas() {
     setUploading(true);
     setUploadError(null);
     try {
-      const workspace_id = getWorkspaceIdFromToken();
+      const ws = workspaceId || getWorkspaceIdFromToken();
       const activeNode = nodes.find(n => n.id === activeNodeId);
       const agentType = activeNode?.config?.agent_type || 'sales_agent';
       let collection = 'general';
       if (agentType === 'sales_agent') collection = 'sales';
       else if (agentType === 'support_agent') collection = 'support';
-      const data = await api.addTextKnowledge(`Sales Note - ${new Date().toLocaleString()}`, salesManualText, workspace_id, collection);
+      const data = await api.addTextKnowledge(`Sales Note - ${new Date().toLocaleString()}`, salesManualText, ws, collection);
       const newEntryId = data.entry_id;
       if (newEntryId && activeNodeId) {
          updateNodeConfig(activeNodeId, (config) => {
@@ -1185,6 +1199,7 @@ export default function AutomationCanvas() {
             };
          });
          setSalesManualText(''); 
+         showToast('Sales note added to brain!', 'success');
       }
     } catch (err) {
       console.error(err);
@@ -1229,7 +1244,7 @@ export default function AutomationCanvas() {
         edges,
         status: selectedItem.status || 'Active'
       };
-      const saved = await api.saveFlow(payload);
+      const saved = await api.saveFlow(payload, workspaceId);
       const sanitizedSaved = sanitizeFlowData(saved);
       setAutomations(prev => prev.map(a => 
         a.id === sanitizedSaved.id ? sanitizedSaved : a
@@ -1254,10 +1269,11 @@ export default function AutomationCanvas() {
         name, trigger_type: 'msg_recv',
         nodes: [{ id: '1', type: 'trigger', label: 'Init Trigger', position: { x: 200, y: 200 }, config: { event: 'msg_recv', match_type: 'word_match', keywords: [] } }],
         edges: [], status: 'Active'
-      });
+      }, workspaceId);
       setAutomations([...automations, newFlow]);
       handleSelectAutomation(newFlow);
       setActiveNodeId('1');
+      fetchFlowQuota(workspaceId);
       showToast(`Wire "${name}" created!`, 'success');
     } catch (e) {
       console.error(e);
@@ -1665,7 +1681,10 @@ export default function AutomationCanvas() {
           customModal={customModal}
           setCustomModal={setCustomModal}
           flowQuota={flowQuota}
-          fetchFlowQuota={fetchFlowQuota}
+          fetchFlowQuota={() => fetchFlowQuota(workspaceId)}
+          workspaceId={workspaceId}
+          currentUser={currentUser}
+          workspaces={workspaces}
         />
         <FlowConversationPreviewModal
           isOpen={previewFlowModal.open}
@@ -2039,6 +2058,7 @@ export default function AutomationCanvas() {
         handleSelectAutomation={handleSelectAutomation}
         setDeleteWireModal={setDeleteWireModal}
         showToast={showToast}
+        workspaceId={workspaceId}
       />
 
       {/* NODE INSPECTOR */}
@@ -2144,6 +2164,7 @@ export default function AutomationCanvas() {
           setEdges={setEdges}
           setCanvasOffset={setCanvasOffset}
           setActiveNodeId={setActiveNodeId}
+          workspaceId={workspaceId}
         />
       )}
 
@@ -2166,6 +2187,8 @@ export default function AutomationCanvas() {
         createWireName={createWireName}
         setCreateWireName={setCreateWireName}
         handleCreateNewConfirm={handleCreateNewConfirm}
+        workspaceId={workspaceId}
+        fetchFlowQuota={() => fetchFlowQuota(workspaceId)}
       />
 
       {/* MORE MENU BOTTOM SHEET (<768px) */}

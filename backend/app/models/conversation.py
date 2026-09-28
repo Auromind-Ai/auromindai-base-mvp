@@ -65,7 +65,15 @@ class Conversation(Base):
                         name="uq_workspace_phone_channel"),
     )
 
-    owner = relationship("User", back_populates="conversations")
+    owner = relationship("User", foreign_keys=[user_id], back_populates="conversations")
+
+    assigned_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+    assigned_user = relationship("User", foreign_keys=[assigned_user_id])
 
     messages = relationship(
         "Message",
