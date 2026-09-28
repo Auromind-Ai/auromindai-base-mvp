@@ -7,10 +7,14 @@ const SettingsContext = createContext({
     setIsSettingsOpen: () => { },
     selectedModel: 'auto',
     setSelectedModel: () => { },
+    initialSection: 'my-account',
+    setInitialSection: () => { },
+    openSettings: () => { },
 });
 
 export const SettingsProvider = ({ children }) => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [initialSection, setInitialSection] = useState('my-account');
     const [selectedModel, setSelectedModel] = useState(() => {
         if (typeof window !== 'undefined') {
             return localStorage.getItem('orbionagents_default_model') || localStorage.getItem('auromind_default_model') || 'auto';
@@ -23,13 +27,21 @@ export const SettingsProvider = ({ children }) => {
         localStorage.setItem('orbionagents_default_model', model);
         localStorage.removeItem('auromind_default_model');
     };
+
+    const openSettings = (section = 'my-account') => {
+        setInitialSection(section);
+        setIsSettingsOpen(true);
+    };
     
     return (
         <SettingsContext.Provider value={{
             isSettingsOpen,
             setIsSettingsOpen,
             selectedModel,
-            setSelectedModel: updateModel
+            setSelectedModel: updateModel,
+            initialSection,
+            setInitialSection,
+            openSettings
         }}>
             {children}
         </SettingsContext.Provider>
@@ -37,3 +49,4 @@ export const SettingsProvider = ({ children }) => {
 };
 
 export const useSettings = () => useContext(SettingsContext);
+

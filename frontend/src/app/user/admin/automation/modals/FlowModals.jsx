@@ -20,7 +20,9 @@ export default function FlowModals({
   setCreateWireModal,
   createWireName,
   setCreateWireName,
-  handleCreateNewConfirm
+  handleCreateNewConfirm,
+  workspaceId,
+  fetchFlowQuota
 }) {
   return (
     <>
@@ -61,7 +63,7 @@ export default function FlowModals({
                   onClick={async () => {
                     setDeleteWireModal(prev => ({ ...prev, isDeleting: true }));
                     try {
-                      await api.deleteFlow(deleteWireModal.item.id);
+                      await api.deleteFlow(deleteWireModal.item.id, workspaceId);
                       const deletedId = deleteWireModal.item.id;
                       setAutomations(prev => prev.filter(a => a.id !== deletedId));
                       if (selectedItem?.id === deletedId) {
@@ -69,6 +71,7 @@ export default function FlowModals({
                         setNodes([]);
                         setEdges([]);
                       }
+                      if (fetchFlowQuota) fetchFlowQuota();
                       showToast('Wire deleted successfully', 'success');
                       setDeleteWireModal({ open: false, item: null, isDeleting: false });
                     } catch (err) {

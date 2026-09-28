@@ -10,6 +10,7 @@ import TwoFactorSetupModal    from '@/components/TwoFactorSetupModal';
 import TwoFactorDisableModal  from '@/components/TwoFactorDisableModal';
 import UserFeedbackPanel from '@/components/UserFeedback/UserFeedbackPanel';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
+import TeamManagementSection from '@/components/TeamManagementSection';
 import {
   User,
   MessageSquare,
@@ -48,6 +49,7 @@ const NAV_SECTIONS = [
     title: 'General',
     items: [
       { id: 'my-account', label: 'My Account', icon: <User size={15} /> },
+      { id: 'team', label: 'Team & Seats', icon: <Users size={15} /> },
       { id: 'preferences', label: 'Preferences', icon: <Settings size={15} /> },
       { id: 'notifications', label: 'Notifications', icon: <Bell size={15} /> },
     ],
@@ -61,6 +63,7 @@ const NAV_SECTIONS = [
     ],
   },
 ];
+
 
 // ─ Toggle Component
 
@@ -1765,12 +1768,20 @@ function MyAccountSection({
 
 // ─ Main Component
 
-export default function SettingsContent({ email, onClose }) {
+export default function SettingsContent({ email, onClose, initialSection = 'my-account' }) {
   const router = useRouter();
   const { user, logout, refreshUser } = useAuth();
  
-  const [activeSection, setActiveSection] = useState('my-account');
+  const [activeSection, setActiveSection] = useState(initialSection || 'my-account');
+
+  useEffect(() => {
+    if (initialSection) {
+      setActiveSection(initialSection);
+    }
+  }, [initialSection]);
+
   const [preferredName, setPreferredName] = useState('User');
+
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [twoFactorLoading, setTwoFactorLoading] = useState(false);
   const [showSetupModal, setShowSetupModal] = useState(false);
@@ -1901,6 +1912,8 @@ export default function SettingsContent({ email, onClose }) {
               cancelDelLoading={cancelDelLoading}
           />
         );
+      case 'team':
+        return <TeamManagementSection />;
       case 'preferences':
         return <PreferencesSection />;
       case 'notifications':

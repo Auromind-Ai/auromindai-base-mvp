@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.models import User, UserSession
-from app.models.workspace import Workspace, WorkspaceMember
+from app.models.workspace import Workspace, WorkspaceMember, WorkspaceInvitation
 from app.utils.auth import get_password_hash, verify_password, create_access_token
 from app.services.platform_settings_service import get_setting
 import uuid
@@ -8,6 +9,7 @@ import time
 from typing import Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
 from app.utils.auth import parse_user_agent
+from app.core.permissions import get_full_permissions_dict ,normalize_permissions
 from app.services.notification_template_service import NotificationTemplateService
 
 _redis_instance = None
@@ -256,6 +258,58 @@ class AuthService:
                 import logging
                 logging.getLogger("app").error(f"Failed to emit user signup/plan events: {notif_exc}")
 
+        # Auto-accept any pending invitations for this email
+        now_dt = datetime.now(timezone.utc)
+        raw_invites = db.query(WorkspaceInvitation).filter(
+            func.lower(WorkspaceInvitation.email) == email.lower(),
+            WorkspaceInvitation.status == "pending"
+        ).all()
+
+        first_invited_workspace_id = None
+        for inv in raw_invites:
+            if inv.expires_at:
+                exp = inv.expires_at if inv.expires_at.tzinfo is not None else inv.expires_at.replace(tzinfo=timezone.utc)
+                if exp < now_dt:
+                    inv.status = "expired"
+                    continue
+
+            assigned_role = inv.role or "member"
+            assigned_perms = inv.permissions
+            if assigned_role == "admin":
+                
+                assigned_perms = get_full_permissions_dict()
+            else:
+                assigned_perms = normalize_permissions(assigned_perms)
+
+            existing_mem = db.query(WorkspaceMember).filter(
+                WorkspaceMember.workspace_id == inv.workspace_id,
+                WorkspaceMember.user_id == user.id
+            ).first()
+            if not existing_mem:
+                new_mem = WorkspaceMember(
+                    workspace_id=inv.workspace_id,
+                    user_id=user.id,
+                    name=inv.name or user.full_name,
+                    role=assigned_role,
+                    permissions=assigned_perms,
+                    is_active=True
+                )
+                db.add(new_mem)
+            else:
+                existing_mem.role = assigned_role
+                existing_mem.permissions = assigned_perms
+                existing_mem.is_active = True
+                if inv.name:
+                    existing_mem.name = inv.name
+
+            inv.status = "accepted"
+            if not first_invited_workspace_id:
+                first_invited_workspace_id = str(inv.workspace_id)
+
+        if raw_invites:
+            db.commit()
+
+
         # get workspaces
         workspaces = db.query(Workspace, WorkspaceMember.role).join(
             WorkspaceMember,
@@ -264,7 +318,11 @@ class AuthService:
             WorkspaceMember.user_id == user.id
         ).all()
 
-        workspace_id = str(workspaces[0][0].id) if workspaces else None
+        if is_new_user and first_invited_workspace_id:
+            workspace_id = first_invited_workspace_id
+        else:
+            workspace_id = str(workspaces[0][0].id) if workspaces else None
+
 
         # Check if an active session already exists for this device
         existing_session = None

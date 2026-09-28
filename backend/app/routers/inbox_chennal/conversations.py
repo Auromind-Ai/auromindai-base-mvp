@@ -15,6 +15,9 @@ from fastapi import (
     Response,
 )
 from app.core.config import settings
+from app.core.security import to_uuid
+from app.core.permissions import has_workspace_permission
+from fastapi import status as http_status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app import schemas
@@ -110,14 +113,12 @@ def verify_media_token(
         return False
 
 
+
 def verify_conversation_access(db: Session, current_user, conversation_id: str) -> str:
-    from app.models.conversation import Conversation
-    from app.models.workspace import WorkspaceMember
+
     
-    try:
-        from uuid import UUID
-        conv_uuid = UUID(str(conversation_id))
-    except (ValueError, TypeError):
+    conv_uuid = to_uuid(conversation_id)
+    if not conv_uuid:
         raise HTTPException(status_code=400, detail="Invalid conversation ID format")
         
     conv = db.query(Conversation).filter(Conversation.id == conv_uuid).first()
@@ -130,6 +131,14 @@ def verify_conversation_access(db: Session, current_user, conversation_id: str) 
     ).first()
     if not membership:
         raise HTTPException(status_code=403, detail="Access denied to this conversation")
+
+    if getattr(membership, "is_active", True) is False:
+        raise HTTPException(status_code=403, detail="Your membership in this workspace has been deactivated.")
+
+    # Check granular permissions:
+    can_access = has_workspace_permission(membership.role, membership.permissions, "inbox.conversations")
+    if not can_access:
+        raise HTTPException(status_code=403, detail="You do not have permission to access inbox conversations.")
         
     return str(conv.workspace_id)
 
@@ -139,15 +148,38 @@ def get_conversations(
     workspace_id: str | None = None,
     channel: str | None = None,
     status: str | None = "OPEN",
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=200),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
     verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+  
+    ws_uuid = to_uuid(verified_workspace_id)
+
+    membership = db.query(WorkspaceMember).filter(
+        WorkspaceMember.user_id == current_user.id,
+        WorkspaceMember.workspace_id == ws_uuid
+    ).first()
+
+    user_role = membership.role if membership else "member"
+    user_perms = membership.permissions if membership else {}
+
+    can_access = has_workspace_permission(user_role, user_perms, "inbox.conversations")
+
+    if not can_access:
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access conversations in this workspace."
+        )
+
     return ConversationService.list_conversations(
         db,
         workspace_id=verified_workspace_id,
         channel=channel,
         status=status,
+        skip=skip,
+        limit=limit,
     )
 
 
@@ -159,11 +191,30 @@ def get_conversation_counts(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    ws_uuid = to_uuid(verified_workspace_id)
+
+    membership = db.query(WorkspaceMember).filter(
+        WorkspaceMember.user_id == current_user.id,
+        WorkspaceMember.workspace_id == ws_uuid
+    ).first()
+
+    user_role = membership.role if membership else "member"
+    user_perms = membership.permissions if membership else {}
+
+    can_access = has_workspace_permission(user_role, user_perms, "inbox.conversations")
+
+    if not can_access:
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access conversations in this workspace."
+        )
+
     return ConversationService.get_conversation_counts(
         db,
         workspace_id=verified_workspace_id,
         channel=channel,
     )
+
 @router.get("/conversations/{conversation_id}")
 def get_conversation_by_id(
     conversation_id: str,

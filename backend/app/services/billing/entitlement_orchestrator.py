@@ -86,7 +86,7 @@ class WCCBillingProvisioner(IWCCBillingProvisioner):
                     status="success"
                 )
                 db.add(recharge)
-                wallet.included_balance = (wallet.included_balance or Decimal("0.00")) + promo_amount
+                wallet.included_balance = (wallet.included_balance or Decimal("0.00")) + Decimal(str(promo_amount))
                 wallet.balance = (wallet.included_balance or Decimal("0.00")) + (wallet.purchased_balance or Decimal("0.00"))
                 db.flush()
 
@@ -245,7 +245,7 @@ class EntitlementOrchestrator:
                         status="success"
                     )
                     db.add(recharge)
-                    wallet.included_balance += promo_amount
+                    wallet.included_balance += Decimal(str(promo_amount))
                     db.flush()
 
                 wallet.balance = (wallet.included_balance or Decimal("0.00")) + (wallet.purchased_balance or Decimal("0.00"))

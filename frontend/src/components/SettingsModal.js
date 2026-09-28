@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import SettingsContent from './SettingsContent';
 
-const SettingsModal = ({ isOpen, onClose }) => {
+const SettingsModal = ({ isOpen, onClose, initialSection = 'my-account' }) => {
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -47,13 +47,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         </button>
 
                         <div className="flex-1 overflow-hidden">
-                            <SettingsContent onClose={onClose} />
+                            <SettingsContent onClose={onClose} initialSection={initialSection} />
                         </div>
                     </motion.div>
                 </>
             )}
         </AnimatePresence>
     );
+
 
     return createPortal(modalJSX, document.body);
 };

@@ -42,5 +42,6 @@ class User(Base):
 
     conversations = relationship(
         "Conversation",
+        foreign_keys="[Conversation.user_id]",
         back_populates="owner"
     )

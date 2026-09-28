@@ -19,6 +19,8 @@ export function AuthProvider({ children }) {
   const [user, setUserState] = useState(null);
   const [workspaces, setWorkspacesState] = useState([]);
   const [workspaceId, setWorkspaceIdState] = useState(null);
+  const [currentRole, setCurrentRole] = useState('admin');
+  const [permissions, setPermissions] = useState(null);
   const [loading, setLoading] = useState(true);
   const [csrfToken, setCsrfTokenState] = useState(null);
   const csrfTokenRef = useRef(null);
@@ -97,6 +99,12 @@ export function AuthProvider({ children }) {
                             err?.message?.toLowerCase()?.includes('could not validate credentials') ||
                             err?.message?.toLowerCase()?.includes('credentials');
 
+        const isExcludedFromRedirect = pathname.startsWith('/login') ||
+                                       pathname.startsWith('/signup') ||
+                                       pathname.startsWith('/docs') ||
+                                       pathname.startsWith('/accept-invite') ||
+                                       pathname === '/';
+
         if (isDeactivated) {
           removeToken();
           setUserState(null);
@@ -105,7 +113,7 @@ export function AuthProvider({ children }) {
           workspaceIdRef.current = null;
           setUser(null);
           setWorkspace(null);
-          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/docs')) {
+          if (typeof window !== 'undefined' && !isExcludedFromRedirect) {
             window.location.replace('/login?deactivated=true');
           }
         } else if (isAuthError) {
@@ -116,7 +124,7 @@ export function AuthProvider({ children }) {
           workspaceIdRef.current = null;
           setUser(null);
           setWorkspace(null);
-          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/docs')) {
+          if (typeof window !== 'undefined' && !isExcludedFromRedirect) {
             window.location.replace('/login?session_expired=true');
           }
         } else {
@@ -146,12 +154,15 @@ export function AuthProvider({ children }) {
     };
 
     const checkAuth = async () => {
-      if (typeof window !== 'undefined') {
+      const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+
+      // Only strip and use URL tokens on login/callback pages, NEVER on /accept-invite
+      if (typeof window !== 'undefined' && !pathname.startsWith('/accept-invite')) {
         const urlParams = new URLSearchParams(window.location.search);
-        const tokenFromUrl = urlParams.get('token');
+        const tokenFromUrl = urlParams.get('token') || urlParams.get('auth_token');
         if (tokenFromUrl) {
           setToken(tokenFromUrl);
-          const cleanUrl = window.location.pathname + window.location.search.replace(/[\?&]token=[^&]+/, '').replace(/^&/, '?');
+          const cleanUrl = window.location.pathname + window.location.search.replace(/[\?&](token|auth_token)=[^&]+/, '').replace(/^&/, '?');
           window.history.replaceState({}, document.title, cleanUrl || window.location.pathname);
         }
       }
@@ -164,10 +175,14 @@ export function AuthProvider({ children }) {
         localStorage.setItem('orbionagents_logged_in', 'true');
         localStorage.removeItem('auromind_logged_in');
       }
-      const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
 
       const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup');
-      const hasTokenInUrl = typeof window !== 'undefined' && Boolean(new URLSearchParams(window.location.search).get('token'));
+      const hasTokenInUrl = typeof window !== 'undefined' && !pathname.startsWith('/accept-invite') && Boolean(new URLSearchParams(window.location.search).get('token'));
+
+      if (pathname.startsWith('/accept-invite') && !isLogged && !getToken()) {
+        setLoading(false);
+        return;
+      }
 
       if ((isAuthPage && !hasTokenInUrl) || (isMarketingPage(pathname) && !isLogged)) {
         setLoading(false);
@@ -261,6 +276,99 @@ export function AuthProvider({ children }) {
     };
   }, [logout]);
 
+  const refreshPermissions = useCallback(async (wsId) => {
+    const targetWsId = wsId || workspaceIdRef.current;
+    if (!targetWsId) return null;
+    try {
+      const res = await api.getMyWorkspacePermissions(targetWsId);
+      if (res) {
+        setCurrentRole(res.role || 'member');
+        setPermissions(res.permissions || {});
+        return res;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch workspace permissions:", e);
+    }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    if (workspaceId) {
+      refreshPermissions(workspaceId);
+    }
+  }, [workspaceId, refreshPermissions]);
+
+  const PERMISSION_ALIASES = useMemo(() => ({
+    "leads.view": ["leads.all_leads", "leads.view", "leads.manage", "leads.*"],
+    "leads.all_leads": ["leads.all_leads", "leads.view", "leads.manage", "leads.*"],
+    "crm.view": ["crm.view", "crm.contacts", "crm.deals", "crm.companies", "crm.*"],
+    "crm.contacts": ["crm.view", "crm.contacts", "crm.deals", "crm.companies", "crm.*"],
+    "ai.chat": ["ai.chat", "ai_agents.agents", "ai_agents.agent_settings", "ai_agents.*", "ai.*"],
+    "ai_agents.agents": ["ai.chat", "ai_agents.agents", "ai_agents.*", "ai.*"],
+    "automation.manage": ["automation.manage", "flows.all_flows", "flows.flow_settings", "flows.manage", "flows.*", "automation.*"],
+    "flows.all_flows": ["automation.manage", "flows.all_flows", "flows.flow_settings", "flows.manage", "flows.*", "automation.*"],
+    "templates.manage": ["templates.manage", "marketing.templates", "templates.*"],
+    "marketing.templates": ["templates.manage", "marketing.templates", "templates.*"],
+    "channels.manage": ["channels.manage", "integrations.connected_accounts", "integrations.*", "channels.*"],
+    "integrations.connected_accounts": ["channels.manage", "integrations.connected_accounts", "integrations.*", "channels.*"],
+    "brain.manage": ["brain.manage", "knowledge_base.documents", "knowledge_base.*", "brain.*"],
+    "knowledge_base.documents": ["brain.manage", "knowledge_base.documents", "knowledge_base.*", "brain.*"],
+    "credits.view": ["credits.view", "analytics.reports", "credits.*", "analytics.*"],
+    "analytics.reports": ["credits.view", "analytics.reports", "credits.*", "analytics.*"],
+    "billing.manage": ["billing.manage", "billing.plans", "billing.invoices", "billing.*"],
+    "billing.plans": ["billing.manage", "billing.plans", "billing.invoices", "billing.*"],
+  }), []);
+
+  const hasPermission = useCallback((permKey) => {
+    if (!currentRole) return true;
+    const normRole = (currentRole || '').toLowerCase().trim();
+    if (['admin', 'founder', 'owner', 'superadmin', 'platform_admin'].includes(normRole)) {
+      return true;
+    }
+    if (!permissions) return false;
+
+    const checkSingle = (key) => {
+      if (key.includes('.')) {
+        const [sec, item] = key.split('.');
+        const secItems = permissions[sec];
+        if (Array.isArray(secItems)) {
+          return secItems.includes(item) || secItems.includes('*');
+        }
+        if (typeof secItems === 'boolean') return secItems;
+        return false;
+      } else {
+        const secItems = permissions[key];
+        if (Array.isArray(secItems)) return secItems.length > 0;
+        if (typeof secItems === 'boolean') return secItems;
+        return false;
+      }
+    };
+
+    if (checkSingle(permKey)) return true;
+
+    // Check aliases
+    const aliases = PERMISSION_ALIASES[permKey] || [];
+    for (const alias of aliases) {
+      if (checkSingle(alias)) return true;
+    }
+
+    // Section alias fallback
+    const secMap = {
+      ai: ['ai_agents'],
+      automation: ['flows'],
+      channels: ['integrations'],
+      brain: ['knowledge_base'],
+      credits: ['analytics'],
+    };
+    if (secMap[permKey]) {
+      for (const oldSec of secMap[permKey]) {
+        if (checkSingle(oldSec)) return true;
+      }
+    }
+
+    return false;
+  }, [currentRole, permissions, PERMISSION_ALIASES]);
+
   const setWorkspaceId = useCallback((id) => {
     setWorkspaceIdState(id);
     workspaceIdRef.current = id;
@@ -277,13 +385,17 @@ export function AuthProvider({ children }) {
     user,
     workspaceId,
     workspaces,
+    currentRole,
+    permissions,
+    hasPermission,
+    refreshPermissions,
     loading,
     csrfToken,
     setUser: setUserState,
     setWorkspaceId,
     logout,
     refreshUser
-  }), [user, workspaceId, workspaces, loading, csrfToken, setWorkspaceId, logout, refreshUser]);
+  }), [user, workspaceId, workspaces, currentRole, permissions, hasPermission, refreshPermissions, loading, csrfToken, setWorkspaceId, logout, refreshUser]);
 
   return (
     <AuthContext.Provider value={contextValue}>

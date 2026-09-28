@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { poppins } from '@/lib/fonts';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { getToken, isTokenExpired } from '@/lib/auth';
-import { LogOut, Shield, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { LogOut, Shield, Menu, PanelLeftClose, PanelLeftOpen, Building2, ChevronDown, Check, Users } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from '@/context/AuthContext';
 import dynamic from 'next/dynamic';
@@ -34,10 +34,26 @@ export default function AdminLayout({ children }) {
 function AdminLayoutContent({ children }) {
     const router = useRouter();
     const pathname = usePathname();
-    const { user, workspaces, workspaceId, loading, logout, refreshUser } = useAuth();
-    const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel } = useSettings();
+    const { user, workspaces, workspaceId, setWorkspaceId, loading, logout, refreshUser } = useAuth();
+    const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel, initialSection, openSettings } = useSettings();
 
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [isWsDropdownOpen, setIsWsDropdownOpen] = useState(false);
+    const wsDropdownRef = useRef(null);
+
+    useEffect(() => {
+        function handleClickOutside(e) {
+            if (wsDropdownRef.current && !wsDropdownRef.current.contains(e.target)) {
+                setIsWsDropdownOpen(false);
+            }
+        }
+        if (isWsDropdownOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isWsDropdownOpen]);
+
+
     const [isCollapsed, setIsCollapsed] = useState(() => {
         if (typeof window === 'undefined') return false;
         try {
@@ -209,29 +225,102 @@ function AdminLayoutContent({ children }) {
                     }`}
                 >
                     {/* Top Profile & Toggle Section */}
-                    <div className={`flex items-center shrink-0 pt-5 pb-4 border-b border-white/5 ${
-                        isCollapsed ? 'justify-center px-2 flex-col gap-2' : 'justify-between px-4'
+                    <div className={`relative shrink-0 pt-5 pb-4 border-b border-white/5 ${
+                        isCollapsed ? 'px-2' : 'px-4'
                     }`}>
-                        <div className="flex items-center gap-2.5 overflow-hidden">
-                            <div className="w-9 h-9 rounded-full shrink-0 overflow-hidden bg-[#814AC8] flex items-center justify-center text-xs text-white font-bold border-2 border-white/10">
-                                {(user?.full_name || user?.name || user?.email || 'U').charAt(0).toUpperCase()}
-                            </div>
-                            {!isCollapsed && (
-                                <span className="font-semibold text-[15px] text-white truncate">
-                                    {user?.full_name || user?.name || 'User'}
-                                </span>
-                            )}
-                        </div>
+                        <div className={`flex items-center ${isCollapsed ? 'justify-center flex-col gap-2' : 'justify-between'}`}>
+                            <div className="relative flex-1 min-w-0" ref={wsDropdownRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => !isCollapsed && setIsWsDropdownOpen((prev) => !prev)}
+                                    className={`flex items-center gap-2.5 overflow-hidden text-left rounded-lg transition-colors ${
+                                        isCollapsed ? 'justify-center p-0' : 'w-full p-1 hover:bg-white/5 cursor-pointer'
+                                    }`}
+                                    title={isCollapsed ? currentWorkspaceName : undefined}
+                                >
+                                    <div className="w-8 h-8 rounded-lg shrink-0 overflow-hidden bg-[#814AC8] flex items-center justify-center text-xs text-white font-bold border border-white/10">
+                                        {(currentWorkspaceName || user?.full_name || 'W').charAt(0).toUpperCase()}
+                                    </div>
+                                    {!isCollapsed && (
+                                        <div className="flex-1 min-w-0 pr-1">
+                                            <div className="flex items-center justify-between gap-1">
+                                                <span className="font-semibold text-xs text-white truncate">
+                                                    {currentWorkspaceName}
+                                                </span>
+                                                {workspaces.length > 1 && (
+                                                    <ChevronDown size={13} className={`text-zinc-400 shrink-0 transition-transform ${isWsDropdownOpen ? 'rotate-180' : ''}`} />
+                                                )}
+                                            </div>
+                                            <p className="text-[10px] text-zinc-400 truncate">
+                                                {user?.full_name || user?.name || user?.email}
+                                            </p>
+                                        </div>
+                                    )}
+                                </button>
 
-                        <button
-                            onClick={toggleSidebar}
-                            title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-                            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                            className="p-1.5 rounded-[6px] text-[#9b9b9b] hover:text-white hover:bg-white/5 transition-colors shrink-0"
-                        >
-                            {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-                        </button>
+                                {/* Dropdown Menu */}
+                                {isWsDropdownOpen && !isCollapsed && (
+                                    <div className="absolute left-0 top-full mt-2 w-56 p-1.5 rounded-xl bg-[#0e1422] border border-white/10 shadow-2xl z-50 space-y-1">
+                                        <div className="px-2.5 py-1 flex items-center justify-between">
+                                            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                                                Workspaces ({workspaces.length})
+                                            </span>
+                                        </div>
+
+                                        {workspaces.map((ws) => {
+                                            const isActive = ws.id === workspaceId;
+                                            return (
+                                                <button
+                                                    key={ws.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setWorkspaceId(ws.id);
+                                                        setIsWsDropdownOpen(false);
+                                                        router.refresh();
+                                                    }}
+                                                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition-colors cursor-pointer ${
+                                                        isActive
+                                                            ? 'bg-violet-600/20 text-white font-medium border border-violet-500/30'
+                                                            : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-2 truncate">
+                                                        <Building2 size={13} className={isActive ? 'text-violet-400' : 'text-zinc-400'} />
+                                                        <span className="truncate">{ws.name}</span>
+                                                    </div>
+                                                    {isActive && <Check size={13} className="text-violet-400 shrink-0" />}
+                                                </button>
+                                            );
+                                        })}
+
+                                        <div className="pt-1 border-t border-white/5">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsWsDropdownOpen(false);
+                                                    openSettings('team');
+                                                }}
+                                                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-violet-300 hover:bg-violet-500/10 transition-colors cursor-pointer"
+                                            >
+                                                <Users size={13} />
+                                                <span>Manage Team & Seats</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                onClick={toggleSidebar}
+                                title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+                                aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                                className="p-1.5 rounded-[6px] text-[#9b9b9b] hover:text-white hover:bg-white/5 transition-colors shrink-0 cursor-pointer"
+                            >
+                                {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+                            </button>
+                        </div>
                     </div>
+
 
                     <WorkspaceNavigation
                         pathname={pathname}
@@ -299,17 +388,38 @@ function AdminLayoutContent({ children }) {
                     >
                         <div className={`${poppins.className} flex flex-col h-full min-h-0 bg-[#080c14]`}>
                             {/* Workspace Brand */}
-                            <div className="h-14 flex items-center pl-3 pr-10 border-b border-white/5 shrink-0">
-                                <div className="flex items-center gap-2.5 overflow-hidden">
-                                    <div className="w-5 h-5 rounded-[4px] bg-[#814AC8] flex items-center justify-center flex-shrink-0 text-[10px] text-white font-bold">
-                                        {(currentWorkspaceName || 'A').charAt(0).toUpperCase()}
+                            <div className="flex flex-col border-b border-white/5 shrink-0 p-2.5">
+                                <div className="flex items-center gap-2 overflow-hidden px-1 py-1">
+                                    <div className="w-6 h-6 rounded-[5px] bg-[#814AC8] flex items-center justify-center flex-shrink-0 text-[10px] text-white font-bold">
+                                        {(currentWorkspaceName || 'W').charAt(0).toUpperCase()}
                                     </div>
 
-                                    <span className="font-medium text-xs truncate text-[#D4D4D4] min-w-0 flex-1">
+                                    <span className="font-semibold text-xs truncate text-white min-w-0 flex-1">
                                         {currentWorkspaceName}
                                     </span>
                                 </div>
+                                {workspaces.length > 1 && (
+                                    <div className="mt-1 flex flex-col gap-0.5 max-h-24 overflow-y-auto">
+                                        {workspaces.map((ws) => (
+                                            <button
+                                                key={ws.id}
+                                                onClick={() => {
+                                                    setWorkspaceId(ws.id);
+                                                    setIsMobileOpen(false);
+                                                    router.refresh();
+                                                }}
+                                                className={`text-left px-2 py-1 rounded text-[11px] truncate flex items-center justify-between ${
+                                                    ws.id === workspaceId ? 'bg-violet-600/30 text-white font-medium' : 'text-zinc-400 hover:text-white'
+                                                }`}
+                                            >
+                                                <span className="truncate">{ws.name}</span>
+                                                {ws.id === workspaceId && <Check size={10} className="text-violet-400 shrink-0" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
+
 
                             <WorkspaceNavigation
                                 pathname={pathname}
@@ -425,7 +535,9 @@ function AdminLayoutContent({ children }) {
                     onClose={() => setIsSettingsOpen(false)}
                     selectedModel={selectedModel}
                     onModelChange={setSelectedModel}
+                    initialSection={initialSection}
                 />
+
 
                 {/* Global AI Chat - Hidden on Orbion Agents page */}
                 {pathname !== '/user/admin/ai' && <GlobalAIChat />}
