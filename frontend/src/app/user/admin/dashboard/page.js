@@ -823,7 +823,7 @@ function RecentActivityCard({ activities = [] }) {
         <h2 className="text-[15px] font-semibold text-white/90">Recent Activity</h2>
         <button
           onClick={() => setShowModal(true)}
-          className="text-[11px] text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-2.5 py-0.5 rounded-full border border-purple-500/20 font-medium">
+          className="text-[11px] text-white hover:text-purple-300 transition-colors bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 hover:bg-purple-500/20 px-2.5 py-0.5 rounded-full border border-purple-500/20 font-medium">
           View all
         </button>
       </div>
@@ -1054,7 +1054,7 @@ function AIInsightsCard({ insights = [] }) {
         <h2 className="text-[15px] font-semibold text-white/90">AI Insights</h2>
         <button 
           onClick={() => setShowModal(true)}
-          className="text-[11px] text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-2.5 py-0.5 rounded-full border border-purple-500/20 font-medium">
+          className="text-[11px] text-white hover:text-purple-300 transition-colors bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 hover:bg-purple-500/20 px-2.5 py-0.5 rounded-full border border-purple-500/20 font-medium">
           View all
         </button>
       </div>
