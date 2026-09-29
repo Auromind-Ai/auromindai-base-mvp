@@ -2,6 +2,8 @@ import logging
 from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 import urllib.parse
+from types import SimpleNamespace
+from app.core.integration_state import sign_integration_state, read_integration_state
 from app.database import get_db
 from app.services.integration_service import IntegrationService
 from app.core.security import verify_workspace_access
@@ -28,7 +30,7 @@ async def google_oauth_init(
             detail=f"Invalid integration type '{integration_type}'. Allowed types: {', '.join(sorted(ALLOWED_GOOGLE_INTEGRATIONS))}"
         )
 
-    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='channels.manage')
 
     # Capture dynamic frontend URL from referer / origin
     referer = request.headers.get("referer")
@@ -54,6 +56,10 @@ async def google_oauth_init(
 
     try:
         url = IntegrationService.get_google_oauth_url(db, workspace_id, integration_type)
+        parsed_url = urllib.parse.urlsplit(url)
+        query = urllib.parse.parse_qs(parsed_url.query)
+        query["state"] = [sign_integration_state(current_user.id, workspace_id, integration_type)]
+        url = urllib.parse.urlunsplit(parsed_url._replace(query=urllib.parse.urlencode(query, doseq=True)))
         return {"authorization_url": url}
     except HTTPException:
         raise
@@ -76,14 +82,13 @@ async def google_oauth_callback(
     from app.core.config import settings
     from app.services.config_service import config_service
 
-    integration_type = "calendar"
-    workspace_id = None
-    try:
-        if state and ":" in state:
-            raw_type, workspace_id = state.split(":", 1)
-            integration_type = "calendar" if raw_type in ["calendar", "google_calendar"] else ("gmail" if raw_type in ["gmail", "google_gmail"] else raw_type)
-    except Exception:
-        pass
+    state_data = read_integration_state(state)
+    workspace_id = verify_workspace_access(
+        SimpleNamespace(id=state_data["user_id"]), db, state_data["workspace_id"],
+        required_permission="channels.manage",
+    )
+    integration_type = state_data["integration_type"]
+    state = f"{integration_type}:{workspace_id}"
 
     # Retrieve dynamically captured frontend URL for this workspace
     frontend_url = None
@@ -117,7 +122,7 @@ async def get_integration_status(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission=('channels.manage', 'inbox.conversations', 'marketing.campaigns', 'automation.manage'))
     return IntegrationService.get_integration_status(db, workspace_id)
 
 @router.get("/gmail/accounts")
@@ -126,7 +131,7 @@ async def list_gmail_accounts(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='channels.manage')
     return IntegrationService.get_gmail_accounts(db, workspace_id)
 
 @router.delete("/gmail/accounts/{account_id}")
@@ -136,7 +141,7 @@ async def delete_gmail_account(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='channels.manage')
     success = IntegrationService.disconnect_gmail_account(db, workspace_id, account_id=account_id)
     if not success:
         raise HTTPException(status_code=404, detail="Gmail account not found")
@@ -149,7 +154,7 @@ async def disconnect_integration(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='channels.manage')
     IntegrationService.disconnect_integration(db, workspace_id, integration_type)
     return {"status": "success", "message": f"Disconnected {integration_type}"}
 

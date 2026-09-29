@@ -3,7 +3,7 @@ from .conversation import Conversation, ChannelType, ConversationStatus, ChatSes
 from .message import Message, SenderType, MessageStatus
 from .ai_action import AIAction
 from .brain import BrainEntry
-from .workspace import Workspace, WorkspaceMember
+from .workspace import Workspace, WorkspaceMember, WorkspaceInvitation
 from .followup import Followup
 from .learning_event import LearningEvent, FeedbackType
 from .platform_setting import PlatformSetting

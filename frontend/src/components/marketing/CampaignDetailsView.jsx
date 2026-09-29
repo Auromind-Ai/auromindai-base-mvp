@@ -218,9 +218,11 @@ export default function CampaignDetailsView({ campaignId }) {
     const sentCount = 
       campaign?.sentCount !== undefined && campaign?.sentCount !== null
         ? Number(campaign.sentCount)
-        : (campaign?.sent_count !== undefined && campaign?.sent_count !== null
-            ? Number(campaign.sent_count)
-            : (counts?.sent ?? 0));
+        : (campaign?.accepted_count !== undefined && campaign?.accepted_count !== null
+            ? Number(campaign.accepted_count)
+            : (campaign?.sent_count !== undefined && campaign?.sent_count !== null
+                ? Number(campaign.sent_count)
+                : (counts?.sent ?? 0)));
 
     const deliveredCount = 
       campaign?.deliveredCount !== undefined && campaign?.deliveredCount !== null
@@ -236,13 +238,21 @@ export default function CampaignDetailsView({ campaignId }) {
             ? Number(campaign.failed_count)
             : (counts?.failed ?? 0));
 
+    const inTransitCount = 
+      counts?.in_transit !== undefined && counts?.in_transit !== null
+        ? Number(counts.in_transit)
+        : (campaign?.inTransitCount !== undefined && campaign?.inTransitCount !== null
+            ? Number(campaign.inTransitCount)
+            : Math.max(0, sentCount - (deliveredCount + failedCount)));
+
     const sentPct = totalRecipients > 0 ? ((sentCount / totalRecipients) * 100).toFixed(1) : '0.0';
-    const deliveredPct = sentCount > 0 ? ((deliveredCount / sentCount) * 100).toFixed(1) : '0.0';
-    const failedPct = sentCount > 0 ? ((failedCount / sentCount) * 100).toFixed(1) : '0.0';
+    const deliveredPct = totalRecipients > 0 ? ((deliveredCount / totalRecipients) * 100).toFixed(1) : '0.0';
+    const failedPct = totalRecipients > 0 ? ((failedCount / totalRecipients) * 100).toFixed(1) : '0.0';
 
     return {
       total: totalRecipients,
       sent: sentCount,
+      inTransit: inTransitCount,
       delivered: deliveredCount,
       failed: failedCount,
       sentPct: sentPct === '100.0' ? '100%' : `${sentPct}%`,
@@ -282,12 +292,15 @@ export default function CampaignDetailsView({ campaignId }) {
   const filteredRecipients = useMemo(() => {
     return recipientsData.filter((r) => {
       const st = (r.status || '').toLowerCase();
-      const isSent = st === 'sent' || st === 'accepted' || st === 'delivered' || st === 'read' || Boolean(r.sent_at || r.wamid);
       const isDelivered = st === 'delivered' || st === 'read' || Boolean(r.delivered_at);
       const isFailed = st === 'failed' || st === 'skipped_marketing_frequency_limit' || st === 'skipped_invalid' || st === 'skipped_opted_out' || Boolean(r.error_code);
+      const isSent = st === 'sent' || st === 'accepted' || isDelivered || Boolean(r.sent_at || r.wamid);
+      const isInTransit = (st === 'sent' || st === 'accepted' || st === 'queued') && !isDelivered && !isFailed;
 
       // Tab matching
-      if (activeTab === 'sent') {
+      if (activeTab === 'in_transit') {
+        if (!isInTransit) return false;
+      } else if (activeTab === 'sent') {
         if (!isSent) return false;
       } else if (activeTab === 'delivered') {
         if (!isDelivered) return false;
@@ -479,17 +492,14 @@ export default function CampaignDetailsView({ campaignId }) {
           </div>
         </div>
 
-        {/* Card 2: Sent (Meta Accepted) */}
+        {/* Card 2: Sent */}
         <div className="p-4 sm:p-5 rounded-2xl bg-[#0b111b] border border-[#161a28] hover:border-[#283049] transition-all shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-[#1E4BB8] shadow-[0_0_20px_rgba(30,75,184,0.4)] flex items-center justify-center text-white shrink-0">
             <Send size={18} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-medium text-white/60 flex items-center gap-1.5">
-              <span>Sent</span>
-              <span className="text-[10px] text-[#818cf8] font-normal" title="Meta accepted the message submission">
-                (Meta accepted)
-              </span>
+            <div className="text-xs font-medium text-white/60">
+              Sent
             </div>
             <div className="flex items-center gap-2.5 mt-1">
               <span className="text-2xl sm:text-3xl font-medium text-white tracking-tight">
@@ -552,15 +562,16 @@ export default function CampaignDetailsView({ campaignId }) {
         </div>
       </div>
 
-      {/* 3. Three Clean UX Tabs: Sent | Delivered | Failed */}
+      {/* 3. UX Tabs: Sent | Delivered | Failed | Awaiting Delivery */}
       <div className="flex flex-col space-y-4 pt-1">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#161a28] pb-3">
           {/* Tabs */}
           <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar">
             {[
-              { id: 'sent', label: 'Sent', count: stats.sent, color: 'text-blue-400' },
-              { id: 'delivered', label: 'Delivered', count: stats.delivered, color: 'text-emerald-400' },
-              { id: 'failed', label: 'Failed', count: stats.failed, color: 'text-rose-400' },
+              { id: 'sent', label: 'Sent', count: stats.sent },
+              { id: 'delivered', label: 'Delivered', count: stats.delivered },
+              { id: 'failed', label: 'Failed', count: stats.failed },
+              { id: 'in_transit', label: 'Awaiting Delivery', count: stats.inTransit, hasClock: true },
             ].map((tab) => {
               const isActive = activeTab === tab.id;
               return (
@@ -578,9 +589,12 @@ export default function CampaignDetailsView({ campaignId }) {
                       : 'text-[#6b768c] hover:text-[#cbd5e1] hover:bg-[#0b0e18]'
                   }`}
                 >
+                  {tab.hasClock && <Clock size={13} className={isActive ? 'text-white' : 'text-[#6b768c]'} />}
                   <span>{tab.label}</span>
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    isActive ? 'bg-[#222944] text-white' : 'bg-[#121624] text-white/60'
+                    isActive
+                      ? 'bg-[#222944] text-white'
+                      : 'bg-[#121624] text-white/60'
                   }`}>
                     {tab.count.toLocaleString()}
                   </span>
@@ -708,6 +722,13 @@ export default function CampaignDetailsView({ campaignId }) {
                     <th className="px-5 py-3.5 font-normal text-white">Failed At</th>
                   </>
                 )}
+                {activeTab === 'in_transit' && (
+                  <>
+                    <th className="px-5 py-3.5 font-normal text-white">Delivery State</th>
+                    <th className="px-5 py-3.5 font-normal text-white">Sent At</th>
+                    <th className="px-5 py-3.5 font-normal text-white">Message ID</th>
+                  </>
+                )}
                 <th className="px-5 py-3.5 text-right font-normal text-white">Details</th>
               </tr>
             </thead>
@@ -740,7 +761,7 @@ export default function CampaignDetailsView({ campaignId }) {
                     <div className="flex flex-col items-center justify-center gap-2">
                       <span className="text-sm font-medium text-white">No recipients found</span>
                       <p className="text-xs text-white/50">
-                        {searchQuery ? `No results matching "${searchQuery}"` : `No recipients currently in ${activeTab} status`}
+                        {searchQuery ? `No results matching "${searchQuery}"` : `No recipients currently in ${activeTab.replace('_', ' ')} status`}
                       </p>
                     </div>
                   </td>
@@ -759,7 +780,7 @@ export default function CampaignDetailsView({ campaignId }) {
                       {/* Phone Number & Contact Name */}
                       <td className="px-5 py-3.5">
                         <div className="font-semibold text-white tracking-tight text-[13px]">
-                          {rec.phone_number || rec.phone || rec.normalized_phone || '—'}
+                          {rec.phone_number?.startsWith('+') ? rec.phone_number : (rec.normalized_phone?.startsWith('+') ? rec.normalized_phone : (rec.phone_number || rec.phone || rec.normalized_phone || '—'))}
                         </div>
                         {rec.recipient_name && rec.recipient_name !== rec.phone_number && (
                           <div className="text-[11px] text-white/60 mt-0.5">
@@ -788,6 +809,12 @@ export default function CampaignDetailsView({ campaignId }) {
                             <span>Failed</span>
                           </span>
                         )}
+                        {activeTab === 'in_transit' && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#3b2b06]/80 via-[#241a03]/60 to-[#0c0802] border border-white/10 text-white text-[11px] font-medium">
+                            <Clock size={11} className="text-white" />
+                            <span>Awaiting Delivery</span>
+                          </span>
+                        )}
                       </td>
 
                       {/* Sent Tab Specific Columns */}
@@ -798,7 +825,7 @@ export default function CampaignDetailsView({ campaignId }) {
                           </td>
                           <td className="px-5 py-3.5 text-[11px] text-white/60">
                             <div className="flex items-center gap-1.5 max-w-[180px]">
-                              <span className="truncate">{rec.wamid || 'wamid...'}</span>
+                              <span className="truncate">{rec.wamid || '—'}</span>
                               {rec.wamid && (
                                 <button
                                   type="button"
@@ -825,7 +852,7 @@ export default function CampaignDetailsView({ campaignId }) {
                           </td>
                           <td className="px-5 py-3.5 text-[11px] text-white/60">
                             <div className="flex items-center gap-1.5 max-w-[180px]">
-                              <span className="truncate">{rec.wamid || 'wamid...'}</span>
+                              <span className="truncate">{rec.wamid || '—'}</span>
                               {rec.wamid && (
                                 <button
                                   type="button"
@@ -857,7 +884,7 @@ export default function CampaignDetailsView({ campaignId }) {
                           </td>
                           <td className="px-5 py-3.5 text-[11px] text-white/60">
                             <div className="flex items-center gap-1.5 max-w-[180px]">
-                              <span className="truncate">{rec.wamid || 'wamid...'}</span>
+                              <span className="truncate">{rec.wamid || '—'}</span>
                               {rec.wamid && (
                                 <button
                                   type="button"
@@ -875,6 +902,43 @@ export default function CampaignDetailsView({ campaignId }) {
                           </td>
                           <td className="px-5 py-3.5 text-xs text-[#cbd5e1] whitespace-nowrap">
                             {formatTimeOnly(rec.failed_at || rec.sent_at || campaign?.created_at)}
+                          </td>
+                        </>
+                      )}
+
+                      {/* In-Transit (Awaiting Delivery) Tab Specific Columns */}
+                      {activeTab === 'in_transit' && (
+                        <>
+                          <td className="px-5 py-3.5 text-xs">
+                            <div className="flex flex-col">
+                              <span className="text-white font-medium">
+                                Waiting for phone connection
+                              </span>
+                              <span className="text-[11px] text-white/50 mt-0.5">
+                                Dispatched to WhatsApp network · Mobile data offline
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5 text-xs text-[#cbd5e1] whitespace-nowrap">
+                            {formatTimeOnly(rec.sent_at || rec.accepted_at || rec.created_at || campaign?.created_at)}
+                          </td>
+                          <td className="px-5 py-3.5 text-[11px] text-white/60">
+                            <div className="flex items-center gap-1.5 max-w-[180px]">
+                              <span className="truncate">{rec.wamid || '—'}</span>
+                              {rec.wamid && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCopy(rec.wamid, rec.id);
+                                  }}
+                                  className="text-white/40 hover:text-white p-1 rounded transition-colors"
+                                  title="Copy message ID"
+                                >
+                                  {copiedId === rec.id ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </>
                       )}

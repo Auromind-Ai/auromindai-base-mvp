@@ -161,6 +161,13 @@ class ConnectionManager:
                 continue
             seen.add(id(ws))
             try:
+                context = self._connection_context.get(id(ws), {})
+                workspace_id = message.get("workspace_id") or context.get("workspace_id")
+                if message.get("event_type") != "workspace_access_changed" and workspace_id:
+                    from app.core.realtime_access import realtime_allowed
+                    allowed = await asyncio.to_thread(realtime_allowed, context.get("user_id"), workspace_id, message.get("event_type", ""))
+                    if not allowed:
+                        continue
                 await asyncio.wait_for(
                     ws.send_json(message),
                     timeout=_SEND_TIMEOUT_SECONDS,

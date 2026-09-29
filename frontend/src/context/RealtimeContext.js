@@ -206,6 +206,9 @@ export function RealtimeProvider({ user, workspace, children }) {
         return;
       }
 
+      if (event.event_type === "workspace_access_changed") {
+        window.dispatchEvent(new CustomEvent('workspace:access-changed', { detail: event }));
+      }
       notifyHandlers(event);
     };
 

@@ -94,7 +94,7 @@ async def sync_gmail_leads(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    ws_uuid = verify_workspace_access(current_user, db, workspace_id)
+    ws_uuid = verify_workspace_access(current_user, db, workspace_id, required_permission='channels.manage')
     payload = body or GmailSyncLeadsRequest()
 
     from app.services.email_automation.gmail_lead_service import GmailLeadService
@@ -125,7 +125,7 @@ async def get_gmail_import_logs(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    ws_uuid = verify_workspace_access(current_user, db, workspace_id)
+    ws_uuid = verify_workspace_access(current_user, db, workspace_id, required_permission='channels.manage')
     from app.models.integration import GmailImportLog
 
     bounded_limit = max(1, min(limit, 100))

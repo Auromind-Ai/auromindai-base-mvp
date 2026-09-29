@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List
+from typing import Optional, List, Any
 from uuid import UUID
 
 class FlowPromptRequest(BaseModel):
@@ -43,6 +43,8 @@ class FlowResponseModel(BaseModel):
     nodes: list
     edges: list
     status: str
+    workspace_id: Optional[UUID] = None
+    created_at: Optional[Any] = None
     class Config:
         from_attributes = True
 

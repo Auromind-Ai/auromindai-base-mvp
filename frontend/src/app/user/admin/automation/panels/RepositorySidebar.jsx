@@ -10,7 +10,8 @@ export default function RepositorySidebar({
   selectedItem,
   handleSelectAutomation,
   setDeleteWireModal,
-  showToast
+  showToast,
+  workspaceId
 }) {
   return (
     <AnimatePresence>
@@ -93,7 +94,7 @@ export default function RepositorySidebar({
                         prev.map(a => a.id === item.id ? { ...a, status: 'Active' } : a)
                       );
                       try {
-                        await api.updateFlowStatus(item.id, 'Active');
+                        await api.updateFlowStatus(item.id, 'Active', workspaceId);
                       } catch (err) {
                         setAutomations(prev =>
                           prev.map(a => a.id === item.id ? { ...a, status: prevStatus } : a)
@@ -128,7 +129,7 @@ export default function RepositorySidebar({
                         prev.map(a => a.id === item.id ? { ...a, status: 'Inactive' } : a)
                       );
                       try {
-                        await api.updateFlowStatus(item.id, 'Inactive');
+                        await api.updateFlowStatus(item.id, 'Inactive', workspaceId);
                       } catch (err) {
                         setAutomations(prev =>
                           prev.map(a => a.id === item.id ? { ...a, status: prevStatus } : a)

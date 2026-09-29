@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import api from '@/lib/api';
+import { resolveWorkspace, getVisibleWorkspaces } from '@/lib/workspaceAccess.mjs';
 import { setUser, setWorkspace, removeToken, setToken, getToken, isTokenExpired } from '@/lib/auth';
 
 const AuthContext = createContext({
@@ -19,6 +20,10 @@ export function AuthProvider({ children }) {
   const [user, setUserState] = useState(null);
   const [workspaces, setWorkspacesState] = useState([]);
   const [workspaceId, setWorkspaceIdState] = useState(null);
+  const [currentRole, setCurrentRole] = useState('member');
+  const [permissions, setPermissions] = useState(null);
+  const [permissionWorkspaceId, setPermissionWorkspaceId] = useState(null);
+  const permissionRequestRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [csrfToken, setCsrfTokenState] = useState(null);
   const csrfTokenRef = useRef(null);
@@ -61,26 +66,25 @@ export function AuthProvider({ children }) {
         // Fetch workspaces list
         const wsData = await api.getWorkspaces({ signal });
         const wsList = wsData?.workspaces || [];
-        setWorkspacesState(wsList);
+        setWorkspacesState(getVisibleWorkspaces(wsList));
         
-        // Determine active workspace_id
-        let activeWs = null;
-        const currentWsId = workspaceIdRef.current;
-
-        if (currentWsId) {
-          activeWs = wsList.find(w => w.id === currentWsId);
-        }
-        if (!activeWs && profile.workspace_id) {
-          activeWs = wsList.find(w => w.id === profile.workspace_id);
-        }
-        if (!activeWs && wsList.length > 0) {
-          activeWs = wsList[0];
-        }
+        // Restore the selection on full reloads before checking route permissions.
+        // Only IDs in the server-provided membership list can become active.
+        const savedWsId = typeof window !== 'undefined'
+          ? localStorage.getItem('workspace_id')
+          : null;
+        const activeWs = resolveWorkspace(wsList, workspaceIdRef.current, savedWsId, profile.workspace_id, wsData?.hidden_personal_workspace_ids || []);
 
         if (activeWs) {
           setWorkspaceIdState(activeWs.id);
           workspaceIdRef.current = activeWs.id;
           setWorkspace(activeWs);
+        } else {
+          setWorkspaceIdState(null);
+          workspaceIdRef.current = null;
+          // Keep an unavailable selection persisted until the user explicitly
+          // chooses another workspace; never silently open their own workspace.
+          if (!savedWsId) setWorkspace(null);
         }
 
         return profile;
@@ -97,26 +101,41 @@ export function AuthProvider({ children }) {
                             err?.message?.toLowerCase()?.includes('could not validate credentials') ||
                             err?.message?.toLowerCase()?.includes('credentials');
 
+        const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+        const isExcludedFromRedirect = pathname.startsWith('/login') ||
+                                       pathname.startsWith('/signup') ||
+                                       pathname.startsWith('/docs') ||
+                                       pathname.startsWith('/accept-invite') ||
+                                       pathname === '/';
+
         if (isDeactivated) {
           removeToken();
+          setCurrentRole('member');
+          setPermissions(null);
+          setPermissionWorkspaceId(null);
+          permissionRequestRef.current += 1;
           setUserState(null);
           setWorkspacesState([]);
           setWorkspaceIdState(null);
           workspaceIdRef.current = null;
           setUser(null);
           setWorkspace(null);
-          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/docs')) {
+          if (typeof window !== 'undefined' && !isExcludedFromRedirect) {
             window.location.replace('/login?deactivated=true');
           }
         } else if (isAuthError) {
           removeToken();
+          setCurrentRole('member');
+          setPermissions(null);
+          setPermissionWorkspaceId(null);
+          permissionRequestRef.current += 1;
           setUserState(null);
           setWorkspacesState([]);
           setWorkspaceIdState(null);
           workspaceIdRef.current = null;
           setUser(null);
           setWorkspace(null);
-          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/docs')) {
+          if (typeof window !== 'undefined' && !isExcludedFromRedirect) {
             window.location.replace('/login?session_expired=true');
           }
         } else {
@@ -146,12 +165,15 @@ export function AuthProvider({ children }) {
     };
 
     const checkAuth = async () => {
-      if (typeof window !== 'undefined') {
+      const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+
+      // Only strip and use URL tokens on login/callback pages, NEVER on /accept-invite
+      if (typeof window !== 'undefined' && !pathname.startsWith('/accept-invite')) {
         const urlParams = new URLSearchParams(window.location.search);
-        const tokenFromUrl = urlParams.get('token');
+        const tokenFromUrl = urlParams.get('token') || urlParams.get('auth_token');
         if (tokenFromUrl) {
           setToken(tokenFromUrl);
-          const cleanUrl = window.location.pathname + window.location.search.replace(/[\?&]token=[^&]+/, '').replace(/^&/, '?');
+          const cleanUrl = window.location.pathname + window.location.search.replace(/[\?&](token|auth_token)=[^&]+/, '').replace(/^&/, '?');
           window.history.replaceState({}, document.title, cleanUrl || window.location.pathname);
         }
       }
@@ -164,10 +186,14 @@ export function AuthProvider({ children }) {
         localStorage.setItem('orbionagents_logged_in', 'true');
         localStorage.removeItem('auromind_logged_in');
       }
-      const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
 
       const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup');
-      const hasTokenInUrl = typeof window !== 'undefined' && Boolean(new URLSearchParams(window.location.search).get('token'));
+      const hasTokenInUrl = typeof window !== 'undefined' && !pathname.startsWith('/accept-invite') && Boolean(new URLSearchParams(window.location.search).get('token'));
+
+      if (pathname.startsWith('/accept-invite') && !isLogged && !getToken()) {
+        setLoading(false);
+        return;
+      }
 
       if ((isAuthPage && !hasTokenInUrl) || (isMarketingPage(pathname) && !isLogged)) {
         setLoading(false);
@@ -192,6 +218,10 @@ export function AuthProvider({ children }) {
       console.warn("Logout API call failed:", err?.message || err);
     } finally {
       removeToken();
+      setCurrentRole('member');
+      setPermissions(null);
+      setPermissionWorkspaceId(null);
+      permissionRequestRef.current += 1;
       setUserState(null);
       setWorkspaceIdState(null);
       workspaceIdRef.current = null;
@@ -215,6 +245,10 @@ export function AuthProvider({ children }) {
   // Listen to cross-module auth:logout events
   useEffect(() => {
     const handleAuthLogout = () => {
+      setCurrentRole('member');
+      setPermissions(null);
+      setPermissionWorkspaceId(null);
+      permissionRequestRef.current += 1;
       setUserState(null);
       setWorkspaceIdState(null);
       workspaceIdRef.current = null;
@@ -261,29 +295,145 @@ export function AuthProvider({ children }) {
     };
   }, [logout]);
 
-  const setWorkspaceId = useCallback((id) => {
-    setWorkspaceIdState(id);
-    workspaceIdRef.current = id;
-    setWorkspacesState((currentWorkspaces) => {
-      const matchedWs = currentWorkspaces.find(w => w.id === id);
-      if (matchedWs) {
-        setWorkspace(matchedWs);
+  const refreshPermissions = useCallback(async (wsId) => {
+    const targetWsId = wsId || workspaceIdRef.current;
+    if (!targetWsId) return null;
+    const requestId = ++permissionRequestRef.current;
+    try {
+      const res = await api.getMyWorkspacePermissions(targetWsId);
+      if (requestId !== permissionRequestRef.current || targetWsId !== workspaceIdRef.current) return null;
+      setCurrentRole(res?.role || 'member');
+      setPermissions(res?.permissions || {});
+      setPermissionWorkspaceId(targetWsId);
+      return res;
+    } catch (e) {
+      if (requestId !== permissionRequestRef.current || targetWsId !== workspaceIdRef.current) return null;
+      setCurrentRole('member');
+      setPermissions({});
+      setPermissionWorkspaceId(targetWsId);
+      if (e?.status === 403) refreshUser().catch(() => {});
+      console.warn("Failed to fetch workspace permissions:", e);
+      return null;
+    }
+  }, [refreshUser]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    const refresh = () => { void refreshPermissions(workspaceId); };
+    const onAccessChanged = (event) => {
+      if (!event.detail?.workspace_id || event.detail.workspace_id === workspaceId) refresh();
+    };
+    refresh();
+    const interval = setInterval(refresh, 15000);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('workspace:access-changed', onAccessChanged);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('workspace:access-changed', onAccessChanged);
+    };
+  }, [workspaceId, refreshPermissions]);
+
+  const PERMISSION_ALIASES = useMemo(() => ({
+    "leads.view": ["leads.all_leads", "leads.view", "leads.manage", "leads.*"],
+    "leads.all_leads": ["leads.all_leads", "leads.view", "leads.manage", "leads.*"],
+    "crm.view": ["crm.view", "crm.contacts", "crm.deals", "crm.companies", "crm.*"],
+    "crm.contacts": ["crm.view", "crm.contacts", "crm.deals", "crm.companies", "crm.*"],
+    "ai.chat": ["ai.chat", "ai_agents.agents", "ai_agents.agent_settings", "ai_agents.*", "ai.*"],
+    "ai_agents.agents": ["ai.chat", "ai_agents.agents", "ai_agents.*", "ai.*"],
+    "automation.manage": ["automation.manage", "flows.all_flows", "flows.flow_settings", "flows.manage", "flows.*", "automation.*"],
+    "flows.all_flows": ["automation.manage", "flows.all_flows", "flows.flow_settings", "flows.manage", "flows.*", "automation.*"],
+    "templates.manage": ["templates.manage", "marketing.templates", "templates.*"],
+    "marketing.templates": ["templates.manage", "marketing.templates", "templates.*"],
+    "channels.manage": ["channels.manage", "integrations.connected_accounts", "integrations.*", "channels.*"],
+    "integrations.connected_accounts": ["channels.manage", "integrations.connected_accounts", "integrations.*", "channels.*"],
+    "brain.manage": ["brain.manage", "knowledge_base.documents", "knowledge_base.*", "brain.*"],
+    "knowledge_base.documents": ["brain.manage", "knowledge_base.documents", "knowledge_base.*", "brain.*"],
+    "credits.view": ["credits.view", "analytics.reports", "credits.*", "analytics.*"],
+    "analytics.reports": ["credits.view", "analytics.reports", "credits.*", "analytics.*"],
+    "billing.manage": ["billing.manage", "billing.plans", "billing.invoices", "billing.*"],
+    "billing.plans": ["billing.manage", "billing.plans", "billing.invoices", "billing.*"],
+  }), []);
+
+  const hasPermission = useCallback((permKey) => {
+    if (!workspaceId || permissionWorkspaceId !== workspaceId || !currentRole) return false;
+    const normRole = (currentRole || '').toLowerCase().trim();
+    if (['admin', 'founder', 'owner', 'superadmin', 'platform_admin'].includes(normRole)) {
+      return true;
+    }
+    if (!permissions) return false;
+
+    const checkSingle = (key) => {
+      if (key.includes('.')) {
+        const [sec, item] = key.split('.');
+        const secItems = permissions[sec];
+        if (Array.isArray(secItems)) {
+          return secItems.includes(item) || secItems.includes('*');
+        }
+        if (typeof secItems === 'boolean') return secItems;
+        return false;
+      } else {
+        const secItems = permissions[key];
+        if (Array.isArray(secItems)) return secItems.length > 0;
+        if (typeof secItems === 'boolean') return secItems;
+        return false;
       }
-      return currentWorkspaces;
-    });
-  }, []);
+    };
+
+    if (checkSingle(permKey)) return true;
+
+    // Check aliases
+    const aliases = PERMISSION_ALIASES[permKey] || [];
+    for (const alias of aliases) {
+      if (checkSingle(alias)) return true;
+    }
+
+    // Section alias fallback
+    const secMap = {
+      ai: ['ai_agents'],
+      automation: ['flows'],
+      channels: ['integrations'],
+      brain: ['knowledge_base'],
+      credits: ['analytics'],
+    };
+    if (secMap[permKey]) {
+      for (const oldSec of secMap[permKey]) {
+        if (checkSingle(oldSec)) return true;
+      }
+    }
+
+    return false;
+  }, [currentRole, permissions, permissionWorkspaceId, workspaceId, PERMISSION_ALIASES]);
+
+  const setWorkspaceId = useCallback((id) => {
+    const matchedWs = getVisibleWorkspaces(workspaces).find(w => w.id === id);
+    if (!matchedWs) return;
+    permissionRequestRef.current += 1;
+    setPermissionWorkspaceId(null);
+    setCurrentRole('member');
+    setPermissions(null);
+    // Persist synchronously so immediately entering a URL keeps this selection.
+    setWorkspace(matchedWs);
+    workspaceIdRef.current = id;
+    setWorkspaceIdState(id);
+  }, [workspaces]);
 
   const contextValue = useMemo(() => ({
     user,
     workspaceId,
-    workspaces,
+    workspaces: getVisibleWorkspaces(workspaces),
+    currentRole: permissionWorkspaceId === workspaceId ? currentRole : 'member',
+    permissionsLoading: Boolean(workspaceId && permissionWorkspaceId !== workspaceId),
+    permissions,
+    hasPermission,
+    refreshPermissions,
     loading,
     csrfToken,
     setUser: setUserState,
     setWorkspaceId,
     logout,
     refreshUser
-  }), [user, workspaceId, workspaces, loading, csrfToken, setWorkspaceId, logout, refreshUser]);
+  }), [user, workspaceId, workspaces, currentRole, permissionWorkspaceId, permissions, hasPermission, refreshPermissions, loading, csrfToken, setWorkspaceId, logout, refreshUser]);
 
   return (
     <AuthContext.Provider value={contextValue}>

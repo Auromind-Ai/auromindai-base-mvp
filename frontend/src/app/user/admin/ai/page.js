@@ -165,6 +165,7 @@ export default function AuromindAIPage() {
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [sessionsLoaded, setSessionsLoaded] = useState(false);
+    const pollingRef = useRef(null);
     const abortControllerRef = useRef(null);
     const lastTypedTextRef = useRef('');
     const lastStopTimeRef = useRef(0);
@@ -275,6 +276,7 @@ export default function AuromindAIPage() {
     };
 
     const { user, workspaces, workspaceId } = useAuth();
+    const sessionStorageKey = `ai_chat_session:${user?.id}:${workspaceId}`;
     const router = useRouter();
     const [userPlan, setUserPlan] = useState("free");
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -304,19 +306,30 @@ export default function AuromindAIPage() {
         setSelectedModel(model.id);
     };
 
-    const loadSessions = useCallback(async () => {
-        try {
-            const data = await api.getChatSessions(workspaceId);
-            setSessions(data);
-            const savedSessionId = sessionStorage.getItem("last_session_id");
-            if (savedSessionId && data.find(s => s.id === savedSessionId)) {
-                setCurrentSessionId(savedSessionId);
-            }
-        } catch (err) {
-            console.error("Failed to load sessions:", err);
-        } finally {
-            setSessionsLoaded(true);
-        }
+
+    const startPollingSession = useCallback((sessionId) => {
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        const timer = setInterval(async () => {
+            try {
+                const history = await api.getSessionMessages(sessionId, workspaceId);
+                if (pollingRef.current !== timer) return;
+                if (history && history.length > 0) {
+                    const mapped = history.map(m => ({
+                        role: m.role,
+                        content: m.content,
+                        isStreaming: false,
+                        generationStatus: m.status || 'COMPLETED',
+                    }));
+                    setMessages(mapped);
+                    const stillActive = mapped.some(m => m.generationStatus === 'GENERATING' || m.generationStatus === 'PENDING');
+                    if (!stillActive) {
+                        clearInterval(pollingRef.current);
+                        pollingRef.current = null;
+                    }
+                }
+            } catch (_) {}
+        }, 2000);
+        pollingRef.current = timer;
     }, [workspaceId]);
 
     useEffect(() => {
@@ -341,8 +354,19 @@ export default function AuromindAIPage() {
     }, []);
 
     useEffect(() => {
-        if (workspaceId && mounted) loadSessions();
-    }, [workspaceId, mounted, loadSessions]);
+        if (!workspaceId || !mounted) return;
+        let cancelled = false;
+        api.getChatSessions(workspaceId).then(data => {
+            if (cancelled) return;
+            setSessions(data);
+            const savedSessionId = sessionStorage.getItem(sessionStorageKey);
+            if (savedSessionId && data.some(s => s.id === savedSessionId)) {
+                setCurrentSessionId(savedSessionId);
+            }
+        }).catch(err => console.error("Failed to load sessions:", err))
+            .finally(() => { if (!cancelled) setSessionsLoaded(true); });
+        return () => { cancelled = true; };
+    }, [workspaceId, mounted, sessionStorageKey]);
 
     useEffect(() => {
         if (workspaceId) {
@@ -361,7 +385,7 @@ export default function AuromindAIPage() {
     useEffect(() => {
         const fetchModels = async () => {
             try {
-                const res = await api.getChatModels();
+                const res = await api.getChatModels(workspaceId);
                 if (res && Array.isArray(res)) {
                     const mapped = res.map(m => {
                         let plan = "free";
@@ -381,7 +405,7 @@ export default function AuromindAIPage() {
             }
         };
         fetchModels();
-    }, []);
+    }, [workspaceId]);
 
     useEffect(() => {
         const currentModelObj = models.find(m => m.id === selectedModel);
@@ -398,10 +422,12 @@ export default function AuromindAIPage() {
             return;
         }
         if (isStreamActiveRef.current) return;
+        let cancelled = false;
         const fetchMessages = async () => {
             setIsInitializing(true);
             try {
-                const history = await api.getSessionMessages(currentSessionId);
+                const history = await api.getSessionMessages(currentSessionId, workspaceId);
+                if (cancelled) return;
                 const mapped = history.map(m => ({
                     role: m.role,
                     content: m.content,
@@ -416,44 +442,30 @@ export default function AuromindAIPage() {
                     startPollingSession(currentSessionId);
                 }
             } catch (err) {
+                if (cancelled) return;
                 console.error("Failed to load session messages:", err);
                 setMessages([{ role: 'assistant', content: "Failed to load chat history.", isError: true }]);
             } finally {
-                setIsInitializing(false);
+                if (!cancelled) setIsInitializing(false);
             }
         };
         fetchMessages();
-    }, [currentSessionId]);
+        return () => {
+            cancelled = true;
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
+        };
+    }, [currentSessionId, workspaceId, startPollingSession]);
 
-    const handleSelectSession = async (sessionId) => {
+    const handleSelectSession = (sessionId) => {
         setCurrentSessionId(sessionId);
-        sessionStorage.setItem("last_session_id", sessionId);
+        sessionStorage.setItem(sessionStorageKey, sessionId);
         setIsSidebarOpen(false);
-        setIsInitializing(true);
-        setMessages([]);
-        try {
-            const history = await api.getSessionMessages(sessionId);
-            const mapped = history.map(m => ({
-                role: m.role,
-                content: m.content,
-                isStreaming: false,
-                generationStatus: m.status || 'COMPLETED',
-            }));
-            setMessages(mapped);
-            const hasActive = mapped.some(m => m.generationStatus === 'GENERATING' || m.generationStatus === 'PENDING');
-            if (hasActive) {
-                startPollingSession(sessionId);
-            }
-        } catch (err) {
-            setMessages([{ role: 'assistant', content: "Failed to load chat history.", isError: true }]);
-        } finally {
-            setIsInitializing(false);
-        }
     };
 
     const handleCreateSession = async () => {
         setCurrentSessionId(null);
-        sessionStorage.removeItem("last_session_id");
+        sessionStorage.removeItem(sessionStorageKey);
         setMessages([]);
         setInputValue('');
         setAttachedFile(null);
@@ -462,7 +474,7 @@ export default function AuromindAIPage() {
 
     const handleDeleteSession = async (sessionId) => {
         try {
-            await api.deleteChatSession(sessionId);
+            await api.deleteChatSession(sessionId, workspaceId);
             setSessions(prev => prev.filter(s => s.id !== sessionId));
             if (currentSessionId === sessionId) {
                 setCurrentSessionId(null);
@@ -473,7 +485,7 @@ export default function AuromindAIPage() {
 
     const handleUpdateSession = async (sessionId, title) => {
         try {
-            await api.updateChatSession(sessionId, title);
+            await api.updateChatSession(sessionId, title, workspaceId);
             setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title } : s));
         } catch (err) { console.error("Failed to update session:", err); }
     };
@@ -501,31 +513,6 @@ export default function AuromindAIPage() {
         container.addEventListener('scroll', handleScroll, { passive: true });
         return () => container.removeEventListener('scroll', handleScroll);
     }, [messages.length]);
-
-    const pollingRef = useRef(null);
-
-    const startPollingSession = useCallback((sessionId) => {
-        if (pollingRef.current) clearInterval(pollingRef.current);
-        pollingRef.current = setInterval(async () => {
-            try {
-                const history = await api.getSessionMessages(sessionId);
-                if (history && history.length > 0) {
-                    const mapped = history.map(m => ({
-                        role: m.role,
-                        content: m.content,
-                        isStreaming: false,
-                        generationStatus: m.status || 'COMPLETED',
-                    }));
-                    setMessages(mapped);
-                    const stillActive = mapped.some(m => m.generationStatus === 'GENERATING' || m.generationStatus === 'PENDING');
-                    if (!stillActive) {
-                        clearInterval(pollingRef.current);
-                        pollingRef.current = null;
-                    }
-                }
-            } catch (_) {}
-        }, 2000);
-    }, []);
 
     useEffect(() => {
         return () => {
@@ -558,7 +545,7 @@ export default function AuromindAIPage() {
                 const activeSid = currentSessionIdRef.current;
                 if (activeSid && !isStreamActiveRef.current) {
                     try {
-                        const history = await api.getSessionMessages(activeSid);
+                        const history = await api.getSessionMessages(activeSid, workspaceId);
                         if (history && history.length > 0) {
                             const mapped = history.map(m => ({
                                 role: m.role,
@@ -585,7 +572,7 @@ export default function AuromindAIPage() {
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [startPollingSession]);
+    }, [startPollingSession, workspaceId]);
 
     const handleStop = useCallback(async () => {
         const now = Date.now();
@@ -609,9 +596,9 @@ export default function AuromindAIPage() {
         setIsStreaming(false);
 
         try {
-            await api.stopChat(currentSessionId);
+            await api.stopChat(currentSessionId, workspaceId);
         } catch (_) {}
-    }, [currentSessionId]);
+    }, [currentSessionId, workspaceId]);
 
     const handleExecute = async () => {
         if ((!inputValue.trim() && !attachedFile) || isLoading || isStreaming) return;
@@ -641,7 +628,7 @@ export default function AuromindAIPage() {
                     setSessions(prev => [newSession, ...prev]);
                     skipNextSessionFetchRef.current = true;
                     setCurrentSessionId(newSession.id);
-                    sessionStorage.setItem("last_session_id", newSession.id);
+                    sessionStorage.setItem(sessionStorageKey, newSession.id);
                     activeSessionId = newSession.id;
                 } catch (sErr) { console.error("Session creation failed:", sErr); }
             } else {
@@ -658,7 +645,8 @@ export default function AuromindAIPage() {
                 document_id: lastUploadedId,
                 chat_mode: chatMode,
                 source: source,
-                session_id: activeSessionId
+                session_id: activeSessionId,
+                workspace_id: workspaceId
             }, abortControllerRef.current.signal);
             setAttachedFile(null);
             setLastUploadedId(null);
@@ -931,7 +919,12 @@ export default function AuromindAIPage() {
         try {
             const res = await api.streamChat({
                 message: newContent,
-                model: selectedModel
+                model: selectedModel,
+                session_id: currentSessionId,
+                workspace_id: workspaceId,
+                use_rag: true,
+                chat_mode: chatMode,
+                source: source
             }, abortControllerRef.current.signal);
             responseBufferRef.current = '';
             renderedTextRef.current = '';
@@ -996,7 +989,12 @@ export default function AuromindAIPage() {
         try {
             const res = await api.streamChat({
                 message: userMsg,
-                model: selectedModel
+                model: selectedModel,
+                session_id: currentSessionId,
+                workspace_id: workspaceId,
+                use_rag: true,
+                chat_mode: chatMode,
+                source: source
             }, abortControllerRef.current.signal);
             responseBufferRef.current = '';
             renderedTextRef.current = '';

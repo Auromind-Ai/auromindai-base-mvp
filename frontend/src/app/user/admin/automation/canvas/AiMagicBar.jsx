@@ -14,7 +14,8 @@ export default function AiMagicBar({
   setNodes,
   setEdges,
   setCanvasOffset,
-  setActiveNodeId
+  setActiveNodeId,
+  workspaceId
 }) {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
@@ -23,7 +24,7 @@ export default function AiMagicBar({
     setIsGenerating(true);
     setError(null);
     try {
-      const data = await api.generateAIFlow(aiInput);
+      const data = await api.generateAIFlow(aiInput, workspaceId);
       if (data.nodes && data.nodes.length > 0) {
         setNodes(data.nodes);
         setEdges(data.edges || []);

@@ -383,7 +383,17 @@ function WhatsAppAudioMessage({ url, isMe, timestamp }) {
     );
 }
 
-function ConversationSidebar({ ch, conversations = [], lead, activeFilter, onFilterChange, onLeadSelect, filterCounts = {}, unreadCounts = {}, lastMessageMap = {} }) {
+function ConversationSidebar({
+    ch,
+    conversations = [],
+    lead,
+    activeFilter,
+    onFilterChange,
+    onLeadSelect,
+    filterCounts = {},
+    unreadCounts = {},
+    lastMessageMap = {},
+}) {
     const [searchQuery, setSearchQuery] = useState('');
     const containerRef = useRef(null);
     const isInstagram = ch.id === 'instagram';
@@ -443,7 +453,7 @@ function ConversationSidebar({ ch, conversations = [], lead, activeFilter, onFil
     return (
         <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: CARD_BG }}>
             <div className="p-4 pb-3 shrink-0">
-                <div className="flex items-center gap-2.5 mb-4">
+                <div className="flex items-center gap-2.5 mb-3">
                     {isInstagram ? (
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: ch.gradient }}>
                             <Instagram size={16} strokeWidth={2} className="text-white" />
@@ -515,8 +525,6 @@ function ConversationSidebar({ ch, conversations = [], lead, activeFilter, onFil
                                 ? 'No converted conversations'
                                 : statusFilters[activeFilter] === 'Closed'
                                 ? 'No closed conversations'
-                                : statusFilters[activeFilter] === 'All'
-                                ? 'No conversations found'
                                 : 'No conversations found'}
                         </p>
                         <p className="text-center text-[#3a3a3a] text-[11px]">
@@ -855,18 +863,17 @@ function ChatArea({
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
     useEffect(() => {
-    const handleClickOutside = (event) => {
-        if (!event.target.closest('.emoji-picker-container')) {
-            setShowEmojiPicker(false);
-        }
-    };
+        const handleClickOutside = (event) => {
+            if (!event.target.closest('.emoji-picker-container')) {
+                setShowEmojiPicker(false);
+            }
+        };
 
-    document.addEventListener('mousedown', handleClickOutside);
-
-    return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-    };
-}, []);
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
 
     const handleFileSelect = (e) => {
         const file = e.target.files?.[0];
@@ -995,7 +1002,7 @@ function ChatArea({
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b shrink-0"
                 style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                     {showMobileBackButton && (
                         <button onClick={onBackToList} className="p-1.5 rounded-lg text-[#666] hover:text-white">
                             <ArrowLeft size={18} />
@@ -1009,12 +1016,12 @@ function ChatArea({
                             <span style={{ color: ch.color }}>{getAvatarText(lead, ch.id)}</span>
                         )}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                            <h3 className="text-[14px] font-semibold text-white">{getDisplayName(lead, ch.id)}</h3>
-                            {ch.id !== 'whatsapp' && <ChevronRight size={14} className="text-[#555]" />}
+                            <h3 className="text-[14px] font-semibold text-white truncate">{getDisplayName(lead, ch.id)}</h3>
+                            {ch.id !== 'whatsapp' && <ChevronRight size={14} className="text-[#555] shrink-0" />}
                         </div>
-                        <p className="text-[12px] text-[#666]">
+                        <p className="text-[12px] text-[#666] truncate">
                             {(() => {
                                 const activeText = formatActiveTime(lastUserActivity);
                                 if (activeText === 'Online') {
@@ -1045,7 +1052,7 @@ function ChatArea({
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5 shrink-0">
                     <button
                         onClick={onInfoClick}
                         className="p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer min-[1601px]:hidden"
@@ -1506,7 +1513,7 @@ function PanelCard({ children, className = '', style = {} }) {
 }
 
 function InboxContent() {
-    const { workspaces, workspaceId } = useAuth();
+    const { workspaces, workspaceId, user } = useAuth();
     const workspace = workspaces?.find((item) => item.id === workspaceId) || null;
 
     const { subscribe, subscribeConversation, unsubscribeConversation } = useRealtime();
@@ -1521,6 +1528,7 @@ function InboxContent() {
     useEffect(() => {
         activeFilterRef.current = activeFilter;
     }, [activeFilter]);
+
     const reqIdRef = useRef(0);
     const [filterCounts, setFilterCounts] = useState({ all: 0, open: 0, follow_up: 0, unread: 0, converted: 0, closed: 0 });
 
@@ -1533,7 +1541,7 @@ function InboxContent() {
     const [selectedFile, setSelectedFile] = useState(null);
     const [selectedFilePreview, setSelectedFilePreview] = useState(null);
     const [isUploadingMedia, setIsUploadingMedia] = useState(false);
-    
+
     const [aiSuggestion, setAiSuggestion] = useState('');
     const [previewMedia, setPreviewMedia] = useState(null);
     const [unreadCounts, setUnreadCounts] = useState({});
@@ -1764,10 +1772,13 @@ function InboxContent() {
         const currentChannel = ch.id;
         const statusParam = statusOverride || getStatusParam(targetFilterIdx, currentChannel);
 
+        const convUrl = `/api/conversations?workspace_id=${workspace.id}&channel=${currentChannel}&status=${statusParam}`;
+        const countUrl = `/api/conversations/counts?workspace_id=${workspace.id}&channel=${currentChannel}`;
+
         try {
             const [data, counts] = await Promise.all([
-                api.get(`/api/conversations?workspace_id=${workspace.id}&channel=${currentChannel}&status=${statusParam}`),
-                api.get(`/api/conversations/counts?workspace_id=${workspace.id}&channel=${currentChannel}`).catch(() => null)
+                api.get(convUrl),
+                api.get(countUrl).catch(() => null)
             ]);
 
             if (!Array.isArray(data)) {
@@ -2251,6 +2262,7 @@ function InboxContent() {
         onLoadOlderMessages: loadOlderMessages,
         hasMoreMessages,
         isLoadingOlder,
+        currentUser: user,
         onSendTemplateSuccess: (formattedContent) => {
             fetchMessages(lead.id);
             setMessages(prev => [...prev, {
@@ -2272,6 +2284,18 @@ function InboxContent() {
         activeFilter,
     };
 
+    const sidebarProps = {
+        ch,
+        conversations,
+        lead,
+        activeFilter,
+        onFilterChange: handleFilterChange,
+        filterCounts,
+        unreadCounts,
+        lastMessageMap,
+        currentUser: user,
+    };
+
     return (
         <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#0d0d0d', fontFamily: "'Poppins', sans-serif" }}>
 
@@ -2281,10 +2305,7 @@ function InboxContent() {
                     <ChannelTabs ch={ch} setCh={setCh} />
                     <PanelCard className="flex-1">
                         <ConversationSidebar
-                            ch={ch} conversations={conversations} lead={lead}
-                            activeFilter={activeFilter} onFilterChange={handleFilterChange}
-                            filterCounts={filterCounts}
-                            unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
+                            {...sidebarProps}
                             onLeadSelect={(l) => {
                                 setLead(l);
                                 leadRef.current = l;
@@ -2356,10 +2377,7 @@ function InboxContent() {
                         <ChannelTabs ch={ch} setCh={setCh} />
                         <PanelCard className="flex-1">
                             <ConversationSidebar
-                                ch={ch} conversations={conversations} lead={lead}
-                                activeFilter={activeFilter} onFilterChange={handleFilterChange}
-                                filterCounts={filterCounts}
-                                unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
+                                {...sidebarProps}
                                 onLeadSelect={(l) => {
                                     setLead(l);
                                     leadRef.current = l;
@@ -2404,10 +2422,7 @@ function InboxContent() {
                 <div className="flex flex-1 overflow-hidden px-3 pb-3 gap-3">
                     <PanelCard style={{ width: 260, minWidth: 240 }}>
                         <ConversationSidebar
-                            ch={ch} conversations={conversations} lead={lead}
-                            activeFilter={activeFilter} onFilterChange={handleFilterChange}
-                            filterCounts={filterCounts}
-                            unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
+                            {...sidebarProps}
                             onLeadSelect={(l) => {
                                 handleLeadSelectTablet(l);
                                 setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
@@ -2445,10 +2460,7 @@ function InboxContent() {
                             <motion.div key="mobile-list" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}
                                 className="absolute inset-0" style={{ backgroundColor: CARD_BG }}>
                                 <ConversationSidebar
-                                    ch={ch} conversations={conversations} lead={lead}
-                                    activeFilter={activeFilter} onFilterChange={handleFilterChange}
-                                    filterCounts={filterCounts}
-                                    unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
+                                    {...sidebarProps}
                                     onLeadSelect={(l) => {
                                         handleLeadSelectMobile(l);
                                         setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));

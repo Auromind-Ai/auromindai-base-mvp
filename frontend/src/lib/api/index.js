@@ -12,6 +12,7 @@ import * as settings from './settings';
 import * as templates from './templates';
 import * as users from './users';
 import * as dashboard from './dashboard';
+import * as workspace from './workspace';
 
 const api = {
   // Expose the base request helpers as well
@@ -40,7 +41,9 @@ const api = {
   ...templates,
   ...users,
   ...dashboard,
+  ...workspace,
 };
+
 
 export default api;
 export { api };
