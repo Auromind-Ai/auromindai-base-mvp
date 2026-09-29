@@ -48,7 +48,8 @@ class WorkspaceInvitationResponse(BaseModel):
     email: str
     role: str
     permissions: Optional[Union[Dict[str, Any], List[str]]] = None
-    token: str
+    token: Optional[str] = None
+    email_sent: Optional[bool] = None
     status: str
     invited_by_name: Optional[str] = None
     created_at: Optional[datetime] = None

@@ -414,6 +414,7 @@ export default function CreateTemplatePage() {
         prompt: aiPrompt.trim(),
         tone: tone,
         language: form.language,
+        workspace_id: workspaceId || undefined,
       });
       let templates = [];
       if (res?.message) {

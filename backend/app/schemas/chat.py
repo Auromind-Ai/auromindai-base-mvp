@@ -39,6 +39,7 @@ class ChatMessageResponse(BaseModel):
 
 class UpdateSessionRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
+    workspace_id: Optional[str] = None
 
     @field_validator("title")
     @classmethod
@@ -50,10 +51,12 @@ class UpdateSessionRequest(BaseModel):
 
 class StopChatRequest(BaseModel):
     session_id: str = Field(..., min_length=1, max_length=128)
+    workspace_id: Optional[str] = None
 
 class ChatStreamRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=96000, description="Input message prompt limited to maximum 96000 characters to prevent oversized prompts, excessive token usage, and database bloat.")
     session_id: Optional[str] = None
+    workspace_id: Optional[str] = None
     use_rag: bool = True
     model: str = "auto"
     document_id: Optional[str] = None

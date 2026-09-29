@@ -31,6 +31,8 @@ def resolve_and_verify_workspace(
     workspace_id_query: str | None = None,
     x_workspace_id_header: str | None = None,
     payload: Any | None = None,
+    required_permission: str | tuple[str, ...] = "credits.view",
+    required_roles: list[str] | None = None,
 ) -> str:
     ws_id = None
     if payload and hasattr(payload, "workspace_id") and getattr(payload, "workspace_id"):
@@ -56,7 +58,7 @@ def resolve_and_verify_workspace(
                 detail=f"Invalid workspace_id UUID format: '{ws_id}'"
             )
 
-    return verify_workspace_access(current_user, db, ws_id)
+    return verify_workspace_access(current_user, db, ws_id, required_permission=required_permission, required_roles=required_roles)
 
 
 def _safe_error(exc: Exception, status_code: int = 400, default: str = "An error occurred. Please try again.") -> HTTPException:
@@ -82,7 +84,8 @@ def get_wcc_balance(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id
+            current_user, db, workspace_id, x_workspace_id,
+            required_permission=('credits.view', 'marketing.campaigns', 'inbox.conversations'),
         )
         fuel_data = WCCService.get_fuel_gauge_data(db, resolved_ws_id)
         db.commit()  # Commit auto-created wallet if any
@@ -105,7 +108,8 @@ def get_wcc_rates(
 ):
     try:
         resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id
+            current_user, db, workspace_id, x_workspace_id,
+            required_permission=('credits.view', 'marketing.campaigns', 'inbox.conversations'),
         )
         rates = WCCService.get_rates(db)
         return [
@@ -135,7 +139,8 @@ def estimate_wcc_campaign(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id, payload
+            current_user, db, workspace_id, x_workspace_id, payload,
+            required_permission=('credits.view', 'marketing.campaigns', 'inbox.conversations'),
         )
         result = WCCService.calculate_estimate(
             db=db,
@@ -172,7 +177,7 @@ def initiate_wcc_recharge(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id, payload
+            current_user, db, workspace_id, x_workspace_id, payload,
         )
         from app.services.billing.entitlement_service import EntitlementService
         ent = EntitlementService.get_workspace_entitlement(db, to_uuid(resolved_ws_id))
@@ -213,7 +218,7 @@ def verify_wcc_recharge(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id, payload
+            current_user, db, workspace_id, x_workspace_id, payload,
         )
         result = WCCService.verify_recharge(
             db=db,

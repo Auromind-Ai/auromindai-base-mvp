@@ -1770,15 +1770,36 @@ function MyAccountSection({
 
 export default function SettingsContent({ email, onClose, initialSection = 'my-account' }) {
   const router = useRouter();
-  const { user, logout, refreshUser } = useAuth();
- 
-  const [activeSection, setActiveSection] = useState(initialSection || 'my-account');
+  const { user, logout, refreshUser, hasPermission, currentRole } = useAuth();
+  const isPrivileged = ['admin', 'founder', 'owner', 'superadmin', 'platform_admin'].includes((currentRole || '').toLowerCase().trim());
+
+  const canManageTeam = hasPermission('team.members');
+
+  const allowedSetting = (id) => {
+    if (id === 'team') return canManageTeam;
+    if (id === 'notifications') return hasPermission('settings.notifications') || isPrivileged;
+    return true;
+  };
+
+  const visibleNavSections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => allowedSetting(item.id)),
+  })).filter((section) => section.items.length > 0);
+
+  const [activeSection, setActiveSection] = useState(() => {
+    if (initialSection === 'team' && !canManageTeam) return 'my-account';
+    return initialSection || 'my-account';
+  });
 
   useEffect(() => {
     if (initialSection) {
-      setActiveSection(initialSection);
+      if (initialSection === 'team' && !canManageTeam) {
+        setActiveSection('my-account');
+      } else {
+        setActiveSection(initialSection);
+      }
     }
-  }, [initialSection]);
+  }, [initialSection, canManageTeam]);
 
   const [preferredName, setPreferredName] = useState('User');
 
@@ -1891,6 +1912,7 @@ export default function SettingsContent({ email, onClose, initialSection = 'my-a
     NAV_SECTIONS.flatMap((s) => s.items).find((i) => i.id === activeSection)?.label ?? '';
 
   const renderContent = () => {
+    if (!allowedSetting(activeSection)) return <p className="p-4 text-zinc-400">Choose an available settings section from the menu.</p>;
     switch (activeSection) {
       case 'my-account':
         return (
@@ -1981,7 +2003,7 @@ export default function SettingsContent({ email, onClose, initialSection = 'my-a
                 h-full min-h-full
               "
             >
-              {NAV_SECTIONS.map((section) => (
+              {visibleNavSections.map((section) => (
                 <div key={section.title} className="mb-6 last:mb-0">
                   <p className="mb-2 px-3 text-[14px] font-semibold text-white/90">
                     {section.title}

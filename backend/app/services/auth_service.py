@@ -149,13 +149,14 @@ class AuthService:
                 pass
         workspaces = db.query(Workspace, WorkspaceMember.role).join(
             WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id
-        ).filter(WorkspaceMember.user_id == user_id).all()
+        ).filter(WorkspaceMember.user_id == user_id, WorkspaceMember.is_active == True).all()
        
         return [
             {
                 "id": str(ws.id),
                 "name": ws.name,
                 "role": role,
+                "is_owner": ws.created_by == user_id or (role or "").strip().lower() in ("owner", "founder"),
                 "plan_type": getattr(ws, "plan_type", "starter"),
                 "created_at": ws.created_at.isoformat() if ws.created_at else None
             }
@@ -265,8 +266,15 @@ class AuthService:
             WorkspaceInvitation.status == "pending"
         ).all()
 
+        from fastapi import HTTPException
+        from app.services.workspace_access_service import lock_workspace, ensure_member_seat
+
         first_invited_workspace_id = None
-        for inv in raw_invites:
+        for inv in sorted(raw_invites, key=lambda item: str(item.workspace_id)):
+            workspace = lock_workspace(db, inv.workspace_id)
+            db.refresh(inv)
+            if inv.status != "pending":
+                continue
             if inv.expires_at:
                 exp = inv.expires_at if inv.expires_at.tzinfo is not None else inv.expires_at.replace(tzinfo=timezone.utc)
                 if exp < now_dt:
@@ -285,6 +293,15 @@ class AuthService:
                 WorkspaceMember.workspace_id == inv.workspace_id,
                 WorkspaceMember.user_id == user.id
             ).first()
+            if existing_mem:
+                # Login must never reactivate or elevate an existing membership.
+                inv.status = "accepted"
+                continue
+            if assigned_role in ("member", "team_member"):
+                try:
+                    ensure_member_seat(db, workspace, exclude_invitation_id=inv.id)
+                except HTTPException:
+                    continue
             if not existing_mem:
                 new_mem = WorkspaceMember(
                     workspace_id=inv.workspace_id,
@@ -295,13 +312,6 @@ class AuthService:
                     is_active=True
                 )
                 db.add(new_mem)
-            else:
-                existing_mem.role = assigned_role
-                existing_mem.permissions = assigned_perms
-                existing_mem.is_active = True
-                if inv.name:
-                    existing_mem.name = inv.name
-
             inv.status = "accepted"
             if not first_invited_workspace_id:
                 first_invited_workspace_id = str(inv.workspace_id)
@@ -315,7 +325,7 @@ class AuthService:
             WorkspaceMember,
             WorkspaceMember.workspace_id == Workspace.id
         ).filter(
-            WorkspaceMember.user_id == user.id
+            WorkspaceMember.user_id == user.id, WorkspaceMember.is_active == True
         ).all()
 
         if is_new_user and first_invited_workspace_id:

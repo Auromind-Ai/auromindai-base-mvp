@@ -134,7 +134,7 @@ async def upload_file(
     real_mime = _validate_mime(file_content, file.content_type)
     file_type = get_file_type(real_mime)
 
-    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission=('inbox.conversations', 'brain.manage', 'templates.manage', 'marketing.campaigns', 'ai.chat'))
     ws_uuid = uuid.UUID(verified_workspace_id) if isinstance(verified_workspace_id, str) else verified_workspace_id
 
     upload_size_mb = max(1, (len(file_content) + 1024 * 1024 - 1) // (1024 * 1024))

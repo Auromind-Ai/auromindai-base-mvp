@@ -61,6 +61,23 @@ const sectionsDefinition = [
   },
 ];
 
+export function getFirstAccessibleWorkspacePath(hasPermission) {
+  for (const section of sectionsDefinition) {
+    for (const [, , route, permission] of section.items) {
+      if (hasPermission(permission)) {
+        return route === "marketing"
+          ? "/user/admin/marketing/bulkmessages"
+          : `/user/admin/${route}`;
+      }
+    }
+  }
+  if (hasPermission("settings.general") || hasPermission("settings.notifications")) {
+    return "/user/admin/settings";
+  }
+  if (hasPermission("team.members")) return "/user/admin/team";
+  return null;
+}
+
 export default function WorkspaceNavigation({
   pathname,
   collapsed = false,
@@ -92,7 +109,7 @@ export default function WorkspaceNavigation({
     })
     .filter((section) => section.items.length > 0);
 
-  const canAccessSettings = hasPermission ? hasPermission("settings.general") : true;
+  const canAccessSettings = true;
 
   return (
     <nav

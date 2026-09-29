@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, ValidationError
 import os
 import re
+from decimal import Decimal
 from dotenv import load_dotenv
 from groq import Groq
 
@@ -94,7 +95,7 @@ async def generate_template(
     from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry
     import asyncio
 
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, data.workspace_id, required_permission='templates.manage')
 
     lang_name = map_language(data.language)
     system_prompt = f"""
@@ -360,7 +361,7 @@ async def create_template(
     data.type = (data.type or "TEXT").strip().upper()
     validate_category(data)
 
-    workspace_id = verify_workspace_access(current_user, db, data.workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, data.workspace_id, required_permission='templates.manage')
 
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
@@ -642,28 +643,11 @@ def get_templates(
     current_user = Depends(get_current_user)
 ):
   
-    user_ws = getattr(current_user, "workspace_id", None)
-    target_ws = workspace_id or user_ws
-
-    query = db.query(Template)
-    if target_ws:
-        try:
-            ws_uuid = to_uuid(target_ws)
-            query = query.filter(
-                (Template.workspace_id == ws_uuid) |
-                (Template.user_id == current_user.id) |
-                (Template.system_tag.isnot(None))
-            )
-        except Exception:
-            query = query.filter(
-                (Template.user_id == current_user.id) |
-                (Template.system_tag.isnot(None))
-            )
-    else:
-        query = query.filter(
-            (Template.user_id == current_user.id) |
-            (Template.system_tag.isnot(None))
-        )
+    target_ws = verify_workspace_access(current_user, db, workspace_id, required_permission=("templates.manage", "marketing.campaigns", "inbox.conversations", "automation.manage"))
+    ws_uuid = to_uuid(target_ws)
+    query = db.query(Template).filter(
+        (Template.workspace_id == ws_uuid) | Template.system_tag.isnot(None)
+    )
 
     if category and category.lower() != "all":
         query = query.filter(Template.category.ilike(category))
@@ -705,6 +689,7 @@ def check_template_status(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission=("templates.manage", "inbox.conversations", "marketing.campaigns"))
     from app.services.config_service import config_service
     
     system_token = config_service.get("meta_system_user_token")
@@ -747,7 +732,7 @@ def send_message(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db, data.workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, data.workspace_id, required_permission=('templates.manage', 'inbox.conversations', 'marketing.campaigns'))
   
 
     ws_uuid = to_uuid(workspace_id)
@@ -756,22 +741,7 @@ def send_message(
     if not workspace:
         raise HTTPException(404, "Workspace not found")
 
-    wallet = WCCService.get_balance(db, ws_uuid)
-    if wallet and float(wallet.balance or 0.0) <= 0:
-        raise HTTPException(
-            status_code=402,
-            detail="Insufficient WCC wallet balance to send WhatsApp template message. Please recharge your wallet."
-        )
-
-
-    if not workspace.meta_phone_number_id:
-        raise HTTPException(400, "WhatsApp phone number is not configured for this workspace. Please configure it in Channel Settings.")
-        
-    url = f"https://graph.facebook.com/v19.0/{workspace.meta_phone_number_id}/messages"
-
-
-    # Query template language from database
-    ws_uuid = to_uuid(workspace_id)
+    # Query template language & category from database
     template = db.query(Template).filter(
         Template.name == data.template_name,
         (Template.workspace_id == ws_uuid) | (Template.user_id == current_user.id)
@@ -779,6 +749,25 @@ def send_message(
     if not template:
         template = db.query(Template).filter(Template.name == data.template_name).first()
     lang_code = template.language if template else "en_US"
+
+    template_category = (template.category if template and template.category else "MARKETING").lower()
+    estimate = WCCService.calculate_estimate(db, ws_uuid, audience_size=1, category=template_category)
+    estimated_cost = Decimal(str(estimate.get("estimated_cost", "1.25")))
+    wallet = WCCService.get_balance(db, ws_uuid)
+    curr_bal = Decimal(str(wallet.balance if wallet and wallet.balance is not None else "0.00"))
+    curr_held = Decimal(str(wallet.held_balance if wallet and wallet.held_balance is not None else "0.00"))
+    available = max(Decimal("0.00"), curr_bal - curr_held)
+
+    if not wallet or available < estimated_cost:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Insufficient WCC wallet balance to send WhatsApp template message. Required: {estimated_cost}, Available: {available}. Please recharge your wallet."
+        )
+
+    if not workspace.meta_phone_number_id:
+        raise HTTPException(400, "WhatsApp phone number is not configured for this workspace. Please configure it in Channel Settings.")
+        
+    url = f"https://graph.facebook.com/v19.0/{workspace.meta_phone_number_id}/messages"
 
     components = []
 
@@ -861,7 +850,36 @@ def send_message(
         err_msg = err_data.get("error", {}).get("message") or res.text
         logger.error(f"[Template Send FAILED] {res.status_code}: {err_data}")
         raise HTTPException(status_code=res.status_code, detail=f"Meta error: {err_msg}")
-    return res.json()
+
+    res_data = res.json()
+    messages = res_data.get("messages", [])
+    wamid = messages[0].get("id") if messages and isinstance(messages, list) else None
+    if wamid:
+        try:
+            import uuid as _uuid
+            from app.models.conversation import ChannelType
+            from app.models.message import Message, MessageStatus, SenderType
+            from app.services.inbox.conversation_service import ConversationService
+            conv = ConversationService.get_or_create_conversation(
+                db,
+                workspace_id=str(ws_uuid),
+                channel=ChannelType.WHATSAPP,
+                phone=data.phone
+            )
+            msg = Message(
+                id=_uuid.uuid4(),
+                conversation_id=conv.id,
+                sender_type=SenderType.AI,
+                source="broadcast",
+                status=MessageStatus.SENT,
+                content=f"[Template: {data.template_name}]",
+                external_id=wamid
+            )
+            db.add(msg)
+            db.commit()
+        except Exception as db_exc:
+            logger.error(f"Failed to record sent template message tracking for {wamid}: {db_exc}")
+    return res_data
 
 
 @router.post("/templates/submit/{template_id}")
@@ -874,7 +892,7 @@ def submit_template(
     if not template:
         raise HTTPException(404, "Template not found")
 
-    verify_workspace_access(current_user, db, template.workspace_id)
+    verify_workspace_access(current_user, db, template.workspace_id, required_permission='templates.manage')
 
     workspace = db.query(Workspace).filter(Workspace.id == template.workspace_id).first()
     if not workspace:
@@ -982,7 +1000,7 @@ async def update_template_media(
         raise HTTPException(status_code=404, detail="Template not found")
 
     if template.workspace_id:
-        verify_workspace_access(current_user, db, str(template.workspace_id))
+        verify_workspace_access(current_user, db, str(template.workspace_id), required_permission='templates.manage')
 
     content_type = request.headers.get("content-type", "").lower()
     media_url = None
@@ -1053,7 +1071,7 @@ def delete_template(
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    verify_workspace_access(current_user, db, template.workspace_id)
+    verify_workspace_access(current_user, db, template.workspace_id, required_permission='templates.manage')
 
     db.delete(template)
     db.commit()

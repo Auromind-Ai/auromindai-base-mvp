@@ -7,6 +7,7 @@ import { poppins } from '@/lib/fonts';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { getToken, isTokenExpired } from '@/lib/auth';
+import { isWorkspacePageAllowed } from '@/lib/workspaceAccess.mjs';
 import { LogOut, Shield, Menu, PanelLeftClose, PanelLeftOpen, Building2, ChevronDown, Check, Users } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from '@/context/AuthContext';
@@ -21,7 +22,8 @@ const GlobalAudioNotification = dynamic(
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 import { RealtimeProvider } from '@/context/RealtimeContext';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
-import WorkspaceNavigation from '@/components/WorkspaceNavigation';
+import ErrorPage from '@/components/ErrorPage';
+import WorkspaceNavigation, { getFirstAccessibleWorkspacePath } from '@/components/WorkspaceNavigation';
 
 export default function AdminLayout({ children }) {
     return (
@@ -34,9 +36,13 @@ export default function AdminLayout({ children }) {
 function AdminLayoutContent({ children }) {
     const router = useRouter();
     const pathname = usePathname();
-    const { user, workspaces, workspaceId, setWorkspaceId, loading, logout, refreshUser } = useAuth();
+    const { user, workspaces, workspaceId, setWorkspaceId, loading, logout, refreshUser, hasPermission, permissionsLoading } = useAuth();
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel, initialSection, openSettings } = useSettings();
 
+    const pageAllowed = Boolean(workspaceId) && !permissionsLoading
+        && isWorkspacePageAllowed(pathname, hasPermission);
+    const firstAccessiblePath = getFirstAccessibleWorkspacePath(hasPermission)
+        || (user?.platform_role === 'platform_admin' ? '/admin' : null);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [isWsDropdownOpen, setIsWsDropdownOpen] = useState(false);
     const wsDropdownRef = useRef(null);
@@ -67,9 +73,6 @@ function AdminLayoutContent({ children }) {
     const workspace = workspaces.find(w => w.id === workspaceId) || null;
     const currentWorkspaceName = (() => {
         if (workspace?.name) {
-            if (workspace.name.endsWith("'s Workspace") || workspace.name.endsWith("’s Workspace")) {
-                return `${user?.full_name || user?.name || 'User'}'s Workspace`;
-            }
             return workspace.name;
         }
         return `${user?.full_name || user?.name || 'User'}'s Workspace`;
@@ -220,79 +223,81 @@ function AdminLayoutContent({ children }) {
 
                 {/* Desktop Collapsible Sidebar */}
                 <aside
-                        className={`${poppins.className} hidden lg:flex shrink-0 flex-col border-r border-[var(--notion-border)] bg-[#080c14] h-dvh max-h-dvh min-h-0 overflow-clip sticky top-0 z-10 transition-all duration-300 ease-in-out ${
+                    className={`${poppins.className} hidden lg:flex shrink-0 flex-col border-r border-[var(--notion-border)] bg-[#080c14] h-dvh max-h-dvh min-h-0 overflow-clip sticky top-0 z-10 transition-all duration-300 ease-in-out ${
                         isCollapsed ? 'w-[68px]' : 'w-[240px]'
                     }`}
                 >
                     {/* Top Profile & Toggle Section */}
-                    <div className={`flex items-center shrink-0 pt-5 pb-4 [@media(min-height:781px)_and_(max-height:880px)]:py-3 [@media(min-height:701px)_and_(max-height:780px)]:py-2.5 [@media(max-height:700px)]:py-1.5 border-b border-white/5 ${
-                        isCollapsed ? 'justify-center px-2 flex-col gap-2' : 'justify-between px-4'
+                    <div className={`flex items-center shrink-0 pt-4 pb-3 border-b border-white/5 transition-all duration-300 ${
+                        isCollapsed ? 'flex-col justify-center px-2 gap-2' : 'justify-between px-3 gap-1.5'
                     }`}>
-                        <div className={`flex items-center ${isCollapsed ? 'justify-center flex-col gap-2' : 'justify-between'}`}>
-                            <div className="relative flex-1 min-w-0" ref={wsDropdownRef}>
-                                <button
-                                    type="button"
-                                    onClick={() => !isCollapsed && setIsWsDropdownOpen((prev) => !prev)}
-                                    className={`flex items-center gap-2.5 overflow-hidden text-left rounded-lg transition-colors ${
-                                        isCollapsed ? 'justify-center p-0' : 'w-full p-1 hover:bg-white/5 cursor-pointer'
-                                    }`}
-                                    title={isCollapsed ? currentWorkspaceName : undefined}
-                                >
-                                    <div className="w-8 h-8 rounded-lg shrink-0 overflow-hidden bg-[#814AC8] flex items-center justify-center text-xs text-white font-bold border border-white/10">
-                                        {(currentWorkspaceName || user?.full_name || 'W').charAt(0).toUpperCase()}
-                                    </div>
-                                    {!isCollapsed && (
-                                        <div className="flex-1 min-w-0 pr-1">
-                                            <div className="flex items-center justify-between gap-1">
-                                                <span className="font-semibold text-xs text-white truncate">
-                                                    {currentWorkspaceName}
-                                                </span>
-                                                {workspaces.length > 1 && (
-                                                    <ChevronDown size={13} className={`text-zinc-400 shrink-0 transition-transform ${isWsDropdownOpen ? 'rotate-180' : ''}`} />
-                                                )}
-                                            </div>
-                                            <p className="text-[10px] text-zinc-400 truncate">
-                                                {user?.full_name || user?.name || user?.email}
-                                            </p>
-                                        </div>
-                                    )}
-                                </button>
-
-                                {/* Dropdown Menu */}
-                                {isWsDropdownOpen && !isCollapsed && (
-                                    <div className="absolute left-0 top-full mt-2 w-56 p-1.5 rounded-xl bg-[#0e1422] border border-white/10 shadow-2xl z-50 space-y-1">
-                                        <div className="px-2.5 py-1 flex items-center justify-between">
-                                            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-                                                Workspaces ({workspaces.length})
+                        <div className={`relative min-w-0 ${isCollapsed ? 'w-full flex justify-center' : 'flex-1'}`} ref={wsDropdownRef}>
+                            <button
+                                type="button"
+                                disabled={workspaces.length <= 1 || isCollapsed}
+                                aria-expanded={workspaces.length > 1 && !isCollapsed ? isWsDropdownOpen : undefined}
+                                onClick={() => workspaces.length > 1 && !isCollapsed && setIsWsDropdownOpen((prev) => !prev)}
+                                className={`flex items-center gap-2 overflow-hidden text-left rounded-lg transition-colors ${
+                                    isCollapsed ? 'justify-center p-0 w-8 h-8' : workspaces.length > 1 ? 'w-full p-1 hover:bg-white/5 cursor-pointer' : 'w-full p-1 cursor-default'
+                                }`}
+                                title={isCollapsed ? currentWorkspaceName : undefined}
+                            >
+                                <div className="w-8 h-8 rounded-lg shrink-0 overflow-hidden bg-[#814AC8] flex items-center justify-center text-xs text-white font-bold border border-white/10 shadow-sm">
+                                    {(currentWorkspaceName || user?.full_name || 'W').charAt(0).toUpperCase()}
+                                </div>
+                                {!isCollapsed && (
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between gap-1">
+                                            <span className="font-semibold text-xs text-white truncate max-w-[125px]">
+                                                {currentWorkspaceName}
                                             </span>
+                                            {workspaces.length > 1 && (
+                                                <ChevronDown size={13} className={`text-zinc-400 shrink-0 transition-transform ${isWsDropdownOpen ? 'rotate-180' : ''}`} />
+                                            )}
                                         </div>
+                                        <p className="text-[10px] text-zinc-400 truncate max-w-[130px]">
+                                            {user?.full_name || user?.name || user?.email}
+                                        </p>
+                                    </div>
+                                )}
+                            </button>
 
-                                        {workspaces.map((ws) => {
-                                            const isActive = ws.id === workspaceId;
-                                            return (
-                                                <button
-                                                    key={ws.id}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setWorkspaceId(ws.id);
-                                                        setIsWsDropdownOpen(false);
-                                                        router.refresh();
-                                                    }}
-                                                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition-colors cursor-pointer ${
-                                                        isActive
-                                                            ? 'bg-violet-600/20 text-white font-medium border border-violet-500/30'
-                                                            : 'text-zinc-300 hover:bg-white/5 hover:text-white'
-                                                    }`}
-                                                >
-                                                    <div className="flex items-center gap-2 truncate">
-                                                        <Building2 size={13} className={isActive ? 'text-violet-400' : 'text-zinc-400'} />
-                                                        <span className="truncate">{ws.name}</span>
-                                                    </div>
-                                                    {isActive && <Check size={13} className="text-violet-400 shrink-0" />}
-                                                </button>
-                                            );
-                                        })}
+                            {/* Dropdown Menu */}
+                            {workspaces.length > 1 && isWsDropdownOpen && !isCollapsed && (
+                                <div className="absolute left-0 top-full mt-2 w-56 p-1.5 rounded-xl bg-[#0e1422] border border-white/10 shadow-2xl z-50 space-y-1">
+                                    <div className="px-2.5 py-1 flex items-center justify-between">
+                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                                            Workspaces ({workspaces.length})
+                                        </span>
+                                    </div>
 
+                                    {workspaces.map((ws) => {
+                                        const isActive = ws.id === workspaceId;
+                                        return (
+                                            <button
+                                                key={ws.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setWorkspaceId(ws.id);
+                                                    setIsWsDropdownOpen(false);
+                                                    router.refresh();
+                                                }}
+                                                className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition-colors cursor-pointer ${
+                                                    isActive
+                                                        ? 'bg-violet-600/20 text-white font-medium border border-violet-500/30'
+                                                        : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2 truncate">
+                                                    <Building2 size={13} className={isActive ? 'text-violet-400' : 'text-zinc-400'} />
+                                                    <span className="truncate">{ws.name}</span>
+                                                </div>
+                                                {isActive && <Check size={13} className="text-violet-400 shrink-0" />}
+                                            </button>
+                                        );
+                                    })}
+
+                                    {hasPermission('team.members') && (
                                         <div className="pt-1 border-t border-white/5">
                                             <button
                                                 type="button"
@@ -306,21 +311,21 @@ function AdminLayoutContent({ children }) {
                                                 <span>Manage Team & Seats</span>
                                             </button>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <button
-                                onClick={toggleSidebar}
-                                title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-                                aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                                className="p-1.5 rounded-[6px] text-[#9b9b9b] hover:text-white hover:bg-white/5 transition-colors shrink-0 cursor-pointer"
-                            >
-                                {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-                            </button>
+                                    )}
+                                </div>
+                            )}
                         </div>
-                    </div>
 
+                        <button
+                            type="button"
+                            onClick={toggleSidebar}
+                            title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+                            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                            className="p-1.5 rounded-[6px] text-[#9b9b9b] hover:text-white hover:bg-white/10 transition-colors shrink-0 cursor-pointer flex items-center justify-center"
+                        >
+                            {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+                        </button>
+                    </div>
 
                     <WorkspaceNavigation
                         pathname={pathname}
@@ -331,13 +336,13 @@ function AdminLayoutContent({ children }) {
                     />
 
                     {/* Sidebar Bottom Actions */}
-                    <div className="shrink-0 p-2.5 [@media(min-height:701px)_and_(max-height:880px)]:py-2 [@media(max-height:700px)]:py-1.5 border-t border-[var(--notion-border)] space-y-1">
+                    <div className="shrink-0 p-2.5 pb-4 border-t border-[var(--notion-border)] space-y-1">
                         {/* Logout */}
                         <button
                             onClick={() => setShowLogoutConfirm(true)}
                             title={isCollapsed ? "Log out" : undefined}
                             aria-label="Log out"
-                            className={`flex items-center gap-2.5 py-1.5 text-[13px] text-[#9b9b9b] hover:text-white transition-colors rounded-[4px] hover:bg-[var(--notion-hover)] w-full ${
+                            className={`flex items-center gap-2.5 py-1.5 text-[13px] text-[#9b9b9b] hover:text-white transition-colors rounded-[4px] hover:bg-[var(--notion-hover)] w-full cursor-pointer ${
                                 isCollapsed ? 'justify-center px-0' : 'px-2'
                             }`}
                         >
@@ -513,7 +518,7 @@ function AdminLayoutContent({ children }) {
                     >
                         <AnimatePresence mode="wait">
                             <motion.div
-                                key={pathname}
+                                key={`${workspaceId}:${pathname}`}
                                 initial={{ opacity: 0, y: 6 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -4 }}
@@ -523,7 +528,18 @@ function AdminLayoutContent({ children }) {
                                 }}
                                 className="flex-1 flex flex-col h-full"
                             >
-                                {children}
+                                {permissionsLoading ? (
+                                    <p className="p-6 text-zinc-400">Checking workspace access...</p>
+                                ) : pageAllowed ? children : (
+                                    <ErrorPage
+                                        embedded
+                                        code="404"
+                                        backgroundLabel="PAGE NOT FOUND"
+                                        description="We couldn't find the page you were looking for. Let's get you back on track."
+                                        actionHref={workspace ? firstAccessiblePath : "/"}
+                                        actionLabel="Back to dashboard"
+                                    />
+                                )}
                             </motion.div>
                         </AnimatePresence>
                     </div>
@@ -531,6 +547,7 @@ function AdminLayoutContent({ children }) {
 
                 {/* Settings Modal */}
                 <SettingsModal
+                    key={workspaceId}
                     isOpen={isSettingsOpen}
                     onClose={() => setIsSettingsOpen(false)}
                     selectedModel={selectedModel}
@@ -540,10 +557,10 @@ function AdminLayoutContent({ children }) {
 
 
                 {/* Global AI Chat - Hidden on Orbion Agents page */}
-                {pathname !== '/user/admin/ai' && <GlobalAIChat />}
+                {hasPermission('ai.chat') && pathname !== '/user/admin/ai' && <GlobalAIChat key={`${user?.id}:${workspaceId}`} />}
 
                 {/* Global Audio Notification for Incoming Messages */}
-                <GlobalAudioNotification />
+                {hasPermission('inbox.conversations') && <GlobalAudioNotification />}
             </div>
         </RealtimeProvider>
     );

@@ -75,7 +75,7 @@ ALL_PERMISSIONS_TREE: Dict[str, Dict[str, Any]] = {
         "label": "Credits & Wallet",
         "icon": "Coins",
         "items": {
-            "view": "Usage & Balances",
+            "view": "Usage, Balances & Recharges",
         }
     },
     "billing": {
@@ -89,7 +89,7 @@ ALL_PERMISSIONS_TREE: Dict[str, Dict[str, Any]] = {
         "label": "Team Management",
         "icon": "ShieldCheck",
         "items": {
-            "members": "Members & Invitations",
+            "members": "Manage Members, Invitations & Seats",
         }
     },
     "settings": {
@@ -162,6 +162,12 @@ def normalize_permissions(permissions: Optional[Any]) -> Dict[str, List[str]]:
     }
 
     def add_canonical(sec: str, item: str):
+        legacy_sections = {"ai_agents": "ai", "flows": "automation", "integrations": "channels", "knowledge_base": "brain", "analytics": "credits"}
+        sec = legacy_sections.get(sec, sec)
+        if item == "*" and sec in ALL_PERMISSIONS_TREE:
+            for child in ALL_PERMISSIONS_TREE[sec]["items"]:
+                add_canonical(sec, child)
+            return
         if sec in ALL_PERMISSIONS_TREE and item in ALL_PERMISSIONS_TREE[sec]["items"]:
             if sec not in clean_perms:
                 clean_perms[sec] = []
@@ -177,6 +183,8 @@ def normalize_permissions(permissions: Optional[Any]) -> Dict[str, List[str]]:
                 elif "." in p:
                     s, i = p.split(".", 1)
                     add_canonical(s, i)
+                else:
+                    add_canonical(p, "*")
     elif isinstance(permissions, dict):
         for sec, items in permissions.items():
             if isinstance(items, list):

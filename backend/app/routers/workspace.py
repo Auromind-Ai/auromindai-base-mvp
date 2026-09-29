@@ -16,6 +16,7 @@ from app.core.security import verify_workspace_access, to_uuid
 from app.core.config import settings
 from app.core.permissions import ALL_PERMISSIONS_TREE, get_full_permissions_dict, has_workspace_permission, normalize_permissions
 from app.services.email_service import EmailService
+from app.services.analytics.realtime_service import publish_to_user
 from app.services.billing.entitlement_service import EntitlementService
 from app.schemas.workspace import (
     InviteMemberRequest,
@@ -27,6 +28,8 @@ from app.schemas.workspace import (
     AcceptInvitationRequest,
     PublicInvitationDetailsResponse
 )
+
+from app.services.workspace_access_service import member_seat_limit, lock_workspace, ensure_member_seat
 
 logger = logging.getLogger(__name__)
 
@@ -42,21 +45,7 @@ def _is_datetime_expired(dt: Optional[datetime]) -> bool:
 
 
 def _get_dynamic_seat_limits(db: Session, workspace: Workspace) -> int:
-    try:
-        entitlement = EntitlementService.get_workspace_entitlement(db, workspace.id)
-        if entitlement and hasattr(entitlement, "team_limit") and entitlement.team_limit:
-            return max(3, int(entitlement.team_limit))
-    except Exception as e:
-        logger.warning(f"Could not load plan entitlement team limit for workspace {workspace.id}: {e}")
-
-    # Fallback based on plan_type
-    pt = (getattr(workspace, "plan_type", "starter") or "starter").lower()
-    if pt in ("enterprise", "unlimited"):
-        return 50
-    elif pt in ("growth", "pro", "business", "scale"):
-        return 10
-    else:
-        return 3
+    return member_seat_limit(db, workspace)
 
 
 @router.get("/workspaces/{workspace_id}/my-permissions")
@@ -108,7 +97,7 @@ async def get_workspace_seats_and_members(
     db: Session = Depends(get_db)
 ):
     """Get active members and pending invitations for a workspace with seat counts."""
-    verified_ws_id = verify_workspace_access(current_user, db, workspace_id)
+    verified_ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission="team.members")
     ws_uuid = to_uuid(verified_ws_id)
     
     workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
@@ -158,6 +147,9 @@ async def get_workspace_seats_and_members(
             )
         )
 
+    viewer = db.query(WorkspaceMember).filter(WorkspaceMember.workspace_id == ws_uuid, WorkspaceMember.user_id == to_uuid(current_user.id)).first()
+    can_manage = has_workspace_permission(viewer.role, viewer.permissions, "team.members")
+
     # Fetch pending invitations
     raw_invitations = (
         db.query(WorkspaceInvitation, User)
@@ -176,8 +168,6 @@ async def get_workspace_seats_and_members(
     for inv, inviter_user in raw_invitations:
         # Check if expired
         if _is_datetime_expired(inv.expires_at):
-            inv.status = "expired"
-            db.commit()
             continue
 
         role_norm = (inv.role or "member").lower().strip()
@@ -197,18 +187,18 @@ async def get_workspace_seats_and_members(
                 email=inv.email,
                 role=role_norm,
                 permissions=inv_perms,
-                token=inv.token,
+                token=inv.token if can_manage else None,
                 status=inv.status,
                 invited_by_name=inviter_user.full_name if inviter_user else (inviter_user.email if inviter_user else None),
                 created_at=inv.created_at,
                 expires_at=inv.expires_at,
-                invite_url=f"{frontend_base}/accept-invite?token={inv.token}"
+                invite_url=f"{frontend_base}/accept-invite?token={inv.token}" if can_manage else None
             )
         )
 
     plan_type = getattr(workspace, "plan_type", "starter") or "starter"
     total_member_seats = _get_dynamic_seat_limits(db, workspace)
-    available_member_seats = max(0, total_member_seats - used_member_count)
+    available_member_seats = -1 if total_member_seats == -1 else max(0, total_member_seats - used_member_count)
 
     total_seats = total_member_seats
     used_seats = used_member_count
@@ -242,10 +232,10 @@ async def invite_workspace_member(
     Admin gets full permissions automatically.
     Member gets granular permissions and consumes a member seat.
     """
-    verified_ws_id = verify_workspace_access(current_user, db, workspace_id, required_roles=["founder", "owner", "admin"])
+    verified_ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission="team.members")
     ws_uuid = to_uuid(verified_ws_id)
     
-    workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
+    workspace = lock_workspace(db, ws_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
@@ -262,38 +252,8 @@ async def invite_workspace_member(
     else:
         permissions_to_save = normalize_permissions(payload.permissions)
 
-    # Check member seat limit if adding a Member role
     if target_role in ("member", "team_member"):
-        total_member_seats = _get_dynamic_seat_limits(db, workspace)
-        
-        # Count active members with member role
-        active_member_count = (
-            db.query(func.count(WorkspaceMember.id))
-            .filter(
-                WorkspaceMember.workspace_id == ws_uuid,
-                WorkspaceMember.role.in_(["member", "team_member"]),
-                WorkspaceMember.is_active == True
-            )
-            .scalar() or 0
-        )
-
-        # Count pending invitations with member role (excluding this target email if already pending)
-        pending_member_count = (
-            db.query(func.count(WorkspaceInvitation.id))
-            .filter(
-                WorkspaceInvitation.workspace_id == ws_uuid,
-                WorkspaceInvitation.status == "pending",
-                WorkspaceInvitation.role.in_(["member", "team_member"]),
-                func.lower(WorkspaceInvitation.email) != target_email
-            )
-            .scalar() or 0
-        )
-
-        if (active_member_count + pending_member_count) >= total_member_seats:
-            raise HTTPException(
-                status_code=400,
-                detail=f"You have reached the maximum allowed member seats ({total_member_seats}) for your current plan. Please upgrade your plan or invite as Admin."
-            )
+        ensure_member_seat(db, workspace, exclude_email=target_email)
 
     # Check if target email belongs to an existing user and is already a workspace member
     existing_user = db.query(User).filter(func.lower(User.email) == target_email).first()
@@ -351,6 +311,7 @@ async def invite_workspace_member(
     inviter_name = current_user.full_name or current_user.email
     recipient_name = target_name or target_email.split("@")[0].title()
 
+    email_sent = False
     # Send invitation email
     try:
         role_label = "an Administrator (Full Access)" if target_role == "admin" else "a Team Member"
@@ -370,12 +331,13 @@ If you don't have an OrbionAgents account yet, you can sign up using this email 
 Best regards,
 The OrbionAgents Team
 """
-        EmailService.send_email(
+        email_result = EmailService.send_email(
             to_email=target_email,
             subject=email_subject,
             body=email_body,
             metadata={"workspace_id": str(ws_uuid), "invitation_id": str(invitation.id)}
         )
+        email_sent = isinstance(email_result, dict) and email_result.get("status") == "success"
     except Exception as email_err:
         logger.warning(f"Could not send invitation email to {target_email}: {email_err}")
 
@@ -392,7 +354,8 @@ The OrbionAgents Team
         invited_by_name=inviter_name,
         created_at=invitation.created_at,
         expires_at=invitation.expires_at,
-        invite_url=invite_url
+        invite_url=invite_url,
+        email_sent=email_sent
     )
 
 
@@ -404,11 +367,11 @@ async def resend_workspace_invitation(
     db: Session = Depends(get_db)
 ):
     """Resend a workspace invitation email and refresh its expiration."""
-    verified_ws_id = verify_workspace_access(current_user, db, workspace_id, required_roles=["founder", "owner", "admin"])
+    verified_ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission="team.members")
     ws_uuid = to_uuid(verified_ws_id)
     inv_uuid = to_uuid(invitation_id)
 
-    workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
+    workspace = lock_workspace(db, ws_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
@@ -419,6 +382,11 @@ async def resend_workspace_invitation(
 
     if not invitation:
         raise HTTPException(status_code=404, detail="Invitation not found")
+
+    if invitation.status not in ("pending", "expired"):
+        raise HTTPException(status_code=400, detail="Only pending or expired invitations can be resent.")
+    if invitation.role in ("member", "team_member"):
+        ensure_member_seat(db, workspace, exclude_invitation_id=invitation.id)
 
     now_dt = datetime.now(timezone.utc)
     token = secrets.token_urlsafe(32)
@@ -433,6 +401,7 @@ async def resend_workspace_invitation(
     inviter_name = current_user.full_name or current_user.email
     recipient_name = invitation.name or invitation.email.split("@")[0].title()
 
+    email_sent = False
     try:
         email_subject = f"Reminder: You're invited to join {workspace.name} on OrbionAgents"
         email_body = f"""
@@ -448,12 +417,13 @@ This link is valid for 7 days.
 Best regards,
 The OrbionAgents Team
 """
-        EmailService.send_email(
+        email_result = EmailService.send_email(
             to_email=invitation.email,
             subject=email_subject,
             body=email_body,
             metadata={"workspace_id": str(ws_uuid), "invitation_id": str(invitation.id)}
         )
+        email_sent = isinstance(email_result, dict) and email_result.get("status") == "success"
     except Exception as email_err:
         logger.warning(f"Could not resend invitation email to {invitation.email}: {email_err}")
 
@@ -470,7 +440,8 @@ The OrbionAgents Team
         invited_by_name=inviter_name,
         created_at=invitation.created_at,
         expires_at=invitation.expires_at,
-        invite_url=invite_url
+        invite_url=invite_url,
+        email_sent=email_sent
     )
 
 
@@ -482,9 +453,11 @@ async def cancel_workspace_invitation(
     db: Session = Depends(get_db)
 ):
     """Revoke or cancel a pending workspace invitation."""
-    verified_ws_id = verify_workspace_access(current_user, db, workspace_id, required_roles=["founder", "owner", "admin"])
+    verified_ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission="team.members")
     ws_uuid = to_uuid(verified_ws_id)
     inv_uuid = to_uuid(invitation_id)
+
+    lock_workspace(db, ws_uuid)
 
     invitation = db.query(WorkspaceInvitation).filter(
         WorkspaceInvitation.id == inv_uuid,
@@ -512,9 +485,11 @@ async def update_workspace_member(
     Update a team member's name, role, permissions, or active status.
     Admin can edit role, granular permissions, or deactivate/activate member.
     """
-    verified_ws_id = verify_workspace_access(current_user, db, workspace_id, required_roles=["founder", "owner", "admin"])
+    verified_ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission="team.members")
     ws_uuid = to_uuid(verified_ws_id)
     mem_uuid = to_uuid(member_id)
+
+    workspace = lock_workspace(db, ws_uuid)
 
     member = db.query(WorkspaceMember).filter(
         WorkspaceMember.id == mem_uuid,
@@ -524,7 +499,6 @@ async def update_workspace_member(
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
 
-    workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
     if workspace and workspace.created_by == member.user_id:
         if payload.role and payload.role != member.role:
             raise HTTPException(status_code=400, detail="Cannot alter role of the workspace creator.")
@@ -539,38 +513,22 @@ async def update_workspace_member(
         if user_record and not user_record.full_name:
             user_record.full_name = payload.name.strip()
 
-    # Update active status
-    if payload.is_active is not None:
-        member.is_active = payload.is_active
-
-    # Update role
-    if payload.role is not None:
-        target_role = payload.role.strip().lower()
-        if target_role not in ("admin", "member", "team_member", "owner", "founder"):
-            raise HTTPException(status_code=400, detail="Invalid role specified.")
-
-        # Check seat limit if changing from admin to member
-        if target_role in ("member", "team_member") and member.role in ("admin", "owner", "founder"):
-            total_member_seats = _get_dynamic_seat_limits(db, workspace)
-            active_member_count = (
-                db.query(func.count(WorkspaceMember.id))
-                .filter(
-                    WorkspaceMember.workspace_id == ws_uuid,
-                    WorkspaceMember.role.in_(["member", "team_member"]),
-                    WorkspaceMember.is_active == True,
-                    WorkspaceMember.id != member.id
-                )
-                .scalar() or 0
-            )
-            if active_member_count >= total_member_seats:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Cannot change role to Member: limit of {total_member_seats} member seats reached."
-                )
-
-        member.role = target_role
-        if target_role == "admin":
-            member.permissions = get_full_permissions_dict()
+    target_role = (payload.role or member.role).strip().lower()
+    if target_role not in ("admin", "member", "team_member") and target_role != member.role:
+        raise HTTPException(status_code=400, detail="Role must be admin or member.")
+    target_active = member.is_active if payload.is_active is None else payload.is_active
+    newly_consumes_seat = target_active and target_role in ("member", "team_member") and (
+        not member.is_active or member.role not in ("member", "team_member")
+    )
+    if newly_consumes_seat:
+        ensure_member_seat(db, workspace, exclude_member_id=member.id)
+    previous_role = member.role
+    member.role = target_role
+    member.is_active = target_active
+    if target_role == "admin":
+        member.permissions = get_full_permissions_dict()
+    elif previous_role in ("admin", "owner", "founder") and payload.permissions is None:
+        member.permissions = {}
 
     # Update granular permissions
     if payload.permissions is not None:
@@ -581,6 +539,7 @@ async def update_workspace_member(
 
     db.commit()
     db.refresh(member)
+    publish_to_user(str(member.user_id), "workspace_access_changed", {}, workspace_id=str(ws_uuid))
 
     return {
         "message": "Member updated successfully",
@@ -600,11 +559,11 @@ async def remove_workspace_member(
     db: Session = Depends(get_db)
 ):
     """Remove a team member from the workspace (immediate revocation of workspace access)."""
-    verified_ws_id = verify_workspace_access(current_user, db, workspace_id, required_roles=["founder", "owner", "admin"])
+    verified_ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission="team.members")
     ws_uuid = to_uuid(verified_ws_id)
     mem_uuid = to_uuid(member_id)
 
-    workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
+    workspace = lock_workspace(db, ws_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
@@ -619,8 +578,10 @@ async def remove_workspace_member(
     if workspace.created_by and member.user_id == workspace.created_by:
         raise HTTPException(status_code=400, detail="Cannot remove the workspace creator / primary owner.")
 
+    member_user_id = str(member.user_id)
     db.delete(member)
     db.commit()
+    publish_to_user(member_user_id, "workspace_access_changed", {}, workspace_id=str(ws_uuid))
 
     return {"message": "Member removed from workspace successfully. Access revoked immediately."}
 
@@ -644,9 +605,6 @@ async def get_invitation_public_details(
     inviter_name = inviter.full_name if inviter else (inviter.email if inviter else "A team member")
 
     is_expired = _is_datetime_expired(invitation.expires_at)
-    if is_expired and invitation.status == "pending":
-        invitation.status = "expired"
-        db.commit()
 
     is_valid = (invitation.status == "pending") and not is_expired
 
@@ -679,31 +637,26 @@ async def accept_invitation(
     if not invitation:
         raise HTTPException(status_code=404, detail="Invitation not found.")
 
-    if _is_datetime_expired(invitation.expires_at):
-        invitation.status = "expired"
-        db.commit()
-        raise HTTPException(status_code=400, detail="This invitation link has expired.")
-
-    workspace = db.query(Workspace).filter(Workspace.id == invitation.workspace_id).first()
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace no longer exists.")
-
-    if invitation.status == "accepted":
-        return {
-            "success": True,
-            "workspace_id": str(invitation.workspace_id),
-            "workspace_name": workspace.name,
-            "message": "Invitation already accepted. You are a member of this workspace."
-        }
-
-    if invitation.status != "pending":
-        raise HTTPException(status_code=400, detail=f"Invitation cannot be accepted because it is {invitation.status}.")
-
-    # Check if membership already exists
+    workspace = lock_workspace(db, invitation.workspace_id)
+    invitation = db.query(WorkspaceInvitation).filter(WorkspaceInvitation.token == payload.token).populate_existing().first()
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found.")
+    if (current_user.email or "").strip().lower() != invitation.email.strip().lower():
+        raise HTTPException(status_code=403, detail="Sign in with the email address this invitation was sent to.")
     existing_mem = db.query(WorkspaceMember).filter(
         WorkspaceMember.workspace_id == invitation.workspace_id,
-        WorkspaceMember.user_id == current_user.id
+        WorkspaceMember.user_id == to_uuid(current_user.id)
     ).first()
+    if invitation.status == "accepted":
+        if not existing_mem or not existing_mem.is_active:
+            raise HTTPException(status_code=403, detail="You no longer have active membership in this workspace.")
+        return {"success": True, "workspace_id": str(workspace.id), "workspace_name": workspace.name, "role": existing_mem.role, "message": "Already a member."}
+    if invitation.status != "pending" or _is_datetime_expired(invitation.expires_at):
+        raise HTTPException(status_code=400, detail="Invitation is expired or no longer pending.")
+    if existing_mem:
+        raise HTTPException(status_code=400, detail="Membership already exists. Ask an admin to manage your access.")
+    if invitation.role in ("member", "team_member"):
+        ensure_member_seat(db, workspace, exclude_invitation_id=invitation.id)
 
     assigned_role = invitation.role or "member"
     assigned_permissions = invitation.permissions
@@ -723,13 +676,6 @@ async def accept_invitation(
             is_active=True
         )
         db.add(new_member)
-    else:
-        existing_mem.role = assigned_role
-        existing_mem.permissions = assigned_permissions
-        existing_mem.is_active = True
-        if invitation.name:
-            existing_mem.name = invitation.name
-
     invitation.status = "accepted"
     db.commit()
 

@@ -1,18 +1,22 @@
 'use client';
 
+import { useAuth } from '@/context/AuthContext';
+
 import { useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import AIChat from './AIChat';
 import ChatHistory from './ChatHistory';
 
 export default function GlobalAIChat() {
+    const { user, workspaceId } = useAuth();
+    const sessionStorageKey = `floating_chat_session:${user?.id}:${workspaceId}`;
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [activeSessionId, setActiveSessionId] = useState(null);
 
     const handleSelectSession = (sessionId) => {
         setActiveSessionId(sessionId);
-        localStorage.setItem('floating_chat_session_id', sessionId);
+        localStorage.setItem(sessionStorageKey, sessionId);
         setIsHistoryOpen(false);
         setIsChatOpen(true);
     };
@@ -37,6 +41,7 @@ export default function GlobalAIChat() {
 
             {/* AI Chat Modal */}
             <AIChat
+                key={activeSessionId || 'quick-chat'}
                 isOpen={isChatOpen}
                 activeSessionId={activeSessionId}
                 onClose={() => {

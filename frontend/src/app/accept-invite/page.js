@@ -35,8 +35,6 @@ function AcceptInviteContent() {
 
   useEffect(() => {
     if (!token) {
-      setError('No invitation token provided. Please check your invitation link.');
-      setLoading(false);
       return;
     }
 
@@ -57,7 +55,7 @@ function AcceptInviteContent() {
   }, [token]);
 
   const handleAccept = async () => {
-    if (!token) return;
+    if (!token || !user?.email || user.email.toLowerCase() !== invitation?.email?.toLowerCase()) return;
     try {
       setAccepting(true);
       const res = await api.acceptInvitation(token);
@@ -86,7 +84,7 @@ function AcceptInviteContent() {
     }
   };
 
-  if (loading || authLoading) {
+  if (token && (loading || authLoading)) {
     return (
       <div className="min-h-screen bg-[#070012] flex items-center justify-center p-4">
         <div className="text-center space-y-4">
@@ -97,7 +95,7 @@ function AcceptInviteContent() {
     );
   }
 
-  if (error || !invitation) {
+  if (!token || error || !invitation) {
     return (
       <div className="min-h-screen bg-[#070012] flex items-center justify-center p-4">
         <div className="max-w-md w-full p-8 rounded-3xl bg-[#0e0720] border border-red-500/20 text-center space-y-6 shadow-2xl">
@@ -119,7 +117,7 @@ function AcceptInviteContent() {
     );
   }
 
-  const isExpired = invitation.is_expired || invitation.status === 'expired';
+  const isExpired = invitation.status !== 'accepted' && (invitation.is_expired || invitation.status === 'expired');
   const isAlreadyAccepted = invitation.status === 'accepted';
   const isEmailMatch = user?.email && invitation?.email && user.email.toLowerCase() === invitation.email.toLowerCase();
 
@@ -196,12 +194,18 @@ function AcceptInviteContent() {
               <CheckCircle2 className="w-4 h-4" />
               <span>Invitation already accepted!</span>
             </div>
-            <p className="text-xs text-zinc-400">You are already a member of this workspace.</p>
+            <p className="text-xs text-zinc-400">This invitation has been accepted. Sign in with the invited email to open the workspace.</p>
             <Link
-              href="/user/admin/dashboard"
+              href={isEmailMatch ? "/user/admin/dashboard" : `/login?email=${encodeURIComponent(invitation.email)}&invite_token=${token}`}
+              onClick={(event) => {
+                if (isEmailMatch) {
+                  event.preventDefault();
+                  handleAccept();
+                }
+              }}
               className="inline-flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition-colors shadow-lg shadow-emerald-600/20"
             >
-              <span>Go to Workspace Dashboard</span>
+              <span>{isEmailMatch ? "Go to Workspace Dashboard" : "Sign in with invited email"}</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -221,14 +225,14 @@ function AcceptInviteContent() {
               <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2.5 text-xs text-amber-300">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>
-                  You are logged in as <strong>{user.email}</strong>, while this invite was addressed to <strong>{invitation.email}</strong>. Accepting will link this workspace to your current account.
+                  You are logged in as <strong>{user.email}</strong>, while this invite was addressed to <strong>{invitation.email}</strong>. Sign in with the invited email address to accept this invitation.
                 </span>
               </div>
             )}
 
             <button
               onClick={handleAccept}
-              disabled={accepting}
+              disabled={accepting || !isEmailMatch}
               className="w-full py-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-sm shadow-xl shadow-violet-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {accepting ? (

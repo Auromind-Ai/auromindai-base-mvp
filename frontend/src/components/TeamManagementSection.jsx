@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -131,7 +131,7 @@ const PERMISSION_SECTIONS = [
     label: 'Credits & Wallet',
     icon: Coins,
     items: [
-      { id: 'view', label: 'Usage & Balances', desc: 'View AI credits, WhatsApp WCC wallet balance, and recharge history' },
+      { id: 'view', label: 'Credits & Recharges', desc: 'View usage and balances, purchase AI credits, and recharge the WhatsApp wallet' },
     ],
   },
   {
@@ -147,7 +147,7 @@ const PERMISSION_SECTIONS = [
     label: 'Team Management',
     icon: ShieldCheck,
     items: [
-      { id: 'members', label: 'Members & Invitations', desc: 'Invite teammates, manage roles, permissions, and seat allocations' },
+      { id: 'members', label: 'Members & Invitations', desc: 'Manage team members, invitations, roles, permissions, and seats.' },
     ],
   },
   {
@@ -178,13 +178,17 @@ function getEnabledModulesCount(permissions) {
   }).length;
 }
 
+const subscribeHydration = () => () => {};
+
 export default function TeamManagementSection() {
-  const { workspaceId, user: currentUser, refreshPermissions } = useAuth();
+  const { workspaceId, user: currentUser, refreshPermissions, hasPermission, permissionsLoading } = useAuth();
   const { showToast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(subscribeHydration, () => true, () => false);
+  const canManage = !permissionsLoading && hasPermission('team.members');
+  const canView = hasPermission('team.members');
 
   // Modal State for Add / Edit Member
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -208,12 +212,9 @@ export default function TeamManagementSection() {
   const [isRemoving, setIsRemoving] = useState(false);
   const [togglingStatusId, setTogglingStatusId] = useState(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const fetchTeamData = useCallback(async () => {
-    if (!workspaceId) return;
+    if (!workspaceId || !canView) return;
     try {
       setLoading(true);
       const res = await api.getWorkspaceMembers(workspaceId);
@@ -221,14 +222,15 @@ export default function TeamManagementSection() {
       refreshPermissions?.(workspaceId);
     } catch (err) {
       console.warn('Failed to load team members:', err);
-      showToast('error', err?.message || 'Failed to load team members');
+      showToast(err?.message || 'Failed to load team members', 'error');
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, showToast, refreshPermissions]);
+  }, [workspaceId, canView, showToast, refreshPermissions]);
 
   useEffect(() => {
-    fetchTeamData();
+    const timer = setTimeout(() => { void fetchTeamData(); }, 0);
+    return () => clearTimeout(timer);
   }, [fetchTeamData]);
 
   // Open Modal for adding a new member
@@ -403,7 +405,7 @@ export default function TeamManagementSection() {
     if (!emailToSubmit || !emailToSubmit.includes('@')) {
       const msg = 'Please enter a valid email address.';
       setFormError(msg);
-      showToast('error', msg);
+      showToast(msg, 'error');
       return;
     }
 
@@ -415,16 +417,16 @@ export default function TeamManagementSection() {
       if (isAlreadyMember) {
         const msg = `${emailToSubmit} is already a member of this workspace.`;
         setFormError(msg);
-        showToast('error', msg);
+        showToast(msg, 'error');
         return;
       }
 
-      const totalSeats = data?.total_member_seats || 3;
+      const totalSeats = data?.total_member_seats ?? 0;
       const usedSeats = data?.used_member_seats || 0;
-      if (formData.role === 'member' && usedSeats >= totalSeats) {
+      if (formData.role === 'member' && totalSeats !== -1 && usedSeats >= totalSeats) {
         const msg = `You have reached the maximum allowed member seats (${totalSeats}) for your current plan. Please upgrade your plan or invite as Admin.`;
         setFormError(msg);
-        showToast('error', msg);
+        showToast(msg, 'error');
         return;
       }
     }
@@ -438,15 +440,15 @@ export default function TeamManagementSection() {
           permissions: formData.role === 'admin' ? getDefaultFullPermissions() : formData.permissions,
           is_active: formData.is_active,
         });
-        showToast('success', `Updated ${formData.name || emailToSubmit} successfully.`);
+        showToast(`Updated ${formData.name || emailToSubmit} successfully.`, 'success');
       } else {
-        await api.inviteWorkspaceMember(workspaceId, {
+        const result = await api.inviteWorkspaceMember(workspaceId, {
           name: formData.name.trim() || undefined,
           email: emailToSubmit,
           role: formData.role,
           permissions: formData.role === 'admin' ? getDefaultFullPermissions() : formData.permissions,
         });
-        showToast('success', `Invitation sent to ${emailToSubmit}!`);
+        showToast(result?.email_sent ? `Invitation sent to ${emailToSubmit}!` : 'Invitation created, but email was not delivered. Copy the invitation link or retry sending.', result?.email_sent ? 'success' : 'warning');
       }
       setIsModalOpen(false);
       setFormError(null);
@@ -454,7 +456,7 @@ export default function TeamManagementSection() {
     } catch (err) {
       const msg = err?.data?.detail || err?.message || 'Failed to save member';
       setFormError(msg);
-      showToast('error', msg);
+      showToast(msg, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -468,34 +470,37 @@ export default function TeamManagementSection() {
       await api.updateWorkspaceMember(workspaceId, member.id, {
         is_active: nextStatus,
       });
-      showToast('success', `Member ${nextStatus ? 'activated' : 'deactivated'} successfully.`);
+      showToast(`Member ${nextStatus ? 'activated' : 'deactivated'} successfully.`, 'success');
       fetchTeamData();
     } catch (err) {
       console.warn('Status toggle warning:', err);
-      showToast('error', err?.message || 'Failed to update member status');
+      showToast(err?.message || 'Failed to update member status', 'error');
     } finally {
       setTogglingStatusId(null);
     }
   };
 
-  const handleCopyLink = (token) => {
+  const handleCopyLink = async (token) => {
+    if (!token) return;
+    try {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const inviteUrl = `${origin}/accept-invite?token=${token}`;
-    navigator.clipboard.writeText(inviteUrl);
+    await navigator.clipboard.writeText(inviteUrl);
     setCopiedToken(token);
-    showToast('success', 'Invitation link copied to clipboard!');
+    showToast('Invitation link copied to clipboard!', 'success');
     setTimeout(() => setCopiedToken(null), 3000);
+    } catch { showToast('Unable to copy the invitation link.', 'error'); }
   };
 
   const handleResend = async (invitationId) => {
     try {
       setResendingId(invitationId);
-      await api.resendWorkspaceInvitation(workspaceId, invitationId);
-      showToast('success', 'Invitation email resent successfully!');
+      const result = await api.resendWorkspaceInvitation(workspaceId, invitationId);
+      showToast(result?.email_sent ? 'Invitation email resent successfully!' : 'Link refreshed, but email was not delivered. Copy the invitation link.', result?.email_sent ? 'success' : 'warning');
       fetchTeamData();
     } catch (err) {
       console.warn('Resend notice:', err);
-      showToast('error', err?.message || 'Failed to resend invitation');
+      showToast(err?.message || 'Failed to resend invitation', 'error');
     } finally {
       setResendingId(null);
     }
@@ -505,11 +510,11 @@ export default function TeamManagementSection() {
     try {
       setCancellingId(invitationId);
       await api.cancelWorkspaceInvitation(workspaceId, invitationId);
-      showToast('success', 'Invitation revoked successfully.');
+      showToast('Invitation revoked successfully.', 'success');
       fetchTeamData();
     } catch (err) {
       console.warn('Cancel invite notice:', err);
-      showToast('error', err?.message || 'Failed to revoke invitation');
+      showToast(err?.message || 'Failed to revoke invitation', 'error');
     } finally {
       setCancellingId(null);
     }
@@ -520,18 +525,20 @@ export default function TeamManagementSection() {
     try {
       setIsRemoving(true);
       await api.removeWorkspaceMember(workspaceId, memberToRemove.id);
-      showToast('success', `${memberToRemove.email} removed. Workspace access revoked immediately.`);
+      showToast(`${memberToRemove.email} removed. Workspace access revoked immediately.`, 'success');
       setMemberToRemove(null);
       fetchTeamData();
     } catch (err) {
       console.warn('Remove member notice:', err);
-      showToast('error', err?.message || 'Failed to remove member');
+      showToast(err?.message || 'Failed to remove member', 'error');
     } finally {
       setIsRemoving(false);
     }
   };
 
-  if (loading && !data) {
+  if (!permissionsLoading && !canView) return <p className="p-4 text-zinc-400">You do not have access to team details.</p>;
+
+  if (permissionsLoading || (loading && !data)) {
     return (
       <div className="flex flex-col items-center justify-center py-16 sm:py-24 text-zinc-400">
         <Loader2 className="w-8 h-8 animate-spin text-violet-500 mb-3" />
@@ -541,17 +548,17 @@ export default function TeamManagementSection() {
   }
 
   const members = data?.members || [];
-  const invitations = data?.invitations || [];
-  const totalMemberSeats = data?.total_member_seats || 3;
+  const invitations = canManage ? (data?.invitations || []) : [];
+  const totalMemberSeats = data?.total_member_seats ?? 0;
   const usedMemberSeats = data?.used_member_seats || 0;
-  const availableMemberSeats = Math.max(0, totalMemberSeats - usedMemberSeats);
+  const availableMemberSeats = totalMemberSeats === -1 ? 'Unlimited' : Math.max(0, totalMemberSeats - usedMemberSeats);
   const adminCount = members.filter((m) => ['admin', 'founder', 'owner'].includes(m.role?.toLowerCase())).length;
 
   return (
-    <div className="space-y-6 sm:space-y-8 w-full max-w-5xl mx-auto px-1 sm:px-0">
+    <div className="@container space-y-6 sm:space-y-8 w-full min-w-0 max-w-5xl mx-auto px-1 sm:px-0">
       {/* ─ HEADER SECTION ─ */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
-        <div className="space-y-1">
+      <div className="flex flex-col @min-[640px]:flex-row @min-[640px]:items-center justify-between gap-4 pb-1">
+        <div className="min-w-0 flex-1 space-y-1">
           <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
             <Users className="w-5 h-5 text-violet-400 shrink-0" />
             <span>Team Members & Permissions</span>
@@ -560,7 +567,7 @@ export default function TeamManagementSection() {
             Manage workspace seats, configure granular role permissions, and invite teammates.
           </p>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto w-full sm:w-auto">
+        <div className="flex shrink-0 items-center gap-2 self-start @min-[640px]:self-auto w-full @min-[640px]:w-auto">
           <button
             onClick={fetchTeamData}
             title="Refresh team members"
@@ -570,8 +577,10 @@ export default function TeamManagementSection() {
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
+            disabled={!canManage}
+            hidden={!canManage}
             onClick={handleOpenAddModal}
-            className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs sm:text-sm font-medium shadow-lg shadow-violet-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+            className="flex-1 @min-[640px]:flex-initial shrink-0 whitespace-nowrap px-4 py-2.5 rounded-xl bg-[#814ac8] hover:bg-[#925ed3] text-white text-xs sm:text-sm font-medium shadow-lg shadow-[#814ac8]/25 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
           >
             <UserPlus className="w-4 h-4 shrink-0" />
             <span>Add Team Member</span>
@@ -592,12 +601,12 @@ export default function TeamManagementSection() {
           <div className="mt-3">
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold text-white">{usedMemberSeats}</span>
-              <span className="text-xs text-zinc-400">/ {totalMemberSeats} Plan Seats</span>
+              <span className="text-xs text-zinc-400">/ {totalMemberSeats === -1 ? 'Unlimited' : totalMemberSeats} Plan Seats</span>
             </div>
             <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
               <div
                 className="bg-violet-500 h-full rounded-full transition-all duration-300"
-                style={{ width: `${Math.min(100, (usedMemberSeats / Math.max(1, totalMemberSeats)) * 100)}%` }}
+                style={{ width: `${totalMemberSeats === -1 ? 0 : Math.min(100, (usedMemberSeats / Math.max(1, totalMemberSeats)) * 100)}%` }}
               />
             </div>
           </div>
@@ -641,8 +650,7 @@ export default function TeamManagementSection() {
           </h3>
         </div>
 
-        {/* Mobile View: Responsive Member Cards (< 640px) */}
-        <div className="block sm:hidden space-y-3">
+        <ul className="space-y-3 min-w-0" aria-label="Workspace members">
           {members.map((member) => {
             const isCurrent = currentUser?.email && member.email.toLowerCase() === currentUser.email.toLowerCase();
             const displayName = member.name || member.full_name || member.email.split('@')[0];
@@ -652,255 +660,97 @@ export default function TeamManagementSection() {
             const enabledSecCount = getEnabledModulesCount(member.permissions);
 
             return (
-              <div
+              <li
                 key={member.id}
-                className="p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-3"
+                className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-4 @min-[640px]:p-5 space-y-4"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                <div className="flex flex-col gap-3 @min-[420px]:flex-row @min-[420px]:items-start @min-[420px]:justify-between">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm shrink-0 ${
                       isAdminRole
-                        ? 'bg-violet-600/30 text-violet-300 border border-violet-500/40'
-                        : 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30'
+                        ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30'
+                        : 'bg-emerald-600/15 text-emerald-300 border border-emerald-500/25'
                     }`}>
                       {initials}
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-semibold text-sm text-white truncate">{displayName}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm text-white [overflow-wrap:anywhere]">{displayName}</span>
                         {isCurrent && (
-                          <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-500/15 text-violet-300">
                             You
                           </span>
                         )}
                         {member.is_owner && (
-                          <span className="flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                            <Crown className="w-3 h-3" /> Owner
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-300">
+                            <Crown className="w-3 h-3 shrink-0" /> Owner
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-zinc-400 truncate">{member.email}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-zinc-400 [overflow-wrap:anywhere]">{member.email}</p>
                     </div>
                   </div>
-
-                  {/* Status Pill */}
-                  <div>
-                    {isActive ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Active
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-400" /> Deactivated
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Role & Access Info */}
-                <div className="flex items-center justify-between pt-2 border-t border-white/5 text-xs text-zinc-300">
-                  <div className="flex items-center gap-2">
-                    {isAdminRole ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20 capitalize">
-                        <Crown className="w-3 h-3" /> {member.role || 'Admin'}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20 capitalize">
-                        Member
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[11px] text-zinc-400">
-                    {isAdminRole ? 'Full Access' : `${enabledSecCount} / ${PERMISSION_SECTIONS.length} Modules`}
+                  <span className={`inline-flex self-start shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                    isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                    {isActive ? 'Active' : 'Deactivated'}
                   </span>
                 </div>
 
-                {/* Actions Bar */}
-                {!member.is_owner && (
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/5">
-                    <button
-                      onClick={() => handleOpenEditModal(member)}
-                      className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-zinc-200 flex items-center gap-1 cursor-pointer"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                      <span>Edit</span>
-                    </button>
-
-                    {!isCurrent && (
-                      <button
-                        onClick={() => handleToggleMemberStatus(member)}
-                        disabled={togglingStatusId === member.id}
-                        className={`px-2.5 py-1.5 rounded-lg border text-xs flex items-center gap-1 cursor-pointer ${
-                          isActive
-                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/20'
-                            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20'
-                        }`}
-                      >
-                        {togglingStatusId === member.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Power className="w-3.5 h-3.5" />
-                        )}
-                        <span>{isActive ? 'Deactivate' : 'Activate'}</span>
-                      </button>
-                    )}
-
-                    {!isCurrent && (
-                      <button
-                        onClick={() => setMemberToRemove(member)}
-                        className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer"
-                        title="Remove Member"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                <div className="flex flex-col gap-3 border-t border-white/[0.06] pt-3 @min-[640px]:flex-row @min-[640px]:items-center @min-[640px]:justify-between">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+                    <span className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium capitalize ${
+                      isAdminRole ? 'bg-amber-500/10 text-amber-300' : 'bg-blue-500/10 text-blue-300'
+                    }`}>
+                      {isAdminRole && <Crown className="w-3 h-3 shrink-0" />}
+                      {isAdminRole ? (member.role || 'Admin') : 'Member'}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 text-xs text-zinc-400">
+                      {isAdminRole && <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-emerald-400" />}
+                      {isAdminRole ? 'All modules access' : `${enabledSecCount} / ${PERMISSION_SECTIONS.length} modules enabled`}
+                    </span>
                   </div>
-                )}
-              </div>
+
+                  {canManage && !member.is_owner && (
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => handleOpenEditModal(member)}
+                        className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-white/10 px-3 text-xs text-zinc-300 hover:bg-white/5 hover:text-white transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-violet-400"
+                        aria-label={`Edit permissions for ${displayName}`}
+                      >
+                        <Edit2 className="w-3.5 h-3.5 shrink-0" /> Edit
+                      </button>
+                      {!isCurrent && (
+                        <>
+                          <button
+                            onClick={() => handleToggleMemberStatus(member)}
+                            disabled={togglingStatusId === member.id}
+                            className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-white/10 px-3 text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait focus-visible:outline-2 focus-visible:outline-violet-400 ${
+                              isActive ? 'text-zinc-300 hover:text-amber-300 hover:bg-amber-500/10' : 'text-emerald-400 hover:bg-emerald-500/10'
+                            }`}
+                            aria-label={`${isActive ? 'Deactivate' : 'Activate'} ${displayName}`}
+                          >
+                            {togglingStatusId === member.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Power className="w-3.5 h-3.5 shrink-0" />}
+                            {isActive ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button
+                            onClick={() => setMemberToRemove(member)}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-violet-400"
+                            title="Remove Member"
+                            aria-label={`Remove ${displayName}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </li>
             );
           })}
-        </div>
-
-        {/* Desktop / Tablet View: Table (>= 640px) */}
-        <div className="hidden sm:block rounded-xl border border-white/10 overflow-hidden bg-white/[0.02]">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-zinc-300">
-              <thead className="bg-white/[0.04] text-xs uppercase tracking-wider text-zinc-400 border-b border-white/10">
-                <tr>
-                  <th className="py-3 px-4 whitespace-nowrap">Member</th>
-                  <th className="py-3 px-4 whitespace-nowrap">Role</th>
-                  <th className="py-3 px-4 whitespace-nowrap">Access Scope</th>
-                  <th className="py-3 px-4 whitespace-nowrap">Status</th>
-                  <th className="py-3 px-4 text-right whitespace-nowrap">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {members.map((member) => {
-                  const isCurrent = currentUser?.email && member.email.toLowerCase() === currentUser.email.toLowerCase();
-                  const displayName = member.name || member.full_name || member.email.split('@')[0];
-                  const initials = displayName.charAt(0).toUpperCase();
-                  const isAdminRole = ['admin', 'founder', 'owner'].includes(member.role?.toLowerCase()) || member.is_owner;
-                  const isActive = member.is_active !== false;
-                  const enabledSecCount = getEnabledModulesCount(member.permissions);
-
-                  return (
-                    <tr key={member.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                            isAdminRole
-                              ? 'bg-violet-600/30 text-violet-300 border border-violet-500/40'
-                              : 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30'
-                          }`}>
-                            {initials}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-white truncate">{displayName}</span>
-                              {isCurrent && (
-                                <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                                  You
-                                </span>
-                              )}
-                              {member.is_owner && (
-                                <span className="flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                                  <Crown className="w-3 h-3" /> Owner
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-zinc-400 truncate">{member.email}</p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        {isAdminRole ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20 capitalize">
-                            <Crown className="w-3 h-3" /> {member.role || 'Admin'}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20 capitalize">
-                            Member
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        {isAdminRole ? (
-                          <span className="text-xs text-emerald-400 flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5" /> Full Access (All Modules)
-                          </span>
-                        ) : (
-                          <span className="text-xs text-zinc-300">
-                            {enabledSecCount} / {PERMISSION_SECTIONS.length} Modules Enabled
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        {isActive ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-400" /> Deactivated
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {!member.is_owner && (
-                            <button
-                              onClick={() => handleOpenEditModal(member)}
-                              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                              title="Edit Member Permissions"
-                              aria-label="Edit Member Permissions"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                          )}
-
-                          {!member.is_owner && !isCurrent && (
-                            <button
-                              onClick={() => handleToggleMemberStatus(member)}
-                              disabled={togglingStatusId === member.id}
-                              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                isActive
-                                  ? 'text-zinc-400 hover:text-amber-400 hover:bg-amber-500/10'
-                                  : 'text-amber-400 hover:text-emerald-400 hover:bg-emerald-500/10'
-                              }`}
-                              title={isActive ? 'Deactivate Member' : 'Activate Member'}
-                              aria-label={isActive ? 'Deactivate Member' : 'Activate Member'}
-                            >
-                              {togglingStatusId === member.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Power className="w-4 h-4" />
-                              )}
-                            </button>
-                          )}
-
-                          {!member.is_owner && !isCurrent && (
-                            <button
-                              onClick={() => setMemberToRemove(member)}
-                              className="p-1.5 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-                              title="Remove Member"
-                              aria-label="Remove Member"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        </ul>
       </div>
 
       {/* ─ PENDING INVITATIONS SECTION ─ */}

@@ -653,7 +653,15 @@ async def get_workspaces(
 ):
     """Get all workspaces for current user"""
     workspaces = AuthService.get_user_workspaces(db, current_user.id)
-    return {"workspaces": workspaces}
+    assigned = [workspace for workspace in workspaces if not workspace["is_owner"]]
+    visible = assigned or workspaces
+    return {
+        "workspaces": visible,
+        # Let existing sessions migrate from a hidden personal workspace without
+        # treating unrelated or revoked workspace IDs as a valid selection.
+        "hidden_personal_workspace_ids": [workspace["id"] for workspace in workspaces
+                                          if assigned and workspace["is_owner"]],
+    }
 
 @router.post("/stop-impersonation")
 async def stop_impersonation(request: Request, response: Response, db: Session = Depends(get_db)):
