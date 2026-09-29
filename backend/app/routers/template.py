@@ -837,31 +837,21 @@ def send_message(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db, data.workspace_id)
-  
+    import json
+    from datetime import datetime, timezone
+    from decimal import Decimal
 
+    workspace_id = verify_workspace_access(current_user, db, data.workspace_id)
     ws_uuid = to_uuid(workspace_id)
     workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
 
     if not workspace:
         raise HTTPException(404, "Workspace not found")
 
-    wallet = WCCService.get_balance(db, ws_uuid)
-    if wallet and float(wallet.balance or 0.0) <= 0:
-        raise HTTPException(
-            status_code=402,
-            detail="Insufficient WCC wallet balance to send WhatsApp template message. Please recharge your wallet."
-        )
-
-
     if not workspace.meta_phone_number_id:
         raise HTTPException(400, "WhatsApp phone number is not configured for this workspace. Please configure it in Channel Settings.")
-        
-    url = f"https://graph.facebook.com/v19.0/{workspace.meta_phone_number_id}/messages"
 
-
-    # Query template language from database
-    ws_uuid = to_uuid(workspace_id)
+    # Query template from database to get category and language
     template = db.query(Template).filter(
         Template.name == data.template_name,
         (Template.workspace_id == ws_uuid) | (Template.user_id == current_user.id)
@@ -869,6 +859,14 @@ def send_message(
     if not template:
         template = db.query(Template).filter(Template.name == data.template_name).first()
     lang_code = template.language if template else "en_US"
+    category = (template.category or "marketing").lower() if template else "marketing"
+
+    # Pre-flight WCC wallet balance check
+    overage_enabled = getattr(workspace, "overage_enabled", False)
+    estimate = WCCService.calculate_estimate(db, ws_uuid, audience_size=1, category=category)
+    WCCService.check_preflight_balance(db, ws_uuid, estimate["estimated_cost"], overage_enabled=overage_enabled)
+
+    url = f"https://graph.facebook.com/v19.0/{workspace.meta_phone_number_id}/messages"
 
     components = []
 
@@ -914,9 +912,16 @@ def send_message(
             "parameters": [{"type": "text", "text": str(v)} for v in variables],
         })
 
+    # Clean phone number (Meta Cloud API requires digits only with country code)
+    cleaned_phone = re.sub(r"[^\d+]", "", data.phone)
+    if cleaned_phone.startswith("+"):
+        cleaned_phone = cleaned_phone[1:]
+    if len(cleaned_phone) == 10:
+        cleaned_phone = f"91{cleaned_phone}"
+
     payload = {
         "messaging_product": "whatsapp",
-        "to": data.phone,
+        "to": cleaned_phone,
         "type": "template",
         "template": {
             "name": data.template_name,
@@ -924,7 +929,6 @@ def send_message(
             "components": components,
         },
     }
-
 
     from app.services.config_service import config_service
 
@@ -951,7 +955,124 @@ def send_message(
         err_msg = err_data.get("error", {}).get("message") or res.text
         logger.error(f"[Template Send FAILED] {res.status_code}: {err_data}")
         raise HTTPException(status_code=res.status_code, detail=f"Meta error: {err_msg}")
-    return res.json()
+
+    meta_res = res.json()
+    messages_arr = meta_res.get("messages", [])
+    wamid = messages_arr[0].get("id") if messages_arr else None
+
+    # Resolve or create Conversation so template appears in chat log
+    from app.services.inbox.conversation_service import ConversationService
+    from app.models.conversation import Conversation, ChannelType, ConversationStatus
+    from app.models.message import Message, MessageStatus, SenderType
+    from app.models.ai_action import Lead
+    from app.services.crm.lead_scoring_service import recalculate_lead_score
+
+    conv = db.query(Conversation).filter(
+        Conversation.workspace_id == ws_uuid,
+        (Conversation.phone == cleaned_phone) | (Conversation.phone == f"+{cleaned_phone}") | (Conversation.external_id == cleaned_phone)
+    ).first()
+    if not conv:
+        conv = ConversationService.get_or_create_conversation(
+            db=db,
+            workspace_id=ws_uuid,
+            channel=ChannelType.WHATSAPP,
+            phone=cleaned_phone,
+            external_id=cleaned_phone,
+            contact_name=cleaned_phone,
+        )
+    if conv and conv.status != ConversationStatus.OPEN:
+        conv.status = ConversationStatus.OPEN
+
+    # Interpolate template body variables for display
+    formatted_content = template.content if template else f"Template: {data.template_name}"
+    if variables:
+        for idx, val in enumerate(variables, start=1):
+            formatted_content = formatted_content.replace(f"{{{{{idx}}}}}", str(val))
+
+    meta_dict = {
+        "template_name": data.template_name,
+        "variables": data.variables or [],
+        "language": lang_code,
+        "template_category": category,
+        "is_template": True,
+        "source": "template_message"
+    }
+    if getattr(data, "media_url", None):
+        meta_dict["media_url"] = data.media_url
+        if template and template.type in ("IMAGE", "VIDEO", "DOCUMENT"):
+            meta_dict["message_type"] = template.type.lower()
+
+    # Save Message record in database
+    new_msg = Message(
+        conversation_id=conv.id,
+        content=formatted_content,
+        sender_type=SenderType.AGENT,
+        status=MessageStatus.SENT,
+        external_id=wamid,
+        metadata_json=json.dumps(meta_dict),
+        source="template_message"
+    )
+    db.add(new_msg)
+    conv.last_message_at = datetime.now(timezone.utc)
+
+    # Link Lead and recalculate activity / score
+    lead = db.query(Lead).filter(
+        Lead.workspace_id == ws_uuid,
+        (Lead.conversation_id == conv.id) | (Lead.phone == cleaned_phone) | (Lead.phone == f"+{cleaned_phone}")
+    ).first()
+    if lead:
+        if not lead.conversation_id:
+            lead.conversation_id = conv.id
+        lead.last_activity_at = datetime.utcnow()
+        try:
+            recalculate_lead_score(lead, db, reason="agent_reply", commit=False)
+        except Exception as e:
+            logger.warning(f"Error recalculating lead score on template send: {e}")
+
+    # Atomically debit WCC wallet
+    if wamid:
+        try:
+            rate_card = WCCService.get_active_rate(db, category, "IN")
+            meta_cost = rate_card.meta_cost
+            customer_price = rate_card.customer_price
+        except Exception:
+            fallbacks = {
+                "marketing": (Decimal("1.09"), Decimal("1.25")),
+                "utility": (Decimal("0.145"), Decimal("0.18")),
+                "authentication": (Decimal("0.145"), Decimal("0.18")),
+                "service": (Decimal("0.00"), Decimal("0.05"))
+            }
+            meta_cost, customer_price = fallbacks.get(category, (Decimal("1.09"), Decimal("1.25")))
+
+        try:
+            WCCService.debit_conversation_charge(
+                db=db,
+                workspace_id=ws_uuid,
+                meta_session_id=str(wamid),
+                category=category,
+                meta_cost=meta_cost,
+                customer_price=customer_price,
+                raw_payload={
+                    "action": "messages_send",
+                    "phone": cleaned_phone,
+                    "template_name": data.template_name,
+                    "wamid": str(wamid)
+                }
+            )
+        except Exception as e:
+            logger.error(f"[WCC Debit] Error debiting template in /messages/send: {e}")
+
+    db.commit()
+    db.refresh(new_msg)
+
+    return {
+        "status": "sent",
+        "wamid": wamid,
+        "message_id": str(new_msg.id),
+        "conversation_id": str(conv.id),
+        "formatted_content": formatted_content,
+        "meta_response": meta_res
+    }
 
 
 @router.post("/templates/submit/{template_id}")
