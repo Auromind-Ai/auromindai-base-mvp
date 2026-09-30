@@ -61,6 +61,23 @@ const sectionsDefinition = [
   },
 ];
 
+export function getFirstAccessibleWorkspacePath(hasPermission) {
+  for (const section of sectionsDefinition) {
+    for (const [, , route, permission] of section.items) {
+      if (hasPermission(permission)) {
+        return route === "marketing"
+          ? "/user/admin/marketing/bulkmessages"
+          : `/user/admin/${route}`;
+      }
+    }
+  }
+  if (hasPermission("settings.general") || hasPermission("settings.notifications")) {
+    return "/user/admin/settings";
+  }
+  if (hasPermission("team.members")) return "/user/admin/team";
+  return null;
+}
+
 export default function WorkspaceNavigation({
   pathname,
   collapsed = false,
@@ -69,7 +86,7 @@ export default function WorkspaceNavigation({
   onNavigate,
   onExpand,
 }) {
-  const { hasPermission, currentRole } = useAuth();
+  const { hasPermission } = useAuth();
 
   const marketingActive =
     pathname === "/user/admin/marketing" ||
@@ -78,7 +95,7 @@ export default function WorkspaceNavigation({
   // Filter sections based on permissions
   const visibleSections = sectionsDefinition
     .map((section) => {
-      const allowedItems = section.items.filter(([label, , route, permKey]) => {
+      const allowedItems = section.items.filter(([, , route, permKey]) => {
         if (!hasPermission) return true;
         if (route === "inbox") {
           return hasPermission("inbox.conversations") || hasPermission("inbox");
@@ -92,7 +109,7 @@ export default function WorkspaceNavigation({
     })
     .filter((section) => section.items.length > 0);
 
-  const canAccessSettings = hasPermission ? hasPermission("settings.general") : true;
+  const canAccessSettings = true;
 
   return (
     <nav

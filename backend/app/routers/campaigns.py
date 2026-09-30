@@ -36,13 +36,13 @@ def resolve_workspace_id(current_user: CurrentUser, db: Session, workspace_id: O
    
     if workspace_id and str(workspace_id).strip():
         ws_uuid = to_uuid(workspace_id)
-        verify_workspace_access(current_user, db, ws_uuid)
+        verify_workspace_access(current_user, db, ws_uuid, required_permission='marketing.campaigns')
         return ws_uuid
 
     user_id = to_uuid(current_user.id) if getattr(current_user, "id", None) else None
     if getattr(current_user, "default_workspace_id", None):
         ws_uuid = to_uuid(current_user.default_workspace_id)
-        verify_workspace_access(current_user, db, ws_uuid)
+        verify_workspace_access(current_user, db, ws_uuid, required_permission='marketing.campaigns')
         return ws_uuid
 
     if user_id:
@@ -52,7 +52,7 @@ def resolve_workspace_id(current_user: CurrentUser, db: Session, workspace_id: O
             if member:
                 ws = db.query(Workspace).filter(Workspace.id == member.workspace_id).first()
         if ws:
-            return ws.id
+            return to_uuid(verify_workspace_access(current_user, db, ws.id, required_permission="marketing.campaigns"))
 
     raise HTTPException(status_code=400, detail="No active workspace found for user. Please specify workspace_id.")
 
@@ -64,7 +64,7 @@ async def estimate_campaign_cost(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     ws_uuid = to_uuid(payload.workspace_id)
-    verify_workspace_access(current_user, db, ws_uuid)
+    verify_workspace_access(current_user, db, ws_uuid, required_permission='marketing.campaigns')
 
     try:
         data = CampaignService.calculate_preflight_estimation(
@@ -315,7 +315,7 @@ async def get_campaign_detail(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    verify_workspace_access(current_user, db, campaign.workspace_id)
+    verify_workspace_access(current_user, db, campaign.workspace_id, required_permission='marketing.campaigns')
 
     # Calculate deliverability percentages
     total = campaign.valid_recipients or campaign.total_recipients or 1
@@ -438,7 +438,7 @@ async def list_campaign_recipients(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    verify_workspace_access(current_user, db, campaign.workspace_id)
+    verify_workspace_access(current_user, db, campaign.workspace_id, required_permission='marketing.campaigns')
 
     query = db.query(CampaignRecipient).filter(CampaignRecipient.campaign_id == c_uuid)
 
@@ -622,7 +622,7 @@ async def update_campaign_endpoint(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    verify_workspace_access(current_user, db, campaign.workspace_id)
+    verify_workspace_access(current_user, db, campaign.workspace_id, required_permission='marketing.campaigns')
     user_id = to_uuid(current_user.id) if getattr(current_user, "id", None) else None
 
     # Validate template ownership if specified
@@ -689,7 +689,7 @@ async def launch_campaign(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    verify_workspace_access(current_user, db, campaign.workspace_id)
+    verify_workspace_access(current_user, db, campaign.workspace_id, required_permission='marketing.campaigns')
 
     try:
         updated = CampaignService.launch_campaign(db, c_uuid)
@@ -718,7 +718,7 @@ async def pause_campaign(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    verify_workspace_access(current_user, db, campaign.workspace_id)
+    verify_workspace_access(current_user, db, campaign.workspace_id, required_permission='marketing.campaigns')
     updated = CampaignService.pause_campaign(db, c_uuid, reason=reason)
     return {"status": "paused", "campaign_id": str(updated.id), "reason": updated.paused_reason}
 
@@ -734,7 +734,7 @@ async def resume_campaign(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    verify_workspace_access(current_user, db, campaign.workspace_id)
+    verify_workspace_access(current_user, db, campaign.workspace_id, required_permission='marketing.campaigns')
     updated = CampaignService.resume_campaign(db, c_uuid)
     return {"status": "in_progress", "campaign_id": str(updated.id)}
 
@@ -750,7 +750,7 @@ async def cancel_campaign(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    verify_workspace_access(current_user, db, campaign.workspace_id)
+    verify_workspace_access(current_user, db, campaign.workspace_id, required_permission='marketing.campaigns')
     updated = CampaignService.cancel_campaign(db, c_uuid)
     return {"status": "cancelled", "campaign_id": str(updated.id)}
 
@@ -769,7 +769,7 @@ async def duplicate_campaign(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    verify_workspace_access(current_user, db, campaign.workspace_id)
+    verify_workspace_access(current_user, db, campaign.workspace_id, required_permission='marketing.campaigns')
     user_id = to_uuid(current_user.id) if getattr(current_user, "id", None) else None
 
     cloned = CampaignService.duplicate_campaign(db, c_uuid, user_id=user_id)
@@ -793,7 +793,7 @@ async def delete_campaign(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    verify_workspace_access(current_user, db, campaign.workspace_id)
+    verify_workspace_access(current_user, db, campaign.workspace_id, required_permission='marketing.campaigns')
 
     if campaign.status == "in_progress":
         raise HTTPException(status_code=400, detail="Cannot delete an actively running campaign. Please pause or cancel it first.")

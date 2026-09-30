@@ -1,5 +1,7 @@
 'use client';
 
+import { useAuth } from '@/context/AuthContext';
+
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
     Sparkles,
@@ -20,6 +22,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '@/lib/api';
 
 export default function AIChat({ isOpen, onClose, onToggleHistory, activeSessionId: propSessionId = null }) {
+    const { user, workspaceId } = useAuth();
+    const sessionStorageKey = `floating_chat_session:${user?.id}:${workspaceId}`;
     const [inputValue, setInputValue] = useState('');
     const [messages, setMessages] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -29,7 +33,7 @@ export default function AIChat({ isOpen, onClose, onToggleHistory, activeSession
     const sessionIdRef = useRef(sessionId);
     useEffect(() => {
         sessionIdRef.current = sessionId;
-    }, [sessionId]);
+    }, [sessionId, workspaceId]);
     const abortControllerRef = useRef(null);
     const lastStopTimeRef = useRef(0);
     const readerRef = useRef(null);
@@ -46,7 +50,7 @@ export default function AIChat({ isOpen, onClose, onToggleHistory, activeSession
         stopPolling();
         pollingRef.current = setInterval(async () => {
             try {
-                const history = await api.getSessionMessages(sid);
+                const history = await api.getSessionMessages(sid, workspaceId);
                 const mapped = history.map(m => ({
                     role: m.role,
                     content: m.content,
@@ -61,12 +65,12 @@ export default function AIChat({ isOpen, onClose, onToggleHistory, activeSession
                 }
             } catch (_) {}
         }, 1500);
-    }, [stopPolling]);
+    }, [stopPolling, workspaceId]);
 
     const loadSessionMessages = useCallback(async (sid) => {
         if (!sid) return;
         try {
-            const history = await api.getSessionMessages(sid);
+            const history = await api.getSessionMessages(sid, workspaceId);
             const mapped = history.map(m => ({
                 role: m.role,
                 content: m.content,
@@ -83,17 +87,14 @@ export default function AIChat({ isOpen, onClose, onToggleHistory, activeSession
             }
         } catch (err) {
             console.error("Failed to load floating chat history:", err);
+            if (err.status === 404 || err.status === 403) {
+                localStorage.removeItem(sessionStorageKey);
+                setSessionId(null);
+                setMessages([]);
+                stopPolling();
+            }
         }
-    }, [startPolling, stopPolling]);
-
-    // Sync propSessionId if passed
-    useEffect(() => {
-        if (propSessionId) {
-            setSessionId(propSessionId);
-            localStorage.setItem('floating_chat_session_id', propSessionId);
-            loadSessionMessages(propSessionId);
-        }
-    }, [propSessionId, loadSessionMessages]);
+    }, [startPolling, stopPolling, workspaceId, sessionStorageKey]);
 
     // Initialize or load session whenever modal opens
     useEffect(() => {
@@ -103,13 +104,13 @@ export default function AIChat({ isOpen, onClose, onToggleHistory, activeSession
         }
 
         const initSession = async () => {
-            let storedSessionId = localStorage.getItem('floating_chat_session_id');
+            let storedSessionId = localStorage.getItem(sessionStorageKey);
             if (!storedSessionId) {
                 try {
-                    const sessionRes = await api.createChatSession('Quick AI Chat');
+                    const sessionRes = await api.createChatSession('Quick AI Chat', workspaceId);
                     if (sessionRes && sessionRes.id) {
                         storedSessionId = sessionRes.id;
-                        localStorage.setItem('floating_chat_session_id', storedSessionId);
+                        localStorage.setItem(sessionStorageKey, storedSessionId);
                     }
                 } catch (e) {
                     console.error("Failed to create floating chat session:", e);
@@ -125,7 +126,7 @@ export default function AIChat({ isOpen, onClose, onToggleHistory, activeSession
         return () => {
             stopPolling();
         };
-    }, [isOpen, loadSessionMessages, stopPolling]);
+    }, [isOpen, loadSessionMessages, stopPolling, sessionStorageKey, workspaceId]);
 
     // Unmount cleanup: abort fetch + cancel reader — ensures no dangling HTTP stream
     useEffect(() => {
@@ -142,7 +143,7 @@ export default function AIChat({ isOpen, onClose, onToggleHistory, activeSession
             setIsLoading(false);
             stopPolling();
         };
-    }, [stopPolling]);
+    }, [stopPolling, workspaceId]);
 
     // Handle tab visibility changes:
     // When tab is hidden: disconnect frontend stream transport without stopping backend generation
@@ -178,9 +179,9 @@ export default function AIChat({ isOpen, onClose, onToggleHistory, activeSession
     const handleNewChat = async () => {
         stopPolling();
         try {
-            const sessionRes = await api.createChatSession('Quick AI Chat');
+            const sessionRes = await api.createChatSession('Quick AI Chat', workspaceId);
             if (sessionRes && sessionRes.id) {
-                localStorage.setItem('floating_chat_session_id', sessionRes.id);
+                localStorage.setItem(sessionStorageKey, sessionRes.id);
                 setSessionId(sessionRes.id);
                 setMessages([]);
             }
@@ -209,9 +210,9 @@ export default function AIChat({ isOpen, onClose, onToggleHistory, activeSession
         setIsLoading(false);
         // Publish CANCEL signal to backend
         try {
-            await api.stopChat(sessionId);
+            await api.stopChat(sessionId, workspaceId);
         } catch (_) {}
-    }, [sessionId]);
+    }, [sessionId, workspaceId]);
 
     const SUGGESTED_ACTIONS = [
         { icon: Search, label: 'Search for anything', color: 'text-slate-400' },
@@ -236,11 +237,11 @@ export default function AIChat({ isOpen, onClose, onToggleHistory, activeSession
         let activeSessionId = sessionId;
         if (!activeSessionId) {
             try {
-                const sessionRes = await api.createChatSession('Quick AI Chat');
+                const sessionRes = await api.createChatSession('Quick AI Chat', workspaceId);
                 if (sessionRes && sessionRes.id) {
                     activeSessionId = sessionRes.id;
                     setSessionId(activeSessionId);
-                    localStorage.setItem('floating_chat_session_id', activeSessionId);
+                    localStorage.setItem(sessionStorageKey, activeSessionId);
                 }
             } catch (e) {
                 console.error("Failed to create session before sending:", e);
@@ -260,7 +261,8 @@ export default function AIChat({ isOpen, onClose, onToggleHistory, activeSession
                 message: userMessage.content,
                 model: 'auto',
                 use_rag: true,
-                session_id: activeSessionId
+                session_id: activeSessionId,
+                workspace_id: workspaceId
             }, abortControllerRef.current.signal);
 
             if (!res.ok) {

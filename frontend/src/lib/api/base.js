@@ -22,6 +22,9 @@ export function sanitizeErrorMessage(msg, status = 500) {
   const lower = msg.toLowerCase().trim();
   if (!lower) return 'An unexpected error occurred. Please try again.';
 
+  if (lower.includes('deactivat') && (lower.includes('membership') || lower.includes('workspace'))) {
+    return 'Your access to this workspace has been deactivated. Contact its admin.';
+  }
   if (lower.includes('deactivat')) {
     return 'Your account is deactivated due to some reason. Please call or contact the support team.';
   }
@@ -302,7 +305,8 @@ export class APIClient {
         const isDeactivated = (errorMessage && errorMessage.toLowerCase().includes('deactivat')) || 
                               (data?.detail && typeof data.detail === 'string' && data.detail.toLowerCase().includes('deactivat'));
 
-        if (isDeactivated && !isPublicAuthEndpoint) {
+        const isWorkspaceDeactivated = /membership|workspace/i.test(String(data?.detail || ''));
+        if (isDeactivated && !isWorkspaceDeactivated && !isPublicAuthEndpoint) {
           if (typeof window !== 'undefined') {
             removeToken();
             window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'deactivated' } }));

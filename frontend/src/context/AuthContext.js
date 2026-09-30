@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import api from '@/lib/api';
+import { resolveWorkspace, getVisibleWorkspaces } from '@/lib/workspaceAccess.mjs';
 import { setUser, setWorkspace, removeToken, setToken, getToken, isTokenExpired } from '@/lib/auth';
 
 const AuthContext = createContext({
@@ -19,8 +20,10 @@ export function AuthProvider({ children }) {
   const [user, setUserState] = useState(null);
   const [workspaces, setWorkspacesState] = useState([]);
   const [workspaceId, setWorkspaceIdState] = useState(null);
-  const [currentRole, setCurrentRole] = useState('admin');
+  const [currentRole, setCurrentRole] = useState('member');
   const [permissions, setPermissions] = useState(null);
+  const [permissionWorkspaceId, setPermissionWorkspaceId] = useState(null);
+  const permissionRequestRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [csrfToken, setCsrfTokenState] = useState(null);
   const csrfTokenRef = useRef(null);
@@ -63,26 +66,25 @@ export function AuthProvider({ children }) {
         // Fetch workspaces list
         const wsData = await api.getWorkspaces({ signal });
         const wsList = wsData?.workspaces || [];
-        setWorkspacesState(wsList);
+        setWorkspacesState(getVisibleWorkspaces(wsList));
         
-        // Determine active workspace_id
-        let activeWs = null;
-        const currentWsId = workspaceIdRef.current;
-
-        if (currentWsId) {
-          activeWs = wsList.find(w => w.id === currentWsId);
-        }
-        if (!activeWs && profile.workspace_id) {
-          activeWs = wsList.find(w => w.id === profile.workspace_id);
-        }
-        if (!activeWs && wsList.length > 0) {
-          activeWs = wsList[0];
-        }
+        // Restore the selection on full reloads before checking route permissions.
+        // Only IDs in the server-provided membership list can become active.
+        const savedWsId = typeof window !== 'undefined'
+          ? localStorage.getItem('workspace_id')
+          : null;
+        const activeWs = resolveWorkspace(wsList, workspaceIdRef.current, savedWsId, profile.workspace_id, wsData?.hidden_personal_workspace_ids || []);
 
         if (activeWs) {
           setWorkspaceIdState(activeWs.id);
           workspaceIdRef.current = activeWs.id;
           setWorkspace(activeWs);
+        } else {
+          setWorkspaceIdState(null);
+          workspaceIdRef.current = null;
+          // Keep an unavailable selection persisted until the user explicitly
+          // chooses another workspace; never silently open their own workspace.
+          if (!savedWsId) setWorkspace(null);
         }
 
         return profile;
@@ -99,6 +101,7 @@ export function AuthProvider({ children }) {
                             err?.message?.toLowerCase()?.includes('could not validate credentials') ||
                             err?.message?.toLowerCase()?.includes('credentials');
 
+        const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
         const isExcludedFromRedirect = pathname.startsWith('/login') ||
                                        pathname.startsWith('/signup') ||
                                        pathname.startsWith('/docs') ||
@@ -107,6 +110,10 @@ export function AuthProvider({ children }) {
 
         if (isDeactivated) {
           removeToken();
+          setCurrentRole('member');
+          setPermissions(null);
+          setPermissionWorkspaceId(null);
+          permissionRequestRef.current += 1;
           setUserState(null);
           setWorkspacesState([]);
           setWorkspaceIdState(null);
@@ -118,6 +125,10 @@ export function AuthProvider({ children }) {
           }
         } else if (isAuthError) {
           removeToken();
+          setCurrentRole('member');
+          setPermissions(null);
+          setPermissionWorkspaceId(null);
+          permissionRequestRef.current += 1;
           setUserState(null);
           setWorkspacesState([]);
           setWorkspaceIdState(null);
@@ -207,6 +218,10 @@ export function AuthProvider({ children }) {
       console.warn("Logout API call failed:", err?.message || err);
     } finally {
       removeToken();
+      setCurrentRole('member');
+      setPermissions(null);
+      setPermissionWorkspaceId(null);
+      permissionRequestRef.current += 1;
       setUserState(null);
       setWorkspaceIdState(null);
       workspaceIdRef.current = null;
@@ -230,6 +245,10 @@ export function AuthProvider({ children }) {
   // Listen to cross-module auth:logout events
   useEffect(() => {
     const handleAuthLogout = () => {
+      setCurrentRole('member');
+      setPermissions(null);
+      setPermissionWorkspaceId(null);
+      permissionRequestRef.current += 1;
       setUserState(null);
       setWorkspaceIdState(null);
       workspaceIdRef.current = null;
@@ -279,23 +298,40 @@ export function AuthProvider({ children }) {
   const refreshPermissions = useCallback(async (wsId) => {
     const targetWsId = wsId || workspaceIdRef.current;
     if (!targetWsId) return null;
+    const requestId = ++permissionRequestRef.current;
     try {
       const res = await api.getMyWorkspacePermissions(targetWsId);
-      if (res) {
-        setCurrentRole(res.role || 'member');
-        setPermissions(res.permissions || {});
-        return res;
-      }
+      if (requestId !== permissionRequestRef.current || targetWsId !== workspaceIdRef.current) return null;
+      setCurrentRole(res?.role || 'member');
+      setPermissions(res?.permissions || {});
+      setPermissionWorkspaceId(targetWsId);
+      return res;
     } catch (e) {
+      if (requestId !== permissionRequestRef.current || targetWsId !== workspaceIdRef.current) return null;
+      setCurrentRole('member');
+      setPermissions({});
+      setPermissionWorkspaceId(targetWsId);
+      if (e?.status === 403) refreshUser().catch(() => {});
       console.warn("Failed to fetch workspace permissions:", e);
+      return null;
     }
-    return null;
-  }, []);
+  }, [refreshUser]);
 
   useEffect(() => {
-    if (workspaceId) {
-      refreshPermissions(workspaceId);
-    }
+    if (!workspaceId) return;
+    const refresh = () => { void refreshPermissions(workspaceId); };
+    const onAccessChanged = (event) => {
+      if (!event.detail?.workspace_id || event.detail.workspace_id === workspaceId) refresh();
+    };
+    refresh();
+    const interval = setInterval(refresh, 15000);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('workspace:access-changed', onAccessChanged);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('workspace:access-changed', onAccessChanged);
+    };
   }, [workspaceId, refreshPermissions]);
 
   const PERMISSION_ALIASES = useMemo(() => ({
@@ -320,7 +356,7 @@ export function AuthProvider({ children }) {
   }), []);
 
   const hasPermission = useCallback((permKey) => {
-    if (!currentRole) return true;
+    if (!workspaceId || permissionWorkspaceId !== workspaceId || !currentRole) return false;
     const normRole = (currentRole || '').toLowerCase().trim();
     if (['admin', 'founder', 'owner', 'superadmin', 'platform_admin'].includes(normRole)) {
       return true;
@@ -367,25 +403,27 @@ export function AuthProvider({ children }) {
     }
 
     return false;
-  }, [currentRole, permissions, PERMISSION_ALIASES]);
+  }, [currentRole, permissions, permissionWorkspaceId, workspaceId, PERMISSION_ALIASES]);
 
   const setWorkspaceId = useCallback((id) => {
-    setWorkspaceIdState(id);
+    const matchedWs = getVisibleWorkspaces(workspaces).find(w => w.id === id);
+    if (!matchedWs) return;
+    permissionRequestRef.current += 1;
+    setPermissionWorkspaceId(null);
+    setCurrentRole('member');
+    setPermissions(null);
+    // Persist synchronously so immediately entering a URL keeps this selection.
+    setWorkspace(matchedWs);
     workspaceIdRef.current = id;
-    setWorkspacesState((currentWorkspaces) => {
-      const matchedWs = currentWorkspaces.find(w => w.id === id);
-      if (matchedWs) {
-        setWorkspace(matchedWs);
-      }
-      return currentWorkspaces;
-    });
-  }, []);
+    setWorkspaceIdState(id);
+  }, [workspaces]);
 
   const contextValue = useMemo(() => ({
     user,
     workspaceId,
-    workspaces,
-    currentRole,
+    workspaces: getVisibleWorkspaces(workspaces),
+    currentRole: permissionWorkspaceId === workspaceId ? currentRole : 'member',
+    permissionsLoading: Boolean(workspaceId && permissionWorkspaceId !== workspaceId),
     permissions,
     hasPermission,
     refreshPermissions,
@@ -395,7 +433,7 @@ export function AuthProvider({ children }) {
     setWorkspaceId,
     logout,
     refreshUser
-  }), [user, workspaceId, workspaces, currentRole, permissions, hasPermission, refreshPermissions, loading, csrfToken, setWorkspaceId, logout, refreshUser]);
+  }), [user, workspaceId, workspaces, currentRole, permissionWorkspaceId, permissions, hasPermission, refreshPermissions, loading, csrfToken, setWorkspaceId, logout, refreshUser]);
 
   return (
     <AuthContext.Provider value={contextValue}>

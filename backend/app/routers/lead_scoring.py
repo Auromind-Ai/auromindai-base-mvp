@@ -80,7 +80,7 @@ def parse_lead_filters(raw: str | None) -> LeadFilters:
 
 @router.post("/follow-ups")
 def add_follow_up_leads(body: LeadFollowUpRequest, workspace_id: str | None = None, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     try:
         return lead_follow_up_service.add_follow_ups(db, wid, body.selected_ids)
     except LookupError as exc:
@@ -89,7 +89,7 @@ def add_follow_up_leads(body: LeadFollowUpRequest, workspace_id: str | None = No
 
 @router.delete("/follow-ups/{lead_id}")
 def remove_follow_up_lead(lead_id: UUID, workspace_id: str | None = None, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     try:
         return lead_follow_up_service.remove_follow_up(db, wid, lead_id)
     except LookupError as exc:
@@ -100,7 +100,7 @@ def remove_follow_up_lead(lead_id: UUID, workspace_id: str | None = None, db: Se
 @router.get("/filter-options")
 def filter_options(workspace_id: str | None = None, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     from app.models.workspace import WorkspaceMember
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     base = db.query(Lead).filter(Lead.workspace_id == wid)
     agents = db.query(User.id, User.full_name, User.email).join(WorkspaceMember, WorkspaceMember.user_id == User.id).filter(WorkspaceMember.workspace_id == wid).all()
     return {
@@ -117,14 +117,14 @@ def filter_options(workspace_id: str | None = None, db: Session = Depends(get_db
 
 @router.get("/analytics")
 def lead_analytics(workspace_id: str | None = None, filters: str | None = Query(None, max_length=16000), db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     return lead_reporting.analytics(db, wid, parse_lead_filters(filters), current_user.id)
 
 
 @router.get("/history")
 def workspace_lead_history(workspace_id: str | None = None, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     from app.models.lead_scoring import LeadScoreHistory
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     q = db.query(LeadScoreHistory, Lead.name).join(Lead, Lead.id == LeadScoreHistory.lead_id).filter(Lead.workspace_id == wid)
     total = q.count()
     rows = q.order_by(LeadScoreHistory.created_at.desc(), LeadScoreHistory.id.desc()).offset(offset).limit(limit).all()
@@ -133,7 +133,7 @@ def workspace_lead_history(workspace_id: str | None = None, limit: int = Query(5
 
 @router.post("/export")
 def export_leads(body: LeadExportRequest, workspace_id: str | None = None, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     try:
         filters = body.filters if body.scope == "filtered" else LeadFilters()
         q = lead_query(db, wid, filters, current_user.id)
@@ -160,7 +160,7 @@ def get_scoring_rules(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     setting = db.query(LeadScoringSetting).filter(LeadScoringSetting.workspace_id == wid).first()
     if not setting:
         return LeadScoringSettingSchema(
@@ -188,7 +188,7 @@ def update_scoring_rules(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     setting = db.query(LeadScoringSetting).filter(LeadScoringSetting.workspace_id == wid).first()
     signals_data = []
     if body.signals is not None:
@@ -232,7 +232,7 @@ def reset_scoring_rules(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     setting = db.query(LeadScoringSetting).filter(LeadScoringSetting.workspace_id == wid).first()
     if setting:
         setting.ai_qualification_enabled = True
@@ -259,7 +259,7 @@ def get_crm_saved_views(
     current_user=Depends(get_current_user),
 ):
     from app.models.lead_scoring import CrmSavedView
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     views = (
         db.query(CrmSavedView)
         .filter(CrmSavedView.workspace_id == wid)
@@ -277,7 +277,7 @@ def create_crm_saved_view(
     current_user=Depends(get_current_user),
 ):
     from app.models.lead_scoring import CrmSavedView
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     validated_filters = parse_lead_filters(body.filters.model_dump_json())
     serialized_filters = validated_filters.model_dump(mode="json", exclude_none=True, exclude_defaults=True)
 
@@ -301,7 +301,7 @@ def delete_crm_saved_view(
     current_user=Depends(get_current_user),
 ):
     from app.models.lead_scoring import CrmSavedView
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     view = db.query(CrmSavedView).filter(CrmSavedView.id == view_id, CrmSavedView.workspace_id == wid).first()
     if not view:
         raise HTTPException(status_code=404, detail="Saved view not found")
@@ -353,7 +353,7 @@ async def recalculate_lead(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
 
     lead = (
         db.query(Lead)
@@ -414,7 +414,7 @@ async def update_lead_labels(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
 
     lead = (
         db.query(Lead)
@@ -523,7 +523,7 @@ async def message_intent(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
 
     lead = (
         db.query(Lead)
@@ -621,7 +621,7 @@ async def node_progress(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
 
     lead = (
         db.query(Lead)
@@ -685,7 +685,7 @@ async def bulk_recalculate(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
 
     results = await lead_scoring_service.recalculate_workspace_scores_async(wid, db)
 
@@ -712,7 +712,7 @@ async def lead_score_history(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
 
     # Verify lead belongs to workspace
     lead = (
@@ -761,7 +761,7 @@ async def list_leads_with_scores(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
 
     result = lead_scoring_service.get_workspace_lead_scores(
         workspace_id=wid,
@@ -884,7 +884,7 @@ async def lead_detail(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
 
     lead = (
         db.query(Lead)
@@ -912,7 +912,7 @@ async def toggle_lead_favorite(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
 
     lead = (
         db.query(Lead)
@@ -960,7 +960,7 @@ async def convert_lead(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
 
     lead = (
         db.query(Lead)
@@ -1051,7 +1051,7 @@ async def assign_lead(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     lead = db.query(Lead).filter(Lead.id == lead_id, Lead.workspace_id == wid).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
@@ -1112,7 +1112,7 @@ async def create_manual_lead(
     current_user=Depends(get_current_user),
 ):
     import re
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
 
 
     ent_check = EntitlementService.check_entitlement(db, wid, "lead")
@@ -1272,7 +1272,7 @@ def get_email_report_settings(
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
 
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     setting = LeadEmailReportService.get_or_create_settings(db, wid)
 
     return LeadEmailReportService.settings_payload(db, wid, setting)
@@ -1292,7 +1292,7 @@ def save_email_report_settings(
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
 
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     try:
         setting = LeadEmailReportService.update_settings(db, wid, body.model_dump(exclude_unset=True))
     except ValueError as exc:
@@ -1309,7 +1309,7 @@ def send_test_email_report(
     current_user=Depends(get_current_user),
 ):
     from app.services.crm.lead_email_report_service import LeadEmailReportService
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
 
     body = body.model_dump(exclude_unset=True) if body else {}
     recipient_override = body.get("recipient_emails")
@@ -1342,7 +1342,7 @@ def get_sample_preview(
     current_user=Depends(get_current_user),
 ):
     from app.services.crm.lead_email_report_service import LeadEmailReportService
-    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id))
+    wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
 
     try:
         return LeadEmailReportService.sample_preview(db, wid, min_score, filters, columns, frequency, subject_template, body_template)

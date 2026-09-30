@@ -67,6 +67,7 @@ class GenerateRequest(BaseModel):
     prompt: str = Field(..., min_length=3, max_length=5000)
     language: str | None = Field(None, max_length=50)
     tone: str | None = Field(None, max_length=50)
+    workspace_id: str | None = None
 
     @field_validator("prompt")
     @classmethod

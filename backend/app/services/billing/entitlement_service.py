@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from typing import Dict, Any, Tuple, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -523,7 +524,18 @@ class EntitlementService:
             usage = int(total_bytes // (1024 * 1024))
             limit = entitlement.storage_limit_mb
         elif resource == "team":
-            usage = db.query(WorkspaceMember).filter(WorkspaceMember.workspace_id == workspace_id).count()
+            from app.models.workspace import WorkspaceInvitation
+            usage = db.query(WorkspaceMember).filter(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.is_active == True,
+                WorkspaceMember.role.in_(["member", "team_member"]),
+            ).count()
+            usage += db.query(WorkspaceInvitation).filter(
+                WorkspaceInvitation.workspace_id == workspace_id,
+                WorkspaceInvitation.status == "pending",
+                WorkspaceInvitation.expires_at > datetime.now(timezone.utc),
+                WorkspaceInvitation.role.in_(["member", "team_member"]),
+            ).count()
             limit = entitlement.team_limit
         elif resource == "knowledge_base" or resource == "kb":
             usage = db.query(BrainEntry).filter(BrainEntry.workspace_id == workspace_id).count()

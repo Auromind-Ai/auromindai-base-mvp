@@ -15,6 +15,7 @@ from app.core.exceptions import (
     WorkspaceAccessError,
 )
 from app.core.logger import logger
+from app.core.security import to_uuid
 from app.models.conversation import ChatMessage, ChatSession
 from app.services.agentic_rag.guardrails_service import GuardrailsService
 from app.services.agentic_rag.rag_service import get_rag_service
@@ -324,8 +325,8 @@ class ChatService:
 
             if session_id:
                 session = db.query(ChatSession).filter(
-                    ChatSession.id == session_id,
-                    ChatSession.user_id == user_id,
+                    ChatSession.id == to_uuid(session_id),
+                    ChatSession.user_id == to_uuid(user_id),
                 ).first()
                 if not session:
                     raise ChatProcessingError("Session not found")
@@ -410,8 +411,8 @@ class ChatService:
             # Save User Message
             if session_id:
                 user_msg = ChatMessage(
-                    id=str(uuid.uuid4()),
-                    session_id=session_id,
+                    id=uuid.uuid4(),
+                    session_id=to_uuid(session_id),
                     role="user",
                     content=message,
                 )
@@ -643,16 +644,16 @@ class ChatService:
                         try:
                             safe_full_response = await self.guardrails_service.secure_response(full_response) if full_response else ""
                             msg = cleanup_db.query(ChatMessage).filter(
-                                ChatMessage.id == placeholder_id
-                            ).first()
+                                ChatMessage.id == to_uuid(placeholder_id)
+                            ).first() if to_uuid(placeholder_id) else None
                             if msg:
                                 msg.content = safe_full_response
                                 msg.status = final_status
                             else:
                                 # Fallback: create new message record
                                 ai_msg = ChatMessage(
-                                    id=placeholder_id,
-                                    session_id=session_id,
+                                    id=to_uuid(placeholder_id) or uuid.uuid4(),
+                                    session_id=to_uuid(session_id),
                                     role="assistant",
                                     content=safe_full_response,
                                     status=final_status,
@@ -660,8 +661,8 @@ class ChatService:
                                 cleanup_db.add(ai_msg)
 
                             session_obj = cleanup_db.query(ChatSession).filter(
-                                ChatSession.id == session_id
-                            ).first()
+                                ChatSession.id == to_uuid(session_id)
+                            ).first() if to_uuid(session_id) else None
                             if session_obj:
                                 session_obj.updated_at = datetime.utcnow()
                             cleanup_db.commit()

@@ -4,7 +4,7 @@ import SettingsContent from '@/components/SettingsContent';
 import { useAuth } from '@/context/AuthContext'; 
 
 export default function SettingsPage() {
-  const { loading } = useAuth(); 
+  const { loading, hasPermission } = useAuth();
 
   if (loading) {
     return (
@@ -16,7 +16,7 @@ export default function SettingsPage() {
 
   return (
     <div className="h-full w-full bg-black overflow-hidden">
-      <SettingsContent />
+      <SettingsContent initialSection={hasPermission('settings.general') ? 'my-account' : 'notifications'} />
     </div>
   );
 }

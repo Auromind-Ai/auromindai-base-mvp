@@ -21,7 +21,7 @@ async def get_whatsapp_profile(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    verified_ws = verify_workspace_access(current_user, db, workspace_id)
+    verified_ws = verify_workspace_access(current_user, db, workspace_id, required_permission='channels.manage')
     return ChannelConnectionService.get_whatsapp_profile(db, verified_ws)
 
 
@@ -31,7 +31,7 @@ async def update_whatsapp_profile(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    verified_ws = verify_workspace_access(current_user, db, data.workspace_id)
+    verified_ws = verify_workspace_access(current_user, db, data.workspace_id, required_permission='channels.manage')
     payload_dict = data.model_dump()
     payload_dict["workspace_id"] = verified_ws
     return ChannelConnectionService.update_whatsapp_profile(db, payload_dict)
@@ -44,7 +44,7 @@ async def update_whatsapp_profile_photo(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    verified_ws = verify_workspace_access(current_user, db, workspace_id)
+    verified_ws = verify_workspace_access(current_user, db, workspace_id, required_permission='channels.manage')
     file_bytes = await file.read()
     content_type = file.content_type or "image/jpeg"
     filename = file.filename or "profile.jpg"
@@ -63,7 +63,7 @@ async def connect_whatsapp(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db, data.workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, data.workspace_id, required_permission='channels.manage')
     payload_dict = data.model_dump()
     payload_dict["workspace_id"] = workspace_id
     if not payload_dict.get("code") and not payload_dict.get("fb_access_token"):
@@ -134,7 +134,7 @@ async def get_channels_status(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='channels.manage')
     from app.core.security import to_uuid
     ws_uuid = to_uuid(workspace_id)
     try:
@@ -173,7 +173,7 @@ async def disconnect_channel(
 ):
     from app.core.security import to_uuid
     ws_uuid = to_uuid(workspace_id)
-    verify_workspace_access(current_user, db, ws_uuid)
+    verify_workspace_access(current_user, db, ws_uuid, required_permission='channels.manage')
     from app.models.workspace import Workspace
     workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
     if not workspace:

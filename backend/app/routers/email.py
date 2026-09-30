@@ -20,7 +20,7 @@ async def get_ai_inbox(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='channels.manage')
 
     emails = (
         db.query(EmailMessage)
@@ -67,7 +67,7 @@ async def send_reply(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    verified_workspace_id = verify_workspace_access(current_user, db, payload.workspace_id)
+    verified_workspace_id = verify_workspace_access(current_user, db, payload.workspace_id, required_permission='channels.manage')
 
     action = {
         "type": "send_reply",
@@ -92,4 +92,4 @@ async def send_reply(
         raise
     except Exception as e:
         logger.error(f"Failed to send email reply: {e}")
-        raise HTTPException(status_code=500, detail="Failed to send email reply. Please verify Gmail integration status.")
+        raise HTTPException(status_code=500, detail="Failed to send email reply. Please verify Gmail integration status.")

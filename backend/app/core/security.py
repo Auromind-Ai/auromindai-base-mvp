@@ -25,7 +25,7 @@ def verify_workspace_access(
     db: Session, 
     target_workspace_id: uuid.UUID | str = None,
     required_roles: list[str] = None,
-    required_permission: str = None
+    required_permission: str | tuple[str, ...] = None
 ) -> str:
     user_id = to_uuid(current_user.id)
     if not user_id:
@@ -70,7 +70,7 @@ def verify_workspace_access(
                     )
 
             if required_permission is not None:
-                if not has_workspace_permission(membership.role, membership.permissions, required_permission):
+                if not any(has_workspace_permission(membership.role, membership.permissions, perm) for perm in ((required_permission,) if isinstance(required_permission, str) else required_permission)):
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail=f"You do not have permission to access '{required_permission}' in this workspace."
@@ -80,7 +80,8 @@ def verify_workspace_access(
 
     # Fallback to default user workspace
     membership = db.query(WorkspaceMember).filter(
-        WorkspaceMember.user_id == user_id
+        WorkspaceMember.user_id == user_id,
+        WorkspaceMember.is_active == True
     ).first()
     
     if not membership:
@@ -105,7 +106,7 @@ def verify_workspace_access(
             )
 
     if required_permission is not None:
-        if not has_workspace_permission(membership.role, membership.permissions, required_permission):
+        if not any(has_workspace_permission(membership.role, membership.permissions, perm) for perm in ((required_permission,) if isinstance(required_permission, str) else required_permission)):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"You do not have permission to access '{required_permission}' in this workspace."
