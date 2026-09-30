@@ -76,6 +76,23 @@ async def get_flows(
     flows = db.query(AutomationFlow).filter(
         AutomationFlow.workspace_id == ws_uuid
     ).order_by(AutomationFlow.created_at.desc()).all()
+
+    ws_obj = None
+    fallback_email = None
+    fallback_name = None
+    for flow in flows:
+        if not flow.created_by_email:
+            if ws_obj is None:
+                from app.models.workspace import Workspace
+                from app.models.user import User
+                ws_obj = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
+                if ws_obj and ws_obj.created_by:
+                    ws_owner = db.query(User).filter(User.id == ws_obj.created_by).first()
+                    if ws_owner:
+                        fallback_email = ws_owner.email
+                        fallback_name = ws_owner.full_name or ws_owner.email
+            flow._fallback_email = fallback_email
+            flow._fallback_name = fallback_name
     
     return flows
 
@@ -133,6 +150,8 @@ async def save_flow(
         flow.nodes = request.nodes
         flow.edges = request.edges
         flow.status = request.status
+        if not flow.created_by and hasattr(current_user, "id"):
+            flow.created_by = current_user.id
         db.commit()
         db.refresh(flow)
         return flow
@@ -159,7 +178,8 @@ async def save_flow(
         nodes=request.nodes,
         edges=request.edges,
         status=request.status,
-        workspace_id=ws_uuid 
+        workspace_id=ws_uuid,
+        created_by=current_user.id if hasattr(current_user, "id") else None
     )
     db.add(new_flow)
     db.commit()
@@ -191,6 +211,16 @@ async def get_flow(
             detail="Flow not found or you do not have permission to access it"
         )
     
+    if not flow.created_by_email:
+        from app.models.workspace import Workspace
+        from app.models.user import User
+        ws_obj = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
+        if ws_obj and ws_obj.created_by:
+            ws_owner = db.query(User).filter(User.id == ws_obj.created_by).first()
+            if ws_owner:
+                flow._fallback_email = ws_owner.email
+                flow._fallback_name = ws_owner.full_name or ws_owner.email
+
     return flow
 
 @router.delete("/flows/{flow_id}", response_model=DeleteFlowResponse)

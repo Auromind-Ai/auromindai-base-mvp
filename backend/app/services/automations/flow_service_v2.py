@@ -24,6 +24,9 @@ from app.services.automations.trigger_engine import match_button_target, match_t
 from app.services.automations.flow_ai_reply_handler import execute_ai_reply
 from app.core.celery_app import celery_app
 from app.models.message import Message, SenderType
+from app.models.ai_action import ConversationState
+from app.workers.flow_execution import handle_node_timeout
+from app.models.scheduled_resume import ScheduledResume
 from app.models.message_execution import MessageExecution
 from app.services.notification_service import NotificationService
 
@@ -190,6 +193,7 @@ class FlowServiceV2:
         state = self._claim_execution_slot(db, conversation.id, execution_token)
         state.runtime_context = state.runtime_context or {}
         state.runtime_context["last_user_message"] = inbound_text
+        state.runtime_context["user_reply"] = inbound_text
         incoming_message_id = metadata.get("message_id")
         if incoming_message_id:
             state.runtime_context["message_id"] = incoming_message_id
@@ -202,6 +206,7 @@ class FlowServiceV2:
                     state.current_node_id is not None
                     or state.pending_button is not None
                     or state.pending_question is not None
+                    or (state.runtime_context or {}).get("pending_timeout") is not None
                 )
             )
 
@@ -247,6 +252,32 @@ class FlowServiceV2:
                 state.runtime_context = {}
                 self._persist_state(db, state)
                 is_mid_conversation = False
+
+            # Cancel pending timeout if customer replied
+            pending_timeout = (state.runtime_context or {}).get("pending_timeout")
+            if pending_timeout:
+                logger.info(
+                    "Customer replied for conversation %s. Cancelling pending timeout actions for node %s",
+                    conversation.id,
+                    pending_timeout.get("node_id"),
+                )
+                state.runtime_context["pending_timeout"] = None
+                flag_modified(state, "runtime_context")
+            
+                db.query(ScheduledResume).filter(
+                    ScheduledResume.conversation_id == conversation.id,
+                    ScheduledResume.status == "pending",
+                ).update({"status": "cancelled"}, synchronize_session=False)
+                db.flush()
+                self.tracer.trace(
+                    db,
+                    conversation_id=conversation.id,
+                    flow_id=state.active_flow_id,
+                    node_id=pending_timeout.get("node_id"),
+                    event_type="timeout_cancelled",
+                    status="success",
+                    metadata={"reason": "customer_replied", "inbound_text": inbound_text},
+                )
 
             #  Priority 1: pending button reply 
             if state.pending_button:
@@ -393,6 +424,40 @@ class FlowServiceV2:
                             flow=flow,
                             state=state,
                             node_id=state.current_node_id,
+                            inbound_text=inbound_text,
+                            execution_token=execution_token,
+                        )
+                        self._persist_state(db, state)
+                        _trigger_send_next(conversation.id, countdown=1)
+                        return True
+
+            # If customer replied to a message node waiting for response (without buttons/questions/AI)
+            if pending_timeout and not state.pending_button and not state.pending_question and not active_ai:
+                flow = (
+                    db.query(AutomationFlow)
+                    .filter(
+                        AutomationFlow.id == state.active_flow_id,
+                        AutomationFlow.workspace_id == conversation.workspace_id,
+                    )
+                    .first()
+                )
+                if flow:
+                    next_node_id = pending_timeout.get("next_node_id")
+                    if not next_node_id and pending_timeout.get("node_id"):
+                        next_node_id = self._get_default_target(
+                            flow.edges or [], pending_timeout.get("node_id")
+                        )
+                    if next_node_id:
+                        logger.info(
+                            "Resuming flow after customer reply to next node: %s",
+                            next_node_id,
+                        )
+                        await self._execute_from_node(
+                            db=db,
+                            conversation=conversation,
+                            flow=flow,
+                            state=state,
+                            node_id=next_node_id,
                             inbound_text=inbound_text,
                             execution_token=execution_token,
                         )
@@ -566,6 +631,135 @@ class FlowServiceV2:
             )
             self._persist_state(db, state)
             _trigger_send_next(conversation_id, countdown=1)
+        finally:
+            self._release_execution_slot(db, conversation.id, execution_token)
+
+    # TIMEOUT EXECUTION
+    async def handle_node_timeout_execution(
+        self,
+        db: Session,
+        *,
+        conversation_id: str,
+        node_id: str,
+        stage_index: int = 0,
+    ) -> bool:
+        from app.core.security import to_uuid
+        conv_uuid = to_uuid(conversation_id)
+        conversation = (
+            db.query(Conversation).filter(Conversation.id == conv_uuid).first()
+        )
+        if not conversation:
+            return False
+
+        
+        conv_state = db.query(ConversationState).filter_by(
+            conversation_id=conversation.id,
+            workspace_id=conversation.workspace_id
+        ).first()
+        if conv_state and conv_state.human_takeover:
+            logger.info("[TIMEOUT_PAUSED] human_takeover active | conv=%s", conversation.id)
+            return False
+
+        execution_token = str(uuid.uuid4())
+        state = self._claim_execution_slot(db, conversation.id, execution_token)
+        try:
+            flow = (
+                db.query(AutomationFlow)
+                .filter(AutomationFlow.id == state.active_flow_id)
+                .first()
+            )
+            if not flow:
+                return False
+
+            pending = (state.runtime_context or {}).get("pending_timeout")
+            if not pending or pending.get("node_id") != node_id or pending.get("stage_index") != stage_index:
+                logger.info(
+                    "[handle_node_timeout] Timeout expired/cancelled/mismatched | conv=%s node=%s stage=%d",
+                    conversation_id, node_id, stage_index
+                )
+                return False
+
+            timeouts = pending.get("timeouts") or []
+            if stage_index >= len(timeouts):
+                state.runtime_context["pending_timeout"] = None
+                flag_modified(state, "runtime_context")
+                self._persist_state(db, state)
+                return False
+
+            current_stage = timeouts[stage_index]
+            followup_raw = current_stage.get("message") or ""
+            followup_text = self._render_template(followup_raw, state.runtime_context or {})
+
+            if followup_text:
+                await self._queue_outbound_message(
+                    db=db,
+                    conversation_id=conversation.id,
+                    to_number=self._get_conversation_destination(conversation),
+                    body=followup_text,
+                    metadata={
+                        "source": "timeout_followup",
+                        "node_id": node_id,
+                        "timeout_stage": stage_index + 1,
+                    },
+                    msg_sequence=[0],
+                    execution_token=execution_token,
+                    state=state,
+                )
+
+            self.tracer.trace(
+                db,
+                conversation_id=conversation.id,
+                flow_id=flow.id,
+                node_id=node_id,
+                event_type="timeout_stage_executed",
+                status="success",
+                metadata={
+                    "stage_index": stage_index + 1,
+                    "total_stages": len(timeouts),
+                    "message_preview": followup_text[:100],
+                },
+            )
+
+            # Check if there is a next timeout stage
+            next_stage_index = stage_index + 1
+            if next_stage_index < len(timeouts):
+                next_stage = timeouts[next_stage_index]
+                next_seconds = int(next_stage.get("timeout_seconds") or 60)
+                state.runtime_context["pending_timeout"]["stage_index"] = next_stage_index
+                flag_modified(state, "runtime_context")
+                self._persist_state(db, state)
+
+                if next_seconds < 1800:
+                    handle_node_timeout.apply_async(
+                        kwargs={
+                            "conversation_id": str(conversation.id),
+                            "node_id": node_id,
+                            "stage_index": next_stage_index,
+                        },
+                        countdown=next_seconds,
+                    )
+                else:
+                    run_at = datetime.now(timezone.utc) + timedelta(seconds=next_seconds)
+                    sr = ScheduledResume(
+                        conversation_id=conversation.id,
+                        node_id=node_id,
+                        inbound_text="",
+                        msg_sequence_val=0,
+                        flow_id=flow.id,
+                        run_at=run_at,
+                        status="pending",
+                    )
+                    db.add(sr)
+                    db.commit()
+            else:
+                # All timeout stages exhausted
+                logger.info("All timeout stages exhausted for conversation %s node %s", conversation.id, node_id)
+                state.runtime_context["pending_timeout"] = None
+                flag_modified(state, "runtime_context")
+                self._persist_state(db, state)
+
+            _trigger_send_next(conversation.id, countdown=1)
+            return True
         finally:
             self._release_execution_slot(db, conversation.id, execution_token)
 
@@ -1869,7 +2063,6 @@ class FlowServiceV2:
         if not outbound_text:
             logger.warning(" Outbound text is EMPTY — message will NOT be queued.")
 
-
         if outbound_text:
             logger.info(" Queuing outbound message!")
             await self._queue_outbound_message(
@@ -1882,6 +2075,71 @@ class FlowServiceV2:
                 execution_token=execution_token,
                 state=state,
             )
+
+        #  Wait for Customer Response / Timeout Handling 
+        if config.get("wait_for_response"):
+            timeouts = config.get("timeouts") or []
+            if not timeouts and (config.get("timeout_seconds") or config.get("timeout_message")):
+                timeouts = [{
+                    "id": "timeout-1",
+                    "timeout_seconds": int(config.get("timeout_seconds") or 30),
+                    "action": "send_msg",
+                    "message": config.get("timeout_message") or ""
+                }]
+
+            if timeouts:
+                next_node_id = self._get_default_target(flow.edges or [], node.get("id"))
+                state.runtime_context = state.runtime_context or {}
+                state.runtime_context["pending_timeout"] = {
+                    "node_id": node.get("id"),
+                    "stage_index": 0,
+                    "total_stages": len(timeouts),
+                    "timeouts": timeouts,
+                    "next_node_id": next_node_id,
+                    "scheduled_at": datetime.now(timezone.utc).isoformat(),
+                }
+                flag_modified(state, "runtime_context")
+
+                first_timeout_seconds = int(timeouts[0].get("timeout_seconds") or 30)
+                if first_timeout_seconds < 1800:
+                    from app.workers.flow_execution import handle_node_timeout
+                    handle_node_timeout.apply_async(
+                        kwargs={
+                            "conversation_id": str(conversation.id),
+                            "node_id": node.get("id"),
+                            "stage_index": 0,
+                        },
+                        countdown=first_timeout_seconds,
+                    )
+                else:
+                    from app.models.scheduled_resume import ScheduledResume
+                    run_at = datetime.now(timezone.utc) + timedelta(seconds=first_timeout_seconds)
+                    sr = ScheduledResume(
+                        conversation_id=conversation.id,
+                        node_id=node.get("id"),
+                        inbound_text="",
+                        msg_sequence_val=msg_sequence[0] if msg_sequence else 0,
+                        flow_id=flow.id,
+                        run_at=run_at,
+                        status="pending",
+                    )
+                    db.add(sr)
+                    db.commit()
+
+                self.tracer.trace(
+                    db,
+                    conversation_id=conversation.id,
+                    flow_id=flow.id,
+                    node_id=node.get("id"),
+                    event_type="timeout_scheduled",
+                    metadata={
+                        "stage_index": 1,
+                        "timeout_seconds": first_timeout_seconds,
+                        "total_stages": len(timeouts),
+                    },
+                )
+                return True  # Stop execution — wait for customer reply or timeout
+
         return False
 
 
@@ -1994,6 +2252,31 @@ class FlowServiceV2:
             k: str(v)[:500] for k, v in context.items() if not k.startswith("_")
         }
 
+        # Semantic defaults
+        customer_name = (
+            enriched.get("customer_name")
+            or enriched.get("contact_name")
+            or enriched.get("name")
+            or enriched.get("user_name")
+            or "there"
+        )
+        enriched.setdefault("customer_name", customer_name)
+        enriched.setdefault("name", customer_name)
+        enriched.setdefault("contact_name", customer_name)
+
+        company_name = (
+            enriched.get("company_name")
+            or enriched.get("workspace_name")
+            or enriched.get("business_name")
+            or "Our Team"
+        )
+        enriched.setdefault("company_name", company_name)
+        enriched.setdefault("workspace_name", company_name)
+
+        phone = enriched.get("phone") or enriched.get("customer_phone") or ""
+        enriched.setdefault("phone", phone)
+        enriched.setdefault("customer_phone", phone)
+
         if "last_ai_response" in enriched and "last_brain_answer" not in enriched:
             enriched["last_brain_answer"] = enriched["last_ai_response"]
         if "last_brain_answer" in enriched and "last_ai_response" not in enriched:
@@ -2001,9 +2284,20 @@ class FlowServiceV2:
 
         if "last_user_message" in enriched and "customer_intent" not in enriched:
             enriched["customer_intent"] = enriched["last_user_message"]
+        if "last_user_message" in enriched and "user_reply" not in enriched:
+            enriched["user_reply"] = enriched["last_user_message"]
+
+        # Numbered variable mapping: {{1}} -> customer_name, {{2}} -> company_name, {{3}} -> phone
+        enriched.setdefault("var_1", customer_name)
+        enriched.setdefault("var_2", company_name)
+        enriched.setdefault("var_3", phone)
+        enriched.setdefault("var_4", enriched.get("user_reply", ""))
+
+        # Preprocess string to replace {{1}}, {{ 1 }}, {{2}}, etc. with {{var_1}}, {{var_2}}
+        processed_text = re.sub(r"\{\{\s*(\d+)\s*\}\}", r"{{var_\1}}", text)
 
         try:
-            return self.template_env.from_string(text).render(**enriched)
+            return self.template_env.from_string(processed_text).render(**enriched)
         except Exception as e:
             logger.warning(f"Template render error: {e}")
             return text
