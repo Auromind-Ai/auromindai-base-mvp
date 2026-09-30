@@ -3,6 +3,7 @@ from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.models.workspace import WorkspaceMember
+from app.core.permissions import has_workspace_permission
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify-otp", auto_error=False)
 
@@ -23,7 +24,8 @@ def verify_workspace_access(
     current_user, 
     db: Session, 
     target_workspace_id: uuid.UUID | str = None,
-    required_roles: list[str] = None
+    required_roles: list[str] = None,
+    required_permission: str | tuple[str, ...] = None
 ) -> str:
     user_id = to_uuid(current_user.id)
     if not user_id:
@@ -51,6 +53,13 @@ def verify_workspace_access(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Access denied or workspace not found."
                 )
+
+            if getattr(membership, "is_active", True) is False:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Your membership in this workspace has been deactivated. Please contact your workspace admin."
+                )
+
             if required_roles is not None:
                 user_role = (membership.role or "").lower().strip()
                 allowed_roles = [r.lower().strip() for r in required_roles]
@@ -59,17 +68,32 @@ def verify_workspace_access(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail=f"Action requires one of the following workspace roles: {', '.join(required_roles)}. Your role is '{membership.role}'."
                     )
+
+            if required_permission is not None:
+                if not any(has_workspace_permission(membership.role, membership.permissions, perm) for perm in ((required_permission,) if isinstance(required_permission, str) else required_permission)):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"You do not have permission to access '{required_permission}' in this workspace."
+                    )
+
             return str(membership.workspace_id)
 
     # Fallback to default user workspace
     membership = db.query(WorkspaceMember).filter(
-        WorkspaceMember.user_id == user_id
+        WorkspaceMember.user_id == user_id,
+        WorkspaceMember.is_active == True
     ).first()
     
     if not membership:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied or workspace not found."
+        )
+
+    if getattr(membership, "is_active", True) is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your membership in this workspace has been deactivated. Please contact your workspace admin."
         )
     
     if required_roles is not None:
@@ -79,6 +103,13 @@ def verify_workspace_access(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Action requires one of the following workspace roles: {', '.join(required_roles)}. Your role is '{membership.role}'."
+            )
+
+    if required_permission is not None:
+        if not any(has_workspace_permission(membership.role, membership.permissions, perm) for perm in ((required_permission,) if isinstance(required_permission, str) else required_permission)):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You do not have permission to access '{required_permission}' in this workspace."
             )
 
     return str(membership.workspace_id)

@@ -600,8 +600,8 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                   const recipientsCount = Number(camp.recipientsCount) || 0;
                   const validRecipients = Number(camp.validRecipients) || recipientsCount;
 
-                  const deliveredPct = sentCount > 0 ? `${((deliveredCount / sentCount) * 100).toFixed(1)}%` : '0.0%';
-                  const failedPct = sentCount > 0 ? `${((failedCount / sentCount) * 100).toFixed(1)}%` : '0.0%';
+                  const deliveredPct = validRecipients > 0 ? `${((deliveredCount / validRecipients) * 100).toFixed(1)}%` : (sentCount > 0 ? `${((deliveredCount / sentCount) * 100).toFixed(1)}%` : '0.0%');
+                  const failedPct = validRecipients > 0 ? `${((failedCount / validRecipients) * 100).toFixed(1)}%` : (sentCount > 0 ? `${((failedCount / sentCount) * 100).toFixed(1)}%` : '0.0%');
 
                   return (
                     <tr

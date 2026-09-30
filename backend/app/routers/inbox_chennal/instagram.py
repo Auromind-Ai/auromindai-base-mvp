@@ -22,7 +22,7 @@ def connect_instagram(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db, data.workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, data.workspace_id, required_permission='channels.manage')
     payload_dict = data.model_dump()
     payload_dict["workspace_id"] = workspace_id
     if not payload_dict.get("code"):

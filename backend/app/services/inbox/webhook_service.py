@@ -24,7 +24,7 @@ from app.workers.scoring_worker import analyze_message_intent
 from decimal import Decimal
 from app.services.wcc_service import WCCService
 from app.services.marketing.campaign_service import CampaignService
-from app.models.wcc import WCCRateCard
+from app.models.wcc import WCCRateCard, WCCTransaction
 from app.core.logger import logger
 from app.services.notification_service import NotificationService
 from app.models.message import Message, MessageStatus, SenderType
@@ -585,58 +585,84 @@ class WebhookService:
                                     except Exception:
                                         pass
 
-                            # Explicit guard: Agent manual replies and user messages MUST NEVER be debited
+                            # Check if message is a template message
+                            is_template_msg = False
+                            if msg:
+                                if msg.source in ("template_message", "template_reply", "template"):
+                                    is_template_msg = True
+                                elif msg.metadata_json:
+                                    try:
+                                        msg_meta = json.loads(msg.metadata_json) if isinstance(msg.metadata_json, str) else msg.metadata_json
+                                        if isinstance(msg_meta, dict) and (msg_meta.get("template_name") or msg_meta.get("is_template")):
+                                            is_template_msg = True
+                                    except Exception:
+                                        pass
+
+                            # Explicit guard: Plain agent manual replies and user messages MUST NEVER be debited
+                            # But if the message was sent as a template, it MUST be billed!
                             if msg and (msg.sender_type == SenderType.AGENT or msg.source == "manual_reply"):
-                                is_flow_message = False
+                                if not is_template_msg:
+                                    is_flow_message = False
+
+                            is_billable_msg = is_flow_message or is_template_msg
 
                             pricing = status_update.get("pricing")
                             conversation = status_update.get("conversation")
 
-                            if not is_flow_message:
+                            if not is_billable_msg:
                                 logger.info(
                                     f"[WCC Billing] Skipping WCC wallet debit for user/agent conversation message wamid={wamid}"
                                 )
                             elif pricing and conversation:
                                 try:
-                                    billable = pricing.get("billable", False)
-                                    category = pricing.get("category", "service").lower()
                                     meta_session_id = conversation.get("id")
-                                    
-                                    meta_cost = Decimal("0.00")
-                                    customer_price = Decimal("0.00")
-                                    if billable:
-                                        # Retrieve from pre-fetched cache
-                                        rate_card = active_cards.get((category, "IN"))
-                                        if rate_card:
-                                            meta_cost = rate_card.meta_cost
-                                            customer_price = rate_card.customer_price
-                                        else:
-                                            # Fallback query
-                                            try:
-                                                rate_card = WCCService.get_active_rate(db, category, "IN")
+
+                                    # Check if transaction was already debited (idempotency by meta_session_id or wamid)
+                                    existing_tx = db.query(WCCTransaction).filter(
+                                        WCCTransaction.workspace_id == workspace.id,
+                                        (WCCTransaction.meta_session_id == meta_session_id) | (WCCTransaction.meta_session_id == wamid)
+                                    ).first()
+                                    if existing_tx:
+                                        logger.info(f"[WCC Billing] Message {wamid} / session {meta_session_id} already debited. Skipping duplicate debit.")
+                                    else:
+                                        billable = pricing.get("billable", False)
+                                        category = pricing.get("category", "service").lower()
+                                        
+                                        meta_cost = Decimal("0.00")
+                                        customer_price = Decimal("0.00")
+                                        if billable:
+                                            # Retrieve from pre-fetched cache
+                                            rate_card = active_cards.get((category, "IN"))
+                                            if rate_card:
                                                 meta_cost = rate_card.meta_cost
                                                 customer_price = rate_card.customer_price
-                                            except Exception as rate_err:
-                                                logger.warning(f"No active WCC rate card found for category '{category}' during webhook debit: {rate_err}")
-                                                # Absolute safety fallbacks based on Meta expected charges if not configured
-                                                fallbacks = {
-                                                    "marketing": (Decimal("1.09"), Decimal("1.25")),
-                                                    "utility": (Decimal("0.145"), Decimal("0.18")),
-                                                    "authentication": (Decimal("0.145"), Decimal("0.18")),
-                                                    "service": (Decimal("0.00"), Decimal("0.05"))
-                                                }
-                                                meta_cost, customer_price = fallbacks.get(category, (Decimal("0.00"), Decimal("0.05")))
+                                            else:
+                                                # Fallback query
+                                                try:
+                                                    rate_card = WCCService.get_active_rate(db, category, "IN")
+                                                    meta_cost = rate_card.meta_cost
+                                                    customer_price = rate_card.customer_price
+                                                except Exception as rate_err:
+                                                    logger.warning(f"No active WCC rate card found for category '{category}' during webhook debit: {rate_err}")
+                                                    # Absolute safety fallbacks based on Meta expected charges if not configured
+                                                    fallbacks = {
+                                                        "marketing": (Decimal("1.09"), Decimal("1.25")),
+                                                        "utility": (Decimal("0.145"), Decimal("0.18")),
+                                                        "authentication": (Decimal("0.145"), Decimal("0.18")),
+                                                        "service": (Decimal("0.00"), Decimal("0.05"))
+                                                    }
+                                                    meta_cost, customer_price = fallbacks.get(category, (Decimal("0.00"), Decimal("0.05")))
 
-                                    # Perform the atomic debit using reseller prices
-                                    WCCService.debit_conversation_charge(
-                                        db=db,
-                                        workspace_id=workspace.id,
-                                        meta_session_id=meta_session_id,
-                                        category=category,
-                                        meta_cost=meta_cost,
-                                        customer_price=customer_price,
-                                        raw_payload=status_update
-                                    )
+                                        # Perform the atomic debit using reseller prices
+                                        WCCService.debit_conversation_charge(
+                                            db=db,
+                                            workspace_id=workspace.id,
+                                            meta_session_id=meta_session_id,
+                                            category=category,
+                                            meta_cost=meta_cost,
+                                            customer_price=customer_price,
+                                            raw_payload=status_update
+                                        )
                                 except Exception as debit_exc:
                                     logger.error(f"Error debiting WCC wallet for workspace {workspace.id}: {debit_exc}")
 

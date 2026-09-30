@@ -4,6 +4,7 @@ import {
   Search, Plus, Sparkles, Layers, MousePointer2, Trash2, CheckCircle2, X, Pencil, Play
 } from 'lucide-react';
 import { getUser, getWorkspaceIdFromToken } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import Script from 'next/script';
 
@@ -26,8 +27,18 @@ export default function DashboardView({
   customModal,
   setCustomModal,
   flowQuota,
-  fetchFlowQuota
+  fetchFlowQuota,
+  workspaceId: propWorkspaceId,
+  currentUser: propCurrentUser,
+  workspaces: propWorkspaces
 }) {
+  const { workspaceId: authWsId, workspaces: authWorkspaces, user: authUser } = useAuth?.() || {};
+  const activeWsId = propWorkspaceId || authWsId || getWorkspaceIdFromToken();
+  const allWorkspaces = propWorkspaces || authWorkspaces || [];
+  const activeWorkspace = allWorkspaces.find(w => w.id === activeWsId);
+  const currentUser = propCurrentUser || authUser || getUser();
+  const displayCreator = activeWorkspace?.name || currentUser?.name || currentUser?.email || 'Workspace Flow';
+
   const [isPurchaseFlowModalOpen, setIsPurchaseFlowModalOpen] = useState(false);
   const [reachedLimitWarning, setReachedLimitWarning] = useState(false);
 
@@ -64,7 +75,7 @@ export default function DashboardView({
   }, []);
 
   const handlePurchaseFlowPack = async (pack) => {
-    const wsId = getWorkspaceIdFromToken();
+    const wsId = activeWsId;
     if (!wsId) {
       setCustomModal({
         open: true,
@@ -165,7 +176,6 @@ export default function DashboardView({
   const filteredAutomations = automations.filter(flow =>
     (flow.name || '').toLowerCase().includes(search.toLowerCase())
   );
-  const currentUser = getUser();
 
   return (
     <div className="min-h-screen bg-[#0d0d12] text-zinc-200 p-4 sm:p-5 md:p-6 lg:p-8 font-sans overflow-y-auto select-text text-left relative">

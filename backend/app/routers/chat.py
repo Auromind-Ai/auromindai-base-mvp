@@ -1,13 +1,21 @@
-from typing import List
+from typing import List, Optional, Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from app.schemas.chat import (ChatSessionCreate,ChatSessionResponse,ChatMessageResponse,UpdateSessionRequest,ChatStreamRequest,ChatQueryRequest,StopChatRequest)
+from app.schemas.chat import (
+    ChatSessionCreate,
+    ChatSessionResponse,
+    ChatMessageResponse,
+    UpdateSessionRequest,
+    ChatStreamRequest,
+    ChatQueryRequest,
+    StopChatRequest,
+)
 from uuid import UUID
 import logging
 from app.database import get_db
 from app.routers.auth import get_current_user
-from app.core.security import verify_workspace_access
+from app.core.chat_access import resolve_chat_access
 from app.core.chat_provider import get_chat_service
 from app.core.exceptions import BillingError
 from app.core.rate_limit import verify_chat_rate_limit
@@ -20,15 +28,15 @@ logger = logging.getLogger(__name__)
 
 @router.get("/sessions", response_model=List[ChatSessionResponse])
 def get_sessions(
-    workspace_id: str | None = None,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    workspace_id: Optional[str] = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    verified_workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    verified_workspace_id, _ = resolve_chat_access(current_user, db, workspace_id)
     logger.info(f"[GET SESSIONS] user={current_user.id} workspace={verified_workspace_id}")
-    return SessionService.get_sessions(db, str(current_user.id), str(verified_workspace_id), skip, limit)
+    return SessionService.get_sessions(db, str(current_user.id), str(verified_workspace_id), int(skip or 0), int(limit or 50))
 
 
 @router.post("/sessions", response_model=ChatSessionResponse)
@@ -37,21 +45,21 @@ def create_session(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    verified_workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
+    verified_workspace_id, _ = resolve_chat_access(current_user, db, request.workspace_id)
     logger.info(f"[CREATE SESSION] user={current_user.id} workspace={verified_workspace_id}")
     return SessionService.create_session(db, str(current_user.id), str(verified_workspace_id), request.title)
-
 
 
 @router.get("/sessions/{session_id}/messages", response_model=List[ChatMessageResponse])
 async def get_session_messages(
     session_id: UUID,
+    workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db)
-    logger.info(f"[GET MESSAGES] user={current_user.id} session={session_id}")
-    session = SessionService.get_session_or_404(db, session_id, str(current_user.id), str(workspace_id))
+    workspace_id, session = resolve_chat_access(current_user, db, workspace_id, session_id)
+
+    logger.info(f"[GET MESSAGES] user={current_user.id} session={session_id} workspace={session.workspace_id}")
     messages = SessionService.get_messages(db, session.id)
 
     # Recover stale GENERATING/PENDING messages whose workers have died
@@ -89,12 +97,13 @@ async def get_session_messages(
 @router.delete("/sessions/{session_id}")
 def delete_session(
     session_id: UUID,
+    workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db)
-    logger.warning(f"[DELETE SESSION] user={current_user.id} session={session_id}")
-    session = SessionService.get_session_or_404(db, session_id, str(current_user.id), str(workspace_id))
+    workspace_id, session = resolve_chat_access(current_user, db, workspace_id, session_id)
+
+    logger.warning(f"[DELETE SESSION] user={current_user.id} session={session_id} workspace={session.workspace_id}")
     SessionService.delete_session(db, session)
     return {"message": "Session deleted"}
 
@@ -106,9 +115,9 @@ def update_session_title(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db)
-    logger.info(f"[UPDATE SESSION] user={current_user.id} session={session_id} title={request.title}")
-    session = SessionService.get_session_or_404(db, session_id, str(current_user.id), str(workspace_id))
+    workspace_id, session = resolve_chat_access(current_user, db, request.workspace_id, session_id)
+
+    logger.info(f"[UPDATE SESSION] user={current_user.id} session={session_id} title={request.title} workspace={session.workspace_id}")
     SessionService.update_title(db, session, request.title)
     return {"message": "Session updated", "title": session.title}
 
@@ -123,7 +132,7 @@ async def chat_query(
 ):
     verify_chat_rate_limit(req, current_user)
     try:
-        workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
+        workspace_id, _ = resolve_chat_access(current_user, db, request.workspace_id)
         return await service.handle_chat_query(
             db=db,
             message=request.message,
@@ -146,7 +155,9 @@ async def stream_chat(
     service: ChatService = Depends(get_chat_service),
 ):
     verify_chat_rate_limit(req, current_user)
-    workspace_id = verify_workspace_access(current_user, db)
+
+    workspace_id, _ = resolve_chat_access(current_user, db, request.workspace_id, request.session_id)
+
     logger.info(f"[STREAM CHAT] user={current_user.id} workspace={workspace_id} session={request.session_id}")
     try:
         preflight = await service.validate_and_reserve_stream_tokens(
@@ -175,7 +186,7 @@ async def stream_chat(
                 workspace_id=str(workspace_id),
                 session_id=request.session_id,
                 use_rag=preflight.get("use_rag", request.use_rag),
-                model = request.model if request.model else "auto",
+                model=request.model if request.model else "auto",
                 user_id=str(current_user.id),
                 document_id=request.document_id,
                 chat_mode=request.chat_mode,
@@ -198,6 +209,7 @@ async def stream_chat(
                 logger.error(f"Failed to defensively release reservation in router: {release_err}")
         raise HTTPException(status_code=500, detail="Stream processing failed.")
 
+
 @router.post("/stop")
 async def stop_chat_stream(
     request: StopChatRequest,
@@ -205,18 +217,19 @@ async def stop_chat_stream(
     current_user=Depends(get_current_user),
     service: ChatService = Depends(get_chat_service),
 ):
-    verify_workspace_access(current_user, db)
+    resolve_chat_access(current_user, db, request.workspace_id, request.session_id)
+
     await service.stop_generation(session_id=request.session_id, user_id=str(current_user.id))
     return {"message": "Stop signal sent"}
 
 
-
 @router.get("/models")
 def get_chat_models(
+    workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    verify_workspace_access(current_user, db)
+    resolve_chat_access(current_user, db, workspace_id)
     from app.services.model_config_service import ModelConfigService
     service = ModelConfigService(db)
     configs = service.get_all_configs(active_only=True)

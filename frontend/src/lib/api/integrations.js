@@ -12,36 +12,44 @@ export async function disconnectGoogleIntegration(backendId) {
   return client.delete(`/integrations/disconnect/google_${backendId}`);
 }
 
-export async function getFlows() {
-  return client.get('/api/automation/flows');
+export async function getFlows(workspaceId) {
+  const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : '';
+  return client.get(`/api/automation/flows${query}`);
 }
 
-export async function getFlowById(flow_id) {
-  return client.get(`/api/automation/flows/${flow_id}`);
+export async function getFlowById(flow_id, workspaceId) {
+  const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : '';
+  return client.get(`/api/automation/flows/${flow_id}${query}`);
 }
 
-export async function saveFlow(flowData) {
-  return client.post('/api/automation/flows', flowData);
+export async function saveFlow(flowData, workspaceId) {
+  const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : '';
+  return client.post(`/api/automation/flows${query}`, flowData);
 }
 
-export async function deleteFlow(flow_id) {
-  return client.delete(`/api/automation/flows/${flow_id}`);
+export async function deleteFlow(flow_id, workspaceId) {
+  const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : '';
+  return client.delete(`/api/automation/flows/${flow_id}${query}`);
 }
 
-export async function updateFlowStatus(flow_id, status) {
-  return client.patch(`/api/automation/flows/${flow_id}/status`, { status });
+export async function updateFlowStatus(flow_id, status, workspaceId) {
+  const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : '';
+  return client.patch(`/api/automation/flows/${flow_id}/status${query}`, { status });
 }
 
-export async function generateAIFlow(prompt) {
-  return client.post('/api/automation/generate-flow', { prompt });
+export async function generateAIFlow(prompt, workspaceId) {
+  const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : '';
+  return client.post(`/api/automation/generate-flow${query}`, { prompt });
 }
 
-export async function approveAutomation(decisionId) {
-  return client.post(`/automation/approve?decision_id=${decisionId}`);
+export async function approveAutomation(decisionId, workspaceId) {
+  const query = workspaceId ? `&workspace_id=${encodeURIComponent(workspaceId)}` : '';
+  return client.post(`/automation/approve?decision_id=${decisionId}${query}`);
 }
 
-export async function rejectAutomation(decisionId) {
-  return client.post(`/automation/reject?decision_id=${decisionId}`);
+export async function rejectAutomation(decisionId, workspaceId) {
+  const query = workspaceId ? `&workspace_id=${encodeURIComponent(workspaceId)}` : '';
+  return client.post(`/automation/reject?decision_id=${decisionId}${query}`);
 }
 
 export async function getEmailInbox() {

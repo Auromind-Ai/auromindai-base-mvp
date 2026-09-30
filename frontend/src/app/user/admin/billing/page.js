@@ -20,6 +20,7 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  LockKeyhole,
 } from "lucide-react"
 
 import { poppins } from "@/lib/fonts"
@@ -198,10 +199,11 @@ export default function BillingHistoryPage() {
     return []
   }, [billing])
 
-  const currentPlanLabel = billing?.plan_label || titleCase(billing?.current_plan || "free")
+  const billingUnavailable = !billing
+  const hasNoActivePlan = !billingUnavailable && (!billing.current_plan || String(billing.current_plan).trim().toLowerCase() === "free")
+  const currentPlanLabel = billingUnavailable ? "Plan unavailable" : (hasNoActivePlan ? "No active plan" : (billing.plan_label || titleCase(billing.current_plan)))
   const rawCycle = (billing?.subscription?.billing_cycle || billing?.billing_cycle || "").toLowerCase()
-  const isFreePlan = (billing?.current_plan || "free").toLowerCase() === "free"
-  const resolvedCycle = isFreePlan ? "—" : (rawCycle === "yearly" ? "Yearly" : "Monthly")
+  const resolvedCycle = hasNoActivePlan ? "—" : (rawCycle === "yearly" ? "Yearly" : "Monthly")
 
   const currentPlanPrice = useMemo(() => {
     if (!billing) return "—"
@@ -505,21 +507,44 @@ export default function BillingHistoryPage() {
                     <h2 className="text-2xl font-bold tracking-tight text-white m-0">
                       {currentPlanLabel}
                     </h2>
-                    <p className="text-xs sm:text-[13px] text-white/65 mt-0.5">
-                      {isFreePlan ? "Free" : `${currentPlanPrice} / ${rawCycle === "yearly" ? "year" : "month"}`}
-                    </p>
+                    {!billingUnavailable && !hasNoActivePlan && (
+                      <p className="text-xs sm:text-[13px] text-white/65 mt-0.5">
+                        {`${currentPlanPrice} / ${rawCycle === "yearly" ? "year" : "month"}`}
+                      </p>
+                    )}
                   </>
                 )}
               </div>
-              {!loading && (
-                <span className="bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] text-white rounded-full px-2.5 py-0.5 text-[11px] font-semibold">
-                  Active
+              {!loading && !billingUnavailable && (
+                <span className={`inline-flex items-center gap-1.5 shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasNoActivePlan ? "border border-purple-400/60 bg-purple-500/5 text-purple-300" : "bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] text-white"}`}>
+                  {hasNoActivePlan && <LockKeyhole size={12} aria-hidden="true" />}
+                  {hasNoActivePlan ? "No active plan" : "Active"}
                 </span>
               )}
             </div>
 
             {/* Feature Pills */}
-            {!loading && activePlanFeatures.length > 0 && (
+            {!loading && billingUnavailable && (
+              <p className="text-xs sm:text-[13px] text-zinc-400 mt-2 leading-relaxed">
+                Unable to load your plan details. Please try again.
+              </p>
+            )}
+            {!loading && hasNoActivePlan && (
+              <>
+                <p className="text-xs sm:text-[13px] text-zinc-400 mt-2 leading-relaxed max-w-md">
+                  Choose a plan to unlock billing features and start growing your business with Orbion Agents.
+                </p>
+                <div className="my-5 flex flex-wrap gap-2">
+                  {["AI Credits", "WhatsApp Wallet", "Active Automations", "Knowledge Base", "AI Brain Storage", "More Features"].map((feature) => (
+                    <span key={feature} className="inline-flex items-center gap-2 rounded-2xl border border-purple-400/10 bg-purple-500/5 px-3 py-2.5 text-[11px] font-medium text-zinc-400">
+                      <LockKeyhole size={13} className="text-purple-200/60" aria-hidden="true" />
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
+            {!loading && !hasNoActivePlan && activePlanFeatures.length > 0 && (
               <div className="my-3.5">
                 <div className="flex flex-wrap gap-1.5">
                   {(isFeaturesExpanded ? activePlanFeatures : activePlanFeatures.slice(0, 6)).map((feat, idx) => (
@@ -560,12 +585,21 @@ export default function BillingHistoryPage() {
           <div className="mt-5">
             {loading ? (
               <div className="w-28 h-9 rounded-lg bg-white/10 animate-pulse" />
+            ) : billingUnavailable ? (
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center gap-2 bg-[#814AC8] hover:bg-[#814AC8]/85 text-white rounded-lg px-5 py-2 text-[13px] font-semibold"
+              >
+                <RefreshCw size={14} aria-hidden="true" /> Try again
+              </button>
             ) : (
               <a
                 href="/user/admin/billing/payment"
-                className="inline-block bg-[#814AC8] hover:bg-[#814AC8]/85 text-white rounded-lg px-5 py-2 text-[13px] font-semibold no-underline transition-opacity shadow-sm"
+                className={`inline-flex items-center gap-2 bg-[#814AC8] hover:bg-[#814AC8]/85 text-white rounded-lg px-5 text-[13px] font-semibold no-underline transition-opacity shadow-sm ${hasNoActivePlan ? "py-3" : "py-2"}`}
               >
                 Upgrade plan
+                {hasNoActivePlan && <ArrowRight size={16} aria-hidden="true" />}
               </a>
             )}
           </div>
@@ -579,6 +613,10 @@ export default function BillingHistoryPage() {
               <div className="flex flex-col gap-2">
                 {[1, 2, 3, 4].map(i => <div key={i} className="w-full h-8 rounded-lg bg-white/10 animate-pulse" />)}
               </div>
+            ) : billingUnavailable ? (
+              <p className="text-xs sm:text-[13px] text-zinc-400 leading-relaxed">
+                Billing details are currently unavailable.
+              </p>
             ) : (
               <div className="flex flex-col divide-y divide-white/5">
                 {[
@@ -590,17 +628,18 @@ export default function BillingHistoryPage() {
                   {
                     icon: <Calendar size={14} className="text-zinc-400" />,
                     label: "Next Billing Date",
-                    value: formatBillingDate(billing?.subscription?.current_period_end || billing?.next_billing_date),
+                    value: hasNoActivePlan ? "N/A" : formatBillingDate(billing?.subscription?.current_period_end || billing?.next_billing_date),
                   },
                   {
                     icon: <IndianRupee size={14} className="text-zinc-400" />,
                     label: "Amount",
-                    value: currentPlanPrice || "—",
+                    value: hasNoActivePlan ? "—" : (currentPlanPrice || "—"),
                   },
                   {
                     icon: <CreditCard size={14} className="text-zinc-400" />,
                     label: "Payment Method",
                     value: (() => {
+                      if (hasNoActivePlan) return "—";
                       const subMethod = billing?.subscription?.payment_method;
                       if (subMethod) {
                         return formatPaymentMethod(subMethod, billing?.subscription?.provider).label;

@@ -10,6 +10,7 @@ import TwoFactorSetupModal    from '@/components/TwoFactorSetupModal';
 import TwoFactorDisableModal  from '@/components/TwoFactorDisableModal';
 import UserFeedbackPanel from '@/components/UserFeedback/UserFeedbackPanel';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
+import TeamManagementSection from '@/components/TeamManagementSection';
 import {
   User,
   MessageSquare,
@@ -48,6 +49,7 @@ const NAV_SECTIONS = [
     title: 'General',
     items: [
       { id: 'my-account', label: 'My Account', icon: <User size={15} /> },
+      { id: 'team', label: 'Team & Seats', icon: <Users size={15} /> },
       { id: 'preferences', label: 'Preferences', icon: <Settings size={15} /> },
       { id: 'notifications', label: 'Notifications', icon: <Bell size={15} /> },
     ],
@@ -61,6 +63,7 @@ const NAV_SECTIONS = [
     ],
   },
 ];
+
 
 // ─ Toggle Component
 
@@ -1765,12 +1768,41 @@ function MyAccountSection({
 
 // ─ Main Component
 
-export default function SettingsContent({ email, onClose }) {
+export default function SettingsContent({ email, onClose, initialSection = 'my-account' }) {
   const router = useRouter();
-  const { user, logout, refreshUser } = useAuth();
- 
-  const [activeSection, setActiveSection] = useState('my-account');
+  const { user, logout, refreshUser, hasPermission, currentRole } = useAuth();
+  const isPrivileged = ['admin', 'founder', 'owner', 'superadmin', 'platform_admin'].includes((currentRole || '').toLowerCase().trim());
+
+  const canManageTeam = hasPermission('team.members');
+
+  const allowedSetting = (id) => {
+    if (id === 'team') return canManageTeam;
+    if (id === 'notifications') return hasPermission('settings.notifications') || isPrivileged;
+    return true;
+  };
+
+  const visibleNavSections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => allowedSetting(item.id)),
+  })).filter((section) => section.items.length > 0);
+
+  const [activeSection, setActiveSection] = useState(() => {
+    if (initialSection === 'team' && !canManageTeam) return 'my-account';
+    return initialSection || 'my-account';
+  });
+
+  useEffect(() => {
+    if (initialSection) {
+      if (initialSection === 'team' && !canManageTeam) {
+        setActiveSection('my-account');
+      } else {
+        setActiveSection(initialSection);
+      }
+    }
+  }, [initialSection, canManageTeam]);
+
   const [preferredName, setPreferredName] = useState('User');
+
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [twoFactorLoading, setTwoFactorLoading] = useState(false);
   const [showSetupModal, setShowSetupModal] = useState(false);
@@ -1880,6 +1912,7 @@ export default function SettingsContent({ email, onClose }) {
     NAV_SECTIONS.flatMap((s) => s.items).find((i) => i.id === activeSection)?.label ?? '';
 
   const renderContent = () => {
+    if (!allowedSetting(activeSection)) return <p className="p-4 text-zinc-400">Choose an available settings section from the menu.</p>;
     switch (activeSection) {
       case 'my-account':
         return (
@@ -1901,6 +1934,8 @@ export default function SettingsContent({ email, onClose }) {
               cancelDelLoading={cancelDelLoading}
           />
         );
+      case 'team':
+        return <TeamManagementSection />;
       case 'preferences':
         return <PreferencesSection />;
       case 'notifications':
@@ -1968,7 +2003,7 @@ export default function SettingsContent({ email, onClose }) {
                 h-full min-h-full
               "
             >
-              {NAV_SECTIONS.map((section) => (
+              {visibleNavSections.map((section) => (
                 <div key={section.title} className="mb-6 last:mb-0">
                   <p className="mb-2 px-3 text-[14px] font-semibold text-white/90">
                     {section.title}

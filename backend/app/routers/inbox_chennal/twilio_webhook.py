@@ -27,7 +27,7 @@ def connect_twilio(
 ):
     from app.core.security import to_uuid
     ws_uuid = to_uuid(payload.workspace_id)
-    verify_workspace_access(current_user, db, ws_uuid)
+    verify_workspace_access(current_user, db, ws_uuid, required_permission='channels.manage')
     workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -83,7 +83,7 @@ def list_conversations(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, required_permission='channels.manage')
     return ConversationService.list_conversations(
         db,
         workspace_id=workspace_id,
@@ -97,7 +97,7 @@ def get_messages(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, required_permission='channels.manage')
     return MessageService.list_messages(
         db,
         workspace_id=workspace_id,
@@ -112,7 +112,7 @@ def send_reply(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, required_permission='channels.manage')
     return MessageService.send_reply(
         db,
         workspace_id=workspace_id,
@@ -128,7 +128,7 @@ async def ai_suggest(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, required_permission='channels.manage')
     return await MessageService.generate_ai_suggestion(
         db,
         workspace_id=workspace_id,
