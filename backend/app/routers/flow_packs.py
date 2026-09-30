@@ -90,7 +90,7 @@ def resolve_and_verify_workspace(
             detail=f"Invalid workspace_id UUID format: '{ws_id}'"
         )
 
-    return verify_workspace_access(current_user, db, ws_id)
+    return verify_workspace_access(current_user, db, ws_id, required_permission='automation.manage')
 
 # ----------------- User Routes -----------------
 

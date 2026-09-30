@@ -56,6 +56,7 @@ def resolve_and_verify_workspace(
     x_workspace_id_header: str | None = None,
     payload: Any | None = None,
     required_roles: list[str] | None = None,
+    required_permission: str | tuple[str, ...] | None = "billing.manage",
 ) -> str:
     ws_id = None
     if payload and hasattr(payload, "workspace_id") and getattr(payload, "workspace_id"):
@@ -81,7 +82,7 @@ def resolve_and_verify_workspace(
                 detail=f"Invalid workspace_id UUID format: '{ws_id}'"
             )
 
-    return verify_workspace_access(current_user, db, ws_id, required_roles=required_roles)
+    return verify_workspace_access(current_user, db, ws_id, required_roles=required_roles, required_permission=required_permission)
 
 
 def _safe_to_uuid(val):
@@ -91,6 +92,8 @@ def _safe_to_uuid(val):
         return val
     try:
         return uuid.UUID(str(val).strip())
+    except HTTPException:
+        raise
     except Exception:
         return None
 
@@ -106,7 +109,6 @@ def create_subscription(
     try:
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id, payload,
-            required_roles=["founder", "owner", "admin"]
         )
         logger.info(f"[SUBSCRIPTION] user={current_user.email} workspace={resolved_ws_id} plan={payload.plan}")
 
@@ -138,7 +140,6 @@ def verify_payment(
     try:
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id, payload,
-            required_roles=["founder", "owner", "admin"]
         )
         logger.info(f"[PAYMENT VERIFY] user={current_user.email} workspace={resolved_ws_id} provider={payload.provider}")
 
@@ -171,7 +172,6 @@ def purchase_plan(
     try:
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id, payload,
-            required_roles=["founder", "owner", "admin"]
         )
         logger.info(f"[PLAN PURCHASE] user={current_user.email} workspace={resolved_ws_id} plan={payload.plan}")
 
@@ -187,6 +187,8 @@ def purchase_plan(
             provider=payload.provider,
         )
 
+    except HTTPException:
+        raise
     except ValueError as exc:
         logger.error(f"[PLAN PURCHASE ERROR] {str(exc)}")
         raise HTTPException(status_code=400, detail=str(exc))
@@ -206,7 +208,6 @@ def verify_plan(
     try:
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id, payload,
-            required_roles=["founder", "owner", "admin"]
         )
         order_id = payload.razorpay_order_id or payload.order_id
         payment_id = payload.razorpay_payment_id or payload.payment_id
@@ -233,6 +234,8 @@ def verify_plan(
             provider=payload.provider,
         )
 
+    except HTTPException:
+        raise
     except ValueError as exc:
         logger.error(f"[PLAN VERIFY ERROR] {str(exc)}")
         raise HTTPException(status_code=400, detail=str(exc))
@@ -255,6 +258,8 @@ def report_payment_failure(
             resolved_ws_id = resolve_and_verify_workspace(
                 current_user, db, workspace_id, x_workspace_id, payload
             )
+        except HTTPException:
+            raise
         except Exception:
             resolved_ws_id = None
 
@@ -328,6 +333,8 @@ def report_payment_failure(
             provider=payload.provider,
             entity=entity
         )
+    except HTTPException:
+        raise
         db.commit()
         return {"status": "ok", "message": "Payment failure recorded and notification processed"}
     except Exception as exc:
@@ -421,7 +428,8 @@ def get_usage(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     resolved_ws_id = resolve_and_verify_workspace(
-        current_user, db, workspace_id, x_workspace_id
+        current_user, db, workspace_id, x_workspace_id,
+        required_permission=('credits.view', 'billing.manage'),
     )
     logger.info(f"[USAGE] user={current_user.email} workspace={resolved_ws_id}")
 
@@ -526,7 +534,8 @@ def get_credit_summary(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id
+            current_user, db, workspace_id, x_workspace_id,
+            required_permission=('credits.view', 'billing.manage'),
         )
         service = get_billing_service()
         return service.get_credit_summary(
@@ -550,7 +559,8 @@ def get_credit_history(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id
+            current_user, db, workspace_id, x_workspace_id,
+            required_permission=('credits.view', 'billing.manage'),
         )
         service = get_billing_service()
         return service.get_credit_history(
@@ -576,7 +586,7 @@ def purchase_credit_pack(
     try:
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id, payload,
-            required_roles=["founder", "owner", "admin"]
+            required_permission=('credits.view', 'billing.manage'),
         )
         from app.services.billing.entitlement_service import EntitlementService
         import uuid
@@ -594,6 +604,8 @@ def purchase_credit_pack(
             pack_id=payload.pack_id,
             provider=payload.provider,
         )
+    except HTTPException:
+        raise
     except ValueError as exc:
         logger.error(f"[CREDITS PURCHASE ERROR] {str(exc)}", exc_info=True)
         err_msg = str(exc)
@@ -616,7 +628,7 @@ def verify_credit_pack(
     try:
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id, payload,
-            required_roles=["founder", "owner", "admin"]
+            required_permission=('credits.view', 'billing.manage'),
         )
         service = get_billing_service()
         return service.verify_credit_pack_payment(
@@ -628,6 +640,8 @@ def verify_credit_pack(
             signature=payload.razorpay_signature,
             provider=payload.provider,
         )
+    except HTTPException:
+        raise
     except ValueError as exc:
         logger.error(f"[CREDITS VERIFY ERROR] {str(exc)}")
         raise HTTPException(status_code=400, detail=str(exc))
@@ -646,7 +660,8 @@ def get_daily_usage(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id
+            current_user, db, workspace_id, x_workspace_id,
+            required_permission=('credits.view', 'billing.manage'),
         )
         service = get_billing_service()
         return service.token_service.get_daily_usage(db, resolved_ws_id, days)
@@ -663,7 +678,8 @@ def list_credit_packs(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id
+            current_user, db, workspace_id, x_workspace_id,
+            required_permission=('credits.view', 'billing.manage'),
         )
         service = get_billing_service()
         return service.list_credit_packs(
@@ -687,7 +703,8 @@ def get_workspace_entitlements(
         from app.models.plan import Plan
         import uuid
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id
+            current_user, db, workspace_id, x_workspace_id,
+            required_permission=None,
         )
         ws_uuid = to_uuid(resolved_ws_id)
         ent = EntitlementService.get_workspace_entitlement(db, ws_uuid)
@@ -696,6 +713,8 @@ def get_workspace_entitlements(
         res = PlanEntitlementResponse.from_orm(ent)
         res.plan_name = plan.name if plan else "unknown"
         return res
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
@@ -713,9 +732,12 @@ def list_active_rules(
     try:
         from app.services.billing.feature_billing_service import FeatureBillingService
         resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id
+            current_user, db, workspace_id, x_workspace_id,
+            required_permission=None,
         )
         return FeatureBillingService.list_rules(db)
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
@@ -735,7 +757,8 @@ def check_workspace_entitlement(
         from app.services.billing.entitlement_service import EntitlementService
         import uuid
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id
+            current_user, db, workspace_id, x_workspace_id,
+            required_permission=None,
         )
         ws_uuid = to_uuid(resolved_ws_id)
         res_dict = EntitlementService.check_entitlement(
@@ -748,6 +771,8 @@ def check_workspace_entitlement(
             "current_usage": res_dict["current"],
             "limit": res_dict["limit"],
         }
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
@@ -766,12 +791,15 @@ def check_workspace_entitlement_post(
         from app.services.billing.entitlement_service import EntitlementService
         import uuid
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id, payload
+            current_user, db, workspace_id, x_workspace_id, payload,
+            required_permission=None,
         )
         ws_uuid = to_uuid(resolved_ws_id)
         return EntitlementService.check_entitlement(
             db, ws_uuid, payload.resource, payload.value
         )
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
@@ -906,6 +934,8 @@ def get_user_invoices(
                 "pages": max(pages, 1),
             },
         }
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
@@ -927,7 +957,7 @@ def download_invoice(
             raise HTTPException(status_code=404, detail="Invoice not found")
 
         # Verify workspace access
-        verify_workspace_access(current_user, db, str(invoice.workspace_id))
+        verify_workspace_access(current_user, db, str(invoice.workspace_id), required_permission="billing.manage")
 
         if not invoice.pdf_url:
             raise HTTPException(status_code=404, detail="Invoice PDF not generated yet")
@@ -938,6 +968,8 @@ def download_invoice(
 
         try:
             pdf_bytes = get_storage().get_file_bytes(file_path)
+        except HTTPException:
+            raise
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail="Invoice PDF file not found in storage")
         except Exception as fetch_err:
@@ -1084,7 +1116,6 @@ def update_workspace_billing_profile(
     try:
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id,
-            required_roles=["founder", "owner", "admin"]
         )
         import uuid
         ws_uuid = to_uuid(resolved_ws_id)

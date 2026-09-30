@@ -48,21 +48,37 @@ class SessionService:
         return session
 
     @staticmethod
-    def get_session_or_404(
+    def get_session_by_id_and_user(
         db: Session,
-        session_id: UUID,
+        session_id: UUID | str,
         user_id: str,
-        workspace_id: str,
-    ) -> ChatSession:
-        session = (
+    ) -> ChatSession | None:
+        return (
             db.query(ChatSession)
             .filter(
                 ChatSession.id == to_uuid(session_id),
                 ChatSession.user_id == to_uuid(user_id),
-                ChatSession.workspace_id == to_uuid(workspace_id),
             )
             .first()
         )
+
+    @staticmethod
+    def get_session_or_404(
+        db: Session,
+        session_id: UUID | str,
+        user_id: str,
+        workspace_id: str | None = None,
+    ) -> ChatSession:
+        query = db.query(ChatSession).filter(
+            ChatSession.id == to_uuid(session_id),
+            ChatSession.user_id == to_uuid(user_id),
+        )
+        if workspace_id is not None:
+            ws_uuid = to_uuid(workspace_id)
+            if not ws_uuid:
+                raise HTTPException(status_code=400, detail="Invalid workspace ID.")
+            query = query.filter(ChatSession.workspace_id == ws_uuid)
+        session = query.first()
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         return session

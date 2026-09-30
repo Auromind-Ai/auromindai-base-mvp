@@ -21,7 +21,9 @@ import { formatBillingDate, formatBillingAmount, getActivityMeta, formatPaymentM
 
 
 export default function CreditsPage() {
-    const { workspaceId } = useAuth();
+    const { workspaceId, hasPermission, permissionsLoading } = useAuth();
+    const canRecharge = !permissionsLoading && hasPermission('credits.view');
+    const rechargeRestriction = 'You do not have access to recharge credits in this workspace. Contact your workspace admin.';
     const [activeTab, setActiveTab] = useState(() => {
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
@@ -424,7 +426,11 @@ export default function CreditsPage() {
 
     // 1. Triggered on "Add funds to wallet" click: Validates & displays Indication Modal with real GST breakdown
     const handleRechargeSubmit = async (e) => {
-        if (e && e.preventDefault) e.preventDefault();
+        e.preventDefault();
+        if (!canRecharge) {
+            triggerToast(rechargeRestriction);
+            return;
+        }
         if (workspaceEntitlements && workspaceEntitlements.allow_wcc_recharge === false) {
             triggerToast('⚠️ WhatsApp Wallet recharge is not available for your current plan. Please upgrade to Pro.');
             return;
@@ -545,6 +551,10 @@ export default function CreditsPage() {
 
     // Credit Pack Purchase Flow
     const handlePurchaseCreditPack = async (packId, packName, amount) => {
+        if (!canRecharge) {
+            triggerToast(rechargeRestriction);
+            return;
+        }
         if (workspaceEntitlements && workspaceEntitlements.allow_ai_topup === false) {
             triggerToast('⚠️ AI Credit top-up is not available for your current plan. Please upgrade to Pro.');
             return;
@@ -603,6 +613,10 @@ export default function CreditsPage() {
     };
 
     const handleRechargeWalletClick = () => {
+        if (!canRecharge) {
+            triggerToast(rechargeRestriction);
+            return;
+        }
         if (activeTab === 'ai') {
             const pack = creditPacks[selectedPackIndex] || creditPacks[0];
             if (pack) {
@@ -870,6 +884,16 @@ export default function CreditsPage() {
                     </p>
                 </div>
 
+                {!permissionsLoading && !canRecharge && (
+                    <div role="note" id="recharge-restriction" className="mb-5 flex items-start gap-3 rounded-xl border border-violet-400/20 bg-violet-400/10 p-4 text-sm text-zinc-300">
+                        <Info className="mt-0.5 h-5 w-5 shrink-0 text-violet-300" />
+                        <div>
+                            <p className="font-medium text-white">Credit recharge unavailable</p>
+                            <p className="mt-1 leading-relaxed">{rechargeRestriction}</p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Tab Switcher */}
                 <div className="flex border-b border-white/5 mb-5 sm:mb-6 overflow-x-auto no-scrollbar gap-5 sm:gap-7">
                     <button
@@ -961,7 +985,9 @@ export default function CreditsPage() {
 
                                     <button
                                         onClick={handleRechargeWalletClick}
-                                        className="px-5 py-2.5 bg-[#814AC8] hover:bg-[#905ad6] text-white font-medium text-xs sm:text-sm rounded-xl transition-all active:scale-95 shadow-lg shadow-purple-900/30 cursor-pointer"
+                                        disabled={!canRecharge}
+                                        aria-describedby={!canRecharge ? "recharge-restriction" : undefined}
+                                        className="px-5 py-2.5 bg-[#814AC8] hover:bg-[#905ad6] text-white font-medium text-xs sm:text-sm rounded-xl transition-all active:scale-95 shadow-lg shadow-purple-900/30 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
                                         Recharge Wallet
                                     </button>
@@ -1025,7 +1051,7 @@ export default function CreditsPage() {
                                     )}
 
                                     <button
-                                        disabled={creditPacks.length === 0 || actionLoading || workspaceEntitlements?.allow_ai_topup === false}
+                                        disabled={!canRecharge || creditPacks.length === 0 || actionLoading || workspaceEntitlements?.allow_ai_topup === false}
                                         title={workspaceEntitlements?.allow_ai_topup === false ? "Upgrade to Pro to purchase AI Credits." : ""}
                                         onClick={() => {
                                             if (workspaceEntitlements?.allow_ai_topup === false) {
@@ -1037,7 +1063,7 @@ export default function CreditsPage() {
                                         }}
                                         className="w-full py-2.5 sm:py-3 bg-[#814AC8] hover:bg-[#905ad6] text-white font-medium text-xs sm:text-sm rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-purple-900/30 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
-                                        {workspaceEntitlements?.allow_ai_topup === false ? "Upgrade plan to top up" : "Purchase selected pack"}
+                                        {!canRecharge ? "Recharge unavailable" : workspaceEntitlements?.allow_ai_topup === false ? "Upgrade plan to top up" : "Purchase selected pack"}
                                     </button>
                                 </div>
                             </div>
@@ -1519,15 +1545,15 @@ export default function CreditsPage() {
 
                                     <button
                                         type="submit"
-                                        disabled={actionLoading || workspaceEntitlements?.allow_wcc_recharge === false}
-                                        className={`mt-auto w-full py-3 text-white font-medium text-sm rounded-lg transition-all active:scale-95 shadow-lg shadow-emerald-900/10 flex items-center justify-center gap-1.5 cursor-pointer ${
+                                        disabled={!canRecharge || actionLoading || workspaceEntitlements?.allow_wcc_recharge === false}
+                                        className={`disabled:opacity-40 disabled:cursor-not-allowed mt-auto w-full py-3 text-white font-medium text-sm rounded-lg transition-all active:scale-95 shadow-lg shadow-emerald-900/10 flex items-center justify-center gap-1.5 cursor-pointer ${
                                             workspaceEntitlements?.allow_wcc_recharge === false
                                                 ? 'bg-zinc-800 text-white/60 cursor-not-allowed opacity-60'
                                                 : actionLoading ? 'bg-emerald-700 cursor-not-allowed opacity-70' : 'bg-[#814ac8] hover:bg-[#905ad6]'
                                         }`}
                                     >
                                         <CheckCircle2 size={16} />
-                                        {workspaceEntitlements?.allow_wcc_recharge === false
+                                        {!canRecharge ? 'Recharge unavailable' : workspaceEntitlements?.allow_wcc_recharge === false
                                             ? 'Recharge Disabled (Upgrade to Pro)'
                                             : actionLoading ? 'Processing...' : 'Add funds to wallet'}
                                     </button>

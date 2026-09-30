@@ -120,7 +120,7 @@ async def ingest_document(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='brain.manage')
 
     # Enforce Knowledge Base limit
     ent_check = EntitlementService.check_entitlement(db, workspace_id, "knowledge_base")
@@ -229,7 +229,7 @@ async def ingest_sales_document(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='brain.manage')
 
     # Enforce Knowledge Base limit
     ent_check = EntitlementService.check_entitlement(db, workspace_id, "knowledge_base")
@@ -334,7 +334,7 @@ async def ingest_support_document(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='brain.manage')
 
     # Enforce Knowledge Base limit
     ent_check = EntitlementService.check_entitlement(db, workspace_id, "knowledge_base")
@@ -441,7 +441,7 @@ async def ingest_url(
     current_user = Depends(get_current_user)
 ):
 
-    workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, request.workspace_id, required_permission='brain.manage')
 
     # Enforce Knowledge Base limit
     ent_check = EntitlementService.check_entitlement(db, workspace_id, "knowledge_base")
@@ -512,7 +512,7 @@ async def get_ingestion_status(
 ):
    
     logger.info(f"[INGEST STATUS] user={current_user.id} entry_id={entry_id}")
-    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='brain.manage')
   
     entry = db.query(BrainEntry).filter(
         BrainEntry.id == entry_id,
@@ -541,7 +541,7 @@ async def ingest_text(
     current_user = Depends(get_current_user)
 ):
    
-    workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, request.workspace_id, required_permission='brain.manage')
 
     # Enforce Knowledge Base limit
     ent_check = EntitlementService.check_entitlement(db, workspace_id, "knowledge_base")
@@ -611,7 +611,7 @@ async def crawl_website(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, request.workspace_id, required_permission='brain.manage')
 
     # Enforce Knowledge Base limit
     ent_check = EntitlementService.check_entitlement(db, workspace_id, "knowledge_base")
@@ -691,7 +691,7 @@ async def list_entries(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):      
-    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='brain.manage')
 
     try:
         logger.info(f"[LIST ENTRIES] user={current_user.id} workspace={workspace_id} skip={pagination.skip} limit={pagination.limit}")
@@ -763,7 +763,7 @@ async def delete_entry(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='brain.manage')
 
     try:
         logger.warning(f"[DELETE ENTRY] user={current_user.id} workspace={workspace_id} entry_id={entry_id}")
@@ -800,7 +800,7 @@ async def search_knowledge(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, request.workspace_id, required_permission='brain.manage')
 
     try:
         logger.info(
@@ -848,7 +848,7 @@ async def query_knowledge(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, request.workspace_id, required_permission='brain.manage')
 
     try:
         logger.info(
@@ -883,7 +883,7 @@ async def get_brain_stats(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='brain.manage')
 
     try:
         logger.info(f"[STATS] user={current_user.id} workspace={workspace_id}")

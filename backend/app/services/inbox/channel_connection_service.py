@@ -543,6 +543,7 @@ class ChannelConnectionService:
 
     @staticmethod
     def update_whatsapp_profile(db: Session, data: dict):
+        import time
         from app.core.security import to_uuid
         workspace_id = to_uuid(data.get("workspace_id"))
         workspace = db.query(models.Workspace).filter(models.Workspace.id == workspace_id).first()
@@ -555,22 +556,28 @@ class ChannelConnectionService:
         phone_number_id = workspace.meta_phone_number_id
         access_token = workspace.meta_access_token
         
+        # Meta WhatsApp Business Profile API strictly requires:
+        # 1. Non-empty string values for text fields (empty string triggers 131000 / schema validation failure).
+        # 2. Only valid URL strings in websites array (empty list or invalid URL triggers 131000).
+        # 3. Only include fields that actually have values to update.
         body = {
             "messaging_product": "whatsapp"
         }
-        if "about" in data and data["about"] is not None:
-            body["about"] = data["about"][:139]
-        if "address" in data and data["address"] is not None:
-            body["address"] = data["address"][:256]
-        if "description" in data and data["description"] is not None:
-            body["description"] = data["description"][:512]
-        if "email" in data and data["email"] is not None:
-            clean_email = data["email"].strip()
-            if clean_email:
+        if data.get("about") and str(data["about"]).strip():
+            body["about"] = str(data["about"]).strip()[:139]
+
+        if data.get("address") and str(data["address"]).strip():
+            body["address"] = str(data["address"]).strip()[:256]
+
+        if data.get("description") and str(data["description"]).strip():
+            body["description"] = str(data["description"]).strip()[:512]
+
+        if data.get("email") and str(data["email"]).strip():
+            clean_email = str(data["email"]).strip()
+            if "@" in clean_email and "." in clean_email:
                 body["email"] = clean_email[:128]
-            else:
-                body["email"] = ""
-        if "websites" in data and data["websites"] is not None:
+
+        if data.get("websites") and isinstance(data["websites"], list):
             clean_websites = []
             for w in data["websites"]:
                 if w and isinstance(w, str) and w.strip():
@@ -578,10 +585,12 @@ class ChannelConnectionService:
                     if not (url_str.startswith("http://") or url_str.startswith("https://")):
                         url_str = f"https://{url_str}"
                     clean_websites.append(url_str[:256])
-            body["websites"] = clean_websites[:2]
-        if "vertical" in data and data["vertical"] is not None:
+            if clean_websites:
+                body["websites"] = clean_websites[:2]
+
+        if data.get("vertical"):
             v = str(data["vertical"]).strip()
-            if v and v != "UNDEFINED":
+            if v and v not in ("UNDEFINED", "UNKNOWN"):
                 body["vertical"] = v
         
         try:
@@ -612,21 +621,61 @@ class ChannelConnectionService:
                     except Exception as ne:
                         logger.error("Error submitting display name to Meta: %s", ne)
 
-            update_res = requests.post(
-                f"https://graph.facebook.com/v21.0/{phone_number_id}/whatsapp_business_profile",
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Content-Type": "application/json"
-                },
-                json=body,
-                timeout=15
-            )
-            update_json = update_res.json()
-            if update_res.status_code != 200 or not update_json.get("success"):
-                error_obj = update_json.get("error", {})
-                error_msg = error_obj.get("message") or "Failed to update WhatsApp profile on Meta."
-                logger.error("Meta WhatsApp profile update failed (%s): %s", update_res.status_code, update_json)
-                raise HTTPException(status_code=400, detail=f"Meta API Error: {error_msg}")
+            # Only call whatsapp_business_profile if there are profile fields to update
+            has_profile_fields = len(body) > 1
+            if has_profile_fields:
+                logger.info("Updating WhatsApp profile for phone %s with fields: %s", phone_number_id, list(body.keys()))
+                
+                # Attempt with retry and version fallback for Meta transient 131000 error
+                api_versions = ["v21.0", "v19.0"]
+                update_json = {}
+                success = False
+                last_error_msg = ""
+
+                for version in api_versions:
+                    for attempt in range(2):
+                        try:
+                            update_res = requests.post(
+                                f"https://graph.facebook.com/{version}/{phone_number_id}/whatsapp_business_profile",
+                                headers={
+                                    "Authorization": f"Bearer {access_token}",
+                                    "Content-Type": "application/json"
+                                },
+                                json=body,
+                                timeout=15
+                            )
+                            update_json = update_res.json()
+                            if update_res.status_code == 200 and update_json.get("success"):
+                                success = True
+                                break
+                            
+                            err_obj = update_json.get("error", {})
+                            err_code = err_obj.get("code")
+                            last_error_msg = err_obj.get("message") or "Failed to update WhatsApp profile on Meta."
+                            
+                            # 131000 is a transient Meta server glitch; retry after short backoff
+                            if err_code == 131000 or update_res.status_code == 500:
+                                logger.warning(
+                                    "Meta transient error 131000 on %s attempt %s: %s (fbtrace_id: %s). Retrying in 1.5s...",
+                                    version, attempt + 1, last_error_msg, err_obj.get("fbtrace_id")
+                                )
+                                time.sleep(1.5)
+                            else:
+                                # Non-transient error (e.g. 400 Bad Request); don't loop on same version
+                                break
+                        except requests.RequestException as re:
+                            logger.warning("Network issue updating WhatsApp profile on %s: %s", version, re)
+                            time.sleep(1.5)
+
+                    if success:
+                        break
+
+                if not success:
+                    logger.error("Meta WhatsApp profile update failed: %s", update_json)
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Meta API Error: {last_error_msg}. If this is error #131000, Meta servers experienced a temporary glitch. Please try saving again."
+                    )
             
             logger.info("WhatsApp business profile updated successfully for workspace %s", workspace_id)
             # Re-fetch profile to return fresh state

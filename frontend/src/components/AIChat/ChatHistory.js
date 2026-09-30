@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { Search, MessageSquare, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 export default function ChatHistory({ isOpen, onClose, onSelectSession }) {
+    const { workspaceId } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [sessions, setSessions] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -15,7 +17,7 @@ export default function ChatHistory({ isOpen, onClose, onSelectSession }) {
         const fetchSessions = async () => {
             setIsLoading(true);
             try {
-                const res = await api.getChatSessions();
+                const res = await api.getChatSessions(workspaceId);
                 setSessions(res || []);
             } catch (err) {
                 console.error("Failed to load chat history sessions:", err);
@@ -24,7 +26,7 @@ export default function ChatHistory({ isOpen, onClose, onSelectSession }) {
             }
         };
         fetchSessions();
-    }, [isOpen]);
+    }, [isOpen, workspaceId]);
 
     const filteredSessions = sessions.filter(s =>
         !searchQuery || (s.title && s.title.toLowerCase().includes(searchQuery.toLowerCase()))

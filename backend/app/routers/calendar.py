@@ -42,7 +42,7 @@ async def get_calendar_status(
     """
     Returns the Google Calendar integration connection status for the workspace.
     """
-    ws_id = verify_workspace_access(current_user, db, workspace_id)
+    ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission='crm.view')
     ws_uuid = uuid.UUID(str(ws_id)) if isinstance(ws_id, str) else ws_id
 
     integration = db.query(Integration).filter(
@@ -68,7 +68,7 @@ async def list_calendar_events(
     """
     Lists calendar events and appointments for the workspace.
     """
-    ws_id = verify_workspace_access(current_user, db, workspace_id)
+    ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission='crm.view')
     ws_uuid = uuid.UUID(str(ws_id)) if isinstance(ws_id, str) else ws_id
 
     query = db.query(CalendarEvent).filter(CalendarEvent.workspace_id == ws_uuid)
@@ -111,7 +111,7 @@ async def get_calendar_availability(
     """
     Fetches real-time available appointment slots checking both Google Calendar FreeBusy and DB events.
     """
-    ws_id = verify_workspace_access(current_user, db, workspace_id)
+    ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission='crm.view')
     calendar = CalendarExecutor()
     slots = calendar.get_available_slots(
         db=db,
@@ -134,7 +134,7 @@ async def create_appointment(
     """
     Manually schedules a new appointment / demo booking.
     """
-    ws_id = verify_workspace_access(current_user, db, workspace_id)
+    ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission='crm.view')
     calendar = CalendarExecutor()
 
     result = calendar.execute(
@@ -178,7 +178,7 @@ async def reschedule_appointment(
     """
     Reschedules an existing appointment to a new date and time.
     """
-    ws_id = verify_workspace_access(current_user, db, workspace_id)
+    ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission='crm.view')
     calendar = CalendarExecutor()
 
     result = calendar.reschedule_appointment(
@@ -208,7 +208,7 @@ async def cancel_appointment(
     """
     Cancels an existing appointment in Google Calendar and DB.
     """
-    ws_id = verify_workspace_access(current_user, db, workspace_id)
+    ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission='crm.view')
     calendar = CalendarExecutor()
 
     result = calendar.cancel_appointment(

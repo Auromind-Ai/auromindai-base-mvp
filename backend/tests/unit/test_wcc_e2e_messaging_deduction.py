@@ -3,6 +3,7 @@ import asyncio
 import pytest
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from app.database import engine, Base, SessionLocal
 from app.models.user import User
@@ -510,7 +511,8 @@ def test_full_meta_whatsapp_webhook_billing_integration(db):
     }
 
     # Process webhook asynchronously
-    asyncio.run(WebhookService.handle_meta_whatsapp_webhook(webhook_payload, db))
+    with patch("app.workers.flow_execution.send_next_pending_message.apply_async"):
+        asyncio.run(WebhookService.handle_meta_whatsapp_webhook(webhook_payload, db))
 
     # Verify Message status was updated to DELIVERED
     updated_msg = db.query(Message).filter(Message.id == msg.id).first()
@@ -624,7 +626,8 @@ def test_user_and_agent_live_chat_never_deducts_wcc_wallet(db):
     }
 
     # Process webhook
-    asyncio.run(WebhookService.handle_meta_whatsapp_webhook(webhook_payload, db))
+    with patch("app.workers.flow_execution.send_next_pending_message.apply_async"):
+        asyncio.run(WebhookService.handle_meta_whatsapp_webhook(webhook_payload, db))
 
     # Message status is updated to DELIVERED
     updated_agent_msg = db.query(Message).filter(Message.id == agent_msg.id).first()

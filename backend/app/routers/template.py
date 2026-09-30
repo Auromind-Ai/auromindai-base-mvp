@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, ValidationError
 import os
 import re
+from decimal import Decimal
 from dotenv import load_dotenv
 from groq import Groq
 
@@ -94,7 +95,7 @@ async def generate_template(
     from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry
     import asyncio
 
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, data.workspace_id, required_permission='templates.manage')
 
     lang_name = map_language(data.language)
     system_prompt = f"""
@@ -279,6 +280,8 @@ Return JSON only.
                             "footer": {"type": "string"},
                             "cta": {"type": "string"},
                             "cta_btn_title": {"type": "string"},
+                            "body_examples": {"type": "array", "items": {"type": "string"}},
+                            "header_examples": {"type": "array", "items": {"type": "string"}},
                             "workspace_id": {"type": "string"},
                             "media": {"type": "string", "format": "binary"}
                         },
@@ -316,6 +319,12 @@ async def create_template(
                     raw_data[key] = None
                 elif v_str == "" and key in ("header", "footer", "cta", "cta_btn_title", "workspace_id"):
                     raw_data[key] = None
+                elif key in ("body_examples", "header_examples"):
+                    try:
+                        import json
+                        raw_data[key] = json.loads(v_str) if v_str.startswith("[") else [x.strip() for x in v_str.split(",") if x.strip()]
+                    except Exception:
+                        raw_data[key] = [x.strip() for x in v_str.split(",") if x.strip()]
                 else:
                     raw_data[key] = value
             else:
@@ -360,7 +369,7 @@ async def create_template(
     data.type = (data.type or "TEXT").strip().upper()
     validate_category(data)
 
-    workspace_id = verify_workspace_access(current_user, db, data.workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, data.workspace_id, required_permission='templates.manage')
 
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
@@ -518,6 +527,86 @@ async def create_template(
     return {"status": "submitted"}
 
 
+def infer_realistic_sample(before: str, after: str, index: int) -> str:
+    b_clause = re.split(r"[,.!?;\n]|\{\{\d+\}\}", before)[-1].strip()
+    a_clause = re.split(r"[,.!?;\n]|\{\{\d+\}\}", after)[0].strip()
+
+    b_words = re.findall(r"\b[a-zA-Z$₹]+\b", b_clause)
+    immediate_before = " ".join(b_words[-3:]).lower() if b_words else ""
+
+    a_words = re.findall(r"\b[a-zA-Z$₹]+\b", a_clause)
+    immediate_after = " ".join(a_words[:3]).lower() if a_words else ""
+
+    clause_context = f"{immediate_before} {immediate_after}".strip()
+
+    # 1. Organization / Store / Community if 'welcome to'
+    if "welcome to" in immediate_before:
+        items = ["Acme Store", "Orbion Team", "Our Community", "Prime Services"]
+        return items[(index - 1) % len(items)]
+
+    # 2. Greeting / Name
+    if any(k in immediate_before for k in ["hello", "hi", "hey", "dear", "mr", "ms", "mrs", "dr", "vanakkam", "namaste", "welcome", "name", "customer", "user", "member", "guest"]):
+        names = ["Alex", "Karthik", "John", "Priya", "Rahul"]
+        return names[(index - 1) % len(names)]
+
+    # 3. OTP / Verification Code / PIN
+    if any(k in clause_context for k in ["otp", "pin", "verification code", "passcode", "security code"]):
+        return "592814"
+
+    # 4. Coupon / Promo / Voucher
+    if any(k in clause_context for k in ["coupon", "promo", "voucher", "discount code", "code", "deal"]):
+        return "SAVE20"
+
+    # 5. Order / Invoice / Booking / Ticket ID
+    if any(k in clause_context for k in ["order", "invoice", "booking", "ticket", "awb", "tracking", "consignment", "package", "ref", "reference", "receipt", "bill"]):
+        ids = ["ORD-10923", "INV-84920", "TCK-55102", "TRK-99210"]
+        return ids[(index - 1) % len(ids)]
+
+    # 6. Currency / Price / Amount
+    if any(k in clause_context for k in ["rs", "inr", "usd", "dollar", "$", "₹", "amount", "price", "cost", "total", "fee", "pay", "paid", "due", "balance"]):
+        amounts = ["499", "1250", "99", "2500"]
+        return amounts[(index - 1) % len(amounts)]
+
+    # 7. Date / Time / Delivery
+    if any(k in clause_context for k in ["date", "time", "scheduled", "delivery", "delivered", "arrive", "slot", "tomorrow", "valid till", "expires", "deadline"]):
+        dates = ["Monday at 10:00 AM", "Tomorrow at 5:00 PM", "25th October", "3 business days"]
+        return dates[(index - 1) % len(dates)]
+
+    # 8. Organization / Store / Team / Brand / Product
+    if any(k in clause_context for k in ["store", "shop", "company", "brand", "team", "service", "item", "product", "plan", "course"]):
+        items = ["Acme Store", "Orbion Team", "Premium Plan", "Standard Delivery"]
+        return items[(index - 1) % len(items)]
+
+    fallbacks = ["John", "ORD-1029", "Rs. 499", "Tomorrow", "Premium Plan", "Confirmed", "Support Team"]
+    return fallbacks[(index - 1) % len(fallbacks)]
+
+
+def generate_smart_variable_examples(text: str, custom_examples: list[str] | None = None) -> list[str]:
+    if not text:
+        return []
+    var_matches = list(re.finditer(r"\{\{(\d+)\}\}", text))
+    if not var_matches:
+        return []
+    vars_found = [(int(m.group(1)), m.start(), m.end()) for m in var_matches]
+    max_var = max(v[0] for v in vars_found)
+    examples = []
+    for i in range(1, max_var + 1):
+        if custom_examples and len(custom_examples) >= i:
+            cand = str(custom_examples[i - 1]).strip()
+            if cand and not re.match(r"^sample[_\-\s]?\d*$", cand, re.IGNORECASE):
+                examples.append(cand)
+                continue
+        match_info = next((v for v in vars_found if v[0] == i), None)
+        if match_info:
+            _, start, end = match_info
+            before = text[:start]
+            after = text[end:]
+            examples.append(infer_realistic_sample(before, after, i))
+        else:
+            examples.append(infer_realistic_sample("", "", i))
+    return examples
+
+
 def build_components(data, media_handle: str | None = None):
     components = []
     data_type = (getattr(data, "type", None) or "TEXT").strip().upper()
@@ -529,9 +618,10 @@ def build_components(data, media_handle: str | None = None):
             header_comp = {"type": "HEADER", "format": "TEXT", "text": header_text}
             header_vars = re.findall(r"\{\{(\d+)\}\}", header_text)
             if header_vars:
-                max_h_var = max(map(int, header_vars))
+                h_custom = getattr(data, "header_examples", None)
+                h_examples = generate_smart_variable_examples(header_text, h_custom)
                 header_comp["example"] = {
-                    "header_text": [f"sample_{i}" for i in range(1, max_h_var + 1)]
+                    "header_text": h_examples
                 }
             components.append(header_comp)
 
@@ -556,9 +646,10 @@ def build_components(data, media_handle: str | None = None):
     # variables example (IMPORTANT: Meta requires 2D array: [["val1", "val2"]])
     vars_in_body = re.findall(r"\{\{(\d+)\}\}", body_text)
     if vars_in_body:
-        max_var = max(map(int, vars_in_body))
+        b_custom = getattr(data, "body_examples", None)
+        b_examples = generate_smart_variable_examples(body_text, b_custom)
         body["example"] = {
-            "body_text": [[f"sample_{i}" for i in range(1, max_var + 1)]]
+            "body_text": [b_examples]
         }
 
     components.append(body)
@@ -577,7 +668,7 @@ def build_components(data, media_handle: str | None = None):
             btn_text = str(getattr(data, "cta_btn_title", None) or "Open").strip()[:25] or "Open"
             btn_obj = {"type": "URL", "text": btn_text, "url": clean_url}
             if "{{1}}" in clean_url:
-                btn_obj["example"] = [clean_url.replace("{{1}}", "sample")]
+                btn_obj["example"] = [clean_url.replace("{{1}}", "track1029")]
             components.append(
                 {
                     "type": "BUTTONS",
@@ -642,28 +733,11 @@ def get_templates(
     current_user = Depends(get_current_user)
 ):
   
-    user_ws = getattr(current_user, "workspace_id", None)
-    target_ws = workspace_id or user_ws
-
-    query = db.query(Template)
-    if target_ws:
-        try:
-            ws_uuid = to_uuid(target_ws)
-            query = query.filter(
-                (Template.workspace_id == ws_uuid) |
-                (Template.user_id == current_user.id) |
-                (Template.system_tag.isnot(None))
-            )
-        except Exception:
-            query = query.filter(
-                (Template.user_id == current_user.id) |
-                (Template.system_tag.isnot(None))
-            )
-    else:
-        query = query.filter(
-            (Template.user_id == current_user.id) |
-            (Template.system_tag.isnot(None))
-        )
+    target_ws = verify_workspace_access(current_user, db, workspace_id, required_permission=("templates.manage", "marketing.campaigns", "inbox.conversations", "automation.manage"))
+    ws_uuid = to_uuid(target_ws)
+    query = db.query(Template).filter(
+        (Template.workspace_id == ws_uuid) | Template.system_tag.isnot(None)
+    )
 
     if category and category.lower() != "all":
         query = query.filter(Template.category.ilike(category))
@@ -705,6 +779,7 @@ def check_template_status(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission=("templates.manage", "inbox.conversations", "marketing.campaigns"))
     from app.services.config_service import config_service
     
     system_token = config_service.get("meta_system_user_token")
@@ -747,31 +822,15 @@ def send_message(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db, data.workspace_id)
+    workspace_id = verify_workspace_access(current_user, db, data.workspace_id, required_permission=('templates.manage', 'inbox.conversations', 'marketing.campaigns'))
   
-
     ws_uuid = to_uuid(workspace_id)
     workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
 
     if not workspace:
         raise HTTPException(404, "Workspace not found")
 
-    wallet = WCCService.get_balance(db, ws_uuid)
-    if wallet and float(wallet.balance or 0.0) <= 0:
-        raise HTTPException(
-            status_code=402,
-            detail="Insufficient WCC wallet balance to send WhatsApp template message. Please recharge your wallet."
-        )
-
-
-    if not workspace.meta_phone_number_id:
-        raise HTTPException(400, "WhatsApp phone number is not configured for this workspace. Please configure it in Channel Settings.")
-        
-    url = f"https://graph.facebook.com/v19.0/{workspace.meta_phone_number_id}/messages"
-
-
-    # Query template language from database
-    ws_uuid = to_uuid(workspace_id)
+    # Query template language & category from database
     template = db.query(Template).filter(
         Template.name == data.template_name,
         (Template.workspace_id == ws_uuid) | (Template.user_id == current_user.id)
@@ -779,6 +838,33 @@ def send_message(
     if not template:
         template = db.query(Template).filter(Template.name == data.template_name).first()
     lang_code = template.language if template else "en_US"
+    category = (template.category or "marketing").lower() if template else "marketing"
+
+    # Pre-flight WCC wallet balance check
+    overage_enabled = getattr(workspace, "overage_enabled", False)
+    estimate = WCCService.calculate_estimate(db, ws_uuid, audience_size=1, category=category)
+    WCCService.check_preflight_balance(db, ws_uuid, estimate["estimated_cost"], overage_enabled=overage_enabled)
+
+    url = f"https://graph.facebook.com/v19.0/{workspace.meta_phone_number_id}/messages"
+
+    template_category = (template.category if template and template.category else "MARKETING").lower()
+    estimate = WCCService.calculate_estimate(db, ws_uuid, audience_size=1, category=template_category)
+    estimated_cost = Decimal(str(estimate.get("estimated_cost", "1.25")))
+    wallet = WCCService.get_balance(db, ws_uuid)
+    curr_bal = Decimal(str(wallet.balance if wallet and wallet.balance is not None else "0.00"))
+    curr_held = Decimal(str(wallet.held_balance if wallet and wallet.held_balance is not None else "0.00"))
+    available = max(Decimal("0.00"), curr_bal - curr_held)
+
+    if not wallet or available < estimated_cost:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Insufficient WCC wallet balance to send WhatsApp template message. Required: {estimated_cost}, Available: {available}. Please recharge your wallet."
+        )
+
+    if not workspace.meta_phone_number_id:
+        raise HTTPException(400, "WhatsApp phone number is not configured for this workspace. Please configure it in Channel Settings.")
+        
+    url = f"https://graph.facebook.com/v19.0/{workspace.meta_phone_number_id}/messages"
 
     components = []
 
@@ -824,9 +910,16 @@ def send_message(
             "parameters": [{"type": "text", "text": str(v)} for v in variables],
         })
 
+    # Clean phone number (Meta Cloud API requires digits only with country code)
+    cleaned_phone = re.sub(r"[^\d+]", "", data.phone)
+    if cleaned_phone.startswith("+"):
+        cleaned_phone = cleaned_phone[1:]
+    if len(cleaned_phone) == 10:
+        cleaned_phone = f"91{cleaned_phone}"
+
     payload = {
         "messaging_product": "whatsapp",
-        "to": data.phone,
+        "to": cleaned_phone,
         "type": "template",
         "template": {
             "name": data.template_name,
@@ -834,7 +927,6 @@ def send_message(
             "components": components,
         },
     }
-
 
     from app.services.config_service import config_service
 
@@ -861,7 +953,36 @@ def send_message(
         err_msg = err_data.get("error", {}).get("message") or res.text
         logger.error(f"[Template Send FAILED] {res.status_code}: {err_data}")
         raise HTTPException(status_code=res.status_code, detail=f"Meta error: {err_msg}")
-    return res.json()
+
+    res_data = res.json()
+    messages = res_data.get("messages", [])
+    wamid = messages[0].get("id") if messages and isinstance(messages, list) else None
+    if wamid:
+        try:
+            import uuid as _uuid
+            from app.models.conversation import ChannelType
+            from app.models.message import Message, MessageStatus, SenderType
+            from app.services.inbox.conversation_service import ConversationService
+            conv = ConversationService.get_or_create_conversation(
+                db,
+                workspace_id=str(ws_uuid),
+                channel=ChannelType.WHATSAPP,
+                phone=data.phone
+            )
+            msg = Message(
+                id=_uuid.uuid4(),
+                conversation_id=conv.id,
+                sender_type=SenderType.AI,
+                source="broadcast",
+                status=MessageStatus.SENT,
+                content=f"[Template: {data.template_name}]",
+                external_id=wamid
+            )
+            db.add(msg)
+            db.commit()
+        except Exception as db_exc:
+            logger.error(f"Failed to record sent template message tracking for {wamid}: {db_exc}")
+    return res_data
 
 
 @router.post("/templates/submit/{template_id}")
@@ -874,7 +995,7 @@ def submit_template(
     if not template:
         raise HTTPException(404, "Template not found")
 
-    verify_workspace_access(current_user, db, template.workspace_id)
+    verify_workspace_access(current_user, db, template.workspace_id, required_permission='templates.manage')
 
     workspace = db.query(Workspace).filter(Workspace.id == template.workspace_id).first()
     if not workspace:
@@ -922,6 +1043,8 @@ def submit_template(
             self.footer = t.footer
             self.cta = t.cta
             self.cta_btn_title = t.cta_btn_title
+            self.body_examples = None
+            self.header_examples = None
 
     components = build_components(TempData(template), media_handle=media_handle)
 
@@ -982,7 +1105,7 @@ async def update_template_media(
         raise HTTPException(status_code=404, detail="Template not found")
 
     if template.workspace_id:
-        verify_workspace_access(current_user, db, str(template.workspace_id))
+        verify_workspace_access(current_user, db, str(template.workspace_id), required_permission='templates.manage')
 
     content_type = request.headers.get("content-type", "").lower()
     media_url = None
@@ -1053,7 +1176,7 @@ def delete_template(
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    verify_workspace_access(current_user, db, template.workspace_id)
+    verify_workspace_access(current_user, db, template.workspace_id, required_permission='templates.manage')
 
     db.delete(template)
     db.commit()

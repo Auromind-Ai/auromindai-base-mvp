@@ -16,6 +16,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRealtime } from '@/context/RealtimeContext';
 import { useToast } from '@/context/ToastContext';
 import MessageRenderer from '@/components/chat/MessageRenderer';
+import SendTemplateModal from '@/components/chat/SendTemplateModal';
 import { insertDateSeparators } from '@/lib/dateUtils';
 import ConvertLeadModal from '@/components/leads/ConvertLeadModal';
 import CloseConversationModal from '@/components/inbox/CloseConversationModal';
@@ -382,7 +383,17 @@ function WhatsAppAudioMessage({ url, isMe, timestamp }) {
     );
 }
 
-function ConversationSidebar({ ch, conversations = [], lead, activeFilter, onFilterChange, onLeadSelect, filterCounts = {}, unreadCounts = {}, lastMessageMap = {} }) {
+function ConversationSidebar({
+    ch,
+    conversations = [],
+    lead,
+    activeFilter,
+    onFilterChange,
+    onLeadSelect,
+    filterCounts = {},
+    unreadCounts = {},
+    lastMessageMap = {},
+}) {
     const [searchQuery, setSearchQuery] = useState('');
     const containerRef = useRef(null);
     const isInstagram = ch.id === 'instagram';
@@ -442,7 +453,7 @@ function ConversationSidebar({ ch, conversations = [], lead, activeFilter, onFil
     return (
         <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: CARD_BG }}>
             <div className="p-4 pb-3 shrink-0">
-                <div className="flex items-center gap-2.5 mb-4">
+                <div className="flex items-center gap-2.5 mb-3">
                     {isInstagram ? (
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: ch.gradient }}>
                             <Instagram size={16} strokeWidth={2} className="text-white" />
@@ -514,8 +525,6 @@ function ConversationSidebar({ ch, conversations = [], lead, activeFilter, onFil
                                 ? 'No converted conversations'
                                 : statusFilters[activeFilter] === 'Closed'
                                 ? 'No closed conversations'
-                                : statusFilters[activeFilter] === 'All'
-                                ? 'No conversations found'
                                 : 'No conversations found'}
                         </p>
                         <p className="text-center text-[#3a3a3a] text-[11px]">
@@ -816,235 +825,6 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
     );
 }
 
-function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
-    const { showToast } = useToast();
-    const [templates, setTemplates] = useState([]);
-    const [selectedTemplate, setSelectedTemplate] = useState(null);
-    const [variables, setVariables] = useState({});
-    const [loading, setLoading] = useState(false);
-    const [fetching, setFetching] = useState(true);
-    const [uploadingMedia, setUploadingMedia] = useState(false);
-    const modalFileInputRef = useRef(null);
-
-    useEffect(() => {
-        if (!isOpen || !workspace?.id) return;
-        const fetchTemplates = async () => {
-            setFetching(true);
-            try {
-                const data = await api.get('/api/templates');
-                const list = data.templates || [];
-                const approved = list.filter(t => t.status === 'approved');
-                setTemplates(approved);
-                if (approved.length > 0) setSelectedTemplate(approved[0]);
-            } catch (e) {
-                console.error("Failed to fetch templates:", e);
-            } finally {
-                setFetching(false);
-            }
-        };
-        fetchTemplates();
-    }, [isOpen, workspace?.id]);
-
-    useEffect(() => {
-        if (!selectedTemplate || !selectedTemplate.content) {
-            setVariables({});
-            return;
-        }
-        const matches = selectedTemplate.content.match(/\{\{\d+\}\}/g) || [];
-        const uniqueVars = {};
-        matches.forEach(m => {
-            const num = m.replace(/\{\{|\}\}/g, '');
-            uniqueVars[num] = '';
-        });
-        setVariables(uniqueVars);
-    }, [selectedTemplate]);
-
-    if (!isOpen) return null;
-
-    const isMediaType = selectedTemplate?.type === 'IMAGE' || selectedTemplate?.type === 'VIDEO';
-    const resolvedMedia = selectedTemplate?.media_url || (selectedTemplate?.header?.startsWith('http') ? selectedTemplate?.header : null);
-
-    const getPreviewContent = () => {
-        if (!selectedTemplate) return '';
-        let text = selectedTemplate.content;
-        Object.keys(variables).forEach(k => {
-            const val = variables[k] || `{{${k}}}`;
-            text = text.replaceAll(`{{${k}}}`, val);
-        });
-        return text;
-    };
-
-    const handleSend = async () => {
-        if (!selectedTemplate || !workspace?.id || !lead?.phone) return;
-        if (isMediaType && !resolvedMedia) {
-            showToast(`Please upload a ${selectedTemplate.type.toLowerCase()} header first!`, 'warning');
-            modalFileInputRef.current?.click();
-            return;
-        }
-        setLoading(true);
-        try {
-            const varArray = Object.keys(variables)
-                .sort((a, b) => parseInt(a) - parseInt(b))
-                .map(k => variables[k]);
-
-            await api.post('/api/messages/send', {
-                workspace_id: workspace.id,
-                phone: lead.phone,
-                template_name: selectedTemplate.name,
-                variables: varArray,
-                media_url: resolvedMedia
-            });
-            onSuccess(getPreviewContent());
-            showToast("Template message sent successfully", "success");
-            onClose();
-        } catch (e) {
-            console.error("Send template error:", e);
-            showToast("Error sending template message: " + (e?.message || "Failed to send"), "error");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const varKeys = Object.keys(variables).sort((a, b) => parseInt(a) - parseInt(b));
-
-    return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-[#15161C] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-                <div className="p-5 border-b border-white/5 flex items-center justify-between shrink-0">
-                    <span className="text-[14px] font-bold text-white uppercase tracking-wide">Send WhatsApp Template</span>
-                    <button onClick={onClose} className="p-1 text-zinc-400 hover:text-white rounded-lg transition-colors text-lg">&times;</button>
-                </div>
-
-                <div className="p-5 overflow-y-auto flex-1 space-y-4">
-                    {fetching ? (
-                        <p className="text-zinc-500 text-[13px] text-center py-8">Fetching templates...</p>
-                    ) : templates.length === 0 ? (
-                        <div className="text-center py-6 space-y-3">
-                            <p className="text-zinc-500 text-[13px]">No approved templates found.</p>
-                            <Link href="/user/admin/templates" className="inline-block text-[12px] font-bold text-indigo-400 hover:underline">
-                                Go to Templates Page →
-                            </Link>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="space-y-1.5">
-                                <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Select Template</label>
-                                <select
-                                    value={selectedTemplate?.id || ''}
-                                    onChange={e => setSelectedTemplate(templates.find(t => t.id === e.target.value))}
-                                    className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl px-3.5 py-2.5 text-[13px] text-white outline-none"
-                                >
-                                    {templates.map(t => (
-                                        <option key={t.id} value={t.id}>{t.name} ({t.category})</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Header Media Upload/Preview if IMAGE or VIDEO template */}
-                            {isMediaType && (
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
-                                        Header {selectedTemplate?.type === 'VIDEO' ? 'Video' : 'Image'}
-                                    </label>
-                                    <input
-                                        ref={modalFileInputRef}
-                                        type="file"
-                                        accept={selectedTemplate?.type === 'VIDEO' ? 'video/*' : 'image/*'}
-                                        className="hidden"
-                                        onChange={async (e) => {
-                                            const file = e.target.files?.[0];
-                                            if (!file || !selectedTemplate) return;
-                                            setUploadingMedia(true);
-                                            try {
-                                                const fd = new FormData();
-                                                fd.append('file', file);
-                                                const res = await api.post(`/api/templates/${selectedTemplate.id}/media`, fd);
-                                                setSelectedTemplate(prev => ({ ...prev, media_url: res.media_url }));
-                                                setTemplates(prev => prev.map(t => t.id === selectedTemplate.id ? { ...t, media_url: res.media_url } : t));
-                                                showToast('Media attached successfully!', 'success');
-                                            } catch (err) {
-                                                showToast(err?.message || 'Failed to upload media', 'error');
-                                            } finally {
-                                                setUploadingMedia(false);
-                                                if (modalFileInputRef.current) modalFileInputRef.current.value = '';
-                                            }
-                                        }}
-                                    />
-                                    {resolvedMedia ? (
-                                        <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black/40">
-                                            {selectedTemplate?.type === 'VIDEO' ? (
-                                                <video src={resolvedMedia} className="w-full h-28 object-cover" controls />
-                                            ) : (
-                                                <img src={resolvedMedia} alt="Header Preview" className="w-full h-28 object-cover" />
-                                            )}
-                                            <button
-                                                type="button"
-                                                onClick={() => modalFileInputRef.current?.click()}
-                                                disabled={uploadingMedia}
-                                                className="absolute top-2 right-2 px-2 py-1 rounded bg-black/80 hover:bg-indigo-600 text-white text-[11px] font-medium transition-colors cursor-pointer"
-                                            >
-                                                {uploadingMedia ? 'Uploading...' : 'Change'}
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            onClick={() => modalFileInputRef.current?.click()}
-                                            disabled={uploadingMedia}
-                                            className="w-full py-3 px-3 rounded-xl border border-dashed border-indigo-500/50 hover:border-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[12px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                                        >
-                                            <span>{uploadingMedia ? 'Uploading media...' : `Click to upload ${selectedTemplate?.type?.toLowerCase() || 'media'} header`}</span>
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-
-                            {varKeys.length > 0 && (
-                                <div className="space-y-3">
-                                    <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Variables</label>
-                                    {varKeys.map(k => (
-                                        <div key={k} className="flex flex-col gap-1.5">
-                                            <span className="text-[12px] text-zinc-400 font-medium ">Variable {`{{${k}}}`}</span>
-                                            <input
-                                                type="text"
-                                                value={variables[k]}
-                                                onChange={e => setVariables(prev => ({ ...prev, [k]: e.target.value }))}
-                                                placeholder={`Enter value for {{${k}}}`}
-                                                className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl px-3.5 py-2.5 text-[13px] text-white outline-none"
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            <div className="space-y-1.5">
-                                <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Preview</label>
-                                <div className="bg-[#252525] border border-white/5 rounded-2xl p-4 text-[13px] text-[#eee] leading-relaxed whitespace-pre-wrap">
-                                    {getPreviewContent() || 'No preview available.'}
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                <div className="p-4 border-t border-white/5 bg-[#181820] flex items-center justify-end gap-2 shrink-0">
-                    <button onClick={onClose} className="px-4 py-2 rounded-xl text-[12px] font-semibold text-zinc-400 hover:text-white transition-colors">
-                        Cancel
-                    </button>
-                    {templates.length > 0 && (
-                        <button
-                            onClick={handleSend}
-                            disabled={loading}
-                            className="px-5 py-2 rounded-xl text-[12px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition duration-150 disabled:opacity-50 active:scale-95"
-                        >
-                            {loading ? 'Sending...' : 'Send Template'}
-                        </button>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
 
 function ChatArea({
     ch, lead, messages, msg, setMsg, aiSuggestion, sendMessage,
@@ -1083,18 +863,17 @@ function ChatArea({
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
     useEffect(() => {
-    const handleClickOutside = (event) => {
-        if (!event.target.closest('.emoji-picker-container')) {
-            setShowEmojiPicker(false);
-        }
-    };
+        const handleClickOutside = (event) => {
+            if (!event.target.closest('.emoji-picker-container')) {
+                setShowEmojiPicker(false);
+            }
+        };
 
-    document.addEventListener('mousedown', handleClickOutside);
-
-    return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-    };
-}, []);
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
 
     const handleFileSelect = (e) => {
         const file = e.target.files?.[0];
@@ -1223,7 +1002,7 @@ function ChatArea({
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b shrink-0"
                 style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                     {showMobileBackButton && (
                         <button onClick={onBackToList} className="p-1.5 rounded-lg text-[#666] hover:text-white">
                             <ArrowLeft size={18} />
@@ -1237,12 +1016,12 @@ function ChatArea({
                             <span style={{ color: ch.color }}>{getAvatarText(lead, ch.id)}</span>
                         )}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                            <h3 className="text-[14px] font-semibold text-white">{getDisplayName(lead, ch.id)}</h3>
-                            {ch.id !== 'whatsapp' && <ChevronRight size={14} className="text-[#555]" />}
+                            <h3 className="text-[14px] font-semibold text-white truncate">{getDisplayName(lead, ch.id)}</h3>
+                            {ch.id !== 'whatsapp' && <ChevronRight size={14} className="text-[#555] shrink-0" />}
                         </div>
-                        <p className="text-[12px] text-[#666]">
+                        <p className="text-[12px] text-[#666] truncate">
                             {(() => {
                                 const activeText = formatActiveTime(lastUserActivity);
                                 if (activeText === 'Online') {
@@ -1273,7 +1052,7 @@ function ChatArea({
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5 shrink-0">
                     <button
                         onClick={onInfoClick}
                         className="p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer min-[1601px]:hidden"
@@ -1734,7 +1513,7 @@ function PanelCard({ children, className = '', style = {} }) {
 }
 
 function InboxContent() {
-    const { workspaces, workspaceId } = useAuth();
+    const { workspaces, workspaceId, user } = useAuth();
     const workspace = workspaces?.find((item) => item.id === workspaceId) || null;
 
     const { subscribe, subscribeConversation, unsubscribeConversation } = useRealtime();
@@ -1749,6 +1528,7 @@ function InboxContent() {
     useEffect(() => {
         activeFilterRef.current = activeFilter;
     }, [activeFilter]);
+
     const reqIdRef = useRef(0);
     const [filterCounts, setFilterCounts] = useState({ all: 0, open: 0, follow_up: 0, unread: 0, converted: 0, closed: 0 });
 
@@ -1761,7 +1541,7 @@ function InboxContent() {
     const [selectedFile, setSelectedFile] = useState(null);
     const [selectedFilePreview, setSelectedFilePreview] = useState(null);
     const [isUploadingMedia, setIsUploadingMedia] = useState(false);
-    
+
     const [aiSuggestion, setAiSuggestion] = useState('');
     const [previewMedia, setPreviewMedia] = useState(null);
     const [unreadCounts, setUnreadCounts] = useState({});
@@ -1992,10 +1772,13 @@ function InboxContent() {
         const currentChannel = ch.id;
         const statusParam = statusOverride || getStatusParam(targetFilterIdx, currentChannel);
 
+        const convUrl = `/api/conversations?workspace_id=${workspace.id}&channel=${currentChannel}&status=${statusParam}`;
+        const countUrl = `/api/conversations/counts?workspace_id=${workspace.id}&channel=${currentChannel}`;
+
         try {
             const [data, counts] = await Promise.all([
-                api.get(`/api/conversations?workspace_id=${workspace.id}&channel=${currentChannel}&status=${statusParam}`),
-                api.get(`/api/conversations/counts?workspace_id=${workspace.id}&channel=${currentChannel}`).catch(() => null)
+                api.get(convUrl),
+                api.get(countUrl).catch(() => null)
             ]);
 
             if (!Array.isArray(data)) {
@@ -2479,6 +2262,7 @@ function InboxContent() {
         onLoadOlderMessages: loadOlderMessages,
         hasMoreMessages,
         isLoadingOlder,
+        currentUser: user,
         onSendTemplateSuccess: (formattedContent) => {
             fetchMessages(lead.id);
             setMessages(prev => [...prev, {
@@ -2500,6 +2284,18 @@ function InboxContent() {
         activeFilter,
     };
 
+    const sidebarProps = {
+        ch,
+        conversations,
+        lead,
+        activeFilter,
+        onFilterChange: handleFilterChange,
+        filterCounts,
+        unreadCounts,
+        lastMessageMap,
+        currentUser: user,
+    };
+
     return (
         <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#0d0d0d', fontFamily: "'Poppins', sans-serif" }}>
 
@@ -2509,10 +2305,7 @@ function InboxContent() {
                     <ChannelTabs ch={ch} setCh={setCh} />
                     <PanelCard className="flex-1">
                         <ConversationSidebar
-                            ch={ch} conversations={conversations} lead={lead}
-                            activeFilter={activeFilter} onFilterChange={handleFilterChange}
-                            filterCounts={filterCounts}
-                            unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
+                            {...sidebarProps}
                             onLeadSelect={(l) => {
                                 setLead(l);
                                 leadRef.current = l;
@@ -2584,10 +2377,7 @@ function InboxContent() {
                         <ChannelTabs ch={ch} setCh={setCh} />
                         <PanelCard className="flex-1">
                             <ConversationSidebar
-                                ch={ch} conversations={conversations} lead={lead}
-                                activeFilter={activeFilter} onFilterChange={handleFilterChange}
-                                filterCounts={filterCounts}
-                                unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
+                                {...sidebarProps}
                                 onLeadSelect={(l) => {
                                     setLead(l);
                                     leadRef.current = l;
@@ -2632,10 +2422,7 @@ function InboxContent() {
                 <div className="flex flex-1 overflow-hidden px-3 pb-3 gap-3">
                     <PanelCard style={{ width: 260, minWidth: 240 }}>
                         <ConversationSidebar
-                            ch={ch} conversations={conversations} lead={lead}
-                            activeFilter={activeFilter} onFilterChange={handleFilterChange}
-                            filterCounts={filterCounts}
-                            unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
+                            {...sidebarProps}
                             onLeadSelect={(l) => {
                                 handleLeadSelectTablet(l);
                                 setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
@@ -2673,10 +2460,7 @@ function InboxContent() {
                             <motion.div key="mobile-list" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}
                                 className="absolute inset-0" style={{ backgroundColor: CARD_BG }}>
                                 <ConversationSidebar
-                                    ch={ch} conversations={conversations} lead={lead}
-                                    activeFilter={activeFilter} onFilterChange={handleFilterChange}
-                                    filterCounts={filterCounts}
-                                    unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
+                                    {...sidebarProps}
                                     onLeadSelect={(l) => {
                                         handleLeadSelectMobile(l);
                                         setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));

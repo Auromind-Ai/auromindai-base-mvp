@@ -32,6 +32,12 @@ export function ToastProvider({ children }) {
 
   const showToast = useCallback((message, type = 'info', duration = 3500) => {
     if (!message) return
+    // Support both signatures: showToast(msg, type) and showToast(type, msg)
+    if (['success', 'error', 'warning', 'info'].includes(message) && typeof type === 'string' && !['success', 'error', 'warning', 'info'].includes(type)) {
+      const temp = message
+      message = type
+      type = temp
+    }
     const id = Date.now() + Math.random().toString(36).substring(2, 7)
     
     // Normalize string messages supporting arrays, FastAPI validation objects, etc.
@@ -120,8 +126,8 @@ export function ToastProvider({ children }) {
     <ToastContext.Provider value={{ showToast, toast, showConfirm }}>
       {children}
 
-      {/* Toast Notification Container */}
-      <div className="fixed bottom-5 right-5 z-[99999] flex flex-col gap-2.5 pointer-events-none max-w-sm w-full px-4 sm:px-0">
+      {/* Toast Notification Container - Centered */}
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[99999] flex flex-col items-center gap-2.5 pointer-events-none max-w-md w-full px-4">
         <AnimatePresence>
           {toasts.map((t) => {
             const isSuccess = t.type === 'success'
@@ -131,11 +137,11 @@ export function ToastProvider({ children }) {
             return (
               <motion.div
                 key={t.id}
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                initial={{ opacity: 0, y: -20, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                exit={{ opacity: 0, scale: 0.9, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className={`flex items-start gap-3 p-3.5 rounded-2xl shadow-2xl backdrop-blur-xl border pointer-events-auto transition-all ${
+                className={`flex items-start gap-3 p-3.5 rounded-2xl shadow-2xl backdrop-blur-xl border pointer-events-auto transition-all w-full ${
                   isSuccess
                     ? 'bg-[#0a160d]/95 border-emerald-500/30 text-emerald-300 shadow-emerald-950/40'
                     : isError

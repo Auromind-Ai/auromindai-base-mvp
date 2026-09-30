@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint, Boolean, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
@@ -75,6 +75,7 @@ class Workspace(Base):
     conversations = relationship("Conversation", back_populates="workspace")
 
     members = relationship("WorkspaceMember", backref="workspace", cascade="all, delete-orphan")
+    invitations = relationship("WorkspaceInvitation", back_populates="workspace", cascade="all, delete-orphan")
     subscription = relationship("Subscription", backref="workspace")
     flow_pack_purchases = relationship("FlowPackPurchase", backref="workspace", cascade="all, delete-orphan")
 
@@ -95,11 +96,47 @@ class WorkspaceMember(Base):
         index=True
     )
 
-    role = Column(String(50), default="team_member")
-    # founder / team_member
+    name = Column(String(255), nullable=True)
+    role = Column(String(50), default="member")
+    # founder / owner / admin / member
+    permissions = Column(JSON, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     __table_args__ = (
         UniqueConstraint("workspace_id", "user_id", name="uq_workspace_user"),
     )
+
+
+class WorkspaceInvitation(Base):
+    __tablename__ = "workspace_invitations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    name = Column(String(255), nullable=True)
+    email = Column(String(255), nullable=False, index=True)
+    role = Column(String(50), default="member", nullable=False) # admin or member
+    permissions = Column(JSON, nullable=True)
+    token = Column(String(255), unique=True, nullable=False, index=True)
+    status = Column(String(50), default="pending", nullable=False) # pending, accepted, revoked, expired
+
+    invited_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True
+    )
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
+    workspace = relationship("Workspace", back_populates="invitations")
+    inviter = relationship("User", foreign_keys=[invited_by])
+

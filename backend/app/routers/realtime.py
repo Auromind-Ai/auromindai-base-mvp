@@ -14,6 +14,7 @@ from app.core.redis_pubsub import (
 from app.database import SessionLocal
 from app.models.conversation import Conversation
 from app.utils.auth import decode_access_token
+from app.core.realtime_access import realtime_allowed
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["realtime"])
@@ -71,7 +72,7 @@ async def websocket_endpoint(
         from app.models.workspace import WorkspaceMember
         memberships = (
             db.query(WorkspaceMember.workspace_id)
-            .filter(WorkspaceMember.user_id == token_user_id)
+            .filter(WorkspaceMember.user_id == token_user_id, WorkspaceMember.is_active == True)
             .all()
         )
         user_workspaces = [str(m[0]) for m in memberships if m[0]]
@@ -82,7 +83,7 @@ async def websocket_endpoint(
     finally:
         db.close()
 
-    if not resolved_workspace_id and not user_workspaces:
+    if not resolved_workspace_id or resolved_workspace_id not in user_workspaces:
         logger.error(f"WebSocket auth error: Workspace context missing for user {user_id}")
         await websocket.close(code=4001, reason="Workspace missing")
         return
@@ -99,9 +100,7 @@ async def websocket_endpoint(
         await pubsub_service.subscribe(user_redis_channel)
         if primary_ws:
             await pubsub_service.subscribe(workspace_channel(primary_ws))
-        for ws_item in user_workspaces:
-            if ws_item != primary_ws:
-                await pubsub_service.subscribe(workspace_channel(ws_item))
+
 
     # 4. Confirm connection to client
     await websocket.send_json({
@@ -115,7 +114,7 @@ async def websocket_endpoint(
 
     #  5. Start heartbeat 
     heartbeat = asyncio.create_task(
-        _heartbeat_loop(websocket, user_id),
+        _heartbeat_loop(websocket, user_id, primary_ws),
         name=f"hb-{user_id}",
     )
 
@@ -129,7 +128,7 @@ async def websocket_endpoint(
                 )
                 await _handle_client_message(
                     user_id=user_id,
-                    workspace_id=workspace_id,
+                    workspace_id=primary_ws,
                     websocket=websocket,
                     data=data,
                 )
@@ -163,11 +162,14 @@ async def websocket_endpoint(
         logger.debug("WebSocket cleanup done | user=%s", user_id)
 
 
-async def _heartbeat_loop(websocket: WebSocket, user_id: str) -> None:
+async def _heartbeat_loop(websocket: WebSocket, user_id: str, workspace_id: str) -> None:
     """Send server→client ping every 30 s to detect dead connections."""
     while True:
         try:
             await asyncio.sleep(_HEARTBEAT_INTERVAL)
+            if not await asyncio.to_thread(realtime_allowed, user_id, workspace_id):
+                await websocket.close(code=4003, reason="Workspace access revoked")
+                break
             await websocket.send_json({"event_type": "ping"})
         except asyncio.CancelledError:
             break
@@ -191,7 +193,7 @@ async def _handle_client_message(
     elif msg_type == "subscribe_conversation":
         conv_id = data.get("conversation_id")
         if conv_id and pubsub_service:
-            if not _conversation_belongs_to_workspace(workspace_id=workspace_id, conversation_id=conv_id):
+            if not await asyncio.to_thread(realtime_allowed, user_id, workspace_id, "new_message") or not _conversation_belongs_to_workspace(workspace_id=workspace_id, conversation_id=conv_id):
                 await websocket.send_json(
                     {
                         "event_type": "subscription_denied",
