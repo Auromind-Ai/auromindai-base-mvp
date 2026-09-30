@@ -194,7 +194,7 @@ export default function WccRechargeSummaryModal({
               <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-1 text-[11px] text-white/40">
                 <span>Place of Supply: <strong className="text-white/60 font-medium">{customerState}</strong></span>
                 {customerGstin && (
-                  <span className="text-purple-400/90 font-mono">GSTIN: {customerGstin}</span>
+                  <span className="text-purple-400/90">GSTIN: {customerGstin}</span>
                 )}
               </div>
 
