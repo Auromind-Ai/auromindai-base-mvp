@@ -4,8 +4,9 @@ import TeamManagementSection from '@/components/TeamManagementSection';
 
 export default function TeamPage() {
   return (
-    <div className="flex-1 w-full p-4 sm:p-6 md:p-8 lg:p-10">
+        <div className="flex-1 w-full bg-[#0b111b] p-2 sm:p-3">
       <TeamManagementSection />
     </div>
   );
 }
+   
