@@ -58,6 +58,36 @@ class WCCRechargeInitiateResponse(BaseModel):
     currency: str
     public_key: str
     recharge_log_id: str
+    subtotal: Optional[Decimal] = None
+    taxable_amount: Optional[Decimal] = None
+    gst_rate: Optional[Decimal] = None
+    gst_amount: Optional[Decimal] = None
+    cgst: Optional[Decimal] = None
+    sgst: Optional[Decimal] = None
+    igst: Optional[Decimal] = None
+    total_amount: Optional[Decimal] = None
+
+
+class WCCRechargePreviewResponse(BaseModel):
+    amount: Decimal
+    subtotal: Decimal
+    taxable_amount: Decimal
+    gst_rate: Decimal
+    gst_enabled: bool
+    gst_amount: Decimal
+    cgst: Decimal
+    sgst: Decimal
+    igst: Decimal
+    total_amount: Decimal
+    currency: str = "INR"
+    customer_state: Optional[str] = None
+    customer_country: Optional[str] = "IN"
+    customer_gstin: Optional[str] = None
+    place_of_supply: Optional[str] = None
+    supplier_state: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 
 

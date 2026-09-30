@@ -270,15 +270,19 @@ class MessageService:
             conversation_id=conversation_id,
         )
         enriched_metadata = (metadata or {}).copy()
-        template_name = enriched_metadata.get("template_name")
+        template_category = "marketing"
         if template_name:
             from app.models.templates import Template
+            from app.services.wcc_service import WCCService
+            from app.models.workspace import Workspace
             try:
                 template = db.query(Template).filter(
                     Template.name == template_name,
                     Template.workspace_id == workspace_id
                 ).first()
                 if template:
+                    if template.category:
+                        template_category = template.category.lower()
                     if template.header and not template.header.startswith("4:"):
                         enriched_metadata["template_header"] = template.header
                     if template.footer:
@@ -301,7 +305,19 @@ class MessageService:
                         if media_url:
                             enriched_metadata["media_url"] = media_url
                             enriched_metadata["message_type"] = template.type.lower()
+                
+                # Pre-flight WCC balance check for template sends
+                ws_obj = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+                overage_enabled = getattr(ws_obj, "overage_enabled", False) if ws_obj else False
+                estimate = WCCService.calculate_estimate(db, workspace_id, audience_size=1, category=template_category)
+                WCCService.check_preflight_balance(db, workspace_id, estimate["estimated_cost"], overage_enabled=overage_enabled)
+                enriched_metadata["is_template"] = True
+                enriched_metadata["category"] = template_category
             except Exception as e:
+                from app.services.wcc_service import InsufficientWCCBalanceError
+                if isinstance(e, InsufficientWCCBalanceError):
+                    from fastapi import HTTPException
+                    raise HTTPException(status_code=402, detail=str(e))
                 logger.warning(f"Error enriching metadata in send_reply: {e}")
 
         stored_message = MessageService.create_message(
@@ -311,7 +327,7 @@ class MessageService:
             sender_type=SenderType.AGENT,
             status=MessageStatus.SENT,
             metadata=enriched_metadata,
-            source="manual_reply",
+            source="template_reply" if template_name else "manual_reply",
         )
         try:
             external_id = ChannelService.send_message(conversation, message, enriched_metadata)
@@ -324,6 +340,41 @@ class MessageService:
                 detail=err_str
             )
         stored_message.external_id = external_id
+
+        # Deduct WCC immediately for template sends
+        if template_name and external_id:
+            try:
+                from decimal import Decimal
+                from app.services.wcc_service import WCCService
+                try:
+                    rate_card = WCCService.get_active_rate(db, template_category, "IN")
+                    meta_cost = rate_card.meta_cost
+                    customer_price = rate_card.customer_price
+                except Exception:
+                    fallbacks = {
+                        "marketing": (Decimal("1.09"), Decimal("1.25")),
+                        "utility": (Decimal("0.145"), Decimal("0.18")),
+                        "authentication": (Decimal("0.145"), Decimal("0.18")),
+                        "service": (Decimal("0.00"), Decimal("0.05"))
+                    }
+                    meta_cost, customer_price = fallbacks.get(template_category, (Decimal("1.09"), Decimal("1.25")))
+
+                WCCService.debit_conversation_charge(
+                    db=db,
+                    workspace_id=workspace_id,
+                    meta_session_id=str(external_id),
+                    category=template_category,
+                    meta_cost=meta_cost,
+                    customer_price=customer_price,
+                    raw_payload={
+                        "action": "send_reply_template",
+                        "template_name": template_name,
+                        "conversation_id": str(conversation_id),
+                        "external_id": str(external_id)
+                    }
+                )
+            except Exception as debit_err:
+                logger.error(f"[WCC Debit] Error debiting template in send_reply: {debit_err}")
         MessageService._trigger_human_takeover(db, conversation)
 
         # Trigger score update on Agent reply (Task 6)
@@ -442,13 +493,14 @@ User Message:
         )
         return {"status": "trigger tested", "handled": handled}
 
-    @staticmethod
-    def local_conversations():
-        return get_all_conversations()
-
-    @staticmethod
-    def local_messages(user_id: str):
-        return get_local_messages(user_id)
+    # Legacy mock methods (get_all_conversations and get_local_messages are deprecated/removed)
+    # @staticmethod
+    # def local_conversations():
+    #     return []
+    #
+    # @staticmethod
+    # def local_messages(user_id: str):
+    #     return []
 
     @staticmethod
     def handle_twilio_status_callback(form_data, db: Session, outbound_message_id: Optional[str] = None):

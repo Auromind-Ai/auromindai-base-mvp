@@ -167,6 +167,11 @@ export async function estimateWccCampaign(workspace_id, audienceSize, category) 
   });
 }
 
+export async function getWccRechargePreview(workspace_id, amount, options = {}) {
+  const headers = { ...options.headers, 'X-Workspace-Id': workspace_id };
+  return client.get(`/wallet/wcc/recharge/preview?workspace_id=${workspace_id}&amount=${amount}`, { ...options, headers });
+}
+
 export async function initiateWccRecharge(workspace_id, amount) {
   return client.post('/wallet/wcc/recharge/initiate', {
     workspace_id: workspace_id,

@@ -14,6 +14,7 @@ import CrmControls, { cleanFilters } from '@/components/leads/CrmControls';
 import { CrmNavigation, CrmAnalytics, CrmHistory, CrmScoring, CrmReports } from '@/components/leads/CrmSections';
 import CrmLeadsTable from '@/components/leads/CrmLeadsTable';
 import AddLeadModal from '@/components/leads/AddLeadModal';
+import SendTemplateModal from '@/components/chat/SendTemplateModal';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { getWorkspaceIdFromToken } from '@/lib/auth';
@@ -683,9 +684,12 @@ function LeadsPanel({
 
 // ─ CHAT SECTION
 
-function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onToggleFavorite, onToggleOverview, isTabletView, isMobileView }) {
+function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onOpenTemplateModal, onToggleFavorite, onToggleOverview, isTabletView, isMobileView }) {
     const endRef = useRef(null);
     const [previewMedia, setPreviewMedia] = useState(null);
+
+    const recipientPhone = lead?.phone || leadDetail?.phone || '';
+    const hasPhone = Boolean(recipientPhone && recipientPhone.trim());
 
     useEffect(() => {
         endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -814,6 +818,21 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onToggleFavorite
 
                     {/* Action Buttons */}
                     <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
+                        {onOpenTemplateModal && (
+                            <button
+                                onClick={onOpenTemplateModal}
+                                disabled={!hasPhone}
+                                className={`w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-xl border flex items-center justify-center transition-all shrink-0
+                                    ${hasPhone
+                                        ? 'bg-[#11111A] border-[#252535] hover:border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 cursor-pointer shadow-md'
+                                        : 'bg-white/5 border-white/[0.04] text-zinc-600 cursor-not-allowed opacity-50'
+                                    }`}
+                                title={hasPhone ? 'Send WhatsApp Template to this lead' : 'No phone number available'}
+                            >
+                                <FileText size={15} className="sm:w-4 sm:h-4" />
+                            </button>
+                        )}
+
                         <button
                             onClick={onOpenInInbox}
                             disabled={!leadDetail?.conversation_id}
@@ -901,6 +920,32 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onToggleFavorite
                     })
                 )}
                 <div ref={endRef} />
+            </div>
+
+            {/* Bottom WhatsApp Template Action Bar (Direct Send, No Lock) */}
+            <div className="px-4 py-3 bg-[#0A0A10] border-t border-white/[0.08] flex items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-2 text-xs text-zinc-400 min-w-0">
+                    <Phone size={14} className="text-emerald-400 shrink-0" />
+                    <span className="font-medium text-white truncate">{recipientPhone || 'No phone number'}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 uppercase tracking-wider text-zinc-400 shrink-0">
+                        {lead.source || 'Lead'}
+                    </span>
+                </div>
+                {onOpenTemplateModal && (
+                    <button
+                        onClick={onOpenTemplateModal}
+                        disabled={!hasPhone}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-semibold transition-all shadow-md active:scale-95 shrink-0 ${
+                            hasPhone
+                                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white cursor-pointer shadow-emerald-500/10'
+                                : 'bg-white/5 border border-white/5 text-zinc-600 cursor-not-allowed opacity-50'
+                        }`}
+                        title={hasPhone ? 'Send WhatsApp Template to this lead' : 'Lead does not have a phone number'}
+                    >
+                        <FileText size={14} />
+                        <span>Send WhatsApp Template</span>
+                    </button>
+                )}
             </div>
 
             {/* Media preview modal */}
@@ -1091,7 +1136,7 @@ function RightPanel({ lead, details, history, loadingHistory, onBackToChat, isTa
                 <h3 className="text-lg font-bold text-white mb-5">Lead Overview</h3>
 
                 {isLeadConverted && (
-                    <div className="flex items-center justify-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold w-fit mx-auto mb-4">
+                    <div className="flex items-center justify-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-white/20 text-white text-xs font-semibold w-fit mx-auto mb-4">
                         ✓ Converted
                     </div>
                 )}
@@ -1313,6 +1358,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     const [activeView, setActiveView] = useState('leads'); // 'leads' | 'chat' | 'overview'
     const [desktopDrawerOpen, setDesktopDrawerOpen] = useState(false);
     const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
 
     const [loading, setLoading] = useState(false);
     const [detailsLoading, setDetailsLoading] = useState({});
@@ -1592,6 +1638,31 @@ function WorkspaceContent({ upgraded, workspaceId }) {
         }
     };
 
+    // Callback when template is successfully sent to lead
+    const handleSendTemplateSuccess = (formattedContent, responseData) => {
+        if (!selectedLeadId) return;
+        const newMsg = {
+            id: responseData?.message_id || ('temp-' + Date.now()),
+            role: 'me',
+            content: formattedContent,
+            sent_at: new Date().toISOString(),
+            status: 'sent',
+            source: 'template_message',
+            metadata: { is_template: true }
+        };
+        setLeadsDetails(prev => ({
+            ...prev,
+            [selectedLeadId]: {
+                ...prev[selectedLeadId],
+                conversation_log: [...(prev[selectedLeadId]?.conversation_log || []), newMsg],
+                conversation_id: responseData?.conversation_id || prev[selectedLeadId]?.conversation_id
+            }
+        }));
+        // Background refresh to sync updated conversation log and score from database
+        fetchSelectedLeadData(selectedLeadId);
+        fetchLeadsList(offset, false);
+    };
+
     const displayedLeads = leads;
     const selectedLead = leads.find(l => l.id === selectedLeadId) || leadsDetails[selectedLeadId];
     const restoreFilters = values => {
@@ -1721,6 +1792,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                                     leadDetail={leadsDetails[selectedLeadId]}
                                     onBack={null}
                                     onOpenInInbox={handleOpenInInbox}
+                                    onOpenTemplateModal={() => setShowTemplateModal(true)}
                                     onToggleFavorite={handleToggleFavorite}
                                     onToggleOverview={() => setDesktopDrawerOpen(prev => !prev)}
                                 />
@@ -1804,6 +1876,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                                         leadDetail={leadsDetails[selectedLeadId]}
                                         onBack={() => setActiveView('leads')}
                                         onOpenInInbox={handleOpenInInbox}
+                                        onOpenTemplateModal={() => setShowTemplateModal(true)}
                                         onToggleFavorite={handleToggleFavorite}
                                         onToggleOverview={() => setActiveView('overview')}
                                         isTabletView={true}
@@ -1859,6 +1932,20 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                     isOpen={showAddLeadModal}
                     onClose={() => setShowAddLeadModal(false)}
                     onSuccess={handleLeadCreated}
+                />
+            )}
+
+            {/* Send WhatsApp Template Modal popup for Leads Workspace */}
+            {showTemplateModal && (
+                <SendTemplateModal
+                    isOpen={showTemplateModal}
+                    onClose={() => setShowTemplateModal(false)}
+                    workspace={{ id: workspaceId }}
+                    lead={selectedLead ? {
+                        ...selectedLead,
+                        phone: selectedLead.phone || leadsDetails[selectedLeadId]?.phone || ''
+                    } : null}
+                    onSuccess={handleSendTemplateSuccess}
                 />
             )}
         </div>

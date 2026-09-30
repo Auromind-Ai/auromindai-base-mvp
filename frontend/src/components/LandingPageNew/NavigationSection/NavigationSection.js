@@ -38,9 +38,9 @@ const NavigationSection = () => {
             alt={appName} 
             className="h-10 w-auto object-contain" 
           />
-          <span className={`${jakarta.className} text-[16px] sm:text-[18px] font-extrabold tracking-[0.1em] text-white flex items-center`}>
+          <span className={`${jakarta.className} text-[16px] sm:text-[18px] font-bold tracking-[0.1em] text-white flex items-center`}>
             ORBION
-            <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-1.5 font-semibold tracking-[0.15em]">
+            <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-1.5 font-bold tracking-[0.13em]">
               AGENTS
             </span>
           </span>
@@ -231,9 +231,6 @@ const NavigationSection = () => {
             className="text-[15px] font-medium text-white/90 transition-colors hover:text-white flex items-center gap-1.5"
           >
             <span>Docs</span>
-            <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30">
-              New
-            </span>
           </Link>
 
           {/* Resources */}
