@@ -3,7 +3,10 @@ import { motion } from "framer-motion";
 import CTAButtons from "./CTAButtons";
 
 const TRUST_BADGES = [
-  { icon: "🤝", label: "Meta Business Partner" },
+  { 
+    icon: <img src="/meta-logo.png" alt="Meta" className="h-3.5 w-auto object-contain inline-block shrink-0" />, 
+    label: "Meta Tech Partner" 
+  },
   { icon: "🏆", label: "G2 Leader 2026" },
   { icon: "⭐", label: "4.8 / 5 Rating" },
 ];

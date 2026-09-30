@@ -154,7 +154,7 @@ function AdminLayoutContent({ children }) {
     useEffect(() => {
         window.fbAsyncInit = function () {
             FB.init({
-                appId: process.env.NEXT_PUBLIC_FB_APP_ID,
+                appId: process.env.NEXT_PUBLIC_FB_APP_ID || '990851527207522',
                 cookie: true,
                 xfbml: true,
                 version: 'v19.0'

@@ -1,7 +1,101 @@
 import client from './client';
 
+const DEFAULT_PRICING_FALLBACK = {
+  plans: [
+    {
+      key: 'solo',
+      name: 'Solo Smart',
+      display_name: 'Solo Smart',
+      monthly_price: 199,
+      yearly_price: 1990,
+      description: 'Ideal for individual creators, freelancers, and small business owners.',
+      token_limit: 25000000,
+      credits: 25000,
+      included_ai_credits: 25000,
+      included_wcc_wallet: 100,
+      automation_limit: 3,
+      flow: 100,
+      knowledge_base_limit: 5,
+      storage_limit_mb: 250,
+      lead_limit: 500,
+      meeting_limit: 20,
+      gmail_limit: 1,
+      team_limit: 1,
+      allow_ai_topup: true,
+      allow_wcc_recharge: true,
+      is_featured: false,
+      featured: false,
+      currency: 'INR',
+    },
+    {
+      key: 'pro',
+      name: 'Pro',
+      display_name: 'Pro',
+      monthly_price: 999,
+      yearly_price: 9990,
+      description: 'Perfect for fast-growing businesses needing robust AI automation.',
+      token_limit: 150000000,
+      credits: 150000,
+      included_ai_credits: 150000,
+      included_wcc_wallet: 500,
+      automation_limit: 15,
+      flow: 1000,
+      knowledge_base_limit: 25,
+      storage_limit_mb: 2048,
+      lead_limit: 5000,
+      meeting_limit: 100,
+      gmail_limit: 5,
+      team_limit: 5,
+      allow_ai_topup: true,
+      allow_wcc_recharge: true,
+      is_featured: true,
+      featured: true,
+      currency: 'INR',
+    },
+    {
+      key: 'enterprise',
+      name: 'Enterprise',
+      display_name: 'Enterprise',
+      monthly_price: 0,
+      yearly_price: 0,
+      description: 'Tailored for large organizations with custom security and scale.',
+      token_limit: 1000000000,
+      credits: 1000000,
+      included_ai_credits: 1000000,
+      included_wcc_wallet: 2500,
+      automation_limit: -1,
+      flow: -1,
+      knowledge_base_limit: -1,
+      storage_limit_mb: 10240,
+      lead_limit: -1,
+      meeting_limit: -1,
+      gmail_limit: -1,
+      team_limit: -1,
+      allow_ai_topup: true,
+      allow_wcc_recharge: true,
+      is_featured: false,
+      featured: false,
+      currency: 'INR',
+    },
+  ],
+  gst_rate: 18.0,
+  gst_enabled: true,
+  supplier_state: 'Tamil Nadu',
+};
+
 export async function getPricing() {
-  return client.get('/public/pricing');
+  try {
+    const data = await client.get('/public/pricing');
+    if (data && data.plans && Array.isArray(data.plans) && data.plans.length > 0) {
+      return data;
+    }
+    return DEFAULT_PRICING_FALLBACK;
+  } catch (err) {
+    if (typeof window !== 'undefined') {
+      console.warn('Live pricing fetch failed, using fallback plans:', err?.message || err);
+    }
+    return DEFAULT_PRICING_FALLBACK;
+  }
 }
 
 export async function getBillingStatus(workspace_id) {

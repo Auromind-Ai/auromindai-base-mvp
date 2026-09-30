@@ -142,9 +142,9 @@ export default function HeroSection() {
             style={{ animation: "revealUp .8s cubic-bezier(.22,1,.36,1) .6s forwards", opacity: 0 }}
           >
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[11px]">⚡</span>
+              <img src="/meta-logo.png" alt="Meta" className="h-3 w-auto object-contain shrink-0" />
               <span className="text-[10px] font-black uppercase tracking-[0.28em] text-black/40">
-                Meta Business Partner
+                Meta Tech Partner
               </span>
             </div>
             <span className="text-[10px] font-black uppercase tracking-[0.28em] text-black/40 shrink-0">
