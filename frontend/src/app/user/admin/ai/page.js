@@ -1335,7 +1335,7 @@ export default function AuromindAIPage() {
                                                             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
                                                                 inputValue.trim()
                                                                     ? 'bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white shadow-lg shadow-purple-700/40 hover:bg-purple-600 hover:scale-110 hover:shadow-purple-500/50 hover:rotate-12'
-                                                                    : 'bg-[#281347] text-[#A855F7] cursor-default'
+                                                                    : 'bg-[#281347] text-white cursor-default'
                                                             }`}
                                                         >
                                                             <Send size={16} />
