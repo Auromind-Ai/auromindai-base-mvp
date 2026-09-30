@@ -693,3 +693,154 @@ def test_agent_manual_reply_bypasses_wcc_preflight_check(db):
                 metadata={"is_flow": True, "source": "flow"}
             )
 
+
+# ============================================================================
+# 10. BUG 1 REGRESSION: INBOX CHAT SEND_REPLY WITHOUT TEMPLATE NAME SUCCEEDS
+# ============================================================================
+def test_inbox_send_reply_without_template_name_succeeds(db):
+    """
+    Verifies that when template_name is missing/omitted, MessageService.send_reply
+    does NOT crash with NameError / 500 error, sets source='manual_reply', and does not debit WCC.
+    """
+    from app.services.inbox.message_service import MessageService
+    from app.services.inbox.channel_service import ChannelService
+    from unittest.mock import patch, MagicMock
+
+    ws, _ = _create_workspace(db, "Inbox No Template WS")
+    wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
+    wallet.included_balance = Decimal("0.00")
+    wallet.purchased_balance = Decimal("50.00")
+    wallet.balance = Decimal("50.00")
+    db.commit()
+
+    conv = Conversation(
+        id=uuid.uuid4(),
+        workspace_id=ws.id,
+        channel=ChannelType.WHATSAPP,
+        phone="+919876543210"
+    )
+    db.add(conv)
+    db.commit()
+
+    with patch.object(ChannelService, "send_message", return_value="wamid.mock_reply_001"):
+        # Calling send_reply WITHOUT template_name keyword or in metadata
+        res = MessageService.send_reply(
+            db,
+            workspace_id=str(ws.id),
+            conversation_id=str(conv.id),
+            message="Hello, this is a plain agent reply",
+            metadata=None
+        )
+
+    assert res["status"] == "sent"
+    assert res["external_id"] == "wamid.mock_reply_001"
+
+    # Verify message was saved with manual_reply source
+    msg_record = db.query(Message).filter(Message.id == uuid.UUID(res["message_id"])).first()
+    assert msg_record is not None
+    assert msg_record.source == "manual_reply"
+    assert msg_record.sender_type == SenderType.AGENT
+
+    # Verify WCC Wallet was NOT deducted
+    updated_wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
+    assert updated_wallet.balance == Decimal("50.00")
+
+
+# ============================================================================
+# 11. BUG 2 REGRESSION: LEADS SEND TEMPLATE DEDUCTS WCC WALLET ON SUCCESS
+# ============================================================================
+def test_leads_send_template_deducts_wcc_wallet_on_success(db):
+    """
+    Verifies that sending a WhatsApp template via /messages/send deducts WCC wallet
+    only upon successful sending and records the transaction.
+    """
+    from app.routers.template import send_message
+    from app.schemas.template import TemplateSendRequest
+    from app.routers.auth import CurrentUser
+    from app.models.templates import Template
+    from unittest.mock import patch, MagicMock
+    from fastapi import HTTPException
+
+    ws, user = _create_workspace(db, "Leads Template WS")
+    wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
+    wallet.included_balance = Decimal("0.00")
+    wallet.purchased_balance = Decimal("50.00")
+    wallet.balance = Decimal("50.00")
+
+    # Create Template in DB
+    tmpl = Template(
+        id=uuid.uuid4(),
+        workspace_id=ws.id,
+        user_id=user.id,
+        name="lead_welcome_promo",
+        category="marketing",
+        language="en_US",
+        type="TEXT",
+        content="Hello {{1}}, welcome!",
+        status="approved"
+    )
+    db.add(tmpl)
+    db.commit()
+
+    current_user = CurrentUser(
+        user=user,
+        workspace_id=ws.id
+    )
+
+    req_data = TemplateSendRequest(
+        workspace_id=str(ws.id),
+        phone="9876543210",
+        template_name="lead_welcome_promo",
+        variables=["Alice"]
+    )
+
+    # Mock Meta API returning 200 with message id
+    mock_meta_resp = MagicMock()
+    mock_meta_resp.status_code = 200
+    mock_meta_resp.json.return_value = {"messages": [{"id": "wamid.leads_tmpl_success_123"}]}
+
+    with patch("app.services.config_service.config_service.get", return_value="dummy_meta_token"), \
+         patch("requests.post", return_value=mock_meta_resp):
+        res = send_message(
+            data=req_data,
+            db=db,
+            current_user=current_user
+        )
+
+    assert res["status"] == "sent"
+    assert res["wamid"] == "wamid.leads_tmpl_success_123"
+    assert res["formatted_content"] == "Hello Alice, welcome!"
+
+    # Verify WCC Wallet was deducted by ₹1.25 (Marketing rate for IN)
+    w_after = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
+    assert w_after.balance == Decimal("48.7500")
+
+    # Verify WCCTransaction was recorded
+    tx = db.query(WCCTransaction).filter(
+        WCCTransaction.workspace_id == ws.id,
+        WCCTransaction.meta_session_id == "wamid.leads_tmpl_success_123"
+    ).first()
+    assert tx is not None
+    assert tx.category == "marketing"
+    assert tx.customer_price_applied == Decimal("1.2500")
+    assert tx.status == "success"
+
+    # Verify that if Meta returns an error, wallet is NOT deducted
+    mock_meta_err = MagicMock()
+    mock_meta_err.status_code = 400
+    mock_meta_err.json.return_value = {"error": {"message": "Invalid recipient phone"}}
+
+    with patch("app.services.config_service.config_service.get", return_value="dummy_meta_token"), \
+         patch("requests.post", return_value=mock_meta_err):
+        with pytest.raises(HTTPException):
+            send_message(
+                data=req_data,
+                db=db,
+                current_user=current_user
+            )
+
+    # Balance remains at 48.75 (no extra deduction on failure)
+    w_after_fail = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
+    assert w_after_fail.balance == Decimal("48.7500")
+
+
