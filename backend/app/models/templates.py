@@ -28,6 +28,7 @@ class Template(Base):
 
     content = Column(Text, nullable=False)  # main message body
     header = Column(String, nullable=True)
+    media_url = Column(String, nullable=True)  # Public URL for IMAGE / VIDEO / DOCUMENT templates
     footer = Column(String, nullable=True)
     cta = Column(String, nullable=True)
     cta_btn_title = Column(String, nullable=True)

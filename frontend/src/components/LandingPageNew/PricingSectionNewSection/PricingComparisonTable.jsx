@@ -72,7 +72,7 @@ export default function PricingComparisonTable({
             setLoadedPlans(data.plans);
           }
         })
-        .catch((err) => console.error("Failed to load pricing for comparison table:", err))
+        .catch((err) => console.warn("Failed to load pricing for comparison table:", err?.message || err))
         .finally(() => setLoading(false));
     }
   }, [propPlans]);

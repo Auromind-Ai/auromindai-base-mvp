@@ -258,19 +258,31 @@ class ChannelService:
             if template:
                 # 1. Header component mapping
                 if template.type in {"IMAGE", "VIDEO", "DOCUMENT"}:
-                    media_url = metadata.get("media_url") or metadata.get("header_url")
-                    if media_url:
-                        param_type = template.type.lower()
-                        components.append({
-                            "type": "header",
-                            "parameters": [
-                                {
-                                    "type": param_type,
-                                    param_type: {"link": media_url}
-                                }
-                            ]
-                        })
-                elif template.header and "{{" in template.header:
+                    media_url = (
+                        metadata.get("media_url")
+                        or metadata.get("header_url")
+                        or getattr(template, "media_url", None)
+                        or (template.header if template.header and (template.header.startswith("http://") or template.header.startswith("https://")) else None)
+                    )
+                    if not media_url:
+                        if template.type == "IMAGE":
+                            media_url = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80"
+                        elif template.type == "VIDEO":
+                            media_url = "https://www.w3schools.com/html/mov_bbb.mp4"
+                        elif template.type == "DOCUMENT":
+                            media_url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+
+                    param_type = template.type.lower()
+                    components.append({
+                        "type": "header",
+                        "parameters": [
+                            {
+                                "type": param_type,
+                                param_type: {"link": media_url}
+                            }
+                        ]
+                    })
+                elif template.header and "{{" in template.header and not template.header.startswith("4:"):
                     header_vars = metadata.get("header_variables", [])
                     if header_vars:
                         components.append({

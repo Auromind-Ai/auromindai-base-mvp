@@ -181,7 +181,6 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
   const wsId = workspaceId || getStoredWorkspaceId();
   const sendType = c.sendType === 'Schedule for Later' ? 'later' : 'now';
   const scheduledIso = sendType === 'later' ? parseScheduleDatetime(c.scheduleDate, c.scheduleTime) : null;
-
   const isDraft = Boolean(c.saveAsDraft || c.status === 'draft' || c.status === 'Draft');
 
   return {
@@ -253,7 +252,7 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
       }
 
       return {
-        lead_id: r.lead_id || r.id || null,
+        lead_id: r.lead_id || null,
         phone_number: recipientPhone,
         phone: recipientPhone,
         recipient_name: recipientName,
@@ -352,10 +351,15 @@ export async function updateCampaign(id, updateData, workspaceId) {
     return result;
   } catch (e) {
     console.warn('updateCampaign API notice, falling back:', e?.message || e);
+    const isDraft = Boolean(updateData.saveAsDraft || updateData.status === 'draft' || updateData.status === 'Draft');
     const existing = getStoredItems(STORAGE_KEYS.CAMPAIGNS, INITIAL_CAMPAIGNS);
-    const updated = existing.map(c => c.id === id ? { ...c, ...updateData } : c);
+    const updated = existing.map(c => c.id === id ? {
+      ...c,
+      ...updateData,
+      status: isDraft ? 'Draft' : normalizeStatus(updateData.status || c.status)
+    } : c);
     setStoredItems(STORAGE_KEYS.CAMPAIGNS, updated);
-    return updated.find(c => c.id === id) || { id, ...updateData };
+    return updated.find(c => c.id === id) || { id, ...updateData, status: isDraft ? 'Draft' : 'Draft' };
   }
 }
 

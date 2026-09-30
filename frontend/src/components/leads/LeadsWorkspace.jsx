@@ -1091,7 +1091,7 @@ function RightPanel({ lead, details, history, loadingHistory, onBackToChat, isTa
                 <h3 className="text-lg font-bold text-white mb-5">Lead Overview</h3>
 
                 {isLeadConverted && (
-                    <div className="flex items-center justify-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold w-fit mx-auto mb-4">
+                    <div className="flex items-center justify-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-white/20 text-white text-xs font-semibold w-fit mx-auto mb-4">
                         ✓ Converted
                     </div>
                 )}

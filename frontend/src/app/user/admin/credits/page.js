@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import HistoryModal from '@/components/common/HistoryModal';
+import WccRechargeSummaryModal from '@/components/billing/WccRechargeSummaryModal';
 import { TABLE_PREVIEW_LIMIT, TRANSACTION_TYPES } from '@/lib/constants/billingConstants';
 import { formatBillingDate, formatBillingAmount, getActivityMeta, formatPaymentMethod } from '@/lib/utils/activityMapper';
 
@@ -68,6 +69,12 @@ export default function CreditsPage() {
     // Credit Packs State
     const [creditPacks, setCreditPacks] = useState([]);
     const [creditPacksLoading, setCreditPacksLoading] = useState(true);
+
+    // GST & Workspace Billing Profile State (Real Project Data)
+    const [gstConfig, setGstConfig] = useState({ gst_rate: 18.0, gst_enabled: true, supplier_state: 'Tamil Nadu' });
+    const [workspaceBillingProfile, setWorkspaceBillingProfile] = useState(null);
+    const [isWccRechargeModalOpen, setIsWccRechargeModalOpen] = useState(false);
+    const [rechargeBreakdown, setRechargeBreakdown] = useState(null);
 
     // Modals & Action Loading State
     const [rechargeAmount, setRechargeAmount] = useState('1000');
@@ -245,6 +252,33 @@ export default function CreditsPage() {
         }
     };
 
+    // Fetch Pricing & Platform GST Settings (Real Project Data)
+    const fetchGstConfig = async () => {
+        try {
+            const res = await api.getPricing();
+            const data = res.data ?? res ?? {};
+            setGstConfig({
+                gst_rate: data.gst_rate !== undefined ? Number(data.gst_rate) : 18.0,
+                gst_enabled: data.gst_enabled !== undefined ? Boolean(data.gst_enabled) : true,
+                supplier_state: data.supplier_state || 'Tamil Nadu',
+            });
+        } catch (err) {
+            console.error('[GST] Failed to fetch pricing/GST config:', err);
+        }
+    };
+
+    // Fetch Workspace Billing Profile (for customer state, gstin, etc.)
+    const fetchWorkspaceBillingProfile = async () => {
+        if (!workspaceId) return;
+        try {
+            const res = await api.getWorkspaceBillingProfile(workspaceId);
+            const data = res.data ?? res ?? {};
+            setWorkspaceBillingProfile(data);
+        } catch (err) {
+            console.error('[BILLING PROFILE] Failed to fetch billing profile:', err);
+        }
+    };
+
     // Initial load - Batched with in-flight guard to prevent rate-limit over-fetching
     const isInitialDataLoadingRef = useRef(false);
 
@@ -261,6 +295,8 @@ export default function CreditsPage() {
                 fetchWccRates(),
                 fetchWccRecharges(),
                 fetchWorkspaceEntitlements(),
+                fetchGstConfig(),
+                fetchWorkspaceBillingProfile(),
                 fetchCreditHistory(creditHistoryPage),
                 fetchWccSessions(wccSessionsPage)
             ]);
@@ -270,17 +306,27 @@ export default function CreditsPage() {
         loadAllCreditsData();
     }, [workspaceId]);
 
+    const isMountedRef = useRef(false);
+
     useEffect(() => {
+        if (!isMountedRef.current) return;
         if (workspaceId && workspaceId !== 'undefined' && workspaceId !== 'null') {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             fetchCreditHistory(creditHistoryPage);
         }
     }, [creditHistoryPage]);
 
     useEffect(() => {
+        if (!isMountedRef.current) return;
         if (workspaceId && workspaceId !== 'undefined' && workspaceId !== 'null') {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             fetchWccSessions(wccSessionsPage);
         }
     }, [wccSessionsPage]);
+
+    useEffect(() => {
+        isMountedRef.current = true;
+    }, []);
 
     const estimatedCost = audienceSize * (estimatorRates[msgType] || 0);
 
@@ -289,9 +335,96 @@ export default function CreditsPage() {
         setTimeout(() => setToastMessage(null), 4000);
     };
 
-    // WCC Recharge Order Flow with Optimistic Balance Update & Promise.all() Refetching
+    // Real GST Breakdown Calculation Helper based on Project Configuration
+    const calculateGstBreakdown = (amountVal) => {
+        const amt = typeof amountVal === 'number' ? amountVal : parseFloat(amountVal) || 0;
+        if (amt <= 0) {
+            return {
+                amount: 0,
+                subtotal: 0,
+                taxable_amount: 0,
+                gst_rate: gstConfig.gst_rate || 18.0,
+                gst_enabled: gstConfig.gst_enabled,
+                gst_amount: 0,
+                cgst: 0,
+                sgst: 0,
+                igst: 0,
+                total_amount: 0,
+                is_inter_state: false,
+                customer_state: workspaceBillingProfile?.billing_state || 'Tamil Nadu',
+                customer_gstin: workspaceBillingProfile?.billing_gstin || null,
+            };
+        }
+
+        const rate = gstConfig.gst_enabled ? Number(gstConfig.gst_rate ?? 18.0) : 0;
+        const customerCountry = (workspaceBillingProfile?.billing_country || 'IN').trim().toUpperCase();
+        const isExport = customerCountry !== 'IN';
+
+        if (isExport || rate === 0) {
+            return {
+                amount: amt,
+                subtotal: amt,
+                taxable_amount: amt,
+                gst_rate: 0,
+                gst_enabled: false,
+                gst_amount: 0,
+                cgst: 0,
+                sgst: 0,
+                igst: 0,
+                total_amount: amt,
+                is_inter_state: false,
+                customer_state: workspaceBillingProfile?.billing_state || 'International',
+                customer_gstin: workspaceBillingProfile?.billing_gstin || null,
+            };
+        }
+
+        const supplierState = (gstConfig.supplier_state || 'Tamil Nadu').trim().toLowerCase();
+        const customerState = (workspaceBillingProfile?.billing_state || 'Tamil Nadu').trim().toLowerCase();
+        const isInterState = Boolean(customerState && customerState !== supplierState);
+
+        const gstAmount = Number((amt * (rate / 100)).toFixed(2));
+        const totalAmount = Number((amt + gstAmount).toFixed(2));
+
+        if (isInterState) {
+            return {
+                amount: amt,
+                subtotal: amt,
+                taxable_amount: amt,
+                gst_rate: rate,
+                gst_enabled: true,
+                gst_amount: gstAmount,
+                cgst: 0,
+                sgst: 0,
+                igst: gstAmount,
+                total_amount: totalAmount,
+                is_inter_state: true,
+                customer_state: workspaceBillingProfile?.billing_state || 'Other State',
+                customer_gstin: workspaceBillingProfile?.billing_gstin || null,
+            };
+        } else {
+            const halfGst = Number((gstAmount / 2).toFixed(2));
+            const otherHalfGst = Number((gstAmount - halfGst).toFixed(2));
+            return {
+                amount: amt,
+                subtotal: amt,
+                taxable_amount: amt,
+                gst_rate: rate,
+                gst_enabled: true,
+                gst_amount: gstAmount,
+                cgst: halfGst,
+                sgst: otherHalfGst,
+                igst: 0,
+                total_amount: totalAmount,
+                is_inter_state: false,
+                customer_state: workspaceBillingProfile?.billing_state || 'Tamil Nadu',
+                customer_gstin: workspaceBillingProfile?.billing_gstin || null,
+            };
+        }
+    };
+
+    // 1. Triggered on "Add funds to wallet" click: Validates & displays Indication Modal with real GST breakdown
     const handleRechargeSubmit = async (e) => {
-        e.preventDefault();
+        if (e && e.preventDefault) e.preventDefault();
         if (workspaceEntitlements && workspaceEntitlements.allow_wcc_recharge === false) {
             triggerToast('⚠️ WhatsApp Wallet recharge is not available for your current plan. Please upgrade to Pro.');
             return;
@@ -301,20 +434,71 @@ export default function CreditsPage() {
             triggerToast('⚠️ Please enter a valid recharge amount');
             return;
         }
+        if (amount < 100) {
+            triggerToast('⚠️ Minimum recharge amount is ₹100');
+            return;
+        }
         if (!workspaceId) {
             triggerToast('⚠️ Workspace not found. Please sign in again.');
             return;
         }
+
+        // Set initial calculated GST breakdown and open modal indication
+        const calculated = calculateGstBreakdown(amount);
+        setRechargeBreakdown(calculated);
+        setIsWccRechargeModalOpen(true);
+
+        // Fetch live server-side preview quote to ensure 100% exact alignment with backend GST engine
+        try {
+            const previewRes = await api.getWccRechargePreview(workspaceId, amount);
+            const data = previewRes.data ?? previewRes;
+            if (data && data.total_amount) {
+                setRechargeBreakdown({
+                    amount: Number(data.amount || amount),
+                    subtotal: Number(data.subtotal || amount),
+                    taxable_amount: Number(data.taxable_amount || amount),
+                    gst_rate: Number(data.gst_rate ?? 18.0),
+                    gst_enabled: data.gst_enabled !== false,
+                    gst_amount: Number(data.gst_amount ?? 0),
+                    cgst: Number(data.cgst ?? 0),
+                    sgst: Number(data.sgst ?? 0),
+                    igst: Number(data.igst ?? 0),
+                    total_amount: Number(data.total_amount ?? (amount + (data.gst_amount || 0))),
+                    customer_state: data.customer_state || workspaceBillingProfile?.billing_state || 'Tamil Nadu',
+                    customer_gstin: data.customer_gstin || workspaceBillingProfile?.billing_gstin,
+                    is_inter_state: Boolean(data.igst && Number(data.igst) > 0),
+                });
+            }
+        } catch (previewErr) {
+            console.warn('[WCC PREVIEW] Using client-calculated GST quote:', previewErr);
+        }
+    };
+
+    // 2. Triggered on "Proceed to Pay" click: Initiates Razorpay checkout for the confirmed amount + GST
+    const handleProceedToPay = async () => {
+        const amount = rechargeBreakdown?.amount || (rechargeAmount === 'custom' ? parseFloat(customAmount) : parseFloat(rechargeAmount));
+        if (isNaN(amount) || amount <= 0) {
+            triggerToast('⚠️ Please enter a valid recharge amount');
+            return;
+        }
+        if (!workspaceId) {
+            triggerToast('⚠️ Workspace not found. Please sign in again.');
+            return;
+        }
+
         setActionLoading(true);
         try {
             const checkout = await api.initiateWccRecharge(workspaceId, amount);
             const orderData = checkout.data ?? checkout;
 
+            // Close summary modal before opening Razorpay
+            setIsWccRechargeModalOpen(false);
+
             await api.openRazorpayCheckout({
                 orderData,
                 workspaceId,
                 name: 'Auromind',
-                description: `WCC Wallet Recharge - ₹${amount}`,
+                description: `WCC Wallet Recharge - ₹${amount} (+GST)`,
                 handler: async (response) => {
                     const previousBalance = wccBalance;
                     try {
@@ -1207,12 +1391,12 @@ export default function CreditsPage() {
                                             onClick={() => setMsgType(opt.key)}
                                             className={`px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg text-[13px] sm:text-xs font-normal sm:font-bold border transition-all cursor-pointer ${
                                                 msgType === opt.key
-                                                    ? 'bg-[#110229] border-[#814ac8] text-white'
+                                                    ? 'bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 border-white/20 text-white'
                                                     : 'bg-white/[0.02] border-white/5 text-white/80 hover:text-white hover:border-white/35'
                                             }`}
                                         >
                                             {opt.label}
-                                            <div className="text-[9px] font-normal sm:font-semibold text-zinc-500 mt-0.5">
+                                            <div className="text-[11px] font-normal sm:font-regular text-white/70 mt-0.5">
                                                 {opt.rate != null ? `₹${Number(opt.rate).toFixed(3)} / ${opt.unit}` : 'Loading...'}
                                             </div>
                                         </button>
@@ -1243,17 +1427,17 @@ export default function CreditsPage() {
 
                                 <div className="mt-auto p-4 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-4">
                                     <div>
-                                        <p className="text-[9px] sm:text-[10px] font-normal sm:font-black uppercase tracking-widest text-zinc-500 mb-0.5 sm:mb-1">Estimated Cost</p>
+                                        <p className="text-[9px] sm:text-[10px] font-medium sm:font-medium uppercase tracking-widest text-white/60 mb-0.5 sm:mb-1">Estimated Cost</p>
                                         <div className="text-lg sm:text-2xl font-semibold sm:font-black text-white">
                                             ₹{estimatedCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </div>
-                                        <p className="text-[9px] sm:text-[10px] text-white/60 font-normal mt-0.5 sm:mt-1">Based on your configured WhatsApp pricing</p>
+                                        <p className="text-[11px] sm:text-[12px] text-white/60 font-normal mt-0.5 sm:mt-1">Based on your configured WhatsApp pricing</p>
                                     </div>
 
                                     <div className="w-full sm:w-auto flex sm:justify-end">
                                         {wccBalance >= estimatedCost ? (
-                                            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] sm:text-xs font-normal sm:font-semibold">
-                                                <CheckCircle2 size={13} />
+                                            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-emerald-500/20 text-white text-[11px] sm:text-xs font-normal sm:font-medium">
+                                                <CheckCircle2 size={13} className="text-white" />
                                                 <span>Balance sufficient for this campaign size</span>
                                             </div>
                                         ) : (
@@ -1310,7 +1494,7 @@ export default function CreditsPage() {
                                                 onClick={() => setRechargeAmount(val)}
                                                 className={`py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-[11px] font-normal sm:font-bold transition-all border cursor-pointer ${
                                                     String(rechargeAmount) === val
-                                                     ? 'bg-[#110229] border-[#814ac8] text-white'
+                                                     ? 'bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 border-white/20 text-white'
                                                      : 'bg-white/[0.02] border-white/5 text-white/80 hover:text-white hover:border-white/35'
                                                 }`}
                                             >
@@ -1320,13 +1504,14 @@ export default function CreditsPage() {
                                     </div>
 
                                     <div className="p-3 sm:p-4 rounded-xl bg-white/[0.02] border border-white/5 text-center">
-                                        <p className="text-[9px] sm:text-[10px] font-normal sm:font-black text-white/70 mb-1">This buys you approximately</p>
-                                        <div className="text-lg sm:text-2xl font-semibold sm:font-extrabold text-white">{approxConversations.toLocaleString('en-IN')}</div>
-                                        <p className="text-[9px] sm:text-[10px] text-white/60 font-normal mt-0.5 sm:mt-1">Marketing Conversations</p>
+                                        <p className="text-[11px] sm:text-[13px] font-medium sm:font-medium text-white/80 mb-1">This buys you approximately</p>
+                                        <div className="text-lg sm:text-2xl font-semibold sm:font-bold text-white">{approxConversations.toLocaleString('en-IN')}</div>
+                                        <p className="text-[11px] sm:text-[13px] text-white/80 font-medium mt-0.5 sm:mt-1">Marketing Conversations</p>
                                     </div>
 
+
                                     {workspaceEntitlements?.allow_wcc_recharge === false && (
-                                        <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs flex items-center gap-2">
+                                        <div className="p-3.5 rounded-xl border border-white/20 bg-gradient-to-r from-[#3b2a08]/80 via-[#261b05]/60 to-[#0d0902] text-white text-xs flex items-center gap-2">
                                             <AlertTriangle size={15} className="shrink-0" />
                                             <span>WhatsApp Wallet recharge is disabled on your current plan. Please upgrade to Pro plan to unlock wallet recharges.</span>
                                         </div>
@@ -1337,7 +1522,7 @@ export default function CreditsPage() {
                                         disabled={actionLoading || workspaceEntitlements?.allow_wcc_recharge === false}
                                         className={`mt-auto w-full py-3 text-white font-medium text-sm rounded-lg transition-all active:scale-95 shadow-lg shadow-emerald-900/10 flex items-center justify-center gap-1.5 cursor-pointer ${
                                             workspaceEntitlements?.allow_wcc_recharge === false
-                                                ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed opacity-60'
+                                                ? 'bg-zinc-800 text-white/60 cursor-not-allowed opacity-60'
                                                 : actionLoading ? 'bg-emerald-700 cursor-not-allowed opacity-70' : 'bg-[#814ac8] hover:bg-[#905ad6]'
                                         }`}
                                     >
@@ -1354,8 +1539,8 @@ export default function CreditsPage() {
                         <div className="bg-[#0e0e14] rounded-2xl border border-white/5 overflow-hidden shadow-xl">
                             <div className="px-5 md:px-7 py-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <Clock size={16} className="text-purple-400" />
-                                    <h3 className="font-bold text-sm text-white tracking-tight">Recharge History</h3>
+                                    <Clock size={16} className="text-white" />
+                                    <h3 className="font-semibold text-sm text-white tracking-tight">Recharge History</h3>
                                 </div>
                                 {wccRecharges.length > 0 && (
                                     <button
@@ -1376,12 +1561,12 @@ export default function CreditsPage() {
                             ) : wccRecharges.length === 0 ? (
                                 <div className="text-center py-12 px-6 flex flex-col items-center justify-center">
                                     <Wallet size={36} className="text-zinc-600 mb-3" />
-                                    <p className="text-sm font-semibold text-zinc-300 mb-1">No recharge history yet</p>
-                                    <p className="text-xs text-zinc-500 max-w-sm mb-5">Recharge your wallet to start using WhatsApp Credits for Marketing, Utility and Service conversations.</p>
+                                    <p className="text-sm font-medium text-white/50 mb-1">No recharge history yet</p>
+                                    <p className="text-xs text-white/60 max-w-sm mb-5">Recharge your wallet to start using WhatsApp Credits for Marketing, Utility and Service conversations.</p>
                                     <button
                                         type="button"
                                         onClick={scrollToAddFunds}
-                                        className="px-5 py-2.5 bg-[#814ac8] hover:bg-[#905ad6] text-white font-semibold text-xs rounded-xl shadow-lg shadow-purple-900/30 transition-all active:scale-95 cursor-pointer"
+                                        className="px-5 py-2.5 bg-[#814ac8] hover:bg-[#905ad6] text-white font-medium text-xs rounded-xl shadow-lg shadow-purple-900/30 transition-all active:scale-95 cursor-pointer"
                                     >
                                         Recharge Wallet
                                     </button>
@@ -1882,6 +2067,17 @@ export default function CreditsPage() {
                         }
                     }
                 ]}
+            />
+
+            {/* WCC Wallet Recharge Breakdown & Confirmation Modal */}
+            <WccRechargeSummaryModal
+                isOpen={isWccRechargeModalOpen}
+                onClose={() => setIsWccRechargeModalOpen(false)}
+                amount={rechargeBreakdown?.amount || rechargeAmountNumber}
+                gstData={rechargeBreakdown || calculateGstBreakdown(rechargeAmountNumber)}
+                approxConversations={approxConversations}
+                onProceedToPay={handleProceedToPay}
+                isProcessing={actionLoading}
             />
 
             {/* Razorpay Checkout Script */}

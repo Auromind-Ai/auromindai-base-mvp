@@ -17,6 +17,7 @@ from app.services.template import submit_to_meta
 from app.routers.auth import get_current_user, CurrentUser
 from app.core.security import verify_workspace_access,to_uuid
 from app.core.exceptions import BillingError, WorkspaceAccessError, AIProviderError
+from app.services.storage.service import get_storage
 router = APIRouter()
 
 from app.schemas.template import (
@@ -278,6 +279,8 @@ Return JSON only.
                             "footer": {"type": "string"},
                             "cta": {"type": "string"},
                             "cta_btn_title": {"type": "string"},
+                            "body_examples": {"type": "array", "items": {"type": "string"}},
+                            "header_examples": {"type": "array", "items": {"type": "string"}},
                             "workspace_id": {"type": "string"},
                             "media": {"type": "string", "format": "binary"}
                         },
@@ -315,6 +318,12 @@ async def create_template(
                     raw_data[key] = None
                 elif v_str == "" and key in ("header", "footer", "cta", "cta_btn_title", "workspace_id"):
                     raw_data[key] = None
+                elif key in ("body_examples", "header_examples"):
+                    try:
+                        import json
+                        raw_data[key] = json.loads(v_str) if v_str.startswith("[") else [x.strip() for x in v_str.split(",") if x.strip()]
+                    except Exception:
+                        raw_data[key] = [x.strip() for x in v_str.split(",") if x.strip()]
                 else:
                     raw_data[key] = value
             else:
@@ -411,6 +420,25 @@ async def create_template(
             detail="Failed to submit template due to a connection timeout. Please check your template list or try again in a moment."
         )
 
+    media_url_to_save = None
+    if media_file_bytes and len(media_file_bytes) > 0:
+        try:
+            import uuid
+            import os
+            storage = get_storage()
+            clean_filename = media_file_name or ("media.png" if data.type == "IMAGE" else "media.mp4")
+            file_ext = os.path.splitext(clean_filename)[1] or (".png" if data.type == "IMAGE" else ".mp4")
+            unique_filename = f"{uuid.uuid4()}{file_ext}"
+            rel_path = f"{workspace_id}/templates/{unique_filename}"
+            media_url_to_save = await storage.save_file(rel_path, media_file_bytes, media_file_type or "application/octet-stream")
+        except Exception as store_err:
+            logger.warning(f"Could not persist template media file to storage: {store_err}")
+
+    if not media_url_to_save and getattr(data, "media_url", None):
+        media_url_to_save = data.media_url
+    elif not media_url_to_save and data.header and (data.header.startswith("http://") or data.header.startswith("https://")):
+        media_url_to_save = data.header
+
     header_to_save = media_handle if data.type in ("IMAGE", "VIDEO") else data.header
 
     if meta_response.get("error"):
@@ -444,6 +472,7 @@ async def create_template(
                             type=data.type,
                             content=data.message,
                             header=header_to_save,
+                            media_url=media_url_to_save,
                             footer=data.footer,
                             cta=data.cta,
                             cta_btn_title=data.cta_btn_title,
@@ -479,6 +508,7 @@ async def create_template(
             type=data.type,
             content=data.message,
             header=header_to_save,
+            media_url=media_url_to_save,
             footer=data.footer,
             cta=data.cta,
             cta_btn_title=data.cta_btn_title,
@@ -496,6 +526,86 @@ async def create_template(
     return {"status": "submitted"}
 
 
+def infer_realistic_sample(before: str, after: str, index: int) -> str:
+    b_clause = re.split(r"[,.!?;\n]|\{\{\d+\}\}", before)[-1].strip()
+    a_clause = re.split(r"[,.!?;\n]|\{\{\d+\}\}", after)[0].strip()
+
+    b_words = re.findall(r"\b[a-zA-Z$₹]+\b", b_clause)
+    immediate_before = " ".join(b_words[-3:]).lower() if b_words else ""
+
+    a_words = re.findall(r"\b[a-zA-Z$₹]+\b", a_clause)
+    immediate_after = " ".join(a_words[:3]).lower() if a_words else ""
+
+    clause_context = f"{immediate_before} {immediate_after}".strip()
+
+    # 1. Organization / Store / Community if 'welcome to'
+    if "welcome to" in immediate_before:
+        items = ["Acme Store", "Orbion Team", "Our Community", "Prime Services"]
+        return items[(index - 1) % len(items)]
+
+    # 2. Greeting / Name
+    if any(k in immediate_before for k in ["hello", "hi", "hey", "dear", "mr", "ms", "mrs", "dr", "vanakkam", "namaste", "welcome", "name", "customer", "user", "member", "guest"]):
+        names = ["Alex", "Karthik", "John", "Priya", "Rahul"]
+        return names[(index - 1) % len(names)]
+
+    # 3. OTP / Verification Code / PIN
+    if any(k in clause_context for k in ["otp", "pin", "verification code", "passcode", "security code"]):
+        return "592814"
+
+    # 4. Coupon / Promo / Voucher
+    if any(k in clause_context for k in ["coupon", "promo", "voucher", "discount code", "code", "deal"]):
+        return "SAVE20"
+
+    # 5. Order / Invoice / Booking / Ticket ID
+    if any(k in clause_context for k in ["order", "invoice", "booking", "ticket", "awb", "tracking", "consignment", "package", "ref", "reference", "receipt", "bill"]):
+        ids = ["ORD-10923", "INV-84920", "TCK-55102", "TRK-99210"]
+        return ids[(index - 1) % len(ids)]
+
+    # 6. Currency / Price / Amount
+    if any(k in clause_context for k in ["rs", "inr", "usd", "dollar", "$", "₹", "amount", "price", "cost", "total", "fee", "pay", "paid", "due", "balance"]):
+        amounts = ["499", "1250", "99", "2500"]
+        return amounts[(index - 1) % len(amounts)]
+
+    # 7. Date / Time / Delivery
+    if any(k in clause_context for k in ["date", "time", "scheduled", "delivery", "delivered", "arrive", "slot", "tomorrow", "valid till", "expires", "deadline"]):
+        dates = ["Monday at 10:00 AM", "Tomorrow at 5:00 PM", "25th October", "3 business days"]
+        return dates[(index - 1) % len(dates)]
+
+    # 8. Organization / Store / Team / Brand / Product
+    if any(k in clause_context for k in ["store", "shop", "company", "brand", "team", "service", "item", "product", "plan", "course"]):
+        items = ["Acme Store", "Orbion Team", "Premium Plan", "Standard Delivery"]
+        return items[(index - 1) % len(items)]
+
+    fallbacks = ["John", "ORD-1029", "Rs. 499", "Tomorrow", "Premium Plan", "Confirmed", "Support Team"]
+    return fallbacks[(index - 1) % len(fallbacks)]
+
+
+def generate_smart_variable_examples(text: str, custom_examples: list[str] | None = None) -> list[str]:
+    if not text:
+        return []
+    var_matches = list(re.finditer(r"\{\{(\d+)\}\}", text))
+    if not var_matches:
+        return []
+    vars_found = [(int(m.group(1)), m.start(), m.end()) for m in var_matches]
+    max_var = max(v[0] for v in vars_found)
+    examples = []
+    for i in range(1, max_var + 1):
+        if custom_examples and len(custom_examples) >= i:
+            cand = str(custom_examples[i - 1]).strip()
+            if cand and not re.match(r"^sample[_\-\s]?\d*$", cand, re.IGNORECASE):
+                examples.append(cand)
+                continue
+        match_info = next((v for v in vars_found if v[0] == i), None)
+        if match_info:
+            _, start, end = match_info
+            before = text[:start]
+            after = text[end:]
+            examples.append(infer_realistic_sample(before, after, i))
+        else:
+            examples.append(infer_realistic_sample("", "", i))
+    return examples
+
+
 def build_components(data, media_handle: str | None = None):
     components = []
     data_type = (getattr(data, "type", None) or "TEXT").strip().upper()
@@ -507,9 +617,10 @@ def build_components(data, media_handle: str | None = None):
             header_comp = {"type": "HEADER", "format": "TEXT", "text": header_text}
             header_vars = re.findall(r"\{\{(\d+)\}\}", header_text)
             if header_vars:
-                max_h_var = max(map(int, header_vars))
+                h_custom = getattr(data, "header_examples", None)
+                h_examples = generate_smart_variable_examples(header_text, h_custom)
                 header_comp["example"] = {
-                    "header_text": [f"sample_{i}" for i in range(1, max_h_var + 1)]
+                    "header_text": h_examples
                 }
             components.append(header_comp)
 
@@ -534,9 +645,10 @@ def build_components(data, media_handle: str | None = None):
     # variables example (IMPORTANT: Meta requires 2D array: [["val1", "val2"]])
     vars_in_body = re.findall(r"\{\{(\d+)\}\}", body_text)
     if vars_in_body:
-        max_var = max(map(int, vars_in_body))
+        b_custom = getattr(data, "body_examples", None)
+        b_examples = generate_smart_variable_examples(body_text, b_custom)
         body["example"] = {
-            "body_text": [[f"sample_{i}" for i in range(1, max_var + 1)]]
+            "body_text": [b_examples]
         }
 
     components.append(body)
@@ -555,7 +667,7 @@ def build_components(data, media_handle: str | None = None):
             btn_text = str(getattr(data, "cta_btn_title", None) or "Open").strip()[:25] or "Open"
             btn_obj = {"type": "URL", "text": btn_text, "url": clean_url}
             if "{{1}}" in clean_url:
-                btn_obj["example"] = [clean_url.replace("{{1}}", "sample")]
+                btn_obj["example"] = [clean_url.replace("{{1}}", "track1029")]
             components.append(
                 {
                     "type": "BUTTONS",
@@ -659,6 +771,7 @@ def get_templates(
             "content": body_text,
             "body": body_text,
             "header": t.header,
+            "media_url": getattr(t, "media_url", None) or (t.header if t.header and (t.header.startswith("http://") or t.header.startswith("https://")) else None),
             "footer": t.footer,
             "cta": t.cta,
             "cta_btn_title": t.cta_btn_title,
@@ -748,21 +861,58 @@ def send_message(
 
 
     # Query template language from database
+    ws_uuid = to_uuid(workspace_id)
     template = db.query(Template).filter(
         Template.name == data.template_name,
-        Template.workspace_id == workspace_id
+        (Template.workspace_id == ws_uuid) | (Template.user_id == current_user.id)
     ).first()
+    if not template:
+        template = db.query(Template).filter(Template.name == data.template_name).first()
     lang_code = template.language if template else "en_US"
 
     components = []
+
+    # 1. Header component for IMAGE / VIDEO / DOCUMENT or text variables
+    if template:
+        tmpl_type = (template.type or "TEXT").upper()
+        if tmpl_type in ("IMAGE", "VIDEO", "DOCUMENT"):
+            media_type = tmpl_type.lower()
+            media_url = (
+                getattr(data, "media_url", None)
+                or getattr(template, "media_url", None)
+                or (template.header if template.header and (template.header.startswith("http://") or template.header.startswith("https://")) else None)
+            )
+            if not media_url:
+                if tmpl_type == "IMAGE":
+                    media_url = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80"
+                elif tmpl_type == "VIDEO":
+                    media_url = "https://www.w3schools.com/html/mov_bbb.mp4"
+                elif tmpl_type == "DOCUMENT":
+                    media_url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+            
+            if media_url:
+                components.append({
+                    "type": "header",
+                    "parameters": [{
+                        "type": media_type,
+                        media_type: {"link": media_url}
+                    }]
+                })
+        elif template.header and not template.header.startswith("4:"):
+            header_vars = re.findall(r"\{\{(\d+)\}\}", template.header)
+            if header_vars:
+                components.append({
+                    "type": "header",
+                    "parameters": [{"type": "text", "text": "Customer"} for _ in header_vars]
+                })
+
+    # 2. Body parameters
     variables = data.variables or []
     if variables:
-        components = [
-            {
-                "type": "body",
-                "parameters": [{"type": "text", "text": str(v)} for v in variables],
-            }
-        ]
+        components.append({
+            "type": "body",
+            "parameters": [{"type": "text", "text": str(v)} for v in variables],
+        })
 
     payload = {
         "messaging_product": "whatsapp",
@@ -787,11 +937,20 @@ def send_message(
         )
 
     headers = {
-    "Authorization": f"Bearer {system_token}",
-    "Content-Type": "application/json",
+        "Authorization": f"Bearer {system_token}",
+        "Content-Type": "application/json",
     }
     
     res = requests.post(url, json=payload, headers=headers, timeout=10)
+    if res.status_code >= 400:
+        err_data = {}
+        try:
+            err_data = res.json()
+        except Exception:
+            pass
+        err_msg = err_data.get("error", {}).get("message") or res.text
+        logger.error(f"[Template Send FAILED] {res.status_code}: {err_data}")
+        raise HTTPException(status_code=res.status_code, detail=f"Meta error: {err_msg}")
     return res.json()
 
 
@@ -853,6 +1012,8 @@ def submit_template(
             self.footer = t.footer
             self.cta = t.cta
             self.cta_btn_title = t.cta_btn_title
+            self.body_examples = None
+            self.header_examples = None
 
     components = build_components(TempData(template), media_handle=media_handle)
 
@@ -890,6 +1051,87 @@ def submit_template(
 
     db.commit()
     return {"status": "submitted"}
+
+
+@router.post("/templates/{template_id}/media")
+@router.put("/templates/{template_id}/media")
+async def update_template_media(
+    template_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    try:
+        t_uuid = to_uuid(template_id)
+        template = db.query(Template).filter(Template.id == t_uuid).first()
+    except Exception:
+        template = None
+
+    if not template:
+        template = db.query(Template).filter(Template.id == template_id).first()
+
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    if template.workspace_id:
+        verify_workspace_access(current_user, db, str(template.workspace_id))
+
+    content_type = request.headers.get("content-type", "").lower()
+    media_url = None
+
+    if "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
+        form = await request.form()
+        uploaded_file = form.get("file") or form.get("media")
+        if uploaded_file and hasattr(uploaded_file, "read"):
+            file_bytes = await uploaded_file.read()
+            if file_bytes and len(file_bytes) > 0:
+                import uuid, os
+                storage = get_storage()
+                tmpl_type = (template.type or "IMAGE").upper()
+                default_ext = ".png" if tmpl_type == "IMAGE" else ".mp4"
+                filename = getattr(uploaded_file, "filename", None) or f"media{default_ext}"
+                _, ext = os.path.splitext(filename)
+                ext = ext or default_ext
+                default_mime = "image/png" if tmpl_type == "IMAGE" else "video/mp4"
+                mime = getattr(uploaded_file, "content_type", None) or default_mime
+                unique_name = f"{uuid.uuid4()}{ext}"
+                ws_folder = str(template.workspace_id) if template.workspace_id else "global"
+                rel_path = f"{ws_folder}/templates/{unique_name}"
+                media_url = await storage.save_file(rel_path, file_bytes, mime)
+        if not media_url:
+            raw_url = form.get("media_url")
+            if raw_url and isinstance(raw_url, str) and raw_url.strip():
+                media_url = raw_url.strip()
+    else:
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                media_url = body.get("media_url")
+        except Exception:
+            pass
+
+    if not media_url:
+        raise HTTPException(status_code=400, detail="No media file or media_url was provided.")
+
+    template.media_url = media_url
+    if not template.header or template.header.startswith("4:"):
+        template.header = media_url
+    db.commit()
+    db.refresh(template)
+
+    return {
+        "status": "success",
+        "media_url": template.media_url,
+        "template": {
+            "id": str(template.id),
+            "name": template.name,
+            "type": template.type,
+            "media_url": template.media_url,
+            "header": template.header,
+            "status": template.status,
+            "content": template.content,
+        }
+    }
 
 
 @router.delete("/templates/{template_id}")
