@@ -25,7 +25,6 @@ from app.services.automations.flow_ai_reply_handler import execute_ai_reply
 from app.core.celery_app import celery_app
 from app.models.message import Message, SenderType
 from app.models.ai_action import ConversationState
-from app.workers.flow_execution import handle_node_timeout
 from app.models.scheduled_resume import ScheduledResume
 from app.models.message_execution import MessageExecution
 from app.services.notification_service import NotificationService
@@ -174,7 +173,6 @@ class FlowServiceV2:
         inbound_text: str,
         metadata: Dict[str, Any],
     ) -> bool:
-        from app.models.ai_action import ConversationState
         conv_state = db.query(ConversationState).filter_by(
             conversation_id=conversation.id,
             workspace_id=conversation.workspace_id
@@ -536,8 +534,6 @@ class FlowServiceV2:
             )
 
             # Cancel any pending scheduled resumes from old delayed nodes
-            from app.models.scheduled_resume import ScheduledResume
-
             db.query(ScheduledResume).filter(
                 ScheduledResume.conversation_id == conversation.id,
                 ScheduledResume.status == "pending",
@@ -687,24 +683,63 @@ class FlowServiceV2:
                 return False
 
             current_stage = timeouts[stage_index]
-            followup_raw = current_stage.get("message") or ""
-            followup_text = self._render_template(followup_raw, state.runtime_context or {})
+            action = current_stage.get("action") or current_stage.get("timeout_action") or "send_followup"
 
-            if followup_text:
-                await self._queue_outbound_message(
-                    db=db,
+            if action == "end_flow":
+                state.runtime_context["pending_timeout"] = None
+                state.active_flow_id = None
+                state.current_node_id = None
+                flag_modified(state, "runtime_context")
+
+                followup_raw = current_stage.get("message") or current_stage.get("follow_up_message") or ""
+                followup_text = self._render_template(followup_raw, state.runtime_context or {})
+                if followup_text:
+                    await self._queue_outbound_message(
+                        db=db,
+                        conversation_id=conversation.id,
+                        to_number=self._get_conversation_destination(conversation),
+                        body=followup_text,
+                        metadata={
+                            "source": "timeout_end_flow",
+                            "node_id": node_id,
+                            "timeout_stage": stage_index + 1,
+                        },
+                        msg_sequence=[0],
+                        execution_token=execution_token,
+                        state=state,
+                    )
+
+                self._persist_state(db, state)
+                self.tracer.trace(
+                    db,
                     conversation_id=conversation.id,
-                    to_number=self._get_conversation_destination(conversation),
-                    body=followup_text,
-                    metadata={
-                        "source": "timeout_followup",
-                        "node_id": node_id,
-                        "timeout_stage": stage_index + 1,
-                    },
-                    msg_sequence=[0],
-                    execution_token=execution_token,
-                    state=state,
+                    flow_id=flow.id,
+                    node_id=node_id,
+                    event_type="flow_ended",
+                    status="success",
+                    metadata={"reason": "timeout_end_flow", "stage_index": stage_index + 1},
                 )
+                _trigger_send_next(conversation.id, countdown=1)
+                return True
+            else:
+                followup_raw = current_stage.get("message") or current_stage.get("follow_up_message") or ""
+                followup_text = self._render_template(followup_raw, state.runtime_context or {})
+
+                if followup_text:
+                    await self._queue_outbound_message(
+                        db=db,
+                        conversation_id=conversation.id,
+                        to_number=self._get_conversation_destination(conversation),
+                        body=followup_text,
+                        metadata={
+                            "source": "timeout_followup",
+                            "node_id": node_id,
+                            "timeout_stage": stage_index + 1,
+                        },
+                        msg_sequence=[0],
+                        execution_token=execution_token,
+                        state=state,
+                    )
 
             self.tracer.trace(
                 db,
@@ -716,41 +751,28 @@ class FlowServiceV2:
                 metadata={
                     "stage_index": stage_index + 1,
                     "total_stages": len(timeouts),
-                    "message_preview": followup_text[:100],
+                    "action": action,
                 },
             )
 
             # Check if there is a next timeout stage
             next_stage_index = stage_index + 1
-            if next_stage_index < len(timeouts):
+            if next_stage_index < len(timeouts) and action != "end_flow":
                 next_stage = timeouts[next_stage_index]
                 next_seconds = int(next_stage.get("timeout_seconds") or 60)
                 state.runtime_context["pending_timeout"]["stage_index"] = next_stage_index
                 flag_modified(state, "runtime_context")
                 self._persist_state(db, state)
 
-                if next_seconds < 1800:
-                    handle_node_timeout.apply_async(
-                        kwargs={
-                            "conversation_id": str(conversation.id),
-                            "node_id": node_id,
-                            "stage_index": next_stage_index,
-                        },
-                        countdown=next_seconds,
-                    )
-                else:
-                    run_at = datetime.now(timezone.utc) + timedelta(seconds=next_seconds)
-                    sr = ScheduledResume(
-                        conversation_id=conversation.id,
-                        node_id=node_id,
-                        inbound_text="",
-                        msg_sequence_val=0,
-                        flow_id=flow.id,
-                        run_at=run_at,
-                        status="pending",
-                    )
-                    db.add(sr)
-                    db.commit()
+                from app.workers.flow_execution import handle_node_timeout
+                handle_node_timeout.apply_async(
+                    kwargs={
+                        "conversation_id": str(conversation.id),
+                        "node_id": node_id,
+                        "stage_index": next_stage_index,
+                    },
+                    countdown=next_seconds,
+                )
             else:
                 # All timeout stages exhausted
                 logger.info("All timeout stages exhausted for conversation %s node %s", conversation.id, node_id)
@@ -1389,7 +1411,6 @@ class FlowServiceV2:
                     logger.info(
                         f" Node '{current_node_id}' long delay {node_delay_seconds}s → DB scheduled_resumes"
                     )
-                    from app.models.scheduled_resume import ScheduledResume
 
                     run_at = datetime.now(timezone.utc) + timedelta(
                         seconds=node_delay_seconds
@@ -2078,14 +2099,7 @@ class FlowServiceV2:
 
         #  Wait for Customer Response / Timeout Handling 
         if config.get("wait_for_response"):
-            timeouts = config.get("timeouts") or []
-            if not timeouts and (config.get("timeout_seconds") or config.get("timeout_message")):
-                timeouts = [{
-                    "id": "timeout-1",
-                    "timeout_seconds": int(config.get("timeout_seconds") or 30),
-                    "action": "send_msg",
-                    "message": config.get("timeout_message") or ""
-                }]
+            timeouts = self._parse_node_timeouts(config)
 
             if timeouts:
                 next_node_id = self._get_default_target(flow.edges or [], node.get("id"))
@@ -2100,31 +2114,17 @@ class FlowServiceV2:
                 }
                 flag_modified(state, "runtime_context")
 
+                # Directly use the exact user-configured seconds for Celery countdown
                 first_timeout_seconds = int(timeouts[0].get("timeout_seconds") or 30)
-                if first_timeout_seconds < 1800:
-                    from app.workers.flow_execution import handle_node_timeout
-                    handle_node_timeout.apply_async(
-                        kwargs={
-                            "conversation_id": str(conversation.id),
-                            "node_id": node.get("id"),
-                            "stage_index": 0,
-                        },
-                        countdown=first_timeout_seconds,
-                    )
-                else:
-                    from app.models.scheduled_resume import ScheduledResume
-                    run_at = datetime.now(timezone.utc) + timedelta(seconds=first_timeout_seconds)
-                    sr = ScheduledResume(
-                        conversation_id=conversation.id,
-                        node_id=node.get("id"),
-                        inbound_text="",
-                        msg_sequence_val=msg_sequence[0] if msg_sequence else 0,
-                        flow_id=flow.id,
-                        run_at=run_at,
-                        status="pending",
-                    )
-                    db.add(sr)
-                    db.commit()
+                from app.workers.flow_execution import handle_node_timeout
+                handle_node_timeout.apply_async(
+                    kwargs={
+                        "conversation_id": str(conversation.id),
+                        "node_id": node.get("id"),
+                        "stage_index": 0,
+                    },
+                    countdown=first_timeout_seconds,
+                )
 
                 self.tracer.trace(
                     db,
@@ -2230,6 +2230,9 @@ class FlowServiceV2:
 
     
 
+    def _get_conversation_destination(self, conversation: Conversation) -> str:
+        return getattr(conversation, "phone", None) or getattr(conversation, "external_id", None) or ""
+
     def _normalize_buttons(self, buttons: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
         
         return [
@@ -2241,8 +2244,94 @@ class FlowServiceV2:
             for b in buttons[:3]
         ]
 
-    def _get_conversation_destination(self, conversation: Conversation) -> str:
-        return conversation.phone or conversation.external_id or ""
+    @staticmethod
+    def _parse_node_timeouts(config: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Parses and standardizes timeout configuration from node config.
+        Calculates exact seconds from whatever the user provides (seconds, minutes, hours, days)
+        without any hardcoded fallbacks or constraints.
+        """
+        unit_multipliers = {
+            "seconds": 1,
+            "second": 1,
+            "s": 1,
+            "minutes": 60,
+            "minute": 60,
+            "m": 60,
+            "hours": 3600,
+            "hour": 3600,
+            "h": 3600,
+            "days": 86400,
+            "day": 86400,
+            "d": 86400,
+        }
+
+        def _calc_seconds(amount_val: Any, unit_val: Any, default_seconds: int = 30) -> int:
+            if amount_val is None or amount_val == "":
+                return default_seconds
+            try:
+                num = float(amount_val)
+                if num <= 0:
+                    return default_seconds
+                unit_str = str(unit_val or "seconds").lower().strip()
+                mult = unit_multipliers.get(unit_str, 1)
+                return max(1, int(num * mult))
+            except (ValueError, TypeError):
+                return default_seconds
+
+        # 1. Check if user configured a multi-stage timeouts array
+        raw_timeouts = config.get("timeouts")
+        if isinstance(raw_timeouts, list) and len(raw_timeouts) > 0:
+            parsed_stages = []
+            for idx, stage in enumerate(raw_timeouts):
+                if not isinstance(stage, dict):
+                    continue
+                if stage.get("timeout_seconds") is not None:
+                    secs = _calc_seconds(stage.get("timeout_seconds"), "seconds", default_seconds=30 if idx == 0 else 60)
+                else:
+                    secs = _calc_seconds(stage.get("timeout_amount") or stage.get("amount"), stage.get("timeout_unit") or stage.get("unit"), default_seconds=30 if idx == 0 else 60)
+
+                msg = (
+                    stage.get("message")
+                    or stage.get("follow_up_message")
+                    or stage.get("timeout_message")
+                    or stage.get("text")
+                    or ""
+                )
+                act = stage.get("action") or stage.get("timeout_action") or "send_followup"
+                parsed_stages.append({
+                    "id": stage.get("id") or f"timeout-{idx + 1}",
+                    "timeout_seconds": secs,
+                    "action": act,
+                    "message": msg,
+                })
+            if parsed_stages:
+                return parsed_stages
+
+        # 2. Single timeout configuration from frontend NodeInspector
+        amount = config.get("timeout_amount")
+        unit = config.get("timeout_unit", "seconds")
+        action = config.get("timeout_action", "send_followup")
+        message = (
+            config.get("follow_up_message")
+            or config.get("timeout_message")
+            or config.get("message")
+            or ""
+        )
+
+        if amount is not None:
+            secs = _calc_seconds(amount, unit, default_seconds=30)
+        elif config.get("timeout_seconds") is not None:
+            secs = _calc_seconds(config.get("timeout_seconds"), "seconds", default_seconds=30)
+        else:
+            secs = 30
+
+        return [{
+            "id": "timeout-1",
+            "timeout_seconds": secs,
+            "action": action,
+            "message": message,
+        }]
 
     def _render_template(self, text: str, context: dict) -> str:
         if not text:

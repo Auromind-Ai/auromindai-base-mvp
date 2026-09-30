@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { UserPen } from 'lucide-react';
 import api from '@/lib/api';
 
 // Option 6 WhatsApp Icon (Connected vs Disconnected styling)
@@ -36,7 +38,7 @@ const WhatsAppIcon = ({ isConnected }) => {
     );
 };
 
-// 5-Dot Cross Decorative Accent (matching uploaded reference images)
+// 5-Dot Cross Decorative Accent (for Disconnected state)
 const CrossDotAccent = ({ isConnected }) => {
     const color = isConnected ? "#14c956" : "#a1a1aa";
 
@@ -48,7 +50,7 @@ const CrossDotAccent = ({ isConnected }) => {
             xmlns="http://www.w3.org/2000/svg"
             aria-hidden="true"
         >
-            {/* Center dot (larger & brighter with ambient glow if connected) */}
+            {/* Center dot */}
             <circle 
                 cx="12" 
                 cy="12" 
@@ -69,8 +71,26 @@ const CrossDotAccent = ({ isConnected }) => {
 };
 
 export default function WhatsAppStatusIndicator() {
+    const router = useRouter();
     const [isConnected, setIsConnected] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    const handleEditProfile = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem('open_whatsapp_profile_modal', 'true');
+            if (window.location.pathname === '/user/admin/channels') {
+                window.dispatchEvent(new CustomEvent('open-whatsapp-profile'));
+            } else {
+                router.push('/user/admin/channels?editProfile=true');
+            }
+        } else {
+            router.push('/user/admin/channels?editProfile=true');
+        }
+    };
 
     const fetchStatus = useCallback(async () => {
         try {
@@ -160,7 +180,7 @@ export default function WhatsAppStatusIndicator() {
     return (
         <div 
             className={`
-                relative h-8 sm:h-[42px] px-2 sm:px-4 rounded-lg sm:rounded-2xl flex items-center gap-1 sm:gap-3 
+                relative h-8 sm:h-[42px] px-2 sm:px-3.5 rounded-lg sm:rounded-2xl flex items-center gap-1 sm:gap-2.5 
                 bg-[#09090e]/90 backdrop-blur-md select-none transition-all duration-300 overflow-hidden flex-shrink-0 shrink-0
                 ${connectedState 
                     ? 'border border-[#14c956]/35 shadow-[0_0_15px_rgba(20,201,86,0.15)]' 
@@ -181,8 +201,20 @@ export default function WhatsAppStatusIndicator() {
                 {connectedState ? 'Connected' : 'Disconnected'}
             </span>
 
-            {/* Decorative 5-Dot Cross Accent on the Right */}
-            <CrossDotAccent isConnected={connectedState} />
+            {/* Right: Edit Profile Icon Button when Connected, or CrossDotAccent when Disconnected */}
+            {connectedState ? (
+                <button
+                    type="button"
+                    onClick={handleEditProfile}
+                    title="Edit WhatsApp Profile"
+                    aria-label="Edit WhatsApp Profile"
+                    className="relative z-10 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-md sm:rounded-lg text-white hover:text-white bg-[#14c956]/15 hover:bg-[#14c956]/30 border border-[#14c956]/30 hover:border-[#14c956]/60 transition-all duration-200 cursor-pointer shadow-[0_0_8px_rgba(20,201,86,0.2)] hover:shadow-[0_0_12px_rgba(20,201,86,0.4)] active:scale-95 ml-0.5 sm:ml-1 shrink-0 flex-shrink-0"
+                >
+                    <UserPen className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                </button>
+            ) : (
+                <CrossDotAccent isConnected={false} />
+            )}
         </div>
     );
 }

@@ -214,8 +214,8 @@ export default function HeroShowcaseSection() {
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             className="mb-5 sm:mb-6"
           >
-            <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/25 bg-[rgba(74,34,120,0.45)] px-2.5 py-1.5 pr-4 backdrop-blur-2xl shadow-[0_0_40px_rgba(108,69,255,0.18)]">
-              <span className="rounded-full bg-gradient-to-r from-[#7c3aed] to-[#4f7cff] px-2.5 py-0.5 text-[9px] md:text-[11px] font-semibold uppercase tracking-[0.12em] text-white shadow-[0_0_22px_rgba(124,58,237,0.55)]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/25 bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 px-2.5 py-1.5 pr-4 backdrop-blur-2xl shadow-[0_0_40px_rgba(108,69,255,0.18)]">
+              <span className="rounded-full bg-gradient-to-r from-[#814AC8] via-[#4b2675] to-[#050505] px-2.5 py-0.5 text-[9px] md:text-[11px] font-medium border-white/10 uppercase tracking-[0.12em] text-white shadow-[0_0_22px_rgba(124,58,237,0.55)]">
                 ✦ 24/7 AI
               </span>
               <span className="text-[12px] md:text-[14px] font-medium text-white/80">
@@ -251,7 +251,7 @@ export default function HeroShowcaseSection() {
                     {/* Get Started Free Button */}
                     <NeatCTAButton
                       href="/signup"
-                      className="group relative overflow-hidden h-[36px] w-[145px] rounded-[8px] bg-[#814AC8] text-[14px] font-semibold text-white shadow-[0_0_32px_rgba(109,40,255,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(109,40,255,0.65)] md:h-[42px] md:w-[165px] cursor-pointer"
+                      className="group relative overflow-hidden h-[36px] w-[145px] rounded-[8px] bg-[#814AC8] text-[14px] font-medium text-white shadow-[0_0_32px_rgba(109,40,255,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(109,40,255,0.65)] md:h-[42px] md:w-[165px] cursor-pointer"
                     >
                       <span className="flex items-center justify-center gap-2 w-full h-full">
                         

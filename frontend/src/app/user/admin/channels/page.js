@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { poppins } from '@/lib/fonts';
 import { Instagram, Search, ChevronDown, Check, X, ChevronRight, Eye, EyeOff, ExternalLink, Settings, Copy, UserPen } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -801,12 +802,14 @@ function ChannelDetailsModal({
     );
 }
 
-export default function ChannelsPage() {
+function ChannelsContent() {
     const { showToast } = useToast();
-    const WA_CONFIG_ID = process.env.NEXT_PUBLIC_META_CONFIG_ID || '2100178990543175';
+    const searchParams = useSearchParams();
+    const WA_CONFIG_ID = process.env.NEXT_PUBLIC_META_CONFIG_ID;
 
     const { workspaces, workspaceId } = useAuth();
     const workspace = workspaces?.find((item) => item.id === workspaceId) || null;
+    const effectiveWorkspaceId = workspace?.id || workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null);
 
     const [statuses, setStatuses] = useState(() => {
         if (typeof window === 'undefined') return { whatsapp: false, instagram: false, gmail: false, twilio: false, google_calendar: false };
@@ -859,6 +862,33 @@ export default function ChannelsPage() {
         }
         setIsWhatsAppProfileOpen(true);
     };
+
+    useEffect(() => {
+        const editProfileParam = searchParams?.get('editProfile');
+        const actionParam = searchParams?.get('action');
+        const fromSession = typeof window !== 'undefined' && sessionStorage.getItem('open_whatsapp_profile_modal') === 'true';
+
+        if (editProfileParam === 'true' || actionParam === 'edit-profile' || actionParam === 'edit-whatsapp-profile' || fromSession) {
+            if (typeof window !== 'undefined') {
+                sessionStorage.removeItem('open_whatsapp_profile_modal');
+            }
+            const timer = setTimeout(() => {
+                setIsWhatsAppProfileOpen(true);
+            }, 0);
+            return () => clearTimeout(timer);
+        }
+    }, [searchParams]);
+
+    useEffect(() => {
+        const handleOpenProfileEvent = () => {
+            setIsWhatsAppProfileOpen(true);
+        };
+        window.addEventListener('open-whatsapp-profile', handleOpenProfileEvent);
+
+        return () => {
+            window.removeEventListener('open-whatsapp-profile', handleOpenProfileEvent);
+        };
+    }, []);
 
 
     const handleCopyText = (text, key) => {
@@ -1768,7 +1798,7 @@ export default function ChannelsPage() {
                 <WhatsAppProfileModal
                     isOpen={isWhatsAppProfileOpen}
                     onClose={() => setIsWhatsAppProfileOpen(false)}
-                    workspaceId={workspace?.id}
+                    workspaceId={effectiveWorkspaceId}
                     phoneId={whatsappPhoneId}
                     displayPhone={connectedInfo.whatsapp}
                     wabaId={whatsappWabaId}
@@ -1832,5 +1862,13 @@ export default function ChannelsPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function ChannelsPage() {
+    return (
+        <Suspense fallback={null}>
+            <ChannelsContent />
+        </Suspense>
     );
 }

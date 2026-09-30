@@ -21,15 +21,15 @@ export default function MessageManagementSection() {
   };
 
   const springX = useSpring(mouseX, {
-    stiffness: 85,
-    damping: 18,
-    mass: 0.6,
+    stiffness: 240,
+    damping: 24,
+    mass: 0.2,
   });
 
   const springY = useSpring(mouseY, {
-    stiffness: 85,
-    damping: 18,
-    mass: 0.6,
+    stiffness: 240,
+    damping: 24,
+    mass: 0.2,
   });
 
   const rotateY = useTransform(springX, [-0.5, 0.5], [-5, 5]);
