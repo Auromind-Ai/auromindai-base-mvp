@@ -1169,12 +1169,36 @@ async def get_marketing_templates(
     for t in templates:
         body_text = t.content or ""
         vars_found = list(dict.fromkeys(re.findall(r"\{\{[^}]+\}\}", body_text)))
+
+        var_map = {}
+        if getattr(t, "variable_mapping", None):
+            try:
+                import json
+                var_map = json.loads(t.variable_mapping) if isinstance(t.variable_mapping, str) else (t.variable_mapping or {})
+            except Exception:
+                var_map = {}
+
+        named_content = body_text
+        if var_map:
+            for num_key, name_val in var_map.items():
+                named_content = re.sub(rf"\{{\{{\s*{num_key}\s*\}}\}}", f"{{{{{name_val}}}}}", named_content)
+
+        resolved_vars = []
+        for v in vars_found:
+            clean_num = v.replace("{", "").replace("}", "").strip()
+            if clean_num in var_map:
+                resolved_vars.append(var_map[clean_num])
+            else:
+                resolved_vars.append(clean_num)
+
         items.append({
             "id": str(t.id),
             "name": t.name,
             "type": t.type or "TEXT",
             "content": body_text,
             "body": body_text,
+            "named_content": named_content,
+            "variable_mapping": var_map,
             "header": t.header,
             "footer": t.footer,
             "cta": t.cta,
@@ -1182,7 +1206,7 @@ async def get_marketing_templates(
             "status": (t.status or "draft").upper(),
             "category": (t.category or "MARKETING").upper(),
             "language": t.language or "en_US",
-            "variables": vars_found,
+            "variables": resolved_vars if resolved_vars else vars_found,
             "created_at": t.created_at.isoformat() if t.created_at else None,
         })
 

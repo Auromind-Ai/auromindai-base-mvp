@@ -15,8 +15,11 @@ class TemplateCreate(BaseModel):
     footer: str | None = Field(None, max_length=1000)
     cta: str | None = Field(None, max_length=2048)
     cta_btn_title: str | None = Field(None, max_length=255)
+    buttons: list[dict[str, Any]] | str | None = Field(None, description="Optional list of interactive buttons")
     body_examples: list[str] | None = Field(None, description="Optional realistic sample values for {{1}}, {{2}} in message body")
     header_examples: list[str] | None = Field(None, description="Optional realistic sample values for {{1}} in text header")
+    variable_mapping: dict[str, Any] | str | None = Field(None, description="Mapping of numbered variables to meaningful names, e.g. {'1': 'customer_name'}")
+    named_content: str | None = Field(None, description="Original template text with named variables")
 
     @field_validator("message")
     @classmethod
@@ -35,13 +38,17 @@ class TemplateRead(BaseModel):
     category: str | None = None
     language: str | None = None
     content: str
+    named_content: str | None = None
     header: str | None = None
     media_url: str | None = None
     footer: str | None = None
     cta: str | None = None
     cta_btn_title: str | None = None
+    buttons: list[dict[str, Any]] | list[Any] | None = None
     status: str
     meta_template_id: str | None = None
+    variable_mapping: dict[str, Any] | str | None = None
+    variables: list[str] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

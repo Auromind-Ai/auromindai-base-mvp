@@ -1,11 +1,21 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { poppins } from '@/lib/fonts';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import UpgradeModal from '@/components/UpgradeModal';
+import VariablePicker from '@/components/templates/VariablePicker';
+import DefineVariableModal from '@/components/templates/DefineVariableModal';
+import VariableMappingCard from '@/components/templates/VariableMappingCard';
+import {
+  buildWhatsAppVariableMapping,
+  renderPreviewText,
+  sanitizeVariableName,
+  formatVariableLabel,
+  convertNumberedToNamedText,
+} from '@/lib/variableUtils';
 
 //  Icons (inline SVG to avoid extra deps) 
 const Icon = ({ d, size = 16, className = '' }) => (
@@ -70,8 +80,97 @@ const Input = ({ label, hint, placeholder, value, onChange, className = '' }) =>
   </div>
 );
 
+const buttonOptions = [
+  {
+    type: 'QUICK_REPLY',
+    label: 'Custom',
+    description: 'Quick reply button for customer responses',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polyline points="9 14 4 9 9 4"></polyline>
+        <path d="M20 20v-7a4 4 0 0 0-4-4H4"></path>
+      </svg>
+    ),
+  },
+  {
+    type: 'URL',
+    label: 'Visit website',
+    description: 'Direct link to an external website or page',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <line x1="10" y1="14" x2="21" y2="3"></line>
+      </svg>
+    ),
+  },
+  {
+    type: 'VOICE_CALL',
+    label: 'Call on WhatsApp',
+    description: 'Direct WhatsApp voice call action button',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+      </svg>
+    ),
+  },
+  {
+    type: 'PHONE_NUMBER',
+    label: 'Call Phone Number',
+    description: 'Direct phone call with country code',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 3.07 9.8 19.79 19.79 0 0 1 .01 1.18 2 2 0 0 1 2 0h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L6.09 7.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 14.92v2z"></path>
+      </svg>
+    ),
+  },
+  {
+    type: 'COPY_CODE',
+    label: 'Copy offer code',
+    description: 'One-click copy button for coupon / promo codes',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      </svg>
+    ),
+  },
+  {
+    type: 'CONTACT_INFO',
+    label: 'Share contact info',
+    description: 'Let users share contact details or profile',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+        <circle cx="12" cy="7" r="4"></circle>
+      </svg>
+    ),
+  },
+];
+
+function renderFormattedAiText(text) {
+  if (!text) return null;
+  const defaultAiMapping = { '1': 'customer_name', '2': 'plan_name', '3': 'amount', '4': 'product_name' };
+  let normalized = String(text).replace(/(?<!\{)\{([a-zA-Z0-9_]+)\}(?!\})/g, (_, v) => '{{' + v + '}}');
+  const namedText = convertNumberedToNamedText(normalized, defaultAiMapping);
+  const parts = String(namedText).split(/(\{\{[a-zA-Z0-9_]+\}\})/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('{{') && part.endsWith('}}')) {
+      return (
+        <span
+          key={i}
+          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded bg-purple-500/20 text-[#c490e8] font-mono text-[12px] border border-purple-500/40 font-semibold align-baseline"
+        >
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
+}
+
 // ── Phone Preview Component (extracted to avoid deep nesting in return) ──
-function PhonePreview({ form, actionMode }) {
+function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', variableMapping = {} }) {
   const whatsappPattern = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' opacity='0.08'%3E%3Cpath d='M10 10h12v12H10zM40 50h12v12H40zM70 20h12v12H70zM20 70h12v12H20zM70 70h12v12H70z' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3Ccircle cx='25' cy='35' r='5' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3Ccircle cx='75' cy='45' r='6' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3Cpath d='M45 15l10 10-10 10M15 85l10-10 10 10' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3C/svg%3E")`;
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -278,8 +377,10 @@ function PhonePreview({ form, actionMode }) {
                     )}
                     <div style={{ color: '#ffffff', fontSize: '12px', lineHeight: '1.6', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontWeight: '400' }}>
                       {form.message
-                        ? form.message
-                        : <span style={{ color: 'rgba(255,255,255,0.4)' }}>Hey {"{{1}}"}, just a reminder.</span>
+                        ? (previewMode === 'samples'
+                            ? renderPreviewText(form.message, variableMapping, 'samples')
+                            : form.message)
+                        : <span style={{ color: 'rgba(255,255,255,0.4)' }}>Hi {"{{customer_name}}"}, welcome to OrbionAgents.</span>
                       }
                     </div>
                     {form.footer && (
@@ -293,8 +394,121 @@ function PhonePreview({ form, actionMode }) {
                   </div>
                 </div>
 
-                {/* CTA Action button below message bubble */}
-                {actionMode === 'cta' && (
+                {/* Authentication OTP button */}
+                {form.category === 'AUTHENTICATION' && (
+                  <div style={{
+                    marginTop: '8px',
+                    background: '#1C1C1C',
+                    borderRadius: '14px',
+                    padding: '10px 14px',
+                    textAlign: 'center',
+                    color: '#38bdf8',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                  }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    <span>{form.ctaBtnTitle || 'Copy Code'}</span>
+                  </div>
+                )}
+
+                {/* Dynamic Meta Buttons */}
+                {form.category !== 'AUTHENTICATION' && buttons && buttons.length > 0 && (
+                  buttons.length <= 3 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+                      {buttons.map((b, idx) => (
+                        <div key={b.id || idx} style={{
+                          background: '#1C1C1C',
+                          borderRadius: '14px',
+                          padding: '10px 14px',
+                          textAlign: 'center',
+                          color: '#38bdf8',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                        }}>
+                          {b.type === 'URL' && (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                              <polyline points="15 3 21 3 21 9"></polyline>
+                              <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                          )}
+                          {b.type === 'PHONE_NUMBER' && (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 3.07 9.8 19.79 19.79 0 0 1 .01 1.18 2 2 0 0 1 2 0h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L6.09 7.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 14.92v2z"></path>
+                            </svg>
+                          )}
+                          {b.type === 'VOICE_CALL' && (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                            </svg>
+                          )}
+                          {b.type === 'COPY_CODE' && (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                          )}
+                          {(b.type === 'QUICK_REPLY' || b.type === 'CUSTOM') && (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="9 14 4 9 9 4"></polyline>
+                              <path d="M20 20v-7a4 4 0 0 0-4-4H4"></path>
+                            </svg>
+                          )}
+                          {b.type === 'CONTACT_INFO' && (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                              <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                          )}
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {b.type === 'COPY_CODE'
+                              ? (b.code ? `Copy code (${b.code})` : 'Copy code')
+                              : (b.text || 'Button')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{
+                      marginTop: '8px',
+                      background: '#1C1C1C',
+                      borderRadius: '14px',
+                      padding: '10px 14px',
+                      textAlign: 'center',
+                      color: '#38bdf8',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                    }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                      </svg>
+                      <span>See all options ({buttons.length})</span>
+                    </div>
+                  )
+                )}
+
+                {/* Legacy Fallback CTA button below message bubble */}
+                {form.category !== 'AUTHENTICATION' && (!buttons || buttons.length === 0) && actionMode === 'cta' && (
                   <div style={{
                     marginTop: '8px',
                     background: '#1C1C1C',
@@ -310,8 +524,8 @@ function PhonePreview({ form, actionMode }) {
                   </div>
                 )}
 
-                {/* Quick reply buttons */}
-                {actionMode === 'quick' && (
+                {/* Legacy Quick reply buttons */}
+                {form.category !== 'AUTHENTICATION' && (!buttons || buttons.length === 0) && actionMode === 'quick' && (
                   <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
                     {['Yes', 'No'].map(r => (
                       <div key={r} style={{
@@ -367,6 +581,83 @@ export default function CreateTemplatePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
+  // Dynamic Variable System State
+  const [variableMapping, setVariableMapping] = useState({});
+  const [defineModalOpen, setDefineModalOpen] = useState(false);
+  const [activeDefineNumber, setActiveDefineNumber] = useState('1');
+  const [previewMode, setPreviewMode] = useState('named'); // 'named' or 'samples'
+  const messageTextareaRef = useRef(null);
+
+  // Derive real-time WhatsApp mapping and variable list
+  const mappingResult = useMemo(() => {
+    return buildWhatsAppVariableMapping(form.message, variableMapping);
+  }, [form.message, variableMapping]);
+
+  // Numbered variables in message that haven't been named yet
+  const unmappedNumberedVars = useMemo(() => {
+    const matches = (form.message || '').match(/\{\{(\d+)\}\}/g) || [];
+    const nums = Array.from(new Set(matches.map(m => m.replace(/[{}]/g, ''))));
+    return nums;
+  }, [form.message]);
+
+  const handleMessageChange = (e) => {
+    const val = e.target.value;
+    const oldVal = form.message || '';
+    setForm(prev => ({ ...prev, message: val }));
+
+    // Detect if user typed a new numbered variable (e.g. {{1}}, {{2}}, {{3}})
+    const prevMatches = oldVal.match(/\{\{(\d+)\}\}/g) || [];
+    const newMatches = val.match(/\{\{(\d+)\}\}/g) || [];
+    const newlyAdded = newMatches.filter(m => !prevMatches.includes(m));
+
+    if (newlyAdded.length > 0) {
+      const num = newlyAdded[0].replace(/[{}]/g, '');
+      setActiveDefineNumber(num);
+      setDefineModalOpen(true);
+    }
+  };
+
+  const handleInsertVariable = (varKey) => {
+    const cleanKey = sanitizeVariableName(varKey);
+    const varTag = `{{${cleanKey}}}`;
+    const textarea = messageTextareaRef.current;
+
+    if (textarea) {
+      const start = textarea.selectionStart ?? form.message.length;
+      const end = textarea.selectionEnd ?? form.message.length;
+      const before = form.message.substring(0, start);
+      const after = form.message.substring(end);
+      const nextMessage = before + varTag + after;
+      setForm(prev => ({ ...prev, message: nextMessage }));
+
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + varTag.length, start + varTag.length);
+      }, 0);
+    } else {
+      setForm(prev => ({ ...prev, message: (prev.message || '') + varTag }));
+    }
+  };
+
+  const handleDefineVariable = (number, chosenName) => {
+    const cleanName = sanitizeVariableName(chosenName);
+    if (!cleanName) return;
+
+    setVariableMapping(prev => ({
+      ...prev,
+      [number]: cleanName,
+    }));
+
+    // Replace all instances of {{number}} in message with {{cleanName}}
+    const regex = new RegExp(`\\{\\{\\s*${number}\\s*\\}\\}`, 'g');
+    setForm(prev => ({
+      ...prev,
+      message: (prev.message || '').replace(regex, `{{${cleanName}}}`),
+    }));
+
+    showToast(`Variable defined as {{${cleanName}}}!`, 'success');
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -391,10 +682,125 @@ export default function CreateTemplatePage() {
         }));
         if (cta) {
           setActionMode('cta');
+          setButtons([{
+            id: 'btn_init',
+            type: 'URL',
+            text: ctaBtnTitle || 'Visit Website',
+            url: cta,
+          }]);
         }
       }
     }
   }, []);
+
+  // Interactive Buttons State (Meta WhatsApp Official Buttons)
+  const [buttons, setButtons] = useState([]);
+  const [buttonDropdownOpen, setButtonDropdownOpen] = useState(false);
+  const buttonDropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (buttonDropdownRef.current && !buttonDropdownRef.current.contains(event.target)) {
+        setButtonDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleAddButton = (type) => {
+    setButtonDropdownOpen(false);
+    if (buttons.length >= 10) {
+      showToast('Meta allows a maximum of 10 buttons per template.', 'warning');
+      return;
+    }
+
+    if (type === 'URL') {
+      const urlCount = buttons.filter(b => b.type === 'URL').length;
+      if (urlCount >= 2) {
+        showToast('Meta allows a maximum of 2 website URL buttons.', 'warning');
+        return;
+      }
+      setButtons(prev => [...prev, {
+        id: 'btn_' + Date.now(),
+        type: 'URL',
+        text: 'Visit website',
+        url: '',
+      }]);
+    } else if (type === 'PHONE_NUMBER') {
+      const phoneCount = buttons.filter(b => b.type === 'PHONE_NUMBER').length;
+      if (phoneCount >= 1) {
+        showToast('Meta allows a maximum of 1 phone call button.', 'warning');
+        return;
+      }
+      setButtons(prev => [...prev, {
+        id: 'btn_' + Date.now(),
+        type: 'PHONE_NUMBER',
+        text: 'Call Phone Number',
+        phone_number: '',
+      }]);
+    } else if (type === 'COPY_CODE') {
+      const copyCount = buttons.filter(b => b.type === 'COPY_CODE').length;
+      if (copyCount >= 1) {
+        showToast('Meta allows a maximum of 1 copy offer code button.', 'warning');
+        return;
+      }
+      setButtons(prev => [...prev, {
+        id: 'btn_' + Date.now(),
+        type: 'COPY_CODE',
+        text: 'Copy offer code',
+        code: 'SAVE20',
+      }]);
+    } else if (type === 'VOICE_CALL') {
+      const voiceCount = buttons.filter(b => b.type === 'VOICE_CALL').length;
+      if (voiceCount >= 1) {
+        showToast('Meta allows a maximum of 1 Call on WhatsApp button.', 'warning');
+        return;
+      }
+      setButtons(prev => [...prev, {
+        id: 'btn_' + Date.now(),
+        type: 'VOICE_CALL',
+        text: 'Call on WhatsApp',
+      }]);
+    } else if (type === 'CONTACT_INFO') {
+      setButtons(prev => [...prev, {
+        id: 'btn_' + Date.now(),
+        type: 'CONTACT_INFO',
+        text: 'Share contact info',
+      }]);
+    } else {
+      // QUICK_REPLY (Custom)
+      setButtons(prev => [...prev, {
+        id: 'btn_' + Date.now(),
+        type: 'QUICK_REPLY',
+        text: '',
+      }]);
+    }
+  };
+
+  const handleUpdateBtn = (index, field, value) => {
+    setButtons(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const handleDeleteBtn = (index) => {
+    setButtons(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleMoveBtn = (index, direction) => {
+    setButtons(prev => {
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= prev.length) return prev;
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[newIndex];
+      copy[newIndex] = temp;
+      return copy;
+    });
+  };
 
   const isAuth = form.category === 'AUTHENTICATION';
 
@@ -435,7 +841,17 @@ export default function CreateTemplatePage() {
       } else {
         templates = res?.templates || res?.data?.templates || [];
       }
-      setGeneratedTemplates(templates);
+      const defaultAiMapping = { '1': 'customer_name', '2': 'plan_name', '3': 'amount', '4': 'product_name' };
+      const formatted = (templates || []).map(t => {
+        let rawText = typeof t === 'string' ? t : (t?.text || '');
+        rawText = String(rawText).replace(/(?<!\{)\{([a-zA-Z0-9_]+)\}(?!\})/g, (_, v) => '{{' + v + '}}');
+        const namedText = convertNumberedToNamedText(rawText, defaultAiMapping);
+        return {
+          ...(typeof t === 'object' && t !== null ? t : {}),
+          text: namedText
+        };
+      });
+      setGeneratedTemplates(formatted);
     } catch (err) {
       console.warn('[Template Generator Handler]:', err?.message || err);
       const errStr = String(err?.message || err?.data?.detail || err?.data?.message || err).toLowerCase();
@@ -481,17 +897,101 @@ export default function CreateTemplatePage() {
 
     setIsSubmitting(true);
     try {
+      // Validate interactive buttons
+      if (!isAuth && buttons.length > 0) {
+        for (let i = 0; i < buttons.length; i++) {
+          const btn = buttons[i];
+          if (btn.type !== 'COPY_CODE' && (!btn.text || !btn.text.trim())) {
+            showToast(`Button #${i + 1} text is required`, 'warning');
+            setIsSubmitting(false);
+            return;
+          }
+          if (btn.type === 'URL' && (!btn.url || !btn.url.trim())) {
+            showToast(`Button #${i + 1} website URL is required`, 'warning');
+            setIsSubmitting(false);
+            return;
+          }
+          if (btn.type === 'PHONE_NUMBER' && (!btn.phone_number || !btn.phone_number.trim())) {
+            showToast(`Button #${i + 1} phone number is required`, 'warning');
+            setIsSubmitting(false);
+            return;
+          }
+          if (btn.type === 'COPY_CODE' && (!btn.code || !btn.code.trim())) {
+            showToast(`Button #${i + 1} offer code is required`, 'warning');
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
+      // Prepare buttons payload
+      const preparedButtons = (!isAuth && buttons.length > 0)
+        ? buttons.map(b => {
+            if (b.type === 'URL') {
+              let cleanUrl = (b.url || '').trim();
+              if (cleanUrl && !cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+                cleanUrl = `https://${cleanUrl}`;
+              }
+              return {
+                type: 'URL',
+                text: (b.text || 'Visit website').trim().slice(0, 25),
+                url: cleanUrl,
+              };
+            }
+            if (b.type === 'PHONE_NUMBER') {
+              return {
+                type: 'PHONE_NUMBER',
+                text: (b.text || 'Call Phone Number').trim().slice(0, 25),
+                phone_number: (b.phone_number || '').trim(),
+              };
+            }
+            if (b.type === 'COPY_CODE') {
+              return {
+                type: 'COPY_CODE',
+                example: (b.code || 'SAVE20').trim().slice(0, 15),
+              };
+            }
+            if (b.type === 'VOICE_CALL') {
+              return {
+                type: 'VOICE_CALL',
+                text: (b.text || 'Call on WhatsApp').trim().slice(0, 25),
+              };
+            }
+            if (b.type === 'CONTACT_INFO') {
+              return {
+                type: 'CONTACT_INFO',
+                text: (b.text || 'Share contact info').trim().slice(0, 25),
+              };
+            }
+            return {
+              type: 'QUICK_REPLY',
+              text: (b.text || 'Reply').trim().slice(0, 25),
+            };
+          })
+        : [];
+
+      const firstUrl = preparedButtons.find(b => b.type === 'URL');
+      const ctaVal = firstUrl ? firstUrl.url : form.cta;
+      const ctaTitleVal = firstUrl ? firstUrl.text : form.ctaBtnTitle;
+
+      // Map meaningful variables to WhatsApp sequential numbers:
+      // e.g. {{customer_name}} → {{1}}, {{plan_name}} → {{2}}, {{amount}} → {{3}}
+      const { numberedText, mapping } = buildWhatsAppVariableMapping(form.message, variableMapping);
+
       let payload;
 
       if (form.mediaFile) {
         const fd = new FormData();
         fd.append('name', form.name);
         fd.append('type', form.type);
-        fd.append('message', form.message);
+        fd.append('message', numberedText);
+        fd.append('named_content', form.message);
+        fd.append('variable_mapping', JSON.stringify(mapping));
         fd.append('header', form.header);
         fd.append('footer', form.footer);
-        fd.append('cta', form.cta);
-        fd.append('cta_btn_title', form.ctaBtnTitle);
+        fd.append('cta', ctaVal || '');
+        fd.append('cta_btn_title', ctaTitleVal || '');
+        fd.append('buttons', JSON.stringify(preparedButtons));
         fd.append('category', form.category);
         fd.append('language', form.language);
         fd.append('workspace_id', workspaceId);
@@ -501,11 +1001,14 @@ export default function CreateTemplatePage() {
         payload = {
           name: form.name,
           type: form.type,
-          message: form.message,
+          message: numberedText,
+          named_content: form.message,
+          variable_mapping: mapping,
           header: form.header,
           footer: form.footer,
-          cta: form.cta,
-          cta_btn_title: form.ctaBtnTitle,
+          cta: ctaVal || null,
+          cta_btn_title: ctaTitleVal || null,
+          buttons: preparedButtons,
           category: form.category,
           language: form.language,
           workspace_id: workspaceId,
@@ -513,6 +1016,7 @@ export default function CreateTemplatePage() {
       }
 
       await api.post('/templates/create', payload);
+      showToast('Template submitted successfully for Meta approval!', 'success');
       window.location.href = '/user/admin/templates';
     } catch (err) {
       console.error(err);
@@ -554,16 +1058,6 @@ export default function CreateTemplatePage() {
     setForm(prev => ({ ...prev, mediaFile: null, mediaPreviewUrl: '', mediaName: '', mediaSize: 0 }));
   };
 
-  const insertVar = (v) => setForm({ ...form, message: form.message + v });
-
-  const sampleVars = [
-    { key: '{{1}}', label: 'Customer Name' },
-    { key: '{{2}}', label: 'First Product Name' },
-    { key: '{{3}}', label: 'Remaining Product Count' },
-    { key: '{{4}}', label: 'Checkout Link' },
-    { key: '{{5}}', label: 'Coupon Code' },
-  ];
-
   return (
     <div className={`${poppins.className} flex h-screen bg-[#05010D] text-white overflow-hidden`} style={{ fontFamily: "'Poppins', sans-serif" }}>
 
@@ -587,7 +1081,17 @@ export default function CreateTemplatePage() {
             <CatItem iconKey="template" label="Utility"        active={form.category === 'UTILITY'}
               onClick={() => { setForm({ ...form, category: 'UTILITY' }); setSidebarOpen(false); }} />
             <CatItem iconKey="template" label="Authentication" active={form.category === 'AUTHENTICATION'}
-              onClick={() => { setForm({ ...form, category: 'AUTHENTICATION' }); setSidebarOpen(false); }} />
+              onClick={() => {
+                setForm(prev => ({
+                  ...prev,
+                  category: 'AUTHENTICATION',
+                  message: prev.message && prev.message.includes('{{')
+                    ? prev.message
+                    : '{{otp_code}} is your verification code. For your security, do not share this code.',
+                  ctaBtnTitle: prev.ctaBtnTitle && prev.ctaBtnTitle !== 'Buy Now' ? prev.ctaBtnTitle : 'Copy Code',
+                }));
+                setSidebarOpen(false);
+              }} />
           </div>
           <div className="pt-4 pb-1">
             <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Template Type</p>
@@ -722,11 +1226,23 @@ export default function CreateTemplatePage() {
                     <div className="mt-5 space-y-3">
                       {generatedTemplates.map((tpl, i) => (
                         <div key={i} className="bg-[#0D021A] border border-[#24113A] rounded-2xl p-4">
-                          <p className="text-sm text-[#B7B3C7] whitespace-pre-line mb-3">{tpl.text}</p>
+                          <p className="text-sm text-[#B7B3C7] whitespace-pre-line mb-3 leading-relaxed">
+                            {renderFormattedAiText(tpl.text)}
+                          </p>
                           <button
-                            onClick={() => setForm({ ...form, message: tpl.text })}
+                            type="button"
+                            onClick={() => {
+                              const defaultAiMapping = { '1': 'customer_name', '2': 'plan_name', '3': 'amount', '4': 'product_name' };
+                              let raw = tpl.text || '';
+                              raw = String(raw).replace(/(?<!\{)\{([a-zA-Z0-9_]+)\}(?!\})/g, (_, v) => '{{' + v + '}}');
+                              const converted = convertNumberedToNamedText(raw, defaultAiMapping);
+                              const { mapping } = buildWhatsAppVariableMapping(converted);
+                              setVariableMapping(prev => ({ ...defaultAiMapping, ...mapping, ...prev }));
+                              setForm(prev => ({ ...prev, message: converted }));
+                              showToast('AI Template applied with dynamic variables!', 'info');
+                            }}
                             className="w-full bg-[#814AC8]/20 border border-[#814AC8]/30 text-[#c490e8]
-                              py-1.5 rounded-xl text-sm hover:bg-[#814AC8]/30 transition-all duration-200"
+                              py-2 rounded-xl text-sm hover:bg-[#814AC8]/30 transition-all duration-200 cursor-pointer font-medium"
                           >
                             Use this
                           </button>
@@ -822,39 +1338,44 @@ export default function CreateTemplatePage() {
 
               {/* Message Body */}
               <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">Message Content</p>
-                <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-2 sm:mb-3 leading-relaxed">
-                  Use text formatting - *bold*, _italic_ &amp; ~strikethrough~<br />
-                  Your message content. Upto 1024 characters are allowed.<br />
-                  {'e.g – Hello {{1}}, your code will expire in {{2}} mins.'}
-                </p>
-                <div className="relative">
+                <div className="flex items-start justify-between gap-3 mb-2 flex-wrap">
+                  <div>
+                    <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">Message Content</p>
+                    <p className="text-white/60 text-[11px] sm:text-xs font-normal leading-relaxed">
+                      Use text formatting - *bold*, _italic_ &amp; ~strikethrough~<br />
+                      Personalize with meaningful variables like <code className="text-[#c490e8] font-mono">{"{{customer_name}}"}</code>, <code className="text-[#c490e8] font-mono">{"{{plan_name}}"}</code>, <code className="text-[#c490e8] font-mono">{"{{amount}}"}</code>.<br />
+                  
+                    </p>
+                  </div>
+                  {/* Variable Picker Button */}
+                  <VariablePicker onInsertVariable={handleInsertVariable} />
+                </div>
+
+                <div className="relative mt-3">
                   <textarea
+                    ref={messageTextareaRef}
                     rows={5}
-                    placeholder="Hi {{1}}..."
+                    placeholder="Hi {{customer_name}}, your {{plan_name}} plan is ready. Amount: {{amount}}"
                     value={form.message}
-                    onChange={(e) => setForm({ ...form, message: e.target.value })}
+                    onChange={handleMessageChange}
                     className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-normal
                       text-white placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]
-                      focus:ring-2 focus:ring-[#814AC8]/20 transition-all duration-300 resize-none"
+                      focus:ring-2 focus:ring-[#814AC8]/20 transition-all duration-300 resize-none font-sans"
                   />
                   <span className="absolute bottom-2.5 right-3 text-[10px] sm:text-[11px] text-[#4A4359]">
                     {form.message.length} / 1024
                   </span>
                 </div>
-                <div className="flex gap-1.5 sm:gap-2 mt-2.5 sm:mt-3 flex-wrap">
-                  {['{{1}}', '{{2}}', '{{3}}', '{{4}}', '{{5}}'].map((v) => (
-                    <button
-                      key={v}
-                      onClick={() => insertVar(v)}
-                      className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full border border-[#814AC8]/40 text-[#814AC8] text-[11px] sm:text-xs font-normal
-                        hover:bg-[#814AC8]/20 hover:border-[#814AC8] hover:shadow-[0_0_10px_rgba(129,74,200,0.2)]
-                        transition-all duration-200"
-                    >
-                      {v}
-                    </button>
-                  ))}
-                </div>
+
+                {/* Variable Mapping & Status Card */}
+                <VariableMappingCard
+                  variableList={mappingResult.variableList}
+                  unmappedNumberedVars={unmappedNumberedVars}
+                  onOpenDefineModal={(num) => {
+                    setActiveDefineNumber(num);
+                    setDefineModalOpen(true);
+                  }}
+                />
               </div>
 
               {/* Footer */}
@@ -868,72 +1389,234 @@ export default function CreateTemplatePage() {
                 />
               </div>
 
-              {/* Interactive Actions */}
+              {/* Buttons (Meta WhatsApp Official) */}
               {!isAuth && (
                 <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                  <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">Interactive Actions</p>
-                  <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-3 sm:mb-4 leading-relaxed">
-                    In addition to your message, you can send actions with your message. Maximum 25 characters
-                    are allowed in CTA button title &amp; Quick Replies.
-                  </p>
-                  <div className="flex gap-1.5 sm:gap-2 mb-4 sm:mb-5 flex-wrap">
-                    {[
-                      { key: 'none',  label: 'None' },
-                      { key: 'cta',   label: 'Quick to Actions' },
-                      { key: 'quick', label: 'Quick Replies' },
-                    ].map(({ key, label }) => (
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-2">
+                    <div>
+                      <h3 className="text-white text-xs sm:text-sm font-semibold flex items-center gap-2">
+                        <span>Buttons</span>
+                        <span className="text-white/40 font-normal">• Optional</span>
+                      </h3>
+                      <p className="text-white/60 text-[11px] sm:text-xs font-normal mt-1 leading-relaxed max-w-xl">
+                        Create buttons that let customers respond to your message or take action. You can add up to ten buttons. If you add more than three buttons, they will appear in a list.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 relative" ref={buttonDropdownRef}>
+                      <span className="text-[11px] text-white/50 bg-[#140a26] border border-[#2c144d] px-2.5 py-1.5 rounded-xl font-mono">
+                        {buttons.length} / 10
+                      </span>
+
+                      {/* + Add button Dropdown Trigger */}
                       <button
-                        key={key}
-                        onClick={() => setActionMode(key)}
-                        className={`px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-normal sm:font-medium border transition-all duration-200
-                          ${actionMode === key
-                            ? 'border-[#814AC8] text-[#c490e8] bg-[#814AC8]/10 shadow-[0_0_12px_rgba(129,74,200,0.2)]'
-                            : 'border-[#24113A] text-[#B7B3C7] hover:border-[#814AC8]/40 hover:text-white'
-                          }`}
+                        type="button"
+                        onClick={() => setButtonDropdownOpen(prev => !prev)}
+                        disabled={buttons.length >= 10}
+                        className="flex items-center gap-2 px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-[#1A0B2E] border border-[#3D1F6B] text-white hover:bg-[#251042] hover:border-[#814AC8] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm cursor-pointer"
                       >
-                        {label}
+                        <span className="text-base leading-none font-light">+</span>
+                        <span>Add button</span>
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          className={`transition-transform duration-200 ${buttonDropdownOpen ? 'rotate-180' : ''}`}
+                        >
+                          <path d="M6 9l6 6 6-6"/>
+                        </svg>
                       </button>
-                    ))}
+
+                      {/* Dropdown Menu */}
+                      {buttonDropdownOpen && (
+                        <div className="absolute right-0 top-full mt-2 w-64 bg-[#110620] border border-[#3D1F6B] rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] p-1.5 z-50">
+                          {buttonOptions.map((opt) => (
+                            <button
+                              key={opt.type}
+                              type="button"
+                              onClick={() => handleAddButton(opt.type)}
+                              className="w-full flex items-start gap-2.5 p-2 rounded-xl hover:bg-[#1E0D38] text-left transition-colors group cursor-pointer"
+                            >
+                              <div className="mt-0.5 p-1.5 rounded-lg bg-[#180a2c] border border-[#2e1352] text-[#c490e8] group-hover:text-white group-hover:border-[#814AC8]">
+                                {opt.icon}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className="text-xs font-medium text-white group-hover:text-[#e0b0ff] block">
+                                  {opt.label}
+                                </span>
+                                <span className="text-[10px] text-white/50 block leading-tight mt-0.5">
+                                  {opt.description}
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {actionMode === 'cta' && (
-                    <div className="bg-[#0D021A] border border-[#24113A] rounded-2xl p-3.5 sm:p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <p className="text-xs sm:text-sm font-normal sm:font-medium text-white">Call to Action</p>
-                        <span className="text-[10px] text-green-400 font-normal">20 Characters left</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-1">Action Type</p>
-                          <input defaultValue="URL"
-                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm font-normal
-                              text-white focus:outline-none focus:border-[#814AC8]/60" />
-                        </div>
-                        <div>
-                          <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-1">Button Title</p>
-                          <input
-                            value={form.ctaBtnTitle}
-                            onChange={(e) => setForm({ ...form, ctaBtnTitle: e.target.value })}
-                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm font-normal
-                              text-white focus:outline-none focus:border-[#814AC8]/60"
-                          />
-                        </div>
-                        <div>
-                          <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-1">Website URL</p>
-                          <input
-                            placeholder="URL"
-                            value={form.cta}
-                            onChange={(e) => setForm({ ...form, cta: e.target.value })}
-                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm font-normal
-                              text-white placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]/60"
-                          />
-                        </div>
-                      </div>
-                      <button className="w-full mt-3 py-2.5 rounded-xl border border-[#24113A] text-[#B7B3C7]
-                        text-xs sm:text-sm font-normal hover:border-[#814AC8]/40 hover:text-white transition-all duration-200">
-                        + Add Another Action
-                      </button>
+
+                  {/* Buttons List */}
+                  {buttons.length > 0 ? (
+                    <div className="space-y-3 mt-4">
+                      {buttons.map((btn, index) => {
+                        const opt = buttonOptions.find(o => o.type === btn.type) || buttonOptions[0];
+                        return (
+                          <div
+                            key={btn.id || index}
+                            className="bg-[#0B0613] border border-[#24113A] hover:border-[#3D1F6B] rounded-2xl p-3.5 sm:p-4 transition-all"
+                          >
+                            {/* Card Header */}
+                            <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-[#1c0d30]">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-mono text-white/40 font-semibold">
+                                  #{index + 1}
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border bg-[#1A0B2E] border-[#3D1F6B] text-[#c490e8]">
+                                  {opt.icon}
+                                  <span>{opt.label}</span>
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                {index > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveBtn(index, -1)}
+                                    className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/5 text-xs cursor-pointer"
+                                    title="Move up"
+                                  >
+                                    ▲
+                                  </button>
+                                )}
+                                {index < buttons.length - 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveBtn(index, 1)}
+                                    className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/5 text-xs cursor-pointer"
+                                    title="Move down"
+                                  >
+                                    ▼
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteBtn(index)}
+                                  className="p-1.5 rounded-lg text-rose-400/70 hover:text-rose-400 hover:bg-rose-500/10 ml-1 transition-colors cursor-pointer"
+                                  title="Remove button"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Card Body */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {/* Button Title */}
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="text-white/70 text-[11px] sm:text-xs font-normal">Button text</label>
+                                  <span className="text-[10px] text-white/40">{(btn.text || '').length} / 25</span>
+                                </div>
+                                <input
+                                  type="text"
+                                  maxLength={25}
+                                  value={btn.text}
+                                  onChange={(e) => handleUpdateBtn(index, 'text', e.target.value)}
+                                  placeholder={opt.label}
+                                  className="w-full bg-[#0E071A] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#814AC8]"
+                                />
+                              </div>
+
+                              {/* Website URL */}
+                              {btn.type === 'URL' && (
+                                <div>
+                                  <label className="block text-white/70 text-[11px] sm:text-xs font-normal mb-1">Website URL</label>
+                                  <input
+                                    type="text"
+                                    value={btn.url || ''}
+                                    onChange={(e) => handleUpdateBtn(index, 'url', e.target.value)}
+                                    placeholder="https://example.com/shop"
+                                    className="w-full bg-[#0E071A] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#814AC8]"
+                                  />
+                                  <p className="text-[10px] text-white/40 mt-1">Supports variables like https://example.com/order/{"{{order_id}}"}</p>
+                                </div>
+                              )}
+
+                              {/* Phone Number */}
+                              {btn.type === 'PHONE_NUMBER' && (
+                                <div>
+                                  <label className="block text-white/70 text-[11px] sm:text-xs font-normal mb-1">Phone number with country code</label>
+                                  <input
+                                    type="text"
+                                    value={btn.phone_number || ''}
+                                    onChange={(e) => handleUpdateBtn(index, 'phone_number', e.target.value)}
+                                    placeholder="+919876543210"
+                                    className="w-full bg-[#0E071A] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#814AC8]"
+                                  />
+                                  <p className="text-[10px] text-white/40 mt-1">E.g. +91 98765 43210</p>
+                                </div>
+                              )}
+
+                              {/* Offer Code */}
+                              {btn.type === 'COPY_CODE' && (
+                                <div>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <label className="text-white/70 text-[11px] sm:text-xs font-normal">Offer / Discount Code</label>
+                                    <span className="text-[10px] text-white/40">{(btn.code || '').length} / 15</span>
+                                  </div>
+                                  <input
+                                    type="text"
+                                    maxLength={15}
+                                    value={btn.code || ''}
+                                    onChange={(e) => handleUpdateBtn(index, 'code', e.target.value.toUpperCase())}
+                                    placeholder="SAVE20"
+                                    className="w-full bg-[#0E071A] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm font-mono text-emerald-400 placeholder:text-white/30 focus:outline-none focus:border-[#814AC8]"
+                                  />
+                                  <p className="text-[10px] text-white/40 mt-1">Customers tap to copy code directly (max 15 chars)</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-4 p-4 rounded-2xl border border-dashed border-[#24113A] bg-[#0c0416] text-center">
+                      <p className="text-xs text-white/40">No buttons added yet. Click &quot;+ Add button&quot; to add interactive actions.</p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Interactive Actions for Authentication (OTP Copy Code Button) */}
+              {isAuth && (
+                <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-white text-xs sm:text-sm font-medium flex items-center gap-2">
+                      <Icon d={icons.sparkle} size={14} className="text-[#c490e8]" />
+                      <span>One-Tap OTP Button (Authentication)</span>
+                    </p>
+                    <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium">
+                      Copy Code
+                    </span>
+                  </div>
+                  <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-3 leading-relaxed">
+                    Meta automatically provides a high-converting one-tap Copy Code action button for authentication templates.
+                  </p>
+                  <div>
+                    <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-1">Button Title</p>
+                    <input
+                      value={form.ctaBtnTitle || 'Copy Code'}
+                      onChange={(e) => setForm({ ...form, ctaBtnTitle: e.target.value })}
+                      placeholder="Copy Code"
+                      className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm font-normal text-white focus:outline-none focus:border-[#814AC8]/60"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -956,51 +1639,158 @@ export default function CreateTemplatePage() {
 
               {/* Template Preview card */}
               <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_0_30px_rgba(168,85,247,0.08)]">
-                <h3 className="text-xs sm:text-base font-normal sm:font-semibold text-white mb-1">Template Preview</h3>
-                <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-3 sm:mb-4 leading-relaxed">
-                  Your template message preview. It will update as you fill in the values in the form.
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-xs sm:text-base font-normal sm:font-semibold text-white">Template Preview</h3>
+                </div>
+                <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-3 leading-relaxed">
+                  Preview your template with meaningful variables or live sample values.
                 </p>
-                <PhonePreview form={form} actionMode={actionMode} />
+
+                {/* View Mode Toggle: Named Variables vs Sample Values */}
+                <div className="flex items-center gap-1 p-1 mb-3 rounded-xl bg-[#0d041a] border border-[#24113A]">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode('named')}
+                    className={`flex-1 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                      previewMode === 'named'
+                        ? 'bg-[#814AC8] text-white shadow-sm'
+                        : 'text-white/60 hover:text-white'
+                    }`}
+                  >
+                    Variable Names
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode('samples')}
+                    className={`flex-1 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                      previewMode === 'samples'
+                        ? 'bg-[#814AC8] text-white shadow-sm'
+                        : 'text-white/60 hover:text-white'
+                    }`}
+                  >
+                    Sample Data
+                  </button>
+                </div>
+
+                <PhonePreview
+                  form={form}
+                  buttons={buttons}
+                  actionMode={actionMode}
+                  previewMode={previewMode}
+                  variableMapping={mappingResult.mapping}
+                />
               </div>
               {/* ↑ Template Preview card closes here */}
 
-              {/* Sample Values */}
+              {/* Quick Click-to-Insert Variables Palette */}
               <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                <h3 className="text-xs sm:text-base font-normal sm:font-semibold text-white mb-3 sm:mb-4">Sample Values</h3>
-                <div className="bg-[#0D021A] border border-[#24113A] rounded-2xl p-3">
-                  <p className="text-white text-[11px] sm:text-[13px] font-normal sm:font-medium mb-1">About Variables</p>
-                  <p className="text-white/60 text-[10px] sm:text-[12px] font-normal mb-2.5 sm:mb-3">
-                    {'Use {{1}}, {{2}}, etc. to personalize your message.'}
-                  </p>
-                  <div className="space-y-2">
-                    {sampleVars.map(({ key, label }) => (
-                      <div key={key} className="flex items-center justify-between border-b border-[#1A0B2E] pb-2">
-                        <span className="text-[#814AC8] text-[10px] sm:text-xs">{key}</span>
-                        <span className="text-[#B7B3C7] text-[10px] sm:text-xs font-normal">{label}</span>
-                      </div>
-                    ))}
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs sm:text-base font-medium text-white flex items-center gap-1.5">
+                    <span>Quick Variables</span>
+                  </h3>
+                  <span className="text-[10px] text-[#c490e8] bg-[#814AC8]/20 border border-[#814AC8]/30 px-2 py-0.5 rounded-full font-medium">
+                    Click to insert
+                  </span>
+                </div>
+                <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-3 leading-relaxed">
+                  Click any variable below to instantly add it to your message editor:
+                </p>
+
+                {/* Variable chips grouped by category */}
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-white/50 block mb-1.5">
+                      Contact
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { key: 'customer_name', label: 'First Name' },
+                        { key: 'last_name', label: 'Last Name' },
+                        { key: 'phone', label: 'Phone' },
+                        { key: 'email', label: 'Email' },
+                      ].map((v) => (
+                        <button
+                          key={v.key}
+                          type="button"
+                          onClick={() => handleInsertVariable(v.key)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-mono bg-[#140a26] hover:bg-[#814AC8]/30 text-[#c490e8] hover:text-white border border-[#2c144d] hover:border-[#814AC8] transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+                          title={`Insert {{${v.key}}}`}
+                        >
+                          <span className="text-white/40 text-[10px]">+</span>
+                          <span>{`{{${v.key}}}`}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-white/50 block mb-1.5">
+                      Custom &amp; Security
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { key: 'plan_name', label: 'Plan Name' },
+                        { key: 'amount', label: 'Amount' },
+                        { key: 'otp_code', label: 'OTP Code' },
+                        { key: 'product_name', label: 'Product Name' },
+                        { key: 'order_id', label: 'Order ID' },
+                        { key: 'company', label: 'Company' },
+                      ].map((v) => (
+                        <button
+                          key={v.key}
+                          type="button"
+                          onClick={() => handleInsertVariable(v.key)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-mono bg-[#140a26] hover:bg-[#814AC8]/30 text-[#c490e8] hover:text-white border border-[#2c144d] hover:border-[#814AC8] transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+                          title={`Insert {{${v.key}}}`}
+                        >
+                          <span className="text-white/40 text-[10px]">+</span>
+                          <span>{`{{${v.key}}}`}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Pro Tip */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 p-1.5 bg-[#814AC8]/20 rounded-lg">
-                    <Icon d={icons.tip} size={14} className="text-[#c490e8]" />
-                  </div>
-                  <div>
-                    <p className="text-white text-xs sm:text-sm font-normal sm:font-semibold mb-0.5 sm:mb-1">Pro Tip</p>
-                    <p className="text-white/60 text-[11px] sm:text-xs font-normal leading-relaxed">
-                      Maximize engagement by adding up to 20 actions. These will appear as button to your users.
+                {/* Active in Template summary */}
+                <div className="mt-4 pt-3 border-t border-[#1f0d36]">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-white/50 block mb-2">
+                    Active in Template ({mappingResult.variableList.length})
+                  </span>
+                  {mappingResult.variableList.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {mappingResult.variableList.map((v) => (
+                        <div
+                          key={v.key}
+                          className="flex items-center justify-between p-2 rounded-xl bg-[#0d021a] border border-[#24113A] text-xs font-mono"
+                        >
+                          <span className="text-emerald-400 font-semibold">{`{{${v.key}}}`}</span>
+                          <span className="text-white/50 text-[11px] font-sans truncate max-w-[120px]">
+                            {v.sample}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-white/40 italic">
+                      No variables added yet. Click any variable above to personalize.
                     </p>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Define Variable Modal (shown when {{1}} is typed or clicked) */}
+      <DefineVariableModal
+        isOpen={defineModalOpen}
+        variableNumber={activeDefineNumber}
+        onClose={() => setDefineModalOpen(false)}
+        onDefine={handleDefineVariable}
+        existingMapping={variableMapping}
+      />
+
       <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
     </div>
   );

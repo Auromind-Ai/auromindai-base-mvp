@@ -331,10 +331,26 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
                     seen = set()
                     ordered_indices = [x for x in expected_indices if not (x in seen or seen.add(x))]
 
+                    var_map = {}
+                    if getattr(template, "variable_mapping", None):
+                        try:
+                            import json
+                            var_map = json.loads(template.variable_mapping) if isinstance(template.variable_mapping, str) else (template.variable_mapping or {})
+                        except Exception:
+                            var_map = {}
+
                     for idx in ordered_indices:
-                        val = vars_dict.get(idx) or vars_dict.get(f"{{{{{idx}}}}}") or vars_dict.get(f"var_{idx}") or ""
+                        named_key = var_map.get(idx)
+                        val = (
+                            vars_dict.get(idx)
+                            or (vars_dict.get(named_key) if named_key else None)
+                            or (vars_dict.get(named_key.lower()) if named_key else None)
+                            or vars_dict.get(f"{{{{{idx}}}}}")
+                            or vars_dict.get(f"var_{idx}")
+                            or ""
+                        )
                         # Graceful fallback for {{1}} if name was mapped or available
-                        if not val and idx == "1":
+                        if not val and (idx == "1" or named_key in ("customer_name", "first_name", "name")):
                             val = recipient.recipient_name or vars_dict.get("name") or "Customer"
                         body_params.append({"type": "text", "text": str(val or "Customer")})
                 else:

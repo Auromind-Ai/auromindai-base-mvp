@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import { convertNumberedToNamedText, formatVariableLabel, getSampleValue } from '@/lib/variableUtils';
 
 
 
@@ -156,6 +157,27 @@ const SkeletonCard = () => (
 );
 
 /* ─
+   Template Card Helpers
+─ */
+function renderFormattedContent(text) {
+  if (!text) return null;
+  const parts = String(text).split(/(\{\{[a-zA-Z0-9_]+\}\})/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('{{') && part.endsWith('}}')) {
+      return (
+        <span
+          key={i}
+          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded bg-purple-500/15 text-purple-300 font-mono text-[11px] sm:text-[12px] border border-purple-500/30 font-medium align-baseline"
+        >
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
+}
+
+/* ─
    Template Card
 ─ */
 function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
@@ -163,6 +185,13 @@ function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
   const isList = viewMode === 'list';
   const ci = CARD_ICONS[idx % CARD_ICONS.length];
   const { Icon: CardIcon } = ci;
+
+  const displayContent = useMemo(() => {
+    if (tpl.named_content && !tpl.named_content.match(/\{\{\[?\d+\]?\}\}/)) {
+      return tpl.named_content;
+    }
+    return convertNumberedToNamedText(tpl.content || tpl.body || '', tpl.variable_mapping, tpl.category);
+  }, [tpl]);
 
   return (
     <div
@@ -209,7 +238,7 @@ function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
         <p className={`m-0 text-[13px] text-white/70 leading-relaxed w-full min-w-0 ${
           isList ? 'line-clamp-2 sm:truncate sm:block' : 'line-clamp-3'
         }`}>
-          {tpl.content}
+          {renderFormattedContent(displayContent)}
         </p>
       </div>
 
@@ -325,13 +354,13 @@ function PreviewModal({ tpl, onClose, onSubmit, onUse, onUpdateTemplate }) {
 
   const open = !!tpl;
 
-  const fmt = (msg = '') => {
-    const sampleValues = { 1: 'John', 2: 'ORD123', 3: '2 days', 4: '₹500' };
-    return msg.replace(/\{\{(\d+)\}\}/g, (_, num) => {
-      const value = sampleValues[num] || `Value${num}`;
-      return `{{${num}}}`;
-    });
-  };
+  const displayContent = useMemo(() => {
+    if (!tpl) return '';
+    if (tpl.named_content && !tpl.named_content.match(/\{\{\[?\d+\]?\}\}/)) {
+      return tpl.named_content;
+    }
+    return convertNumberedToNamedText(tpl.content || tpl.body || '', tpl.variable_mapping, tpl.category);
+  }, [tpl]);
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -533,18 +562,37 @@ function PreviewModal({ tpl, onClose, onSubmit, onUse, onUpdateTemplate }) {
             )}
 
             <p className="m-0 text-sm text-[#e8e8ff] leading-relaxed whitespace-pre-wrap">
-              {fmt(tpl?.content) || 'No content available.'}
+              {renderFormattedContent(displayContent) || 'No content available.'}
             </p>
             {tpl.footer && (
               <div className="text-white/45 text-[11px] mt-1">
                 {tpl.footer}
               </div>
             )}
-            {tpl.cta && (
+            {tpl.buttons && tpl.buttons.length > 0 ? (
+              <div className="border-t border-white/10 pt-2 mt-1 flex flex-col gap-1">
+                {tpl.buttons.slice(0, 3).map((b, bIdx) => (
+                  <div key={bIdx} className="text-center text-[#4da3ff] text-xs font-medium py-1 px-2 rounded-lg bg-white/5 flex items-center justify-center gap-1.5 truncate">
+                    {b.type === 'URL' && '🔗'}
+                    {b.type === 'PHONE_NUMBER' && '📞'}
+                    {b.type === 'VOICE_CALL' && '💬'}
+                    {b.type === 'COPY_CODE' && '📋'}
+                    {(b.type === 'QUICK_REPLY' || b.type === 'CUSTOM') && '↩️'}
+                    {b.type === 'CONTACT_INFO' && '👤'}
+                    <span className="truncate">{b.type === 'COPY_CODE' ? (b.example ? `Copy: ${b.example}` : 'Copy Code') : (b.text || 'Action')}</span>
+                  </div>
+                ))}
+                {tpl.buttons.length > 3 && (
+                  <div className="text-center text-white/50 text-[10px] font-medium">
+                    + {tpl.buttons.length - 3} more buttons
+                  </div>
+                )}
+              </div>
+            ) : tpl.cta ? (
               <div className="border-t border-white/10 pt-2 mt-1 text-center text-[#4da3ff] text-xs font-semibold">
                 🔗 {tpl.cta_btn_title || 'Open'}
               </div>
-            )}
+            ) : null}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -634,7 +682,7 @@ function UseTemplateModal({ tpl, onClose, onUpdateTemplate }) {
         tpl.media_url || (tpl.header && (tpl.header.startsWith('http') || tpl.header.startsWith('data:')) ? tpl.header : '')
       );
       if (tpl.content) {
-        const regex = /\{\{(\d+)\}\}/g;
+        const regex = /\{\{\[?(\d+)\]?\}\}/g;
         let match;
         const initialVars = {};
         while ((match = regex.exec(tpl.content)) !== null) {
@@ -694,8 +742,20 @@ function UseTemplateModal({ tpl, onClose, onUpdateTemplate }) {
 
   const getPreviewText = () => {
     if (!tpl || !tpl.content) return '';
-    return tpl.content.replace(/\{\{(\d+)\}\}/g, (_, num) => {
-      return variables[num] || `{{${num}}}`;
+    let varMap = {};
+    if (tpl?.variable_mapping) {
+      try {
+        varMap = typeof tpl.variable_mapping === 'string'
+          ? JSON.parse(tpl.variable_mapping)
+          : (tpl.variable_mapping || {});
+      } catch (e) {
+        varMap = {};
+      }
+    }
+    return tpl.content.replace(/\{\{\[?(\d+)\]?\}\}/g, (_, num) => {
+      if (variables[num]) return variables[num];
+      const mappedName = varMap[num];
+      return mappedName ? `{{${mappedName}}}` : `{{${num}}}`;
     });
   };
 
@@ -800,20 +860,43 @@ function UseTemplateModal({ tpl, onClose, onUpdateTemplate }) {
 
           {varKeys.length > 0 ? (
             <div className="flex flex-col gap-3.5">
-              {varKeys.map(key => (
-                <div key={key} className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-purple-300">
-                    Variable {"{{"}{key}{"}}"}
-                  </label>
-                  <input
-                    type="text"
-                    value={variables[key]}
-                    onChange={e => handleInputChange(key, e.target.value)}
-                    placeholder={`Enter value for {{${key}}}`}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#2a1f4a] bg-[#140D1F] text-white text-sm outline-none focus:border-[#814AC8] transition-colors"
-                  />
-                </div>
-              ))}
+              {varKeys.map(key => {
+                let varMap = {};
+                if (tpl?.variable_mapping) {
+                  try {
+                    varMap = typeof tpl.variable_mapping === 'string'
+                      ? JSON.parse(tpl.variable_mapping)
+                      : (tpl.variable_mapping || {});
+                  } catch (e) {
+                    varMap = {};
+                  }
+                }
+                const mappedName = varMap[key];
+                const displayLabel = mappedName ? formatVariableLabel(mappedName) : `Variable {{${key}}}`;
+                const placeholder = mappedName ? `e.g. ${getSampleValue(mappedName)}` : `Enter value for {{${key}}}`;
+
+                return (
+                  <div key={key} className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-purple-300">
+                        {displayLabel}
+                      </span>
+                      {mappedName && (
+                        <span className="text-[10px] text-emerald-400 font-mono">
+                          {`{{${mappedName}}}`}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={variables[key]}
+                      onChange={e => handleInputChange(key, e.target.value)}
+                      placeholder={placeholder}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#2a1f4a] bg-[#140D1F] text-white text-sm outline-none focus:border-[#814AC8] transition-colors"
+                    />
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <p className="text-xs text-gray-400 m-0">
@@ -1023,7 +1106,8 @@ export default function TemplatesPage() {
       if (search) {
         d = d.filter(t =>
           (t.name || '').toLowerCase().includes(search.toLowerCase()) ||
-          (t.content || t.body || '').toLowerCase().includes(search.toLowerCase())
+          (t.content || t.body || '').toLowerCase().includes(search.toLowerCase()) ||
+          (t.named_content || '').toLowerCase().includes(search.toLowerCase())
         );
       }
       return d;
@@ -1049,7 +1133,8 @@ export default function TemplatesPage() {
       if (search) {
         d = d.filter(t =>
           (t.name || '').toLowerCase().includes(search.toLowerCase()) ||
-          (t.content || t.body || '').toLowerCase().includes(search.toLowerCase())
+          (t.content || t.body || '').toLowerCase().includes(search.toLowerCase()) ||
+          (t.named_content || '').toLowerCase().includes(search.toLowerCase())
         );
       }
       return d;
