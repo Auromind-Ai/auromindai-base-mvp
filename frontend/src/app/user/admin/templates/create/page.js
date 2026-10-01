@@ -1217,7 +1217,7 @@ export default function CreateTemplatePage() {
                       ) : (
                         <>
                           <Icon d={icons.sparkle} size={14} />
-                          ✨ Generate (10 WCC)
+                          ✨ Generate
                         </>
                       )}
                     </button>
