@@ -489,10 +489,12 @@ export default function FlowConversationPreviewModal({
                                 />
                               )}
                               {msg.messageType === 'video' && (
-                                <div className="bg-black/60 h-28 flex items-center justify-center text-zinc-400 text-xs font-bold uppercase tracking-widest gap-2">
-                                  <Play size={16} className="text-emerald-400" />
-                                  <span>Video Preview</span>
-                                </div>
+                                <video
+                                  src={msg.mediaUrl}
+                                  controls
+                                  className="w-full max-h-48 object-cover"
+                                  playsInline
+                                />
                               )}
                               {msg.messageType === 'document' && (
                                 <div className="bg-white/5 px-3 py-2.5 flex items-center gap-2 text-zinc-300 text-xs font-bold truncate">
