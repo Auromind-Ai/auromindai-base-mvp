@@ -1097,7 +1097,17 @@ export default function AutomationCanvas() {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { setUploadError("File size must be less than 10MB"); return; }
     const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'video/mp4', 'application/pdf'];
-    if (!allowedTypes.includes(file.type)) { setUploadError("Only JPG, PNG, MP4, and PDF files are allowed"); return; }
+    const isAllowed =
+      file.type.startsWith('image/') ||
+      file.type.startsWith('video/') ||
+      file.type === 'application/pdf' ||
+      /\.(jpe?g|png|webp|gif|mp4|mov|webm|ogg|mkv|pdf)$/i.test(file.name);
+
+    if (!isAllowed) {
+      setUploadError("Only JPG, PNG, MP4, WebM, MOV, and PDF files are allowed");
+      return;
+    }
+
     try {
       setUploading(true);
       setUploadError(null);
@@ -1106,17 +1116,26 @@ export default function AutomationCanvas() {
         const reader = new FileReader();
         reader.onload = (e) => setPreviewUrl(e.target.result);
         reader.readAsDataURL(file);
-      } else { setPreviewUrl(null); }
+      } else if (file.type.startsWith('video/') || /\.(mp4|mov|webm|ogg|mkv)$/i.test(file.name)) {
+        const objectUrl = URL.createObjectURL(file);
+        setPreviewUrl(objectUrl);
+      } else {
+        setPreviewUrl(null);
+      }
+
       const data = await api.uploadFile(file);
       setUploadProgress(100);
       let detectedType = "document";
-      if (file.type.startsWith("image")) detectedType = "image";
-      else if (file.type.startsWith("video")) detectedType = "video";
+      if (file.type.startsWith("image") || /\.(jpe?g|png|webp|gif)$/i.test(file.name)) detectedType = "image";
+      else if (file.type.startsWith("video") || /\.(mp4|mov|webm|ogg|mkv)$/i.test(file.name)) detectedType = "video";
       updateNodeConfig(activeNodeId, { media_url: data.url, message_type: detectedType });
     } catch (err) {
       setUploadError(err.message || "Upload failed");
       setPreviewUrl(null);
-    } finally { setUploading(false); setUploadProgress(0); }
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   const handleDragOver = (e) => { e.preventDefault(); setIsDragOver(true); };

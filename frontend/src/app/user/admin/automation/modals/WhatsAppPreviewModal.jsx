@@ -69,7 +69,12 @@ export default function WhatsAppPreviewModal({
                           <img src={previewNode.config.media_url} alt="preview" className="w-full object-cover max-h-36 sm:max-h-44 md:max-h-48" onError={(e) => { e.target.style.display='none'; }} />
                         )}
                         {previewNode.config.message_type === 'video' && (
-                          <div className="bg-black/40 h-24 sm:h-28 md:h-32 flex items-center justify-center text-zinc-400 text-[11px] sm:text-xs font-bold uppercase tracking-widest">Video Preview</div>
+                          <video
+                            src={previewNode.config.media_url}
+                            controls
+                            className="w-full max-h-48 object-cover"
+                            playsInline
+                          />
                         )}
                         {previewNode.config.message_type === 'document' && (
                           <div className="bg-white/5 px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 flex items-center gap-2.5 sm:gap-3 text-zinc-300 text-xs font-bold truncate">📄 {previewNode.config.media_url.split('/').pop()}</div>
