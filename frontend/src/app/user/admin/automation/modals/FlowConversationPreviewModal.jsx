@@ -101,6 +101,13 @@ export default function FlowConversationPreviewModal({
     return null;
   }, [flow]);
 
+  const processNodeRef = useRef(null);
+  const msgCounter = useRef(0);
+  const getNextId = useCallback((prefix = 'msg') => {
+    msgCounter.current += 1;
+    return `${prefix}-${msgCounter.current}`;
+  }, []);
+
   // Execute step lifecycle for node
   const processNode = useCallback((node, currentVars) => {
     if (!node) {
@@ -117,7 +124,7 @@ export default function FlowConversationPreviewModal({
       setTimeout(() => {
         setIsTyping(false);
         const next = getNextNode(node, null, currentVars);
-        if (next) processNode(next, currentVars);
+        if (next && processNodeRef.current) processNodeRef.current(next, currentVars);
         else setIsCompleted(true);
       }, 450);
       return;
@@ -135,7 +142,7 @@ export default function FlowConversationPreviewModal({
         const buttons = getNodeButtons(node);
 
         const msgObj = {
-          id: `msg-${Date.now()}-${Math.random()}`,
+          id: getNextId('msg'),
           sender: 'bot',
           nodeId: node.id,
           text: interpolatedText,
@@ -156,7 +163,7 @@ export default function FlowConversationPreviewModal({
           const delayMs = config.delay_amount ? 500 : 300;
           setTimeout(() => {
             const next = getNextNode(node, null, currentVars);
-            if (next) processNode(next, currentVars);
+            if (next && processNodeRef.current) processNodeRef.current(next, currentVars);
             else setIsCompleted(true);
           }, delayMs);
         }
@@ -172,7 +179,7 @@ export default function FlowConversationPreviewModal({
         const interpolatedQuestion = interpolate(config.question || config.text || 'Please enter your response:', currentVars);
         
         const msgObj = {
-          id: `msg-${Date.now()}-${Math.random()}`,
+          id: getNextId('msg'),
           sender: 'bot',
           nodeId: node.id,
           text: interpolatedQuestion,
@@ -191,8 +198,8 @@ export default function FlowConversationPreviewModal({
     // 4. DECISION / CONDITION NODE
     if (actionType === 'condition') {
       const next = getNextNode(node, null, currentVars);
-      if (next) {
-        processNode(next, currentVars);
+      if (next && processNodeRef.current) {
+        processNodeRef.current(next, currentVars);
       } else {
         setIsCompleted(true);
       }
@@ -207,7 +214,7 @@ export default function FlowConversationPreviewModal({
         const agentLabel = config.agent_type ? `${config.agent_type.toUpperCase()} AI` : 'AI';
         
         const msgObj = {
-          id: `msg-${Date.now()}-${Math.random()}`,
+          id: getNextId('msg'),
           sender: 'system',
           nodeId: node.id,
           type: 'ai_preview',
@@ -219,7 +226,7 @@ export default function FlowConversationPreviewModal({
 
         setTimeout(() => {
           const next = getNextNode(node, null, currentVars);
-          if (next) processNode(next, currentVars);
+          if (next && processNodeRef.current) processNodeRef.current(next, currentVars);
           else setIsCompleted(true);
         }, 500);
       }, 450);
@@ -232,7 +239,7 @@ export default function FlowConversationPreviewModal({
       setTimeout(() => {
         setIsTyping(false);
         const msgObj = {
-          id: `msg-${Date.now()}-${Math.random()}`,
+          id: getNextId('msg'),
           sender: 'system',
           nodeId: node.id,
           type: 'handoff',
@@ -242,7 +249,7 @@ export default function FlowConversationPreviewModal({
 
         setTimeout(() => {
           const next = getNextNode(node, null, currentVars);
-          if (next) processNode(next, currentVars);
+          if (next && processNodeRef.current) processNodeRef.current(next, currentVars);
           else setIsCompleted(true);
         }, 400);
       }, 400);
@@ -255,7 +262,7 @@ export default function FlowConversationPreviewModal({
       setIsTyping(false);
       const isApi = actionType.includes('api') || actionType === 'webhook';
       const msgObj = {
-        id: `msg-${Date.now()}-${Math.random()}`,
+        id: getNextId('msg'),
         sender: 'system',
         nodeId: node.id,
         type: 'system_pill',
@@ -265,12 +272,16 @@ export default function FlowConversationPreviewModal({
 
       setTimeout(() => {
         const next = getNextNode(node, null, currentVars);
-        if (next) processNode(next, currentVars);
+        if (next && processNodeRef.current) processNodeRef.current(next, currentVars);
         else setIsCompleted(true);
       }, 350);
     }, 350);
 
-  }, [interpolate, getNextNode]);
+  }, [interpolate, getNextNode, getNextId]);
+
+  useEffect(() => {
+    processNodeRef.current = processNode;
+  }, [processNode]);
 
   // Start simulation from trigger node
   const startSimulation = useCallback(() => {
@@ -285,14 +296,17 @@ export default function FlowConversationPreviewModal({
     setActiveQuestionNode(null);
 
     const triggerNode = flow.nodes.find(n => n.type === 'trigger') || flow.nodes[0];
-    if (triggerNode) {
-      processNode(triggerNode, {});
+    if (triggerNode && processNodeRef.current) {
+      processNodeRef.current(triggerNode, {});
     }
-  }, [flow, processNode]);
+  }, [flow]);
 
   useEffect(() => {
     if (isOpen && flow && !loading) {
-      startSimulation();
+      const timer = setTimeout(() => {
+        startSimulation();
+      }, 50);
+      return () => clearTimeout(timer);
     }
   }, [isOpen, flow, loading, startSimulation]);
 
@@ -315,7 +329,7 @@ export default function FlowConversationPreviewModal({
 
     // Append user message bubble
     const userMsg = {
-      id: `user-msg-${Date.now()}`,
+      id: getNextId('user-msg'),
       sender: 'user',
       text: answer
     };
@@ -327,7 +341,7 @@ export default function FlowConversationPreviewModal({
     // Advance to next node
     setTimeout(() => {
       const next = getNextNode(questionNode, null, updatedVars);
-      if (next) processNode(next, updatedVars);
+      if (next && processNodeRef.current) processNodeRef.current(next, updatedVars);
       else setIsCompleted(true);
     }, 300);
   };
@@ -340,7 +354,7 @@ export default function FlowConversationPreviewModal({
 
     const buttonLabel = button.label || button.value || 'Option';
     const userMsg = {
-      id: `user-btn-${Date.now()}`,
+      id: getNextId('user-btn'),
       sender: 'user',
       text: buttonLabel
     };
@@ -364,11 +378,11 @@ export default function FlowConversationPreviewModal({
     const handleId = button.value || button.id;
     setTimeout(() => {
       const next = getNextNode(currentMsgNode, handleId, updatedVars);
-      if (next) {
-        processNode(next, updatedVars);
+      if (next && processNodeRef.current) {
+        processNodeRef.current(next, updatedVars);
       } else {
         const fallbackNext = getNextNode(currentMsgNode, null, updatedVars);
-        if (fallbackNext) processNode(fallbackNext, updatedVars);
+        if (fallbackNext && processNodeRef.current) processNodeRef.current(fallbackNext, updatedVars);
         else setIsCompleted(true);
       }
     }, 300);
