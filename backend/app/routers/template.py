@@ -65,19 +65,112 @@ def fix_floating_variables(text: str) -> str:
             new_lines.append(line)
     return "\n".join(new_lines)
 
-def format_template_variables(text: str | None) -> str | None:
+def map_template_variables(text: str | None, provided_mapping: dict | None = None) -> tuple[str | None, dict[str, str]]:
+    """
+    Converts named placeholders like {{customer_name}}, {{plan_name}} into sequential
+    WhatsApp numeric placeholders: {{1}}, {{2}}...
+    Returns (formatted_text, mapping_dict_numbered_to_named)
+    e.g. ("Hi {{1}}, Your {{2}} plan...", {"1": "customer_name", "2": "plan_name"})
+    """
     if not text:
-        return text
-    
+        return text, {}
+
     # 1. Normalize single braces `{something}` to `{{something}}`
     text = re.sub(r"(?<!\{)\{([^{}]+)\}(?!\})", r"{{\1}}", text)
-    
-    # 2. Convert all named placeholders `{{var_name}}` to sequential integers: `{{1}}`, `{{2}}`...
-    count = [1]
-    formatted = re.sub(r"\{\{[^{}]+\}\}", lambda m: f"{{{{{count.insert(0, count[0]+1) or count[1]}}}}}" , text)
-    
+
+    # 2. Extract all placeholders
+    raw_placeholders = re.findall(r"\{\{([^{}]+)\}\}", text)
+    mapping: dict[str, str] = {} # "1": "customer_name"
+    var_to_num: dict[str, str] = {} # "customer_name": "1"
+
+    if provided_mapping and isinstance(provided_mapping, dict):
+        for k, v in provided_mapping.items():
+            k_clean = str(k).replace("{", "").replace("}", "").strip()
+            v_clean = str(v).replace("{", "").replace("}", "").strip()
+            if k_clean.isdigit():
+                mapping[k_clean] = v_clean
+                var_to_num[v_clean] = k_clean
+            elif v_clean.isdigit():
+                mapping[v_clean] = k_clean
+                var_to_num[k_clean] = v_clean
+
+    current_idx = 1
+    for p in raw_placeholders:
+        clean = p.strip()
+        if clean.isdigit():
+            num_str = clean
+            if num_str not in mapping:
+                mapping[num_str] = f"var_{num_str}"
+            var_to_num[mapping[num_str]] = num_str
+        else:
+            if clean not in var_to_num:
+                while str(current_idx) in mapping:
+                    current_idx += 1
+                num_str = str(current_idx)
+                var_to_num[clean] = num_str
+                mapping[num_str] = clean
+                current_idx += 1
+
+    def repl(m):
+        raw = m.group(1).strip()
+        if raw.isdigit():
+            return f"{{{{{raw}}}}}"
+        num = var_to_num.get(raw, "1")
+        return f"{{{{{num}}}}}"
+
+    formatted = re.sub(r"\{\{([^{}]+)\}\}", repl, text)
     formatted = fix_floating_variables(formatted)
     formatted = fix_template_boundaries(formatted)
+    return formatted, mapping
+
+def format_template_variables(text: str | None) -> str | None:
+    formatted, _ = map_template_variables(text)
+    return formatted
+
+def ensure_meaningful_template_variables(text: str | None, prompt: str = "") -> str | None:
+    if not text:
+        return text
+
+    # 1. Normalize any single curly braces {var} to double curly braces {{var}}
+    text = re.sub(r"(?<!\{)\{([a-zA-Z0-9_]+)\}(?!\})", r"{{\1}}", text)
+
+    prompt_lower = (prompt or "").lower()
+    is_otp = any(k in prompt_lower for k in ["otp", "verification", "auth", "code", "password"])
+
+    def repl(m):
+        raw = m.group(1).strip()
+        clean = re.sub(r"[^\w]", "", raw)
+        if clean.isdigit():
+            num = int(clean or "1")
+            if is_otp and num == 1:
+                return "{{otp_code}}"
+            if num == 1:
+                return "{{customer_name}}"
+            elif num == 2:
+                if any(k in prompt_lower for k in ["order", "cart", "track"]):
+                    return "{{order_id}}"
+                if any(k in prompt_lower for k in ["appointment", "booking", "schedule"]):
+                    return "{{appointment_date}}"
+                if any(k in prompt_lower for k in ["b2b", "company", "business"]):
+                    return "{{company}}"
+                return "{{plan_name}}"
+            elif num == 3:
+                if any(k in prompt_lower for k in ["amount", "price", "pay", "cost", "bill"]):
+                    return "{{amount}}"
+                if any(k in prompt_lower for k in ["deal", "discount", "offer"]):
+                    return "{{deal_value}}"
+                return "{{amount}}"
+            elif num == 4:
+                return "{{product_name}}"
+            else:
+                return f"{{custom_field_{num}}}"
+        return f"{{{{{raw}}}}}"
+
+    formatted = re.sub(r"\{\{([^{}]+)\}\}", repl, text)
+    formatted = fix_floating_variables(formatted)
+    formatted = fix_template_boundaries(formatted)
+    # Ensure double braces again after boundaries/floating check
+    formatted = re.sub(r"(?<!\{)\{([a-zA-Z0-9_]+)\}(?!\})", r"{{\1}}", formatted)
     return formatted
 
 @router.post("/templates/generate")
@@ -98,7 +191,7 @@ async def generate_template(
     workspace_id = verify_workspace_access(current_user, db, data.workspace_id, required_permission='templates.manage')
 
     lang_name = map_language(data.language)
-    system_prompt = f"""
+    system_prompt = """
     You are a specialized WhatsApp Business Template Generator.
 
 Your responsibility is to generate high-quality WhatsApp Business templates that are natural, professional, business-appropriate, and likely to comply with Meta template review requirements.
@@ -126,11 +219,11 @@ MESSAGE GENERATION RULES
 
 * Generate content only in the requested language.
 * Use native script whenever applicable.
-* Named variables (e.g. {{order_id}}, {{name}}, {{date}}, {{username}}) are strictly FORBIDDEN by Meta and will cause template rejection.
-* All variables MUST be formatted as sequential numeric placeholders starting from {{1}}: e.g., {{1}}, {{2}}, {{3}}, etc.
-* Convert any custom/named/placeholders in the user's prompt into sequential numeric placeholders.
-* NEVER start the template text with a variable placeholder (e.g., {{1}} must not be the first characters). Always prefix with some greeting or static text.
-* NEVER end the template text with a variable placeholder (e.g., {{1}} must not be the last characters). Always follow the last variable with ending punctuation or words.
+* Variables MUST ALWAYS be enclosed in DOUBLE curly braces {{variable_name}}, NEVER single curly braces {variable_name}.
+  Example format: {{customer_name}}, {{company}}, {{product_name}}, {{plan_name}}, {{amount}}, {{order_id}}, {{appointment_date}}, {{otp_code}}
+  STRICTLY FORBIDDEN: {customer_name}, {company}, or raw numeric placeholders like {{1}}, {{2}}.
+* NEVER start the template text with a variable placeholder (e.g., {{customer_name}} must not be the first characters). Always prefix with some greeting or static text (e.g., "Hi {{customer_name}}, ...").
+* NEVER end the template text with a variable placeholder. Always follow the last variable with ending punctuation or words.
 * NEVER place a variable on a line by itself. It must be surrounded by text or punctuation on the same line.
 * Use variables naturally within sentences.
 * Generate natural human-like business communication.
@@ -243,10 +336,10 @@ Return JSON only.
             if "templates" in data_dict:
                 for tpl in data_dict["templates"]:
                     if "text" in tpl:
-                        tpl["text"] = format_template_variables(tpl["text"])
+                        tpl["text"] = ensure_meaningful_template_variables(tpl["text"], data.prompt)
             message = json.dumps(data_dict)
         except Exception:
-            message = format_template_variables(message)
+            message = ensure_meaningful_template_variables(message, data.prompt)
         return {"message": message}
 
     except (BillingError, WorkspaceAccessError) as e:
@@ -325,6 +418,12 @@ async def create_template(
                         raw_data[key] = json.loads(v_str) if v_str.startswith("[") else [x.strip() for x in v_str.split(",") if x.strip()]
                     except Exception:
                         raw_data[key] = [x.strip() for x in v_str.split(",") if x.strip()]
+                elif key in ("variable_mapping", "buttons"):
+                    try:
+                        import json
+                        raw_data[key] = json.loads(v_str) if isinstance(v_str, str) and (v_str.startswith("{") or v_str.startswith("[")) else v_str
+                    except Exception:
+                        raw_data[key] = v_str
                 else:
                     raw_data[key] = value
             else:
@@ -358,8 +457,24 @@ async def create_template(
     if not data.message or data.message.strip() == "":
         raise HTTPException(400, "Template message content is required")
 
-    # Auto-correct curly braces in message, header, and footer
-    data.message = format_template_variables(data.message)
+    # Auto-correct curly braces and map variables in message, header, and footer
+    provided_map = data.variable_mapping
+    if isinstance(provided_map, str):
+        try:
+            import json
+            provided_map = json.loads(provided_map)
+        except Exception:
+            provided_map = None
+
+    formatted_msg, auto_mapping = map_template_variables(data.message, provided_map)
+    data.message = formatted_msg
+    
+    # Combined mapping
+    combined_mapping = auto_mapping
+    if provided_map and isinstance(provided_map, dict):
+        combined_mapping.update(provided_map)
+    data.variable_mapping = combined_mapping
+
     if data.header:
         data.header = format_template_variables(data.header)
     if data.footer:
@@ -468,6 +583,11 @@ async def create_template(
                     if matched_template:
                         meta_template_id = matched_template.get("id")
                         meta_status = matched_template.get("status", "").lower()
+                        import json
+                        var_mapping_to_save = json.dumps(combined_mapping) if combined_mapping else None
+                        buttons_to_save = None
+                        if getattr(data, "buttons", None):
+                            buttons_to_save = data.buttons if isinstance(data.buttons, str) else json.dumps(data.buttons)
                         new_template = Template(
                             name=data.name,
                             type=data.type,
@@ -477,12 +597,14 @@ async def create_template(
                             footer=data.footer,
                             cta=data.cta,
                             cta_btn_title=data.cta_btn_title,
+                            buttons=buttons_to_save,
                             status=meta_status if meta_status in ["approved", "pending", "rejected"] else "pending",
                             workspace_id=workspace_id,
                             category=data.category,
                             language=data.language,
                             user_id=current_user.id,
                             meta_template_id=meta_template_id,
+                            variable_mapping=var_mapping_to_save,
                         )
                         db.add(new_template)
                         db.commit()
@@ -504,6 +626,11 @@ async def create_template(
     
     else:
         logger.info(f"META SUCCESS: {meta_response}")
+        import json
+        var_mapping_to_save = json.dumps(combined_mapping) if combined_mapping else None
+        buttons_to_save = None
+        if getattr(data, "buttons", None):
+            buttons_to_save = data.buttons if isinstance(data.buttons, str) else json.dumps(data.buttons)
         new_template = Template(
             name=data.name,
             type=data.type,
@@ -513,12 +640,14 @@ async def create_template(
             footer=data.footer,
             cta=data.cta,
             cta_btn_title=data.cta_btn_title,
+            buttons=buttons_to_save,
             status="pending",
             workspace_id=workspace_id,
             category=data.category,
             language=data.language,
             user_id=current_user.id,
             meta_template_id=meta_response.get("id"),
+            variable_mapping=var_mapping_to_save,
         )
         db.add(new_template)
         db.commit()
@@ -581,7 +710,14 @@ def infer_realistic_sample(before: str, after: str, index: int) -> str:
     return fallbacks[(index - 1) % len(fallbacks)]
 
 
-def generate_smart_variable_examples(text: str, custom_examples: list[str] | None = None) -> list[str]:
+def generate_smart_variable_examples(
+    text: str,
+    custom_examples: list[str] | dict | str | None = None,
+    variable_mapping: dict | str | None = None,
+) -> list[str]:
+    if isinstance(custom_examples, (dict, str)) and variable_mapping is None:
+        variable_mapping = custom_examples
+        custom_examples = None
     if not text:
         return []
     var_matches = list(re.finditer(r"\{\{(\d+)\}\}", text))
@@ -590,12 +726,67 @@ def generate_smart_variable_examples(text: str, custom_examples: list[str] | Non
     vars_found = [(int(m.group(1)), m.start(), m.end()) for m in var_matches]
     max_var = max(v[0] for v in vars_found)
     examples = []
+
+    # Parse variable_mapping if string
+    v_map = {}
+    if variable_mapping:
+        if isinstance(variable_mapping, str):
+            try:
+                import json
+                v_map = json.loads(variable_mapping)
+            except Exception:
+                pass
+        elif isinstance(variable_mapping, dict):
+            v_map = variable_mapping
+
     for i in range(1, max_var + 1):
         if custom_examples and len(custom_examples) >= i:
             cand = str(custom_examples[i - 1]).strip()
             if cand and not re.match(r"^sample[_\-\s]?\d*$", cand, re.IGNORECASE):
                 examples.append(cand)
                 continue
+
+        # Check if variable_mapping has a specific known variable name
+        var_name = v_map.get(str(i)) or v_map.get(i)
+        if var_name:
+            v_lower = str(var_name).lower().strip()
+            if any(k in v_lower for k in ["plan_name", "plan"]):
+                examples.append("Pro Plan")
+                continue
+            if any(k in v_lower for k in ["product_name", "product"]):
+                examples.append("Orbion Suite")
+                continue
+            if "last_name" in v_lower:
+                examples.append("Doe")
+                continue
+            if any(k in v_lower for k in ["customer_name", "first_name", "client"]):
+                examples.append("John")
+                continue
+            if v_lower == "name" or ("name" in v_lower and "plan" not in v_lower and "product" not in v_lower):
+                examples.append("John")
+                continue
+            if any(k in v_lower for k in ["amount", "price", "deal_value", "cost"]):
+                examples.append("$49.00")
+                continue
+            if "phone" in v_lower:
+                examples.append("+1234567890")
+                continue
+            if "email" in v_lower:
+                examples.append("alex@example.com")
+                continue
+            if any(k in v_lower for k in ["date", "time", "appointment"]):
+                examples.append("Tomorrow at 3:00 PM")
+                continue
+            if "status" in v_lower:
+                examples.append("Qualified")
+                continue
+            if "company" in v_lower:
+                examples.append("Acme Corp")
+                continue
+            if any(k in v_lower for k in ["otp", "verification", "code", "passcode"]):
+                examples.append("492018")
+                continue
+
         match_info = next((v for v in vars_found if v[0] == i), None)
         if match_info:
             _, start, end = match_info
@@ -609,9 +800,58 @@ def generate_smart_variable_examples(text: str, custom_examples: list[str] | Non
 
 def build_components(data, media_handle: str | None = None):
     components = []
+    category = (getattr(data, "category", None) or "MARKETING").strip().upper()
     data_type = (getattr(data, "type", None) or "TEXT").strip().upper()
 
-    # HEADER (TEXT / IMAGE / VIDEO)
+    # Meta strictly enforces the format for AUTHENTICATION templates:
+    # 1. BODY cannot contain "text" field. Only "add_security_recommendation": True/False
+    # 2. FOOTER cannot contain "text" field. Only "code_expiration_minutes": int (1-90)
+    # 3. BUTTONS must be of type OTP (COPY_CODE or ONE_TAP)
+    # 4. No HEADER is permitted
+    if category == "AUTHENTICATION":
+        auth_body = {
+            "type": "BODY",
+            "add_security_recommendation": True
+        }
+        components.append(auth_body)
+
+        # Optional Code Expiration Footer
+        exp_mins = 10
+        if getattr(data, "footer", None):
+            f_str = str(data.footer).strip()
+            digits = re.findall(r"\b(\d+)\b", f_str)
+            if digits:
+                try:
+                    val = int(digits[0])
+                    if 1 <= val <= 90:
+                        exp_mins = val
+                except Exception:
+                    pass
+            components.append({
+                "type": "FOOTER",
+                "code_expiration_minutes": exp_mins
+            })
+
+        # OTP Button (COPY_CODE)
+        btn_text = str(getattr(data, "cta_btn_title", None) or "").strip()
+        if not btn_text or btn_text.lower() in ["open", "buy now", "click here", "submit"]:
+            btn_text = "Copy Code"
+        btn_text = btn_text[:25]
+
+        components.append({
+            "type": "BUTTONS",
+            "buttons": [
+                {
+                    "type": "OTP",
+                    "otp_type": "COPY_CODE",
+                    "text": btn_text
+                }
+            ]
+        })
+
+        return components
+
+    # HEADER (TEXT / IMAGE / VIDEO) for MARKETING and UTILITY
     if data_type == "TEXT":
         if getattr(data, "header", None):
             header_text = str(data.header).strip()[:60]
@@ -619,7 +859,8 @@ def build_components(data, media_handle: str | None = None):
             header_vars = re.findall(r"\{\{(\d+)\}\}", header_text)
             if header_vars:
                 h_custom = getattr(data, "header_examples", None)
-                h_examples = generate_smart_variable_examples(header_text, h_custom)
+                h_map = getattr(data, "variable_mapping", None)
+                h_examples = generate_smart_variable_examples(header_text, h_custom, h_map)
                 header_comp["example"] = {
                     "header_text": h_examples
                 }
@@ -639,7 +880,7 @@ def build_components(data, media_handle: str | None = None):
                 }
             )
 
-    # BODY (COMMON)
+    # BODY (COMMON for MARKETING and UTILITY)
     body_text = str(getattr(data, "message", None) or "").strip()
     body = {"type": "BODY", "text": body_text}
 
@@ -647,7 +888,8 @@ def build_components(data, media_handle: str | None = None):
     vars_in_body = re.findall(r"\{\{(\d+)\}\}", body_text)
     if vars_in_body:
         b_custom = getattr(data, "body_examples", None)
-        b_examples = generate_smart_variable_examples(body_text, b_custom)
+        b_map = getattr(data, "variable_mapping", None)
+        b_examples = generate_smart_variable_examples(body_text, b_custom, b_map)
         body["example"] = {
             "body_text": [b_examples]
         }
@@ -660,8 +902,90 @@ def build_components(data, media_handle: str | None = None):
         if footer_text:
             components.append({"type": "FOOTER", "text": footer_text})
 
-    # CTA BUTTON (Max 25 characters for title, valid URL protocol)
-    if getattr(data, "cta", None):
+    # INTERACTIVE BUTTONS (Meta allows up to 10 buttons: QUICK_REPLY, URL, PHONE_NUMBER, COPY_CODE, VOICE_CALL)
+    raw_buttons = getattr(data, "buttons", None)
+    parsed_buttons = []
+    if raw_buttons:
+        if isinstance(raw_buttons, str):
+            try:
+                import json
+                parsed_buttons = json.loads(raw_buttons)
+            except Exception:
+                parsed_buttons = []
+        elif isinstance(raw_buttons, list):
+            parsed_buttons = raw_buttons
+
+    meta_buttons = []
+    if parsed_buttons:
+        for b in parsed_buttons:
+            if not isinstance(b, dict):
+                continue
+            b_type = str(b.get("type") or "QUICK_REPLY").strip().upper()
+            title = str(b.get("text") or b.get("title") or "").strip()[:25]
+
+            # 1. Custom / Quick Reply
+            if b_type in ("QUICK_REPLY", "CUSTOM"):
+                if title:
+                    meta_buttons.append({
+                        "type": "QUICK_REPLY",
+                        "text": title
+                    })
+
+            # 2. Visit Website / URL
+            elif b_type in ("URL", "VISIT_WEBSITE"):
+                raw_url = str(b.get("url") or b.get("value") or "").strip()
+                if raw_url:
+                    clean_url = raw_url if (raw_url.startswith("http://") or raw_url.startswith("https://")) else f"https://{raw_url}"
+                    btn_obj = {
+                        "type": "URL",
+                        "text": title or "Visit Website",
+                        "url": clean_url
+                    }
+                    if "{{" in clean_url:
+                        btn_obj["example"] = [re.sub(r"\{\{[^}]+\}\}", "12345", clean_url)]
+                    meta_buttons.append(btn_obj)
+
+            # 3. Call Phone Number
+            elif b_type in ("PHONE_NUMBER", "CALL_PHONE"):
+                raw_phone = str(b.get("phone_number") or b.get("phone") or b.get("value") or "").strip()
+                if raw_phone:
+                    clean_phone = re.sub(r"[^\d+]", "", raw_phone)
+                    if not clean_phone.startswith("+"):
+                        clean_phone = f"+{clean_phone}"
+                    meta_buttons.append({
+                        "type": "PHONE_NUMBER",
+                        "text": title or "Call Phone Number",
+                        "phone_number": clean_phone
+                    })
+
+            # 4. Copy Offer Code
+            elif b_type in ("COPY_CODE", "COPY_OFFER_CODE"):
+                code_val = str(b.get("example") or b.get("code") or b.get("value") or "SAVE20").strip()[:15]
+                meta_buttons.append({
+                    "type": "COPY_CODE",
+                    "example": code_val or "SAVE20"
+                })
+
+            # 5. Call on WhatsApp (Voice Call)
+            elif b_type in ("VOICE_CALL", "CALL_ON_WHATSAPP"):
+                meta_buttons.append({
+                    "type": "VOICE_CALL",
+                    "text": title or "Call on WhatsApp"
+                })
+
+            # 6. Share Contact Info / Flow fallback
+            elif b_type in ("FLOW", "SHARE_CONTACT", "CONTACT_INFO"):
+                meta_buttons.append({
+                    "type": "QUICK_REPLY",
+                    "text": title or "Share Contact Info"
+                })
+
+    if meta_buttons:
+        components.append({
+            "type": "BUTTONS",
+            "buttons": meta_buttons[:10]
+        })
+    elif getattr(data, "cta", None):
         raw_cta = str(data.cta).strip()
         if raw_cta:
             clean_url = raw_cta if (raw_cta.startswith("http://") or raw_cta.startswith("https://")) else f"https://{raw_cta}"
@@ -687,9 +1011,11 @@ def validate_category(data):
             f"Invalid category '{data.category}'. Allowed categories are MARKETING, UTILITY, and AUTHENTICATION."
         )
     if cat == "AUTHENTICATION":
-        if "{{1}}" not in (getattr(data, "message", None) or ""):
+        msg = (getattr(data, "message", None) or "")
+        has_var = bool(re.search(r"\{\{[^}]+\}\}", msg))
+        if not has_var:
             raise HTTPException(
-                400, "Authentication templates must include OTP variable {{1}}"
+                400, "Authentication templates must include an OTP variable like {{otp_code}} or {{1}}"
             )
     if cat == "MARKETING":
         msg = (getattr(data, "message", None) or "").upper()
@@ -699,29 +1025,78 @@ def validate_category(data):
             )
 
 
+def format_template_dict(t: Template) -> dict:
+    body_text = t.content or ""
+    vars_found = list(dict.fromkeys(re.findall(r"\{\{[^}]+\}\}", body_text)))
+
+    # Parse variable mapping
+    var_map = {}
+    if getattr(t, "variable_mapping", None):
+        try:
+            import json
+            var_map = json.loads(t.variable_mapping) if isinstance(t.variable_mapping, str) else (t.variable_mapping or {})
+        except Exception:
+            var_map = {}
+
+    # Reconstruct named_content if variable_mapping is present
+    named_content = body_text
+    if var_map:
+        for num_key, name_val in var_map.items():
+            named_content = re.sub(rf"\{{\{{\s*\[?{re.escape(str(num_key))}\]?\s*\}}\}}", f"{{{{{name_val}}}}}", named_content)
+    
+    # Fallback for authentication/OTP templates if not mapped
+    if (t.category or "").upper() == "AUTHENTICATION" or "otp" in (t.name or "").lower():
+        named_content = re.sub(r"\{\{\s*\[?1\]?\s*\}\}", "{{otp_code}}", named_content)
+        if "1" not in var_map:
+            var_map["1"] = "otp_code"
+
+    # Variables list: return meaningful variable names if mapped, else numbered tags
+    resolved_vars = []
+    for v in vars_found:
+        clean_num = v.replace("{", "").replace("}", "").replace("[", "").replace("]", "").strip()
+        if clean_num in var_map:
+            resolved_vars.append(var_map[clean_num])
+        else:
+            resolved_vars.append(clean_num)
+
+    parsed_buttons = []
+    if getattr(t, "buttons", None):
+        try:
+            import json
+            parsed_buttons = json.loads(t.buttons) if isinstance(t.buttons, str) else (t.buttons or [])
+        except Exception:
+            parsed_buttons = []
+
+    return {
+        "id": str(t.id),
+        "name": t.name,
+        "type": t.type or "TEXT",
+        "content": body_text,
+        "body": body_text,
+        "named_content": named_content,
+        "variable_mapping": var_map,
+        "header": t.header,
+        "media_url": getattr(t, "media_url", None) or (t.header if t.header and (t.header.startswith("http://") or t.header.startswith("https://")) else None),
+        "footer": t.footer,
+        "cta": t.cta,
+        "cta_btn_title": t.cta_btn_title,
+        "buttons": parsed_buttons,
+        "status": (t.status or "draft").lower(),
+        "category": (t.category or "MARKETING").upper(),
+        "language": t.language or "en_US",
+        "variables": resolved_vars if resolved_vars else vars_found,
+        "tag": t.system_tag,
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+    }
+
+
 # GET SYSTEM TEMPLATES
 @router.get("/templates/system")
 def get_system_templates(db: Session = Depends(get_db)):
     templates = db.query(Template).filter(Template.system_tag.isnot(None)).all()
+    formatted = [format_template_dict(t) for t in templates]
     return {
-        "templates": [
-            {
-                "id": str(t.id),
-                "name": t.name,
-                "type": t.type,
-                "content": t.content,
-                "header": t.header,
-                "footer": t.footer,
-                "cta": t.cta,
-                "cta_btn_title": t.cta_btn_title,
-                "status": t.status,
-                "category": t.category,
-                "language": t.language,
-                "tag": t.system_tag, # Expose as 'tag' for frontend compatibility
-                "created_at": t.created_at.isoformat() if t.created_at else None,
-            }
-            for t in templates
-        ]
+        "templates": formatted
     }
 
 # GET TEMPLATES
@@ -743,28 +1118,7 @@ def get_templates(
         query = query.filter(Template.category.ilike(category))
 
     templates = query.order_by(Template.created_at.desc()).all()
-
-    formatted = []
-    for t in templates:
-        body_text = t.content or ""
-        vars_found = list(dict.fromkeys(re.findall(r"\{\{[^}]+\}\}", body_text)))
-        formatted.append({
-            "id": str(t.id),
-            "name": t.name,
-            "type": t.type or "TEXT",
-            "content": body_text,
-            "body": body_text,
-            "header": t.header,
-            "media_url": getattr(t, "media_url", None) or (t.header if t.header and (t.header.startswith("http://") or t.header.startswith("https://")) else None),
-            "footer": t.footer,
-            "cta": t.cta,
-            "cta_btn_title": t.cta_btn_title,
-            "status": (t.status or "draft").lower(),
-            "category": (t.category or "MARKETING").upper(),
-            "language": t.language or "en_US",
-            "variables": vars_found,
-            "created_at": t.created_at.isoformat() if t.created_at else None,
-        })
+    formatted = [format_template_dict(t) for t in templates]
 
     return {
         "templates": formatted,
@@ -899,6 +1253,20 @@ def send_message(
         components.append({
             "type": "body",
             "parameters": [{"type": "text", "text": str(v)} for v in variables],
+        })
+
+    # For AUTHENTICATION templates with COPY_CODE button, Meta also expects the button parameter
+    if category == "AUTHENTICATION" and variables:
+        components.append({
+            "type": "button",
+            "sub_type": "url",
+            "index": "0",
+            "parameters": [
+                {
+                    "type": "text",
+                    "text": str(variables[0])
+                }
+            ]
         })
 
     # Clean phone number (Meta Cloud API requires digits only with country code)
