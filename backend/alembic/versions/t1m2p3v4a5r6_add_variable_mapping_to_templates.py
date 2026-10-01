@@ -20,11 +20,15 @@ def upgrade():
     columns = [col['name'] for col in inspector.get_columns('templates')]
     if 'variable_mapping' not in columns:
         op.add_column('templates', sa.Column('variable_mapping', sa.Text(), nullable=True))
+    if 'buttons' not in columns:
+        op.add_column('templates', sa.Column('buttons', sa.Text(), nullable=True))
 
 
 def downgrade():
     conn = op.get_bind()
     inspector = sa.inspect(conn)
     columns = [col['name'] for col in inspector.get_columns('templates')]
+    if 'buttons' in columns:
+        op.drop_column('templates', 'buttons')
     if 'variable_mapping' in columns:
         op.drop_column('templates', 'variable_mapping')
