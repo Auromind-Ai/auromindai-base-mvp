@@ -166,73 +166,79 @@ export default function NodeInspector({
   ]);
 
   const updateTimeoutStage = useCallback((index, updates) => {
-    const currentList = Array.isArray(activeNode?.config?.timeouts) && activeNode.config.timeouts.length > 0
-      ? [...activeNode.config.timeouts]
-      : [
-          {
-            id: 'timeout-1',
-            timeout_amount: activeNode?.config?.timeout_amount ?? 30,
-            timeout_unit: activeNode?.config?.timeout_unit ?? 'seconds',
-            timeout_action: activeNode?.config?.timeout_action ?? 'send_followup',
-            follow_up_message: activeNode?.config?.follow_up_message ?? "Just checking if you'd like me to share more details about OrbionAgents? Let me know if you have any questions! 😊",
-          }
-        ];
+    updateNodeConfig(activeNodeId, (config = {}) => {
+      const currentList = Array.isArray(config.timeouts) && config.timeouts.length > 0
+        ? [...config.timeouts]
+        : [
+            {
+              id: 'timeout-1',
+              timeout_amount: config.timeout_amount ?? 30,
+              timeout_unit: config.timeout_unit ?? 'seconds',
+              timeout_action: config.timeout_action ?? 'send_followup',
+              follow_up_message: config.follow_up_message ?? "Just checking if you'd like me to share more details about OrbionAgents? Let me know if you have any questions! 😊",
+            }
+          ];
 
-    const updated = currentList.map((t, idx) => (idx === index ? { ...t, ...updates } : t));
-    const first = updated[0] || {};
-    updateNodeConfig(activeNodeId, {
-      timeouts: updated,
-      timeout_amount: first.timeout_amount ?? 30,
-      timeout_unit: first.timeout_unit ?? 'seconds',
-      timeout_action: first.timeout_action ?? 'send_followup',
-      follow_up_message: first.follow_up_message ?? '',
+      const updated = currentList.map((t, idx) => (idx === index ? { ...t, ...updates } : t));
+      const first = updated[0] || {};
+      return {
+        ...config,
+        timeouts: updated,
+        timeout_amount: first.timeout_amount ?? 30,
+        timeout_unit: first.timeout_unit ?? 'seconds',
+        timeout_action: first.timeout_action ?? 'send_followup',
+        follow_up_message: first.follow_up_message ?? '',
+      };
     });
-  }, [activeNode?.config, activeNodeId, updateNodeConfig]);
+  }, [activeNodeId, updateNodeConfig]);
 
   const addTimeoutStage = useCallback(() => {
-    const currentList = Array.isArray(activeNode?.config?.timeouts) && activeNode.config.timeouts.length > 0
-      ? [...activeNode.config.timeouts]
-      : [
-          {
-            id: 'timeout-1',
-            timeout_amount: activeNode?.config?.timeout_amount ?? 30,
-            timeout_unit: activeNode?.config?.timeout_unit ?? 'seconds',
-            timeout_action: activeNode?.config?.timeout_action ?? 'send_followup',
-            follow_up_message: activeNode?.config?.follow_up_message ?? "Just checking if you'd like me to share more details about OrbionAgents? Let me know if you have any questions! 😊",
-          }
-        ];
+    updateNodeConfig(activeNodeId, (config = {}) => {
+      const currentList = Array.isArray(config.timeouts) && config.timeouts.length > 0
+        ? [...config.timeouts]
+        : [
+            {
+              id: 'timeout-1',
+              timeout_amount: config.timeout_amount ?? 30,
+              timeout_unit: config.timeout_unit ?? 'seconds',
+              timeout_action: config.timeout_action ?? 'send_followup',
+              follow_up_message: config.follow_up_message ?? "Just checking if you'd like me to share more details about OrbionAgents? Let me know if you have any questions! 😊",
+            }
+          ];
 
-    const nextIdx = currentList.length + 1;
-    const newStage = {
-      id: `timeout-${nextIdx}`,
-      timeout_amount: nextIdx === 2 ? 60 : 30,
-      timeout_unit: 'seconds',
-      timeout_action: 'send_followup',
-      follow_up_message: nextIdx === 2
-        ? "No problem! You can contact us anytime when you're ready."
-        : "Just checking in again!",
-    };
-    const updated = [...currentList, newStage];
-    updateNodeConfig(activeNodeId, {
-      timeouts: updated,
+      const nextIdx = currentList.length + 1;
+      const newStage = {
+        id: `timeout-${nextIdx}`,
+        timeout_amount: nextIdx === 2 ? 60 : 30,
+        timeout_unit: 'seconds',
+        timeout_action: 'send_followup',
+        follow_up_message: nextIdx === 2
+          ? "No problem! You can contact us anytime when you're ready."
+          : "Just checking in again!",
+      };
+      return {
+        ...config,
+        timeouts: [...currentList, newStage],
+      };
     });
-  }, [activeNode?.config, activeNodeId, updateNodeConfig]);
+  }, [activeNodeId, updateNodeConfig]);
 
   const removeTimeoutStage = useCallback((index) => {
-    const currentList = Array.isArray(activeNode?.config?.timeouts)
-      ? [...activeNode.config.timeouts]
-      : [];
-    if (currentList.length <= 1) return;
-    const updated = currentList.filter((_, idx) => idx !== index);
-    const first = updated[0] || {};
-    updateNodeConfig(activeNodeId, {
-      timeouts: updated,
-      timeout_amount: first.timeout_amount ?? 30,
-      timeout_unit: first.timeout_unit ?? 'seconds',
-      timeout_action: first.timeout_action ?? 'send_followup',
-      follow_up_message: first.follow_up_message ?? '',
+    updateNodeConfig(activeNodeId, (config = {}) => {
+      const currentList = Array.isArray(config.timeouts) ? [...config.timeouts] : [];
+      if (currentList.length <= 1) return config;
+      const updated = currentList.filter((_, idx) => idx !== index);
+      const first = updated[0] || {};
+      return {
+        ...config,
+        timeouts: updated,
+        timeout_amount: first.timeout_amount ?? 30,
+        timeout_unit: first.timeout_unit ?? 'seconds',
+        timeout_action: first.timeout_action ?? 'send_followup',
+        follow_up_message: first.follow_up_message ?? '',
+      };
     });
-  }, [activeNode?.config, activeNodeId, updateNodeConfig]);
+  }, [activeNodeId, updateNodeConfig]);
 
   const previewButtons = useMemo(() => {
     if (!activeNode) return [];

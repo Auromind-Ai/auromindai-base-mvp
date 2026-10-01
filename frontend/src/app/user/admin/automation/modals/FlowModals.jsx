@@ -48,7 +48,7 @@ export default function FlowModals({
               </div>
               <h3 className="text-lg font-bold text-white text-center mb-2">Delete Wire</h3>
               <p className="text-sm text-zinc-400 text-center mb-1">
-                Delete <span className="text-white font-semibold">"{deleteWireModal.item?.name}"</span> wire?
+                Delete <span className="text-white font-semibold">&quot;{deleteWireModal.item?.name}&quot;</span> wire?
               </p>
               <p className="text-xs text-zinc-500 text-center mb-8">This action cannot be undone.</p>
               <div className="flex gap-3">
