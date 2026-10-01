@@ -2,8 +2,8 @@ import uuid
 from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from app.models.workspace import WorkspaceMember
-from app.core.permissions import has_workspace_permission
+from app.models.workspace import Workspace, WorkspaceMember
+from app.core.permissions import has_workspace_permission, get_full_permissions_dict
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify-otp", auto_error=False)
 
@@ -49,10 +49,23 @@ def verify_workspace_access(
                 WorkspaceMember.workspace_id == ws_id
             ).first()
             if not membership:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Access denied or workspace not found."
-                )
+                ws = db.query(Workspace).filter(Workspace.id == ws_id).first()
+                if ws and ws.created_by == user_id:
+                    membership = WorkspaceMember(
+                        workspace_id=ws_id,
+                        user_id=user_id,
+                        role="founder",
+                        is_active=True,
+                        permissions=get_full_permissions_dict()
+                    )
+                    db.add(membership)
+                    db.commit()
+                    db.refresh(membership)
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Access denied or workspace not found."
+                    )
 
             if getattr(membership, "is_active", True) is False:
                 raise HTTPException(

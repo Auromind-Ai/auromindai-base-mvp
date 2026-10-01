@@ -7,8 +7,9 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
 export default function CreditRingDropdown({ user, size = 36 }) {
-  const { workspaceId, user: authUser, workspaces } = useAuth();
+  const { workspaceId, user: authUser, workspaces, hasPermission } = useAuth();
   const currentUser = user || authUser;
+  const canManageCredits = Boolean(hasPermission && (hasPermission('credits.view') || hasPermission('credits')));
 
   const [credits, setCredits] = useState(null);
   const [workspace, setWorkspace] = useState(null);
@@ -222,12 +223,14 @@ export default function CreditRingDropdown({ user, size = 36 }) {
                   <Wallet size={14} />
                   <span className="font-regular text-xs tracking-wider">WhatsApp Wallet</span>
                 </div>
-                <button 
-                  onClick={() => { setIsOpen(false); router.push('/user/admin/credits?tab=wcc'); }}
-                  className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-emerald-500/30 transition-colors"
-                >
-                  Recharge
-                </button>
+                {canManageCredits && (
+                  <button 
+                    onClick={() => { setIsOpen(false); router.push('/user/admin/credits?tab=wcc'); }}
+                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-emerald-500/30 transition-colors"
+                  >
+                    Recharge
+                  </button>
+                )}
               </div>
               
               <div className="space-y-1">
@@ -242,19 +245,35 @@ export default function CreditRingDropdown({ user, size = 36 }) {
             </div>
 
             {/* Workspace Footer */}
-            <div className="p-4 border-t border-white/5 bg-[#12121c]/40 flex items-center justify-between group cursor-pointer" onClick={() => { setIsOpen(false); router.push('/user/admin/credits'); }}>
-              <div>
-                <div className="font-semibold text-xs text-white flex items-center gap-1">
-                  {workspace?.name && !workspace.name.endsWith("'s Workspace") && !workspace.name.endsWith("’s Workspace")
-                    ? workspace.name
-                    : `${currentUser?.full_name || currentUser?.name || 'User'}'s Workspace`}
+            {canManageCredits ? (
+              <div 
+                className="p-4 border-t border-white/5 bg-[#12121c]/40 flex items-center justify-between group cursor-pointer hover:bg-[#161622] transition-colors" 
+                onClick={() => { setIsOpen(false); router.push('/user/admin/credits'); }}
+              >
+                <div>
+                  <div className="font-semibold text-xs text-white flex items-center gap-1">
+                    {workspace?.name && !workspace.name.endsWith("'s Workspace") && !workspace.name.endsWith("’s Workspace")
+                      ? workspace.name
+                      : `${currentUser?.full_name || currentUser?.name || 'User'}'s Workspace`}
+                  </div>
+                  <div className="text-purple-400 text-[10px] mt-0.5 font-medium tracking-wider">Manage Credits & Wallet</div>
                 </div>
-                <div className="text-white/70 text-[10px] mt-0.5 font-medium tracking-wider">Manage Credits & Wallet</div>
+                <div className="w-7 h-7 rounded-lg bg-[#1a1a24] flex items-center justify-center text-zinc-400 group-hover:text-white border border-white/5 transition-colors">
+                  <ArrowRightLeft size={13} />
+                </div>
               </div>
-              <div className="w-7 h-7 rounded-lg bg-[#1a1a24] flex items-center justify-center text-zinc-400 group-hover:text-white border border-white/5 transition-colors">
-                <ArrowRightLeft size={13} />
+            ) : (
+              <div className="p-3.5 border-t border-white/5 bg-[#12121c]/40 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-xs text-white/90 flex items-center gap-1">
+                    {workspace?.name && !workspace.name.endsWith("'s Workspace") && !workspace.name.endsWith("’s Workspace")
+                      ? workspace.name
+                      : `${currentUser?.full_name || currentUser?.name || 'User'}'s Workspace`}
+                  </div>
+                  <div className="text-zinc-500 text-[10px] mt-0.5 font-medium tracking-wider">Active Workspace</div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}

@@ -249,13 +249,8 @@ def has_workspace_permission(
     permissions: Optional[Any],
     required_permission: str
 ) -> bool:
-    """
-    Check if a member has access to a specific permission.
-    Admins, Founders, and Owners always have full access.
-    Members are checked against their granular permissions, including backwards-compatible aliases.
-    """
     role_normalized = (role or "member").strip().lower()
-    if role_normalized in ("admin", "founder", "owner", "superadmin", "platform_admin"):
+    if role_normalized in ("admin", "founder", "owner", "platform_admin"):
         return True
 
     if not permissions:

@@ -208,6 +208,19 @@ async def ingest_document(
             except Exception:
                 pass
         raise
+    except ValueError as e:
+        if reservation and billing_service:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation.id,
+                    reason="upload_api_failed"
+                )
+            except Exception:
+                pass
+        err_msg = str(e)
+        logger.warning(f"Document ingestion validation failed: {err_msg}")
+        raise HTTPException(status_code=400, detail=err_msg)
     except Exception as e:
         if reservation and billing_service:
             try:
@@ -218,6 +231,9 @@ async def ingest_document(
                 )
             except Exception:
                 pass
+        err_msg = str(e)
+        if any(keyword in err_msg.lower() for keyword in ["quota", "insufficient", "limit", "overage", "credit", "balance"]):
+            raise HTTPException(status_code=400, detail=err_msg)
         logger.error(f"Document ingestion failed: {e}")
         raise HTTPException(status_code=500, detail="Document ingestion failed. Please try again.")
 
@@ -313,6 +329,19 @@ async def ingest_sales_document(
             except Exception:
                 pass
         raise
+    except ValueError as e:
+        if reservation and billing_service:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation.id,
+                    reason="upload_api_failed"
+                )
+            except Exception:
+                pass
+        err_msg = str(e)
+        logger.warning(f"Sales document ingestion validation failed: {err_msg}")
+        raise HTTPException(status_code=400, detail=err_msg)
     except Exception as e:
         if reservation and billing_service:
             try:
@@ -323,6 +352,9 @@ async def ingest_sales_document(
                 )
             except Exception:
                 pass
+        err_msg = str(e)
+        if any(keyword in err_msg.lower() for keyword in ["quota", "insufficient", "limit", "overage", "credit", "balance"]):
+            raise HTTPException(status_code=400, detail=err_msg)
         logger.error(f"Sales document ingestion failed: {e}")
         raise HTTPException(status_code=500, detail="Sales document ingestion failed. Please try again.")
 
@@ -418,6 +450,19 @@ async def ingest_support_document(
             except Exception:
                 pass
         raise
+    except ValueError as e:
+        if reservation and billing_service:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation.id,
+                    reason="upload_api_failed"
+                )
+            except Exception:
+                pass
+        err_msg = str(e)
+        logger.warning(f"Support document ingestion validation failed: {err_msg}")
+        raise HTTPException(status_code=400, detail=err_msg)
     except Exception as e:
         if reservation and billing_service:
             try:
@@ -428,6 +473,9 @@ async def ingest_support_document(
                 )
             except Exception:
                 pass
+        err_msg = str(e)
+        if any(keyword in err_msg.lower() for keyword in ["quota", "insufficient", "limit", "overage", "credit", "balance"]):
+            raise HTTPException(status_code=400, detail=err_msg)
         logger.error(f"Support document ingestion failed: {e}")
         raise HTTPException(status_code=500, detail="Support document ingestion failed. Please try again.")
 

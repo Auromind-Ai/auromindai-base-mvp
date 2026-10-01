@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.contact_inquiry import ContactInquiry
+from app.core.deps import require_platform_admin_session
+from app.models.user import User
 
 router = APIRouter(
     prefix="/inquiries",
@@ -18,6 +20,7 @@ class InquiryStatusUpdate(BaseModel):
 
 @router.get("")
 async def get_all_inquiries(
+    admin_user: User = Depends(require_platform_admin_session),
     db: Session = Depends(get_db),
 ) -> List[Dict[str, Any]]:
     try:
@@ -57,6 +60,7 @@ async def get_all_inquiries(
 async def update_inquiry_status(
     inquiry_id: str,
     payload: InquiryStatusUpdate,
+    admin_user: User = Depends(require_platform_admin_session),
     db: Session = Depends(get_db),
 ):
     inquiry = db.query(ContactInquiry).filter(ContactInquiry.id == inquiry_id).first()

@@ -24,6 +24,7 @@ import {
   Bot,
   Bell,
   X,
+  Lock,
 } from 'lucide-react';
 import { poppins } from '@/lib/fonts';
 import { useDashboard } from '@/lib/useDashboard';
@@ -933,6 +934,7 @@ function RecentActivityCard({ activities = [] }) {
 // Quick Actions Card
 const QUICK_ACTIONS = [
   {
+    id: 'workflow',
     title: 'New workflow',
     desc: 'Create automation and streamline your process',
     iconGradient: 'from-[#654BCC] to-[#654BCC]',
@@ -941,8 +943,10 @@ const QUICK_ACTIONS = [
     borderColor: 'rgba(101,75,204,0.18)',
     bgBase: '#070012',
     icon: Zap,
+    featureName: 'Automations & Flow Builder',
   },
   {
+    id: 'broadcast',
     title: 'Broadcast',
     desc: 'Send announcements to your audience',
     iconGradient: 'from-[#224382] to-[#224382]',
@@ -951,8 +955,10 @@ const QUICK_ACTIONS = [
     borderColor: 'rgba(34,67,130,0.18)',
     bgBase: '#070012',
     icon: Radio,
+    featureName: 'Message Templates & Broadcast',
   },
   {
+    id: 'lead',
     title: 'Add Lead',
     desc: 'Add a new lead to your pipeline',
     iconGradient: 'from-[#1A755A] to-[#1A755A]',
@@ -961,8 +967,10 @@ const QUICK_ACTIONS = [
     borderColor: 'rgba(26,117,90,0.18)',
     bgBase: '#070012',
     icon: UserPlus,
+    featureName: 'Leads Management',
   },
   {
+    id: 'channels',
     title: 'Connect Channel',
     desc: 'Connect channel with other tools and apps',
     iconGradient: 'from-[#824926] to-[#824926]',
@@ -971,14 +979,52 @@ const QUICK_ACTIONS = [
     borderColor: 'rgba(130,73,38,0.18)',
     bgBase: '#070012',
     icon: Link2,
+    featureName: 'Connected Channels & Integrations',
   },
 ];
 
 function QuickActionsCard({ onAddLeadClick }) {
   const router = useRouter();
+  const { hasPermission } = useAuth();
+  const [deniedModal, setDeniedModal] = useState(null);
+  const [mounted, setMounted] = useState(false);
 
-  const handleAction = (title) => {
-    switch (title) {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const hasActionAccess = (action) => {
+    if (!hasPermission) return true;
+    if (action.id === 'workflow') {
+      return hasPermission('automation.manage') || hasPermission('automation');
+    }
+    if (action.id === 'broadcast') {
+      return (
+        hasPermission('templates.manage') ||
+        hasPermission('templates') ||
+        hasPermission('marketing.campaigns') ||
+        hasPermission('marketing')
+      );
+    }
+    if (action.id === 'lead') {
+      return hasPermission('leads.view') || hasPermission('leads');
+    }
+    if (action.id === 'channels') {
+      return hasPermission('channels.manage') || hasPermission('channels');
+    }
+    return true;
+  };
+
+  const handleAction = (action) => {
+    if (!hasActionAccess(action)) {
+      setDeniedModal({
+        title: action.title,
+        featureName: action.featureName,
+      });
+      return;
+    }
+
+    switch (action.title) {
       case 'New workflow':
         router.push('/user/admin/automation');
         break;
@@ -1005,21 +1051,32 @@ function QuickActionsCard({ onAddLeadClick }) {
       <div className="p-3.5 sm:p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
         {QUICK_ACTIONS.map((action, i) => {
           const Icon = action.icon;
+          const isAllowed = hasActionAccess(action);
           return (
             <div
               key={i}
-              onClick={() => handleAction(action.title)}
-              className={`quick-action-card ${action.cardClass} relative flex flex-col rounded-xl border p-3.5 cursor-pointer overflow-hidden`}
+              onClick={() => handleAction(action)}
+              className={`quick-action-card ${action.cardClass} relative flex flex-col rounded-xl border p-3.5 cursor-pointer overflow-hidden transition-all duration-200 ${
+                !isAllowed ? 'hover:border-red-500/30' : ''
+              }`}
               style={{
-                borderColor: 'rgba(255,255,255,0.1)',
+                borderColor: isAllowed ? 'rgba(255,255,255,0.1)' : 'rgba(239, 68, 68, 0.25)',
                 background: action.bgBase,
               }}
             >
-              <div
-                className={`relative z-10 w-9 h-9 rounded-xl bg-gradient-to-br ${action.iconGradient} flex items-center justify-center mb-2.5 flex-shrink-0`}
-                style={{ boxShadow: action.iconShadow }}
-              >
-                <Icon size={16} className="text-white" />
+              <div className="flex items-center justify-between mb-2.5">
+                <div
+                  className={`relative z-10 w-9 h-9 rounded-xl bg-gradient-to-br ${action.iconGradient} flex items-center justify-center flex-shrink-0`}
+                  style={{ boxShadow: action.iconShadow }}
+                >
+                  <Icon size={16} className="text-white" />
+                </div>
+                {!isAllowed && (
+                  <span className="relative z-10 flex items-center gap-1 text-[10px] font-semibold text-red-400 bg-red-500/10 px-2 py-0.5 rounded-md border border-red-500/20">
+                    <Lock size={10} />
+                    Restricted
+                  </span>
+                )}
               </div>
 
               {/* Text content — also above glow */}
@@ -1027,8 +1084,15 @@ function QuickActionsCard({ onAddLeadClick }) {
                 <h3 className="text-[13px] font-semibold text-white/90 mb-0.5">{action.title}</h3>
                 <p className="text-[11px] text-white/75 leading-snug flex-1">{action.desc}</p>
                 <div className="flex justify-end mt-2.5">
-                  <button className="qa-arrow-btn w-7 h-7 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center">
-                    <ArrowUpRight size={13} className="text-white/60" />
+                  <button 
+                    type="button"
+                    className="qa-arrow-btn w-7 h-7 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center"
+                  >
+                    {isAllowed ? (
+                      <ArrowUpRight size={13} className="text-white/60" />
+                    ) : (
+                      <Lock size={12} className="text-red-400/80" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -1036,6 +1100,89 @@ function QuickActionsCard({ onAddLeadClick }) {
           );
         })}
       </div>
+
+      {/* Permission Required Popup Modal */}
+      {mounted && deniedModal && typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 pointer-events-auto">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeniedModal(null)}
+              className="fixed inset-0 bg-black/80 backdrop-blur-md z-[99999]"
+            />
+
+            {/* Modal Dialog */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 12 }}
+              transition={{ duration: 0.2, ease: [0.34, 1.2, 0.64, 1] }}
+              className="relative z-[100000] w-full max-w-md bg-[#0e0e18] border border-red-500/25 shadow-[0_0_50px_rgba(239,68,68,0.15),0_20px_60px_rgba(0,0,0,0.95)] rounded-2xl p-6 text-white overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Subtle decorative glow */}
+              <div className="absolute top-0 right-0 w-44 h-44 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-44 h-44 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="relative z-10">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/25 flex items-center justify-center text-red-400 shrink-0 shadow-inner">
+                    <ShieldAlert size={24} />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base font-semibold text-white tracking-wide">
+                        Permission Required
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setDeniedModal(null)}
+                        className="text-white/40 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-xs font-semibold mt-2.5">
+                      <Lock size={12} />
+                      <span>{deniedModal.featureName}</span>
+                    </div>
+                    
+                    <p className="text-xs text-zinc-300 leading-relaxed mt-3">
+                      You don&apos;t have permission to perform <strong>{deniedModal.title}</strong> in this workspace.
+                    </p>
+                    <p className="text-[11px] text-zinc-500 leading-relaxed mt-1.5">
+                      Please contact your workspace administrator or owner to request access to this feature.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex items-center justify-end gap-2.5 border-t border-white/5 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setDeniedModal(null)}
+                    className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 font-medium text-xs transition-colors"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeniedModal(null)}
+                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium text-xs shadow-lg shadow-purple-900/30 transition-all active:scale-95"
+                  >
+                    Understood
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </AnimatePresence>,
+        document.body
+      )}
     </section>
   );
 }

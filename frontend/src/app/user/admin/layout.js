@@ -122,7 +122,7 @@ function AdminLayoutContent({ children }) {
                 sessionStorage.removeItem("last_session_id");
             }
             try {
-                await refreshUser();
+                await refreshUser(undefined, true);
             } catch (refreshErr) {
                 console.warn("Failed to refresh user on impersonation stop:", refreshErr);
             }
