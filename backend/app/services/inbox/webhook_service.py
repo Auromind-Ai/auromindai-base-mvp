@@ -551,79 +551,19 @@ class WebhookService:
                                                 db.flush()
                             except Exception as camp_exc:
                                 logger.error(f"Failed to update CampaignRecipient status for {wamid}: {camp_exc}")
-
-                            # WCC Wallet Debit Integration — Strictly for Flow messages, NEVER for user <-> agent conversations
-                            is_flow_message = False
-                            if outbound and (outbound.flow_id is not None or outbound.message_type == "automation"):
-                                is_flow_message = True
-                            elif outbound and outbound.metadata_json:
-                                meta_j = outbound.metadata_json
-                                if isinstance(meta_j, str):
-                                    try:
-                                        meta_j = json.loads(meta_j)
-                                    except Exception:
-                                        meta_j = {}
-                                if isinstance(meta_j, dict) and (
-                                    meta_j.get("flow_id")
-                                    or meta_j.get("is_flow")
-                                    or meta_j.get("source") in ("flow", "workflow", "broadcast", "campaign", "automation")
-                                ):
-                                    is_flow_message = True
-
-                            if not is_flow_message and msg:
-                                if msg.source in ("flow", "workflow", "broadcast", "campaign", "automation"):
-                                    is_flow_message = True
-                                elif msg.metadata_json:
-                                    try:
-                                        msg_meta = json.loads(msg.metadata_json) if isinstance(msg.metadata_json, str) else msg.metadata_json
-                                        if isinstance(msg_meta, dict) and (
-                                            msg_meta.get("flow_id")
-                                            or msg_meta.get("is_flow")
-                                            or msg_meta.get("source") in ("flow", "workflow", "broadcast", "campaign", "automation")
-                                        ):
-                                            is_flow_message = True
-                                    except Exception:
-                                        pass
-
-                            # Check if message is a template message
-                            is_template_msg = False
-                            if msg:
-                                if msg.source in ("template_message", "template_reply", "template"):
-                                    is_template_msg = True
-                                elif msg.metadata_json:
-                                    try:
-                                        msg_meta = json.loads(msg.metadata_json) if isinstance(msg.metadata_json, str) else msg.metadata_json
-                                        if isinstance(msg_meta, dict) and (msg_meta.get("template_name") or msg_meta.get("is_template")):
-                                            is_template_msg = True
-                                    except Exception:
-                                        pass
-
-                            # Explicit guard: Plain agent manual replies and user messages MUST NEVER be debited
-                            # But if the message was sent as a template, it MUST be billed!
-                            if msg and (msg.sender_type == SenderType.AGENT or msg.source == "manual_reply"):
-                                if not is_template_msg:
-                                    is_flow_message = False
-
-                            is_billable_msg = is_flow_message or is_template_msg
-
                             pricing = status_update.get("pricing")
                             conversation = status_update.get("conversation")
 
-                            if not is_billable_msg:
-                                logger.info(
-                                    f"[WCC Billing] Skipping WCC wallet debit for user/agent conversation message wamid={wamid}"
-                                )
-                            elif pricing and conversation:
+                            if not recipient and pricing and conversation:
                                 try:
                                     meta_session_id = conversation.get("id")
 
-                                    # Check if transaction was already debited (idempotency by meta_session_id or wamid)
                                     existing_tx = db.query(WCCTransaction).filter(
                                         WCCTransaction.workspace_id == workspace.id,
                                         (WCCTransaction.meta_session_id == meta_session_id) | (WCCTransaction.meta_session_id == wamid)
                                     ).first()
                                     if existing_tx:
-                                        logger.info(f"[WCC Billing] Message {wamid} / session {meta_session_id} already debited. Skipping duplicate debit.")
+                                        logger.info(f"[WCC Billing] Message {wamid} / session {meta_session_id} already recorded. Skipping duplicate.")
                                     else:
                                         billable = pricing.get("billable", False)
                                         category = pricing.get("category", "service").lower()
@@ -631,7 +571,7 @@ class WebhookService:
                                         meta_cost = Decimal("0.00")
                                         customer_price = Decimal("0.00")
                                         if billable:
-                                            # Retrieve from pre-fetched cache
+                                            # Retrieve rate from pre-fetched cache or DB
                                             rate_card = active_cards.get((category, "IN"))
                                             if rate_card:
                                                 meta_cost = rate_card.meta_cost
@@ -644,7 +584,6 @@ class WebhookService:
                                                     customer_price = rate_card.customer_price
                                                 except Exception as rate_err:
                                                     logger.warning(f"No active WCC rate card found for category '{category}' during webhook debit: {rate_err}")
-                                                    # Absolute safety fallbacks based on Meta expected charges if not configured
                                                     fallbacks = {
                                                         "marketing": (Decimal("1.09"), Decimal("1.25")),
                                                         "utility": (Decimal("0.145"), Decimal("0.18")),
@@ -653,7 +592,6 @@ class WebhookService:
                                                     }
                                                     meta_cost, customer_price = fallbacks.get(category, (Decimal("0.00"), Decimal("0.05")))
 
-                                        # Perform the atomic debit using reseller prices
                                         WCCService.debit_conversation_charge(
                                             db=db,
                                             workspace_id=workspace.id,
@@ -662,6 +600,10 @@ class WebhookService:
                                             meta_cost=meta_cost,
                                             customer_price=customer_price,
                                             raw_payload=status_update
+                                        )
+                                        logger.info(
+                                            f"[WCC Billing] Recorded {'billable' if billable else 'free'} conversation {meta_session_id} "
+                                            f"for workspace {workspace.id} (category={category}, price=₹{customer_price})"
                                         )
                                 except Exception as debit_exc:
                                     logger.error(f"Error debiting WCC wallet for workspace {workspace.id}: {debit_exc}")

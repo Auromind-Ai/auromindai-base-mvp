@@ -132,11 +132,47 @@ class FlowValidationService:
             if not node_id:
                 continue
 
+            config = node.get("config") or {}
+            buttons = config.get("buttons") or []
+            if len(buttons) > 3:
+                errors.append(
+                    f'Node "{node.get("label") or node_id}" has {len(buttons)} buttons. A message node can have at most 3 buttons (WhatsApp limit).'
+                )
+
+            if config.get("wait_for_response"):
+                timeouts = config.get("timeouts") or []
+                if not timeouts:
+                    has_single = config.get("timeout_amount") is not None or config.get("timeout_seconds") is not None
+                    if not has_single:
+                        errors.append(
+                            f'Node "{node.get("label") or node_id}" has "Wait for customer response" enabled but no timeout duration configured.'
+                        )
+                    else:
+                        amount_val = config.get("timeout_amount") if config.get("timeout_amount") is not None else config.get("timeout_seconds")
+                        if int(amount_val or 0) <= 0:
+                            errors.append(
+                                f'Timeout in node "{node.get("label") or node_id}" duration must be greater than 0.'
+                            )
+                else:
+                    for idx, t in enumerate(timeouts):
+                        secs = t.get("timeout_seconds") if t.get("timeout_seconds") is not None else t.get("timeout_amount")
+                        if not secs or int(secs) <= 0:
+                            errors.append(
+                                f'Timeout #{idx + 1} in node "{node.get("label") or node_id}" duration must be greater than 0.'
+                            )
+                        act = t.get("action") or t.get("timeout_action") or "send_msg"
+                        if act in ("send_msg", "send_followup"):
+                            msg = t.get("message") or t.get("follow_up_message") or ""
+                            if not str(msg).strip():
+                                errors.append(
+                                    f'Timeout #{idx + 1} in node "{node.get("label") or node_id}" requires a follow-up message.'
+                                )
+
             outgoing_edges = outgoing_map.get(node_id, [])
             if not outgoing_edges:
                 continue
 
-            if (node.get("config") or {}).get("type") == "brain_query":
+            if config.get("type") == "brain_query":
                 errors.append("AI Reply must be the final step. No steps can be added after AI Reply.")
                 continue
 

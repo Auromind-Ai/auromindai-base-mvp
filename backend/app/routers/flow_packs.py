@@ -67,6 +67,7 @@ def resolve_and_verify_workspace(
     workspace_id_query: str | None = None,
     x_workspace_id_header: str | None = None,
     payload: Any | None = None,
+    required_permission: str | tuple[str, ...] | None = "automation.manage",
 ) -> str:
     ws_id = None
     if payload and hasattr(payload, "workspace_id") and getattr(payload, "workspace_id"):
@@ -90,7 +91,7 @@ def resolve_and_verify_workspace(
             detail=f"Invalid workspace_id UUID format: '{ws_id}'"
         )
 
-    return verify_workspace_access(current_user, db, ws_id, required_permission='automation.manage')
+    return verify_workspace_access(current_user, db, ws_id, required_permission=required_permission)
 
 # ----------------- User Routes -----------------
 
@@ -182,7 +183,8 @@ def get_quota(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id
+            current_user, db, workspace_id, x_workspace_id,
+            required_permission=None,
         )
         return EntitlementService.get_flow_quota(db, resolved_ws_id)
     except ValueError as exc:

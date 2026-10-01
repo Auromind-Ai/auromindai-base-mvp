@@ -21,6 +21,7 @@ export function AuthProvider({ children }) {
   const [workspaces, setWorkspacesState] = useState([]);
   const [workspaceId, setWorkspaceIdState] = useState(null);
   const [currentRole, setCurrentRole] = useState('member');
+  const [isOwner, setIsOwner] = useState(false);
   const [permissions, setPermissions] = useState(null);
   const [permissionWorkspaceId, setPermissionWorkspaceId] = useState(null);
   const permissionRequestRef = useRef(0);
@@ -28,7 +29,12 @@ export function AuthProvider({ children }) {
   const [csrfToken, setCsrfTokenState] = useState(null);
   const csrfTokenRef = useRef(null);
   const workspaceIdRef = useRef(workspaceId);
+  const userRef = useRef(user);
   const inFlightRefreshRef = useRef(null);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   useEffect(() => {
     workspaceIdRef.current = workspaceId;
@@ -38,9 +44,9 @@ export function AuthProvider({ children }) {
     api.setCSRFTokenGetter(() => csrfTokenRef.current);
   }, []);
 
-  const refreshUser = useCallback(async (signal) => {
-    // Deduplicate concurrent in-flight refresh calls
-    if (inFlightRefreshRef.current) {
+  const refreshUser = useCallback(async (signal, force = false) => {
+    // Deduplicate concurrent in-flight refresh calls unless force is true
+    if (inFlightRefreshRef.current && !force) {
       return inFlightRefreshRef.current;
     }
 
@@ -70,24 +76,71 @@ export function AuthProvider({ children }) {
         
         // Restore the selection on full reloads before checking route permissions.
         // Only IDs in the server-provided membership list can become active.
+        const isDifferentUser = Boolean(userRef.current?.id && profile?.id && userRef.current.id !== profile.id);
+        const currentWsIdToResolve = (isDifferentUser || force) ? null : workspaceIdRef.current;
         const savedWsId = typeof window !== 'undefined'
           ? localStorage.getItem('workspace_id')
           : null;
-        const activeWs = resolveWorkspace(wsList, workspaceIdRef.current, savedWsId, profile.workspace_id, wsData?.hidden_personal_workspace_ids || []);
+        const isSavedWsValid = savedWsId && (
+          wsList.some(w => w.id === savedWsId) ||
+          (wsData?.hidden_personal_workspace_ids || []).includes(savedWsId)
+        );
+        const validSavedWsId = (isDifferentUser || force) ? null : (isSavedWsValid ? savedWsId : null);
+        const activeWs = resolveWorkspace(
+          wsList,
+          currentWsIdToResolve,
+          validSavedWsId,
+          profile.workspace_id,
+          wsData?.hidden_personal_workspace_ids || []
+        );
 
+        let initialPerms = null;
         if (activeWs) {
+          const isWsOwner = Boolean(activeWs.is_owner || ['founder', 'owner', 'admin'].includes((activeWs.role || '').toLowerCase()));
+          const wsRole = isWsOwner ? (activeWs.role || 'founder') : (activeWs.role || 'member');
+
           setWorkspaceIdState(activeWs.id);
           workspaceIdRef.current = activeWs.id;
           setWorkspace(activeWs);
+
+          setCurrentRole(wsRole);
+          setIsOwner(isWsOwner);
+          setPermissionWorkspaceId(activeWs.id);
+
+          try {
+            const permRes = await api.getMyWorkspacePermissions(activeWs.id, { signal });
+            if (permRes) {
+              initialPerms = permRes;
+              setCurrentRole(permRes?.role || wsRole);
+              setIsOwner(Boolean(permRes?.is_owner !== undefined ? permRes.is_owner : isWsOwner));
+              setPermissions(permRes?.permissions || {});
+              setPermissionWorkspaceId(activeWs.id);
+            }
+          } catch (permErr) {
+            console.warn("Failed to load initial permissions in refreshUser:", permErr);
+          }
         } else {
           setWorkspaceIdState(null);
           workspaceIdRef.current = null;
+          setCurrentRole('member');
+          setIsOwner(false);
+          setPermissions(null);
+          setPermissionWorkspaceId(null);
           // Keep an unavailable selection persisted until the user explicitly
           // chooses another workspace; never silently open their own workspace.
-          if (!savedWsId) setWorkspace(null);
+          if (!savedWsId || isDifferentUser || force) setWorkspace(null);
         }
 
-        return profile;
+        const isOwnerFinal = Boolean(initialPerms?.is_owner !== undefined ? initialPerms.is_owner : (activeWs?.is_owner || ['founder', 'owner', 'admin'].includes((activeWs?.role || '').toLowerCase())));
+        const roleFinal = initialPerms?.role || activeWs?.role || (isOwnerFinal ? 'founder' : 'member');
+
+        return {
+          ...profile,
+          active_workspace: activeWs,
+          role: roleFinal,
+          is_owner: isOwnerFinal,
+          permissions: initialPerms?.permissions || {}
+        };
       } catch (err) {
         // StrictMode cleanup — ignore AbortError gracefully, do NOT set unauthenticated
         if (err.name === 'AbortError') return null;
@@ -111,6 +164,7 @@ export function AuthProvider({ children }) {
         if (isDeactivated) {
           removeToken();
           setCurrentRole('member');
+          setIsOwner(false);
           setPermissions(null);
           setPermissionWorkspaceId(null);
           permissionRequestRef.current += 1;
@@ -126,6 +180,7 @@ export function AuthProvider({ children }) {
         } else if (isAuthError) {
           removeToken();
           setCurrentRole('member');
+          setIsOwner(false);
           setPermissions(null);
           setPermissionWorkspaceId(null);
           permissionRequestRef.current += 1;
@@ -219,6 +274,7 @@ export function AuthProvider({ children }) {
     } finally {
       removeToken();
       setCurrentRole('member');
+      setIsOwner(false);
       setPermissions(null);
       setPermissionWorkspaceId(null);
       permissionRequestRef.current += 1;
@@ -246,6 +302,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const handleAuthLogout = () => {
       setCurrentRole('member');
+      setIsOwner(false);
       setPermissions(null);
       setPermissionWorkspaceId(null);
       permissionRequestRef.current += 1;
@@ -298,24 +355,29 @@ export function AuthProvider({ children }) {
   const refreshPermissions = useCallback(async (wsId) => {
     const targetWsId = wsId || workspaceIdRef.current;
     if (!targetWsId) return null;
+    const currentWs = getVisibleWorkspaces(workspaces).find(w => w.id === targetWsId);
+    const isWsOwner = Boolean(currentWs?.is_owner || ['founder', 'owner', 'admin'].includes((currentWs?.role || '').toLowerCase()));
+    const wsRole = isWsOwner ? (currentWs?.role || 'founder') : (currentWs?.role || 'member');
     const requestId = ++permissionRequestRef.current;
     try {
       const res = await api.getMyWorkspacePermissions(targetWsId);
       if (requestId !== permissionRequestRef.current || targetWsId !== workspaceIdRef.current) return null;
-      setCurrentRole(res?.role || 'member');
+      setCurrentRole(res?.role || wsRole);
+      setIsOwner(Boolean(res?.is_owner !== undefined ? res.is_owner : isWsOwner));
       setPermissions(res?.permissions || {});
       setPermissionWorkspaceId(targetWsId);
       return res;
     } catch (e) {
       if (requestId !== permissionRequestRef.current || targetWsId !== workspaceIdRef.current) return null;
-      setCurrentRole('member');
+      setCurrentRole(wsRole);
+      setIsOwner(isWsOwner);
       setPermissions({});
       setPermissionWorkspaceId(targetWsId);
       if (e?.status === 403) refreshUser().catch(() => {});
       console.warn("Failed to fetch workspace permissions:", e);
       return null;
     }
-  }, [refreshUser]);
+  }, [workspaces, refreshUser]);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -358,7 +420,7 @@ export function AuthProvider({ children }) {
   const hasPermission = useCallback((permKey) => {
     if (!workspaceId || permissionWorkspaceId !== workspaceId || !currentRole) return false;
     const normRole = (currentRole || '').toLowerCase().trim();
-    if (['admin', 'founder', 'owner', 'superadmin', 'platform_admin'].includes(normRole)) {
+    if (isOwner || ['admin', 'founder', 'owner', 'superadmin', 'platform_admin'].includes(normRole)) {
       return true;
     }
     if (!permissions) return false;
@@ -403,7 +465,7 @@ export function AuthProvider({ children }) {
     }
 
     return false;
-  }, [currentRole, permissions, permissionWorkspaceId, workspaceId, PERMISSION_ALIASES]);
+  }, [currentRole, isOwner, permissions, permissionWorkspaceId, workspaceId, PERMISSION_ALIASES]);
 
   const setWorkspaceId = useCallback((id) => {
     const matchedWs = getVisibleWorkspaces(workspaces).find(w => w.id === id);
@@ -411,6 +473,7 @@ export function AuthProvider({ children }) {
     permissionRequestRef.current += 1;
     setPermissionWorkspaceId(null);
     setCurrentRole('member');
+    setIsOwner(false);
     setPermissions(null);
     // Persist synchronously so immediately entering a URL keeps this selection.
     setWorkspace(matchedWs);

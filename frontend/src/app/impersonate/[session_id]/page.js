@@ -1,22 +1,23 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { useToast } from "@/context/ToastContext"
 import api from "@/lib/api"
 
 export default function Page({ params }) {
   const router = useRouter()
+  const routeParams = useParams()
   const { refreshUser } = useAuth()
   const { showToast } = useToast()
   const lastSessionIdRef = useRef(null)
 
   useEffect(() => {
     async function start() {
-      // Resolve params safely whether it's a Promise (Next.js 15) or dynamic route object (React 18 / fallback)
+      // Resolve params safely whether it's a Promise (Next.js 15), hook, or dynamic route object
       const resolvedParams = params && typeof params.then === 'function' ? await params : params
-      const sessionId = resolvedParams?.session_id
+      const sessionId = routeParams?.session_id || resolvedParams?.session_id
       
       if (!sessionId) {
         throw new Error("No session ID found")
@@ -48,13 +49,39 @@ export default function Page({ params }) {
         sessionStorage.removeItem("ai_active");
         sessionStorage.removeItem("last_session_id");
 
-        // Refresh user context via cookie/token auth.
-        // refreshUser() calls GET /auth/me and GET /auth/workspaces,
-        // which now authenticate as the impersonated target user.
-        await refreshUser()
+        // Refresh user context via cookie/token auth with force=true to bypass stale cache
+        const profile = await refreshUser(undefined, true)
+
+        // Intelligent direct landing route based on user permissions
+        let targetRoute = "/user/admin/dashboard";
+        const isOwnerOrAdmin = profile?.is_owner || ['admin', 'founder', 'owner', 'superadmin', 'platform_admin'].includes((profile?.role || '').toLowerCase());
+        const userPerms = profile?.permissions || {};
+
+        if (!isOwnerOrAdmin) {
+          const hasDashboard = userPerms.dashboard && (Array.isArray(userPerms.dashboard) ? userPerms.dashboard.length > 0 : Boolean(userPerms.dashboard));
+          if (!hasDashboard) {
+            if (userPerms.leads && (Array.isArray(userPerms.leads) ? userPerms.leads.length > 0 : Boolean(userPerms.leads))) {
+              targetRoute = "/user/admin/leads";
+            } else if (userPerms.crm && (Array.isArray(userPerms.crm) ? userPerms.crm.length > 0 : Boolean(userPerms.crm))) {
+              targetRoute = "/user/admin/crm";
+            } else if (userPerms.inbox && (Array.isArray(userPerms.inbox) ? userPerms.inbox.length > 0 : Boolean(userPerms.inbox))) {
+              targetRoute = "/user/admin/inbox";
+            } else if (userPerms.automation && (Array.isArray(userPerms.automation) ? userPerms.automation.length > 0 : Boolean(userPerms.automation))) {
+              targetRoute = "/user/admin/automation";
+            } else if (userPerms.ai && (Array.isArray(userPerms.ai) ? userPerms.ai.length > 0 : Boolean(userPerms.ai))) {
+              targetRoute = "/user/admin/ai";
+            } else if (userPerms.credits && (Array.isArray(userPerms.credits) ? userPerms.credits.length > 0 : Boolean(userPerms.credits))) {
+              targetRoute = "/user/admin/credits";
+            } else if (userPerms.billing && (Array.isArray(userPerms.billing) ? userPerms.billing.length > 0 : Boolean(userPerms.billing))) {
+              targetRoute = "/user/admin/billing";
+            } else {
+              targetRoute = "/user/admin/dashboard";
+            }
+          }
+        }
 
         // Final redirect
-        router.replace("/user/admin/dashboard")
+        router.replace(targetRoute)
 
       } catch (err) {
         showToast("Impersonation failed: " + err.message, "error")

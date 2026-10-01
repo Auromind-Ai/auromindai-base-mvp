@@ -150,6 +150,21 @@ class AuthService:
         workspaces = db.query(Workspace, WorkspaceMember.role).join(
             WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id
         ).filter(WorkspaceMember.user_id == user_id, WorkspaceMember.is_active == True).all()
+
+        if not workspaces:
+            created_ws = db.query(Workspace).filter(Workspace.created_by == user_id).first()
+            if created_ws:
+              
+                membership = WorkspaceMember(
+                    workspace_id=created_ws.id,
+                    user_id=user_id,
+                    role="founder",
+                    is_active=True,
+                    permissions=get_full_permissions_dict()
+                )
+                db.add(membership)
+                db.commit()
+                workspaces = [(created_ws, "founder")]
        
         return [
             {

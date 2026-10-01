@@ -404,7 +404,8 @@ def get_billing_status(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id, x_workspace_id
+            current_user, db, workspace_id, x_workspace_id,
+            required_permission=None,
         )
         logger.info(f"[STATUS] user={current_user.email} workspace={resolved_ws_id}")
 
@@ -429,7 +430,7 @@ def get_usage(
 ):
     resolved_ws_id = resolve_and_verify_workspace(
         current_user, db, workspace_id, x_workspace_id,
-        required_permission=('credits.view', 'billing.manage'),
+        required_permission=None,
     )
     logger.info(f"[USAGE] user={current_user.email} workspace={resolved_ws_id}")
 
@@ -505,7 +506,8 @@ def get_plan(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     resolved_ws_id = resolve_and_verify_workspace(
-        current_user, db, workspace_id, x_workspace_id
+        current_user, db, workspace_id, x_workspace_id,
+        required_permission=None,
     )
     logger.info(f"[PLAN] user={current_user.email} workspace={resolved_ws_id}")
 
@@ -535,7 +537,7 @@ def get_credit_summary(
     try:
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id,
-            required_permission=('credits.view', 'billing.manage'),
+            required_permission=None,
         )
         service = get_billing_service()
         return service.get_credit_summary(
@@ -679,7 +681,7 @@ def list_credit_packs(
     try:
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id,
-            required_permission=('credits.view', 'billing.manage'),
+            required_permission=None,
         )
         service = get_billing_service()
         return service.list_credit_packs(

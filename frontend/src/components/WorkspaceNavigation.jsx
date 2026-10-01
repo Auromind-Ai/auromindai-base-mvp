@@ -86,7 +86,7 @@ export default function WorkspaceNavigation({
   onNavigate,
   onExpand,
 }) {
-  const { hasPermission } = useAuth();
+  const { hasPermission, permissionsLoading } = useAuth();
 
   const marketingActive =
     pathname === "/user/admin/marketing" ||
@@ -96,7 +96,7 @@ export default function WorkspaceNavigation({
   const visibleSections = sectionsDefinition
     .map((section) => {
       const allowedItems = section.items.filter(([, , route, permKey]) => {
-        if (!hasPermission) return true;
+        if (!hasPermission || permissionsLoading) return false;
         if (route === "inbox") {
           return hasPermission("inbox.conversations") || hasPermission("inbox");
         }
@@ -160,50 +160,52 @@ export default function WorkspaceNavigation({
           </section>
         ))}
 
-        <section aria-label="System">
-          {!collapsed && (
-            <h2 className="px-3 py-1 mb-1 [@media(min-height:781px)_and_(max-height:880px)]:py-0.5 [@media(min-height:701px)_and_(max-height:780px)]:py-px [@media(min-height:701px)_and_(max-height:780px)]:mb-0.5 [@media(max-height:700px)]:py-0 [@media(max-height:700px)]:mb-px text-[11px] font-medium uppercase tracking-wider text-[#787878]">
-              System
-            </h2>
-          )}
-          <div className="space-y-0.5 [@media(max-height:780px)]:space-y-px">
-            {canAccessSettings && (
-              <button
-                type="button"
-                onClick={() => {
-                  onNavigate?.();
-                  onSettings();
-                }}
-                title={collapsed ? "Settings" : undefined}
-                aria-label={collapsed ? "Settings" : undefined}
-                className={rowClass(false, collapsed)}
-              >
-                <Settings
-                  size={16}
-                  strokeWidth={2}
-                  className="shrink-0 text-[#7e7e7e] group-hover:text-white"
-                />
-                {!collapsed && <span>Settings</span>}
-              </button>
+        {(hasPermission('settings.general') || hasPermission('settings.notifications') || isAdmin) && (
+          <section aria-label="System">
+            {!collapsed && (
+              <h2 className="px-3 py-1 mb-1 [@media(min-height:781px)_and_(max-height:880px)]:py-0.5 [@media(min-height:701px)_and_(max-height:780px)]:py-px [@media(min-height:701px)_and_(max-height:780px)]:mb-0.5 [@media(max-height:700px)]:py-0 [@media(max-height:700px)]:mb-px text-[11px] font-medium uppercase tracking-wider text-[#787878]">
+                System
+              </h2>
             )}
-            {isAdmin && (
-              <Link
-                href="/admin"
-                onClick={onNavigate}
-                title={collapsed ? "Admin Console" : undefined}
-                aria-label={collapsed ? "Admin Console" : undefined}
-                className={rowClass(false, collapsed)}
-              >
-                <Shield
-                  size={16}
-                  strokeWidth={2}
-                  className="shrink-0 text-[#7e7e7e] group-hover:text-white"
-                />
-                {!collapsed && <span>Admin Console</span>}
-              </Link>
-            )}
-          </div>
-        </section>
+            <div className="space-y-0.5 [@media(max-height:780px)]:space-y-px">
+              {(hasPermission('settings.general') || hasPermission('settings.notifications')) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onNavigate?.();
+                    onSettings();
+                  }}
+                  title={collapsed ? "Settings" : undefined}
+                  aria-label={collapsed ? "Settings" : undefined}
+                  className={rowClass(false, collapsed)}
+                >
+                  <Settings
+                    size={16}
+                    strokeWidth={2}
+                    className="shrink-0 text-[#7e7e7e] group-hover:text-white"
+                  />
+                  {!collapsed && <span>Settings</span>}
+                </button>
+              )}
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  onClick={onNavigate}
+                  title={collapsed ? "Admin Console" : undefined}
+                  aria-label={collapsed ? "Admin Console" : undefined}
+                  className={rowClass(false, collapsed)}
+                >
+                  <Shield
+                    size={16}
+                    strokeWidth={2}
+                    className="shrink-0 text-[#7e7e7e] group-hover:text-white"
+                  />
+                  {!collapsed && <span>Admin Console</span>}
+                </Link>
+              )}
+            </div>
+          </section>
+        )}
       </div>
     </nav>
   );

@@ -69,12 +69,26 @@ async def get_my_workspace_permissions(
     ).first()
 
     if not membership:
-        raise HTTPException(status_code=403, detail="Not a member of this workspace")
+        if workspace.created_by and workspace.created_by == user_uuid:
+            membership = WorkspaceMember(
+                workspace_id=ws_uuid,
+                user_id=user_uuid,
+                role="founder",
+                is_active=True,
+                permissions=get_full_permissions_dict()
+            )
+            db.add(membership)
+            db.commit()
+            db.refresh(membership)
+        else:
+            raise HTTPException(status_code=403, detail="Not a member of this workspace")
 
     is_owner = bool(workspace.created_by and membership.user_id == workspace.created_by) or (membership.role in ("founder", "owner"))
     role = (membership.role or "member").lower().strip()
+    if is_owner and role in ("member", "user", ""):
+        role = "founder"
 
-    if role in ("admin", "founder", "owner", "superadmin", "platform_admin") or is_owner:
+    if role in ("admin", "founder", "owner", "platform_admin") or is_owner:
         permissions = get_full_permissions_dict()
     else:
         permissions = normalize_permissions(membership.permissions)
@@ -245,6 +259,21 @@ async def invite_workspace_member(
 
     if target_role not in ("admin", "member", "team_member"):
         target_role = "member"
+
+    # Hierarchy check: Only founders/owners (or platform admin) can invite administrators
+    current_user_uuid = to_uuid(current_user.id)
+    caller_member = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == ws_uuid,
+        WorkspaceMember.user_id == current_user_uuid
+    ).first()
+    caller_role = (caller_member.role or "member").lower().strip() if caller_member else "member"
+    is_founder = (workspace.created_by == current_user_uuid) or caller_role in ("founder", "owner") or getattr(current_user.user, "platform_role", None) == "platform_admin"
+
+    if target_role == "admin" and not is_founder:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only workspace founders/owners can invite administrators."
+        )
 
     # Normalize permissions
     if target_role == "admin":
@@ -499,11 +528,35 @@ async def update_workspace_member(
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
 
+    current_user_uuid = to_uuid(current_user.id)
+    caller_member = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == ws_uuid,
+        WorkspaceMember.user_id == current_user_uuid
+    ).first()
+    caller_role = (caller_member.role or "member").lower().strip() if caller_member else "member"
+    is_founder = (workspace.created_by == current_user_uuid) or caller_role in ("founder", "owner") or getattr(current_user.user, "platform_role", None) == "platform_admin"
+
+    # Self-modification guard: Users cannot modify their own role, status, or permissions
+    if member.user_id == current_user_uuid:
+        if (payload.role is not None and payload.role.strip().lower() != member.role) or payload.permissions is not None or (payload.is_active is not None and payload.is_active != member.is_active):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Users cannot modify their own role, permissions, or membership status."
+            )
+
     if workspace and workspace.created_by == member.user_id:
         if payload.role and payload.role != member.role:
             raise HTTPException(status_code=400, detail="Cannot alter role of the workspace creator.")
         if payload.is_active is False:
             raise HTTPException(status_code=400, detail="Cannot deactivate the primary workspace owner.")
+
+    # Role hierarchy: Only founders/owners (or platform admins) can assign admin role or modify an admin member
+    target_role = (payload.role or member.role).strip().lower()
+    if (target_role == "admin" or member.role == "admin") and not is_founder:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only workspace founders/owners can assign or modify administrator roles."
+        )
 
     # Update name
     if payload.name is not None:
@@ -513,7 +566,6 @@ async def update_workspace_member(
         if user_record and not user_record.full_name:
             user_record.full_name = payload.name.strip()
 
-    target_role = (payload.role or member.role).strip().lower()
     if target_role not in ("admin", "member", "team_member") and target_role != member.role:
         raise HTTPException(status_code=400, detail="Role must be admin or member.")
     target_active = member.is_active if payload.is_active is None else payload.is_active
@@ -575,8 +627,28 @@ async def remove_workspace_member(
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
 
+    current_user_uuid = to_uuid(current_user.id)
+    if member.user_id == current_user_uuid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot remove yourself using this endpoint. Use leave workspace instead."
+        )
+
     if workspace.created_by and member.user_id == workspace.created_by:
         raise HTTPException(status_code=400, detail="Cannot remove the workspace creator / primary owner.")
+
+    caller_member = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == ws_uuid,
+        WorkspaceMember.user_id == current_user_uuid
+    ).first()
+    caller_role = (caller_member.role or "member").lower().strip() if caller_member else "member"
+    is_founder = (workspace.created_by == current_user_uuid) or caller_role in ("founder", "owner") or getattr(current_user.user, "platform_role", None) == "platform_admin"
+
+    if member.role == "admin" and not is_founder:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only workspace founders/owners can remove administrator members."
+        )
 
     member_user_id = str(member.user_id)
     db.delete(member)

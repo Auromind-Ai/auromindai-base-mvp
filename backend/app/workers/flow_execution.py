@@ -203,6 +203,55 @@ def resume_flow_node(
         db.close()
 
 
+#  handle_node_timeout ─
+
+@celery_app.task(
+    bind=True,
+    name="app.workers.flow_execution.handle_node_timeout",
+    max_retries=3,
+)
+def handle_node_timeout(
+    self,
+    conversation_id: str,
+    node_id: str,
+    stage_index: int = 0,
+):
+    db = SessionLocal()
+    tracer = ExecutionTracer()
+
+    def _run():
+        from app.models.ai_action import ConversationState
+        conv_state = db.query(ConversationState).filter_by(conversation_id=conversation_id).first()
+        if conv_state and conv_state.human_takeover:
+            logger.info("[TIMEOUT_IGNORED] human_takeover active | conv=%s", conversation_id)
+            return
+
+        service = FlowServiceV2()
+        result = asyncio.run(
+            service.handle_node_timeout_execution(
+                db,
+                conversation_id=conversation_id,
+                node_id=node_id,
+                stage_index=stage_index,
+            )
+        )
+
+        tracer.trace(
+            db,
+            conversation_id=conversation_id,
+            event_type="timeout_stage_run",
+            metadata={"node_id": node_id, "stage_index": stage_index, "result": result},
+        )
+        db.commit()
+        logger.info("[handle_node_timeout] OK | conversation=%s node=%s stage=%d", conversation_id, node_id, stage_index)
+        return result
+
+    try:
+        return _run_flow_task(self, conversation_id, tracer, db, _run, extra_meta={"node_id": node_id, "stage": stage_index})
+    finally:
+        db.close()
+
+
 # send_next_pending_message  (REWRITTEN — race-condition-free)
 @celery_app.task(
     bind=True,
@@ -953,14 +1002,27 @@ def poll_scheduled_resumes():
                     cancelled += 1
                     continue
 
-            #  Enqueue the resume task
+            #  Enqueue the resume or timeout task
             try:
-                resume_flow_node.delay(
-                    conversation_id=str(sr.conversation_id),
-                    node_id=sr.node_id,
-                    inbound_text=sr.inbound_text or "",
-                    msg_sequence_val=sr.msg_sequence_val or 0,
+                curr_state = (
+                    db.query(FlowExecutionState)
+                    .filter(FlowExecutionState.conversation_id == sr.conversation_id)
+                    .first()
                 )
+                pending_to = (curr_state.runtime_context or {}).get("pending_timeout") if curr_state else None
+                if pending_to and pending_to.get("node_id") == sr.node_id:
+                    handle_node_timeout.delay(
+                        conversation_id=str(sr.conversation_id),
+                        node_id=sr.node_id,
+                        stage_index=pending_to.get("stage_index", 0),
+                    )
+                else:
+                    resume_flow_node.delay(
+                        conversation_id=str(sr.conversation_id),
+                        node_id=sr.node_id,
+                        inbound_text=sr.inbound_text or "",
+                        msg_sequence_val=sr.msg_sequence_val or 0,
+                    )
             except Exception as enqueue_exc:
                 # Enqueue failed — leave row as "pending" for next cycle
                 logger.warning(

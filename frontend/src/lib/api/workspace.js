@@ -4,8 +4,8 @@ export async function getWorkspaceMembers(workspaceId) {
   return client.get(`/api/workspaces/${workspaceId}/members`);
 }
 
-export async function getMyWorkspacePermissions(workspaceId) {
-  return client.get(`/api/workspaces/${workspaceId}/my-permissions`);
+export async function getMyWorkspacePermissions(workspaceId, options = {}) {
+  return client.get(`/api/workspaces/${workspaceId}/my-permissions`, options);
 }
 
 export async function inviteWorkspaceMember(workspaceId, { name, email, role = 'member', permissions = {} }) {

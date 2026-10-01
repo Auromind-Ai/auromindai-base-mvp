@@ -44,7 +44,11 @@ class FlowResponseModel(BaseModel):
     edges: list
     status: str
     workspace_id: Optional[UUID] = None
+    created_by: Optional[UUID] = None
+    created_by_email: Optional[str] = None
+    created_by_name: Optional[str] = None
     created_at: Optional[Any] = None
+    updated_at: Optional[Any] = None
     class Config:
         from_attributes = True
 

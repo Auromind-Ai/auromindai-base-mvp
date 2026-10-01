@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useBranding } from "@/context/BrandingContext";
 import { poppins } from "@/lib/fonts";
 
-// ─── All apps across 4 rows — all using local SVG icons ────────────────────
+// All apps across 4 rows — all using local SVG icons ────────────────────
 const ROW_1 = [
   { name: "Instagram",      img: "/images/integrations/instagram.png",      featured: true  },
   { name: "WhatsApp",       img: "/images/integrations/whatsapp.png",       featured: true  },
@@ -61,7 +61,7 @@ const ALL_ROWS = [
   { items: ROW_4, dir: "right", speed: 42 },
 ];
 
-// ─── Single icon tile ────────────────────────────────────────────────────────
+// Single icon tile
 function AppIcon({ app }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -92,7 +92,7 @@ function AppIcon({ app }) {
   );
 }
 
-// ─── Infinite scrolling row ───────────────────────────────────────────────────
+// Infinite scrolling row 
 function MarqueeRow({ items, dir, speed }) {
   // triple-clone for seamless loop
   const clone = [...items, ...items, ...items];
@@ -112,7 +112,7 @@ function MarqueeRow({ items, dir, speed }) {
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// Main component 
 export default function IntegrationsSection() {
   const { appName } = useBranding();
 
@@ -120,20 +120,20 @@ export default function IntegrationsSection() {
     <section
       className={`${poppins.className} relative overflow-hidden bg-[#050505] border-b border-white/[0.04]`}
     >
-      {/* ── Ambient blobs ─────────────────────────────────────────── */}
+      {/* Ambient blobs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute top-[10%] left-[5%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(109,40,217,0.14)_0%,transparent_70%)]" />
         <div className="absolute bottom-[10%] right-[5%] w-[350px] h-[350px] rounded-full bg-[radial-gradient(circle,rgba(79,70,229,0.10)_0%,transparent_70%)]" />
       </div>
 
-      {/* ── Main two-column layout ──────────────────────────────── */}
+      {/* Main two-column layout */}
       <div className="integ-grid relative z-[2] grid grid-cols-2 min-h-[520px] max-w-[1280px] mx-auto">
         {/* LEFT — Text content */}
         <div className="relative z-10 flex flex-col justify-center px-8 py-[72px] pl-8 pr-12">
           {/* COMING SOON pill */}
-          <div className="mb-3 inline-flex w-fit items-center gap-2 rounded-full border border-amber-400/30 bg-[linear-gradient(135deg,rgba(251,191,36,0.15)_0%,rgba(245,158,11,0.08)_100%)] px-[14px] py-[5px]">
+          <div className="mb-3 inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-gradient-to-r from-[#3b2a08]/80 via-[#261b05]/60 to-[#0d0902] px-[14px] py-[5px]">
             <span className="text-xs">✦</span>
-            <span className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-400">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
               200+ Apps · Coming Soon
             </span>
             <span className="text-xs">✦</span>
@@ -141,8 +141,8 @@ export default function IntegrationsSection() {
 
           {/* Integrations pill badge */}
           <div className="mb-5 inline-flex w-fit items-center gap-1.5 rounded-full border border-violet-500/[0.28] bg-violet-500/[0.12] px-[14px] py-[6px]">
-            <span className="inline-block h-[7px] w-[7px] animate-[blink_1.8s_ease-in-out_infinite] rounded-full bg-violet-300" />
-            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-violet-300">
+            <span className="inline-block h-[7px] w-[7px] animate-[blink_1.8s_ease-in-out_infinite] rounded-full bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white">
               Integrations
             </span>
           </div>
