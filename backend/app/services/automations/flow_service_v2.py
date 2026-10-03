@@ -213,30 +213,31 @@ class FlowServiceV2:
                 from datetime import datetime, timezone, timedelta
                 cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
                 updated_at = state.updated_at
-                if updated_at.tzinfo is None:
-                    updated_at = updated_at.replace(tzinfo=timezone.utc)
+                if updated_at:
+                    if updated_at.tzinfo is None:
+                        updated_at = updated_at.replace(tzinfo=timezone.utc)
 
-                if updated_at < cutoff:
-                    logger.info(f"⏳ Conversation session expired due to inactivity (> 5 mins) for conversation {conversation.id}. Resetting flow state.")
-                    try:
-                        from app.services.inbox.channel_service import ChannelService
-                        ChannelService.send_message(
-                            conversation,
-                            "Your session has expired due to inactivity. Send a message to start again.",
-                            metadata={"source": "session_timeout_expiry"}
-                        )
-                    except Exception as e:
-                        logger.error(f"Failed to send session expiry message: {e}")
+                    if updated_at < cutoff:
+                        logger.info(f"⏳ Conversation session expired due to inactivity (> 5 mins) for conversation {conversation.id}. Resetting flow state.")
+                        try:
+                            from app.services.inbox.channel_service import ChannelService
+                            ChannelService.send_message(
+                                conversation,
+                                "Your session has expired due to inactivity. Send a message to start again.",
+                                metadata={"source": "session_timeout_expiry"}
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to send session expiry message: {e}")
 
-                    state.active_flow_id = None
-                    state.current_node_id = None
-                    state.pending_button = None
-                    state.button_expires_at = None
-                    state.pending_question = None
-                    state.question_expires_at = None
-                    state.runtime_context = {}
-                    self._persist_state(db, state)
-                    is_mid_conversation = False
+                        state.active_flow_id = None
+                        state.current_node_id = None
+                        state.pending_button = None
+                        state.button_expires_at = None
+                        state.pending_question = None
+                        state.question_expires_at = None
+                        state.runtime_context = {}
+                        self._persist_state(db, state)
+                        is_mid_conversation = False
 
             # Check for explicit reset command
             if is_mid_conversation and self._is_reset_command(inbound_text):
@@ -689,6 +690,10 @@ class FlowServiceV2:
                 state.runtime_context["pending_timeout"] = None
                 state.active_flow_id = None
                 state.current_node_id = None
+                state.pending_button = None
+                state.button_expires_at = None
+                state.pending_question = None
+                state.question_expires_at = None
                 flag_modified(state, "runtime_context")
 
                 followup_raw = current_stage.get("message") or current_stage.get("follow_up_message") or ""
@@ -1970,6 +1975,61 @@ class FlowServiceV2:
 
         return True  # Stop execution — wait for human reply
 
+    def _schedule_node_timeout(
+        self,
+        db: Session,
+        *,
+        conversation: Conversation,
+        flow: AutomationFlow,
+        state: FlowExecutionState,
+        node: Dict[str, Any],
+        config: Dict[str, Any],
+    ) -> bool:
+        if not config.get("wait_for_response"):
+            return False
+
+        timeouts = self._parse_node_timeouts(config)
+        if not timeouts:
+            return False
+
+        next_node_id = self._get_default_target(flow.edges or [], node.get("id"))
+        state.runtime_context = state.runtime_context or {}
+        state.runtime_context["pending_timeout"] = {
+            "node_id": node.get("id"),
+            "stage_index": 0,
+            "total_stages": len(timeouts),
+            "timeouts": timeouts,
+            "next_node_id": next_node_id,
+            "scheduled_at": datetime.now(timezone.utc).isoformat(),
+        }
+        flag_modified(state, "runtime_context")
+
+        # Directly use exact user-configured seconds for Celery countdown
+        first_timeout_seconds = int(timeouts[0].get("timeout_seconds") or 30)
+        from app.workers.flow_execution import handle_node_timeout
+        handle_node_timeout.apply_async(
+            kwargs={
+                "conversation_id": str(conversation.id),
+                "node_id": node.get("id"),
+                "stage_index": 0,
+            },
+            countdown=first_timeout_seconds,
+        )
+
+        self.tracer.trace(
+            db,
+            conversation_id=conversation.id,
+            flow_id=flow.id,
+            node_id=node.get("id"),
+            event_type="timeout_scheduled",
+            metadata={
+                "stage_index": 1,
+                "timeout_seconds": first_timeout_seconds,
+                "total_stages": len(timeouts),
+            },
+        )
+        return True
+
     # MESSAGE HANDLERS
     async def _handle_send_message_node(
         self,
@@ -2042,6 +2102,8 @@ class FlowServiceV2:
                 execution_token=execution_token,
                 state=state,
             )
+            if self._schedule_node_timeout(db, conversation=conversation, flow=flow, state=state, node=node, config=config):
+                return True
             return False
 
         #  Button message 
@@ -2074,7 +2136,10 @@ class FlowServiceV2:
             state.button_expires_at = datetime.now(timezone.utc) + timedelta(
                 minutes=int(config.get("button_timeout_minutes", 60))
             )
-            return True  # Stop execution — wait for button reply
+
+            # Schedule timeout if configured; otherwise pause for button reply
+            self._schedule_node_timeout(db, conversation=conversation, flow=flow, state=state, node=node, config=config)
+            return True  # Stop execution — wait for button reply or timeout
 
         #  Plain text 
         outbound_text = self._render_template(
@@ -2098,47 +2163,8 @@ class FlowServiceV2:
             )
 
         #  Wait for Customer Response / Timeout Handling 
-        if config.get("wait_for_response"):
-            timeouts = self._parse_node_timeouts(config)
-
-            if timeouts:
-                next_node_id = self._get_default_target(flow.edges or [], node.get("id"))
-                state.runtime_context = state.runtime_context or {}
-                state.runtime_context["pending_timeout"] = {
-                    "node_id": node.get("id"),
-                    "stage_index": 0,
-                    "total_stages": len(timeouts),
-                    "timeouts": timeouts,
-                    "next_node_id": next_node_id,
-                    "scheduled_at": datetime.now(timezone.utc).isoformat(),
-                }
-                flag_modified(state, "runtime_context")
-
-                # Directly use the exact user-configured seconds for Celery countdown
-                first_timeout_seconds = int(timeouts[0].get("timeout_seconds") or 30)
-                from app.workers.flow_execution import handle_node_timeout
-                handle_node_timeout.apply_async(
-                    kwargs={
-                        "conversation_id": str(conversation.id),
-                        "node_id": node.get("id"),
-                        "stage_index": 0,
-                    },
-                    countdown=first_timeout_seconds,
-                )
-
-                self.tracer.trace(
-                    db,
-                    conversation_id=conversation.id,
-                    flow_id=flow.id,
-                    node_id=node.get("id"),
-                    event_type="timeout_scheduled",
-                    metadata={
-                        "stage_index": 1,
-                        "timeout_seconds": first_timeout_seconds,
-                        "total_stages": len(timeouts),
-                    },
-                )
-                return True  # Stop execution — wait for customer reply or timeout
+        if self._schedule_node_timeout(db, conversation=conversation, flow=flow, state=state, node=node, config=config):
+            return True  # Stop execution — wait for customer reply or timeout
 
         return False
 

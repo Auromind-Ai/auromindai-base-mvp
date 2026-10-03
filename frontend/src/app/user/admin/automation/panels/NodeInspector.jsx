@@ -1229,7 +1229,7 @@ export default function NodeInspector({
                                     <input
                                       type="number"
                                       min={1}
-                                      max={stage0Unit === 'hours' ? 72 : stage0Unit === 'minutes' ? 1440 : 86400}
+                                      max={stage0Unit === 'minutes' ? 1440 : 86400}
                                       value={stage0Amount}
                                       onChange={(e) =>
                                         updateTimeoutStage(0, {
@@ -1247,7 +1247,6 @@ export default function NodeInspector({
                                     >
                                       <option value="seconds">Seconds</option>
                                       <option value="minutes">Minutes</option>
-                                      <option value="hours">Hours</option>
                                     </select>
                                   </div>
 
@@ -1391,7 +1390,7 @@ export default function NodeInspector({
                                     <input
                                       type="number"
                                       min={1}
-                                      max={stageUnit === 'hours' ? 72 : stageUnit === 'minutes' ? 1440 : 86400}
+                                      max={stageUnit === 'minutes' ? 1440 : 86400}
                                       value={stageAmount}
                                       onChange={(e) =>
                                         updateTimeoutStage(stageIdx, {
@@ -1409,7 +1408,6 @@ export default function NodeInspector({
                                     >
                                       <option value="seconds">Seconds</option>
                                       <option value="minutes">Minutes</option>
-                                      <option value="hours">Hours</option>
                                     </select>
                                   </div>
 
