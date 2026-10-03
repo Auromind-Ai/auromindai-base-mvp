@@ -547,7 +547,7 @@ export async function fetchApprovedTemplates(workspaceId) {
   }
 
   try {
-    const res2 = await getTemplates();
+    const res2 = await getTemplates(wsId);
     const list2 = res2?.templates || res2?.items || res2?.data?.templates || res2?.data?.items || (Array.isArray(res2?.data) ? res2.data : (Array.isArray(res2) ? res2 : null));
     if (Array.isArray(list2) && list2.length > 0) {
       return list2.map(mapTemplateRecord).filter((t) => (t.status || '').toUpperCase() === 'APPROVED');

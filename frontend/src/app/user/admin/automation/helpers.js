@@ -180,7 +180,7 @@ export const validateFlowGraph = (nodes = [], edges = []) => {
   }
 
   nodes.forEach((node) => {
-    if (node.type === 'trigger') {
+    if (node.type === 'trigger' && nodes.length > 1) {
       const event = node.config?.event || 'msg_recv';
       const keywords = (node.config?.keywords || []).filter((k) => String(k).trim());
       const matchAll = Boolean(node.config?.match_all) || keywords.some((k) => ['*', 'all', 'any'].includes(String(k).trim()));

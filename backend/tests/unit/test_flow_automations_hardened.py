@@ -106,6 +106,27 @@ def test_flow_validation_rejects_empty_trigger_keywords():
     assert any("no keywords configured" in err.lower() for err in validation["errors"])
 
 
+def test_flow_validation_allows_initial_single_trigger_flow():
+    # Brand new blank canvas with only "Init Trigger" node
+    nodes = [
+        {
+            "id": "1",
+            "type": "trigger",
+            "label": "Init Trigger",
+            "config": {
+                "event": "msg_recv",
+                "match_type": "word_match",
+                "keywords": [],
+            },
+        }
+    ]
+    edges = []
+
+    validation = FlowValidationService.validate_flow(nodes, edges)
+    assert validation["is_valid"] is True
+    assert len(validation["errors"]) == 0
+
+
 def test_flow_validation_accepts_valid_trigger_keywords():
     nodes = [
         {

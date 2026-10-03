@@ -80,7 +80,7 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
         const fetchTemplates = async () => {
             setFetching(true);
             try {
-                const data = await api.get('/api/templates');
+                const data = await api.getTemplates(workspaceId);
                 const list = data.templates || [];
                 const approved = list.filter(t => t.status === 'approved');
                 setTemplates(approved);

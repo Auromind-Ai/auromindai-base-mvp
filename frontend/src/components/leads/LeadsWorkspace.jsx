@@ -1331,6 +1331,7 @@ export default function LeadsWorkspace({ upgraded = false }) {
 }
 
 function WorkspaceContent({ upgraded, workspaceId }) {
+    const effectiveWsId = workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null) || getWorkspaceIdFromToken();
     const router = useRouter();
 
     const [section, setSection] = useState('leads');
@@ -1385,8 +1386,8 @@ function WorkspaceContent({ upgraded, workspaceId }) {
 
     // Fetch Leads List with pagination capability
     const fetchLeadsList = async (currentOffset = 0, isAppend = false, searchVal = debouncedSearch) => {
-        const workspaceId = getWorkspaceIdFromToken();
-        if (!workspaceId) return;
+        const targetWsId = effectiveWsId;
+        if (!targetWsId) return;
 
         const requestId = ++listRequestRef.current;
         setLoading(true); setListError(''); setFailedListRequest(null);
@@ -1395,7 +1396,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
             if (selectedFilter === 'favorites') effective.favorite = true;
             else if (selectedFilter !== 'all') effective.sources = [selectedFilter];
             const filterParam = `&filters=${encodeURIComponent(JSON.stringify(effective))}`;
-            const res = await api.get(`/lead-scoring/leads?workspace_id=${workspaceId}&limit=${LIMIT}&offset=${currentOffset}&sort_by=recent${filterParam}`);
+            const res = await api.get(`/lead-scoring/leads?workspace_id=${targetWsId}&limit=${LIMIT}&offset=${currentOffset}&sort_by=recent${filterParam}`);
             if (requestId !== listRequestRef.current) return;
             const normalizedItems = (res.items || []).map(normalizeLead);
 
@@ -1448,9 +1449,9 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     useEffect(() => {
         if (!upgraded) return;
         let active = true;
-        api.get(`/lead-scoring/filter-options?workspace_id=${getWorkspaceIdFromToken()}`).then(data => { if (active) { setFilterOptions(data); setOptionsError(''); } }).catch(err => { if (active) setOptionsError(err.message); });
+        api.get(`/lead-scoring/filter-options?workspace_id=${effectiveWsId}`).then(data => { if (active) { setFilterOptions(data); setOptionsError(''); } }).catch(err => { if (active) setOptionsError(err.message); });
         return () => { active = false; };
-    }, [upgraded, optionsRetry]);
+    }, [upgraded, optionsRetry, effectiveWsId]);
 
     // Load High-Priority Selected Lead Details & History
     const fetchSelectedLeadData = async (leadId) => {
@@ -1468,14 +1469,14 @@ function WorkspaceContent({ upgraded, workspaceId }) {
         setDetailErrors(prev => ({ ...prev, [leadId]: '' }));
         setHistoryLoading(leadId);
 
-        const workspaceId = getWorkspaceIdFromToken();
+        const targetWsId = effectiveWsId;
 
         try {
             const [detailRes, historyRes] = await Promise.allSettled([
-                api.get(`/lead-scoring/leads/${leadId}/detail?workspace_id=${workspaceId}`, {
+                api.get(`/lead-scoring/leads/${leadId}/detail?workspace_id=${targetWsId}`, {
                     signal: controller.signal
                 }),
-                api.get(`/lead-scoring/leads/${leadId}/history?workspace_id=${workspaceId}`, {
+                api.get(`/lead-scoring/leads/${leadId}/history?workspace_id=${targetWsId}`, {
                     signal: controller.signal
                 })
             ]);
@@ -1575,8 +1576,8 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     };
 
     const handleToggleFavorite = async (leadId) => {
-        const workspaceId = getWorkspaceIdFromToken();
-        if (!workspaceId) return;
+        const targetWsId = effectiveWsId;
+        if (!targetWsId) return;
 
         const originalLead = leads.find(l => l.id === leadId);
         const originalDetail = leadsDetails[leadId];
@@ -1602,7 +1603,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
         updateState(nextFavorite);
 
         try {
-            const res = await api.post(`/lead-scoring/leads/${leadId}/favorite?workspace_id=${workspaceId}`);
+            const res = await api.post(`/lead-scoring/leads/${leadId}/favorite?workspace_id=${targetWsId}`);
             const updatedLead = normalizeLead(res);
             setLeads(prev => prev.map(l => {
                 if (l.id === leadId) {

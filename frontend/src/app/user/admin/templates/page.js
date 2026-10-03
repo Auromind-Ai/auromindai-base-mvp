@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import { getWorkspaceIdFromToken } from '@/lib/auth';
 import { convertNumberedToNamedText, formatVariableLabel, getSampleValue } from '@/lib/variableUtils';
 
 
@@ -1054,12 +1055,14 @@ export default function TemplatesPage() {
 
   const fetchTemplates = useCallback(async (refresh = false) => {
     if (refresh) setSpinning(true);
+    const activeWsId = workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null) || getWorkspaceIdFromToken();
     try {
-      if (workspaceId) {
-        await api.get(`/templates/status/${workspaceId}`);
+      if (activeWsId) {
+        await api.get(`/templates/status/${activeWsId}`);
       }
+      const query = activeWsId ? `?workspace_id=${encodeURIComponent(activeWsId)}` : '';
       const [userRes, systemRes] = await Promise.all([
-        api.get('/templates'),
+        api.get(`/templates${query}`),
         api.get('/templates/system')
       ]);
       setTemplates(userRes.templates || []);
@@ -1073,32 +1076,8 @@ export default function TemplatesPage() {
   }, [workspaceId]);
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        if (workspaceId) {
-          await api.get(`/templates/status/${workspaceId}`);
-        }
-        const [userRes, systemRes] = await Promise.all([
-          api.get('/templates'),
-          api.get('/templates/system')
-        ]);
-        if (active) {
-          setTemplates(userRes.templates || []);
-          setSystemTemplates(systemRes.templates || []);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [workspaceId]);
+    fetchTemplates();
+  }, [fetchTemplates]);
 
   const filtered = useMemo(() => {
     if (viewSource === 'samples') {
@@ -1156,7 +1135,8 @@ export default function TemplatesPage() {
   const handleNewTemplateClick = async () => {
     setCheckingConnection(true);
     try {
-      const data = await api.getChannelsStatus(workspaceId);
+      const activeWs = workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null) || getWorkspaceIdFromToken();
+      const data = await api.getChannelsStatus(activeWs);
       if (data.whatsapp?.connected) {
         router.push('/user/admin/templates/create');
       } else {
