@@ -71,3 +71,9 @@ test('legacy roles are normalized before hiding personal workspaces', () => {
   const legacyMember = { id: 'member', role: ' MEMBER ' };
   assert.deepEqual(getVisibleWorkspaces([own, legacyMember]), [legacyMember]);
 });
+
+test('fresh user session with standalone workspace resolves to the user workspace', () => {
+  const standaloneWs = { id: 'asdfs_ws', name: "asdfs's Workspace", role: 'founder', is_owner: true };
+  assert.equal(resolveWorkspace([standaloneWs], null, null, 'asdfs_ws'), standaloneWs);
+  assert.equal(resolveWorkspace([standaloneWs], null, null, null), standaloneWs);
+});

@@ -32,12 +32,14 @@ class Template(Base):
     footer = Column(String, nullable=True)
     cta = Column(String, nullable=True)
     cta_btn_title = Column(String, nullable=True)
+    buttons = Column(Text, nullable=True)  # JSON-encoded list of buttons (Quick reply, URL, Phone, Copy Code, Voice)
 
     status = Column(String, default="draft")  
     # draft / pending / approved / rejected
 
     meta_template_id = Column(String, nullable=True)  # Meta API ID
     system_tag = Column(String, nullable=True)  # Trending, ecommerce, etc.
+    variable_mapping = Column(Text, nullable=True)  # JSON mapping of named vars to WhatsApp numbers: {"1": "customer_name", ...}
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

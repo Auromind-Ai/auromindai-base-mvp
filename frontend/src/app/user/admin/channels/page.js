@@ -1120,7 +1120,14 @@ function ChannelsContent() {
                 config_id: WA_CONFIG_ID,
                 response_type: 'code',
                 override_default_response_type: true,
-                extras: { sessionInfoVersion: 3, featureType: '', setup: {} }
+                extras: {
+                    feature: 'whatsapp_embedded_signup',
+                    featureType: 'whatsapp_business_app_onboarding',
+                    sessionInfoVersion: '3',
+                    coex: true,
+                    version: 'v4',
+                    setup: {}
+                }
             }
         );
     };

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { X, Send, Image as ImageIcon, Video, FileText, Upload, AlertCircle, CheckCircle2, Phone } from 'lucide-react';
 import api from '@/lib/api';
 import { useToast } from '@/context/ToastContext';
+import { formatVariableLabel, getSampleValue } from '@/lib/variableUtils';
 
 export default function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
     const { showToast } = useToast();
@@ -22,11 +23,49 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
 
     const extractVariables = (template) => {
         if (!template || !template.content) return {};
-        const matches = template.content.match(/\{\{\d+\}\}/g) || [];
+        const matches = template.content.match(/\{\{\[?(\d+)\]?\}\}/g) || [];
         const uniqueVars = {};
+
+        let varMap = {};
+        if (template.variable_mapping) {
+            try {
+                varMap = typeof template.variable_mapping === 'string'
+                    ? JSON.parse(template.variable_mapping)
+                    : (template.variable_mapping || {});
+            } catch (e) {
+                varMap = {};
+            }
+        }
+
+        const isAuthTemplate = 
+            (template?.category || '').toUpperCase() === 'AUTHENTICATION' ||
+            (template?.name || '').toLowerCase().includes('otp') ||
+            (template?.name || '').toLowerCase().includes('verification');
+
         matches.forEach(m => {
-            const num = m.replace(/\{\{|\}\}/g, '');
-            uniqueVars[num] = '';
+            const num = m.replace(/[{}[\]]/g, '');
+            const mappedName = (varMap[num] || '').toLowerCase().trim();
+
+            const isOtp = 
+                isAuthTemplate ||
+                mappedName.includes('otp') ||
+                mappedName.includes('verification') ||
+                mappedName.includes('passcode') ||
+                mappedName.includes('code');
+
+            const isContactName = 
+                !isOtp &&
+                (mappedName === 'customer_name' ||
+                 mappedName === 'first_name' ||
+                 mappedName === 'name' ||
+                 mappedName === 'client_name' ||
+                 (!mappedName && num === '1'));
+
+            if (isContactName && recipientName && recipientName !== 'Lead') {
+                uniqueVars[num] = recipientName;
+            } else {
+                uniqueVars[num] = '';
+            }
         });
         return uniqueVars;
     };
@@ -65,9 +104,22 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
     const getPreviewContent = () => {
         if (!selectedTemplate) return '';
         let text = selectedTemplate.content;
+        let varMap = {};
+        if (selectedTemplate?.variable_mapping) {
+            try {
+                varMap = typeof selectedTemplate.variable_mapping === 'string'
+                    ? JSON.parse(selectedTemplate.variable_mapping)
+                    : (selectedTemplate.variable_mapping || {});
+            } catch (e) {
+                varMap = {};
+            }
+        }
         Object.keys(variables).forEach(k => {
-            const val = variables[k] || `{{${k}}}`;
+            const mappedName = varMap[k];
+            const fallback = mappedName ? `{{${mappedName}}}` : `{{${k}}}`;
+            const val = variables[k] || fallback;
             text = text.replaceAll(`{{${k}}}`, val);
+            text = text.replaceAll(`{{[${k}]}}`, val);
         });
         return text;
     };
@@ -264,18 +316,43 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
                             {varKeys.length > 0 && (
                                 <div className="space-y-3">
                                     <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Template Variables</label>
-                                    {varKeys.map(k => (
-                                        <div key={k} className="flex flex-col gap-1.5">
-                                            <span className="text-[12px] text-zinc-400 font-medium">Variable {`{{${k}}}`}</span>
-                                            <input
-                                                type="text"
-                                                value={variables[k]}
-                                                onChange={e => setVariables(prev => ({ ...prev, [k]: e.target.value }))}
-                                                placeholder={`Enter value for {{${k}}}`}
-                                                className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl px-3.5 py-2.5 text-[13px] text-white outline-none focus:border-emerald-500/50 transition-colors"
-                                            />
-                                        </div>
-                                    ))}
+                                    {varKeys.map(k => {
+                                        let varMap = {};
+                                        if (selectedTemplate?.variable_mapping) {
+                                            try {
+                                                varMap = typeof selectedTemplate.variable_mapping === 'string'
+                                                    ? JSON.parse(selectedTemplate.variable_mapping)
+                                                    : (selectedTemplate.variable_mapping || {});
+                                            } catch (e) {
+                                                varMap = {};
+                                            }
+                                        }
+                                        const mappedName = varMap[k];
+                                        const displayLabel = mappedName ? formatVariableLabel(mappedName) : `Variable {{${k}}}`;
+                                        const placeholder = mappedName ? `e.g. ${getSampleValue(mappedName)}` : `Enter value for {{${k}}}`;
+
+                                        return (
+                                            <div key={k} className="flex flex-col gap-1.5">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[12px] text-zinc-300 font-medium flex items-center gap-1.5">
+                                                        <span>{displayLabel}</span>
+                                                        {mappedName && (
+                                                            <span className="text-[11px] text-emerald-400 font-mono">
+                                                                {`{{${mappedName}}}`}
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={variables[k]}
+                                                    onChange={e => setVariables(prev => ({ ...prev, [k]: e.target.value }))}
+                                                    placeholder={placeholder}
+                                                    className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl px-3.5 py-2.5 text-[13px] text-white outline-none focus:border-emerald-500/50 transition-colors"
+                                                />
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
 

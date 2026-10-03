@@ -63,12 +63,12 @@ class AdminConsoleMiddleware:
 
         if path.startswith(admin_prefix):
 
-            # Auth endpoint and inquiries status mutation bypass
+            # Auth endpoint bypass
             if path in (
                 f"{admin_prefix}/auth",
                 f"{admin_prefix}/auth/",
                 f"{admin_prefix}/feedback-test",
-            ) or path.startswith(f"{admin_prefix}/inquiries"):
+            ):
                 await self.app(scope, receive, send)
                 return
 

@@ -13,6 +13,69 @@ import {
 import WhatsAppPreview from '../WhatsAppPreview';
 import QuickTips from '../QuickTips';
 import { fetchApprovedTemplates, estimateCampaign } from '@/lib/api/marketing';
+import { formatVariableLabel, getSampleValue, convertNumberedToNamedText } from '@/lib/variableUtils';
+
+function parseVarMap(tpl) {
+  if (!tpl || !tpl.variable_mapping) return {};
+  try {
+    return typeof tpl.variable_mapping === 'string'
+      ? JSON.parse(tpl.variable_mapping)
+      : (tpl.variable_mapping || {});
+  } catch (e) {
+    return {};
+  }
+}
+
+function detectBestColumn(cleanKey, mappedName, audienceCols) {
+  if (!audienceCols || !audienceCols.length) return 'custom';
+  const target = (mappedName || cleanKey || '').toLowerCase();
+
+  // Name match
+  if (target.includes('name') || target === '1' || target.includes('customer') || target.includes('first')) {
+    const found = audienceCols.find((c) => {
+      const l = c.toLowerCase();
+      return l.includes('name') || l.includes('user') || l.includes('customer') || l.includes('client') || l.includes('first');
+    });
+    if (found) return found;
+  }
+
+  // Phone match
+  if (target.includes('phone') || target.includes('mobile')) {
+    const found = audienceCols.find((c) => {
+      const l = c.toLowerCase();
+      return l.includes('phone') || l.includes('mobile') || l.includes('whatsapp');
+    });
+    if (found) return found;
+  }
+
+  // Email match
+  if (target.includes('email') || target.includes('mail')) {
+    const found = audienceCols.find((c) => {
+      const l = c.toLowerCase();
+      return l.includes('email') || l.includes('mail');
+    });
+    if (found) return found;
+  }
+
+  // Company match
+  if (target.includes('company') || target.includes('org') || target.includes('business')) {
+    const found = audienceCols.find((c) => {
+      const l = c.toLowerCase();
+      return l.includes('company') || l.includes('org') || l.includes('business');
+    });
+    if (found) return found;
+  }
+
+  // Direct keyword matches for any other audience columns
+  const cleanTarget = target.replace(/[^a-z0-9]/g, '');
+  const directMatch = audienceCols.find((c) => {
+    const colClean = c.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return colClean === cleanTarget || colClean.includes(cleanTarget) || cleanTarget.includes(colClean);
+  });
+  if (directMatch) return directMatch;
+
+  return 'custom';
+}
 
 export default function MessageStep({ data, updateData, onNext, onBack, workspaceId }) {
   const [message, setMessage] = useState(data.messageBody || '');
@@ -193,6 +256,8 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
   const displayedVariables = useMemo(() => {
     if (!selectedTemplate) return [];
 
+    const varMap = parseVarMap(selectedTemplate);
+
     let vars = Array.isArray(selectedTemplate.variables) ? selectedTemplate.variables : [];
     if (vars.length === 0 && (selectedTemplate.body || selectedTemplate.content)) {
       const matched = (selectedTemplate.body || selectedTemplate.content).match(/\{\{[^}]+\}\}/g);
@@ -202,10 +267,12 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     return vars.map((tag) => {
       const normalized = tag.startsWith('{{') ? tag : `{{${tag}}}`;
       const cleanKey = normalized.replace(/[{}]/g, '');
+      const mappedName = varMap[cleanKey] || (/^[a-zA-Z_]/.test(cleanKey) ? cleanKey : null);
       return {
         tag: normalized,
         cleanKey,
-        label: `Variable ${normalized}`,
+        mappedName,
+        label: mappedName ? `${formatVariableLabel(mappedName)} ({{${mappedName}}})` : `Variable ${normalized}`,
       };
     });
   }, [selectedTemplate]);
@@ -216,14 +283,17 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
     let updated = false;
     const next = { ...mappingRef.current };
-    displayedVariables.forEach(({ cleanKey }) => {
+    displayedVariables.forEach(({ cleanKey, mappedName }) => {
       if (!next[cleanKey]) {
         updated = true;
-        if (cleanKey === '1') {
-          next[cleanKey] = { source: defaultNameCol, fallback: 'Customer', customValue: '' };
-        } else {
-          next[cleanKey] = { source: 'custom', fallback: '', customValue: '' };
-        }
+        const bestCol = detectBestColumn(cleanKey, mappedName, audienceColumns);
+        const isName = (mappedName && (mappedName.includes('name') || mappedName.includes('customer'))) || cleanKey === '1';
+        next[cleanKey] = {
+          source: bestCol,
+          fallback: isName ? 'Customer' : '',
+          customValue: '',
+          mappedName: mappedName || cleanKey,
+        };
       }
     });
 
@@ -231,12 +301,12 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
       setVariableMapping(next);
       updateData({ variableMapping: next });
     }
-  }, [displayedVariables, defaultNameCol, updateData]);
+  }, [displayedVariables, audienceColumns, updateData]);
 
   const handleUpdateMapping = (cleanKey, updates) => {
     const current = mappingRef.current[cleanKey] || {
-      source: cleanKey === '1' ? defaultNameCol : 'custom',
-      fallback: cleanKey === '1' ? 'Customer' : '',
+      source: 'custom',
+      fallback: '',
       customValue: '',
     };
     const merged = { ...current, ...updates };
@@ -273,6 +343,8 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     const bodyContent = tpl.body || tpl.content || '';
     setMessage(bodyContent);
 
+    const varMap = parseVarMap(tpl);
+
     let vars = Array.isArray(tpl.variables) ? tpl.variables : [];
     if (vars.length === 0 && bodyContent) {
       const matched = bodyContent.match(/\{\{[^}]+\}\}/g);
@@ -282,11 +354,16 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     const newMapping = {};
     vars.forEach((v) => {
       const clean = String(v).replace(/[{}]/g, '');
-      if (clean === '1') {
-        newMapping[clean] = { source: defaultNameCol, fallback: 'Customer', customValue: '' };
-      } else {
-        newMapping[clean] = { source: 'custom', fallback: '', customValue: '' };
-      }
+      const mappedName = varMap[clean] || (/^[a-zA-Z_]/.test(clean) ? clean : null);
+      const bestCol = detectBestColumn(clean, mappedName, audienceColumns);
+      const isName = (mappedName && (mappedName.includes('name') || mappedName.includes('customer'))) || clean === '1';
+
+      newMapping[clean] = {
+        source: bestCol,
+        fallback: isName ? 'Customer' : '',
+        customValue: '',
+        mappedName: mappedName || clean,
+      };
     });
 
     setVariableMapping(newMapping);
@@ -361,12 +438,12 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     const sampleRecipient = (data?.recipients && data.recipients.length > 0) ? data.recipients[0] : null;
 
     let rendered = base;
-    displayedVariables.forEach(({ tag, cleanKey }) => {
-      const map = variableMapping[cleanKey] || (cleanKey === '1' ? { source: defaultNameCol } : { source: 'custom', customValue: '' });
+    displayedVariables.forEach(({ tag, cleanKey, mappedName }) => {
+      const map = variableMapping[cleanKey] || { source: 'custom', customValue: '' };
       let sampleVal = tag;
 
       if (map.source === 'custom') {
-        sampleVal = map.customValue?.trim() || `[Value ${cleanKey}]`;
+        sampleVal = map.customValue?.trim() || (mappedName ? `[${getSampleValue(mappedName)}]` : `[Value ${cleanKey}]`);
       } else {
         const colName = map.source;
         if (sampleRecipient) {
@@ -382,10 +459,13 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
         }
       }
       rendered = rendered.split(tag).join(sampleVal);
+      if (mappedName) {
+        rendered = rendered.split(`{{${mappedName}}}`).join(sampleVal);
+      }
     });
 
     return rendered;
-  }, [message, selectedTemplate, displayedVariables, variableMapping, defaultNameCol, data]);
+  }, [message, selectedTemplate, displayedVariables, variableMapping, data]);
 
   const handleProceed = () => {
     if (!selectedTemplateId) {
@@ -610,7 +690,14 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                     ) : null}
 
                     <p className={`text-xs sm:text-sm leading-relaxed line-clamp-3 font-normal ${isSelected ? 'text-white/90' : 'text-white/70'}`}>
-                      {tpl.body || tpl.content}
+                      {(() => {
+                        const varMap = parseVarMap(tpl);
+                        if (tpl.named_content) return tpl.named_content;
+                        if (Object.keys(varMap).length > 0) {
+                          return convertNumberedToNamedText(tpl.body || tpl.content || '', varMap);
+                        }
+                        return tpl.body || tpl.content;
+                      })()}
                     </p>
 
                     {(tpl.footer || (tpl.variables && tpl.variables.length > 0)) && (
@@ -618,7 +705,14 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                         <span className={isSelected ? 'text-white/80' : ''}>{tpl.footer || 'Meta Verified Template'}</span>
                         {tpl.variables && tpl.variables.length > 0 && (
                           <span className={isSelected ? 'text-white font-medium' : 'text-[#C49FE0] font-medium'}>
-                            Variables: {tpl.variables.join(', ')}
+                            Variables: {(() => {
+                              const varMap = parseVarMap(tpl);
+                              return tpl.variables.map(v => {
+                                const clean = String(v).replace(/[{}]/g, '');
+                                const mapped = varMap[clean];
+                                return mapped ? `{{${mapped}}}` : (v.startsWith('{{') ? v : `{{${v}}}`);
+                              }).join(', ');
+                            })()}
                           </span>
                         )}
                       </div>
@@ -708,10 +802,11 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
             {displayedVariables.length > 0 ? (
               <div className="space-y-3 pt-1">
-                {displayedVariables.map(({ tag, cleanKey }) => {
+                {displayedVariables.map(({ tag, cleanKey, mappedName }) => {
+                  const isNameField = (mappedName && (mappedName.includes('name') || mappedName.includes('customer'))) || cleanKey === '1';
                   const current = variableMapping[cleanKey] || {
-                    source: cleanKey === '1' ? defaultNameCol : 'custom',
-                    fallback: cleanKey === '1' ? 'Customer' : '',
+                    source: detectBestColumn(cleanKey, mappedName, audienceColumns),
+                    fallback: isNameField ? 'Customer' : '',
                     customValue: '',
                   };
 
@@ -727,10 +822,18 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                           : 'bg-[#141228] border border-[#251f42] hover:border-[#3d3363]'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm font-medium text-[#C49FE0] px-2.5 py-0.5 rounded-lg bg-[#814AC8]/20 border border-[#814AC8]/40">
-                          {tag}
-                        </span>
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          {mappedName ? (
+                            <span className="text-xs sm:text-sm font-semibold text-emerald-300 px-2.5 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 font-mono">
+                              {`{{${mappedName}}}`}
+                            </span>
+                          ) : (
+                            <span className="text-xs sm:text-sm font-medium text-[#C49FE0] px-2.5 py-0.5 rounded-lg bg-[#814AC8]/20 border border-[#814AC8]/40">
+                              {tag}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-xs text-white/70 font-normal">
                           {isCustom ? 'Custom Text' : current.source}
                         </span>
@@ -738,9 +841,16 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
                       {/* Dropdown selector for real CSV columns */}
                       <div className="space-y-1.5">
-                        <label className="text-xs sm:text-sm font-normal uppercase text-white/70 block">
-                          Fill with:
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs sm:text-sm font-normal uppercase text-white/70 block">
+                            Fill with:
+                          </label>
+                          {mappedName && (
+                            <span className="text-[11px] text-zinc-400 font-medium">
+                              {formatVariableLabel(mappedName)}
+                            </span>
+                          )}
+                        </div>
                         <select
                           value={current.source}
                           onChange={(e) => handleUpdateMapping(cleanKey, { source: e.target.value })}
@@ -763,7 +873,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
                             <label className="text-xs sm:text-sm font-normal text-white/70 block">
-                              Value for {tag} <span className="text-rose-400">*</span>:
+                              Value for {mappedName ? `{{${mappedName}}}` : tag} <span className="text-rose-400">*</span>:
                             </label>
                             {isInvalid && (
                               <span className="text-[11px] text-rose-400 font-medium flex items-center gap-1 animate-pulse">
@@ -776,7 +886,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                             type="text"
                             value={current.customValue || ''}
                             onChange={(e) => handleUpdateMapping(cleanKey, { customValue: e.target.value })}
-                            placeholder="e.g. DIWALI25, 20% OFF, Special Pass, OTP/Secret"
+                            placeholder={mappedName ? `e.g. ${getSampleValue(mappedName)}` : 'e.g. DIWALI25, 20% OFF, Special Pass, OTP/Secret'}
                             className={`w-full px-3 py-2 rounded-lg bg-[#0c0b17] text-xs sm:text-sm text-white font-normal placeholder-[#716d8a] outline-none transition-all ${
                               isInvalid
                                 ? 'border-2 border-rose-500 focus:border-rose-400 ring-1 ring-rose-500/30'
@@ -796,7 +906,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                             type="text"
                             value={current.fallback ?? ''}
                             onChange={(e) => handleUpdateMapping(cleanKey, { fallback: e.target.value })}
-                            placeholder={current.source.toLowerCase().includes('name') ? 'e.g. Customer, Valued Member' : 'Default value'}
+                            placeholder={isNameField ? 'e.g. Customer, Valued Member' : (mappedName ? `e.g. ${getSampleValue(mappedName)}` : 'Default value')}
                             className="w-full px-3 py-2 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs sm:text-sm text-white font-normal placeholder-[#716d8a] outline-none focus:border-[#814AC8]"
                           />
                         </div>

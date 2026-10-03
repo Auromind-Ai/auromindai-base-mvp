@@ -10,9 +10,9 @@ on:
   workflow_dispatch: # Allows manual trigger from GitHub Actions tab
 
 jobs:
-  # ==========================================
+
   # 1. CI: Continuous Integration & Verification
-  # ==========================================
+
   ci-check:
     name: Backend Lint & Compile Check
     runs-on: ubuntu-latest
@@ -36,9 +36,9 @@ jobs:
         run: |
           python -m compileall backend/
 
-  # ==========================================
+
   # 2. CD: Continuous Deployment via SSH
-  # ==========================================
+
   cd-deploy:
     name: Deploy to Production Server
     runs-on: ubuntu-latest
@@ -52,7 +52,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER || 'root' }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
+          port: ${{ secrets.SERVER_PORT || 44322 }}
           script_stop: true
           script: |
             echo "🚀 Starting Deployment on $(hostname)..."
@@ -66,17 +66,19 @@ jobs:
 
             echo "✅ Deployment completed successfully!"
 
-  # ==========================================
+
   # 3. Notification: Email Alert on Success / Failure
-  # ==========================================
+
   notify:
     name: Send Email Notification
     runs-on: ubuntu-latest
     needs: [ci-check, cd-deploy]
     if: always()
+    env:
+      SMTP_USER: ${{ secrets.SMTP_USER }}
     steps:
       - name: Send Notification Email
-        if: ${{ secrets.SMTP_USER != '' }}
+        if: env.SMTP_USER != ''
         uses: dawidd6/action-send-mail@v3
         continue-on-error: true
         with:

@@ -128,10 +128,9 @@ def start_impersonation(
         
         admin_id = session.admin_id
         user_id = session.user_id
-        expires_at = session.expires_at
-
-        # Atomically mark as used in DB
+        # Atomically mark as used in DB and set active session expiry to 15 minutes matching token lifetime
         session.used = True
+        session.expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
         db.commit()
 
         # Clean up Redis key if present
@@ -182,10 +181,25 @@ def start_impersonation(
     if not user:
         raise HTTPException(status_code=404, detail="Impersonated user not found")
 
-    # Task 4: Fix workspace lookup to match AuthService.login resolution
     workspaces = db.query(Workspace, WorkspaceMember.role).join(
         WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id
-    ).filter(WorkspaceMember.user_id == user.id).all()
+    ).filter(WorkspaceMember.user_id == user.id, WorkspaceMember.is_active == True).all()
+
+    if not workspaces:
+        created_ws = db.query(Workspace).filter(Workspace.created_by == user.id).first()
+        if created_ws:
+            from app.core.permissions import get_full_permissions_dict
+            membership = WorkspaceMember(
+                workspace_id=created_ws.id,
+                user_id=user.id,
+                role="founder",
+                is_active=True,
+                permissions=get_full_permissions_dict()
+            )
+            db.add(membership)
+            db.commit()
+            workspaces = [(created_ws, "founder")]
+
     workspace_id = str(workspaces[0][0].id) if workspaces else None
 
     import secrets
@@ -271,7 +285,8 @@ def start_impersonation(
         "user": {
             "id": str(user.id),
             "email": user.email,
-            "name": user.full_name if hasattr(user, 'full_name') and user.full_name else user.email.split('@')[0]
+            "name": user.full_name if hasattr(user, 'full_name') and user.full_name else user.email.split('@')[0],
+            "workspace_id": workspace_id
         },
         "admin_backup_token": admin_token,
         "access_token": token,

@@ -48,6 +48,36 @@ def _get_dynamic_seat_limits(db: Session, workspace: Workspace) -> int:
     return member_seat_limit(db, workspace)
 
 
+def _ensure_invitee_has_no_workspace(db: Session, email: str, workspace_id: uuid.UUID) -> None:
+    """Reject existing workspace users before creating or resending an invite."""
+    target_email = email.strip().lower()
+    existing_user = db.query(User).filter(func.lower(func.trim(User.email)) == target_email).first()
+    if not existing_user:
+        return
+
+    membership = db.query(WorkspaceMember).filter(
+        WorkspaceMember.user_id == existing_user.id
+    ).first()
+    if membership:
+        if membership.workspace_id == workspace_id:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{target_email} is already a member of this workspace."
+            )
+        raise HTTPException(
+            status_code=409,
+            detail="This email already has a workspace. Please use a different email address to invite a team member."
+        )
+
+    # Ownership can exist even if the owner's membership row is missing.
+    owned_workspace = db.query(Workspace).filter(Workspace.created_by == existing_user.id).first()
+    if owned_workspace:
+        raise HTTPException(
+            status_code=409,
+            detail="This email already has a workspace. Please use a different email address to invite a team member."
+        )
+
+
 @router.get("/workspaces/{workspace_id}/my-permissions")
 async def get_my_workspace_permissions(
     workspace_id: str,
@@ -69,12 +99,26 @@ async def get_my_workspace_permissions(
     ).first()
 
     if not membership:
-        raise HTTPException(status_code=403, detail="Not a member of this workspace")
+        if workspace.created_by and workspace.created_by == user_uuid:
+            membership = WorkspaceMember(
+                workspace_id=ws_uuid,
+                user_id=user_uuid,
+                role="founder",
+                is_active=True,
+                permissions=get_full_permissions_dict()
+            )
+            db.add(membership)
+            db.commit()
+            db.refresh(membership)
+        else:
+            raise HTTPException(status_code=403, detail="Not a member of this workspace")
 
     is_owner = bool(workspace.created_by and membership.user_id == workspace.created_by) or (membership.role in ("founder", "owner"))
     role = (membership.role or "member").lower().strip()
+    if is_owner and role in ("member", "user", ""):
+        role = "founder"
 
-    if role in ("admin", "founder", "owner", "superadmin", "platform_admin") or is_owner:
+    if role in ("admin", "founder", "owner", "platform_admin") or is_owner:
         permissions = get_full_permissions_dict()
     else:
         permissions = normalize_permissions(membership.permissions)
@@ -246,27 +290,31 @@ async def invite_workspace_member(
     if target_role not in ("admin", "member", "team_member"):
         target_role = "member"
 
+    # Hierarchy check: Only founders/owners (or platform admin) can invite administrators
+    current_user_uuid = to_uuid(current_user.id)
+    caller_member = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == ws_uuid,
+        WorkspaceMember.user_id == current_user_uuid
+    ).first()
+    caller_role = (caller_member.role or "member").lower().strip() if caller_member else "member"
+    is_founder = (workspace.created_by == current_user_uuid) or caller_role in ("founder", "owner") or getattr(current_user.user, "platform_role", None) == "platform_admin"
+
+    if target_role == "admin" and not is_founder:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only workspace founders/owners can invite administrators."
+        )
+
     # Normalize permissions
     if target_role == "admin":
         permissions_to_save = get_full_permissions_dict()
     else:
         permissions_to_save = normalize_permissions(payload.permissions)
 
+    _ensure_invitee_has_no_workspace(db, target_email, ws_uuid)
+
     if target_role in ("member", "team_member"):
         ensure_member_seat(db, workspace, exclude_email=target_email)
-
-    # Check if target email belongs to an existing user and is already a workspace member
-    existing_user = db.query(User).filter(func.lower(User.email) == target_email).first()
-    if existing_user:
-        existing_membership = db.query(WorkspaceMember).filter(
-            WorkspaceMember.workspace_id == ws_uuid,
-            WorkspaceMember.user_id == existing_user.id
-        ).first()
-        if existing_membership:
-            raise HTTPException(
-                status_code=400,
-                detail=f"{target_email} is already a member of this workspace."
-            )
 
     now_dt = datetime.now(timezone.utc)
     token = secrets.token_urlsafe(32)
@@ -385,6 +433,7 @@ async def resend_workspace_invitation(
 
     if invitation.status not in ("pending", "expired"):
         raise HTTPException(status_code=400, detail="Only pending or expired invitations can be resent.")
+    _ensure_invitee_has_no_workspace(db, invitation.email, ws_uuid)
     if invitation.role in ("member", "team_member"):
         ensure_member_seat(db, workspace, exclude_invitation_id=invitation.id)
 
@@ -499,11 +548,35 @@ async def update_workspace_member(
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
 
+    current_user_uuid = to_uuid(current_user.id)
+    caller_member = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == ws_uuid,
+        WorkspaceMember.user_id == current_user_uuid
+    ).first()
+    caller_role = (caller_member.role or "member").lower().strip() if caller_member else "member"
+    is_founder = (workspace.created_by == current_user_uuid) or caller_role in ("founder", "owner") or getattr(current_user.user, "platform_role", None) == "platform_admin"
+
+    # Self-modification guard: Users cannot modify their own role, status, or permissions
+    if member.user_id == current_user_uuid:
+        if (payload.role is not None and payload.role.strip().lower() != member.role) or payload.permissions is not None or (payload.is_active is not None and payload.is_active != member.is_active):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Users cannot modify their own role, permissions, or membership status."
+            )
+
     if workspace and workspace.created_by == member.user_id:
         if payload.role and payload.role != member.role:
             raise HTTPException(status_code=400, detail="Cannot alter role of the workspace creator.")
         if payload.is_active is False:
             raise HTTPException(status_code=400, detail="Cannot deactivate the primary workspace owner.")
+
+    # Role hierarchy: Only founders/owners (or platform admins) can assign admin role or modify an admin member
+    target_role = (payload.role or member.role).strip().lower()
+    if (target_role == "admin" or member.role == "admin") and not is_founder:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only workspace founders/owners can assign or modify administrator roles."
+        )
 
     # Update name
     if payload.name is not None:
@@ -513,7 +586,6 @@ async def update_workspace_member(
         if user_record and not user_record.full_name:
             user_record.full_name = payload.name.strip()
 
-    target_role = (payload.role or member.role).strip().lower()
     if target_role not in ("admin", "member", "team_member") and target_role != member.role:
         raise HTTPException(status_code=400, detail="Role must be admin or member.")
     target_active = member.is_active if payload.is_active is None else payload.is_active
@@ -575,8 +647,28 @@ async def remove_workspace_member(
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
 
+    current_user_uuid = to_uuid(current_user.id)
+    if member.user_id == current_user_uuid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot remove yourself using this endpoint. Use leave workspace instead."
+        )
+
     if workspace.created_by and member.user_id == workspace.created_by:
         raise HTTPException(status_code=400, detail="Cannot remove the workspace creator / primary owner.")
+
+    caller_member = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == ws_uuid,
+        WorkspaceMember.user_id == current_user_uuid
+    ).first()
+    caller_role = (caller_member.role or "member").lower().strip() if caller_member else "member"
+    is_founder = (workspace.created_by == current_user_uuid) or caller_role in ("founder", "owner") or getattr(current_user.user, "platform_role", None) == "platform_admin"
+
+    if member.role == "admin" and not is_founder:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only workspace founders/owners can remove administrator members."
+        )
 
     member_user_id = str(member.user_id)
     db.delete(member)

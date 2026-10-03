@@ -122,7 +122,7 @@ function AdminLayoutContent({ children }) {
                 sessionStorage.removeItem("last_session_id");
             }
             try {
-                await refreshUser();
+                await refreshUser(undefined, true);
             } catch (refreshErr) {
                 console.warn("Failed to refresh user on impersonation stop:", refreshErr);
             }
@@ -154,7 +154,7 @@ function AdminLayoutContent({ children }) {
     useEffect(() => {
         window.fbAsyncInit = function () {
             FB.init({
-                appId: process.env.NEXT_PUBLIC_FB_APP_ID,
+                appId: process.env.NEXT_PUBLIC_FB_APP_ID || '990851527207522',
                 cookie: true,
                 xfbml: true,
                 version: 'v19.0'
@@ -228,8 +228,8 @@ function AdminLayoutContent({ children }) {
                     }`}
                 >
                     {/* Top Profile & Toggle Section */}
-                    <div className={`flex items-center shrink-0 pt-4 pb-3 border-b border-white/5 transition-all duration-300 ${
-                        isCollapsed ? 'flex-col justify-center px-2 gap-2' : 'justify-between px-3 gap-1.5'
+                    <div className={`flex items-center shrink-0 pt-5 pb-4 [@media(min-height:781px)_and_(max-height:880px)]:py-3 [@media(min-height:701px)_and_(max-height:780px)]:py-2.5 [@media(max-height:700px)]:py-1.5 border-b border-white/5 ${
+                        isCollapsed ? 'justify-center px-2 flex-col gap-2' : 'justify-between px-4'
                     }`}>
                         <div className={`relative min-w-0 ${isCollapsed ? 'w-full flex justify-center' : 'flex-1'}`} ref={wsDropdownRef}>
                             <button

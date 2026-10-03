@@ -36,6 +36,7 @@ def seed_marketing_data():
             # 1. Seed Templates if none exist
             existing_templates = db.query(Template).filter(Template.workspace_id == ws.id).all()
             if not existing_templates:
+                import json
                 sample_templates = [
                     {
                         "name": "festive_discount_v1",
@@ -44,6 +45,7 @@ def seed_marketing_data():
                         "language": "en",
                         "header": "Festive Super Savings! 🎉",
                         "content": "Hi {{1}}, celebrate this festive season with an exclusive 25% discount on all our premium services! Use code {{2}} at checkout. Valid till {{3}}.",
+                        "variable_mapping": json.dumps({"1": "customer_name", "2": "coupon_code", "3": "appointment_date"}),
                         "footer": "Reply STOP to unsubscribe",
                         "cta": "https://example.com/festive",
                         "cta_btn_title": "Claim Offer",
@@ -56,6 +58,7 @@ def seed_marketing_data():
                         "language": "en",
                         "header": "You left something behind! 🛒",
                         "content": "Hello {{1}}, we noticed you left items in your cart. Complete your purchase now and get an extra 10% off with coupon code {{2}}!",
+                        "variable_mapping": json.dumps({"1": "customer_name", "2": "coupon_code"}),
                         "footer": "Offer expires in 24 hours",
                         "cta": "https://example.com/checkout",
                         "cta_btn_title": "Complete Order",
@@ -67,22 +70,24 @@ def seed_marketing_data():
                         "category": "MARKETING",
                         "language": "en",
                         "header": "VIP Exclusive Access 🌟",
-                        "content": "Dear {{1}}, as a valued VIP member, you get 24-hour early access to our biggest flash sale. Discover top deals before anyone else!",
+                        "content": "Dear {{1}}, as a valued VIP member, you get 24-hour early access to our biggest flash sale on {{2}} with {{3}} bonus credit!",
+                        "variable_mapping": json.dumps({"1": "customer_name", "2": "product_name", "3": "deal_value"}),
                         "footer": "Auromind VIP Club",
                         "cta": "https://example.com/vip-sale",
                         "cta_btn_title": "Shop Now",
                         "status": "APPROVED",
                     },
                     {
-                        "name": "monthly_product_newsletter",
+                        "name": "account_verification_otp",
                         "type": "TEXT",
-                        "category": "MARKETING",
+                        "category": "AUTHENTICATION",
                         "language": "en",
-                        "header": "What's New this Month 🚀",
-                        "content": "Hi {{1}}, check out our latest feature updates and AI automation tools designed to double your sales conversion rate this month.",
-                        "footer": "Auromind Product Team",
-                        "cta": "https://example.com/newsletter",
-                        "cta_btn_title": "Read Updates",
+                        "header": None,
+                        "content": "{{1}} is your verification code. For your security, do not share this code.",
+                        "variable_mapping": json.dumps({"1": "otp_code"}),
+                        "footer": "Expires in 10 minutes",
+                        "cta": None,
+                        "cta_btn_title": "Copy Code",
                         "status": "APPROVED",
                     },
                 ]

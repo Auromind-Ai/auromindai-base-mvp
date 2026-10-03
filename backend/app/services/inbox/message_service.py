@@ -263,6 +263,7 @@ class MessageService:
         conversation_id: str,
         message: str,
         metadata: Optional[dict[str, Any]] = None,
+        template_name: Optional[str] = None,
     ) -> dict[str, Any]:
         conversation = ConversationService.get_conversation_or_404(
             db,
@@ -270,6 +271,8 @@ class MessageService:
             conversation_id=conversation_id,
         )
         enriched_metadata = (metadata or {}).copy()
+        if not template_name:
+            template_name = enriched_metadata.get("template_name")
         template_category = "marketing"
         if template_name:
             from app.models.templates import Template
