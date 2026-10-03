@@ -61,7 +61,11 @@ def match_trigger(
     if config.get("event") != event:
         return TriggerMatchResult(False, config.get("match_type", "word_match"))
 
-    keywords = _iter_keywords(config.get("keywords", []))
+    raw_keywords = config.get("keywords", [])
+    if config.get("match_all") or any(str(k).strip() in ("*", "all", "any") for k in raw_keywords):
+        return TriggerMatchResult(True, "match_all", "*", 1.0)
+
+    keywords = _iter_keywords(raw_keywords)
     if event == "msg_recv" and not keywords:
         return TriggerMatchResult(False, config.get("match_type", "word_match"))
 

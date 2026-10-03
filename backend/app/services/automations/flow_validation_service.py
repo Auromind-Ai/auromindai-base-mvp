@@ -133,6 +133,16 @@ class FlowValidationService:
                 continue
 
             config = node.get("config") or {}
+
+            if node.get("type") == "trigger":
+                trigger_event = config.get("event") or "msg_recv"
+                keywords = [k for k in (config.get("keywords") or []) if str(k).strip()]
+                match_all = config.get("match_all", False) or any(str(k).strip() in ("*", "all", "any") for k in (config.get("keywords") or []))
+                if trigger_event == "msg_recv" and not keywords and not match_all:
+                    errors.append(
+                        f'Trigger node "{node.get("label") or node_id}" has no keywords configured. Please add at least one trigger keyword (or "*") to activate.'
+                    )
+
             buttons = config.get("buttons") or []
             if len(buttons) > 3:
                 errors.append(
