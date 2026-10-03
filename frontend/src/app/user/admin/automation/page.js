@@ -122,10 +122,10 @@ export default function AutomationCanvas() {
   useEffect(() => {
     const checkCapabilities = () => {
       if (typeof window === 'undefined') return;
-      const hasTouch = window.matchMedia('(pointer: coarse)').matches || 
-                       window.matchMedia('(hover: none)').matches || 
+      const hasTouch = window.matchMedia('(pointer: coarse)').matches ||
+                       window.matchMedia('(hover: none)').matches ||
                        Boolean('ontouchstart' in window || navigator.maxTouchPoints > 0);
-      const portrait = window.matchMedia('(orientation: portrait)').matches || 
+      const portrait = window.matchMedia('(orientation: portrait)').matches ||
                        (window.innerHeight > window.innerWidth && hasTouch);
       setIsTouchDevice(hasTouch);
       setIsPortrait(portrait);
@@ -339,7 +339,7 @@ export default function AutomationCanvas() {
       if (Array.isArray(data)) {
         const sanitizedFlows = data.map(sanitizeFlowData);
         setAutomations(sanitizedFlows);
-        
+       
         const savedId = localStorage.getItem(`selected_wire_id_${wsId}`) || localStorage.getItem("selected_wire_id");
         let itemToSelect = null;
         if (savedId) {
@@ -348,7 +348,7 @@ export default function AutomationCanvas() {
         if (!itemToSelect && sanitizedFlows.length > 0) {
           itemToSelect = sanitizedFlows[0];
         }
-        
+       
         if (itemToSelect) {
           try {
             const freshItem = await api.getFlowById(itemToSelect.id, wsId);
@@ -407,7 +407,7 @@ export default function AutomationCanvas() {
       setCanvasOffset({ x: 0, y: 0 });
       setZoom(1);
       setCurrentView('canvas');
-      
+     
       if (wsId) localStorage.setItem(`selected_wire_id_${wsId}`, item.id);
       localStorage.setItem("selected_wire_id", item.id);
     } catch (e) {
@@ -580,12 +580,12 @@ export default function AutomationCanvas() {
         name: newFlowName.trim(),
         trigger_type: 'msg_recv',
         nodes: [
-          { 
-            id: '1', 
-            type: 'trigger', 
-            label: 'Init Trigger', 
-            position: { x: 250, y: 200 }, 
-            config: { event: 'msg_recv', match_type: 'word_match', keywords: [] } 
+          {
+            id: '1',
+            type: 'trigger',
+            label: 'Init Trigger',
+            position: { x: 250, y: 200 },
+            config: { event: 'msg_recv', match_type: 'word_match', keywords: [] }
           }
         ],
         edges: [],
@@ -1192,7 +1192,7 @@ export default function AutomationCanvas() {
     const file = e.dataTransfer.files[0];
     if (file) handleSalesFileUpload(file);
   };
-  
+ 
   const handleSalesManualSave = async () => {
     if (!salesManualText.trim()) return;
     setUploading(true);
@@ -1217,7 +1217,7 @@ export default function AutomationCanvas() {
                entry_ids: updatedArray
             };
          });
-         setSalesManualText(''); 
+         setSalesManualText('');
          showToast('Sales note added to brain!', 'success');
       }
     } catch (err) {
@@ -1265,7 +1265,7 @@ export default function AutomationCanvas() {
       };
       const saved = await api.saveFlow(payload, workspaceId);
       const sanitizedSaved = sanitizeFlowData(saved);
-      setAutomations(prev => prev.map(a => 
+      setAutomations(prev => prev.map(a =>
         a.id === sanitizedSaved.id ? sanitizedSaved : a
       ));
       setSelectedItem(sanitizedSaved);
@@ -1469,8 +1469,7 @@ export default function AutomationCanvas() {
     }]);
 
     if (sourceHandle) {
-      const activeNode = nodesRef.current.find(n => n.id === activeNodeId);
-      const isCond = activeNode?.type === 'action' && activeNode?.config?.type === 'condition';
+      const isCond = sourceNode?.type === 'action' && sourceNode?.config?.type === 'condition';
       if (isCond) {
         updateNodeConfig(sourceId, (config) => ({
           ...config,
@@ -1482,9 +1481,7 @@ export default function AutomationCanvas() {
         syncButtonTarget(sourceId, sourceHandle, id);
       }
     }
-
-    setActiveNodeId(id);
-  }, [activeNodeId, showToast]);
+  }, [showToast]);
 
   const connectPortToNode = useCallback((sourceId, sourceHandle = null, targetId) => {
     if (sourceId === targetId) {
@@ -1537,7 +1534,6 @@ export default function AutomationCanvas() {
       }
     }
 
-    setActiveNodeId(targetId);
     return true;
   }, [showToast]);
 
@@ -1578,7 +1574,6 @@ export default function AutomationCanvas() {
 
     wiringRef.current = nextWire;
     setWiringPreview(nextWire);
-    setActiveNodeId(sourceId);
 
     const cleanupWiring = () => {
       wiringRef.current = null;
