@@ -48,6 +48,36 @@ def _get_dynamic_seat_limits(db: Session, workspace: Workspace) -> int:
     return member_seat_limit(db, workspace)
 
 
+def _ensure_invitee_has_no_workspace(db: Session, email: str, workspace_id: uuid.UUID) -> None:
+    """Reject existing workspace users before creating or resending an invite."""
+    target_email = email.strip().lower()
+    existing_user = db.query(User).filter(func.lower(func.trim(User.email)) == target_email).first()
+    if not existing_user:
+        return
+
+    membership = db.query(WorkspaceMember).filter(
+        WorkspaceMember.user_id == existing_user.id
+    ).first()
+    if membership:
+        if membership.workspace_id == workspace_id:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{target_email} is already a member of this workspace."
+            )
+        raise HTTPException(
+            status_code=409,
+            detail="This email already has a workspace. Please use a different email address to invite a team member."
+        )
+
+    # Ownership can exist even if the owner's membership row is missing.
+    owned_workspace = db.query(Workspace).filter(Workspace.created_by == existing_user.id).first()
+    if owned_workspace:
+        raise HTTPException(
+            status_code=409,
+            detail="This email already has a workspace. Please use a different email address to invite a team member."
+        )
+
+
 @router.get("/workspaces/{workspace_id}/my-permissions")
 async def get_my_workspace_permissions(
     workspace_id: str,
@@ -281,21 +311,10 @@ async def invite_workspace_member(
     else:
         permissions_to_save = normalize_permissions(payload.permissions)
 
+    _ensure_invitee_has_no_workspace(db, target_email, ws_uuid)
+
     if target_role in ("member", "team_member"):
         ensure_member_seat(db, workspace, exclude_email=target_email)
-
-    # Check if target email belongs to an existing user and is already a workspace member
-    existing_user = db.query(User).filter(func.lower(User.email) == target_email).first()
-    if existing_user:
-        existing_membership = db.query(WorkspaceMember).filter(
-            WorkspaceMember.workspace_id == ws_uuid,
-            WorkspaceMember.user_id == existing_user.id
-        ).first()
-        if existing_membership:
-            raise HTTPException(
-                status_code=400,
-                detail=f"{target_email} is already a member of this workspace."
-            )
 
     now_dt = datetime.now(timezone.utc)
     token = secrets.token_urlsafe(32)
@@ -414,6 +433,7 @@ async def resend_workspace_invitation(
 
     if invitation.status not in ("pending", "expired"):
         raise HTTPException(status_code=400, detail="Only pending or expired invitations can be resent.")
+    _ensure_invitee_has_no_workspace(db, invitation.email, ws_uuid)
     if invitation.role in ("member", "team_member"):
         ensure_member_seat(db, workspace, exclude_invitation_id=invitation.id)
 
