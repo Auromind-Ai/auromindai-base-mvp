@@ -134,7 +134,7 @@ class FlowValidationService:
 
             config = node.get("config") or {}
 
-            if node.get("type") == "trigger":
+            if node.get("type") == "trigger" and len(nodes) > 1:
                 trigger_event = config.get("event") or "msg_recv"
                 keywords = [k for k in (config.get("keywords") or []) if str(k).strip()]
                 match_all = config.get("match_all", False) or any(str(k).strip() in ("*", "all", "any") for k in (config.get("keywords") or []))

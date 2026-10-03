@@ -9,7 +9,7 @@ export async function getDashboardOverview(workspaceId, startDate, endDate) {
   const params = new URLSearchParams();
   const rawId = (workspaceId && workspaceId !== 'null' && workspaceId !== 'undefined')
     ? workspaceId
-    : getWorkspaceIdFromToken();
+    : ((typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null) || getWorkspaceIdFromToken());
 
   if (rawId && rawId !== 'null' && rawId !== 'undefined') {
     params.set('workspace_id', rawId);

@@ -5,6 +5,7 @@ import { poppins } from '@/lib/fonts';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import { getWorkspaceIdFromToken } from '@/lib/auth';
 import UpgradeModal from '@/components/UpgradeModal';
 import VariablePicker from '@/components/templates/VariablePicker';
 import DefineVariableModal from '@/components/templates/DefineVariableModal';
@@ -555,6 +556,7 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
 //  Main Component ─
 export default function CreateTemplatePage() {
   const { workspaceId } = useAuth();
+  const activeWsId = workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null) || getWorkspaceIdFromToken();
   const { showToast } = useToast();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [form, setForm] = useState({
@@ -820,7 +822,7 @@ export default function CreateTemplatePage() {
         prompt: aiPrompt.trim(),
         tone: tone,
         language: form.language,
-        workspace_id: workspaceId || undefined,
+        workspace_id: activeWsId || undefined,
       });
       let templates = [];
       if (res?.message) {
@@ -994,7 +996,7 @@ export default function CreateTemplatePage() {
         fd.append('buttons', JSON.stringify(preparedButtons));
         fd.append('category', form.category);
         fd.append('language', form.language);
-        fd.append('workspace_id', workspaceId);
+        fd.append('workspace_id', activeWsId);
         fd.append('media', form.mediaFile);
         payload = fd;
       } else {
@@ -1011,7 +1013,7 @@ export default function CreateTemplatePage() {
           buttons: preparedButtons,
           category: form.category,
           language: form.language,
-          workspace_id: workspaceId,
+          workspace_id: activeWsId,
         };
       }
 

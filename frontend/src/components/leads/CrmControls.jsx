@@ -166,7 +166,7 @@ export default function CrmControls({
   const [viewToDelete, setViewToDelete] = useState(null);
   const [deletingView, setDeletingView] = useState(false);
 
-  const activeWsId = workspaceId || getWorkspaceIdFromToken();
+  const activeWsId = workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null) || getWorkspaceIdFromToken();
 
   const loadViews = useCallback(async () => {
     if (!activeWsId) return;
@@ -325,7 +325,7 @@ export default function CrmControls({
     setError("");
     try {
       const response = await api.requestRaw(
-        `/lead-scoring/export?workspace_id=${getWorkspaceIdFromToken()}`,
+        `/lead-scoring/export?workspace_id=${activeWsId}`,
         {
           method: "POST",
           body: JSON.stringify({
