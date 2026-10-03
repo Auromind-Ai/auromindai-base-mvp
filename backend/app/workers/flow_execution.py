@@ -5,15 +5,21 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from celery.exceptions import MaxRetriesExceededError
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from app.core.celery_app import celery_app
 from app.core.security import to_uuid
-from app.core.redis_lock import acquire_conversation_lock, release_conversation_lock
+from app.core.redis_lock import acquire_conversation_lock, release_conversation_lock, _get_redis
 from app.database import SessionLocal
-from app.models.conversation import Conversation
-from app.models.ai_action import ConversationState
+from app.models.conversation import Conversation, ConversationStatus
+from app.models.ai_action import ConversationState, Lead
 from app.models.flow_execution import FlowExecutionState
+from app.models.message import Message, SenderType, MessageStatus, MessageArchive
+from app.models.outbound_message import OutboundMessage
+from app.models.scheduled_resume import ScheduledResume
+from app.models.message_execution import MessageExecution
 from app.services.automations.execution_tracer import ExecutionTracer
 from app.services.automations.flow_service_v2 import ConversationExecutionBusy, FlowServiceV2
+from app.services.billing import billing_service
 from app.services.inbox.whatsapp_delivery import deliver_outbound_message
 from app.services.analytics.realtime_service import (
     EventType,
@@ -87,12 +93,27 @@ def execute_incoming_message(self, conversation_id, message, metadata=None):
         conv_uuid = to_uuid(conversation_id)
         conv = db.query(Conversation).filter(Conversation.id == conv_uuid).first()
         if conv:
-            from app.services.billing.billing_service import enforce_execution_policy
-            if not enforce_execution_policy(db, str(conv.workspace_id)):
+            if not billing_service.enforce_execution_policy(db, str(conv.workspace_id)):
                 logger.warning(f"Quota exceeded for workspace {conv.workspace_id}. Aborting execution.")
                 tracer.trace(db, conversation_id=conversation_id, event_type="billing_blocked", metadata={"error": "Insufficient quota"})
                 db.commit()
                 return {"status": "error", "message": "Insufficient quota"}
+
+        msg_id = metadata.get("message_id") if isinstance(metadata, dict) else None
+        if msg_id and conv_uuid:
+            existing_exec = db.query(MessageExecution).filter(MessageExecution.message_id == str(msg_id)).first()
+            if existing_exec:
+                logger.info("[execute_incoming_message] Duplicate incoming message ignored | msg_id=%s conv=%s", msg_id, conversation_id)
+                return {"status": "ignored", "reason": "duplicate_message_id"}
+
+            try:
+                me = MessageExecution(message_id=str(msg_id), conversation_id=conv_uuid, status="processing")
+                db.add(me)
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                logger.info("[execute_incoming_message] Duplicate message execution caught via unique constraint | msg_id=%s", msg_id)
+                return {"status": "ignored", "reason": "duplicate_message_id"}
 
         service = FlowServiceV2()
         result = asyncio.run(
@@ -103,6 +124,13 @@ def execute_incoming_message(self, conversation_id, message, metadata=None):
                 metadata=metadata or {},
             )
         )
+
+        if msg_id:
+            try:
+                db.query(MessageExecution).filter(MessageExecution.message_id == str(msg_id)).update({"status": "completed"})
+                db.commit()
+            except Exception:
+                pass
 
         tracer.trace(
             db,
@@ -170,7 +198,6 @@ def resume_flow_node(
     tracer = ExecutionTracer()
 
     def _run():
-        from app.models.ai_action import ConversationState
         conv_state = db.query(ConversationState).filter_by(conversation_id=conversation_id).first()
         if conv_state and conv_state.human_takeover:
             logger.info("[AI_AUTOMATION_PAUSED] resume_flow_node ignored | conversation=%s", conversation_id)
@@ -186,6 +213,16 @@ def resume_flow_node(
                 msg_sequence_val=msg_sequence_val,
             )
         )
+
+        try:
+            db.query(ScheduledResume).filter(
+                ScheduledResume.conversation_id == conversation_id,
+                ScheduledResume.node_id == node_id,
+                ScheduledResume.status == "pending"
+            ).update({"status": "executed"}, synchronize_session=False)
+            db.flush()
+        except Exception as sr_err:
+            logger.debug("[resume_flow_node] Could not update ScheduledResume status: %s", sr_err)
 
         tracer.trace(
             db,
@@ -220,7 +257,6 @@ def handle_node_timeout(
     tracer = ExecutionTracer()
 
     def _run():
-        from app.models.ai_action import ConversationState
         conv_state = db.query(ConversationState).filter_by(conversation_id=conversation_id).first()
         if conv_state and conv_state.human_takeover:
             logger.info("[TIMEOUT_IGNORED] human_takeover active | conv=%s", conversation_id)
@@ -235,6 +271,17 @@ def handle_node_timeout(
                 stage_index=stage_index,
             )
         )
+
+        try:
+            db.query(ScheduledResume).filter(
+                ScheduledResume.conversation_id == conversation_id,
+                ScheduledResume.node_id == node_id,
+                ScheduledResume.status == "pending",
+                ScheduledResume.run_at <= datetime.now(timezone.utc) + timedelta(seconds=15),
+            ).update({"status": "executed"}, synchronize_session=False)
+            db.flush()
+        except Exception as sr_err:
+            logger.debug("[handle_node_timeout] Could not update ScheduledResume status: %s", sr_err)
 
         tracer.trace(
             db,
@@ -260,8 +307,6 @@ def handle_node_timeout(
 )
 def send_next_pending_message(self, conversation_id: str):
 
-    from app.models.outbound_message import OutboundMessage
-
     # Redis distributed lock 
     lock_token = acquire_conversation_lock(
         conversation_id, ttl_seconds=_SEND_LOCK_TTL_SECONDS
@@ -277,7 +322,6 @@ def send_next_pending_message(self, conversation_id: str):
     db = SessionLocal()
     try:
         conv_uuid = to_uuid(conversation_id)
-        from app.models.ai_action import ConversationState
         conv_state = db.query(ConversationState).filter_by(conversation_id=conv_uuid).first()
         if conv_state and conv_state.human_takeover:
             logger.info("[AI_AUTOMATION_PAUSED] send_next_pending_message ignored | conversation=%s", conversation_id)
@@ -286,8 +330,7 @@ def send_next_pending_message(self, conversation_id: str):
         # Billing enforcement check
         conv = db.query(Conversation).filter(Conversation.id == conv_uuid).first()
         if conv:
-            from app.services.billing.billing_service import enforce_execution_policy
-            if not enforce_execution_policy(db, str(conv.workspace_id)):
+            if not billing_service.enforce_execution_policy(db, str(conv.workspace_id)):
                 logger.warning(f"Quota exceeded for workspace {conv.workspace_id}. Aborting outbound message.")
                 return
 
@@ -346,10 +389,6 @@ def send_next_pending_message(self, conversation_id: str):
                     )
                     return
             else:
-                # Strict WhatsApp / Twilio delivery gate:
-                # 'sent' means accepted by Meta API, but NOT yet delivered to user device → WAIT!
-                # Gate unlocks ONLY when previous message is 'delivered', 'read', 'failed', or 'cancelled' (or fallback timeout >45s)
-                from datetime import datetime, timezone, timedelta
                 now = datetime.now(timezone.utc)
                 updated_at = prev_msg.updated_at or prev_msg.created_at
                 if updated_at and updated_at.tzinfo is None:
@@ -442,8 +481,6 @@ def send_whatsapp_message_task(
     metadata: dict = None,
 ):
 
-    from app.models.outbound_message import OutboundMessage
-
     db = SessionLocal()
     tracer = ExecutionTracer()
 
@@ -470,7 +507,6 @@ def send_whatsapp_message_task(
             )
             return
 
-        from app.core.redis_lock import _get_redis
         redis_client = _get_redis()
         ack_key = f"provider_ack:{outbound_message_id}"
         cached_ack_sid = None
@@ -585,9 +621,6 @@ def send_whatsapp_message_task(
         # 6.5. Safely execute inbox logging and tracking outside the row lock
         # Note: We now create the Message entry here, ONLY AFTER successful delivery.
         try:
-            from app.services.inbox.message_service import MessageService
-            from app.models.message import SenderType, MessageStatus
-
             meta_source = metadata.get("source", "")
             buttons = metadata.get("buttons") or []
 
@@ -606,6 +639,7 @@ def send_whatsapp_message_task(
                     Conversation.id == conv_uuid
                 ).first()
                 if conversation:
+                    from app.services.inbox.message_service import MessageService
                     inbox_msg = MessageService.create_message(
                         db,
                         conversation=conversation,
@@ -661,7 +695,6 @@ def send_whatsapp_message_task(
         #  REALTIME: notify the workspace that an outbound message was sent
         try:
             if conv:
-                from app.services.analytics.realtime_service import publish_to_workspace_conversation, EventType
                 publish_to_workspace_conversation(
                     conversation_id=conversation_id,
                     workspace_id=str(conv.workspace_id),
@@ -766,108 +799,105 @@ def send_whatsapp_message_task(
                     logger.exception("[Instagram Queue] Exception during failure handler DB commit: %s", commit_exc)
                 return
         else:
-            # NON-INSTAGRAM (WHATSAPP / TWILIO / META CLOUD API) — EXISTING LOGIC UNCHANGED
-            try:
-                db.rollback()
-                row = (
-                    db.query(OutboundMessage)
-                    .filter(OutboundMessage.id == outbound_uuid)
-                    .with_for_update()
-                    .first()
-                )
-                if row and not row.twilio_sid:
-                    row.status = "failed"
-                    
-                    err_str = str(exc)
-                    if "429" in err_str or "63038" in err_str:
-                        logger.warning("[send_whatsapp_message_task] 🚫 Twilio rate limit 429/63038 — stopping retries entirely for conversation=%s", conversation_id)
-                        
-                        row.metadata_json = row.metadata_json or {}
-                        row.metadata_json["failure_reason"] = "twilio_rate_limit"
-                        db.commit()
-                        return  # Stop completely, do not requeue, do not trigger next message
-                    
-                    logger.warning(
-                        "[send_whatsapp_message_task] Twilio send failed | id=%s seq=%d | OutboundMessage status=failed",
-                        row.id,
-                        row.sequence,
-                    )
+            # NON-INSTAGRAM (WHATSAPP / TWILIO / META CLOUD API)
+            err_str = str(exc)
+            is_rate_limit = "429" in err_str or "63038" in err_str or "limit" in err_str.lower()
 
-                    db.commit()
-
-                    # Since this message failed normally (not rate limit), trigger the next one so the
-                    # flow doesn't stall.
-                    send_next_pending_message.apply_async(
-                        args=[conversation_id],
-                        countdown=1,
-                    )
-            except Exception:
-                db.rollback()
-
-            try:
-                conversation_exists = db.query(Conversation.id).filter(
-                    Conversation.id == conv_uuid
-                ).first()
-                if conversation_exists:
-                    tracer.trace(
-                        db,
-                        conversation_id=str(conv_uuid),
-                        event_type="error",
-                        status="failed",
-                        error_message=str(exc),
-                        metadata={"attempt": self.request.retries + 1},
-                    )
-                    db.commit()
-                else:
-                    db.commit()
-            except Exception as trace_exc:
-                logger.exception(
-                    "[send_whatsapp_message_task] Tracer write failed: %s", trace_exc
-                )
-
-            try:
-                if "429" in str(exc) or "limit" in str(exc):
-                    logger.error("🚫 Twilio rate limit — stopping retries")
-
+            if is_rate_limit:
+                logger.warning("[send_whatsapp_message_task] 🚫 Rate limit encountered — stopping retries entirely for conversation=%s", conversation_id)
+                try:
+                    db.rollback()
                     row = (
                         db.query(OutboundMessage)
-                        .filter(OutboundMessage.id == outbound_message_id)
+                        .filter(OutboundMessage.id == outbound_uuid)
+                        .with_for_update()
                         .first()
                     )
                     if row and not row.twilio_sid:
                         row.status = "failed"
+                        row.metadata_json = row.metadata_json or {}
+                        row.metadata_json["failure_reason"] = "rate_limit"
                         db.commit()
+                except Exception as commit_exc:
+                    db.rollback()
+                    logger.exception("[send_whatsapp_message_task] Error updating rate-limited row: %s", commit_exc)
+                return
 
-                    # Trigger next message despite rate limit failure
-                    send_next_pending_message.apply_async(
-                        args=[conversation_id],
-                        countdown=5,
-                    )
-                    return
-
+            # Check if we can retry
+            if self.request.retries < self.max_retries:
                 countdown = _BACKOFF_SCHEDULE[
                     min(self.request.retries, len(_BACKOFF_SCHEDULE) - 1)
                 ]
                 logger.warning(
-                    "[send_whatsapp_message_task] Retrying in %ds (attempt %d/3) | error=%s",
+                    "[send_whatsapp_message_task] Retrying in %ds (attempt %d/%d) | conversation=%s | error=%s",
                     countdown,
                     self.request.retries + 1,
-                    exc,
-                )
-                raise self.retry(exc=exc, countdown=countdown)
-
-            except MaxRetriesExceededError:
-                logger.error(
-                    "[send_whatsapp_message_task] Max retries exceeded | conversation=%s | error=%s",
+                    self.max_retries,
                     conversation_id,
                     exc,
                 )
-                # Trigger next message — don't let the flow stall
+                try:
+                    conversation_exists = db.query(Conversation.id).filter(
+                        Conversation.id == conv_uuid
+                    ).first()
+                    if conversation_exists:
+                        tracer.trace(
+                            db,
+                            conversation_id=str(conv_uuid),
+                            event_type="error",
+                            status="retrying",
+                            error_message=str(exc),
+                            metadata={"attempt": self.request.retries + 1, "retry_in": countdown},
+                        )
+                        db.commit()
+                except Exception as trace_exc:
+                    logger.exception("[send_whatsapp_message_task] Tracer write failed: %s", trace_exc)
+
+                raise self.retry(exc=exc, countdown=countdown)
+            else:
+                # Max retries exceeded
+                logger.error(
+                    "[send_whatsapp_message_task] Max retries (%d) exceeded | conversation=%s | error=%s",
+                    self.max_retries,
+                    conversation_id,
+                    exc,
+                )
+                try:
+                    db.rollback()
+                    row = (
+                        db.query(OutboundMessage)
+                        .filter(OutboundMessage.id == outbound_uuid)
+                        .with_for_update()
+                        .first()
+                    )
+                    if row and not row.twilio_sid:
+                        row.status = "failed"
+                        row.metadata_json = row.metadata_json or {}
+                        row.metadata_json["failure_reason"] = "max_retries_exceeded"
+                        db.commit()
+
+                    conversation_exists = db.query(Conversation.id).filter(
+                        Conversation.id == conv_uuid
+                    ).first()
+                    if conversation_exists:
+                        tracer.trace(
+                            db,
+                            conversation_id=str(conv_uuid),
+                            event_type="error",
+                            status="failed",
+                            error_message=str(exc),
+                            metadata={"attempt": self.request.retries + 1, "final": True},
+                        )
+                        db.commit()
+                except Exception as final_exc:
+                    db.rollback()
+                    logger.exception("[send_whatsapp_message_task] Error marking message failed: %s", final_exc)
+
+                # Trigger next message so flow doesn't stall forever
                 send_next_pending_message.apply_async(
                     args=[conversation_id],
                     countdown=2,
                 )
-                raise
 
     finally:
         db.close()
@@ -877,7 +907,6 @@ def send_whatsapp_message_task(
 
 @celery_app.task(name="app.workers.flow_execution.sweep_stuck_messages")
 def sweep_stuck_messages():
-    from app.models.outbound_message import OutboundMessage
 
     db = SessionLocal()
     try:
@@ -905,8 +934,9 @@ def sweep_stuck_messages():
                 countdown=1
             )
 
-        # Sweep expired flow sessions (inactive for > 5 minutes)
-        cutoff_flow = datetime.now(timezone.utc) - timedelta(minutes=5)
+        # Sweep genuinely abandoned flow sessions (> 24 hours of inactivity)
+        # Never cancel flows with pending scheduled resumes or active timeouts/buttons.
+        cutoff_flow = datetime.now(timezone.utc) - timedelta(hours=24)
         expired_states = (
             db.query(FlowExecutionState)
             .filter(
@@ -917,6 +947,31 @@ def sweep_stuck_messages():
         )
 
         for state in expired_states:
+            # Check if there is an active scheduled resume for this conversation
+            has_pending_resume = (
+                db.query(ScheduledResume.id)
+                .filter(
+                    ScheduledResume.conversation_id == state.conversation_id,
+                    ScheduledResume.status == "pending"
+                )
+                .first()
+            )
+            if has_pending_resume:
+                continue
+
+            # Check if there is an active future pending timeout or future button/question expiry
+            runtime_ctx = state.runtime_context or {}
+            pending_to = runtime_ctx.get("pending_timeout")
+            if pending_to and not pending_to.get("exhausted"):
+                # Still waiting on a legitimate timeout
+                continue
+
+            now_utc = datetime.now(timezone.utc)
+            if state.button_expires_at and state.button_expires_at > now_utc:
+                continue
+            if state.question_expires_at and state.question_expires_at > now_utc:
+                continue
+
             is_mid = (
                 state.current_node_id is not None
                 or state.pending_button is not None
@@ -925,19 +980,7 @@ def sweep_stuck_messages():
             if not is_mid:
                 continue
 
-            logger.info(f"⏳ Proactively expiring inactive flow execution state for conversation={state.conversation_id}")
-
-            conv = db.query(Conversation).filter(Conversation.id == state.conversation_id).first()
-            if conv:
-                try:
-                    from app.services.inbox.channel_service import ChannelService
-                    ChannelService.send_message(
-                        conv,
-                        "Your session has expired due to inactivity. Send a message to start again.",
-                        metadata={"source": "session_timeout_expiry"}
-                    )
-                except Exception as send_err:
-                    logger.error(f"Failed to send proactive session expiry message for conversation {state.conversation_id}: {send_err}")
+            logger.info(f"⏳ Cleaning up genuinely abandoned flow execution state (> 24h) for conversation={state.conversation_id}")
 
             state.active_flow_id = None
             state.current_node_id = None
@@ -959,8 +1002,6 @@ def sweep_stuck_messages():
 
 @celery_app.task(name="app.workers.flow_execution.poll_scheduled_resumes")
 def poll_scheduled_resumes():
-
-    from app.models.scheduled_resume import ScheduledResume
 
     db = SessionLocal()
     try:
@@ -1054,9 +1095,6 @@ def poll_scheduled_resumes():
 
 @celery_app.task(name="app.workers.flow_execution.purge_old_delivery_logs")
 def purge_old_delivery_logs():
-    from app.models.outbound_message import OutboundMessage
-    from app.models.ai_action import Lead
-    
     db = SessionLocal()
     try:
         # Pre-flight safety check
@@ -1089,10 +1127,6 @@ def purge_old_delivery_logs():
 
 @celery_app.task(name="app.workers.flow_execution.archive_old_conversations")
 def archive_old_conversations():
-    from app.models.conversation import Conversation, ConversationStatus
-    from app.models.message import Message, MessageArchive
-    from app.models.ai_action import Lead
-    
     db = SessionLocal()
     try:
         ninety_days_ago = datetime.now(timezone.utc) - timedelta(days=90)
