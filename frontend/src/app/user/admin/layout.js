@@ -150,6 +150,13 @@ function AdminLayoutContent({ children }) {
         }
     }, [pathname, user, loading, router, logout]);
 
+    // Automatically route to first accessible feature if landing on dashboard without dashboard permissions
+    useEffect(() => {
+        if (!loading && !permissionsLoading && workspaceId && !pageAllowed && firstAccessiblePath && pathname === '/user/admin/dashboard') {
+            router.replace(firstAccessiblePath);
+        }
+    }, [loading, permissionsLoading, workspaceId, pageAllowed, firstAccessiblePath, pathname, router]);
+
     // app/layout.js or _app.js
     useEffect(() => {
         window.fbAsyncInit = function () {
@@ -530,14 +537,18 @@ function AdminLayoutContent({ children }) {
                             >
                                 {permissionsLoading ? (
                                     <p className="p-6 text-zinc-400">Checking workspace access...</p>
-                                ) : pageAllowed ? children : (
+                                ) : pageAllowed ? children : (pathname === '/user/admin/dashboard' && firstAccessiblePath) ? (
+                                    <div className="flex items-center justify-center min-h-[50vh] text-zinc-400 text-sm">
+                                        <p>Redirecting to your workspace...</p>
+                                    </div>
+                                ) : (
                                     <ErrorPage
                                         embedded
                                         code="404"
                                         backgroundLabel="PAGE NOT FOUND"
                                         description="We couldn't find the page you were looking for. Let's get you back on track."
                                         actionHref={workspace ? firstAccessiblePath : "/"}
-                                        actionLabel="Back to dashboard"
+                                        actionLabel={workspace ? "Go to your workspace" : "Back to dashboard"}
                                     />
                                 )}
                             </motion.div>

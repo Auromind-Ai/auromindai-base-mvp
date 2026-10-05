@@ -11,16 +11,17 @@ export default function CalendarPage() {
     const [calendarEmail, setCalendarEmail] = useState('');
     const { workspaces, workspaceId } = useAuth();
     const workspace = workspaces.find((item) => item.id === workspaceId) || null;
+    const activeWsId = workspace?.id || workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null);
 
     useEffect(() => {
-        if (workspace?.id) {
+        if (activeWsId) {
             checkConnection();
         }
-    }, [workspace?.id]);
+    }, [activeWsId]);
 
     const checkConnection = async () => {
         try {
-            const data = await api.getIntegrationStatus();
+            const data = await api.getIntegrationStatus(activeWsId);
             setConnected(data.calendar?.connected || false);
             setCalendarEmail(data.calendar?.email || '');
         } catch (error) {

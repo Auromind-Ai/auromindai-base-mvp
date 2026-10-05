@@ -74,7 +74,7 @@ function AcceptInviteContent() {
       }
 
       setTimeout(() => {
-        router.push('/user/admin/dashboard');
+        router.push('/login');
       }, 1200);
     } catch (err) {
       console.error('Accept invitation failed:', err);
@@ -215,7 +215,7 @@ function AcceptInviteContent() {
               <CheckCircle2 className="w-5 h-5" />
               <span>Welcome to {invitation.workspace_name}!</span>
             </div>
-            <p className="text-xs text-zinc-300">Redirecting to your workspace...</p>
+            <p className="text-xs text-zinc-300">Redirecting to login...</p>
             <Loader2 className="w-5 h-5 animate-spin text-emerald-400 mx-auto" />
           </div>
         ) : user ? (

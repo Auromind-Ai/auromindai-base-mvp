@@ -1,15 +1,31 @@
 import client from './client';
+import { getWorkspaceIdFromToken } from '@/lib/auth';
 
-export async function getIntegrationStatus() {
-  return client.get('/integrations/status');
+function getActiveWorkspaceId(overrideId) {
+  if (overrideId && overrideId !== 'null' && overrideId !== 'undefined') return overrideId;
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('workspace_id');
+    if (saved && saved !== 'null' && saved !== 'undefined') return saved;
+  }
+  return getWorkspaceIdFromToken();
 }
 
-export async function connectGoogleAuth(backendId) {
-  return client.get(`/integrations/google/auth/${backendId}`);
+export async function getIntegrationStatus(workspaceId) {
+  const ws = getActiveWorkspaceId(workspaceId);
+  const query = ws ? `?workspace_id=${encodeURIComponent(ws)}` : '';
+  return client.get(`/integrations/status${query}`);
 }
 
-export async function disconnectGoogleIntegration(backendId) {
-  return client.delete(`/integrations/disconnect/google_${backendId}`);
+export async function connectGoogleAuth(backendId, workspaceId) {
+  const ws = getActiveWorkspaceId(workspaceId);
+  const query = ws ? `?workspace_id=${encodeURIComponent(ws)}` : '';
+  return client.get(`/integrations/google/auth/${backendId}${query}`);
+}
+
+export async function disconnectGoogleIntegration(backendId, workspaceId) {
+  const ws = getActiveWorkspaceId(workspaceId);
+  const query = ws ? `?workspace_id=${encodeURIComponent(ws)}` : '';
+  return client.delete(`/integrations/disconnect/google_${backendId}${query}`);
 }
 
 export async function getFlows(workspaceId) {
@@ -52,10 +68,13 @@ export async function rejectAutomation(decisionId, workspaceId) {
   return client.post(`/automation/reject?decision_id=${decisionId}${query}`);
 }
 
-export async function getEmailInbox() {
-  return client.get('/email/inbox');
+export async function getEmailInbox(workspaceId) {
+  const ws = getActiveWorkspaceId(workspaceId);
+  const query = ws ? `?workspace_id=${encodeURIComponent(ws)}` : '';
+  return client.get(`/email/inbox${query}`);
 }
 
 export async function sendEmailReply(payload) {
-  return client.post('/email/send-reply', payload);
+  const ws = getActiveWorkspaceId(payload?.workspace_id);
+  return client.post('/email/send-reply', { ...payload, ...(ws ? { workspace_id: ws } : {}) });
 }

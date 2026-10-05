@@ -909,8 +909,8 @@ function ChannelsContent() {
 
     const loadIntegrationStatus = useCallback(async () => {
         try {
-            if (!workspace?.id) return;
-            const data = await api.getIntegrationStatus();
+            if (!workspace?.id && !effectiveWorkspaceId) return;
+            const data = await api.getIntegrationStatus(workspace?.id || effectiveWorkspaceId);
             setStatuses(prev => ({
                 ...prev,
                 gmail: data.gmail?.connected || false,
@@ -1154,7 +1154,7 @@ function ChannelsContent() {
         setConnecting(integrationId);
         try {
             const backendId = integrationId === 'google_calendar' ? 'calendar' : integrationId;
-            const data = await api.connectGoogleAuth(backendId);
+            const data = await api.connectGoogleAuth(backendId, workspace?.id || effectiveWorkspaceId);
             if (data.authorization_url) {
                 window.location.assign(data.authorization_url);
             }
@@ -1174,10 +1174,10 @@ function ChannelsContent() {
 
         try {
             if (['twilio', 'whatsapp', 'instagram'].includes(integrationId)) {
-                await api.disconnectChannel(integrationId, workspace?.id);
+                await api.disconnectChannel(integrationId, workspace?.id || effectiveWorkspaceId);
             } else {
                 const backendId = integrationId === 'google_calendar' ? 'calendar' : integrationId;
-                await api.disconnectGoogleIntegration(backendId);
+                await api.disconnectGoogleIntegration(backendId, workspace?.id || effectiveWorkspaceId);
             }
 
             localStorage.removeItem(`${integrationId}_connected`);
