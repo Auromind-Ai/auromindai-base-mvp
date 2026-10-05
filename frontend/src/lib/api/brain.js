@@ -49,7 +49,7 @@ export async function getBrainEntries(workspace_id) {
 }
 
 export async function deleteBrainEntry(entry_id, workspace_id) {
-  return client.delete(`/brain/entries/${entry_id}`);
+  return client.delete(`/brain/entries/${entry_id}?workspace_id=${encodeURIComponent(workspace_id)}`);
 }
 
 export async function searchBrain(query, workspace_id, top_k = 5) {

@@ -1043,32 +1043,8 @@ def seed_workspace():
 
         print(f"[+] Seeded 2 Campaigns with realistic recipient delivery & read metrics")
 
-        # 12. Seed CRM Saved Views
+        # 12. CRM Saved Views (None seeded by default)
         db.query(CrmSavedView).filter(CrmSavedView.workspace_id == ws.id).delete()
-        views = [
-            {
-                "name": "🔥 Top High-Scoring Leads (Score >= 50)",
-                "filters": {"tier": ["hot"], "score_min": 50, "status": ["new", "active", "converted"]},
-            },
-            {
-                "name": "📅 Product Demos & Consultations Booked",
-                "filters": {"demo_requested": True},
-            },
-            {
-                "name": "💼 High Budget Enterprise Pipeline (> ₹50k)",
-                "filters": {"budget_min": 50000},
-            }
-        ]
-        for v in views:
-            sv = CrmSavedView(
-                id=uuid.uuid4(),
-                workspace_id=ws.id,
-                user_id=user.id,
-                name=v["name"],
-                filters=v["filters"],
-            )
-            db.add(sv)
-        print(f"[+] Seeded 3 CRM Saved Views")
 
         # 13. Seed Integrations (Google Calendar & WhatsApp Cloud API)
         db.query(Integration).filter(Integration.workspace_id == ws.id).delete()

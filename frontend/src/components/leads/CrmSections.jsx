@@ -132,7 +132,7 @@ export function CrmAnalytics({
     return () => {
       active = false;
     };
-  }, [period, custom.start, custom.end, reload]);
+  }, [activeWsId, period, custom.start, custom.end, reload]);
   return (
     <main className="flex-1 overflow-y-auto p-4 md:p-7 space-y-6">
       <div className="flex justify-between gap-3 flex-wrap">
@@ -335,7 +335,7 @@ export function CrmAnalytics({
         </>
       )}
       {overview && (
-        <CrmFollowUps workspaceId={workspaceId} onSelect={onSelect} />
+        <CrmFollowUps workspaceId={activeWsId} onSelect={onSelect} />
       )}
     </main>
   );

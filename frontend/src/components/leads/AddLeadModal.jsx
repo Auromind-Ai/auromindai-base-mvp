@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import api from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 /**
  * Creates a floating toast notification using decoupled DOM insertion,
@@ -52,6 +53,7 @@ const showToast = (message) => {
 };
 
 export default function AddLeadModal({ isOpen, onClose, onSuccess }) {
+  const { workspaceId, loading: workspaceLoading } = useAuth();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [source, setSource] = useState('manual');
@@ -62,6 +64,11 @@ export default function AddLeadModal({ isOpen, onClose, onSuccess }) {
   const [error, setError] = useState('');
 
   const handleSubmit = async () => {
+    if (workspaceLoading || !workspaceId) {
+      setError('Please select a workspace before adding a lead.');
+      return;
+    }
+
     // 1. Validation: Name (required, min 2 chars)
     if (!name || name.trim().length < 2) {
       setError('Name is required and must be at least 2 characters.');
@@ -98,7 +105,7 @@ export default function AddLeadModal({ isOpen, onClose, onSuccess }) {
 
     try {
       const res = await api.post(
-        `/lead-scoring/leads/manual`,
+        `/lead-scoring/leads/manual?workspace_id=${encodeURIComponent(workspaceId)}`,
         {
           name: name.trim(),
           phone: cleanPhone,
@@ -240,7 +247,7 @@ export default function AddLeadModal({ isOpen, onClose, onSuccess }) {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={loading || workspaceLoading || !workspaceId}
             className="h-10 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-1.5"
           >
             {loading ? 'Adding...' : 'Add Lead →'}
