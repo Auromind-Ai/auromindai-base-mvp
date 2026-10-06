@@ -49,9 +49,7 @@ export async function getBrainEntries(workspace_id) {
 }
 
 export async function deleteBrainEntry(entry_id, workspace_id) {
-  const ws = workspace_id || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null);
-  const query = ws ? `?workspace_id=${encodeURIComponent(ws)}` : '';
-  return client.delete(`/brain/entries/${entry_id}${query}`);
+ return client.delete(`/brain/entries/${entry_id}?workspace_id=${encodeURIComponent(workspace_id)}`);
 }
 
 export async function searchBrain(query, workspace_id, top_k = 5) {
@@ -67,6 +65,7 @@ export async function getBrainStats(workspace_id) {
 }
 
 export async function getIngestStatus(entryId, workspace_id = null) {
-  const url = workspace_id ? `/brain/ingest/status/${entryId}?workspace_id=${workspace_id}` : `/brain/ingest/status/${entryId}`;
+  const ws = workspace_id || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null);
+  const url = ws ? `/brain/ingest/status/${entryId}?workspace_id=${encodeURIComponent(ws)}` : `/brain/ingest/status/${entryId}`;
   return client.get(url);
 }

@@ -155,7 +155,7 @@ async def test_user_me_update_mass_assignment_protection(db_session):
 
     user = User(
         id=uuid.uuid4(),
-        email="regular_user@company.com",
+        email=f"regular_user_{uuid.uuid4().hex[:6]}@company.com",
         full_name="Regular User",
         is_active=True,
         platform_role=PlatformRole.USER
@@ -196,8 +196,8 @@ async def test_multi_tenant_lead_idor_protection(db_session):
     from app.routers.auth import CurrentUser
     from fastapi import HTTPException
 
-    user_a = User(id=uuid.uuid4(), email="usera@corp.com", full_name="User A", is_active=True)
-    user_b = User(id=uuid.uuid4(), email="userb@corp.com", full_name="User B", is_active=True)
+    user_a = User(id=uuid.uuid4(), email=f"usera_{uuid.uuid4().hex[:6]}@corp.com", full_name="User A", is_active=True)
+    user_b = User(id=uuid.uuid4(), email=f"userb_{uuid.uuid4().hex[:6]}@corp.com", full_name="User B", is_active=True)
     ws_a = Workspace(id=uuid.uuid4(), name="Workspace A", created_by=user_a.id)
     ws_b = Workspace(id=uuid.uuid4(), name="Workspace B", created_by=user_b.id)
     db_session.add_all([user_a, user_b, ws_a, ws_b])
@@ -235,8 +235,8 @@ async def test_multi_tenant_chat_session_idor_protection(db_session):
     from app.routers.auth import CurrentUser
     from fastapi import HTTPException
 
-    user_a = User(id=uuid.uuid4(), email="chata@corp.com", full_name="Chat User A", is_active=True)
-    user_b = User(id=uuid.uuid4(), email="chatb@corp.com", full_name="Chat User B", is_active=True)
+    user_a = User(id=uuid.uuid4(), email=f"chata_{uuid.uuid4().hex[:6]}@corp.com", full_name="Chat User A", is_active=True)
+    user_b = User(id=uuid.uuid4(), email=f"chatb_{uuid.uuid4().hex[:6]}@corp.com", full_name="Chat User B", is_active=True)
     ws_a = Workspace(id=uuid.uuid4(), name="WS A", created_by=user_a.id)
     ws_b = Workspace(id=uuid.uuid4(), name="WS B", created_by=user_b.id)
     db_session.add_all([user_a, user_b, ws_a, ws_b])
@@ -273,8 +273,8 @@ async def test_multi_tenant_brain_entry_deletion_idor_protection(db_session):
     from app.routers.auth import CurrentUser
     from fastapi import HTTPException
 
-    user_a = User(id=uuid.uuid4(), email="braina@corp.com", full_name="Brain User A", is_active=True)
-    user_b = User(id=uuid.uuid4(), email="brainb@corp.com", full_name="Brain User B", is_active=True)
+    user_a = User(id=uuid.uuid4(), email=f"braina_{uuid.uuid4().hex[:6]}@corp.com", full_name="Brain User A", is_active=True)
+    user_b = User(id=uuid.uuid4(), email=f"brainb_{uuid.uuid4().hex[:6]}@corp.com", full_name="Brain User B", is_active=True)
     ws_a = Workspace(id=uuid.uuid4(), name="Brain WS A", created_by=user_a.id)
     ws_b = Workspace(id=uuid.uuid4(), name="Brain WS B", created_by=user_b.id)
     db_session.add_all([user_a, user_b, ws_a, ws_b])
@@ -312,7 +312,7 @@ def test_user_feedback_enforces_current_user_and_workspace(db_session):
     from app.schemas.feedback import UserFeedbackCreate
     from app.routers.auth import CurrentUser
 
-    user = User(id=uuid.uuid4(), email="feedback_user@corp.com", full_name="Feedback User", is_active=True)
+    user = User(id=uuid.uuid4(), email=f"feedback_{uuid.uuid4().hex[:6]}@corp.com", full_name="Feedback User", is_active=True)
     ws = Workspace(id=uuid.uuid4(), name="Feedback WS", created_by=user.id)
     db_session.add_all([user, ws])
     db_session.commit()

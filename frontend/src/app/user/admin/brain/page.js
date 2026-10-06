@@ -380,6 +380,7 @@ export default function BrainPage() {
                             <div className="mb-4 flex justify-center">
                                 <FileProgress 
                                     entryId={currentEntryId} 
+                                    workspaceId={workspaceId}
                                     processingText="Processing file..."
                                     successText="File processed successfully!"
                                     failedText="File processing failed"
@@ -429,6 +430,7 @@ export default function BrainPage() {
                             <div className="mb-4 flex justify-center">
                                 <FileProgress 
                                     entryId={currentCrawlEntryId} 
+                                    workspaceId={workspaceId}
                                     processingText="Crawling & indexing website..."
                                     successText="Website indexed successfully!"
                                     failedText="Website crawl failed"

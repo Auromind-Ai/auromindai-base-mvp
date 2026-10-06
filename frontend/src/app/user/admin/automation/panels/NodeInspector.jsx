@@ -560,10 +560,10 @@ export default function NodeInspector({
               style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
             >
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                
+               
                 {/* LEFT COLUMN: STEP CONFIGURATION (SECTIONS 1, 2, 3) */}
                 <div className="lg:col-span-7 xl:col-span-8 space-y-5">
-                  
+                 
                   {/* Step Label Renaming Input */}
                   <div className="p-3.5 rounded-xl bg-[#141522] border border-white/10 flex items-center justify-between gap-3">
                     <label className="text-xs font-semibold text-zinc-300 shrink-0">
@@ -1229,7 +1229,7 @@ export default function NodeInspector({
                                     <input
                                       type="number"
                                       min={1}
-                                      max={stage0Unit === 'minutes' ? 1440 : 86400}
+                                      max={stage0Unit === 'hours' ? 72 : stage0Unit === 'minutes' ? 1440 : 86400}
                                       value={stage0Amount}
                                       onChange={(e) =>
                                         updateTimeoutStage(0, {
@@ -1247,6 +1247,7 @@ export default function NodeInspector({
                                     >
                                       <option value="seconds">Seconds</option>
                                       <option value="minutes">Minutes</option>
+                                      <option value="hours">Hours</option>
                                     </select>
                                   </div>
 
@@ -1390,7 +1391,7 @@ export default function NodeInspector({
                                     <input
                                       type="number"
                                       min={1}
-                                      max={stageUnit === 'minutes' ? 1440 : 86400}
+                                      max={stageUnit === 'hours' ? 72 : stageUnit === 'minutes' ? 1440 : 86400}
                                       value={stageAmount}
                                       onChange={(e) =>
                                         updateTimeoutStage(stageIdx, {
@@ -1408,6 +1409,7 @@ export default function NodeInspector({
                                     >
                                       <option value="seconds">Seconds</option>
                                       <option value="minutes">Minutes</option>
+                                      <option value="hours">Hours</option>
                                     </select>
                                   </div>
 
@@ -2001,14 +2003,14 @@ export default function NodeInspector({
                   {isTrigger && (
                     <div className="p-4 sm:p-5 rounded-2xl bg-[#141522] border border-white/10 space-y-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] text-white flex items-center justify-center text-xs font-bold shrink-0">
                           ⚡
                         </div>
                         <div>
-                          <h3 className="text-sm font-bold text-white tracking-wide">
+                          <h3 className="text-sm font-semibold text-white tracking-wide">
                             Trigger Event & Keywords
                           </h3>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-white/60">
                             Configure how and when this automation flow triggers.
                           </p>
                         </div>
@@ -2016,7 +2018,7 @@ export default function NodeInspector({
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="text-xs font-semibold text-zinc-400 block mb-1">
+                          <label className="text-xs font-semibold text-white/60 block mb-1">
                             Trigger Event
                           </label>
                           <select
@@ -2067,7 +2069,7 @@ export default function NodeInspector({
                             type="button"
                             onClick={() => addKeywordToTrigger(activeNodeId)}
                             disabled={currentKeywords.length >= MAX_KEYWORDS || !keywordInput.trim()}
-                            className="px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 disabled:opacity-40 text-xs font-bold transition cursor-pointer"
+                            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] text-white border border-white/20 hover:from-[#0a5a3b]/90 hover:via-[#063b29]/80 hover:to-[#03150d] disabled:opacity-40 text-xs font-medium transition cursor-pointer"
                           >
                             Add
                           </button>
@@ -2078,7 +2080,7 @@ export default function NodeInspector({
                             {currentKeywords.map((kw) => (
                               <div
                                 key={kw}
-                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs"
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-white/20 text-white text-xs"
                               >
                                 <span>{kw}</span>
                                 <button
@@ -2092,7 +2094,7 @@ export default function NodeInspector({
                             ))}
                           </div>
                         ) : (
-                          <p className="text-[11px] text-amber-300/80 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-lg">
+                          <p className="text-[11px] text-white bg-gradient-to-r from-[#3b2a08]/80 via-[#261b05]/60 to-[#0d0902] border border-white/20 p-2.5 rounded-lg">
                             No keywords configured. Trigger fires on ALL incoming messages.
                           </p>
                         )}
@@ -2103,7 +2105,7 @@ export default function NodeInspector({
 
                 {/* RIGHT COLUMN: MESSAGE PREVIEW & VARIABLES */}
                 <div className="lg:col-span-5 xl:col-span-4 space-y-4">
-                  
+                 
                   {/* ── TOP RIGHT: MESSAGE PREVIEW ── */}
                   <div className="p-4 sm:p-5 rounded-2xl bg-[#141522] border border-white/10 space-y-3">
                     <div className="flex items-center justify-between">

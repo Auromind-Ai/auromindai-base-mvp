@@ -560,7 +560,13 @@ async def get_ingestion_status(
 ):
    
     logger.info(f"[INGEST STATUS] user={current_user.id} entry_id={entry_id}")
-    workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='brain.manage')
+    if not workspace_id:
+        entry = db.query(BrainEntry).filter(BrainEntry.id == entry_id).first()
+        if not entry:
+            raise HTTPException(status_code=404, detail="Ingestion job not found")
+        workspace_id = verify_workspace_access(current_user, db, str(entry.workspace_id), required_permission='brain.manage')
+    else:
+        workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission='brain.manage')
   
     entry = db.query(BrainEntry).filter(
         BrainEntry.id == entry_id,

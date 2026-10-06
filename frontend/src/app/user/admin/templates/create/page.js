@@ -1219,7 +1219,7 @@ export default function CreateTemplatePage() {
                       ) : (
                         <>
                           <Icon d={icons.sparkle} size={14} />
-                          ✨ Generate (10 WCC)
+                          ✨ Generate
                         </>
                       )}
                     </button>
@@ -1252,6 +1252,19 @@ export default function CreateTemplatePage() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Authentication Notice Banner */}
+              {form.category === 'AUTHENTICATION' && (
+                <div className="bg-amber-950/30 border border-amber-500/40 rounded-[20px] p-4 text-xs text-amber-200/90 flex items-start gap-3 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
+                  <span className="text-lg leading-none mt-0.5">ℹ️</span>
+                  <div className="space-y-1">
+                    <p className="font-semibold text-amber-300 text-sm">Authentication Category Notice</p>
+                    <p className="text-white/80 leading-relaxed">
+                      If your WhatsApp account is currently not eligible for Authentication templates, you can switch category to <button type="button" onClick={() => setForm(prev => ({ ...prev, category: 'UTILITY' }))} className="underline font-bold text-white hover:text-purple-300 cursor-pointer">Utility</button>.
+                    </p>
+                  </div>
                 </div>
               )}
 

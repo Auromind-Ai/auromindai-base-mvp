@@ -121,6 +121,8 @@ def map_template_variables(text: str | None, provided_mapping: dict | None = Non
     formatted = re.sub(r"\{\{([^{}]+)\}\}", repl, text)
     formatted = fix_floating_variables(formatted)
     formatted = fix_template_boundaries(formatted)
+    # Normalize spaces before punctuation following variables (e.g. "{{1}} ," -> "{{1}},")
+    formatted = re.sub(r"(\{\{\d+\}\})\s+([,.:;!?])", r"\1\2", formatted)
     return formatted, mapping
 
 def format_template_variables(text: str | None) -> str | None:
@@ -524,6 +526,7 @@ async def create_template(
         "name": data.name,
         "category": data.category,
         "language": data.language,
+        "allow_category_change": True,
         "components": components,
     }
     try:
@@ -622,6 +625,11 @@ async def create_template(
         error_user_title = error_info.get("error_user_title")
         error_user_msg = error_info.get("error_user_msg")
         detailed_msg = error_user_msg or error_user_title or error_msg
+        if subcode == 2388185:
+            if getattr(data, "category", "") == "AUTHENTICATION":
+                detailed_msg = "Currently, your WhatsApp account is not eligible for Authentication templates."
+            else:
+                detailed_msg = "Your WhatsApp account does not have permission for this action. Please check your account settings."
         raise HTTPException(400, f"Template rejected: {detailed_msg}")
     
     else:
@@ -833,18 +841,13 @@ def build_components(data, media_handle: str | None = None):
             })
 
         # OTP Button (COPY_CODE)
-        btn_text = str(getattr(data, "cta_btn_title", None) or "").strip()
-        if not btn_text or btn_text.lower() in ["open", "buy now", "click here", "submit"]:
-            btn_text = "Copy Code"
-        btn_text = btn_text[:25]
-
+        # Note: Meta strictly forbids custom "text" on COPY_CODE OTP buttons when add_security_recommendation is true
         components.append({
             "type": "BUTTONS",
             "buttons": [
                 {
                     "type": "OTP",
-                    "otp_type": "COPY_CODE",
-                    "text": btn_text
+                    "otp_type": "COPY_CODE"
                 }
             ]
         })
@@ -1500,6 +1503,7 @@ def submit_template(
         "name": template.name,
         "category": template.category,
         "language": template.language,
+        "allow_category_change": True,
         "components": components,
     }
 
@@ -1517,10 +1521,16 @@ def submit_template(
         template.status = "rejected"
         db.commit()
         error_info = meta_response.get("error", {})
+        subcode = error_info.get("error_subcode")
         error_msg = error_info.get("message", "Template submission was rejected. Please review your template content.")
         error_user_title = error_info.get("error_user_title")
         error_user_msg = error_info.get("error_user_msg")
         detailed_msg = error_user_msg or error_user_title or error_msg
+        if subcode == 2388185:
+            if template.category == "AUTHENTICATION":
+                detailed_msg = "Currently, your WhatsApp account is not eligible for Authentication templates."
+            else:
+                detailed_msg = "Your WhatsApp account does not have permission for this action. Please check your account settings."
         raise HTTPException(400, f"Template rejected: {detailed_msg}")
     
     else:
