@@ -48,6 +48,7 @@ export const filterLabel = (key) =>
     min_messages: "Minimum messages",
     max_messages: "Maximum messages",
     assigned_to: "Assigned agent",
+    flow_ids: "Flow Name",
     has_phone: "Phone available",
     has_email: "Email available",
     score_changed: "Latest score change",
@@ -140,6 +141,7 @@ export default function CrmControls({
   onClear,
   onRestore,
   workspaceId,
+  onRefreshOptions,
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState({});
@@ -151,6 +153,7 @@ export default function CrmControls({
     "phone",
     "email",
     "source",
+    "flow_name",
     "score",
     "lead_tier",
     "status",
@@ -387,6 +390,7 @@ export default function CrmControls({
             setDraft(current);
             setError("");
             setOpen(true);
+            onRefreshOptions?.();
           }}
         >
           <Filter size={14} className="inline mr-2" />
@@ -401,6 +405,7 @@ export default function CrmControls({
           onClick={() => {
             setError("");
             setExportOpen(true);
+            onRefreshOptions?.();
           }}
         >
           <Download size={14} className="inline mr-2" />
@@ -462,7 +467,9 @@ export default function CrmControls({
                 ? options?.agents?.find((a) => a.id === value)?.name || "Agent"
                 : Array.isArray(value)
                   ? value
-                      .map((v) => (key === "intents" ? intentLabel(v) : v))
+                      .map((v) => key === "flow_ids"
+                        ? options?.flows?.find((flow) => flow.id === v)?.name || "Unavailable flow"
+                        : key === "intents" ? intentLabel(v) : v)
                       .join(", ")
                   : String(value)}{" "}
               <X size={12} className="inline" />
@@ -593,6 +600,18 @@ export default function CrmControls({
               selected={draft.sources}
               onChange={(v) => set("sources", v)}
             />
+            <section className="space-y-2">
+              <Choices
+                title="Flow Name"
+                values={options?.flows?.map((flow) => flow.id)}
+                selected={draft.flow_ids}
+                onChange={(v) => set("flow_ids", v)}
+                label={(id) => options.flows.find((flow) => flow.id === id)?.name || "Untitled flow"}
+              />
+              {options && !options.flows?.length && (
+                <p className="text-xs text-zinc-400">No flows in this workspace yet.</p>
+              )}
+            </section>
             <section className="space-y-3">
               <h3 className="font-semibold">Engagement</h3>
               {select("waiting", "Waiting for a reply", [

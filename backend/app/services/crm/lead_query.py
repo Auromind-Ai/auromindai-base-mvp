@@ -6,6 +6,9 @@ from app.models.ai_action import Lead
 from app.models.lead_scoring import LeadScoreHistory
 from app.models.message import Message, SenderType
 from app.schemas.crm_filters import LeadFilters
+from app.services.crm.lead_flow import lead_flow_associations
+from app.models.automation import AutomationFlow
+from app.models.conversation import Conversation
 from app.utils.scoring_config import get_scoring_config
 
 
@@ -24,6 +27,12 @@ def source_expression():
 def lead_query(db, workspace_id, filters: LeadFilters, user_id=None):
     q = db.query(Lead).filter(Lead.workspace_id == workspace_id)
     f = filters
+    if f.flow_ids:
+        matching_flows = lead_flow_associations().with_only_columns(Conversation.id).where(
+            Conversation.workspace_id == workspace_id,
+            AutomationFlow.id.in_(f.flow_ids),
+        )
+        q = q.filter(Lead.conversation_id.in_(matching_flows))
     if f.lead_ids:
         q = q.filter(Lead.id.in_(f.lead_ids))
     if f.search and f.search.strip():

@@ -5,11 +5,7 @@ from app.models.conversation import Conversation
 from app.models.flow_execution import FlowExecutionState, FlowExecutionTrace
 
 
-def get_lead_flow_names(db, workspace_id, conversation_ids):
-    conversation_ids = list({value for value in conversation_ids if value is not None})
-    if not conversation_ids:
-        return {}
-
+def lead_flow_associations():
     # Completed flows clear active_flow_id; retain their last recorded flow.
     latest_flow_id = (
         select(FlowExecutionTrace.flow_id)
@@ -22,18 +18,27 @@ def get_lead_flow_names(db, workspace_id, conversation_ids):
         .correlate(Conversation)
         .scalar_subquery()
     )
-    rows = (
-        db.query(Conversation.id, AutomationFlow.name)
+    return (
+        select(Conversation.id.label("conversation_id"), Conversation.workspace_id,
+               AutomationFlow.id.label("flow_id"), AutomationFlow.name.label("flow_name"))
+        .select_from(Conversation)
         .outerjoin(FlowExecutionState, FlowExecutionState.conversation_id == Conversation.id)
         .join(
             AutomationFlow,
             AutomationFlow.id == func.coalesce(FlowExecutionState.active_flow_id, latest_flow_id),
         )
         .filter(
-            Conversation.workspace_id == workspace_id,
-            Conversation.id.in_(conversation_ids),
-            AutomationFlow.workspace_id == workspace_id,
+            AutomationFlow.workspace_id == Conversation.workspace_id,
         )
-        .all()
     )
-    return {conversation_id: name for conversation_id, name in rows}
+
+
+def get_lead_flow_names(db, workspace_id, conversation_ids):
+    conversation_ids = list({value for value in conversation_ids if value is not None})
+    if not conversation_ids:
+        return {}
+    rows = db.execute(lead_flow_associations().where(
+        Conversation.workspace_id == workspace_id,
+        Conversation.id.in_(conversation_ids),
+    )).all()
+    return {row.conversation_id: row.flow_name for row in rows}
