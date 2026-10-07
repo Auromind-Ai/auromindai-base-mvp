@@ -172,6 +172,7 @@ class LeadScoreListItem(BaseModel):
     email: Optional[str] = None
     created_at: Optional[datetime] = None
     source: Optional[str] = None
+    flow_name: Optional[str] = None
     channel: Optional[str] = None
     status: Optional[str] = None
     score: int

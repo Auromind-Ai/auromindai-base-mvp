@@ -13,6 +13,9 @@ from sqlalchemy.orm import Session
 from app.models.ai_action import Lead
 from app.models.conversation import Conversation, ChannelType
 from app.models.lead_scoring import TemplateLog
+from app.models.automation import AutomationFlow
+from app.models.flow_execution import FlowExecutionState, FlowExecutionTrace
+from app.schemas.lead_scoring import LeadScoreListResponse
 from app.services.crm.lead_scoring_service import get_workspace_lead_scores
 from app.services.inbox.webhook_service import upsert_lead
 
@@ -22,7 +25,7 @@ class LeadDateOrderingTests(unittest.TestCase):
         self.engine = create_engine("sqlite:///:memory:")
         metadata = MetaData()
 
-        for model in (Lead, Conversation, TemplateLog):
+        for model in (Lead, Conversation, TemplateLog, AutomationFlow, FlowExecutionState, FlowExecutionTrace):
             table = model.__table__.to_metadata(metadata)
             for constraint in list(table.constraints):
                 if isinstance(constraint, ForeignKeyConstraint):
@@ -84,6 +87,27 @@ class LeadDateOrderingTests(unittest.TestCase):
         self.assertEqual(items[0]["lead_id"], str(lead_new.id))
         self.assertEqual(items[1]["lead_id"], str(lead_mid.id))
         self.assertEqual(items[2]["lead_id"], str(lead_old.id))
+
+    def test_flow_name_survives_list_response_serialization(self):
+        conversation_id, flow_id = uuid4(), uuid4()
+        self.db.execute(Conversation.__table__.insert(), {
+            "id": conversation_id, "workspace_id": self.workspace_id,
+        })
+        self.db.execute(AutomationFlow.__table__.insert(), {
+            "id": flow_id, "workspace_id": self.workspace_id, "name": "Sales enquiry",
+        })
+        self.db.execute(FlowExecutionState.__table__.insert(), {
+            "conversation_id": conversation_id, "active_flow_id": flow_id,
+        })
+        self.db.add(Lead(workspace_id=self.workspace_id, conversation_id=conversation_id,
+                         name="Flow lead", score=40))
+        self.db.commit()
+
+        response = LeadScoreListResponse.model_validate(
+            get_workspace_lead_scores(workspace_id=self.workspace_id, db=self.db)
+        )
+        self.assertEqual(response.total, 1)
+        self.assertEqual(response.items[0].flow_name, "Sales enquiry")
 
     def test_returning_lead_moves_to_top(self):
         now = datetime.now(timezone.utc)
