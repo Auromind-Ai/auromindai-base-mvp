@@ -157,7 +157,7 @@ export default function VariablePicker({ onInsertVariable, disabled = false }) {
                         <span className="text-white/80 group-hover:text-white font-medium truncate">
                           {variable.label}
                         </span>
-                        <code className="text-[10px] font-mono text-[#c490e8] bg-[#814AC8]/15 px-1.5 py-0.5 rounded border border-[#814AC8]/30">
+                        <code className="text-[10px] text-[#c490e8] bg-[#814AC8]/15 px-1.5 py-0.5 rounded border border-[#814AC8]/30">
                           {`{{${variable.key}}}`}
                         </code>
                       </div>

@@ -117,8 +117,8 @@ export default function HowItWorks() {
         
         {/* Section Header */}
         <div className="max-w-3xl mx-auto text-center mb-16 sm:mb-20">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-1.5 text-xs font-semibold text-purple-300 tracking-wider uppercase mb-5">
-            <Activity size={12} className="text-purple-400 animate-pulse" />
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 px-4 py-1.5 text-xs font-medium text-white tracking-wider uppercase mb-5">
+            <Activity size={12} className="text-white animate-pulse" />
             SEAMLESS CUSTOMER ENGAGEMENT
           </div>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight leading-tight">

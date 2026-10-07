@@ -564,7 +564,7 @@ export default function AutomationCanvas() {
       message: `Are you sure you want to delete the flow "${flowName}"? This action cannot be undone.`,
       confirmText: 'Delete',
       cancelText: 'Cancel',
-      confirmColor: 'bg-rose-600 hover:bg-rose-500',
+      confirmColor: 'bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] hover:from-[#5a0808]/90 hover:via-[#3a0505]/70 hover:to-[#160303] border border-white/20',
       isConfirm: true,
       onConfirm: () => {
         setCustomModal(prev => ({ ...prev, open: false }));
@@ -1469,8 +1469,7 @@ export default function AutomationCanvas() {
     }]);
 
     if (sourceHandle) {
-      const activeNode = nodesRef.current.find(n => n.id === activeNodeId);
-      const isCond = activeNode?.type === 'action' && activeNode?.config?.type === 'condition';
+      const isCond = sourceNode?.type === 'action' && sourceNode?.config?.type === 'condition';
       if (isCond) {
         updateNodeConfig(sourceId, (config) => ({
           ...config,
@@ -1482,9 +1481,7 @@ export default function AutomationCanvas() {
         syncButtonTarget(sourceId, sourceHandle, id);
       }
     }
-
-    setActiveNodeId(id);
-  }, [activeNodeId, showToast]);
+  }, [showToast]);
 
   const connectPortToNode = useCallback((sourceId, sourceHandle = null, targetId) => {
     if (sourceId === targetId) {
@@ -1537,7 +1534,6 @@ export default function AutomationCanvas() {
       }
     }
 
-    setActiveNodeId(targetId);
     return true;
   }, [showToast]);
 
@@ -1578,7 +1574,6 @@ export default function AutomationCanvas() {
 
     wiringRef.current = nextWire;
     setWiringPreview(nextWire);
-    setActiveNodeId(sourceId);
 
     const cleanupWiring = () => {
       wiringRef.current = null;

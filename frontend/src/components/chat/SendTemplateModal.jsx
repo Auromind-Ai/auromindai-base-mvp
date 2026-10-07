@@ -337,7 +337,7 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
                                                     <span className="text-[12px] text-zinc-300 font-medium flex items-center gap-1.5">
                                                         <span>{displayLabel}</span>
                                                         {mappedName && (
-                                                            <span className="text-[11px] text-emerald-400 font-mono">
+                                                            <span className="text-[11px] text-emerald-400">
                                                                 {`{{${mappedName}}}`}
                                                             </span>
                                                         )}

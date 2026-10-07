@@ -191,7 +191,7 @@ export default function DashboardView({
         <div className="grid grid-cols-1 gap-6">
           
           {/* Active Flows Card */}
-          <div className="bg-[#13131a]/60 border border-white/[0.06] rounded-2xl p-6 shadow-xl backdrop-blur-md flex flex-col justify-between min-h-[200px] relative overflow-hidden group">
+          <div className="bg-[#13131a]/80 border border-white/10 rounded-2xl p-6 shadow-xl backdrop-blur-md flex flex-col justify-between min-h-[200px] relative overflow-hidden group">
             <div className="absolute -right-16 -top-16 w-32 h-32 bg-purple-500/5 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500 pointer-events-none" />
             <div className="relative z-10 w-full">
               <h3 className="text-sm font-semibold text-white mb-4">Flow Quota Usage</h3>
@@ -201,7 +201,7 @@ export default function DashboardView({
                 <div className="relative w-16 h-16 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                     <path
-                      className="text-white/[0.03]"
+                      className="text-white/10"
                       strokeWidth="3.5"
                       stroke="currentColor"
                       fill="none"
@@ -223,17 +223,17 @@ export default function DashboardView({
                 </div>
                 
                 <div className="space-y-1">
-                  <div className="text-2xl font-black text-white tracking-tight leading-none">
-                    {usedFlows} <span className="text-xs font-bold text-white/40">/ {totalLimit}</span>
+                  <div className="text-2xl font-bold text-white tracking-tight leading-none">
+                    {usedFlows} <span className="text-xs font-semibold text-zinc-400">/ {totalLimit}</span>
                   </div>
-                  <div className="text-[10px] font-medium text-white/70  tracking-wider">Flows Created ({usedActive} Active)</div>
+                  <div className="text-xs font-medium text-zinc-300 tracking-wide mt-1">Flows Created ({usedActive} Active)</div>
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-white/50 font-medium">
-                <span>Plan: {planBase} | Purchased: +{purchasedFlows} {flowQuota?.purchased_locked && <span className="text-amber-400 font-bold" title="Purchased flows locked until plan upgrade">🔒 (Locked)</span>} | Total Quota: {totalLimit}</span>
+              <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-300 font-medium">
+                <span>Plan: <strong className="text-white font-semibold">{planBase}</strong> | Purchased: <strong className="text-white font-semibold">+{purchasedFlows}</strong> {flowQuota?.purchased_locked && <span className="text-amber-400 font-bold" title="Purchased flows locked until plan upgrade">🔒 (Locked)</span>} | Total Quota: <strong className="text-white font-semibold">{totalLimit}</strong></span>
                 <span>•</span>
-                <span>AI Enabled: {automations.filter(a => a.nodes?.some(n => n.type === 'action' && n.config?.type === 'brain_query')).length}</span>
+                <span>AI Enabled: <strong className="text-white font-semibold">{automations.filter(a => a.nodes?.some(n => n.type === 'action' && n.config?.type === 'brain_query')).length}</strong></span>
               </div>
 
               {flowQuota?.purchased_locked && (
@@ -254,7 +254,7 @@ export default function DashboardView({
                 setReachedLimitWarning(false);
                 setIsPurchaseFlowModalOpen(true);
               }}
-              className="w-full max-w-xs mx-auto mt-4 py-2.5 px-4 bg-white/5 hover:bg-white/10 active:scale-[0.98] transition-all text-white text-xs font-bold rounded-xl border border-white/10 shadow-md relative z-10"
+              className="w-full max-w-xs mx-auto mt-4 py-2.5 px-4 bg-white/10 hover:bg-white/15 active:scale-[0.98] transition-all text-white text-xs font-semibold rounded-xl border border-white/20 shadow-md relative z-10 cursor-pointer"
             >
               Purchase More Flows
             </button>
@@ -264,19 +264,19 @@ export default function DashboardView({
         {/* Search bar and Create Flow button */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4">
           <div className="relative max-w-sm w-full">
-            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
               type="text"
               placeholder="Search by flow name"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-11 pl-10 pr-4 bg-[#13131a]/80 border border-white/10 rounded-xl text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50 transition-all shadow-sm font-sans"
+              className="w-full h-11 pl-10 pr-4 bg-[#13131a] border border-white/15 rounded-xl text-xs sm:text-sm text-white placeholder:text-zinc-400 focus:outline-none focus:border-[#814AC8] focus:ring-1 focus:ring-[#814AC8]/50 transition-all shadow-sm font-sans"
             />
           </div>
           
           <button
             onClick={handleCreateFlowClick}
-            className="flex items-center justify-center gap-2 h-11 px-6 bg-[#814AC8] hover:bg-[#723bb3] active:scale-[0.98] transition-all text-white text-xs font-bold rounded-xl shadow-lg shadow-purple-650/20 w-full sm:w-auto cursor-pointer"
+            className="flex items-center justify-center gap-2 h-11 px-6 bg-[#814AC8] hover:bg-[#723bb3] active:scale-[0.98] transition-all text-white text-xs sm:text-sm font-semibold rounded-xl shadow-lg shadow-purple-900/30 w-full sm:w-auto cursor-pointer"
           >
             <Plus size={16} />
             <span>Create Flow</span>
@@ -284,8 +284,8 @@ export default function DashboardView({
         </div>
 
         {/* Tabs bar */}
-        <div className="border-b border-white/10 flex flex-wrap gap-6 text-xs font-bold text-white/40 pt-2">
-          <button className="pb-3 text-purple-400 border-b-2 border-purple-500 flex items-center gap-1 font-extrabold">
+        <div className="border-b border-white/10 flex flex-wrap gap-6 text-sm font-semibold text-zinc-400 pt-2">
+          <button className="pb-3 text-white border-b-2 border-[#814AC8] flex items-center gap-1 font-bold text-sm">
             Your Flows
           </button>
         </div>
@@ -293,7 +293,7 @@ export default function DashboardView({
         {/* 1. Mobile View (< 640px): Card List */}
         <div className="block sm:hidden space-y-3">
           {filteredAutomations.length === 0 ? (
-            <div className="border border-dashed border-white/10 rounded-2xl py-12 px-4 text-center text-xs text-white/40 italic">
+            <div className="border border-dashed border-white/15 rounded-2xl py-12 px-4 text-center text-xs text-zinc-400 italic">
               No flows found. Click &quot;Create Flow&quot; to build your first automation.
             </div>
           ) : (
@@ -301,13 +301,13 @@ export default function DashboardView({
               {filteredAutomations.map((flow) => (
                 <div
                   key={flow.id}
-                  className="bg-[#13131a]/60 border border-white/[0.08] rounded-2xl p-4 transition-all hover:border-white/20"
+                  className="bg-[#13131a] border border-white/10 rounded-2xl p-4 transition-all hover:border-white/20"
                 >
                   {/* Top: Flow Name & Status Toggle */}
                   <div className="flex items-center justify-between gap-3">
                     <span
                       onClick={() => handleSelectAutomation(flow)}
-                      className="font-bold text-white text-sm hover:text-purple-400 cursor-pointer transition-colors truncate"
+                      className="font-bold text-white text-sm hover:text-purple-300 cursor-pointer transition-colors truncate"
                     >
                       {flow.name}
                     </span>
@@ -318,60 +318,60 @@ export default function DashboardView({
                         onChange={() => handleToggleStatus(flow)}
                         className="sr-only peer"
                       />
-                      <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#814AC8]" />
+                      <div className="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#814AC8]" />
                     </label>
                   </div>
 
                   {/* Middle: Created by */}
                   <div className="mt-3">
-                    <span className="text-[11px] text-zinc-500 block font-medium">Created by</span>
-                    <span className="text-xs text-zinc-400 mt-0.5 block truncate" title={flow.created_by_email || flow.created_by_name || 'System / Workspace Admin'}>
+                    <span className="text-[11px] text-zinc-400 block font-medium">Created by</span>
+                    <span className="text-xs text-zinc-200 mt-0.5 block truncate" title={flow.created_by_email || flow.created_by_name || 'System / Workspace Admin'}>
                       {flow.created_by_email || flow.created_by_name || 'System / Workspace Admin'}
                     </span>
                   </div>
 
                   {/* Bottom: Actions */}
                   <div className="mt-3 pt-3 border-t border-white/5">
-                    <span className="text-[11px] text-zinc-500 block font-medium mb-1.5">Actions</span>
+                    <span className="text-[11px] text-zinc-400 block font-medium mb-1.5">Actions</span>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handlePreviewFlow && handlePreviewFlow(flow)}
                         title="Preview Flow"
-                        className="p-2 text-[#814AC8] opacity-80 hover:opacity-100 hover:text-purple-300 transition-all rounded-lg hover:bg-purple-500/10 cursor-pointer"
+                        className="p-2 text-white hover:text-violet-200 bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 hover:from-[#9B63E5]/70 hover:to-[#32196F]/70 border border-white/20 hover:border-purple-400/50 hover:shadow-[0_0_12px_rgba(129,74,200,0.4)] hover:scale-105 active:scale-95 transition-all duration-200 rounded-lg cursor-pointer"
                         aria-label="Preview Flow"
                       >
-                        <Play size={15} />
+                        <Play size={16} />
                       </button>
                       <button
                         onClick={() => handleDuplicateFlow(flow)}
                         title="Duplicate Flow"
-                        className="p-2 text-zinc-400 opacity-80 hover:opacity-100 hover:text-white transition-all rounded-lg hover:bg-white/5 cursor-pointer"
+                        className="p-2 text-white hover:text-white bg-gradient-to-r from-[#082f49]/80 via-[#062235]/60 to-[#020b12] hover:from-[#0a3a59]/90 hover:via-[#072a40]/70 hover:to-[#02101a] border border-white/20 hover:border-cyan-400/50 hover:shadow-[0_0_12px_rgba(8,145,178,0.4)] hover:scale-105 active:scale-95 transition-all duration-200 rounded-lg cursor-pointer"
                         aria-label="Duplicate Flow"
                       >
-                        <Layers size={15} />
+                        <Layers size={16} />
                       </button>
                       <button
                         onClick={() => handleSelectAutomation(flow)}
                         title="Edit Flow"
-                        className="p-2 text-zinc-400 opacity-80 hover:opacity-100 hover:text-purple-400 transition-all rounded-lg hover:bg-white/5 cursor-pointer"
+                        className="p-2 text-white hover:text-white bg-gradient-to-r from-[#1e1b4b]/80 via-[#17143a]/60 to-[#080714] hover:from-[#262257]/90 hover:via-[#1d1945]/70 hover:to-[#0b0919] border border-white/20 hover:border-indigo-400/50 hover:shadow-[0_0_12px_rgba(99,102,241,0.4)] hover:scale-105 active:scale-95 transition-all duration-200 rounded-lg cursor-pointer"
                         aria-label="Edit Flow"
                       >
-                        <Pencil size={15} />
+                        <Pencil size={16} />
                       </button>
                       <button
                         onClick={() => handleDeleteFlow(flow.id)}
                         title="Delete Flow"
-                        className="p-2 text-[#ef4444] opacity-80 hover:opacity-100 hover:text-red-400 transition-all rounded-lg hover:bg-red-500/10 cursor-pointer"
+                        className="p-2 text-white hover:text-rose-200 bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] hover:from-[#480707]/90 hover:via-[#2d0404]/70 hover:to-[#110202] border border-white/20 hover:border-rose-500/50 hover:shadow-[0_0_12px_rgba(244,63,94,0.4)] hover:scale-105 active:scale-95 transition-all duration-200 rounded-lg cursor-pointer"
                         aria-label="Delete Flow"
                       >
-                        <Trash2 size={15} />
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </div>
                 </div>
               ))}
 
-              <div className="text-xs text-zinc-500 font-medium pt-1 px-0.5">
+              <div className="text-xs text-zinc-400 font-medium pt-1 px-0.5">
                 {filteredAutomations.length} {filteredAutomations.length === 1 ? 'flow' : 'flows'}
               </div>
             </>
@@ -380,42 +380,42 @@ export default function DashboardView({
 
         {/* 2. Tablet & Desktop View (>= 640px): Full Table */}
         <div className="hidden sm:block space-y-3">
-          <div className="bg-[#13131a]/40 border border-white/5 rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-[#13131a] border border-white/10 rounded-2xl shadow-sm overflow-hidden">
             <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-white/5 bg-[#171722]/30 text-[10px] font-extrabold uppercase tracking-wider text-white/40">
-                    <th className="px-3.5 sm:px-4 lg:px-6 py-3.5 lg:py-4 whitespace-nowrap">Flow Name</th>
-                    <th className="px-2.5 sm:px-3 lg:px-6 py-3.5 lg:py-4 whitespace-nowrap">Created By</th>
-                    <th className="px-2 sm:px-3 lg:px-6 py-3.5 lg:py-4 text-center whitespace-nowrap">Status</th>
-                    <th className="px-3.5 sm:px-4 lg:px-6 py-3.5 lg:py-4 text-right whitespace-nowrap">Actions</th>
+                  <tr className="border-b border-white/10 bg-[#171722]/80 text-xs font-semibold uppercase tracking-wider text-zinc-300">
+                    <th className="px-4 lg:px-6 py-3.5 lg:py-4 whitespace-nowrap text-zinc-300">Flow Name</th>
+                    <th className="px-3 lg:px-6 py-3.5 lg:py-4 whitespace-nowrap text-zinc-300">Created By</th>
+                    <th className="px-3 lg:px-6 py-3.5 lg:py-4 text-center whitespace-nowrap text-zinc-300">Status</th>
+                    <th className="px-4 lg:px-6 py-3.5 lg:py-4 text-right whitespace-nowrap text-zinc-300">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.02] text-xs font-medium text-white/70">
+                <tbody className="divide-y divide-white/5 text-xs font-medium text-zinc-200">
                   {filteredAutomations.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="px-6 py-16 text-center text-white/30 italic font-normal">
+                      <td colSpan="4" className="px-6 py-16 text-center text-zinc-400 italic font-normal">
                         No flows found. Click &quot;Create Flow&quot; to build your first automation.
                       </td>
                     </tr>
                   ) : (
                     filteredAutomations.map((flow) => (
-                      <tr key={flow.id} className="hover:bg-white/[0.01] transition-colors group">
-                        <td className="px-3.5 sm:px-4 lg:px-6 py-3 sm:py-3.5 lg:py-4">
+                      <tr key={flow.id} className="hover:bg-white/[0.03] transition-colors group">
+                        <td className="px-4 lg:px-6 py-3.5 lg:py-4">
                           <span 
                             onClick={() => handleSelectAutomation(flow)}
-                            className="font-bold text-white hover:text-purple-400 cursor-pointer transition-colors text-xs sm:text-[13px] line-clamp-1 break-words max-w-[110px] sm:max-w-[150px] lg:max-w-none"
+                            className="font-semibold text-white hover:text-purple-300 cursor-pointer transition-colors text-sm line-clamp-1 break-words max-w-[110px] sm:max-w-[150px] lg:max-w-none"
                             title={flow.name}
                           >
                             {flow.name}
                           </span>
                         </td>
-                        <td className="px-2.5 sm:px-3 lg:px-6 py-3 sm:py-3.5 lg:py-4 text-white/40 text-[11px]">
+                        <td className="px-3 lg:px-6 py-3.5 lg:py-4 text-zinc-300 text-xs sm:text-[13px]">
                           <span className="truncate block max-w-[110px] sm:max-w-[140px] lg:max-w-none" title={flow.created_by_email || flow.created_by_name || 'System / Workspace Admin'}>
                             {flow.created_by_email || flow.created_by_name || 'System / Workspace Admin'}
                           </span>
                         </td>
-                        <td className="px-2 sm:px-3 lg:px-6 py-3 sm:py-3.5 lg:py-4 text-center">
+                        <td className="px-3 lg:px-6 py-3.5 lg:py-4 text-center">
                           <label className="relative inline-flex items-center cursor-pointer select-none">
                             <input
                               type="checkbox"
@@ -423,42 +423,42 @@ export default function DashboardView({
                               onChange={() => handleToggleStatus(flow)}
                               className="sr-only peer"
                             />
-                            <div className="w-8 h-4.5 sm:w-9 sm:h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-3.5 after:w-3.5 sm:after:h-4 sm:after:w-4 after:transition-all peer-checked:bg-[#814AC8]" />
+                            <div className="w-8 h-4.5 sm:w-9 sm:h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-3.5 after:w-3.5 sm:after:h-4 sm:after:w-4 after:transition-all peer-checked:bg-[#814AC8]" />
                           </label>
                         </td>
-                        <td className="px-3.5 sm:px-4 lg:px-6 py-3 sm:py-3.5 lg:py-4 text-right">
-                          <div className="flex items-center justify-end gap-1 sm:gap-1.5">
+                        <td className="px-4 lg:px-6 py-3.5 lg:py-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5 sm:gap-2">
                             <button
                               onClick={() => handlePreviewFlow && handlePreviewFlow(flow)}
                               title="Preview Flow"
-                              className="p-1.5 sm:p-2 text-[#814AC8] opacity-70 hover:opacity-100 hover:text-purple-300 transition-all duration-300 rounded-lg hover:bg-purple-500/10 cursor-pointer shrink-0"
+                              className="p-1.5 sm:p-2 text-white hover:text-violet-200 bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 hover:from-[#9B63E5]/70 hover:to-[#32196F]/70 border border-white/20 hover:border-purple-400/50 hover:shadow-[0_0_12px_rgba(129,74,200,0.4)] hover:scale-105 active:scale-95 transition-all duration-200 rounded-lg cursor-pointer shrink-0"
                               aria-label="Preview Flow"
                             >
-                              <Play size={13} className="sm:w-3.5 sm:h-3.5" />
+                              <Play size={15} />
                             </button>
                             <button
                               onClick={() => handleDuplicateFlow(flow)}
                               title="Duplicate Flow"
-                              className="p-1.5 sm:p-2 text-zinc-400 opacity-60 hover:opacity-100 hover:text-white transition-all duration-300 rounded-lg hover:bg-white/5 cursor-pointer shrink-0"
+                              className="p-1.5 sm:p-2 text-white hover:text-white bg-gradient-to-r from-[#082f49]/80 via-[#062235]/60 to-[#020b12] hover:from-[#0a3a59]/90 hover:via-[#072a40]/70 hover:to-[#02101a] border border-white/20 hover:border-cyan-400/50 hover:shadow-[0_0_12px_rgba(8,145,178,0.4)] hover:scale-105 active:scale-95 transition-all duration-200 rounded-lg cursor-pointer shrink-0"
                               aria-label="Duplicate Flow"
                             >
-                              <Layers size={13} className="sm:w-3.5 sm:h-3.5" />
+                              <Layers size={15} />
                             </button>
                             <button
                               onClick={() => handleSelectAutomation(flow)}
                               title="Edit Flow"
-                              className="p-1.5 sm:p-2 text-zinc-400 opacity-60 hover:opacity-100 hover:text-purple-400 transition-all duration-300 rounded-lg hover:bg-white/5 cursor-pointer shrink-0"
+                              className="p-1.5 sm:p-2 text-white hover:text-white bg-gradient-to-r from-[#1e1b4b]/80 via-[#17143a]/60 to-[#080714] hover:from-[#262257]/90 hover:via-[#1d1945]/70 hover:to-[#0b0919] border border-white/20 hover:border-indigo-400/50 hover:shadow-[0_0_12px_rgba(99,102,241,0.4)] hover:scale-105 active:scale-95 transition-all duration-200 rounded-lg cursor-pointer shrink-0"
                               aria-label="Edit Flow"
                             >
-                              <Pencil size={13} className="sm:w-3.5 sm:h-3.5" />
+                              <Pencil size={15} />
                             </button>
                             <button
                               onClick={() => handleDeleteFlow(flow.id)}
                               title="Delete Flow"
-                              className="p-1.5 sm:p-2 text-[#ef4444] opacity-60 hover:opacity-100 hover:text-red-400 transition-all duration-300 rounded-lg hover:bg-red-500/10 cursor-pointer shrink-0"
+                              className="p-1.5 sm:p-2 text-white hover:text-rose-200 bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] hover:from-[#480707]/90 hover:via-[#2d0404]/70 hover:to-[#110202] border border-white/20 hover:border-rose-500/50 hover:shadow-[0_0_12px_rgba(244,63,94,0.4)] hover:scale-105 active:scale-95 transition-all duration-200 rounded-lg cursor-pointer shrink-0"
                               aria-label="Delete Flow"
                             >
-                              <Trash2 size={13} className="sm:w-3.5 sm:h-3.5" />
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         </td>
@@ -470,7 +470,7 @@ export default function DashboardView({
             </div>
           </div>
 
-          <div className="text-xs text-zinc-500 font-medium px-1">
+          <div className="text-xs text-zinc-400 font-medium px-1">
             Showing {filteredAutomations.length} {filteredAutomations.length === 1 ? 'flow' : 'flows'}
           </div>
         </div>
@@ -531,16 +531,16 @@ export default function DashboardView({
               className="bg-[#13131a] border border-white/10 rounded-2xl p-6 shadow-2xl max-w-sm w-full relative z-10 text-left"
             >
               <h3 className="text-base font-bold text-white mb-1">Create New Flow</h3>
-              <p className="text-xs text-white/40 mb-6 font-medium">Enter a descriptive name for your flow.</p>
+              <p className="text-xs text-zinc-400 mb-6 font-medium">Enter a descriptive name for your flow.</p>
               
               <div className="space-y-2 mb-6">
-                <label className="text-[10px] font-bold text-white/30 uppercase tracking-wider ml-0.5">Flow Name</label>
+                <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider ml-0.5">Flow Name</label>
                 <input
                   type="text"
                   value={newFlowName}
                   onChange={(e) => setNewFlowName(e.target.value)}
                   placeholder="e.g., Lead Qualification Flow"
-                  className="w-full h-11 px-3 bg-black/35 border border-white/8 rounded-xl text-xs text-white outline-none focus:border-purple-500/50 focus:bg-[#151522]/30 transition-all font-sans"
+                  className="w-full h-11 px-3 bg-[#0e0e12] border border-white/15 rounded-xl text-xs sm:text-sm text-white placeholder:text-zinc-500 outline-none focus:border-[#814AC8] focus:bg-[#151522]/50 transition-all font-sans"
                   autoFocus
                   onKeyDown={(e) => { if (e.key === 'Enter') handleCreateFlowSubmit(); }}
                 />
@@ -549,14 +549,14 @@ export default function DashboardView({
               <div className="flex items-center justify-end gap-2.5">
                 <button
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2.5 border border-white/10 hover:bg-white/5 text-white/60 rounded-xl text-xs font-bold transition-all"
+                  className="px-4 py-2.5 border border-white/15 hover:bg-white/5 text-zinc-300 hover:text-white rounded-xl text-xs font-semibold transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCreateFlowSubmit}
                   disabled={!newFlowName.trim()}
-                  className="px-5 py-2.5 bg-[#814AC8] hover:bg-[#723bb3] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all"
+                  className="px-5 py-2.5 bg-[#814AC8] hover:bg-[#723bb3] disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-md"
                 >
                   Create Flow
                 </button>
