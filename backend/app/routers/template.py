@@ -1089,6 +1089,7 @@ def format_template_dict(t: Template) -> dict:
         "language": t.language or "en_US",
         "variables": resolved_vars if resolved_vars else vars_found,
         "tag": t.system_tag,
+        "workspace_id": str(t.workspace_id) if t.workspace_id else None,
         "created_at": t.created_at.isoformat() if t.created_at else None,
     }
 

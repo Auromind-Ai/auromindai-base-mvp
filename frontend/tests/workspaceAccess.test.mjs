@@ -46,6 +46,8 @@ test('unknown routes fail closed and notification-only settings remain accessibl
   assert.equal(isWorkspacePageAllowed('/user/admin/unknown', () => true), false);
   assert.equal(isWorkspacePageAllowed('/user/admin/settings', permission => permission === 'settings.notifications'), true);
   assert.equal(isWorkspacePageAllowed('/user/admin/leads', () => false), false);
+  assert.equal(isWorkspacePageAllowed('/user/admin', () => false), true);
+  assert.equal(isWorkspacePageAllowed('/user/admin/', () => false), true);
 });
 
 test('only assigned workspaces are visible, with explicit switching between assignments', () => {

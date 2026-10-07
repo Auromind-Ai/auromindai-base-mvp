@@ -59,9 +59,11 @@ export async function updateLeadLabels(leadId, label, action) {
   }
 }
 
-export async function getLeadByConversation(conversationId) {
+export async function getLeadByConversation(conversationId, workspaceId) {
   try {
-    const data = await client.get('/api/lead-scoring/leads?limit=100&offset=0');
+    const ws = workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null);
+    const query = ws ? `&workspace_id=${encodeURIComponent(ws)}` : '';
+    const data = await client.get(`/api/lead-scoring/leads?limit=100&offset=0${query}`);
     const items = data.items || data || [];
     const match = items.find(l => l.conversation_id === conversationId);
     return match || null;

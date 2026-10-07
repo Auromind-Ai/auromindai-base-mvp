@@ -180,6 +180,15 @@ export const validateFlowGraph = (nodes = [], edges = []) => {
   }
 
   nodes.forEach((node) => {
+    if (node.type === 'trigger' && nodes.length > 1) {
+      const event = node.config?.event || 'msg_recv';
+      const keywords = (node.config?.keywords || []).filter((k) => String(k).trim());
+      const matchAll = Boolean(node.config?.match_all) || keywords.some((k) => ['*', 'all', 'any'].includes(String(k).trim()));
+      if (event === 'msg_recv' && keywords.length === 0 && !matchAll) {
+        errors.push(`Trigger "${node.label || 'Trigger'}" has no keywords configured. Please add at least one trigger keyword (or "*") to activate.`);
+      }
+    }
+
     if (node.type === 'action' && node.config?.type === 'send_msg') {
       const text = node.config?.text || '';
       const msgType = node.config?.message_type || 'text';

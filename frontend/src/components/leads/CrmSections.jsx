@@ -81,8 +81,11 @@ export function CrmAnalytics({
   overview = false,
   onBrowse,
   onSelect,
-  workspaceId,
+  workspaceId: propWorkspaceId,
 }) {
+  const { workspaceId: authWsId } = useAuth?.() || {};
+  const activeWsId = propWorkspaceId || authWsId || (typeof window !== "undefined" ? localStorage.getItem("workspace_id") : null) || getWorkspaceIdFromToken();
+
   const [period, setPeriod] = useState("30");
   const [custom, setCustom] = useState({ start: "", end: "" });
   const [data, setData] = useState(null);
@@ -115,7 +118,7 @@ export function CrmAnalytics({
     setData(null);
     api
       .get(
-        `/lead-scoring/analytics?workspace_id=${getWorkspaceIdFromToken()}&filters=${encodeURIComponent(JSON.stringify({ created_from: from, created_to: to }))}`,
+        `/lead-scoring/analytics?workspace_id=${activeWsId}&filters=${encodeURIComponent(JSON.stringify({ created_from: from, created_to: to }))}`,
       )
       .then((result) => {
         if (active) setData(result);
@@ -129,7 +132,7 @@ export function CrmAnalytics({
     return () => {
       active = false;
     };
-  }, [period, custom.start, custom.end, reload]);
+  }, [activeWsId, period, custom.start, custom.end, reload]);
   return (
     <main className="flex-1 overflow-y-auto p-4 md:p-7 space-y-6">
       <div className="flex justify-between gap-3 flex-wrap">
@@ -332,13 +335,16 @@ export function CrmAnalytics({
         </>
       )}
       {overview && (
-        <CrmFollowUps workspaceId={workspaceId} onSelect={onSelect} />
+        <CrmFollowUps workspaceId={activeWsId} onSelect={onSelect} />
       )}
     </main>
   );
 }
 
-export function CrmHistory({ onSelect }) {
+export function CrmHistory({ onSelect, workspaceId: propWorkspaceId }) {
+  const { workspaceId: authWsId } = useAuth?.() || {};
+  const activeWsId = propWorkspaceId || authWsId || (typeof window !== "undefined" ? localStorage.getItem("workspace_id") : null) || getWorkspaceIdFromToken();
+
   const [page, setPage] = useState(0);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -351,7 +357,7 @@ export function CrmHistory({ onSelect }) {
     setError("");
     api
       .get(
-        `/lead-scoring/history?workspace_id=${getWorkspaceIdFromToken()}&limit=50&offset=${page * 50}`,
+        `/lead-scoring/history?workspace_id=${activeWsId}&limit=${50}&offset=${page * 50}`,
       )
       .then((r) => {
         if (active) setData(r);
@@ -430,7 +436,11 @@ export function CrmScoring({
   loading,
   loadError,
   onRetry,
+  workspaceId: propWorkspaceId,
 }) {
+  const { workspaceId: authWsId } = useAuth?.() || {};
+  const activeWsId = propWorkspaceId || authWsId || (typeof window !== "undefined" ? localStorage.getItem("workspace_id") : null) || getWorkspaceIdFromToken();
+
   const { showToast, showConfirm } = useToast?.() || { showToast: () => {} };
   const [activeSubtab, setActiveSubtab] = useState("rules"); // "rules" | "preview"
   const [busy, setBusy] = useState(false);
@@ -460,7 +470,7 @@ export function CrmScoring({
     setRulesLoading(true);
     try {
       const data = await api.get(
-        `/lead-scoring/rules?workspace_id=${getWorkspaceIdFromToken()}`,
+        `/lead-scoring/rules?workspace_id=${activeWsId}`,
       );
       if (data) {
         setAiEnabled(data.ai_qualification_enabled ?? true);
@@ -476,7 +486,7 @@ export function CrmScoring({
 
   useEffect(() => {
     fetchRules();
-  }, []);
+  }, [activeWsId]);
 
   const handleSaveRules = async (
     customSignals = signals,
@@ -491,7 +501,7 @@ export function CrmScoring({
         signals: customSignals,
       };
       await api.post(
-        `/lead-scoring/rules?workspace_id=${getWorkspaceIdFromToken()}`,
+        `/lead-scoring/rules?workspace_id=${activeWsId}`,
         payload,
       );
       showToast("Scoring rules saved successfully!", "success");
@@ -507,7 +517,7 @@ export function CrmScoring({
     setRulesSaving(true);
     try {
       const data = await api.post(
-        `/lead-scoring/rules/reset?workspace_id=${getWorkspaceIdFromToken()}`,
+        `/lead-scoring/rules/reset?workspace_id=${activeWsId}`,
       );
       if (data) {
         setAiEnabled(data.ai_qualification_enabled ?? true);
@@ -1122,7 +1132,7 @@ export function CrmScoring({
                     setError("");
                     try {
                       await api.post(
-                        `/lead-scoring/leads/${lead.id}/recalculate?workspace_id=${getWorkspaceIdFromToken()}`,
+                        `/lead-scoring/leads/${lead.id}/recalculate?workspace_id=${activeWsId}`,
                       );
                       if (onRecalculate) await onRecalculate(lead.id);
                       showToast(
@@ -1483,7 +1493,7 @@ const TEMPLATE_VARS = [
 export function CrmReports({ workspaceId: propWorkspaceId }) {
   const { workspaceId: authWsId } = useAuth?.() || {};
   const effectiveWorkspaceId =
-    propWorkspaceId || authWsId || getWorkspaceIdFromToken();
+    propWorkspaceId || authWsId || (typeof window !== "undefined" ? localStorage.getItem("workspace_id") : null) || getWorkspaceIdFromToken();
 
   const { showToast } = useToast?.() || { showToast: () => {} };
   const [loading, setLoading] = useState(false);
@@ -1495,7 +1505,7 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [minScore, setMinScore] = useState(() => {
     if (typeof window !== "undefined") {
-      const wsId = propWorkspaceId || getWorkspaceIdFromToken();
+      const wsId = propWorkspaceId || authWsId || localStorage.getItem("workspace_id") || getWorkspaceIdFromToken();
       const saved = localStorage.getItem(
         `crm_email_report_${wsId || "default"}_min_score`,
       );
@@ -1507,7 +1517,7 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
   });
   const [frequency, setFrequency] = useState(() => {
     if (typeof window !== "undefined") {
-      const wsId = propWorkspaceId || getWorkspaceIdFromToken();
+      const wsId = propWorkspaceId || authWsId || localStorage.getItem("workspace_id") || getWorkspaceIdFromToken();
       const saved = localStorage.getItem(
         `crm_email_report_${wsId || "default"}_frequency`,
       );

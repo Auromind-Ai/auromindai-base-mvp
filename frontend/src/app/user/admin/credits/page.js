@@ -277,7 +277,7 @@ export default function CreditsPage() {
             const data = res.data ?? res ?? {};
             setWorkspaceBillingProfile(data);
         } catch (err) {
-            console.error('[BILLING PROFILE] Failed to fetch billing profile:', err);
+            console.warn('[BILLING PROFILE] Notice fetching billing profile:', err?.message || err);
         }
     };
 

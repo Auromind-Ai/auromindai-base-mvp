@@ -30,6 +30,9 @@ const routePermissions = {
 
 export function isWorkspacePageAllowed(pathname, hasPermission) {
   const routeSection = pathname?.split('/')[3];
+  if (!routeSection) {
+    return true;
+  }
   if (routeSection === 'settings') {
     return hasPermission('settings.general') || hasPermission('settings.notifications');
   }

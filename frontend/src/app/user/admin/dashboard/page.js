@@ -1641,7 +1641,7 @@ function PeriodPicker({ period, dateRange, onPeriodChange, onCustomDateChange })
 // Main Dashboard 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
-  const { user } = useAuth();
+  const { user, workspaceId } = useAuth();
   const isImpersonated = Boolean(user?.impersonated);
   const [showAddLead, setShowAddLead] = useState(false);
 
@@ -1661,6 +1661,7 @@ export default function DashboardPage() {
 
   const { metrics, revenue, activities, insights, loading, error, refetch } = useDashboard({
     refreshInterval: 60000,
+    workspaceId,
     startDate: dateRange.startDate,
     endDate: dateRange.endDate
   });

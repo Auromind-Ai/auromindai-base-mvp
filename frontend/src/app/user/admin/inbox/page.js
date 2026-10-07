@@ -1583,7 +1583,7 @@ function InboxContent() {
             const workspace_id = workspace?.id;
             if (!workspace_id) return;
             await api.getTemplatesStatus(workspace_id);
-            const data = await api.getTemplates();
+            const data = await api.getTemplates(workspace_id);
             const approved = (data.templates || []).filter(t => t.status === 'approved');
             setInboxTemplates(approved);
         } catch (e) {

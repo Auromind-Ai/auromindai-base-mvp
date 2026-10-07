@@ -5,6 +5,7 @@ import api from "@/lib/api";
 
 export default function FileProgress({ 
   entryId, 
+  workspaceId,
   onDone, 
   processingText = "Processing file...", 
   successText = "File processed successfully", 
@@ -19,7 +20,7 @@ export default function FileProgress({
 
     const interval = setInterval(async () => {
       try {
-        const data = await api.getIngestStatus(entryId);
+        const data = await api.getIngestStatus(entryId, workspaceId);
         if (!data) return;
         setStatus(data.status);
 
@@ -37,13 +38,13 @@ export default function FileProgress({
           }, 2000);
         }
       } catch (err) {
-        console.error(err);
+        console.warn('Ingest status check:', err?.message || err);
       }
     }, 4000);
 
     // Cleanup on unmount
     return () => clearInterval(interval);
-  }, [entryId, failedText, onDone]);
+  }, [entryId, workspaceId, failedText, onDone]);
 
   return (
     <div className="flex items-center gap-2.5 px-4 py-2 bg-[#0d0d14] border border-white/10 rounded-xl w-fit shadow-lg transition-all animate-in fade-in duration-200">

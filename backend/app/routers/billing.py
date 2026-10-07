@@ -1079,7 +1079,8 @@ def get_workspace_billing_profile(
 ):
     try:
         resolved_ws_id = resolve_and_verify_workspace(
-            current_user, db, workspace_id
+            current_user, db, workspace_id,
+            required_permission=('credits.view', 'billing.manage'),
         )
         import uuid
         ws_uuid = to_uuid(resolved_ws_id)

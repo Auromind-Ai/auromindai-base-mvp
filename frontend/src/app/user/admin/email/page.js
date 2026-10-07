@@ -10,6 +10,7 @@ export default function EmailPage() {
   const { showToast } = useToast();
   const { workspaces, workspaceId } = useAuth();
   const workspace = workspaces.find((item) => item.id === workspaceId) || null;
+  const activeWsId = workspace?.id || workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null);
 
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -23,10 +24,10 @@ export default function EmailPage() {
   const [editingReply, setEditingReply] = useState(false);
 
   useEffect(() => {
-    if (workspace?.id) {
+    if (activeWsId) {
       checkConnection();
     }
-  }, [workspace?.id]);
+  }, [activeWsId]);
 
   /* ---------------------------
      CHECK GMAIL CONNECTION
@@ -34,7 +35,7 @@ export default function EmailPage() {
 
   async function checkConnection() {
     try {
-      const data = await api.getIntegrationStatus();
+      const data = await api.getIntegrationStatus(activeWsId);
       const isConnected = data.gmail?.connected || false;
 
       setConnected(isConnected);
@@ -54,7 +55,7 @@ export default function EmailPage() {
 
   async function loadMessages() {
     try {
-      const data = await api.getEmailInbox();
+      const data = await api.getEmailInbox(activeWsId);
       setMessages(data.emails || []);
     } catch (err) {
       console.error("Inbox load failed:", err);
@@ -123,6 +124,7 @@ export default function EmailPage() {
     setSendingReply(true);
     try {
       await api.sendEmailReply({
+        workspace_id: activeWsId,
         message_id: selectedEmail.id,
         thread_id: selectedEmail.thread_id,
         to_email: selectedEmail.from,

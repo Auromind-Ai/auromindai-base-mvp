@@ -560,10 +560,10 @@ export default function NodeInspector({
               style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
             >
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                
+               
                 {/* LEFT COLUMN: STEP CONFIGURATION (SECTIONS 1, 2, 3) */}
                 <div className="lg:col-span-7 xl:col-span-8 space-y-5">
-                  
+                 
                   {/* Step Label Renaming Input */}
                   <div className="p-3.5 rounded-xl bg-[#141522] border border-white/10 flex items-center justify-between gap-3">
                     <label className="text-xs font-semibold text-zinc-300 shrink-0">
@@ -2102,7 +2102,7 @@ export default function NodeInspector({
 
                 {/* RIGHT COLUMN: MESSAGE PREVIEW & VARIABLES */}
                 <div className="lg:col-span-5 xl:col-span-4 space-y-4">
-                  
+                 
                   {/* ── TOP RIGHT: MESSAGE PREVIEW ── */}
                   <div className="p-4 sm:p-5 rounded-2xl bg-[#141522] border border-white/10 space-y-3">
                     <div className="flex items-center justify-between">
