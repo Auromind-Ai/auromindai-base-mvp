@@ -1636,7 +1636,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     const handleOpenInInbox = () => {
         const leadDetail = leadsDetails[selectedLeadId];
         if (leadDetail?.conversation_id) {
-            router.push(`/user/admin/inbox?conversationId=${leadDetail.conversation_id}`);
+            router.push(`/inbox?conversationId=${leadDetail.conversation_id}`);
         }
     };
 

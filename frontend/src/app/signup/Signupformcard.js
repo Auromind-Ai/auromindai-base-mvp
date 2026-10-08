@@ -94,7 +94,7 @@ export default function SignupFormCard() {
         setToken(data.access_token);
       }
       await refreshUser();
-      router.push('/user/admin/dashboard');
+      router.push('/dashboard');
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {

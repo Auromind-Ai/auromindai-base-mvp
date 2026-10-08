@@ -106,14 +106,14 @@ async def google_oauth_callback(
     try:
         integration_type = IntegrationService.handle_google_oauth_callback(db, code, state)
         return RedirectResponse(
-            url=f"{frontend_url}/user/admin/channels?status=success&integration={integration_type}"
+            url=f"{frontend_url}/channels?status=success&integration={integration_type}"
         )
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f"Google integration callback failed: {str(e)}")
         return RedirectResponse(
-            url=f"{frontend_url}/user/admin/channels?status=error&integration={integration_type}"
+            url=f"{frontend_url}/channels?status=error&integration={integration_type}"
         )
 
 @router.get("/status")

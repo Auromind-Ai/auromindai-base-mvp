@@ -937,7 +937,7 @@ export default function CreditsPage() {
                                                 <span>🔒</span>
                                                 <span>{creditSummary?.status_message || "Credits locked — Upgrade to Pro to use purchased credits"}</span>
                                             </div>
-                                            <a href="/user/admin/billing/payment" className="text-xs px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition whitespace-nowrap">
+                                            <a href="/billing/payment" className="text-xs px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition whitespace-nowrap">
                                                 Upgrade
                                             </a>
                                         </div>
@@ -1306,7 +1306,7 @@ export default function CreditsPage() {
                                                 <span>🔒</span>
                                                 <span>{wccFuelData?.status_message || "WCC wallet locked — Upgrade to a paid plan to use your purchased balance"}</span>
                                             </div>
-                                            <a href="/user/admin/billing/payment" className="text-xs px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition whitespace-nowrap">
+                                            <a href="/billing/payment" className="text-xs px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition whitespace-nowrap">
                                                 Upgrade
                                             </a>
                                         </div>

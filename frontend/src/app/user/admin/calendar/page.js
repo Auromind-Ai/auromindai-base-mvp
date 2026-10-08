@@ -50,7 +50,7 @@ export default function CalendarPage() {
                             Connect your Google Calendar to view and manage your schedule
                         </p>
                         <a
-                            href="/user/admin/channels"
+                            href="/channels"
                             className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg font-medium hover:from-indigo-600 hover:to-purple-600 transition-all"
                         >
                             <Settings size={20} />

@@ -66,7 +66,13 @@ function LoginContent() {
 
     const router = useRouter();
     const searchParams = useSearchParams();
-    const redirectPath = searchParams.get('redirect');
+    const rawRedirect = searchParams.get('redirect');
+    const redirectPath = (() => {
+        if (!rawRedirect) return '/dashboard';
+        if (rawRedirect === '/user/admin' || rawRedirect === '/user/admin/' || rawRedirect === '/user/admin/dashboard') return '/dashboard';
+        if (rawRedirect.startsWith('/user/admin/')) return rawRedirect.replace(/^\/user\/admin/, '');
+        return rawRedirect;
+    })();
     const { user, loading: authLoading, refreshUser } = useAuth();
     const { appName } = useBranding();
 
@@ -105,7 +111,7 @@ function LoginContent() {
             tokenHandledRef.current = true;
             setToken(token);
             refreshUser().then(() => {
-                router.replace(redirectPath || '/user/admin/dashboard');
+                router.replace(redirectPath || '/dashboard');
             }).catch(() => {
                 // If refresh fails, keep tokenHandledRef true so we don't loop
             });
@@ -113,7 +119,7 @@ function LoginContent() {
         }
         
         if (!token && !authLoading && user) {
-            router.replace(redirectPath || '/user/admin/dashboard');
+            router.replace(redirectPath || '/dashboard');
         }
     }, [user, authLoading, router, redirectPath, searchParams, refreshUser]);
 
@@ -217,7 +223,7 @@ function LoginContent() {
                 setWorkspace(data.workspaces[0]);
             }
             await refreshUser();
-            router.push(redirectPath || '/user/admin/dashboard');
+            router.push(redirectPath || '/dashboard');
         } catch (err) {
             const mappedError = getErrorMessage(err);
             if (err?.message?.toLowerCase()?.includes('deactivat') || mappedError.toLowerCase().includes('deactivat')) {
@@ -261,7 +267,7 @@ function LoginContent() {
             } catch {
                 // refreshUser failure doesn't block redirect
             }
-            router.push(redirectPath || '/user/admin/dashboard');
+            router.push(redirectPath || '/dashboard');
         } catch (err) {
             const mappedError = getErrorMessage(err);
             if (err?.message?.toLowerCase()?.includes('deactivat') || mappedError.toLowerCase().includes('deactivat')) {
@@ -299,7 +305,7 @@ function LoginContent() {
                 setWorkspace(data.workspaces[0]);
             }
             await refreshUser();
-            router.push(redirectPath || '/user/admin/dashboard');
+            router.push(redirectPath || '/dashboard');
         } catch (err) {
             const mappedError = getErrorMessage(err);
             if (err?.message?.toLowerCase()?.includes('deactivat') || mappedError.toLowerCase().includes('deactivat')) {
@@ -627,7 +633,7 @@ function LoginContent() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={async () => { await refreshUser(); router.push(redirectPath || '/user/admin/dashboard'); }}
+                                    onClick={async () => { await refreshUser(); router.push(redirectPath || '/dashboard'); }}
                                     style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '13px', cursor: 'pointer', textAlign: 'center' }}
                                 >
                                     Continue without restoring →

@@ -118,6 +118,8 @@ fallback_origins = [
     "http://orbionagents.com",
     "https://www.orbionagents.com",
     "http://www.orbionagents.com",
+    "https://app.orbionagents.com",
+    "http://app.orbionagents.com",
    
     # Local development
     "http://localhost:3000",

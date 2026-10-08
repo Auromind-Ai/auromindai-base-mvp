@@ -1019,7 +1019,7 @@ export default function CreateTemplatePage() {
 
       await api.post('/templates/create', payload);
       showToast('Template submitted successfully for Meta approval!', 'success');
-      window.location.href = '/user/admin/templates';
+      window.location.href = '/templates';
     } catch (err) {
       console.error(err);
       showToast(err.message || err?.data?.detail || 'Failed to create template', 'error');

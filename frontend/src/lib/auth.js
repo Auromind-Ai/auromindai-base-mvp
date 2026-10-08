@@ -39,14 +39,34 @@ export const isCurrentTokenValid = () => {
 
 /* ---------------- TOKEN ---------------- */
 
+export const getCookieDomain = () => {
+  if (typeof window === "undefined") return "";
+  const hostname = window.location.hostname;
+  return hostname.endsWith("orbionagents.com") ? "; domain=.orbionagents.com" : "";
+};
+
+export const getAppUrl = (path = '') => {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return `${process.env.NEXT_PUBLIC_APP_URL}${normalizedPath}`;
+  }
+  if (process.env.NODE_ENV === 'development') {
+    return normalizedPath;
+  }
+  return `https://app.orbionagents.com${normalizedPath}`;
+};
+
 export const setToken = (token) => {
   if (isBrowser) {
+    const domainAttr = getCookieDomain();
+    const secureAttr = (window.location.protocol === "https:" || Boolean(domainAttr)) ? "; Secure" : "";
     if (token) {
       localStorage.setItem('auth_token', token);
-      // Sync cookie so SSR and middleware can read it if needed
-      document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; max-age=86400; SameSite=Lax`;
+      // Sync cookie so SSR and middleware can read it across subdomains
+      document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; max-age=86400; SameSite=Lax${domainAttr}${secureAttr}`;
     } else {
       localStorage.removeItem('auth_token');
+      document.cookie = `auth_token=; path=/; max-age=0; SameSite=Lax${domainAttr}`;
       document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
     }
   }
@@ -75,6 +95,8 @@ export const removeToken = () => {
     sessionStorage.removeItem("last_session_id");
     sessionStorage.removeItem("admin_session_token");
     sessionStorage.removeItem("admin_csrf_token");
+    const domainAttr = getCookieDomain();
+    document.cookie = `auth_token=; path=/; max-age=0; SameSite=Lax${domainAttr}`;
     document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
   }
   memoryUser = null;

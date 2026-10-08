@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Menu, Search, ArrowRight, Sparkles } from 'lucide-react';
+import { getAppUrl } from '@/lib/auth';
 
 export default function DocsHeader({ onOpenMobile, onOpenMenu, onOpenSearch, breadcrumb }) {
   const handleOpenMenu = onOpenMenu || onOpenMobile;
@@ -75,7 +76,7 @@ export default function DocsHeader({ onOpenMobile, onOpenMenu, onOpenSearch, bre
           </button>
 
           <Link
-            href="/user/admin/dashboard"
+            href={getAppUrl('/dashboard')}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#814AC8] to-[#9333ea] hover:from-[#8e52dc] hover:to-[#9f3ff2] text-xs font-semibold text-white shadow-lg shadow-purple-950/40 transition-all hover:shadow-purple-900/60 hover:-translate-y-0.5 active:translate-y-0"
           >
             <span>Go to App</span>

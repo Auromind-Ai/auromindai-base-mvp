@@ -6,6 +6,7 @@ import { Zap, Menu, X, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useBranding } from '@/context/BrandingContext';
+import { getAppUrl } from '@/lib/auth';
 
 const NavigationSection = () => {
   const { appName, appLogoUrl } = useBranding();
@@ -284,7 +285,7 @@ const NavigationSection = () => {
           
           {isLogged ? (
             <Link
-              href="/user/admin/dashboard"
+              href={getAppUrl('/dashboard')}
               className="hidden lg:inline-flex group relative overflow-hidden rounded-[8px] bg-[#814AC8] px-6 py-3 text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95"
             >
               Dashboard
@@ -292,13 +293,13 @@ const NavigationSection = () => {
           ) : (
             <>
               <Link
-                href="/login"
+                href={getAppUrl('/login')}
                 className="hidden lg:inline-block text-[15px] font-medium text-white/90 transition-colors hover:text-white"
               >  
                 Log In
               </Link>
 
-              <Link href="/signup" className="hidden lg:inline-flex group relative overflow-hidden rounded-[8px] bg-[#814AC8] px-6 py-3 text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95">
+              <Link href={getAppUrl('/signup')} className="hidden lg:inline-flex group relative overflow-hidden rounded-[8px] bg-[#814AC8] px-6 py-3 text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95">
                 <span className="flex items-center justify-center gap-2">
                   
                   {/* Text slide */}
@@ -442,7 +443,7 @@ const NavigationSection = () => {
 
           {isLogged ? (
             <Link
-              href="/user/admin/dashboard"
+              href={getAppUrl('/dashboard')}
               className="w-full text-center rounded-lg bg-[#814AC8] py-2.5 text-[14px] font-semibold text-white hover:bg-[#8d58d1] transition-all shadow-lg shadow-[#814AC8]/25"
               onClick={() => setMenuOpen(false)}
             >
@@ -451,14 +452,14 @@ const NavigationSection = () => {
           ) : (
             <div className="flex flex-col gap-3">
               <Link
-                href="/login"
+                href={getAppUrl('/login')}
                 className="w-full text-center text-[14px] font-medium text-white border border-white/10 rounded-lg py-2.5 hover:bg-white/5 transition-all"
                 onClick={() => setMenuOpen(false)}
               >
                 Log In
               </Link>
               <Link
-                href="/signup"
+                href={getAppUrl('/signup')}
                 className="w-full text-center rounded-lg bg-[#814AC8] py-2.5 text-[14px] font-semibold text-white hover:bg-[#8d58d1] transition-all shadow-lg shadow-[#814AC8]/25"
                 onClick={() => setMenuOpen(false)}
               >

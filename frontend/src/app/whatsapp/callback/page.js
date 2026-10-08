@@ -77,7 +77,7 @@ function WhatsAppCallbackContent() {
                 localStorage.removeItem("whatsapp_workspace_id");
 
                 setTimeout(() => {
-                    router.push("/user/admin/channels");
+                    router.push("/channels");
                 }, 2000);
             } catch (err) {
                 console.error("❌ WhatsApp connect failed:", err);
@@ -132,7 +132,7 @@ function WhatsAppCallbackContent() {
 
                 {isError && (
                     <button
-                        onClick={() => router.push("/user/admin/channels")}
+                        onClick={() => router.push("/channels")}
                         className="mt-2 w-full py-3 px-5 rounded-xl text-white font-medium bg-white/5 hover:bg-white/10 border border-white/10 transition-all active:scale-[0.98]"
                     >
                         Go Back to Channels

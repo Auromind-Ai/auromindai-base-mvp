@@ -17,6 +17,7 @@ import {
   Check
 } from 'lucide-react';
 import api from '@/lib/api';
+import { getAppUrl } from '@/lib/auth';
 
 function ValueCell({ value, isFeatured = false }) {
   if (value === 'check' || value === true) {
@@ -87,7 +88,7 @@ export default function PricingComparisonTable({
       if (planKey === 'enterprise') {
         window.location.href = 'mailto:sales@orbionagents.com?subject=Enterprise Inquiry';
       } else {
-        window.location.href = `/login?redirect=${encodeURIComponent('/user/admin/billing/payment')}`;
+        window.location.href = getAppUrl(`/login?redirect=${encodeURIComponent('/billing/payment')}`);
       }
     }
   };

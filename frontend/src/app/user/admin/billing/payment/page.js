@@ -438,16 +438,16 @@ function BillingContent() {
   const handleCloseSuccessModal = () => {
     setIsSuccessModalOpen(false)
     if (source === 'chat') {
-      router.push('/user/admin/ai')
+      router.push('/ai')
     }
   }
 
   const handleGoToDashboard = () => {
     setIsSuccessModalOpen(false)
     if (source === 'chat') {
-      router.push('/user/admin/ai')
+      router.push('/ai')
     } else {
-      router.push('/user/admin/dashboard')
+      router.push('/dashboard')
     }
   }
 

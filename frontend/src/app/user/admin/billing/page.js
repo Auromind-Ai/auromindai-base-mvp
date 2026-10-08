@@ -595,7 +595,7 @@ export default function BillingHistoryPage() {
               </button>
             ) : (
               <a
-                href="/user/admin/billing/payment"
+                href="/billing/payment"
                 className={`inline-flex items-center gap-2 bg-[#814AC8] hover:bg-[#814AC8]/85 text-white rounded-lg px-5 text-[13px] font-semibold no-underline transition-opacity shadow-sm ${hasNoActivePlan ? "py-3" : "py-2"}`}
               >
                 Upgrade plan

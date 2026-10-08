@@ -349,7 +349,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
         {/* Action Buttons */}
         <div className="flex items-center gap-3 shrink-0">
           <Link
-            href="/user/admin/templates"
+            href="/templates"
             className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-[#cbd5e1] bg-[#0d0f18] border border-[#1e2436] hover:bg-[#141826] hover:text-white transition-all flex items-center gap-2 shadow-sm"
           >
             <FileText size={15} className="text-white/60" />
@@ -639,7 +639,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
 
                           return (
                             <Link
-                              href={`/user/admin/marketing/bulkmessages/${camp.id}`}
+                              href={`/marketing/bulkmessages/${camp.id}`}
                               className="font-semibold text-white tracking-tight text-[13px] hover:text-[#a78bfa] transition-colors inline-block"
                             >
                               {camp.name}
@@ -776,7 +776,7 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
                                       type="button"
                                       onClick={() => {
                                         setActiveMenuId(null);
-                                        router.push(`/user/admin/marketing/bulkmessages/${camp.id}`);
+                                        router.push(`/marketing/bulkmessages/${camp.id}`);
                                       }}
                                       className="w-full px-2.5 py-1.5 text-xs text-[#cbd5e1] hover:bg-[#814AC8]/25 hover:text-white rounded flex items-center gap-2 cursor-pointer transition-colors"
                                     >

@@ -66,15 +66,15 @@ export function getFirstAccessibleWorkspacePath(hasPermission) {
     for (const [, , route, permission] of section.items) {
       if (hasPermission(permission)) {
         return route === "marketing"
-          ? "/user/admin/marketing/bulkmessages"
-          : `/user/admin/${route}`;
+          ? "/marketing/bulkmessages"
+          : `/${route}`;
       }
     }
   }
   if (hasPermission("settings.general") || hasPermission("settings.notifications")) {
-    return "/user/admin/settings";
+    return "/settings";
   }
-  if (hasPermission("team.members")) return "/user/admin/team";
+  if (hasPermission("team.members")) return "/team";
   return null;
 }
 
@@ -88,7 +88,10 @@ export default function WorkspaceNavigation({
 }) {
   const { hasPermission, permissionsLoading } = useAuth();
 
+  const cleanPath = pathname?.replace(/^\/user\/admin/, '') || '/';
   const marketingActive =
+    cleanPath === "/marketing" ||
+    cleanPath?.startsWith("/marketing/") ||
     pathname === "/user/admin/marketing" ||
     pathname?.startsWith("/user/admin/marketing/");
 
@@ -126,9 +129,13 @@ export default function WorkspaceNavigation({
             )}
             <div className="space-y-0.5 [@media(max-height:780px)]:space-y-px">
               {section.items.map(([label, Icon, route]) => {
-                const href = `/user/admin/${route}`;
+                const href = `/${route}`;
+                const legacyHref = `/user/admin/${route}`;
                 const active =
-                  pathname === href || pathname?.startsWith(`${href}/`);
+                  cleanPath === href ||
+                  cleanPath?.startsWith(`${href}/`) ||
+                  pathname === legacyHref ||
+                  pathname?.startsWith(`${legacyHref}/`);
                 if (route === "marketing")
                   return (
                     <MarketingMenu
@@ -250,7 +257,7 @@ function MarketingMenu({ collapsed, active, onExpand, onNavigate }) {
       {!collapsed && open && (
         <div className="ml-5 mt-0.5 border-l border-white/10 pl-3">
           <Link
-            href="/user/admin/marketing/bulkmessages"
+            href="/marketing/bulkmessages"
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
             className={rowClass(active, false)}

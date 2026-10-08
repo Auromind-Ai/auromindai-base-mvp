@@ -18,6 +18,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { DOCS_NAVIGATION } from '@/docs-data/docs-navigation';
+import { getAppUrl } from '@/lib/auth';
 
 const ICONS_MAP = {
   Rocket: Rocket,
@@ -174,7 +175,7 @@ export default function DocsSidebar({ onOpenSearch, isMobile = false, onCloseMob
       {/* Footer link to app */}
       <div className="p-3 border-t border-white/[0.06] bg-white/[0.01]">
         <Link
-          href="/user/admin/dashboard"
+          href={getAppUrl('/dashboard')}
           className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-zinc-300 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 transition-all hover:border-violet-500/40"
         >
           <span>Open Orbion Platform</span>

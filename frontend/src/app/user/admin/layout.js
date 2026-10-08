@@ -36,11 +36,12 @@ export default function AdminLayout({ children }) {
 function AdminLayoutContent({ children }) {
     const router = useRouter();
     const pathname = usePathname();
+    const cleanPath = pathname ? pathname.replace(/^\/user\/admin/, '') || '/' : '/';
     const { user, workspaces, workspaceId, setWorkspaceId, loading, logout, refreshUser, hasPermission, permissionsLoading } = useAuth();
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel, initialSection, openSettings } = useSettings();
 
     const pageAllowed = Boolean(workspaceId) && !permissionsLoading
-        && isWorkspacePageAllowed(pathname, hasPermission);
+        && isWorkspacePageAllowed(cleanPath, hasPermission);
     const firstAccessiblePath = getFirstAccessibleWorkspacePath(hasPermission)
         || (user?.platform_role === 'platform_admin' ? '/admin' : null);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -152,10 +153,10 @@ function AdminLayoutContent({ children }) {
 
     // Automatically route to first accessible feature if landing on dashboard without dashboard permissions
     useEffect(() => {
-        if (!loading && !permissionsLoading && workspaceId && !pageAllowed && firstAccessiblePath && pathname === '/user/admin/dashboard') {
+        if (!loading && !permissionsLoading && workspaceId && !pageAllowed && firstAccessiblePath && (pathname === '/user/admin/dashboard' || cleanPath === '/dashboard')) {
             router.replace(firstAccessiblePath);
         }
-    }, [loading, permissionsLoading, workspaceId, pageAllowed, firstAccessiblePath, pathname, router]);
+    }, [loading, permissionsLoading, workspaceId, pageAllowed, firstAccessiblePath, pathname, cleanPath, router]);
 
     // app/layout.js or _app.js
     useEffect(() => {
@@ -203,7 +204,25 @@ function AdminLayoutContent({ children }) {
         return null;
     }
 
-    const isFullScreenPage = pathname && (
+    const isFullScreenPage = Boolean(cleanPath && (
+        cleanPath === '/ai' ||
+        cleanPath.startsWith('/ai/') ||
+        cleanPath === '/inbox' ||
+        cleanPath.startsWith('/inbox/') ||
+        cleanPath === '/leads' ||
+        cleanPath.startsWith('/leads/') ||
+        cleanPath === '/crm' ||
+        cleanPath.startsWith('/crm/') ||
+        cleanPath === '/flows' ||
+        cleanPath.startsWith('/flows/') ||
+        cleanPath === '/automation' ||
+        cleanPath.startsWith('/automation/') ||
+        cleanPath === '/dashboard' ||
+        cleanPath === '/brain' ||
+        cleanPath.startsWith('/brain/') ||
+        cleanPath === '/channels' ||
+        cleanPath.startsWith('/channels/') ||
+        cleanPath.startsWith('/marketing') ||
         pathname === '/user/admin/ai' ||
         pathname.startsWith('/user/admin/ai/') ||
         pathname === '/user/admin/inbox' ||
@@ -222,7 +241,7 @@ function AdminLayoutContent({ children }) {
         pathname === '/user/admin/channels' ||
         pathname.startsWith('/user/admin/channels/') ||
         pathname.startsWith('/user/admin/marketing')
-    );
+    ));
 
     return (
         <RealtimeProvider user={user} workspace={workspace}>
@@ -537,7 +556,7 @@ function AdminLayoutContent({ children }) {
                             >
                                 {permissionsLoading ? (
                                     <p className="p-6 text-zinc-400">Checking workspace access...</p>
-                                ) : pageAllowed ? children : (pathname === '/user/admin/dashboard' && firstAccessiblePath) ? (
+                                ) : pageAllowed ? children : ((pathname === '/user/admin/dashboard' || cleanPath === '/dashboard') && firstAccessiblePath) ? (
                                     <div className="flex items-center justify-center min-h-[50vh] text-zinc-400 text-sm">
                                         <p>Redirecting to your workspace...</p>
                                     </div>
@@ -568,7 +587,7 @@ function AdminLayoutContent({ children }) {
 
 
                 {/* Global AI Chat - Hidden on Orbion Agents page */}
-                {hasPermission('ai.chat') && pathname !== '/user/admin/ai' && <GlobalAIChat key={`${user?.id}:${workspaceId}`} />}
+                {hasPermission('ai.chat') && pathname !== '/user/admin/ai' && cleanPath !== '/ai' && <GlobalAIChat key={`${user?.id}:${workspaceId}`} />}
 
                 {/* Global Audio Notification for Incoming Messages */}
                 {hasPermission('inbox.conversations') && <GlobalAudioNotification />}

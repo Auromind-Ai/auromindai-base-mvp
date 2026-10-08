@@ -146,7 +146,7 @@ export default function CrmLeadsTable({
                                     <td className="px-4 py-4 whitespace-nowrap text-zinc-300">
                                         {lead.phone && lead.id ? (
                                             <Link
-                                                href={`/user/admin/leads?leadId=${encodeURIComponent(lead.id)}`}
+                                                href={`/leads?leadId=${encodeURIComponent(lead.id)}`}
                                                 aria-label={`Open conversation for ${lead.name || lead.phone}`}
                                                 className="rounded text-violet-200 hover:text-violet-300 hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
                                             >

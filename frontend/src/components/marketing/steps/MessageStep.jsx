@@ -619,7 +619,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
               {templates.length === 0 ? (
                 <div className="flex items-center gap-2 pt-1">
                   <a
-                    href="/user/admin/templates/create"
+                    href="/templates/create"
                     target="_blank"
                     rel="noreferrer"
                     className="px-3 py-1.5 rounded-lg bg-[#814AC8] text-white text-xs sm:text-sm font-medium hover:bg-[#703db5]"

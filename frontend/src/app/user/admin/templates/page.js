@@ -778,7 +778,7 @@ function UseTemplateModal({ tpl, onClose, onUpdateTemplate }) {
       header_url: currentMediaUrl || '',
       template_type: tpl.type || 'TEXT',
     }).toString();
-    router.push(`/user/admin/inbox?${query}`);
+    router.push(`/inbox?${query}`);
     onClose();
   };
 
@@ -1138,7 +1138,7 @@ export default function TemplatesPage() {
       const activeWs = workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null) || getWorkspaceIdFromToken();
       const data = await api.getChannelsStatus(activeWs);
       if (data.whatsapp?.connected) {
-        router.push('/user/admin/templates/create');
+        router.push('/templates/create');
       } else {
         setShowConnectModal(true);
       }
@@ -1337,7 +1337,7 @@ export default function TemplatesPage() {
                 </p>
                 {!search && (
                   <button
-                    onClick={() => router.push('/user/admin/templates/create')}
+                    onClick={() => router.push('/templates/create')}
                     className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border-none text-white text-xs sm:text-sm font-bold cursor-pointer transition-all bg-[#814AC8] hover:shadow-[0_2px_18px_rgba(129,74,200,0.45)] hover:-translate-y-0.5"
                   >
                     <Plus size={15} strokeWidth={2.5} /> Create Template
@@ -1388,7 +1388,7 @@ export default function TemplatesPage() {
       <ConnectWhatsAppModal
         open={showConnectModal}
         onClose={() => setShowConnectModal(false)}
-        onConnect={() => router.push('/user/admin/channels')}
+        onConnect={() => router.push('/channels')}
       />
     </div>
   );

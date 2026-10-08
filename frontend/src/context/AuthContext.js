@@ -324,8 +324,13 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const checkTokenFreshness = () => {
       if (typeof window === 'undefined') return;
-      const pathname = window.location.pathname;
-      const isProtected = pathname.startsWith('/user/admin') || pathname.startsWith('/admin');
+      const pathname = window.location.pathname || '';
+      const hostname = window.location.hostname;
+      const isAppSubdomain = hostname === 'app.orbionagents.com' || hostname.startsWith('app.');
+      const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/signup') || pathname.startsWith('/docs') || pathname.startsWith('/terms') || pathname.startsWith('/privacy');
+      const isProtected = isAppSubdomain
+        ? !isAuthRoute
+        : (pathname.startsWith('/user/admin') || pathname.startsWith('/admin') || pathname === '/dashboard' || pathname.startsWith('/dashboard/'));
       if (!isProtected) return;
 
       const token = getToken();
