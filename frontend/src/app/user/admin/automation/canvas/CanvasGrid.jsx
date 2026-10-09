@@ -315,44 +315,51 @@ function CanvasGrid({
                   {nodeBranches.length > 0 && (
                     <div className="mb-4 space-y-2">
                       {/* Condition summary */}
-                      <div className="rounded-2xl border border-indigo-500/10 bg-indigo-500/5 px-3 py-2 mb-2">
-                        <p className="text-[9px] font-black uppercase tracking-[2px] text-indigo-400 mb-1">Condition</p>
+                      <div className="rounded-2xl border border-white/20 bg-indigo-500/5 px-3 py-2 mb-2">
+                        <p className="text-[11px] font-semibold uppercase text-indigo-400 mb-1">Condition</p>
                         <p className="text-[10px] text-zinc-300 truncate">
                           IF {node.config?.field || 'user_input'} {(node.config?.operator || 'equals').replace('_', ' ')} {node.config?.operator !== 'is_empty' ? `"${node.config?.compare_value || '...'}"` : ''}
                         </p>
                       </div>
-                      {nodeBranches.map((branch, index) => (
-                        <div
-                          key={branch.id || branch.value}
-                          data-branch-id={branch.value}
-                          ref={(el) => {
-                            if (el) {
-                              if (!buttonOffsetsRef.current[node.id]) buttonOffsetsRef.current[node.id] = {};
-                              const offset = el.offsetTop + el.offsetHeight / 2;
-                              if (branch.value) buttonOffsetsRef.current[node.id][branch.value] = offset;
-                              if (branch.id) buttonOffsetsRef.current[node.id][branch.id] = offset;
-                              buttonOffsetsRef.current[node.id][`branch-${branch.value}`] = offset;
-                            }
-                          }}
-                          className="relative rounded-2xl border border-white/10 bg-white/5 px-3 py-2 pr-10"
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${branch.value === 'true' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`} />
-                            <p className={`text-xs font-medium ${branch.value === 'true' ? 'text-emerald-400' : 'text-rose-400'}`}>{branch.label}</p>
+                      {nodeBranches.map((branch, index) => {
+                        const isTrue = branch.value === 'true' || branch.id === 'branch-true';
+                        return (
+                          <div
+                            key={branch.id || branch.value}
+                            data-branch-id={branch.value}
+                            ref={(el) => {
+                              if (el) {
+                                if (!buttonOffsetsRef.current[node.id]) buttonOffsetsRef.current[node.id] = {};
+                                const offset = el.offsetTop + el.offsetHeight / 2;
+                                if (branch.value) buttonOffsetsRef.current[node.id][branch.value] = offset;
+                                if (branch.id) buttonOffsetsRef.current[node.id][branch.id] = offset;
+                                buttonOffsetsRef.current[node.id][`branch-${branch.value}`] = offset;
+                              }
+                            }}
+                            className={`relative rounded-2xl border border-white/20 px-3 py-2 pr-10 ${
+                              isTrue
+                                ? 'bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08]'
+                                : 'bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202]'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${isTrue ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`} />
+                              <p className="text-xs font-medium text-white">{branch.label}</p>
+                            </div>
+                            <div className="absolute -right-2 top-1/2 -translate-y-1/2 z-20">
+                              <motion.div
+                                whileHover={{ scale: 1.3, rotate: 90 }}
+                                data-no-drag
+                                style={{ touchAction: 'none' }}
+                                onPointerDown={(e) => handlePortPointerDown(e, node.id, branch.value, (index + 1) * 80)}
+                                className={`w-6 h-6 rounded-full border-[3px] border-[#020408] cursor-crosshair flex items-center justify-center select-none ${isTrue ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.55)]' : 'bg-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.55)]'}`}
+                              >
+                                <Plus size={10} className="text-white" />
+                              </motion.div>
+                            </div>
                           </div>
-                          <div className="absolute -right-2 top-1/2 -translate-y-1/2 z-20">
-                            <motion.div
-                              whileHover={{ scale: 1.3, rotate: 90 }}
-                              data-no-drag
-                              style={{ touchAction: 'none' }}
-                              onPointerDown={(e) => handlePortPointerDown(e, node.id, branch.value, (index + 1) * 80)}
-                              className={`w-6 h-6 rounded-full border-[3px] border-[#020408] cursor-crosshair flex items-center justify-center select-none ${branch.value === 'true' ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.55)]' : 'bg-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.55)]'}`}
-                            >
-                              <Plus size={10} className="text-white" />
-                            </motion.div>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 

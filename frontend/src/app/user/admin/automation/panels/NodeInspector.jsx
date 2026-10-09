@@ -632,7 +632,7 @@ export default function NodeInspector({
                     <>
                       {/* Message Type Selector Row (Right below Step Label) */}
                       <div className="p-4 sm:p-5 rounded-2xl bg-[#141522] border border-white/10 space-y-2.5">
-                        <label className="text-xs font-semibold text-zinc-300 block">
+                        <label className="text-sm font-semibold text-zinc-300 block">
                           Message Type
                         </label>
                         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
@@ -673,7 +673,7 @@ export default function NodeInspector({
                                 1
                               </div>
                               <div>
-                                <h3 className="text-sm font-semibold text-white tracking-wide">
+                                <h3 className="text-base font-semibold text-white tracking-wide">
                                   Message Content
                                 </h3>
                                 <p className="text-xs text-white/60">
@@ -772,10 +772,10 @@ export default function NodeInspector({
                                   1
                                 </div>
                                 <div>
-                                  <h3 className="text-sm font-semibold text-white tracking-wide">
+                                  <h3 className="text-base font-semibold text-white tracking-wide">
                                     Message Content
                                   </h3>
-                                  <p className="text-xs text-zinc-400">
+                                  <p className="text-xs text-white/60">
                                     Write the message that appears above the interactive buttons.
                                   </p>
                                 </div>
@@ -858,7 +858,7 @@ export default function NodeInspector({
                                 2
                               </div>
                               <div>
-                                <h3 className="text-sm font-semibold text-white tracking-wide">
+                                <h3 className="text-base font-semibold text-white tracking-wide">
                                   Buttons (Maximum 3)
                                 </h3>
                                 <p className="text-xs text-zinc-400">
@@ -883,7 +883,7 @@ export default function NodeInspector({
                                 placeholder="e.g. requirement, selected_option..."
                                 className="w-full bg-[#141522] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500/60"
                               />
-                              <p className="text-[10px] text-zinc-500">
+                              <p className="text-[10px] text-white/50">
                                 Tapped button label will be saved in{' '}
                                 <span className="text-violet-400 font-semibold">
                                   &#123;&#123;{activeNode.config?.variable_name || 'variable_name'}&#125;&#125;
@@ -981,10 +981,10 @@ export default function NodeInspector({
                               1
                             </div>
                             <div>
-                              <h3 className="text-sm font-semibold text-white tracking-wide">
+                              <h3 className="text-base font-semibold text-white tracking-wide">
                                 Media File Upload ({messageType === 'document' ? 'Document / PDF' : messageType.toUpperCase()})
                               </h3>
-                              <p className="text-xs text-zinc-400">
+                              <p className="text-xs text-white/60">
                                 Upload {messageType === 'document' ? 'document/PDF' : messageType} to send to the customer on WhatsApp.
                               </p>
                             </div>
@@ -1044,7 +1044,7 @@ export default function NodeInspector({
                                 <p className="text-xs font-medium text-white">
                                   {isDragOver ? 'Drop file here' : `Drag & drop ${messageType} file or browse`}
                                 </p>
-                                <p className="text-[10px] text-zinc-500">
+                                <p className="text-[10px] text-white/60">
                                   {messageType === 'image' && 'Supports JPG, PNG (max 10MB)'}
                                   {messageType === 'video' && 'Supports MP4 (max 16MB)'}
                                   {messageType === 'document' && 'Supports PDF, DOCX (max 10MB)'}
@@ -1107,7 +1107,7 @@ export default function NodeInspector({
                       {/* Single Path Next Step Connection */}
                       {messageType !== 'button_message' && (
                         <div className="p-4 rounded-xl bg-[#141522] border border-white/10 space-y-2">
-                          <label className="text-xs font-semibold text-zinc-300 block">
+                          <label className="text-sm font-semibold text-zinc-300 block">
                             Next Step Connection
                           </label>
                           {connectedTargetNode ? (
@@ -1173,14 +1173,11 @@ export default function NodeInspector({
                         {/* Section 3 Header with Toggle */}
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-6 h-6 rounded-full bg-[#814AC8] text-white flex items-center justify-center text-xs font-semibold shrink-0">
-                              3
-                            </div>
                             <div>
-                              <h3 className="text-sm font-semibold text-white tracking-wide">
+                              <h3 className="text-base font-semibold text-white tracking-wide">
                                 Wait for Customer Response
                               </h3>
-                              <p className="text-xs text-zinc-400">
+                              <p className="text-xs text-white/60">
                                 Continue the flow based on whether the customer replies or not.
                               </p>
                             </div>
@@ -1257,8 +1254,8 @@ export default function NodeInspector({
                                       <MessageSquare size={16} />
                                     </div>
                                     <div>
-                                      <h4 className="text-xs font-semibold text-white">If customer replies</h4>
-                                      <p className="text-[11px] text-white/80">Continue to next step (Cancel all pending timeouts)</p>
+                                      <h4 className="text-sm font-semibold text-white">If customer replies</h4>
+                                      <p className="text-xs text-white/80">Continue to next step (Cancel all pending timeouts)</p>
                                     </div>
                                   </div>
 
@@ -1270,7 +1267,7 @@ export default function NodeInspector({
                                           <Clock size={16} />
                                         </div>
                                         <div>
-                                          <h4 className="text-xs font-semibold text-white">If no reply (Timeout)</h4>
+                                          <h4 className="text-sm font-semibold text-white">If no reply (Timeout)</h4>
                                         </div>
                                       </div>
 
@@ -1318,7 +1315,7 @@ export default function NodeInspector({
                                                 setActiveTextarea('followup-0');
                                                 handleInsertVariable('customer_name');
                                               }}
-                                              className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer font-mono text-xs"
+                                              className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer text-xs"
                                               title="Insert customer name"
                                             >
                                               &#123; &#125;
@@ -1343,7 +1340,7 @@ export default function NodeInspector({
                                             )}
                                           </div>
 
-                                          <span className="text-[10px] text-zinc-500 font-mono">
+                                          <span className="text-[10px] text-zinc-500">
                                             {stage0Message.length}/1024
                                           </span>
                                         </div>
@@ -1458,7 +1455,7 @@ export default function NodeInspector({
                                                 setActiveTextarea(`followup-${stageIdx}`);
                                                 handleInsertVariable('customer_name');
                                               }}
-                                              className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer font-mono text-xs"
+                                              className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer text-xs"
                                             >
                                               &#123; &#125;
                                             </button>
@@ -1484,7 +1481,7 @@ export default function NodeInspector({
                                             )}
                                           </div>
 
-                                          <span className="text-[10px] text-zinc-500 font-mono">
+                                          <span className="text-[10px] text-zinc-500">
                                             {stageMessage.length}/1024
                                           </span>
                                         </div>
@@ -1522,7 +1519,7 @@ export default function NodeInspector({
                             1
                           </div>
                           <div>
-                            <h3 className="text-sm font-semibold text-white tracking-wide">
+                            <h3 className="text-base font-semibold text-white tracking-wide">
                               AI Agents
                             </h3>
                             <p className="text-xs text-white/60">
@@ -1623,7 +1620,7 @@ export default function NodeInspector({
                             2
                           </div>
                           <div>
-                            <h3 className="text-sm font-semibold text-white tracking-wide">
+                            <h3 className="text-base font-semibold text-white tracking-wide">
                               {activeNode.config?.agent_type === 'lead_agent' || !activeNode.config?.agent_type
                                 ? 'Lead Qualifier Fields'
                                 : 'Knowledge Base & Documents'}
@@ -1736,10 +1733,10 @@ export default function NodeInspector({
                             1
                           </div>
                           <div>
-                            <h3 className="text-sm font-bold text-white tracking-wide">
+                            <h3 className="text-base font-semibold text-white tracking-wide">
                               Question Prompt & Variable
                             </h3>
-                            <p className="text-xs text-zinc-400">
+                            <p className="text-xs text-white/60">
                               Flow pauses and waits for customer answer before proceeding.
                             </p>
                           </div>
@@ -1810,10 +1807,10 @@ export default function NodeInspector({
                               type="number"
                               min={1}
                               max={1440}
-                              value={activeNode.config?.timeout_minutes ?? 60}
+                              value={activeNode.config?.timeout_minutes ?? 1}
                               onChange={(e) =>
                                 updateNodeConfig(activeNodeId, {
-                                  timeout_minutes: Math.max(1, parseInt(e.target.value, 10) || 60),
+                                  timeout_minutes: Math.max(1, parseInt(e.target.value, 10) || 1),
                                 })
                               }
                               className="w-full bg-[#0F101A] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-violet-500/60 text-center"
@@ -1829,14 +1826,14 @@ export default function NodeInspector({
                     <div className="space-y-5">
                       <div className="p-4 sm:p-5 rounded-2xl bg-[#141522] border border-white/10 space-y-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-6 h-6 rounded-full bg-[#814AC8] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                          <div className="w-6 h-6 rounded-full bg-[#814AC8] text-white flex items-center justify-center text-xs font-semibold shrink-0">
                             1
                           </div>
                           <div>
-                            <h3 className="text-sm font-bold text-white tracking-wide">
+                            <h3 className="text-base font-semibold text-white tracking-wide">
                               Condition Logic Rule
                             </h3>
-                            <p className="text-xs text-zinc-400">
+                            <p className="text-xs text-white/60">
                               Evaluate customer reply or variable to branch flow.
                             </p>
                           </div>
@@ -1844,7 +1841,7 @@ export default function NodeInspector({
 
                         <div className="space-y-3">
                           <div>
-                            <label className="text-xs font-semibold text-zinc-400 block mb-1">
+                            <label className="text-xs font-semibold text-white/60 block mb-1">
                               Condition Field
                             </label>
                             <select
@@ -1862,7 +1859,7 @@ export default function NodeInspector({
 
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label className="text-xs font-semibold text-zinc-400 block mb-1">
+                              <label className="text-xs font-semibold text-white/60 block mb-1">
                                 Operator
                               </label>
                               <select
@@ -2110,13 +2107,13 @@ export default function NodeInspector({
                   <div className="p-4 sm:p-5 rounded-2xl bg-[#141522] border border-white/10 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
-                        <h3 className="text-xs font-semibold text-white tracking-wide">
+                        <h3 className="text-base font-semibold text-white tracking-wide">
                           Message Preview
                         </h3>
                         <Info size={13} className="text-zinc-500" />
                       </div>
                     </div>
-                    <p className="text-[11px] text-zinc-400 -mt-1">
+                    <p className="text-xs text-white/60-mt-1">
                       This is how the message will look to your customers.
                     </p>
 
@@ -2188,13 +2185,13 @@ export default function NodeInspector({
                   <div className="p-4 sm:p-5 rounded-2xl bg-[#141522] border border-white/10 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
-                        <h3 className="text-xs font-semibold text-white tracking-wide">
+                        <h3 className="text-base font-semibold text-white tracking-wide">
                           Variables
                         </h3>
                         <Info size={13} className="text-zinc-500" />
                       </div>
                     </div>
-                    <p className="text-[11px] text-white/60 -mt-1">
+                    <p className="text-xs text-white/60 -mt-1">
                       Click to insert variables into your message.
                     </p>
 

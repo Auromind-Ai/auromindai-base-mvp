@@ -192,11 +192,11 @@ const NavigationSection = () => {
 
                 <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 flex flex-col justify-between">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-[#A970FF] mb-3">
+                    <p className="text-xs uppercase tracking-[0.1em] text-[#A970FF] mb-3">
                       Featured
                     </p>
 
-                    <h4 className="text-white text-lg font-semibold leading-snug">
+                    <h4 className="text-white text-base font-semibold leading-snug">
                       Increase conversions by 42% using AI follow-ups
                     </h4>
 

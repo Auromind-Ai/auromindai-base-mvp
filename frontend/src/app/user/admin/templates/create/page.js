@@ -69,7 +69,7 @@ const CatItem = ({ iconKey, label, active, onClick }) => (
 const Input = ({ label, hint, placeholder, value, onChange, className = '' }) => (
   <div className={className}>
     {label && <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">{label}</p>}
-    {hint && <p className="text-white/60 text-[11px] sm:text-xs mb-2 sm:mb-3 leading-relaxed font-normal">{hint}</p>}
+    {hint && <p className="text-white/60 text-[12px] sm:text-xs mb-2 sm:mb-3 leading-relaxed font-normal">{hint}</p>}
     <input
       className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-normal text-white
         placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]-500 focus:ring-2
@@ -160,7 +160,7 @@ function renderFormattedAiText(text) {
       return (
         <span
           key={i}
-          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded bg-purple-500/20 text-[#c490e8] font-mono text-[12px] border border-purple-500/40 font-semibold align-baseline"
+          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded bg-purple-500/20 text-[#c490e8] text-[12px] border border-purple-500/40 font-semibold align-baseline"
         >
           {part}
         </span>
@@ -1279,8 +1279,6 @@ export default function CreateTemplatePage() {
                 />
               </div>
 
-             
-
               {/* Header */}
               {form.type === 'TEXT' && (
                 <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
@@ -1355,10 +1353,10 @@ export default function CreateTemplatePage() {
               <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
                 <div className="flex items-start justify-between gap-3 mb-2 flex-wrap">
                   <div>
-                    <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">Message Content</p>
-                    <p className="text-white/60 text-[11px] sm:text-xs font-normal leading-relaxed">
+                    <p className="text-white text-sm sm:text-base font-normal sm:font-medium mb-1">Message Content</p>
+                    <p className="text-white/60 text-[12px] sm:text-xs font-normal leading-relaxed">
                       Use text formatting - *bold*, _italic_ &amp; ~strikethrough~<br />
-                      Personalize with meaningful variables like <code className="text-[#c490e8] font-mono">{"{{customer_name}}"}</code>, <code className="text-[#c490e8] font-mono">{"{{plan_name}}"}</code>, <code className="text-[#c490e8] font-mono">{"{{amount}}"}</code>.<br />
+                      Personalize with meaningful variables like <code className="text-[#c490e8]">{"{{customer_name}}"}</code>, <code className="text-[#c490e8]">{"{{plan_name}}"}</code>, <code className="text-[#c490e8]">{"{{amount}}"}</code>.<br />
                   
                     </p>
                   </div>
@@ -1419,7 +1417,7 @@ export default function CreateTemplatePage() {
                     </div>
 
                     <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 relative" ref={buttonDropdownRef}>
-                      <span className="text-[11px] text-white/50 bg-[#140a26] border border-[#2c144d] px-2.5 py-1.5 rounded-xl font-mono">
+                      <span className="text-[11px] text-white/50 bg-[#140a26] border border-[#2c144d] px-2.5 py-1.5 rounded-xl">
                         {buttons.length} / 10
                       </span>
 
@@ -1486,7 +1484,7 @@ export default function CreateTemplatePage() {
                             {/* Card Header */}
                             <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-[#1c0d30]">
                               <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-mono text-white/40 font-semibold">
+                                <span className="text-[11px] text-white/40 font-semibold">
                                   #{index + 1}
                                 </span>
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border bg-[#1A0B2E] border-[#3D1F6B] text-[#c490e8]">
@@ -1590,7 +1588,7 @@ export default function CreateTemplatePage() {
                                     value={btn.code || ''}
                                     onChange={(e) => handleUpdateBtn(index, 'code', e.target.value.toUpperCase())}
                                     placeholder="SAVE20"
-                                    className="w-full bg-[#0E071A] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm font-mono text-emerald-400 placeholder:text-white/30 focus:outline-none focus:border-[#814AC8]"
+                                    className="w-full bg-[#0E071A] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm text-emerald-400 placeholder:text-white/30 focus:outline-none focus:border-[#814AC8]"
                                   />
                                   <p className="text-[10px] text-white/40 mt-1">Customers tap to copy code directly (max 15 chars)</p>
                                 </div>
@@ -1728,7 +1726,7 @@ export default function CreateTemplatePage() {
                           key={v.key}
                           type="button"
                           onClick={() => handleInsertVariable(v.key)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-mono bg-[#140a26] hover:bg-[#814AC8]/30 text-[#c490e8] hover:text-white border border-[#2c144d] hover:border-[#814AC8] transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg text-xs bg-[#140a26] hover:bg-[#814AC8]/30 text-[#c490e8] hover:text-white border border-[#2c144d] hover:border-[#814AC8] transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
                           title={`Insert {{${v.key}}}`}
                         >
                           <span className="text-white/40 text-[10px]">+</span>
@@ -1755,7 +1753,7 @@ export default function CreateTemplatePage() {
                           key={v.key}
                           type="button"
                           onClick={() => handleInsertVariable(v.key)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-mono bg-[#140a26] hover:bg-[#814AC8]/30 text-[#c490e8] hover:text-white border border-[#2c144d] hover:border-[#814AC8] transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg text-xs bg-[#140a26] hover:bg-[#814AC8]/30 text-[#c490e8] hover:text-white border border-[#2c144d] hover:border-[#814AC8] transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
                           title={`Insert {{${v.key}}}`}
                         >
                           <span className="text-white/40 text-[10px]">+</span>
@@ -1776,7 +1774,7 @@ export default function CreateTemplatePage() {
                       {mappingResult.variableList.map((v) => (
                         <div
                           key={v.key}
-                          className="flex items-center justify-between p-2 rounded-xl bg-[#0d021a] border border-[#24113A] text-xs font-mono"
+                          className="flex items-center justify-between p-2 rounded-xl bg-[#0d021a] border border-[#24113A] text-xs"
                         >
                           <span className="text-emerald-400 font-semibold">{`{{${v.key}}}`}</span>
                           <span className="text-white/50 text-[11px] font-sans truncate max-w-[120px]">

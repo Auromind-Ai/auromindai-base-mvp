@@ -825,7 +825,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
                           {mappedName ? (
-                            <span className="text-xs sm:text-sm font-semibold text-emerald-300 px-2.5 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 font-mono">
+                            <span className="text-xs sm:text-sm font-semibold text-emerald-300 px-2.5 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
                               {`{{${mappedName}}}`}
                             </span>
                           ) : (

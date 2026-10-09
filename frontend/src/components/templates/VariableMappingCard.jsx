@@ -23,7 +23,7 @@ export default function VariableMappingCard({
       <div className="mt-3 p-3 rounded-2xl bg-[#090312] border border-[#24113A] text-xs text-white/50 flex items-center justify-between">
         <span className="flex items-center gap-2">
           <Info className="w-3.5 h-3.5 text-[#814AC8]" />
-          Use <code className="text-purple-300 font-mono">+ Insert Variable</code> to add personalized fields.
+          Use <code className="text-purple-300">+ Insert Variable</code> to add personalized fields.
         </span>
       </div>
     );
@@ -57,7 +57,7 @@ export default function VariableMappingCard({
                 key={num}
                 type="button"
                 onClick={() => onOpenDefineModal(num)}
-                className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-xs font-mono font-medium transition-all"
+                className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-xs font-medium transition-all"
               >
                 Define {`{{${num}}}`} →
               </button>
@@ -85,7 +85,7 @@ export default function VariableMappingCard({
               {/* Named Variable */}
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-white font-mono truncate">
+                  <span className="text-xs font-semibold text-white truncate">
                     {`{{${item.key}}}`}
                   </span>
                 </div>

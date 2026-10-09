@@ -107,7 +107,7 @@ export default function DefineVariableModal({
           </div>
           <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
             <span>Define Variable</span>
-            <code className="text-[#c490e8] bg-[#814AC8]/20 px-2 py-0.5 rounded-lg border border-[#814AC8]/40 text-base font-mono">
+            <code className="text-[#c490e8] bg-[#814AC8]/20 px-2 py-0.5 rounded-lg border border-[#814AC8]/40 text-base">
               {`{{${variableNumber}}}`}
             </code>
           </h2>
@@ -161,7 +161,7 @@ export default function DefineVariableModal({
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center font-mono text-xs font-bold ${
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
                       selectedName === rec.key && !customName
                         ? 'bg-[#814AC8] text-white'
                         : 'bg-[#180d2c] text-[#c490e8]'
@@ -171,7 +171,7 @@ export default function DefineVariableModal({
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-white font-mono">
+                      <span className="text-sm font-semibold text-white">
                         {`{{${rec.key}}}`}
                       </span>
                       {i === 0 && (
@@ -216,7 +216,7 @@ export default function DefineVariableModal({
                     >
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-white truncate">{v.label}</p>
-                        <code className="text-[10px] text-[#c490e8] font-mono">
+                        <code className="text-[10px] text-[#c490e8]">
                           {`{{${v.key}}}`}
                         </code>
                       </div>
@@ -246,7 +246,7 @@ export default function DefineVariableModal({
               className="w-full bg-[#080310] border border-[#24113A] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]"
             />
             {customName && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#c490e8] font-mono">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#c490e8]">
                 {`{{${sanitizeVariableName(customName)}}}`}
               </span>
             )}
@@ -257,14 +257,14 @@ export default function DefineVariableModal({
         <div className="p-3 rounded-2xl bg-[#07020d] border border-[#24113A] flex items-center justify-between text-xs mb-5">
           <div className="flex items-center gap-2">
             <span className="text-white/60">WhatsApp:</span>
-            <code className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-white font-mono font-bold">
+            <code className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-white font-semibold">
               {`{{${variableNumber}}}`}
             </code>
           </div>
           <ArrowRight className="w-4 h-4 text-[#814AC8]" />
           <div className="flex items-center gap-2">
             <span className="text-white/60">Orbion Editor:</span>
-            <code className="px-2 py-0.5 rounded bg-[#814AC8]/25 border border-[#814AC8]/50 text-[#c490e8] font-mono font-bold">
+            <code className="px-2 py-0.5 rounded bg-[#814AC8]/25 border border-[#814AC8]/50 text-[#c490e8] font-semibold">
               {`{{${sanitizeVariableName(customName || selectedName)}}}`}
             </code>
           </div>

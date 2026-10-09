@@ -228,7 +228,7 @@ export default function PricingComparisonTable({
               onClick={() => setBillingCycle('monthly')}
               className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
                 billingCycle === 'monthly'
-                  ? 'bg-[#7C3AED] text-white shadow-md'
+                  ? 'bg-[#814AC8] text-white shadow-md'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
@@ -238,7 +238,7 @@ export default function PricingComparisonTable({
               onClick={() => setBillingCycle('yearly')}
               className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
                 billingCycle === 'yearly'
-                  ? 'bg-[#7C3AED] text-white shadow-md'
+                  ? 'bg-[#814AC8] text-white shadow-md'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
@@ -300,23 +300,23 @@ export default function PricingComparisonTable({
             >
               <div>
                 {isFeatured ? (
-                  <span className="inline-block bg-purple-500/30 text-purple-200 border border-purple-400/40 rounded-full px-3 py-0.5 text-[10px] font-bold uppercase tracking-widest mb-1">
+                  <span className="inline-block bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white border border-purple-400/40 rounded-full px-3 py-0.5 text-[10px] font-medium uppercase tracking-widest mb-1">
                     • POPULAR
                   </span>
                 ) : (
-                  <div className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-zinc-400">
+                  <div className="text-[10px] md:text-xs font-semibold tracking-widest uppercase text-zinc-400">
                     {plan.display_name || plan.name}
                   </div>
                 )}
                 {isFeatured && (
-                  <div className="text-xs font-bold tracking-widest uppercase text-purple-200">
+                  <div className="text-xs font-semibold tracking-widest uppercase text-white/80">
                     {plan.display_name || plan.name}
                   </div>
                 )}
-                <div className="text-2xl md:text-3xl font-black text-white mt-2">
+                <div className="text-2xl md:text-3xl font-semibold text-white mt-2">
                   {displayPrice}{' '}
                   {!isFree && !isEnterprise && (
-                    <span className="text-xs md:text-sm font-medium text-purple-300/80">
+                    <span className="text-xs md:text-sm font-semibold text-purple-300/80">
                       {billingCycle === 'yearly' ? '/year' : '/month'}
                     </span>
                   )}
@@ -329,12 +329,12 @@ export default function PricingComparisonTable({
                 onClick={() => handleAction(plan.key)}
                 className={`mt-4 w-full py-2.5 px-4 rounded-xl text-xs font-semibold transition cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${
                   isFeatured
-                    ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white font-bold shadow-[0_0_25px_rgba(124,58,237,0.7)] hover:brightness-110'
+                    ? 'bg-[#814AC8] text-white font-semibold shadow-[0_0_25px_rgba(124,58,237,0.7)] hover:brightness-110'
                     : 'border border-white/15 bg-white/5 hover:bg-white/10 text-white'
                 }`}
               >
                 <div>{isEnterprise ? 'Contact Sales' : 'Get Started'}</div>
-                <div className={`text-[10px] font-normal ${isFeatured ? 'text-purple-200 font-semibold' : 'text-zinc-400'}`}>
+                <div className={`text-[10px] font-normal ${isFeatured ? 'text-white font-semibold' : 'text-zinc-400'}`}>
                   {isFree ? 'Free forever' : isEnterprise ? "Let's Talk" : `${displayPrice} / ${billingCycle === 'yearly' ? 'year' : 'month'}`}
                 </div>
               </button>
@@ -441,7 +441,7 @@ export default function PricingComparisonTable({
               onClick={() => handleAction(plan.key)}
               className={`w-full py-3 px-4 rounded-xl text-xs font-semibold text-center transition cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${
                 isFeatured
-                  ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white font-bold shadow-[0_0_25px_rgba(124,58,237,0.7)] hover:brightness-110'
+                  ? 'bg-[#814AC8] text-white font-semibold shadow-[0_0_25px_rgba(124,58,237,0.7)] hover:brightness-110'
                   : 'border border-white/15 bg-white/5 hover:bg-white/10 text-white'
               }`}
             >
