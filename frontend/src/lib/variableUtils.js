@@ -272,13 +272,24 @@ export function convertNumberedToNamedText(text, mapping = {}, category = '') {
     if (mappedName) {
       return `{{${mappedName}}}`;
     }
-    if (String(category).toUpperCase() === 'AUTHENTICATION') {
+    const cat = String(category || '').toUpperCase();
+    if (cat === 'AUTHENTICATION') {
       return '{{otp_code}}';
     }
     if (num === '1') {
       return '{{customer_name}}';
     }
-    return `{{var_${num}}}`;
+    if (cat === 'UTILITY') {
+      if (num === '2') return '{{service_name}}';
+      if (num === '3') return '{{appointment_date}}';
+      if (num === '4') return '{{appointment_time}}';
+    } else {
+      if (num === '2') return '{{offer_name}}';
+      if (num === '3') return '{{discount}}';
+      if (num === '4') return '{{promo_code}}';
+      if (num === '5') return '{{expiry_date}}';
+    }
+    return `{{field_${num}}}`;
   });
 }
 

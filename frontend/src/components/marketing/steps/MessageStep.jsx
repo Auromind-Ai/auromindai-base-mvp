@@ -16,14 +16,28 @@ import { fetchApprovedTemplates, estimateCampaign } from '@/lib/api/marketing';
 import { formatVariableLabel, getSampleValue, convertNumberedToNamedText } from '@/lib/variableUtils';
 
 function parseVarMap(tpl) {
-  if (!tpl || !tpl.variable_mapping) return {};
-  try {
-    return typeof tpl.variable_mapping === 'string'
-      ? JSON.parse(tpl.variable_mapping)
-      : (tpl.variable_mapping || {});
-  } catch (e) {
-    return {};
+  if (!tpl) return {};
+  let map = {};
+  if (tpl.variable_mapping) {
+    try {
+      map = typeof tpl.variable_mapping === 'string'
+        ? JSON.parse(tpl.variable_mapping)
+        : (tpl.variable_mapping || {});
+    } catch (e) {
+      map = {};
+    }
   }
+  // Auto-infer mapping from tpl.variables if available
+  if (Array.isArray(tpl.variables) && tpl.variables.length > 0) {
+    tpl.variables.forEach((v, idx) => {
+      const clean = String(v).replace(/[{}]/g, '').trim();
+      const numKey = String(idx + 1);
+      if (!map[numKey] && !/^\d+$/.test(clean)) {
+        map[numKey] = clean;
+      }
+    });
+  }
+  return map;
 }
 
 function detectBestColumn(cleanKey, mappedName, audienceCols) {
@@ -264,15 +278,18 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
       vars = matched ? Array.from(new Set(matched)) : [];
     }
 
-    return vars.map((tag) => {
+    return vars.map((tag, idx) => {
       const normalized = tag.startsWith('{{') ? tag : `{{${tag}}}`;
       const cleanKey = normalized.replace(/[{}]/g, '');
-      const mappedName = varMap[cleanKey] || (/^[a-zA-Z_]/.test(cleanKey) ? cleanKey : null);
+      const numKey = String(idx + 1);
+      const mappedName = varMap[cleanKey] || varMap[numKey] || (/^[a-zA-Z_]/.test(cleanKey) ? cleanKey : null);
+      const displayTag = mappedName ? `{{${mappedName}}}` : normalized;
       return {
-        tag: normalized,
+        tag: displayTag,
+        numKey,
         cleanKey,
-        mappedName,
-        label: mappedName ? `${formatVariableLabel(mappedName)} ({{${mappedName}}})` : `Variable ${normalized}`,
+        mappedName: mappedName || cleanKey,
+        label: mappedName ? `${formatVariableLabel(mappedName)} ({{${mappedName}}})` : `Variable {{${cleanKey}}}`,
       };
     });
   }, [selectedTemplate]);
@@ -283,17 +300,25 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
     let updated = false;
     const next = { ...mappingRef.current };
-    displayedVariables.forEach(({ cleanKey, mappedName }) => {
-      if (!next[cleanKey]) {
+    displayedVariables.forEach(({ cleanKey, numKey, mappedName }) => {
+      const effectiveKey = mappedName || cleanKey;
+      if (!next[effectiveKey] && !next[cleanKey]) {
         updated = true;
         const bestCol = detectBestColumn(cleanKey, mappedName, audienceColumns);
-        const isName = (mappedName && (mappedName.includes('name') || mappedName.includes('customer'))) || cleanKey === '1';
-        next[cleanKey] = {
+        const isName = (mappedName && (mappedName.includes('name') || mappedName.includes('customer'))) || cleanKey === '1' || numKey === '1';
+        const item = {
           source: bestCol,
           fallback: isName ? 'Customer' : '',
           customValue: '',
           mappedName: mappedName || cleanKey,
         };
+        next[cleanKey] = item;
+        if (effectiveKey !== cleanKey) {
+          next[effectiveKey] = item;
+        }
+        if (numKey && !next[numKey]) {
+          next[numKey] = item;
+        }
       }
     });
 
@@ -314,6 +339,9 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
       ...mappingRef.current,
       [cleanKey]: merged,
     };
+    if (merged.mappedName && merged.mappedName !== cleanKey) {
+      next[merged.mappedName] = merged;
+    }
     setVariableMapping(next);
     updateData({ variableMapping: next });
 
@@ -340,10 +368,10 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     setSelectedTemplateId(tpl.id);
     setError('');
     setInvalidVarKeys([]);
-    const bodyContent = tpl.body || tpl.content || '';
-    setMessage(bodyContent);
-
     const varMap = parseVarMap(tpl);
+    const bodyContent = tpl.body || tpl.content || '';
+    const namedBody = tpl.named_content || (Object.keys(varMap).length > 0 ? convertNumberedToNamedText(bodyContent, varMap, tpl.category) : convertNumberedToNamedText(bodyContent, {}, tpl.category));
+    setMessage(namedBody);
 
     let vars = Array.isArray(tpl.variables) ? tpl.variables : [];
     if (vars.length === 0 && bodyContent) {
@@ -352,18 +380,24 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     }
 
     const newMapping = {};
-    vars.forEach((v) => {
+    vars.forEach((v, idx) => {
       const clean = String(v).replace(/[{}]/g, '');
-      const mappedName = varMap[clean] || (/^[a-zA-Z_]/.test(clean) ? clean : null);
+      const numKey = String(idx + 1);
+      const mappedName = varMap[clean] || varMap[numKey] || (/^[a-zA-Z_]/.test(clean) ? clean : null);
       const bestCol = detectBestColumn(clean, mappedName, audienceColumns);
-      const isName = (mappedName && (mappedName.includes('name') || mappedName.includes('customer'))) || clean === '1';
+      const isName = (mappedName && (mappedName.includes('name') || mappedName.includes('customer'))) || clean === '1' || numKey === '1';
 
-      newMapping[clean] = {
+      const mapObj = {
         source: bestCol,
         fallback: isName ? 'Customer' : '',
         customValue: '',
         mappedName: mappedName || clean,
       };
+      newMapping[clean] = mapObj;
+      if (mappedName && mappedName !== clean) {
+        newMapping[mappedName] = mapObj;
+      }
+      newMapping[numKey] = mapObj;
     });
 
     setVariableMapping(newMapping);
@@ -406,6 +440,8 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
       variableMapping: newMapping,
       mediaUrl: resolvedMediaUrl,
       mediaType: isMediaTpl ? tplType.toLowerCase() : null,
+      templateButtons: tpl.buttons || [],
+      buttons: tpl.buttons || [],
     });
 
     // Dynamic cost estimation based on template category
@@ -438,8 +474,8 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     const sampleRecipient = (data?.recipients && data.recipients.length > 0) ? data.recipients[0] : null;
 
     let rendered = base;
-    displayedVariables.forEach(({ tag, cleanKey, mappedName }) => {
-      const map = variableMapping[cleanKey] || { source: 'custom', customValue: '' };
+    displayedVariables.forEach(({ tag, cleanKey, numKey, mappedName }) => {
+      const map = variableMapping[cleanKey] || variableMapping[mappedName] || variableMapping[numKey] || { source: 'custom', customValue: '' };
       let sampleVal = tag;
 
       if (map.source === 'custom') {
@@ -462,6 +498,12 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
       if (mappedName) {
         rendered = rendered.split(`{{${mappedName}}}`).join(sampleVal);
       }
+      if (cleanKey) {
+        rendered = rendered.split(`{{${cleanKey}}}`).join(sampleVal);
+      }
+      if (numKey) {
+        rendered = rendered.split(`{{${numKey}}}`).join(sampleVal);
+      }
     });
 
     return rendered;
@@ -477,8 +519,8 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
       const missingVars = [];
       const invalidKeys = [];
 
-      displayedVariables.forEach(({ tag, cleanKey }) => {
-        const current = variableMapping[cleanKey];
+      displayedVariables.forEach(({ tag, cleanKey, numKey, mappedName }) => {
+        const current = variableMapping[cleanKey] || variableMapping[mappedName] || variableMapping[numKey];
         if (!current) {
           missingVars.push(tag);
           invalidKeys.push(cleanKey);
@@ -692,11 +734,14 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                     <p className={`text-xs sm:text-sm leading-relaxed line-clamp-3 font-normal ${isSelected ? 'text-white/90' : 'text-white/70'}`}>
                       {(() => {
                         const varMap = parseVarMap(tpl);
-                        if (tpl.named_content) return tpl.named_content;
-                        if (Object.keys(varMap).length > 0) {
-                          return convertNumberedToNamedText(tpl.body || tpl.content || '', varMap);
+                        const bodyStr = tpl.body || tpl.content || '';
+                        if (tpl.named_content && !tpl.named_content.match(/\{\{\d+\}\}/)) {
+                          return tpl.named_content;
                         }
-                        return tpl.body || tpl.content;
+                        if (Object.keys(varMap).length > 0) {
+                          return convertNumberedToNamedText(bodyStr, varMap, tpl.category);
+                        }
+                        return convertNumberedToNamedText(bodyStr, {}, tpl.category);
                       })()}
                     </p>
 
@@ -707,9 +752,9 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                           <span className={isSelected ? 'text-white font-medium' : 'text-[#C49FE0] font-medium'}>
                             Variables: {(() => {
                               const varMap = parseVarMap(tpl);
-                              return tpl.variables.map(v => {
+                              return tpl.variables.map((v, idx) => {
                                 const clean = String(v).replace(/[{}]/g, '');
-                                const mapped = varMap[clean];
+                                const mapped = varMap[clean] || varMap[String(idx + 1)];
                                 return mapped ? `{{${mapped}}}` : (v.startsWith('{{') ? v : `{{${v}}}`);
                               }).join(', ');
                             })()}

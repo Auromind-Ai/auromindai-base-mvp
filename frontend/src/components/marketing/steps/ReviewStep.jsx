@@ -34,11 +34,14 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onSaveDraft, on
     const sampleRecipient = (data?.recipients && data.recipients.length > 0) ? data.recipients[0] : null;
 
     if (data.variableMapping && typeof data.variableMapping === 'object') {
-      Object.entries(data.variableMapping).forEach(([k, v]) => {
-        const tag = `{{${k}}}`;
+      const entries = Object.entries(data.variableMapping);
+      entries.forEach(([k, v], idx) => {
+        const cleanK = String(k).replace(/[{}]/g, '');
+        const tag = `{{${cleanK}}}`;
+        const numTag = `{{${idx + 1}}}`;
         let sample = tag;
         if (v?.source === 'custom') {
-          sample = v.customValue || `[Value ${k}]`;
+          sample = v.customValue || (v?.mappedName ? `[${v.mappedName}]` : `[Value ${cleanK}]`);
         } else {
           const colName = v?.source;
           if (sampleRecipient) {
@@ -54,6 +57,10 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onSaveDraft, on
           }
         }
         text = text.split(tag).join(sample);
+        text = text.split(numTag).join(sample);
+        if (v?.mappedName) {
+          text = text.split(`{{${v.mappedName}}}`).join(sample);
+        }
       });
     }
     return text;

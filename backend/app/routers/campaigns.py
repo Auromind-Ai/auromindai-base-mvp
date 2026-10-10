@@ -1178,16 +1178,46 @@ async def get_marketing_templates(
             except Exception:
                 var_map = {}
 
+        parsed_buttons = []
+        if getattr(t, "buttons", None):
+            try:
+                import json
+                parsed_buttons = json.loads(t.buttons) if isinstance(t.buttons, str) else (t.buttons or [])
+            except Exception:
+                parsed_buttons = []
+
+        # If var_map is empty, check sensible defaults so raw numbers are never exposed
+        if not var_map:
+            t_cat = (t.category or "").upper()
+            if t_cat == "AUTHENTICATION":
+                var_map["1"] = "otp_code"
+            else:
+                for idx, v in enumerate(vars_found):
+                    num = str(idx + 1)
+                    if num == "1":
+                        var_map[num] = "customer_name"
+                    elif t_cat == "UTILITY":
+                        if num == "2": var_map[num] = "service_name"
+                        elif num == "3": var_map[num] = "appointment_date"
+                        elif num == "4": var_map[num] = "appointment_time"
+                    else:
+                        if num == "2": var_map[num] = "offer_name"
+                        elif num == "3": var_map[num] = "discount"
+                        elif num == "4": var_map[num] = "promo_code"
+                        elif num == "5": var_map[num] = "expiry_date"
+
         named_content = body_text
         if var_map:
             for num_key, name_val in var_map.items():
                 named_content = re.sub(rf"\{{\{{\s*{num_key}\s*\}}\}}", f"{{{{{name_val}}}}}", named_content)
 
         resolved_vars = []
-        for v in vars_found:
+        for idx, v in enumerate(vars_found):
             clean_num = v.replace("{", "").replace("}", "").strip()
             if clean_num in var_map:
                 resolved_vars.append(var_map[clean_num])
+            elif str(idx + 1) in var_map:
+                resolved_vars.append(var_map[str(idx + 1)])
             else:
                 resolved_vars.append(clean_num)
 
@@ -1203,6 +1233,7 @@ async def get_marketing_templates(
             "footer": t.footer,
             "cta": t.cta,
             "cta_btn_title": t.cta_btn_title,
+            "buttons": parsed_buttons,
             "status": (t.status or "draft").upper(),
             "category": (t.category or "MARKETING").upper(),
             "language": t.language or "en_US",

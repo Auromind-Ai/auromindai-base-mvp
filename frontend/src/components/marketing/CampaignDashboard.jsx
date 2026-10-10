@@ -133,6 +133,29 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
     };
   }, [workspaceId]);
 
+  // Auto-poll campaigns when any campaign is currently in progress / sending
+  useEffect(() => {
+    const hasActiveSending = campaigns.some((c) => {
+      const st = (c.status || '').toLowerCase();
+      return st === 'sending' || st === 'in_progress';
+    });
+
+    if (!hasActiveSending) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const data = await getCampaigns(workspaceId);
+        if (data && Array.isArray(data)) {
+          setCampaigns(data);
+        }
+      } catch (err) {
+        console.warn('Auto-poll campaigns error:', err);
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [campaigns, workspaceId]);
+
   // Tab counts dynamically computed from DB campaigns
   const tabCounts = useMemo(() => {
     const counts = {

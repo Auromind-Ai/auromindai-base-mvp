@@ -99,7 +99,7 @@ def orchestrate_campaign(campaign_id: str):
             campaign.status = "completed"
             campaign.completed_at = datetime.now(timezone.utc)
             # Release remaining unconsumed escrow
-            unspent = max(Decimal("0.00"), Decimal(str(campaign.held_cost)) - Decimal(str(campaign.actual_cost)))
+            unspent = max(Decimal("0.00"), Decimal(str(campaign.held_cost or "0.00")) - Decimal(str(campaign.actual_cost or "0.00")))
             if unspent > Decimal("0.00"):
                 CampaignService.release_unspent_escrow(db, campaign.workspace_id, unspent)
                 campaign.held_cost = campaign.actual_cost
@@ -275,208 +275,342 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
                 db.commit()
                 return
 
-            recipient.status = "queued"
+            try:
+                recipient.status = "queued"
 
-            # 4. Construct Payload
-            clean_phone = recipient.normalized_phone.replace("+", "").strip()
-            if template:
-                # Form Meta Template payload
-                components = []
-                body_params = []
-                vars_dict = recipient.variables or {}
+                # 4. Construct Payload
+                clean_phone = recipient.normalized_phone.replace("+", "").strip()
+                if template:
+                    # Form Meta Template payload
+                    components = []
+                    body_params = []
+                    vars_dict = recipient.variables or {}
 
-                # 1. Header component (Media or text variables)
-                tmpl_type = (template.type or "TEXT").upper()
-                if tmpl_type in ("IMAGE", "VIDEO", "DOCUMENT"):
-                    media_type = tmpl_type.lower()
-                    media_url = (
-                        campaign.media_url
-                        or getattr(template, "media_url", None)
-                        or (template.header if template.header and (template.header.startswith("http://") or template.header.startswith("https://")) else None)
-                    )
-                    if not media_url:
-                        if tmpl_type == "IMAGE":
-                            media_url = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80"
-                        elif tmpl_type == "VIDEO":
-                            media_url = "https://www.w3schools.com/html/mov_bbb.mp4"
-                        elif tmpl_type == "DOCUMENT":
-                            media_url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+                    # 1. Header component (Media or text variables)
+                    tmpl_type = (template.type or "TEXT").upper()
+                    if tmpl_type in ("IMAGE", "VIDEO", "DOCUMENT"):
+                        media_type = tmpl_type.lower()
+                        media_url = (
+                            campaign.media_url
+                            or getattr(template, "media_url", None)
+                            or (template.header if template.header and (template.header.startswith("http://") or template.header.startswith("https://")) else None)
+                        )
+                        if not media_url:
+                            if tmpl_type == "IMAGE":
+                                media_url = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80"
+                            elif tmpl_type == "VIDEO":
+                                media_url = "https://www.w3schools.com/html/mov_bbb.mp4"
+                            elif tmpl_type == "DOCUMENT":
+                                media_url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
 
-                    components.append({
-                        "type": "header",
-                        "parameters": [{
-                            "type": media_type,
-                            media_type: {"link": media_url}
-                        }]
-                    })
-                elif template.header and not template.header.startswith("4:"):
-                    header_indices = re.findall(r"\{\{(\d+)\}\}", template.header)
-                    if header_indices:
-                        h_params = []
-                        for h_idx in header_indices:
-                            h_val = vars_dict.get(f"header_{h_idx}") or vars_dict.get(h_idx) or recipient.recipient_name or "Customer"
-                            h_params.append({"type": "text", "text": str(h_val)})
                         components.append({
                             "type": "header",
-                            "parameters": h_params
+                            "parameters": [{
+                                "type": media_type,
+                                media_type: {"link": media_url}
+                            }]
+                        })
+                    elif template.header and not template.header.startswith("4:"):
+                        header_indices = re.findall(r"\{\{(\d+)\}\}", template.header)
+                        if header_indices:
+                            h_params = []
+                            for h_idx in header_indices:
+                                h_val = vars_dict.get(f"header_{h_idx}") or vars_dict.get(h_idx) or recipient.recipient_name or "Customer"
+                                h_params.append({"type": "text", "text": str(h_val)})
+                            components.append({
+                                "type": "header",
+                                "parameters": h_params
+                            })
+
+                    # 2. Body parameters
+                    # Extract only the exact placeholder indices expected by the template (e.g. ['1', '2'])
+                    body_text = template.content or ""
+                    expected_indices = re.findall(r"\{\{(\d+)\}\}", body_text)
+
+                    if expected_indices:
+                        # Deduplicate in occurrence order (1, 2, 3...)
+                        seen = set()
+                        ordered_indices = [x for x in expected_indices if not (x in seen or seen.add(x))]
+
+                        var_map = {}
+                        if getattr(template, "variable_mapping", None):
+                            try:
+                                import json
+                                var_map = json.loads(template.variable_mapping) if isinstance(template.variable_mapping, str) else (template.variable_mapping or {})
+                            except Exception:
+                                var_map = {}
+
+                        for idx in ordered_indices:
+                            named_key = var_map.get(idx)
+                            val = (
+                                vars_dict.get(idx)
+                                or (vars_dict.get(named_key) if named_key else None)
+                                or (vars_dict.get(named_key.lower()) if named_key else None)
+                                or vars_dict.get(f"{{{{{idx}}}}}")
+                                or vars_dict.get(f"var_{idx}")
+                                or ""
+                            )
+                            # Graceful fallback for {{1}} if name was mapped or available
+                            if not val and (idx == "1" or named_key in ("customer_name", "first_name", "name")):
+                                val = recipient.recipient_name or vars_dict.get("name") or "Customer"
+                            body_params.append({"type": "text", "text": str(val or "Customer")})
+                    else:
+                        # If template doesn't use standard {{1}} format, only send numeric keys
+                        numeric_keys = sorted(
+                            [k for k in vars_dict.keys() if str(k).replace("{", "").replace("}", "").strip().isdigit()],
+                            key=lambda k: int(str(k).replace("{", "").replace("}", "").strip())
+                        )
+                        for k in numeric_keys:
+                            body_params.append({"type": "text", "text": str(vars_dict[k])})
+
+                    if body_params:
+                        components.append({
+                            "type": "body",
+                            "parameters": body_params
                         })
 
-                # 2. Body parameters
-                # Extract only the exact placeholder indices expected by the template (e.g. ['1', '2'])
-                body_text = template.content or ""
-                expected_indices = re.findall(r"\{\{(\d+)\}\}", body_text)
-
-                if expected_indices:
-                    # Deduplicate in occurrence order (1, 2, 3...)
-                    seen = set()
-                    ordered_indices = [x for x in expected_indices if not (x in seen or seen.add(x))]
-
-                    var_map = {}
-                    if getattr(template, "variable_mapping", None):
+                    # 3. Interactive Buttons (COPY_CODE, URL, OTP)
+                    button_components = []
+                    parsed_buttons = []
+                    if getattr(template, "buttons", None):
                         try:
                             import json
-                            var_map = json.loads(template.variable_mapping) if isinstance(template.variable_mapping, str) else (template.variable_mapping or {})
+                            parsed_buttons = json.loads(template.buttons) if isinstance(template.buttons, str) else (template.buttons or [])
                         except Exception:
-                            var_map = {}
+                            parsed_buttons = []
 
-                    for idx in ordered_indices:
-                        named_key = var_map.get(idx)
-                        val = (
-                            vars_dict.get(idx)
-                            or (vars_dict.get(named_key) if named_key else None)
-                            or (vars_dict.get(named_key.lower()) if named_key else None)
-                            or vars_dict.get(f"{{{{{idx}}}}}")
-                            or vars_dict.get(f"var_{idx}")
-                            or ""
-                        )
-                        # Graceful fallback for {{1}} if name was mapped or available
-                        if not val and (idx == "1" or named_key in ("customer_name", "first_name", "name")):
-                            val = recipient.recipient_name or vars_dict.get("name") or "Customer"
-                        body_params.append({"type": "text", "text": str(val or "Customer")})
-                else:
-                    # If template doesn't use standard {{1}} format, only send numeric keys
-                    numeric_keys = sorted(
-                        [k for k in vars_dict.keys() if str(k).replace("{", "").replace("}", "").strip().isdigit()],
-                        key=lambda k: int(str(k).replace("{", "").replace("}", "").strip())
-                    )
-                    for k in numeric_keys:
-                        body_params.append({"type": "text", "text": str(vars_dict[k])})
+                    # Helper to safely resolve coupon / promo code from recipient variables or defaults
+                    def resolve_coupon_code(default_val="OFFER20"):
+                        for k in ("coupon_code", "promo_code", "offer_code", "discount_code", "code", "voucher_code", "button_0", "button_code"):
+                            if vars_dict.get(k):
+                                return str(vars_dict[k]).strip()
+                        for num_k, name_v in var_map.items():
+                            if any(term in str(name_v).lower() for term in ("code", "promo", "coupon", "offer", "discount")):
+                                val = vars_dict.get(num_k) or vars_dict.get(name_v)
+                                if val:
+                                    return str(val).strip()
+                        if vars_dict.get("4"):
+                            return str(vars_dict["4"]).strip()
+                        return default_val
 
-                if body_params:
-                    components.append({
-                        "type": "body",
-                        "parameters": body_params
-                    })
+                    if parsed_buttons:
+                        for b_idx, btn in enumerate(parsed_buttons):
+                            b_type = (btn.get("type") or "").upper()
+                            if b_type in ("COPY_CODE", "COPY_OFFER_CODE") or (b_type == "OTP" and btn.get("otp_type") == "COPY_CODE"):
+                                btn_code = btn.get("code") or btn.get("example")
+                                resolved_code = resolve_coupon_code(default_val=btn_code or "OFFER20")
+                                button_components.append({
+                                    "type": "button",
+                                    "sub_type": "copy_code",
+                                    "index": str(b_idx),
+                                    "parameters": [
+                                        {
+                                            "type": "coupon_code",
+                                            "coupon_code": resolved_code
+                                        }
+                                    ]
+                                })
+                            elif b_type == "URL":
+                                url_val = btn.get("url") or ""
+                                if "{{" in url_val or btn.get("url_type") == "dynamic":
+                                    param_val = vars_dict.get("url_param") or vars_dict.get("website") or vars_dict.get("url") or btn.get("example") or "home"
+                                    button_components.append({
+                                        "type": "button",
+                                        "sub_type": "url",
+                                        "index": str(b_idx),
+                                        "parameters": [
+                                            {
+                                                "type": "text",
+                                                "text": str(param_val)
+                                            }
+                                        ]
+                                    })
+                    elif (template.category or "").upper() == "AUTHENTICATION":
+                        otp_val = vars_dict.get("otp_code") or vars_dict.get("1") or "123456"
+                        button_components.append({
+                            "type": "button",
+                            "sub_type": "copy_code",
+                            "index": "0",
+                            "parameters": [
+                                {
+                                    "type": "coupon_code",
+                                    "coupon_code": str(otp_val)
+                                }
+                            ]
+                        })
+                    elif getattr(template, "cta_btn_title", None) and any(w in str(template.cta_btn_title).lower() for w in ("copy", "code", "coupon")):
+                        resolved_code = resolve_coupon_code("SAVE20")
+                        button_components.append({
+                            "type": "button",
+                            "sub_type": "copy_code",
+                            "index": "0",
+                            "parameters": [
+                                {
+                                    "type": "coupon_code",
+                                    "coupon_code": resolved_code
+                                }
+                            ]
+                        })
 
-                template_payload = {
-                    "name": template.name,
-                    "language": {"code": template.language or "en_US"},
-                }
-                if components:
-                    template_payload["components"] = components
+                    if button_components:
+                        components.extend(button_components)
 
-                payload = {
-                    "messaging_product": "whatsapp",
-                    "to": clean_phone,
-                    "type": "template",
-                    "template": template_payload,
-                }
-            else:
-                # Custom text or media payload
-                text_body = campaign.message_content or "Hello"
-                # Substitute variables like {{name}}
-                for k, v in (recipient.variables or {}).items():
-                    text_body = text_body.replace(f"{{{{{k}}}}}", str(v))
+                    template_payload = {
+                        "name": template.name,
+                        "language": {"code": template.language or "en_US"},
+                    }
+                    if components:
+                        template_payload["components"] = components
 
-                if campaign.media_url and campaign.media_type in ("image", "video", "document"):
                     payload = {
                         "messaging_product": "whatsapp",
                         "to": clean_phone,
-                        "type": campaign.media_type,
-                        campaign.media_type: {
-                            "link": campaign.media_url,
-                            "caption": text_body
+                        "type": "template",
+                        "template": template_payload,
+                    }
+                else:
+                    # Custom text or media payload
+                    text_body = campaign.message_content or "Hello"
+                    # Substitute variables like {{name}}
+                    for k, v in (recipient.variables or {}).items():
+                        text_body = text_body.replace(f"{{{{{k}}}}}", str(v))
+
+                    if campaign.media_url and campaign.media_type in ("image", "video", "document"):
+                        payload = {
+                            "messaging_product": "whatsapp",
+                            "to": clean_phone,
+                            "type": campaign.media_type,
+                            campaign.media_type: {
+                                "link": campaign.media_url,
+                                "caption": text_body
+                            }
                         }
-                    }
-                else:
-                    payload = {
-                        "messaging_product": "whatsapp",
-                        "to": clean_phone,
-                        "type": "text",
-                        "text": {"body": text_body}
-                    }
+                    else:
+                        payload = {
+                            "messaging_product": "whatsapp",
+                            "to": clean_phone,
+                            "type": "text",
+                            "text": {"body": text_body}
+                        }
 
-            # 5. Dispatch via Outbound Gateway (40 MPS Token Bucket)
-            target_mps = ORBION_SAFE_DISPATCH_MPS
-            if campaign.send_gradually and campaign.messages_per_minute > 0:
-                target_mps = max(1, min(ORBION_SAFE_DISPATCH_MPS, int(campaign.messages_per_minute / 60.0)))
+                # 5. Dispatch via Outbound Gateway (40 MPS Token Bucket)
+                target_mps = ORBION_SAFE_DISPATCH_MPS
+                if campaign.send_gradually and campaign.messages_per_minute > 0:
+                    target_mps = max(1, min(ORBION_SAFE_DISPATCH_MPS, int(campaign.messages_per_minute / 60.0)))
 
-            res = WhatsAppOutboundGateway.send_meta_message(
-                access_token=access_token,
-                phone_number_id=phone_number_id,
-                payload=payload,
-                redis_client=redis_client,
-                target_mps=target_mps
-            )
-
-            # 6. Process Gateway Response
-            now_dt = datetime.now(timezone.utc)
-            if res.get("success"):
-                recipient.status = "accepted"
-                recipient.wamid = res.get("wamid")
-                recipient.accepted_at = now_dt
-                recipient.cost = rate_per_msg
-                campaign.accepted_count = (campaign.accepted_count or 0) + 1
-                campaign.actual_cost = Decimal(str(campaign.actual_cost or "0.00")) + rate_per_msg
-
-                # Shift escrow from held to deducted
-                CampaignService.settle_message_cost(db, campaign.workspace_id, rate_per_msg)
-
-                logger.info(
-                    "[Campaign %s] Message ACCEPTED for recipient %s (%s) | wamid=%s",
-                    campaign.id, recipient.id, clean_phone, res.get("wamid")
-                )
-            elif res.get("is_marketing_frequency_limit"):
-                # Meta Error 131049: Circuit Breaker Immune
-                recipient.status = "skipped_marketing_frequency_limit"
-                recipient.error_code = "131049"
-                recipient.error_message = res.get("error_message")
-                campaign.skipped_marketing_cap_count = (campaign.skipped_marketing_cap_count or 0) + 1
-
-                # Instant Escrow Refund
-                CampaignService.release_unspent_escrow(db, campaign.workspace_id, rate_per_msg)
-
-                logger.warning(
-                    "[Campaign %s] Recipient %s (%s) SKIPPED (Marketing Frequency Cap 131049): "
-                    "subcode=%s | msg=%s | fbtrace_id=%s",
-                    campaign.id, recipient.id, clean_phone,
-                    res.get("error_subcode"), res.get("error_message"), res.get("fbtrace_id")
-                )
-            else:
-                # Other delivery failure
-                recipient.status = "failed"
-                err_code = str(res.get("error_code") or "FAILED")
-                err_msg = str(res.get("error_message") or "Unknown error")
-                err_details = res.get("error_details")
-                recipient.error_code = err_code
-                recipient.error_message = f"{err_msg}: {err_details}" if err_details else err_msg
-                campaign.failed_count = (campaign.failed_count or 0) + 1
-
-                # Refund unused escrow for failed attempt
-                CampaignService.release_unspent_escrow(db, campaign.workspace_id, rate_per_msg)
-
-                logger.error(
-                    "[Campaign %s] Recipient %s (%s) FAILED: code=%s | subcode=%s | msg=%s | details=%s | fbtrace_id=%s",
-                    campaign.id, recipient.id, clean_phone,
-                    err_code, res.get("error_subcode"), err_msg, err_details, res.get("fbtrace_id")
+                res = WhatsAppOutboundGateway.send_meta_message(
+                    access_token=access_token,
+                    phone_number_id=phone_number_id,
+                    payload=payload,
+                    redis_client=redis_client,
+                    target_mps=target_mps
                 )
 
-                if campaign.stop_on_high_failure_rate and evaluate_circuit_breaker(campaign, db):
-                    logger.error(
-                        "[Campaign %s] Circuit breaker tripped! Aborting remaining chunk processing.",
-                        campaign.id
+                # Self-healing retry for Meta Error 131008 (Missing button coupon_code)
+                if not res.get("success") and str(res.get("error_code")) == "131008":
+                    err_details = str(res.get("error_details") or "")
+                    err_msg = str(res.get("error_message") or "")
+                    if "copy_code requires a non-empty parameter coupon_code" in (err_details + " " + err_msg):
+                        logger.warning(
+                            "[Campaign %s] Auto-recovering missing copy_code button parameter for recipient %s",
+                            campaign.id, clean_phone
+                        )
+                        recovered_code = resolve_coupon_code("OFFER20")
+                        payload_comps = payload.get("template", {}).get("components", [])
+                        payload_comps = [c for c in payload_comps if not (c.get("type") == "button" and str(c.get("index")) == "0")]
+                        payload_comps.append({
+                            "type": "button",
+                            "sub_type": "copy_code",
+                            "index": "0",
+                            "parameters": [
+                                {
+                                    "type": "coupon_code",
+                                    "coupon_code": recovered_code
+                                }
+                            ]
+                        })
+                        payload["template"]["components"] = payload_comps
+                        res = WhatsAppOutboundGateway.send_meta_message(
+                            access_token=access_token,
+                            phone_number_id=phone_number_id,
+                            payload=payload,
+                            redis_client=redis_client,
+                            target_mps=target_mps
+                        )
+
+                # 6. Process Gateway Response
+                now_dt = datetime.now(timezone.utc)
+                if res.get("success"):
+                    recipient.status = "accepted"
+                    recipient.wamid = res.get("wamid")
+                    recipient.accepted_at = now_dt
+                    recipient.cost = rate_per_msg
+                    campaign.accepted_count = (campaign.accepted_count or 0) + 1
+                    campaign.actual_cost = Decimal(str(campaign.actual_cost or "0.00")) + rate_per_msg
+
+                    # Shift escrow from held to deducted
+                    CampaignService.settle_message_cost(db, campaign.workspace_id, rate_per_msg)
+
+                    logger.info(
+                        "[Campaign %s] Message ACCEPTED for recipient %s (%s) | wamid=%s",
+                        campaign.id, recipient.id, clean_phone, res.get("wamid")
                     )
-                    break
+                elif res.get("is_marketing_frequency_limit"):
+                    # Meta Error 131049: Circuit Breaker Immune
+                    recipient.status = "skipped_marketing_frequency_limit"
+                    recipient.error_code = "131049"
+                    recipient.error_message = res.get("error_message")
+                    campaign.skipped_marketing_cap_count = (campaign.skipped_marketing_cap_count or 0) + 1
+
+                    # Instant Escrow Refund
+                    CampaignService.release_unspent_escrow(db, campaign.workspace_id, rate_per_msg)
+
+                    logger.warning(
+                        "[Campaign %s] Recipient %s (%s) SKIPPED (Marketing Frequency Cap 131049): "
+                        "subcode=%s | msg=%s | fbtrace_id=%s",
+                        campaign.id, recipient.id, clean_phone,
+                        res.get("error_subcode"), res.get("error_message"), res.get("fbtrace_id")
+                    )
+                else:
+                    # Other delivery failure
+                    recipient.status = "failed"
+                    err_code = str(res.get("error_code") or "FAILED")
+                    err_msg = str(res.get("error_message") or "Unknown error")
+                    err_details = res.get("error_details")
+                    recipient.error_code = err_code
+                    recipient.error_message = f"{err_msg}: {err_details}" if err_details else err_msg
+                    campaign.failed_count = (campaign.failed_count or 0) + 1
+
+                    # Refund unused escrow for failed attempt
+                    CampaignService.release_unspent_escrow(db, campaign.workspace_id, rate_per_msg)
+
+                    logger.error(
+                        "[Campaign %s] Recipient %s (%s) FAILED: code=%s | subcode=%s | msg=%s | details=%s | fbtrace_id=%s",
+                        campaign.id, recipient.id, clean_phone,
+                        err_code, res.get("error_subcode"), err_msg, err_details, res.get("fbtrace_id")
+                    )
+
+                    if campaign.stop_on_high_failure_rate and evaluate_circuit_breaker(campaign, db):
+                        logger.error(
+                            "[Campaign %s] Circuit breaker tripped! Aborting remaining chunk processing.",
+                            campaign.id
+                        )
+                        break
+            except Exception as r_exc:
+                logger.error(
+                    "[Campaign %s] Unexpected error sending to recipient %s (%s): %s",
+                    campaign.id, recipient.id, getattr(recipient, "normalized_phone", None), r_exc,
+                    exc_info=True
+                )
+                recipient.status = "failed"
+                recipient.error_code = "PROCESSING_ERROR"
+                recipient.error_message = str(r_exc)
+                campaign.failed_count = (campaign.failed_count or 0) + 1
+                try:
+                    CampaignService.release_unspent_escrow(db, campaign.workspace_id, rate_per_msg)
+                except Exception:
+                    pass
+                db.commit()
 
         db.commit()
 
@@ -488,11 +622,12 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
         if remaining == 0 and campaign.status == "in_progress":
             campaign.status = "completed"
             campaign.completed_at = datetime.now(timezone.utc)
-            unspent = max(Decimal("0.00"), Decimal(str(campaign.held_cost)) - Decimal(str(campaign.actual_cost)))
+            unspent = max(Decimal("0.00"), Decimal(str(campaign.held_cost or "0.00")) - Decimal(str(campaign.actual_cost or "0.00")))
             if unspent > Decimal("0.00"):
                 CampaignService.release_unspent_escrow(db, campaign.workspace_id, unspent)
                 campaign.held_cost = campaign.actual_cost
             db.commit()
+            logger.info("[Campaign %s] All recipients completed. Marked campaign as completed.", campaign.id)
 
     except Exception as exc:
         logger.error("Error processing send_campaign_chunk for campaign %s: %s", campaign_id, exc)
@@ -520,6 +655,44 @@ def check_scheduled_campaigns():
             camp.started_at = now_utc
             db.commit()
             orchestrate_campaign.delay(str(camp.id))
+
+        # Self-healing sweeper: detect in_progress campaigns and handle completion or stalls
+        in_progress_camps = (
+            db.query(Campaign)
+            .filter(Campaign.status == "in_progress")
+            .all()
+        )
+        for camp in in_progress_camps:
+            try:
+                remaining = db.query(CampaignRecipient).filter(
+                    CampaignRecipient.campaign_id == camp.id,
+                    CampaignRecipient.status.in_(("pending", "queued"))
+                ).count()
+
+                if remaining == 0:
+                    camp.status = "completed"
+                    camp.completed_at = now_utc
+                    held_c = Decimal(str(camp.held_cost or "0.00"))
+                    act_c = Decimal(str(camp.actual_cost or "0.00"))
+                    unspent = max(Decimal("0.00"), held_c - act_c)
+                    if unspent > Decimal("0.00"):
+                        CampaignService.release_unspent_escrow(db, camp.workspace_id, unspent)
+                        camp.held_cost = camp.actual_cost
+                    db.commit()
+                    logger.info("[Sweeper] Auto-completed in_progress campaign %s with 0 remaining recipients", camp.id)
+                elif camp.started_at:
+                    st_tz = camp.started_at if camp.started_at.tzinfo else camp.started_at.replace(tzinfo=timezone.utc)
+                    stalled_sec = (now_utc - st_tz).total_seconds()
+                    if stalled_sec > 180:
+                        logger.warning(
+                            "[Sweeper] Re-triggering stalled campaign %s (started %ds ago with %d remaining)",
+                            camp.id, int(stalled_sec), remaining
+                        )
+                        orchestrate_campaign.delay(str(camp.id))
+            except Exception as s_err:
+                logger.error("[Sweeper] Error sweeping in_progress campaign %s: %s", camp.id, s_err)
+                db.rollback()
+
     except Exception as exc:
         logger.error("Error in check_scheduled_campaigns: %s", exc)
         db.rollback()

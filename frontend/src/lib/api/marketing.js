@@ -1,6 +1,7 @@
 import client from './client';
 import { getTemplates } from './templates';
 import { parseScheduleDateTime } from '../campaignScheduleUtils';
+import { convertNumberedToNamedText } from '../variableUtils';
 
 // Initial Seed Data - empty defaults for clean production state
 export const INITIAL_CAMPAIGNS = [];
@@ -221,7 +222,8 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
       const vars = { ...(r.variables || {}) };
 
       if (c.variableMapping && typeof c.variableMapping === 'object') {
-        Object.entries(c.variableMapping).forEach(([varKey, mapping]) => {
+        const mappingEntries = Object.entries(c.variableMapping);
+        mappingEntries.forEach(([varKey, mapping], idx) => {
           const cleanKey = String(varKey).replace(/[{}]/g, '');
           let val = '';
           if (mapping?.source === 'custom') {
@@ -245,10 +247,22 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
               }
             }
           }
-          vars[cleanKey] = val || mapping?.fallback || 'Customer';
+          const finalVal = val || mapping?.fallback || (cleanKey === '1' || cleanKey.includes('name') ? 'Customer' : '');
+          vars[cleanKey] = finalVal;
+
+          // Also set numeric index key (e.g. "1", "2") and mapped name key so backend worker finds both!
+          const mappedName = mapping?.mappedName;
+          if (mappedName && mappedName !== cleanKey) {
+            vars[mappedName] = finalVal;
+          }
+          const numKey = String(idx + 1);
+          if (!vars[numKey]) {
+            vars[numKey] = finalVal;
+          }
         });
       } else if (!vars['1'] && recipientName) {
         vars['1'] = recipientName;
+        vars['customer_name'] = recipientName;
       }
 
       return {
@@ -516,6 +530,43 @@ function mapTemplateRecord(t) {
     vars = matched ? Array.from(new Set(matched)) : [];
   }
 
+  // Parse variable_mapping if present or construct from variables array
+  let varMap = {};
+  if (t.variable_mapping) {
+    try {
+      varMap = typeof t.variable_mapping === 'string' ? JSON.parse(t.variable_mapping) : (t.variable_mapping || {});
+    } catch {}
+  }
+
+  // If variable_mapping is empty, but vars contains named strings (not just digits "1", "2")
+  if (Object.keys(varMap).length === 0 && Array.isArray(vars) && vars.length > 0) {
+    vars.forEach((v, idx) => {
+      const clean = String(v).replace(/[{}]/g, '').trim();
+      if (!/^\d+$/.test(clean)) {
+        varMap[String(idx + 1)] = clean;
+      }
+    });
+  }
+
+  // Compute named_content
+  let namedContent = t.named_content;
+  if (!namedContent && bodyText) {
+    if (Object.keys(varMap).length > 0) {
+      namedContent = convertNumberedToNamedText(bodyText, varMap, t.category);
+    } else {
+      namedContent = bodyText;
+    }
+  }
+
+  let parsedButtons = t.buttons;
+  if (typeof parsedButtons === 'string') {
+    try {
+      parsedButtons = JSON.parse(parsedButtons);
+    } catch {
+      parsedButtons = [];
+    }
+  }
+
   return {
     id: String(t.id),
     name: t.name,
@@ -524,10 +575,13 @@ function mapTemplateRecord(t) {
     status: String(t.status || 'DRAFT').toUpperCase(),
     body: bodyText,
     content: bodyText,
+    named_content: namedContent,
+    variable_mapping: varMap,
     header: t.header || null,
     footer: t.footer || null,
     cta: t.cta || null,
     cta_btn_title: t.cta_btn_title || null,
+    buttons: parsedButtons || [],
     variables: vars,
   };
 }
