@@ -422,12 +422,17 @@ function ConversationSidebar({
     lastMessageMap = {},
     currentUser,
     onOpenNewChat,
+    channelStatuses = {},
 }) {
     const [searchQuery, setSearchQuery] = useState('');
     const containerRef = useRef(null);
     const channelDropdownRef = useRef(null);
     const isInstagram = ch.id === 'instagram';
     const statusFilters = getStatusFilters(ch.id);
+
+    const isWhatsAppConnected = Boolean(channelStatuses?.whatsapp);
+    const isInstagramConnected = Boolean(channelStatuses?.instagram);
+    const isTwilioConnected = Boolean(channelStatuses?.twilio);
 
     useEffect(() => {
         if (lead?.id && containerRef.current) {
@@ -636,10 +641,17 @@ function ConversationSidebar({
                                                         <span className="text-[10.5px] font-semibold text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full">Active</span>
                                                     )}
                                                 </div>
-                                                <div className="text-[11.5px] text-emerald-400 font-medium flex items-center gap-1.5 truncate mt-0.5">
-                                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                                                    Connected
-                                                </div>
+                                                {isWhatsAppConnected ? (
+                                                    <div className="text-[11.5px] text-emerald-400 font-medium flex items-center gap-1.5 truncate mt-0.5">
+                                                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                                                        Connected
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-[11.5px] text-zinc-400 font-normal flex items-center gap-1.5 truncate mt-0.5">
+                                                        <span className="w-2 h-2 rounded-full bg-zinc-600" />
+                                                        Not Connected
+                                                    </div>
+                                                )}
                                             </div>
                                         </button>
 
@@ -666,10 +678,17 @@ function ConversationSidebar({
                                                         <span className="text-[10.5px] font-semibold text-pink-400 bg-pink-500/20 px-2 py-0.5 rounded-full">Active</span>
                                                     )}
                                                 </div>
-                                                <div className="text-[11.5px] text-pink-400 font-medium flex items-center gap-1.5 truncate mt-0.5">
-                                                    <span className="w-2 h-2 rounded-full bg-pink-400 animate-pulse shadow-[0_0_8px_rgba(244,114,182,0.8)]" />
-                                                    Connected
-                                                </div>
+                                                {isInstagramConnected ? (
+                                                    <div className="text-[11.5px] text-pink-400 font-medium flex items-center gap-1.5 truncate mt-0.5">
+                                                        <span className="w-2 h-2 rounded-full bg-pink-400 animate-pulse shadow-[0_0_8px_rgba(244,114,182,0.8)]" />
+                                                        Connected
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-[11.5px] text-zinc-400 font-normal flex items-center gap-1.5 truncate mt-0.5">
+                                                        <span className="w-2 h-2 rounded-full bg-zinc-600" />
+                                                        Not Connected
+                                                    </div>
+                                                )}
                                             </div>
                                         </button>
 
@@ -696,10 +715,17 @@ function ConversationSidebar({
                                                         <span className="text-[10.5px] font-semibold text-red-400 bg-red-500/20 px-2 py-0.5 rounded-full">Active</span>
                                                     )}
                                                 </div>
-                                                <div className="text-[11.5px] text-red-400 font-medium flex items-center gap-1.5 truncate mt-0.5">
-                                                    <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse shadow-[0_0_8px_rgba(248,113,113,0.8)]" />
-                                                    Connected
-                                                </div>
+                                                {isTwilioConnected ? (
+                                                    <div className="text-[11.5px] text-red-400 font-medium flex items-center gap-1.5 truncate mt-0.5">
+                                                        <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse shadow-[0_0_8px_rgba(248,113,113,0.8)]" />
+                                                        Connected
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-[11.5px] text-zinc-400 font-normal flex items-center gap-1.5 truncate mt-0.5">
+                                                        <span className="w-2 h-2 rounded-full bg-zinc-600" />
+                                                        Not Connected
+                                                    </div>
+                                                )}
                                             </div>
                                         </button>
                                     </div>
@@ -949,6 +975,7 @@ function getConversationStats(conversation, messages) {
 }
 
 function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, messages, onCloseConversation, onConvertClick, leadDetail, setLeadDetail, activeFilter }) {
+    const isInstagram = (ch?.id || lead?.channel || '').toLowerCase() === 'instagram';
     const isClosed =
         lead?.status?.toUpperCase() === 'CLOSED' ||
         leadDetail?.status === 'closed';
@@ -2140,6 +2167,42 @@ function InboxContent() {
     const reqIdRef = useRef(0);
     const [filterCounts, setFilterCounts] = useState({ all: 0, open: 0, follow_up: 0, unread: 0, converted: 0, closed: 0 });
 
+    const [channelStatuses, setChannelStatuses] = useState(() => {
+        if (typeof window === 'undefined') return { whatsapp: false, instagram: false, twilio: false };
+        return {
+            whatsapp: localStorage.getItem("whatsapp_connected") === "true",
+            instagram: false,
+            twilio: false,
+        };
+    });
+
+    useEffect(() => {
+        const wsId = workspace?.id || workspaceId;
+        if (!wsId) return;
+        let isMounted = true;
+        const loadChannelStatus = async () => {
+            try {
+                const data = await api.getIntegrationStatus(wsId);
+                if (isMounted && data) {
+                    setChannelStatuses({
+                        whatsapp: Boolean(data?.whatsapp?.connected || data?.whatsapp === true),
+                        instagram: Boolean(data?.instagram?.connected || data?.instagram === true),
+                        twilio: Boolean(data?.twilio?.connected || data?.twilio === true),
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to load channel status for inbox dropdown:", err);
+            }
+        };
+        loadChannelStatus();
+        const handleStatusChanged = () => loadChannelStatus();
+        window.addEventListener('channel-status-changed', handleStatusChanged);
+        return () => {
+            isMounted = false;
+            window.removeEventListener('channel-status-changed', handleStatusChanged);
+        };
+    }, [workspace?.id, workspaceId]);
+
     const [conversations, setConversations] = useState([]);
     const [messages, setMessages] = useState([]);
     const [lead, setLead] = useState(null);
@@ -3027,6 +3090,7 @@ function InboxContent() {
         unreadCounts,
         lastMessageMap,
         currentUser: user,
+        channelStatuses,
         onOpenNewChat: () => setIsNewChatOpen(true),
     };
 
