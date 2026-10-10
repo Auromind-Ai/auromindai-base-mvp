@@ -2287,13 +2287,6 @@ function ChatArea({
                 </div>
             </div>
 
-            <SendTemplateModal
-                isOpen={showTemplateModal}
-                onClose={() => setShowTemplateModal(false)}
-                workspace={workspace}
-                lead={lead}
-                onSuccess={onSendTemplateSuccess}
-            />
         </div>
     );
 }
@@ -2738,14 +2731,39 @@ function InboxContent() {
                     newParams.delete('conversation');
                     router.replace(`${pathname}${newParams.toString() ? '?' + newParams.toString() : ''}`, { scroll: false });
                 }
+            } else if (leadRef.current) {
+                const currentId = leadRef.current.id;
+                const currentPhone = String(leadRef.current.phone || leadRef.current.external_id || '').replace(/\D/g, '');
+
+                const matched = uniqueData.find(item => {
+                    if (item.id === currentId) return true;
+                    if (currentPhone) {
+                        const itemPhone = String(item.phone || item.external_id || '').replace(/\D/g, '');
+                        if (itemPhone && itemPhone === currentPhone) return true;
+                        if (currentPhone.length >= 10 && itemPhone.length >= 10 && currentPhone.slice(-10) === itemPhone.slice(-10)) return true;
+                    }
+                    return false;
+                });
+
+                if (matched) {
+                    nextLead = matched;
+                } else if (currentId && currentId.startsWith('whatsapp-')) {
+                    // Pending new chat not yet saved on backend - KEEP IT and keep it at top of list
+                    nextLead = leadRef.current;
+                    if (!uniqueData.some(item => item.id === currentId)) {
+                        uniqueData.unshift(leadRef.current);
+                        setConversations([...uniqueData]);
+                    }
+                } else {
+                    nextLead = selectFirst ? uniqueData[0] : (uniqueData.find(item => item.id === currentId) || uniqueData[0]);
+                }
             } else {
-                const currentLeadId = leadRef.current?.id;
-                nextLead = selectFirst ? uniqueData[0] : (uniqueData.find(item => item.id === currentLeadId) || uniqueData[0]);
+                nextLead = selectFirst ? uniqueData[0] : (uniqueData[0] || null);
             }
 
             setLead(nextLead);
             leadRef.current = nextLead;
-            if (nextLead) {
+            if (nextLead && !String(nextLead.id).startsWith('whatsapp-')) {
                 setUnreadCounts(prev => ({ ...prev, [nextLead.id]: 0 }));
                 fetchMessages(nextLead.id);
                 fetchLeadIdForConversation(nextLead.id).then(id => setResolvedLeadId(id));
@@ -3210,28 +3228,31 @@ function InboxContent() {
         hasMoreMessages,
         isLoadingOlder,
         currentUser: user,
-        onSendTemplateSuccess: (formattedContent, res) => {
-            playSentSound();
-            const realConvId = res?.conversation_id || (leadRef.current?.id && !leadRef.current?.id.startsWith('whatsapp-') ? leadRef.current.id : null);
-            if (realConvId) {
-                if (leadRef.current) {
-                    leadRef.current.id = realConvId;
-                    setLead(prev => prev ? { ...prev, id: realConvId } : prev);
-                }
-                fetchMessages(realConvId);
-            } else if (leadRef.current?.id) {
-                fetchMessages(leadRef.current.id);
-            }
-            fetchConversations(0);
-            setMessages(prev => [...prev, {
-                id: 'temp-' + Date.now(),
-                sender_type: 'agent',
-                content: formattedContent,
-                timestamp: new Date().toISOString(),
-                status: 'sent',
-            }]);
-        },
+        onSendTemplateSuccess: (formattedContent, res) => handleSendTemplateSuccess(formattedContent, res),
     };
+
+    const handleSendTemplateSuccess = useCallback((formattedContent, res) => {
+        playSentSound();
+        const realConvId = res?.conversation_id || (leadRef.current?.id && !leadRef.current?.id.startsWith('whatsapp-') ? leadRef.current.id : null);
+        if (realConvId) {
+            if (leadRef.current) {
+                leadRef.current.id = realConvId;
+                setLead(prev => prev ? { ...prev, id: realConvId } : prev);
+            }
+            fetchMessages(realConvId);
+            fetchLeadIdForConversation(realConvId).then(id => setResolvedLeadId(id));
+        } else if (leadRef.current?.id && !leadRef.current?.id.startsWith('whatsapp-')) {
+            fetchMessages(leadRef.current.id);
+        }
+        fetchConversations({ selectFirst: false });
+        setMessages(prev => [...prev, {
+            id: 'temp-' + Date.now(),
+            sender_type: 'agent',
+            content: formattedContent,
+            timestamp: new Date().toISOString(),
+            status: 'sent',
+        }]);
+    }, [fetchMessages, fetchConversations, fetchLeadIdForConversation, playSentSound]);
 
     const infoPanelProps = {
         ch, lead,
@@ -3243,12 +3264,26 @@ function InboxContent() {
     };
 
     const handleStartNewChat = useCallback((fullPhoneNumber) => {
-        const cleanDigits = String(fullPhoneNumber).replace(/\D/g, '');
+        let cleanDigits = String(fullPhoneNumber).replace(/\D/g, '');
         if (!cleanDigits) return;
+
+        // Strip duplicate country codes (e.g. 91917695951519 -> 917695951519)
+        if (cleanDigits.length === 14 && cleanDigits.startsWith('9191')) {
+            cleanDigits = cleanDigits.slice(2);
+        } else if (cleanDigits.length === 10) {
+            cleanDigits = `91${cleanDigits}`;
+        }
 
         // Ensure WhatsApp channel is selected
         const waCh = CHANNELS.find(c => c.id === 'whatsapp') || ch;
-        if (ch?.id !== 'whatsapp') setCh(waCh);
+        if (ch?.id !== 'whatsapp') {
+            setCh(waCh);
+            channelRef.current = waCh;
+        }
+
+        // Switch screen view to chat for mobile and tablet
+        setMobileView('chat');
+        setTabletRight('chat');
 
         // Search strictly by phone digits (NEVER match by c.id)
         const existing = (conversations || []).find(c => {
@@ -3292,7 +3327,7 @@ function InboxContent() {
         setConversations(prev => [
             newTarget,
             ...(prev || []).filter(c => {
-                const p = String(c.phone || '').replace(/\D/g, '');
+                const p = String(c.phone || c.external_id || '').replace(/\D/g, '');
                 return p !== cleanDigits && (cleanDigits.length >= 10 && p.length >= 10 ? cleanDigits.slice(-10) !== p.slice(-10) : true);
             })
         ]);
@@ -3303,7 +3338,7 @@ function InboxContent() {
         // Directly open SendTemplateModal to send template to this exact number
         setShowTemplateModal(true);
         showToast(`Select and send an approved template to ${formattedDisplay}`);
-    }, [conversations, ch, fetchMessages]);
+    }, [conversations, ch, fetchMessages, showToast, fetchLeadIdForConversation]);
 
     const sidebarProps = {
         ch,
@@ -3649,6 +3684,14 @@ function InboxContent() {
                 isOpen={isNewChatOpen}
                 onClose={() => setIsNewChatOpen(false)}
                 onStartChat={handleStartNewChat}
+            />
+
+            <SendTemplateModal
+                isOpen={showTemplateModal}
+                onClose={() => setShowTemplateModal(false)}
+                workspace={workspace}
+                lead={lead}
+                onSuccess={handleSendTemplateSuccess}
             />
 
             <style>{`

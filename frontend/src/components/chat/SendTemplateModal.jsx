@@ -171,7 +171,13 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
         } catch (e) {
             console.error('Send template error:', e);
             const detailMsg = e?.data?.detail || e?.message || 'Failed to send template message';
-            if (e?.status === 402 || detailMsg.toLowerCase().includes('insufficient')) {
+            if (
+                e?.status === 402 || 
+                detailMsg.toLowerCase().includes('insufficient') ||
+                detailMsg.toLowerCase().includes('whatsapp account') ||
+                detailMsg.toLowerCase().includes('not have an active whatsapp') ||
+                detailMsg.toLowerCase().includes('not a valid whatsapp')
+            ) {
                 showToast(detailMsg, 'error');
             } else {
                 showToast(`Error sending template message: ${detailMsg}`, 'error');

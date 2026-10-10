@@ -24,7 +24,7 @@ export default function NewChatModal({ isOpen, onClose, onStartChat }) {
 
   const handlePhoneChange = (e) => {
     let val = e.target.value;
-    // Auto-detect country if pasted with +
+    // Auto-detect country if pasted with + or starts with country dial code
     if (val.startsWith('+')) {
       const matched = COUNTRIES.find(c => val.startsWith(c.dial));
       if (matched) {
@@ -37,13 +37,24 @@ export default function NewChatModal({ isOpen, onClose, onStartChat }) {
     setPhoneNumber(val);
   };
 
-  const cleanDigits = phoneNumber.replace(/\D/g, '');
-  const isValid = cleanDigits.length >= 7;
+  const rawClean = phoneNumber.replace(/\D/g, '');
+  const isValid = rawClean.length >= 7;
 
   const handleSubmit = (e) => {
     e?.preventDefault();
     if (!isValid) return;
-    const fullNumber = `${selectedCountry.dial.replace('+', '')}${cleanDigits}`;
+    const dialDigits = selectedCountry.dial.replace('+', '');
+    let finalDigits = rawClean;
+
+    // Strip leading zeroes if present (e.g. 09876543210 -> 9876543210)
+    finalDigits = finalDigits.replace(/^0+/, '');
+
+    // If user typed the country code explicitly in the input box (e.g. 917695951519 with +91 selected)
+    if (finalDigits.startsWith(dialDigits) && finalDigits.length >= dialDigits.length + 7) {
+      finalDigits = finalDigits.slice(dialDigits.length);
+    }
+
+    const fullNumber = `${dialDigits}${finalDigits}`;
     onStartChat(fullNumber);
     setPhoneNumber('');
     onClose();

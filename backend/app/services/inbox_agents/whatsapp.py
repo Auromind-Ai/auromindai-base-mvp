@@ -21,10 +21,22 @@ class WhatsAppService:
             "Content-Type": "application/json"
         }
 
+    @staticmethod
+    def _clean_recipient_phone(to: str) -> str:
+        clean = "".join(filter(str.isdigit, str(to or "")))
+        if clean.startswith("0"):
+            clean = clean.lstrip("0")
+        if len(clean) == 10:
+            clean = f"91{clean}"
+        elif len(clean) == 14 and clean.startswith("9191"):
+            clean = clean[2:]
+        return clean
+
     # SEND TEXT MESSAGE
     
     def send_text_message(self, to: str, message: str) -> Optional[str]:
         try:
+            to = self._clean_recipient_phone(to)
             payload = {
                 "messaging_product": "whatsapp",
                 "to": to,
@@ -70,6 +82,7 @@ class WhatsAppService:
         components: list = None
     ) -> Optional[str]:
         try:
+            to = self._clean_recipient_phone(to)
             payload = {
                 "messaging_product": "whatsapp",
                 "to": to,
@@ -102,7 +115,18 @@ class WhatsAppService:
 
             if response.status_code != 200:
                 logger.error(f"Template send error: {data}")
-                err_detail = data.get("error", {}).get("message") or data.get("error", {}).get("error_user_msg") or str(data)
+                err_obj = data.get("error", {})
+                err_code = err_obj.get("code")
+                err_detail = err_obj.get("message") or err_obj.get("error_user_msg") or str(data)
+                err_data_details = str(err_obj.get("error_data", {}).get("details", "")).lower()
+                if (
+                    err_code == 131026
+                    or "incapable of receiving" in err_data_details
+                    or "not a valid whatsapp user" in err_data_details
+                    or "not a valid whatsapp user" in err_detail.lower()
+                    or "undeliverable" in err_detail.lower()
+                ):
+                    raise RuntimeError(f"The recipient +{to} does not have an active WhatsApp account.")
                 raise RuntimeError(f"WhatsApp API Error ({response.status_code}): {err_detail}")
 
             message_id = data.get("messages", [{}])[0].get("id")

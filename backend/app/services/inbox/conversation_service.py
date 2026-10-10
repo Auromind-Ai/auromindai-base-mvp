@@ -302,6 +302,25 @@ class ConversationService:
                 .all()
             )
 
+            # Query leads by phone for workspace to match conversations not yet bound by conversation_id
+            lead_phone_rows = (
+                db.query(Lead.phone, Lead.name)
+                .filter(
+                    Lead.workspace_id == ws_uuid,
+                    Lead.name.isnot(None),
+                    Lead.name != "",
+                )
+                .all()
+            )
+            lead_phone_map = {}
+            for lp, ln in lead_phone_rows:
+                if lp and ln:
+                    clean_lp = "".join(filter(str.isdigit, str(lp)))
+                    if clean_lp:
+                        lead_phone_map[clean_lp] = ln
+                        if len(clean_lp) >= 10:
+                            lead_phone_map[clean_lp[-10:]] = ln
+
             for c in conversations:
                 c.__dict__['message_count'] = counts.get(c.id, 0)
                 c.__dict__['unread_count'] = unread_counts.get(c.id, 0)
@@ -312,6 +331,9 @@ class ConversationService:
                 is_numeric = curr_name and curr_name.strip().lstrip('+').isdigit()
                 if not curr_name or is_numeric:
                     l_name = lead_names.get(c.id)
+                    if not l_name and c.phone:
+                        clean_cp = "".join(filter(str.isdigit, str(c.phone)))
+                        l_name = lead_phone_map.get(clean_cp) or (lead_phone_map.get(clean_cp[-10:]) if len(clean_cp) >= 10 else None)
                     if l_name and not l_name.strip().lstrip('+').isdigit():
                         c.contact_name = l_name
                         c.__dict__['contact_name'] = l_name
