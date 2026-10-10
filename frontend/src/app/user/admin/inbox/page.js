@@ -711,7 +711,7 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                 </div>
             ) : (
                 <>
-                    <p className="text-[16px] font-regular text-white/90 tracking-widest mb-8">Contact Details</p>
+                    <p className="text-[16px] font-normal text-white/90 tracking-widest mb-8">Contact Details</p>
 
                     <div className="flex items-center gap-3 mb-5">
                         <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold shrink-0"
@@ -782,7 +782,7 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                     </div>
 
                     <div className="mb-6 space-y-2.5">
-                        <p className="text-[16px] font-regular text-white/90 tracking-wider mb-3 mt-10">Conversation Info</p>
+                        <p className="text-[16px] font-normal text-white/90 tracking-wider mb-3 mt-10">Conversation Info</p>
                         {[
                             ['First Contact', stats.firstContact || '—'],
                             ['Last Contact', stats.lastContact || '—'],
@@ -798,7 +798,7 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
 
                     {!isConverted && (
                         <div>
-                            <p className="text-[16px] font-regular text-white/90 tracking-wider mb-4 mt-10">Quick Actions</p>
+                            <p className="text-[16px] font-normal text-white/90 tracking-wider mb-4 mt-10">Quick Actions</p>
                             <div className="space-y-2">
                                 <button
                                     onClick={onConvertClick}

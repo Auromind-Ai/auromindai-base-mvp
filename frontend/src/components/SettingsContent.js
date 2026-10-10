@@ -351,7 +351,7 @@ function PreferencesSection() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-regular tracking-tight text-white">
+        <h1 className="text-3xl md:text-4xl font-normal tracking-tight text-white">
           My Account
         </h1>
         <p className="mt-1.5 text-sm text-white/65">

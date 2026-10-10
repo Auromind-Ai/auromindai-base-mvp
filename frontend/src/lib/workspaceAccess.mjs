@@ -29,7 +29,9 @@ const routePermissions = {
 };
 
 export function isWorkspacePageAllowed(pathname, hasPermission) {
-  const routeSection = pathname?.split('/')[3];
+  if (!pathname) return true;
+  const cleanPath = pathname.replace(/^\/user\/admin/, '');
+  const routeSection = cleanPath.split('/')[1];
   if (!routeSection) {
     return true;
   }

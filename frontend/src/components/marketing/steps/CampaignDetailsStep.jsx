@@ -452,7 +452,7 @@ export default function CampaignDetailsStep({
                   type="button"
                   onClick={() => {
                     onCancel?.();
-                    router.push('/user/admin/channels');
+                    router.push('/channels');
                   }}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#814AC8] hover:bg-[#703db5] text-white text-xs sm:text-sm font-medium transition-all shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_25px_rgba(129,74,200,0.6)] cursor-pointer active:scale-[0.98]"
                 >

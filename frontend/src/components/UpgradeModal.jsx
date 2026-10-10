@@ -45,7 +45,7 @@ export default function UpgradeModal({
                 <button 
                   onClick={() => { 
                     onClose(); 
-                    router.push('/user/admin/credits'); 
+                    router.push('/credits'); 
                   }} 
                   className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white transition-colors font-medium text-sm shadow-lg shadow-purple-600/25"
                 >

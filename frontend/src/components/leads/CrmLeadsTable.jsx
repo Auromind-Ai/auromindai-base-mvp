@@ -106,12 +106,12 @@ export default function CrmLeadsTable({
                 )}
             </div>
             <div className="flex-1 min-h-0 overflow-auto">
-                <table className="w-full min-w-[950px] text-left text-sm">
+                <table className="w-full min-w-[1100px] text-left text-sm">
                     <caption className="sr-only">CRM leads table</caption>
                     <thead className="sticky top-0 z-10 bg-[#171122] text-xs text-zinc-400">
                         <tr>
                             {showSelection && <th scope="col" className="w-10 px-4 py-4"><span className="sr-only">Select leads</span></th>}
-                            {['S.no', 'Date', 'Source', 'Name', 'Phone', 'Lead Score', 'Lead Category'].map(title => (
+                            {['S.no', 'Date', 'Source', 'Flow Name', 'Name', 'Phone', 'Lead Score', 'Lead Category'].map(title => (
                                 <th scope="col" key={title} className="px-4 py-4 font-medium whitespace-nowrap">{title}</th>
                             ))}
                             {onRemoveFollowUp && <th scope="col" className="px-4 py-4 font-medium">Actions</th>}
@@ -133,6 +133,11 @@ export default function CrmLeadsTable({
                                     <td className="px-4 py-4 whitespace-nowrap text-zinc-300">
                                         {sourceLabel(lead.source)}
                                     </td>
+                                    <td className="px-4 py-4 text-zinc-300">
+                                        <span className="block max-w-56 truncate" title={lead.flow_name || undefined}>
+                                            {lead.flow_name || '—'}
+                                        </span>
+                                    </td>
                                     <td className="px-4 py-4">
                                         <button className="text-left font-semibold text-white hover:text-violet-300 focus-visible:outline-violet-400 max-w-64 break-words cursor-pointer" onClick={() => onSelect(lead.id)} aria-label={`View scoring for ${lead.name}`}>
                                             {lead.name || 'Unknown Lead'}
@@ -141,7 +146,7 @@ export default function CrmLeadsTable({
                                     <td className="px-4 py-4 whitespace-nowrap text-zinc-300">
                                         {lead.phone && lead.id ? (
                                             <Link
-                                                href={`/user/admin/leads?leadId=${encodeURIComponent(lead.id)}`}
+                                                href={`/leads?leadId=${encodeURIComponent(lead.id)}`}
                                                 aria-label={`Open conversation for ${lead.name || lead.phone}`}
                                                 className="rounded text-violet-200 hover:text-violet-300 hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
                                             >
@@ -169,7 +174,7 @@ export default function CrmLeadsTable({
                         })}
                         {!leads.length && (
                             <tr>
-                                <td colSpan={7 + Number(showSelection) + Number(!!onRemoveFollowUp)} className="px-5 py-16 text-center text-zinc-500">
+                                <td colSpan={8 + Number(showSelection) + Number(!!onRemoveFollowUp)} className="px-5 py-16 text-center text-zinc-500">
                                     {loading ? 'Loading leads…' : 'No leads found. Try changing or clearing your filters.'}
                                 </td>
                             </tr>

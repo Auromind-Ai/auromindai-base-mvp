@@ -57,7 +57,7 @@ export default function WorkspaceDetailVisual() {
             <div className="flex items-center gap-2">
               <span className="font-bold text-white text-sm">AI Workspace</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-400">
-                /user/admin/ai
+                /ai-agents
               </span>
             </div>
           </div>

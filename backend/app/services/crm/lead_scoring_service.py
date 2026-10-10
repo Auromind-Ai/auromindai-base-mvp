@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.schemas.crm_filters import LeadFilters
 from app.services.crm.lead_query import lead_query
+from app.services.crm.lead_flow import get_lead_flow_names
 
 from app.models.ai_action import Lead
 from app.models.lead_scoring import LeadScoreHistory, TemplateLog
@@ -558,6 +559,7 @@ def get_workspace_lead_scores(
         )
 
     leads = query.offset(offset).limit(limit).all()
+    flow_names = get_lead_flow_names(db, workspace_id, [lead.conversation_id for lead in leads])
     responses_by_lead = {}
     if leads:
         for lead_id, response in db.query(TemplateLog.lead_id, TemplateLog.response_type).filter(
@@ -595,6 +597,7 @@ def get_workspace_lead_scores(
             "email": lead.email,
             "created_at": lead.created_at,
             "source": lead.source,
+            "flow_name": flow_names.get(lead.conversation_id),
             "channel": lead.source,
             "status": lead.status,
 

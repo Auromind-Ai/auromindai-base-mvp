@@ -409,7 +409,7 @@ export default function BrainPage() {
                         <button
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
-                            className="px-6 py-2 text-white text-xs font-regular rounded-xl cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                            className="px-6 py-2 text-white text-xs font-normal rounded-xl cursor-pointer transition-all active:scale-95 disabled:opacity-50"
                             style={{
                                 backgroundColor: '#814AC8',
                                 boxShadow: '0 4px 14px rgba(129,74,200,0.30)',
@@ -463,7 +463,7 @@ export default function BrainPage() {
                                 <button
                                     onClick={handleUrlSync}
                                     disabled={syncing || crawling || !urlInput.trim()}
-                                    className="flex-1 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333] text-[#D4D4D4] text-xs font-regular rounded-xl transition-all border border-[#3f3f3f] active:scale-95 disabled:opacity-50"
+                                    className="flex-1 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333] text-[#D4D4D4] text-xs font-normal rounded-xl transition-all border border-[#3f3f3f] active:scale-95 disabled:opacity-50"
                                     title="Sync single page only"
                                 >
                                     {syncing ? 'Syncing...' : 'Single Page'}
@@ -473,7 +473,7 @@ export default function BrainPage() {
                                 <button
                                     onClick={handleWebsiteCrawl}
                                     disabled={syncing || crawling || !urlInput.trim()}
-                                    className="flex-1 px-4 py-2 text-white text-xs font-regular rounded-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                                    className="flex-1 px-4 py-2 text-white text-xs font-normal rounded-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                                     style={{
                                         backgroundColor: '#814AC8',
                                         boxShadow: '0 4px 14px rgba(129,74,200,0.30)',

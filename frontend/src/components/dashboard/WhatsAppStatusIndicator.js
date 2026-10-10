@@ -82,13 +82,13 @@ export default function WhatsAppStatusIndicator() {
         }
         if (typeof window !== 'undefined') {
             sessionStorage.setItem('open_whatsapp_profile_modal', 'true');
-            if (window.location.pathname === '/user/admin/channels') {
+            if (window.location.pathname === '/channels' || window.location.pathname === '/user/admin/channels') {
                 window.dispatchEvent(new CustomEvent('open-whatsapp-profile'));
             } else {
-                router.push('/user/admin/channels?editProfile=true');
+                router.push('/channels?editProfile=true');
             }
         } else {
-            router.push('/user/admin/channels?editProfile=true');
+            router.push('/channels?editProfile=true');
         }
     };
 

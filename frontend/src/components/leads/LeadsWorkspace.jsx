@@ -298,6 +298,7 @@ const normalizeLead = (lead) => {
         phone: lead.phone || '',
         email: lead.email || '',
         source: lead.source || 'manual',
+        flow_name: lead.flow_name || null,
         channel: getChannelKey(lead.source),
         tag: getNormalizedTag(lead.lead_tier || lead.status),
         labels: lead.labels || [],
@@ -1635,7 +1636,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     const handleOpenInInbox = () => {
         const leadDetail = leadsDetails[selectedLeadId];
         if (leadDetail?.conversation_id) {
-            router.push(`/user/admin/inbox?conversationId=${leadDetail.conversation_id}`);
+            router.push(`/inbox?conversationId=${leadDetail.conversation_id}`);
         }
     };
 

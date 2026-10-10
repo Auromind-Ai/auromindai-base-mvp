@@ -694,7 +694,7 @@ export default function HeroShowcaseSection() {
                     <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-3.5 sm:gap-4 w-full max-w-[360px]">
                       {/* Headline */}
                       <div>
-                        <h3 className="text-2xl sm:text-3xl md:text-[34px] lg:text-[36px] font-regular text-white leading-[1.1] tracking-tight">
+                        <h3 className="text-2xl sm:text-3xl md:text-[34px] lg:text-[36px] font-normal text-white leading-[1.1] tracking-tight">
                           Build. Connect.{" "}
                           <span className="bg-gradient-to-r from-[#b379ff] via-[#9150f8] to-[#7c3aed] bg-clip-text text-transparent">
                             Automate.

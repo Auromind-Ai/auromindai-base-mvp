@@ -34,17 +34,17 @@ export default function VariableMappingCard({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-[#814AC8]" />
-          <span className="text-xs font-semibold text-white">Active Template Variables</span>
+          <Sparkles className="w-3.5 h-3.5 text-white" />
+          <span className="text-sm font-medium text-white">Active Template Variables</span>
         </div>
-        <span className="text-[10px] text-[#c490e8] bg-[#814AC8]/15 px-2 py-0.5 rounded-full border border-[#814AC8]/30">
+        <span className="text-[10px] text-white bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 px-2 py-0.5 rounded-full border border-white/20">
           {variableList.length} Active {variableList.length === 1 ? 'Variable' : 'Variables'}
         </span>
       </div>
 
       {/* Undefined Numbered Variables Warning (e.g. {{1}}, {{2}}) */}
       {unmappedNumberedVars.length > 0 && (
-        <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3">
+        <div className="p-2.5 rounded-xl bg-gradient-to-r from-[#3b2a08]/80 via-[#261b05]/60 to-[#0d0902] border border-white/20 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
             <div className="text-[11px] text-amber-200 truncate">

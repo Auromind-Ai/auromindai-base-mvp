@@ -19,11 +19,7 @@ import { useToast } from '@/context/ToastContext';
 import { getWorkspaceIdFromToken } from '@/lib/auth';
 import { convertNumberedToNamedText, formatVariableLabel, getSampleValue } from '@/lib/variableUtils';
 
-
-
-/* ─
-   Config
-─ */
+/* ─ Config ─ */
 const TABS = ['All', 'Draft', 'Pending', 'Approved', 'Rejected', 'Action Required'];
 
 const STATUS = {
@@ -114,9 +110,7 @@ const INDUSTRIES = [
   { id: 'travel',      label: 'Travel',      Icon: Plane        },
 ];
 
-/* ─
-   Atoms
-─ */
+/* ─ Atoms ─ */
 const StatusPill = ({ status }) => {
   const normalized = String(status || 'draft').toLowerCase();
   const s = STATUS[normalized] || STATUS.draft;
@@ -140,9 +134,7 @@ const TypeTag = ({ type }) => (
   </span>
 );
 
-/* ─
-   Skeleton
-─ */
+/* ─ Skeleton ─ */
 const SkeletonCard = () => (
   <div className="bg-[#111122] border border-[#1e1e3f] rounded-[18px] p-6 flex flex-col items-center gap-3.5 w-full">
     <div className="w-[72px] h-[72px] rounded-[20px] bg-[#1c1c3a] animate-pulse" />
@@ -157,9 +149,7 @@ const SkeletonCard = () => (
   </div>
 );
 
-/* ─
-   Template Card Helpers
-─ */
+/* ─ Template Card Helpers ─ */
 function renderFormattedContent(text) {
   if (!text) return null;
   const parts = String(text).split(/(\{\{[a-zA-Z0-9_]+\}\})/g);
@@ -178,9 +168,7 @@ function renderFormattedContent(text) {
   });
 }
 
-/* ─
-   Template Card
-─ */
+/* ─ Template Card ─ */
 function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
   const [hov, setHov] = useState(false);
   const isList = viewMode === 'list';
@@ -283,9 +271,7 @@ function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
   );
 }
 
-/* ─
-   Stat Card
-─ */
+/* ─ Stat Card ─ */
 function StatCard({ cfg, count, onClick, isActive }) {
   const [hov, setHov] = useState(false);
   const { label, Icon, iconStyle, glowColor, pct } = cfg;
@@ -335,9 +321,7 @@ function StatCard({ cfg, count, onClick, isActive }) {
   );
 }
 
-/* ─
-   Preview Drawer
-─ */
+/* ─ Preview Drawer ─ */
 function PreviewModal({ tpl, onClose, onSubmit, onUse, onUpdateTemplate }) {
   const { showToast } = useToast();
   const fileInputRef = useRef(null);
@@ -779,7 +763,7 @@ function UseTemplateModal({ tpl, onClose, onUpdateTemplate }) {
       header_url: currentMediaUrl || '',
       template_type: tpl.type || 'TEXT',
     }).toString();
-    router.push(`/user/admin/inbox?${query}`);
+    router.push(`/inbox?${query}`);
     onClose();
   };
 
@@ -986,9 +970,7 @@ function ConnectWhatsAppModal({ open, onClose, onConnect }) {
   );
 }
 
-/* ─────────────────────────────────────────────
-   Category Sidebar Item
-─ */
+/* Category Sidebar Item ─ */
 function SidebarItem({ id, label, Icon, active, onClick }) {
   const [hov, setHov] = useState(false);
 
@@ -1015,9 +997,7 @@ function SidebarItem({ id, label, Icon, active, onClick }) {
   );
 }
 
-/* ─
-   Main Page
-─ */
+/* ─ Main Page ─ */
 export default function TemplatesPage() {
   const router = useRouter();
   const { workspaceId } = useAuth();
@@ -1139,7 +1119,7 @@ export default function TemplatesPage() {
       const activeWs = workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null) || getWorkspaceIdFromToken();
       const data = await api.getChannelsStatus(activeWs);
       if (data.whatsapp?.connected) {
-        router.push('/user/admin/templates/create');
+        router.push('/templates/create');
       } else {
         setShowConnectModal(true);
       }
@@ -1338,8 +1318,8 @@ export default function TemplatesPage() {
                 </p>
                 {!search && (
                   <button
-                    onClick={() => router.push('/user/admin/templates/create')}
-                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border-none text-white text-xs sm:text-sm font-medium cursor-pointer transition-all bg-[#814AC8] hover:shadow-[0_2px_18px_rgba(129,74,200,0.45)] hover:-translate-y-0.5"
+                    onClick={() => router.push('/templates/create')}
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border-none text-white text-xs sm:text-sm font-bold cursor-pointer transition-all bg-[#814AC8] hover:shadow-[0_2px_18px_rgba(129,74,200,0.45)] hover:-translate-y-0.5"
                   >
                     <Plus size={15} strokeWidth={2.5} /> Create Template
                   </button>
@@ -1389,7 +1369,7 @@ export default function TemplatesPage() {
       <ConnectWhatsAppModal
         open={showConnectModal}
         onClose={() => setShowConnectModal(false)}
-        onConnect={() => router.push('/user/admin/channels')}
+        onConnect={() => router.push('/channels')}
       />
     </div>
   );

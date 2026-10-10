@@ -38,7 +38,7 @@ export default function ConversationLog({ messages = [], conversationId }) {
 
         {conversationId && (
           <Link
-            href={`/user/admin/inbox?conversation=${conversationId}`}
+            href={`/inbox?conversation=${conversationId}`}
             className="group flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.03] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[2px] text-indigo-400 transition-all duration-200 hover:border-indigo-500/30 hover:bg-indigo-500/10 hover:text-indigo-300"
           >
             Open Nexus
