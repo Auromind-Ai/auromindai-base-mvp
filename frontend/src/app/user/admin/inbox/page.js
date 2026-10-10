@@ -976,6 +976,7 @@ function getConversationStats(conversation, messages) {
 
 function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, messages, onCloseConversation, onConvertClick, leadDetail, setLeadDetail, activeFilter }) {
     const isInstagram = (ch?.id || lead?.channel || '').toLowerCase() === 'instagram';
+    const stats = getConversationStats(lead, messages);
     const isClosed =
         lead?.status?.toUpperCase() === 'CLOSED' ||
         leadDetail?.status === 'closed';
@@ -1053,15 +1054,15 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                         <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold shrink-0"
                             style={{ backgroundColor: '#1e1e1e' }}>
                             {isInstagram && lead.profile_pic ? (
-                                <ProfilePic src={lead.profile_pic} alt={getDisplayName(lead, ch.id)} fallbackText={getAvatarText(lead, ch.id)} color={ch.color} />
+                                <ProfilePic src={lead.profile_pic} alt={getDisplayName(lead, ch?.id)} fallbackText={getAvatarText(lead, ch?.id)} color={ch?.color || '#5bb81d'} />
                             ) : (
-                                <span style={{ color: ch.color }}>{getAvatarText(lead, ch.id)}</span>
+                                <span style={{ color: ch?.color || '#5bb81d' }}>{getAvatarText(lead, ch?.id)}</span>
                             )}
                         </div>
 
                         <div className="flex flex-col min-w-0">
                             <h4 className="text-[15px] font-semibold text-white truncate">
-                                {getDisplayName(lead, ch.id)}
+                                {getDisplayName(lead, ch?.id)}
                             </h4>
                             {isInstagram && (
                                 <p className="text-[12px] text-white/50 mt-0.5">
@@ -1082,10 +1083,10 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                         <p className="text-[14px] font-semibold text-white/90 uppercase tracking-wider mb-3">System Tier</p>
                         <div className="flex items-center gap-2">
                             {(() => {
-                                const t = SYSTEM_TIERS[tier.toLowerCase()] || SYSTEM_TIERS.cold;
+                                const t = SYSTEM_TIERS[String(tier || 'cold').toLowerCase()] || SYSTEM_TIERS.cold;
                                 return (
-                                    <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold border ${t.bg} ${t.border} ${t.textCls}`}>
-                                        {t.text}
+                                    <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold border ${t?.bg || ''} ${t?.border || ''} ${t?.textCls || ''}`}>
+                                        {t?.text || 'Cold'}
                                     </span>
                                 );
                             })()}
@@ -1097,7 +1098,7 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                     <div className="mb-6">
                         <p className="text-[14px] font-semibold text-white/90 uppercase tracking-wider mb-3">Agent Labels</p>
                         <div className="flex flex-wrap gap-2">
-                            {Object.keys(AGENT_LABELS).map(lblKey => {
+                            {Object.keys(AGENT_LABELS || {}).map(lblKey => {
                                 const config = AGENT_LABELS[lblKey];
                                 const isSelected = activeLabel === lblKey;
                                 return (
@@ -1120,10 +1121,10 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                     <div className="mb-6 space-y-2.5">
                         <p className="text-[16px] font-normal text-white/90 tracking-wider mb-3 mt-10">Conversation Info</p>
                         {[
-                            ['First Contact', stats.firstContact || '—'],
-                            ['Last Contact', stats.lastContact || '—'],
-                            ['Total Messages', stats.totalMessages],
-                            ['Status', <span key="status" style={{ color: ch.color }}>{stats.status}</span>],
+                            ['First Contact', stats?.firstContact || '—'],
+                            ['Last Contact', stats?.lastContact || '—'],
+                            ['Total Messages', stats?.totalMessages ?? 0],
+                            ['Status', <span key="status" style={{ color: ch?.color || '#22c55e' }}>{stats?.status || 'Open'}</span>],
                         ].map(([label, value]) => (
                             <div key={label} className="flex justify-between items-center">
                                 <span className="text-[13px] text-white/70 font-medium">{label}</span>
@@ -1145,7 +1146,7 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                                 </button>
                                 {!isClosed && (
                                     <button
-                                        onClick={() => onCloseConversation(lead?.id)}
+                                        onClick={() => onCloseConversation && onCloseConversation(lead?.id)}
                                         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] text-red-400 border border-red-500/20 hover:bg-red-500/10 transition-colors cursor-pointer"
                                         style={{ backgroundColor: 'rgba(239,68,68,0.05)' }}>
                                         <XCircle size={15} strokeWidth={2} />
