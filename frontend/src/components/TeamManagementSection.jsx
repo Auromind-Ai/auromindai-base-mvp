@@ -26,6 +26,7 @@ import {
   ChevronDown,
   ChevronUp,
   LayoutDashboard,
+  Inbox,
   MessageSquare,
   TrendingUp,
   Bot,
@@ -65,8 +66,8 @@ const PERMISSION_SECTIONS = [
   },
   {
     id: "inbox",
-    label: "Omni-Inbox",
-    icon: MessageSquare,
+    label: "Inbox",
+    icon: Inbox,
     items: [
       {
         id: "conversations",

@@ -1,10 +1,15 @@
-// Dual-Engine Audio Notification System
-// 1. HTMLAudioElement (/sounds/message-notification.mp3 & .wav)
-// 2. Web Audio API Synthesizer (Crystal-clear chime fallback when audio element is suspended or blocked)
+// Professional Single-Tone Audio Notification System
+// 1. Studio-grade single-tone acoustic audio files (/sounds/message-notification.wav & /sounds/message-sent.wav)
+// 2. Web Audio API Synthesizer (Single-tone crystal ping fallback for notifications, tactile tap for sent)
 
 let audioContext = null;
 let audioUnlocked = false;
 let audioElement = null;
+let sentAudioElement = null;
+
+// Debounce trackers to strictly guarantee single sound playback (no overlapping/double sounds)
+let lastNotificationPlayedAt = 0;
+let lastSentSoundPlayedAt = 0;
 
 // Global processed message ID set with bounds to prevent memory leak
 export const processedMessageIds = new Set();
@@ -38,14 +43,28 @@ function getAudioElement() {
     if (typeof window === 'undefined') return null;
     if (!audioElement && typeof Audio !== 'undefined') {
         try {
-            audioElement = new Audio('/sounds/message-notification.mp3');
+            audioElement = new Audio('/sounds/message-notification.wav');
             audioElement.preload = 'auto';
-            audioElement.volume = 1.0;
+            audioElement.volume = 0.85;
         } catch (e) {
             console.warn('[Audio] Could not create HTML Audio element:', e);
         }
     }
     return audioElement;
+}
+
+function getSentAudioElement() {
+    if (typeof window === 'undefined') return null;
+    if (!sentAudioElement && typeof Audio !== 'undefined') {
+        try {
+            sentAudioElement = new Audio('/sounds/message-sent.wav');
+            sentAudioElement.preload = 'auto';
+            sentAudioElement.volume = 0.65;
+        } catch (e) {
+            console.warn('[Audio] Could not create sent HTML Audio element:', e);
+        }
+    }
+    return sentAudioElement;
 }
 
 // Explicitly unlock AudioContext and HTML5 Audio on user interaction
@@ -58,7 +77,6 @@ export async function unlockAudio() {
             if (ctx.state === 'suspended') {
                 await ctx.resume().catch(() => {});
             }
-            // Play a 1-sample silent Web Audio buffer to register user-activation with the browser engine
             try {
                 const buffer = ctx.createBuffer(1, 1, 22050);
                 const source = ctx.createBufferSource();
@@ -69,13 +87,11 @@ export async function unlockAudio() {
 
             if (ctx.state === 'running') {
                 audioUnlocked = true;
-                console.log('🔊 AudioContext unlocked & active');
             }
         }
 
         const audio = getAudioElement();
         if (audio && !audioUnlocked) {
-            // Prime HTML Audio element during user gesture
             try {
                 audio.muted = true;
                 const p = audio.play();
@@ -88,6 +104,22 @@ export async function unlockAudio() {
                 }
             } catch (_) {
                 if (audio) audio.muted = false;
+            }
+        }
+
+        const sentAudio = getSentAudioElement();
+        if (sentAudio) {
+            try {
+                sentAudio.muted = true;
+                const p2 = sentAudio.play();
+                if (p2 !== undefined) {
+                    await p2;
+                    sentAudio.pause();
+                    sentAudio.currentTime = 0;
+                    sentAudio.muted = false;
+                }
+            } catch (_) {
+                if (sentAudio) sentAudio.muted = false;
             }
         }
     } catch (err) {
@@ -114,7 +146,7 @@ if (typeof window !== 'undefined') {
     window.addEventListener('touchstart', unlockHandler, { passive: true });
 }
 
-// Synthesizer Fallback: Generates a 2-tone pleasant notification chime using Web Audio API
+// Synthesizer Fallback: Generates a single-tone, pristine crystal glass ping (Slack / Apple style)
 export async function playSynthesizedChime() {
     try {
         const ctx = getAudioContext();
@@ -130,37 +162,37 @@ export async function playSynthesizedChime() {
 
         const now = ctx.currentTime;
         const masterGain = ctx.createGain();
-        masterGain.gain.setValueAtTime(0.4, now);
+        masterGain.gain.setValueAtTime(0.35, now);
         masterGain.connect(ctx.destination);
 
-        // Tone 1: 1046.5 Hz (High C6) for 0.14s
-        const osc1 = ctx.createOscillator();
-        const gain1 = ctx.createGain();
-        osc1.type = 'sine';
-        osc1.frequency.setValueAtTime(1046.5, now);
-        gain1.gain.setValueAtTime(0.45, now);
-        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
-        osc1.connect(gain1);
-        gain1.connect(masterGain);
+        // Single Pure Note: 830.6 Hz (Ab5) with natural acoustic decay
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(830.6, now);
 
-        // Tone 2: 1568.0 Hz (High G6) starting at now + 0.08s for 0.28s
-        const osc2 = ctx.createOscillator();
-        const gain2 = ctx.createGain();
-        osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(1568.0, now + 0.08);
-        gain2.gain.setValueAtTime(0.001, now);
-        gain2.gain.setValueAtTime(0.55, now + 0.08);
-        gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
-        osc2.connect(gain2);
-        gain2.connect(masterGain);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
 
-        osc1.start(now);
-        osc1.stop(now + 0.18);
+        osc.connect(gain);
+        gain.connect(masterGain);
 
-        osc2.start(now + 0.08);
-        osc2.stop(now + 0.40);
+        // Gentle overtone for natural glass resonance
+        const oscOvertone = ctx.createOscillator();
+        const gainOvertone = ctx.createGain();
+        oscOvertone.type = 'sine';
+        oscOvertone.frequency.setValueAtTime(830.6 * 2.01, now);
+        gainOvertone.gain.setValueAtTime(0.06, now);
+        gainOvertone.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+        oscOvertone.connect(gainOvertone);
+        gainOvertone.connect(masterGain);
 
-        console.log('🔔 🔊 Web Audio synthesized chime played successfully');
+        osc.start(now);
+        osc.stop(now + 0.35);
+
+        oscOvertone.start(now);
+        oscOvertone.stop(now + 0.18);
+
         return true;
     } catch (err) {
         console.warn('[Audio] Synthesized chime failed:', err);
@@ -168,33 +200,115 @@ export async function playSynthesizedChime() {
     }
 }
 
-// Master Play Function: Tries HTMLAudioElement first, falls back to Web Audio API synthesizer
+// Master Play Function for Inbound Messages: Strictly single-tone, debounced to prevent duplicate/echo sounds
 export async function playNotificationSound() {
     if (typeof window === 'undefined') return false;
 
+    const now = Date.now();
+    // Strictly prevent double-play within 600ms
+    if (now - lastNotificationPlayedAt < 600) {
+        return false;
+    }
+    lastNotificationPlayedAt = now;
+
     let played = false;
 
-    // 1. Try HTML Audio Element (Primary)
+    // 1. Try single-tone WAV Audio Element
     try {
         const audio = getAudioElement();
         if (audio) {
             audio.currentTime = 0;
-            audio.volume = 1.0;
+            audio.volume = 0.85;
             audio.muted = false;
             const playPromise = audio.play();
             if (playPromise !== undefined) {
                 await playPromise;
                 played = true;
-                console.log('🔔 🔊 Audio element notification played successfully');
             }
         }
     } catch (error) {
-        console.warn('[Audio] HTML Audio element play rejected/blocked, falling back to Web Audio API:', error?.name || error);
+        // Fall back to Web Audio API
     }
 
-    // 2. If HTML Audio failed or was blocked, trigger Web Audio API Synthesizer
+    // 2. Synthesizer Fallback if HTML Audio is suspended or blocked
     if (!played) {
         played = await playSynthesizedChime();
+    }
+
+    return played;
+}
+
+// Synthesizer Fallback for Sent Sound: Subtle, discreet tactile tap (60ms)
+export async function playSynthesizedSentSound() {
+    try {
+        const ctx = getAudioContext();
+        if (!ctx) return false;
+
+        if (ctx.state === 'suspended') {
+            try {
+                await ctx.resume();
+            } catch (e) {
+                console.warn('[Audio] Could not resume AudioContext for sent sound:', e);
+            }
+        }
+
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(420, now);
+        osc.frequency.exponentialRampToValueAtTime(260, now + 0.05);
+
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.065);
+
+        return true;
+    } catch (err) {
+        console.warn('[Audio] Synthesized sent sound failed:', err);
+        return false;
+    }
+}
+
+// Master Sent Sound Function: Subtle, discrete tactile tap confirming message delivery
+export async function playSentSound() {
+    if (typeof window === 'undefined') return false;
+
+    const now = Date.now();
+    // Debounce sent sound within 300ms
+    if (now - lastSentSoundPlayedAt < 300) {
+        return false;
+    }
+    lastSentSoundPlayedAt = now;
+
+    let played = false;
+
+    // 1. Try single-tone WAV Audio Element
+    try {
+        const audio = getSentAudioElement();
+        if (audio) {
+            audio.currentTime = 0;
+            audio.volume = 0.65;
+            audio.muted = false;
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                await playPromise;
+                played = true;
+            }
+        }
+    } catch (error) {
+        // Fall back to Web Audio API
+    }
+
+    // 2. Synthesizer Fallback
+    if (!played) {
+        played = await playSynthesizedSentSound();
     }
 
     return played;
