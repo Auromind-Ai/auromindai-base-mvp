@@ -9,7 +9,8 @@ import {
     ArrowLeft, SlidersHorizontal, Camera, FileText,
     PenLine, CheckSquare, UserCheck, XCircle, ChevronDown, ChevronUp, Check,
     Inbox, X, Play, Pause, Mic, CheckCheck, Smile, Loader2, MessageCircle,
-    RefreshCw, MessageSquarePlus, MessageSquare, Plus, Video, Trash2
+    RefreshCw, MessageSquarePlus, MessageSquare, Plus, Video, Trash2,
+    Activity, Bell
 } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -259,8 +260,8 @@ function getLastUserActivity(lead, messages) {
     if (messages && messages.length > 0) {
         for (let i = messages.length - 1; i >= 0; i--) {
             const m = messages[i];
-            const senderType = m.sender_type?.toLowerCase();
-            if (senderType === 'user' || senderType === 'customer' || senderType === 'lead') {
+            const senderType = (m.sender_type || '').toLowerCase();
+            if (senderType === 'user' || senderType === 'customer' || senderType === 'lead' || senderType === 'inbound') {
                 const ts = m.timestamp || m.created_at;
                 if (ts) {
                     const d = new Date(ts);
@@ -268,20 +269,10 @@ function getLastUserActivity(lead, messages) {
                 }
             }
         }
-        // Fallback to most recent message timestamp if no explicit user message is flagged
-        const latestMsg = messages[messages.length - 1];
-        const latestTs = latestMsg?.timestamp || latestMsg?.created_at;
-        if (latestTs) {
-            const d = new Date(latestTs);
-            if (!isNaN(d.getTime())) return d;
-        }
     }
-    if (lead) {
-        const leadTs = lead.last_contact_time || lead.last_interaction || lead.last_message_at || lead.updated_at || lead.created_at;
-        if (leadTs) {
-            const d = new Date(leadTs);
-            if (!isNaN(d.getTime())) return d;
-        }
+    if (lead?.last_user_message_at || lead?.last_incoming_at) {
+        const d = new Date(lead.last_user_message_at || lead.last_incoming_at);
+        if (!isNaN(d.getTime())) return d;
     }
     return null;
 }
@@ -1559,28 +1550,57 @@ function ChatArea({
     );
 
     const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [isRingHovered, setIsRingHovered] = useState(false);
     const [now, setNow] = useState(() => Date.now());
 
     useEffect(() => {
-        if (ch.id !== 'whatsapp' || !lastUserActivity) return;
+        if (!isWhatsApp || !lastUserActivity) return;
         const timeout = setTimeout(() => setNow(Date.now()), 0);
-        const interval = setInterval(() => setNow(Date.now()), 30000);
+        const interval = setInterval(() => setNow(Date.now()), 10000);
         return () => { clearTimeout(timeout); clearInterval(interval); };
-    }, [ch.id, lastUserActivity]);
+    }, [isWhatsApp, lastUserActivity]);
 
-    const { whatsAppWindowState, whatsAppWindowRemaining } = useMemo(() => {
-        if (ch.id !== 'whatsapp') return { whatsAppWindowState: 'window_open', whatsAppWindowRemaining: '' };
-        if (!hasIncomingMessage) return { whatsAppWindowState: 'awaiting_reply', whatsAppWindowRemaining: '' };
-        if (!lastUserActivity) return { whatsAppWindowState: 'awaiting_reply', whatsAppWindowRemaining: '' };
-        const diffMs = 24 * 60 * 60 * 1000 - (now - lastUserActivity.getTime());
+    const { whatsAppWindowState, whatsAppWindowRemaining, windowPercentRemaining, formattedTooltip } = useMemo(() => {
+        if (!isWhatsApp) {
+            return {
+                whatsAppWindowState: 'window_open',
+                whatsAppWindowRemaining: '',
+                windowPercentRemaining: 100,
+                formattedTooltip: ''
+            };
+        }
+        if (!hasIncomingMessage || !lastUserActivity) {
+            return {
+                whatsAppWindowState: 'awaiting_reply',
+                whatsAppWindowRemaining: '',
+                windowPercentRemaining: 0,
+                formattedTooltip: "Customer hasn't messaged yet"
+            };
+        }
+        const totalMs = 24 * 60 * 60 * 1000;
+        const diffMs = totalMs - (now - lastUserActivity.getTime());
         if (diffMs > 0) {
             const diffHrs = Math.floor(diffMs / (60 * 60 * 1000));
             const diffMins = Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000));
             const remaining = diffHrs > 0 ? `${diffHrs}h ${diffMins}m remaining` : `${diffMins}m remaining`;
-            return { whatsAppWindowState: 'window_open', whatsAppWindowRemaining: remaining };
+            const tooltip = `${diffHrs}h ${diffMins}m left in the 24-hour WhatsApp messaging window`;
+            const percent = Math.max(0, Math.min(100, (diffMs / totalMs) * 100));
+            return {
+                whatsAppWindowState: 'window_open',
+                whatsAppWindowRemaining: remaining,
+                windowPercentRemaining: percent,
+                formattedTooltip: tooltip
+            };
         }
-        return { whatsAppWindowState: 'window_closed', whatsAppWindowRemaining: '' };
-    }, [ch.id, hasIncomingMessage, lastUserActivity, now]);
+        return {
+            whatsAppWindowState: 'window_closed',
+            whatsAppWindowRemaining: '0m remaining',
+            windowPercentRemaining: 0,
+            formattedTooltip: '24-hour WhatsApp messaging window closed'
+        };
+    }, [isWhatsApp, hasIncomingMessage, lastUserActivity, now]);
+
+    const isWindowOpen = !isWhatsApp || whatsAppWindowState === 'window_open';
 
     const [composerMode, setComposerMode] = useState('respond');
     const [isAiOn, setIsAiOn] = useState(false);
@@ -1670,19 +1690,99 @@ function ChatArea({
                     </div>
                 </div>
 
-                {/* Right: Info Button to toggle side drawer */}
-                <div className="flex items-center gap-2 shrink-0">
+                {/* Right: Actions */}
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                    {/* 24-Hour WhatsApp Gateway Countdown Ring (Images 3, 4, 5) */}
+                    {isWhatsApp && (
+                        <div
+                            className="relative flex items-center justify-center p-1 cursor-pointer"
+                            onMouseEnter={() => setIsRingHovered(true)}
+                            onMouseLeave={() => setIsRingHovered(false)}
+                        >
+                            {/* SVG circular progress ring matching Images 3 & 5 */}
+                            <svg className="w-[20px] h-[20px] -rotate-90 transform" viewBox="0 0 20 20">
+                                {/* Dark background track */}
+                                <circle
+                                    cx="10"
+                                    cy="10"
+                                    r="7.5"
+                                    fill="none"
+                                    stroke="#232634"
+                                    strokeWidth="2.4"
+                                />
+                                {/* Dynamic Green Progress Arc */}
+                                {whatsAppWindowState === 'window_open' && (
+                                    <circle
+                                        cx="10"
+                                        cy="10"
+                                        r="7.5"
+                                        fill="none"
+                                        stroke="#10b981"
+                                        strokeWidth="2.4"
+                                        strokeDasharray={47.124}
+                                        strokeDashoffset={47.124 * (1 - windowPercentRemaining / 100)}
+                                        strokeLinecap="round"
+                                        className="transition-all duration-500 ease-linear"
+                                    />
+                                )}
+                            </svg>
+
+                            {/* Floating Tooltip matching Image 4 */}
+                            {isRingHovered && (
+                                <div className="absolute top-full right-0 mt-2 z-50 pointer-events-none whitespace-nowrap px-3 py-1.5 rounded-lg bg-[#181924] border border-white/10 text-zinc-100 shadow-2xl text-[12px] font-normal animate-in fade-in zoom-in-95 duration-150">
+                                    <span>{formattedTooltip}</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Star Button */}
+                    <button
+                        type="button"
+                        onClick={() => setIsFavorite(prev => !prev)}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors border border-white/5 hover:border-white/10 ${
+                            isFavorite ? 'bg-amber-500/10 text-amber-400' : 'bg-white/[0.03] hover:bg-white/[0.07] text-zinc-400 hover:text-white'
+                        }`}
+                        title="Star conversation"
+                    >
+                        <Star size={15} className={isFavorite ? 'fill-amber-400' : ''} />
+                    </button>
+
+                    {/* Phone / Call Button */}
+                    {lead.phone && (
+                        <a
+                            href={`tel:${lead.phone}`}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.03] hover:bg-white/[0.07] text-zinc-400 hover:text-white border border-white/5 hover:border-white/10 transition-colors"
+                            title={`Call ${lead.phone}`}
+                        >
+                            <Phone size={15} />
+                        </a>
+                    )}
+
+                    {/* Template Button matching Image 2 */}
+                    {isWhatsApp && (
+                        <button
+                            type="button"
+                            onClick={() => setShowTemplateModal(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#181a24] hover:bg-[#222433] text-zinc-300 hover:text-white border border-white/10 text-[12.5px] font-medium transition-colors cursor-pointer shadow-sm active:scale-95"
+                            title="Send WhatsApp Template"
+                        >
+                            Template
+                        </button>
+                    )}
+
+                    {/* Info Button to toggle side drawer */}
                     <button
                         onClick={onInfoClick}
-                        className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-95 border ${
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95 border ${
                             infoActive
                                 ? 'bg-[#7c3aed]/20 text-[#c084fc] border-[#7c3aed]/40 shadow-sm shadow-purple-900/20'
-                                : 'bg-white/[0.04] hover:bg-white/[0.08] text-zinc-400 hover:text-white border-white/10'
+                                : 'bg-white/[0.03] hover:bg-white/[0.07] text-zinc-400 hover:text-white border-white/5 hover:border-white/10'
                         }`}
                         title="Contact Information"
                         aria-label="Toggle details sidebar"
                     >
-                        <Info size={16} />
+                        <Info size={15} />
                     </button>
                 </div>
             </div>
@@ -2015,9 +2115,19 @@ function ChatArea({
                                 {/* Paperclip (Media / File upload) */}
                                 <button
                                     type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="w-8.5 h-8.5 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/5 transition-colors shrink-0 cursor-pointer"
-                                    title="Attach image, video or audio"
+                                    onClick={() => {
+                                        if (!isWindowOpen) {
+                                            setShowTemplateModal(true);
+                                            return;
+                                        }
+                                        fileInputRef.current?.click();
+                                    }}
+                                    className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center transition-colors shrink-0 ${
+                                        !isWindowOpen
+                                            ? 'text-zinc-500 opacity-30 pointer-events-none'
+                                            : 'text-zinc-400 hover:text-white hover:bg-white/5 cursor-pointer'
+                                    }`}
+                                    title={!isWindowOpen ? "Window closed - start with a template" : "Attach image, video or audio"}
                                 >
                                     <Paperclip size={18} strokeWidth={2.2} />
                                 </button>
@@ -2026,14 +2136,24 @@ function ChatArea({
                                 <div className="relative emoji-picker-container">
                                     <button
                                         type="button"
-                                        onClick={() => setShowEmojiPicker(prev => !prev)}
-                                        className="w-8.5 h-8.5 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/5 transition-colors shrink-0 cursor-pointer"
-                                        title="Emoji"
+                                        onClick={() => {
+                                            if (!isWindowOpen) {
+                                                setShowTemplateModal(true);
+                                                return;
+                                            }
+                                            setShowEmojiPicker(prev => !prev);
+                                        }}
+                                        className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center transition-colors shrink-0 ${
+                                            !isWindowOpen
+                                                ? 'text-zinc-500 opacity-30 pointer-events-none'
+                                                : 'text-zinc-400 hover:text-white hover:bg-white/5 cursor-pointer'
+                                        }`}
+                                        title={!isWindowOpen ? "Window closed - start with a template" : "Emoji"}
                                     >
                                         <Smile size={18} strokeWidth={2.2} />
                                     </button>
 
-                                    {showEmojiPicker && (
+                                    {isWindowOpen && showEmojiPicker && (
                                         <div className="absolute bottom-[60px] left-0 z-[9999] w-[280px] rounded-2xl overflow-hidden border border-white/[0.08] bg-[#1c1c1f] shadow-2xl">
                                             <EmojiPicker
                                                 onEmojiClick={(emojiData) => setMsg(prev => prev + emojiData.emoji)}
@@ -2052,43 +2172,78 @@ function ChatArea({
                                 {/* Microphone (WhatsApp Voice Note Recorder) */}
                                 <button
                                     type="button"
-                                    onClick={startVoiceRecording}
-                                    className="w-8.5 h-8.5 rounded-xl flex items-center justify-center text-zinc-400 hover:text-[#00a884] hover:bg-white/5 transition-colors shrink-0 cursor-pointer"
-                                    title="Record voice message"
+                                    onClick={() => {
+                                        if (!isWindowOpen) {
+                                            setShowTemplateModal(true);
+                                            return;
+                                        }
+                                        startVoiceRecording();
+                                    }}
+                                    className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center transition-colors shrink-0 ${
+                                        !isWindowOpen
+                                            ? 'text-zinc-500 opacity-30 pointer-events-none'
+                                            : 'text-zinc-400 hover:text-[#00a884] hover:bg-white/5 cursor-pointer'
+                                    }`}
+                                    title={!isWindowOpen ? "Window closed - start with a template" : "Record voice message"}
                                 >
                                     <Mic size={18} strokeWidth={2.2} />
                                 </button>
 
                                 {/* Input Field */}
-                                <input
-                                    value={msg}
-                                    onChange={(e) => setMsg(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                                    placeholder={selectedFilePreview ? "Add a caption..." : isInstagram ? "Message..." : "Type a message..."}
-                                    disabled={isUploadingMedia}
-                                    className="flex-1 bg-transparent text-[14.5px] text-white placeholder:text-zinc-500 outline-none px-2 font-normal"
-                                />
+                                {!isWindowOpen ? (
+                                    <div
+                                        onClick={() => setShowTemplateModal(true)}
+                                        className="flex-1 cursor-pointer flex items-center py-1.5 px-2 group"
+                                        title="Click to start with a template"
+                                    >
+                                        <span className="text-[14px] text-zinc-500/70 select-none group-hover:text-zinc-400 transition-colors">
+                                            {whatsAppWindowState === 'window_closed'
+                                                ? "24-hour messaging window closed — start with a template"
+                                                : "Customer hasn't messaged yet — start with a template"}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <input
+                                        value={msg}
+                                        onChange={(e) => setMsg(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                                        placeholder={selectedFilePreview ? "Add a caption..." : isInstagram ? "Message..." : "Type a message..."}
+                                        disabled={isUploadingMedia}
+                                        className="flex-1 bg-transparent text-[14.5px] text-white placeholder:text-zinc-500 outline-none px-2 font-normal"
+                                    />
+                                )}
 
                                 {/* Send Button */}
-                                <button
-                                    type="button"
-                                    onClick={sendMessage}
-                                    disabled={isUploadingMedia || (!msg.trim() && !selectedFile)}
-                                    className={`w-9 h-9 flex items-center justify-center text-white transition-all active:scale-95 shrink-0 ${
-                                        isInstagram
-                                            ? 'rounded-full bg-gradient-to-r from-[#7026ed] to-[#e02868] hover:opacity-90 shadow-md shadow-purple-950/40'
-                                            : 'rounded-full bg-[#00a884] hover:bg-[#02906f] shadow-md shadow-emerald-950/40'
-                                    } ${
-                                        isUploadingMedia || (!msg.trim() && !selectedFile) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
-                                    }`}
-                                    title="Send message"
-                                >
-                                    {isUploadingMedia ? (
-                                        <Loader2 size={16} className="animate-spin text-white" />
-                                    ) : (
-                                        <Send size={15} className="text-white" strokeWidth={2.2} />
-                                    )}
-                                </button>
+                                {!isWindowOpen ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTemplateModal(true)}
+                                        className="w-9 h-9 flex items-center justify-center rounded-full bg-white/[0.04] text-zinc-500 opacity-20 cursor-pointer hover:opacity-50 transition-all shrink-0"
+                                        title="Start with a template"
+                                    >
+                                        <Send size={15} className="text-zinc-400" strokeWidth={2.2} />
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={sendMessage}
+                                        disabled={isUploadingMedia || (!msg.trim() && !selectedFile)}
+                                        className={`w-9 h-9 flex items-center justify-center text-white transition-all active:scale-95 shrink-0 ${
+                                            isInstagram
+                                                ? 'rounded-full bg-gradient-to-r from-[#7026ed] to-[#e02868] hover:opacity-90 shadow-md shadow-purple-950/40'
+                                                : 'rounded-full bg-[#00a884] hover:bg-[#02906f] shadow-md shadow-emerald-950/40'
+                                        } ${
+                                            isUploadingMedia || (!msg.trim() && !selectedFile) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                                        }`}
+                                        title="Send message"
+                                    >
+                                        {isUploadingMedia ? (
+                                            <Loader2 size={16} className="animate-spin text-white" />
+                                        ) : (
+                                            <Send size={15} className="text-white" strokeWidth={2.2} />
+                                        )}
+                                    </button>
+                                )}
                             </>
                         )}
                     </div>
