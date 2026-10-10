@@ -163,19 +163,52 @@ function getHeaders() {
 }
 
 function getDisplayName(lead, channelId) {
+    if (!lead) return 'Unknown';
     if (channelId === 'instagram') {
-        return lead?.contact_name || lead?.username || 'Instagram User';
+        return lead.contact_name || lead.name || lead.username || 'Instagram User';
     }
-    return lead?.phone || lead?.contact_name || 'Unknown';
+
+    // 1. Check if lead has an explicit non-numeric contact name, lead name, profile name or username
+    const candidate = lead.contact_name || lead.name || lead.profile_name || lead.username || lead.customer_name;
+    const cleanPhone = String(lead.phone || lead.external_id || '').replace(/\D/g, '');
+    const cleanCandidate = String(candidate || '').replace(/\D/g, '');
+
+    if (candidate && (!cleanCandidate || cleanCandidate !== cleanPhone) && !/^\+?\d{7,}$/.test(candidate.trim())) {
+        return candidate.trim();
+    }
+
+    // 2. Fallback: check if the preview or last message begins with a greeting like "Hi Name 👋" or "Hello Name,"
+    const preview = lead.preview || lead.last_message || lead.last_message_text || '';
+    if (preview) {
+        const match = preview.match(/^(?:Hi|Hello|Hey|Dear)\s+([A-Za-z][A-Za-z\s]{1,30}?)(?:\s*[👋,!]|\s+Thanks|\s+welcome)/i);
+        if (match && match[1]) {
+            const extracted = match[1].trim();
+            if (extracted && extracted.length > 1 && !/^(?:there|team|customer|user|sir|madam)$/i.test(extracted)) {
+                return extracted;
+            }
+        }
+    }
+
+    // 3. Fallback: formatted phone number
+    const rawPhone = lead.phone || lead.external_id || candidate;
+    if (rawPhone) {
+        const digits = String(rawPhone).replace(/\D/g, '');
+        if (digits.startsWith('91') && digits.length === 12) {
+            return `+91 ${digits.slice(2, 7)} ${digits.slice(7)}`;
+        }
+        return rawPhone.startsWith('+') ? rawPhone : `+${rawPhone}`;
+    }
+    return 'Unknown Contact';
 }
 
 function getAvatarText(lead, channelId) {
-    if (channelId === 'instagram') {
-        const name = lead?.contact_name || lead?.username || 'U';
-        return name[0].toUpperCase();
+    const displayName = getDisplayName(lead, channelId);
+    if (displayName && !displayName.startsWith('+') && !/^\d+$/.test(displayName)) {
+        return displayName.trim()[0].toUpperCase();
     }
-    const phone = lead?.phone || '';
-    return phone.slice(-2) || 'U';
+    const phone = lead?.phone || lead?.external_id || '';
+    const digits = String(phone).replace(/\D/g, '');
+    return digits ? digits.slice(-2) : 'U';
 }
 
 function ProfilePic({ src, alt, fallbackText, color, className = '' }) {
@@ -1328,6 +1361,8 @@ function ChatArea({
     currentUser,
     onNewChat,
     onSendVoiceNote,
+    showTemplateModal: externalShowTemplateModal,
+    setShowTemplateModal: externalSetShowTemplateModal,
 }) {
     const ref = useRef(null);
     const messagesContainerRef = useRef(null);
@@ -1549,7 +1584,9 @@ function ChatArea({
         [lead, messages]
     );
 
-    const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [internalShowTemplateModal, setInternalShowTemplateModal] = useState(false);
+    const showTemplateModal = externalShowTemplateModal !== undefined ? externalShowTemplateModal : internalShowTemplateModal;
+    const setShowTemplateModal = externalSetShowTemplateModal || setInternalShowTemplateModal;
     const [isRingHovered, setIsRingHovered] = useState(false);
     const [now, setNow] = useState(() => Date.now());
 
@@ -2382,6 +2419,7 @@ function InboxContent() {
     const [templateMediaType, setTemplateMediaType] = useState(null);
     const [inboxTemplateMediaUrl, setInboxTemplateMediaUrl] = useState('');
     const [showTemplateSelect, setShowTemplateSelect] = useState(false);
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
     const [inboxTemplates, setInboxTemplates] = useState([]);
     const [selectedInboxTemplate, setSelectedInboxTemplate] = useState(null);
     const [inboxTemplateVariables, setInboxTemplateVariables] = useState({});
@@ -3163,6 +3201,7 @@ function InboxContent() {
         templateName, setTemplateName, setTemplateVariables, setTemplateLanguage,
         fetchInboxTemplates, setSelectedInboxTemplate,
         setTemplateSearchQuery, setShowTemplateSelect,
+        showTemplateModal, setShowTemplateModal,
         workspace,
         selectedFile, setSelectedFile,
         selectedFilePreview, setSelectedFilePreview,
@@ -3171,9 +3210,19 @@ function InboxContent() {
         hasMoreMessages,
         isLoadingOlder,
         currentUser: user,
-        onSendTemplateSuccess: (formattedContent) => {
+        onSendTemplateSuccess: (formattedContent, res) => {
             playSentSound();
-            fetchMessages(lead.id);
+            const realConvId = res?.conversation_id || (leadRef.current?.id && !leadRef.current?.id.startsWith('whatsapp-') ? leadRef.current.id : null);
+            if (realConvId) {
+                if (leadRef.current) {
+                    leadRef.current.id = realConvId;
+                    setLead(prev => prev ? { ...prev, id: realConvId } : prev);
+                }
+                fetchMessages(realConvId);
+            } else if (leadRef.current?.id) {
+                fetchMessages(leadRef.current.id);
+            }
+            fetchConversations(0);
             setMessages(prev => [...prev, {
                 id: 'temp-' + Date.now(),
                 sender_type: 'agent',
@@ -3195,45 +3244,66 @@ function InboxContent() {
 
     const handleStartNewChat = useCallback((fullPhoneNumber) => {
         const cleanDigits = String(fullPhoneNumber).replace(/\D/g, '');
-        // Search if conversation already exists for this phone
+        if (!cleanDigits) return;
+
+        // Ensure WhatsApp channel is selected
+        const waCh = CHANNELS.find(c => c.id === 'whatsapp') || ch;
+        if (ch?.id !== 'whatsapp') setCh(waCh);
+
+        // Search strictly by phone digits (NEVER match by c.id)
         const existing = (conversations || []).find(c => {
-            const p = String(c.phone || c.id || '').replace(/\D/g, '');
-            return p && (p.includes(cleanDigits) || cleanDigits.includes(p));
+            const pDigits = String(c.phone || c.external_id || '').replace(/\D/g, '');
+            if (!pDigits) return false;
+            if (pDigits === cleanDigits) return true;
+            if (cleanDigits.length >= 10 && pDigits.length >= 10) {
+                return cleanDigits.slice(-10) === pDigits.slice(-10);
+            }
+            return false;
         });
 
         if (existing) {
             setLead(existing);
             leadRef.current = existing;
             fetchMessages(existing.id);
-            showToast(`Opened existing chat for +${cleanDigits}`);
+            fetchLeadIdForConversation(existing.id).then(id => setResolvedLeadId(id));
+            setShowTemplateModal(true);
+            showToast(`Opened chat for ${getDisplayName(existing, 'whatsapp')}`);
             return;
         }
 
-        // New conversation placeholder
+        // New conversation placeholder for this exact number
+        const formattedDisplay = cleanDigits.startsWith('91') && cleanDigits.length === 12
+            ? `+91 ${cleanDigits.slice(2, 7)} ${cleanDigits.slice(7)}`
+            : `+${cleanDigits}`;
+
         const newTarget = {
             id: `whatsapp-${cleanDigits}`,
             phone: cleanDigits,
-            contact_name: `+${cleanDigits}`,
+            contact_name: formattedDisplay,
+            name: formattedDisplay,
             channel: 'whatsapp',
             channel_title: 'Groww Digital',
-            status: 'open',
+            status: 'OPEN',
             last_message: 'Start conversation with template',
             last_message_at: new Date().toISOString(),
             unread_count: 0,
         };
 
-        setConversations(prev => [newTarget, ...(prev || [])]);
+        setConversations(prev => [
+            newTarget,
+            ...(prev || []).filter(c => {
+                const p = String(c.phone || '').replace(/\D/g, '');
+                return p !== cleanDigits && (cleanDigits.length >= 10 && p.length >= 10 ? cleanDigits.slice(-10) !== p.slice(-10) : true);
+            })
+        ]);
         setLead(newTarget);
         leadRef.current = newTarget;
         setMessages([]);
 
-        // WhatsApp requires approved template to initiate first message
-        fetchInboxTemplates();
-        setSelectedInboxTemplate(null);
-        setTemplateSearchQuery('');
-        setShowTemplateSelect(true);
-        showToast(`Select an approved template to message +${cleanDigits}`);
-    }, [conversations, fetchInboxTemplates]);
+        // Directly open SendTemplateModal to send template to this exact number
+        setShowTemplateModal(true);
+        showToast(`Select and send an approved template to ${formattedDisplay}`);
+    }, [conversations, ch, fetchMessages]);
 
     const sidebarProps = {
         ch,

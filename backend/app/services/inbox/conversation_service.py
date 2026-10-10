@@ -291,11 +291,30 @@ class ConversationService:
             )
             last_msg_map = {row[0]: row[1] for row in latest_messages}
 
+            # Enrich contact_name from Lead if conversation contact_name is missing or purely numeric
+            lead_names = dict(
+                db.query(Lead.conversation_id, Lead.name)
+                .filter(
+                    Lead.conversation_id.in_(conv_ids),
+                    Lead.name.isnot(None),
+                    Lead.name != "",
+                )
+                .all()
+            )
+
             for c in conversations:
                 c.__dict__['message_count'] = counts.get(c.id, 0)
                 c.__dict__['unread_count'] = unread_counts.get(c.id, 0)
                 c.__dict__['last_message'] = last_msg_map.get(c.id, '')
                 c.__dict__['last_message_text'] = last_msg_map.get(c.id, '')
+
+                curr_name = getattr(c, 'contact_name', None)
+                is_numeric = curr_name and curr_name.strip().lstrip('+').isdigit()
+                if not curr_name or is_numeric:
+                    l_name = lead_names.get(c.id)
+                    if l_name and not l_name.strip().lstrip('+').isdigit():
+                        c.contact_name = l_name
+                        c.__dict__['contact_name'] = l_name
         return conversations
 
     @staticmethod
