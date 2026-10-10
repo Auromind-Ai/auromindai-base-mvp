@@ -140,6 +140,10 @@ const nextConfig = {
                 destination: `${BACKEND_URL}/:path*`,
             },
             {
+                source: '/temp_uploads/:path*',
+                destination: `${BACKEND_URL}/temp_uploads/:path*`,
+            },
+            {
                 source: '/ws/:path*',
                 destination: `${BACKEND_URL}/ws/:path*`,
             },

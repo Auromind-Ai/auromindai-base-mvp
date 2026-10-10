@@ -534,14 +534,77 @@ function ConversationSidebar({
         };
     }, [isChannelDropdownOpen]);
 
-    // Status pill style per conversation
+    // Status pill style per conversation matching Image 1
     function getStatusPill(conv) {
         const raw = (conv?.status || 'open').toLowerCase();
-        if (raw === 'open') return { label: 'Open', bg: 'rgba(14,165,233,0.15)', color: '#38bdf8', border: 'rgba(14,165,233,0.3)' };
-        if (raw === 'follow_up' || raw === 'follow up') return { label: 'Follow Up', bg: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: 'rgba(251,191,36,0.3)' };
-        if (raw === 'converted') return { label: 'Converted', bg: 'rgba(168,85,247,0.15)', color: '#a855f7', border: 'rgba(168,85,247,0.3)' };
-        if (raw === 'closed') return { label: 'Closed', bg: 'rgba(255,255,255,0.06)', color: '#9ca3af', border: 'rgba(255,255,255,0.1)' };
-        return { label: raw.charAt(0).toUpperCase() + raw.slice(1), bg: 'rgba(14,165,233,0.15)', color: '#38bdf8', border: 'rgba(14,165,233,0.3)' };
+        const cId = (conv?.channel || ch?.id || '').toLowerCase();
+        const isWA = cId !== 'instagram' && cId !== 'twilio';
+
+        if (raw === 'open') {
+            return isWA
+                ? { label: 'Open', bg: '#09221a', color: '#25d366', border: '#14533e', dotColor: '#25d366', dotGlow: true }
+                : { label: 'Open', bg: '#0e1e38', color: '#38bdf8', border: '#1d3d6e', dotColor: '#0ea5e9', dotGlow: true };
+        }
+        if (raw === 'follow_up' || raw === 'follow up') {
+            return isWA
+                ? { label: 'Follow Up', bg: '#09221a', color: '#25d366', border: '#14533e', dotColor: '#25d366', dotGlow: true }
+                : { label: 'Follow Up', bg: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: 'rgba(251,191,36,0.3)', dotColor: '#fbbf24', dotGlow: false };
+        }
+        if (raw === 'converted') {
+            return { label: 'Converted', bg: 'rgba(168,85,247,0.15)', color: '#a855f7', border: 'rgba(168,85,247,0.3)', dotColor: '#a855f7', dotGlow: false };
+        }
+        if (raw === 'closed') {
+            return { label: 'Closed', bg: 'rgba(255,255,255,0.06)', color: '#9ca3af', border: 'rgba(255,255,255,0.1)', dotColor: '#9ca3af', dotGlow: false };
+        }
+        return isWA
+            ? { label: raw.charAt(0).toUpperCase() + raw.slice(1), bg: '#09221a', color: '#25d366', border: '#14533e', dotColor: '#25d366', dotGlow: false }
+            : { label: raw.charAt(0).toUpperCase() + raw.slice(1), bg: '#0e1e38', color: '#38bdf8', border: '#1d3d6e', dotColor: '#0ea5e9', dotGlow: false };
+    }
+
+    // Authentic WhatsApp preview helper (Image 3: Camera icon + Photo, Mic + Voice message)
+    function renderLastMessagePreview(conv, text) {
+        const raw = (text || '').trim();
+        if (!raw) return <span className="text-zinc-500">No messages yet</span>;
+
+        const isImage = /^\[?IMAGE\]?$/i.test(raw) || conv?.last_media_type === 'image' || (raw.includes('/temp_uploads/') && /\.(jpe?g|png|webp|gif)/i.test(raw));
+        const isAudio = /^\[?(VOICE|AUDIO)\]?$/i.test(raw) || conv?.last_media_type === 'audio' || (raw.includes('/temp_uploads/') && /\.(ogg|webm|mp3|wav|m4a|opus)/i.test(raw));
+        const isVideo = /^\[?VIDEO\]?$/i.test(raw) || conv?.last_media_type === 'video' || (raw.includes('/temp_uploads/') && /\.(mp4|mov)/i.test(raw));
+        const isDoc = /^\[?DOCUMENT\]?$/i.test(raw) || conv?.last_media_type === 'document' || (raw.includes('/temp_uploads/') && /\.(pdf|docx?|zip)/i.test(raw));
+
+        if (isImage) {
+            return (
+                <span className="inline-flex items-center gap-1.5 text-zinc-300 font-medium">
+                    <Camera size={14} className="text-zinc-400 shrink-0 inline -mt-0.5" />
+                    <span>Photo</span>
+                </span>
+            );
+        }
+        if (isAudio) {
+            return (
+                <span className="inline-flex items-center gap-1.5 text-zinc-300 font-medium">
+                    <Mic size={14} className="text-zinc-400 shrink-0 inline -mt-0.5" />
+                    <span>Voice message</span>
+                </span>
+            );
+        }
+        if (isVideo) {
+            return (
+                <span className="inline-flex items-center gap-1.5 text-zinc-300 font-medium">
+                    <Video size={14} className="text-zinc-400 shrink-0 inline -mt-0.5" />
+                    <span>Video</span>
+                </span>
+            );
+        }
+        if (isDoc) {
+            return (
+                <span className="inline-flex items-center gap-1.5 text-zinc-300 font-medium">
+                    <FileText size={14} className="text-zinc-400 shrink-0 inline -mt-0.5" />
+                    <span>Document</span>
+                </span>
+            );
+        }
+
+        return <span className="truncate">{raw}</span>;
     }
 
     const handleRefreshClick = () => {
@@ -861,12 +924,12 @@ function ConversationSidebar({
                             onClick={() => onLeadSelect(l)}
                             className={`w-full p-3.5 sm:p-4 rounded-2xl text-left transition-all group relative border ${
                                 sel
-                                    ? 'bg-[#181926] border-purple-500/30 shadow-md'
+                                    ? 'bg-[#0d1c17]/85 border-[#25D366]/40 shadow-md ring-1 ring-[#25D366]/20'
                                     : 'bg-[#13141f]/70 border-transparent hover:bg-white/[0.04]'
                             }`}
                         >
                             <div className="flex items-start gap-3.5">
-                                {/* Avatar with online indicator */}
+                                {/* Avatar matching Image 1 Color Palette: #128C7E to #25D366 */}
                                 <div className="relative shrink-0 mt-0.5">
                                     {(() => {
                                         const cId = (l.channel || ch.id || '').toLowerCase();
@@ -874,7 +937,7 @@ function ConversationSidebar({
                                             ? 'bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600'
                                             : cId === 'twilio'
                                                 ? 'bg-[#ef4444]'
-                                                : 'bg-gradient-to-br from-[#9333ea] via-[#4f46e5] to-[#2563eb] shadow-[0_0_20px_rgba(79,70,229,0.45)]';
+                                                : 'bg-gradient-to-br from-[#128C7E] to-[#25D366] shadow-[0_0_20px_rgba(37,211,102,0.4)]';
                                         return (
                                             <div
                                                 className={`w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center text-[15px] sm:text-[16px] font-bold text-white overflow-hidden ${bgCol}`}
@@ -909,17 +972,28 @@ function ConversationSidebar({
                                         </span>
                                     </div>
 
-                                    {/* Line 2: Message preview */}
-                                    <p className="text-[13px] text-zinc-400 truncate leading-relaxed mb-2.5">
-                                        {lastMsgText}
-                                    </p>
+                                    {/* Line 2: Message preview (matching Image 3: Camera icon + Photo, Mic + Voice message) */}
+                                    <div className="text-[13px] text-zinc-400 truncate leading-relaxed mb-2.5">
+                                        {renderLastMessagePreview(l, lastMsgText)}
+                                    </div>
 
-                                    {/* Line 3: Status Pill (• Open) + Unread Badge */}
+                                    {/* Line 3: Status Pill (• Open) matching Image 1 + Unread Badge */}
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                         <span
-                                            className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-0.5 rounded-full border leading-tight bg-[#0e1e38] text-[#38bdf8] border-[#1d3d6e] shadow-sm"
+                                            className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-0.5 rounded-full border leading-tight shadow-sm"
+                                            style={{
+                                                backgroundColor: pill.bg,
+                                                borderColor: pill.border,
+                                                color: pill.color
+                                            }}
                                         >
-                                            <span className="w-2 h-2 rounded-full bg-[#0ea5e9] shadow-[0_0_8px_rgba(14,165,233,0.85)]" />
+                                            <span
+                                                className="w-1.5 h-1.5 rounded-full"
+                                                style={{
+                                                    backgroundColor: pill.dotColor,
+                                                    boxShadow: pill.dotGlow ? `0 0 6px ${pill.dotColor}` : 'none'
+                                                }}
+                                            />
                                             {pill.label}
                                         </span>
 
@@ -1522,8 +1596,13 @@ function ChatArea({
         }
     };
 
+    const [isScrolledUp, setIsScrolledUp] = useState(false);
+
     const handleScroll = async (e) => {
         const container = e.currentTarget;
+        const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+        setIsScrolledUp(distanceFromBottom > 140);
+
         if (container.scrollTop < 60 && hasMoreMessages && !isLoadingOlder) {
             const prevScrollHeight = container.scrollHeight;
             const prevScrollTop = container.scrollTop;
@@ -1668,7 +1747,7 @@ function ChatArea({
                             className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-[14px] sm:text-[15px] font-bold text-white overflow-hidden shadow-sm ${
                                 isInstagram
                                     ? 'p-[2px] bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] shadow-md shadow-pink-900/20'
-                                    : 'bg-gradient-to-br from-[#9333ea] via-[#4f46e5] to-[#2563eb] shadow-[0_0_18px_rgba(79,70,229,0.4)]'
+                                    : 'bg-gradient-to-br from-[#128C7E] to-[#25D366] shadow-[0_0_18px_rgba(37,211,102,0.35)]'
                             }`}
                         >
                             <div className={`w-full h-full rounded-full overflow-hidden flex items-center justify-center ${isInstagram ? 'bg-[#14151a]' : ''}`}>
@@ -1937,12 +2016,36 @@ function ChatArea({
                         ) : (
                             <span className="inline-flex items-center gap-1.5 float-right ml-3.5 mt-1 -mb-0.5 select-none shrink-0 align-bottom">
                                 <span className="text-[11px] text-[#8696a0] leading-none font-normal">{timeStr}</span>
-                                {!isUser && (
-                                    <svg width="16" height="11" viewBox="0 0 16 11" fill="none" className="text-[#53bdeb] shrink-0 inline-block">
-                                        <path d="M11.05 0.75L4.85 7.15L2.05 4.35L0.95 5.45L4.85 9.35L12.15 1.85L11.05 0.75Z" fill="currentColor"/>
-                                        <path d="M15.05 0.75L8.85 7.15L8.05 6.35L6.95 7.45L8.85 9.35L16.15 1.85L15.05 0.75Z" fill="currentColor"/>
-                                    </svg>
-                                )}
+                                {!isUser && (() => {
+                                    const status = (m.status || '').toLowerCase();
+                                    const isRead = status === 'read' || status === 'seen' || Boolean(m.is_read) || Boolean(m.read_at);
+                                    const isDelivered = status === 'delivered' || Boolean(m.delivered_at);
+
+                                    if (isRead) {
+                                        // Double BLUE tick only when user has seen/read the message
+                                        return (
+                                            <svg width="16" height="11" viewBox="0 0 16 11" fill="none" className="text-[#53bdeb] shrink-0 inline-block" title="Read">
+                                                <path d="M11.05 0.75L4.85 7.15L2.05 4.35L0.95 5.45L4.85 9.35L12.15 1.85L11.05 0.75Z" fill="currentColor"/>
+                                                <path d="M15.05 0.75L8.85 7.15L8.05 6.35L6.95 7.45L8.85 9.35L16.15 1.85L15.05 0.75Z" fill="currentColor"/>
+                                            </svg>
+                                        );
+                                    }
+                                    if (isDelivered) {
+                                        // Double GRAY tick when delivered to device but not yet seen
+                                        return (
+                                            <svg width="16" height="11" viewBox="0 0 16 11" fill="none" className="text-[#8696a0] shrink-0 inline-block" title="Delivered">
+                                                <path d="M11.05 0.75L4.85 7.15L2.05 4.35L0.95 5.45L4.85 9.35L12.15 1.85L11.05 0.75Z" fill="currentColor"/>
+                                                <path d="M15.05 0.75L8.85 7.15L8.05 6.35L6.95 7.45L8.85 9.35L16.15 1.85L15.05 0.75Z" fill="currentColor"/>
+                                            </svg>
+                                        );
+                                    }
+                                    // Single GRAY tick when sent
+                                    return (
+                                        <svg width="12" height="11" viewBox="0 0 12 11" fill="none" className="text-[#8696a0] shrink-0 inline-block" title="Sent">
+                                            <path d="M11.05 0.75L4.85 7.15L2.05 4.35L0.95 5.45L4.85 9.35L12.15 1.85L11.05 0.75Z" fill="currentColor"/>
+                                        </svg>
+                                    );
+                                })()}
                             </span>
                         );
 
@@ -2000,21 +2103,31 @@ function ChatArea({
                     </div>
                 )}
 
-                {/* Floating Scroll Down Button */}
+                {/* Floating Scroll Down Button like WhatsApp Web */}
                 <AnimatePresence>
-                    {unreadScrolledCount > 0 && (
+                    {isScrolledUp && (
                         <motion.button
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
+                            initial={{ opacity: 0, scale: 0.85, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.85, y: 10 }}
+                            transition={{ duration: 0.15 }}
                             onClick={() => {
-                                ref.current?.scrollIntoView({ behavior: 'smooth' });
+                                messagesContainerRef.current?.scrollTo({
+                                    top: messagesContainerRef.current.scrollHeight,
+                                    behavior: 'smooth'
+                                });
+                                setIsScrolledUp(false);
                                 setUnreadScrolledCount(0);
                             }}
-                            className="absolute bottom-20 right-8 z-30 p-2 rounded-full bg-[#181a26] hover:bg-[#222436] text-white border border-white/10 shadow-2xl flex items-center justify-center cursor-pointer transition-transform active:scale-95"
+                            className="absolute bottom-6 right-6 z-40 w-10 h-10 rounded-full bg-[#202c33] hover:bg-[#2a3942] active:scale-95 text-[#8696a0] hover:text-[#e9edef] border border-white/10 shadow-[0_4px_16px_rgba(0,0,0,0.6)] flex items-center justify-center cursor-pointer transition-colors"
                             title="Scroll to bottom"
                         >
-                            <ChevronDown size={18} />
+                            <ChevronDown size={22} strokeWidth={2.2} />
+                            {unreadScrolledCount > 0 && (
+                                <span className="absolute -top-1.5 -right-1 px-1.5 min-w-[18px] h-[18px] rounded-full bg-[#25D366] text-[#111b21] text-[10px] font-bold flex items-center justify-center shadow-md">
+                                    {unreadScrolledCount}
+                                </span>
+                            )}
                         </motion.button>
                     )}
                 </AnimatePresence>
@@ -3034,13 +3147,14 @@ function InboxContent() {
             formData.append('file', audioFile);
             const uploadRes = await api.post('/api/upload', formData);
             const uploadedUrl = uploadRes.url;
+            const localBlobUrl = URL.createObjectURL(audioFile);
             const payload = {
                 conversation_id: lead.id,
                 message: '[VOICE]',
                 metadata: {
                     media_url: uploadedUrl,
                     message_type: 'audio',
-                    mime_type: audioFile.type || 'audio/webm',
+                    mime_type: audioFile.type || 'audio/ogg',
                 }
             };
             const optimisticId = `local-${Date.now()}`;
@@ -3051,10 +3165,10 @@ function InboxContent() {
                 sender_type: 'AGENT',
                 status: 'SENT',
                 timestamp: new Date().toISOString(),
-                is_read: true,
-                media_url: uploadedUrl,
+                is_read: false,
+                media_url: localBlobUrl || uploadedUrl,
                 media_type: 'audio',
-                mime_type: audioFile.type || 'audio/webm',
+                mime_type: audioFile.type || 'audio/ogg',
                 metadata: payload.metadata
             };
             setMessages(prev => [...prev, optimisticMsg]);

@@ -573,6 +573,9 @@ function WhatsAppAudioMessage({ url, isMe, timeNode }) {
 
     try {
       if (audio.paused) {
+        if (Number.isFinite(audio.duration) && audio.currentTime >= audio.duration) {
+          audio.currentTime = 0;
+        }
         await audio.play();
         setIsPlaying(true);
       } else {
@@ -581,6 +584,7 @@ function WhatsAppAudioMessage({ url, isMe, timeNode }) {
       }
     } catch (error) {
       console.error('Audio playback failed:', error);
+      setIsPlaying(false);
     }
   };
 
