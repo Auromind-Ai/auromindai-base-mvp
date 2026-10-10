@@ -498,13 +498,36 @@ class AuthService:
         if auth_type == "signup" and user:
             raise ValueError("Email already registered. Please log in.")
 
-        otp = str(random.randint(100000, 999999))       
+        existing_otp = None
+        existing_ttl = 300
+        try:
+            import redis
+            r_check = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
+            cur_ttl = r_check.ttl(f"otp:{email}")
+            if cur_ttl and cur_ttl > 300:
+                existing_otp = r_check.get(f"otp:{email}")
+                existing_ttl = cur_ttl
+        except Exception:
+            pass
+
+        if not existing_otp:
+            mem_data = _in_memory_otp_store.get(email)
+            if mem_data and (mem_data.get("expires_at", 0) - time.time() > 300):
+                existing_otp = mem_data.get("otp")
+                existing_ttl = int(mem_data.get("expires_at", 0) - time.time())
+
+        if existing_otp:
+            otp = existing_otp
+            expiry_secs = existing_ttl
+        else:
+            otp = str(random.randint(100000, 999999))
+            expiry_secs = 300
        
         # Store in Redis if available
         try:
             import redis
             r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
-            r.setex(f"otp:{email}", 300, otp)  # 5 mins expiry
+            r.setex(f"otp:{email}", expiry_secs, otp)
         except Exception as e:
             import logging
             logging.getLogger("auromind").warning(f"Redis unavailable for send_otp ({e}). Using in-memory fallback for {email}.")
@@ -512,7 +535,7 @@ class AuthService:
         # Always maintain in-memory fallback in case Redis fails during verify
         _in_memory_otp_store[email] = {
             "otp": otp,
-            "expires_at": time.time() + 300,
+            "expires_at": time.time() + expiry_secs,
             "attempts": 0
         }
            
@@ -602,14 +625,20 @@ class AuthService:
 
             raise ValueError("Invalid or expired OTP")
         
-        # Clear attempt counter and stored OTP on success
+        # Clear attempt counter on success. Only delete OTP if it is a standard short-lived OTP (TTL <= 300s)
         if redis_available and r:
             try:
-                r.delete(f"otp:{email}")
+                ttl_rem = r.ttl(f"otp:{email}")
+                if ttl_rem is None or ttl_rem <= 300:
+                    r.delete(f"otp:{email}")
                 r.delete(attempts_key)
             except Exception:
                 pass
-        _in_memory_otp_store.pop(email, None)
+        mem_data = _in_memory_otp_store.get(email)
+        if not mem_data or (mem_data.get("expires_at", 0) - time.time() <= 300):
+            _in_memory_otp_store.pop(email, None)
+        else:
+            mem_data["attempts"] = 0
                
         if auth_type == "signup":
             user = db.query(User).filter(User.email == email).first()

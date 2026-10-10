@@ -81,11 +81,13 @@ export function useTurnstile() {
 
       widgetIdRef.current = turnstile.render(containerRef.current, {
         sitekey: siteKey,
-        size: 'invisible',
+        size: 'normal',
+        appearance: 'interaction-only',
         execution: 'execute', // Wait for manual execution
         callback: (newToken) => {
           setToken(newToken);
           setLoading(false);
+          setError(null);
           if (resolveCallbackRef.current) {
             resolveCallbackRef.current(newToken);
             resolveCallbackRef.current = null;
@@ -98,21 +100,29 @@ export function useTurnstile() {
           setLoading(false);
           setToken(null);
           if (rejectCallbackRef.current) {
-            rejectCallbackRef.current(new Error('Verification failed'));
+            // Dev mode fallback for local testing when no live Cloudflare secret is configured
+            if (!envSiteKey && process.env.NODE_ENV !== 'production' && resolveCallbackRef.current) {
+              console.warn('[Turnstile] Dev mode fallback: passing test token');
+              resolveCallbackRef.current(DUMMY_DEV_SITE_KEY);
+              resolveCallbackRef.current = null;
+              rejectCallbackRef.current = null;
+              return;
+            }
+            rejectCallbackRef.current(new Error(typeof err === 'string' ? err : 'Verification failed'));
             resolveCallbackRef.current = null;
             rejectCallbackRef.current = null;
-          }
-          // Reset widget so it can be retried on next user click
-          if (widgetIdRef.current && window.turnstile) {
-            window.turnstile.reset(widgetIdRef.current);
           }
         },
         'expired-callback': () => {
           console.warn('[Turnstile] Token expired, resetting for a fresh challenge');
           setToken(null);
           setLoading(false);
-          if (widgetIdRef.current && window.turnstile) {
-            window.turnstile.reset(widgetIdRef.current);
+          try {
+            if (widgetIdRef.current && window.turnstile) {
+              window.turnstile.reset(widgetIdRef.current);
+            }
+          } catch (e) {
+            // Ignore reset error if widget is not active
           }
         }
       });
