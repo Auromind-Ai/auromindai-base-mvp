@@ -874,13 +874,13 @@ function ConversationSidebar({
                                             ? 'bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600'
                                             : cId === 'twilio'
                                                 ? 'bg-[#ef4444]'
-                                                : 'bg-[#5bb81d]'; // Vibrant lime green from reference screenshot
+                                                : 'bg-gradient-to-br from-[#9333ea] via-[#4f46e5] to-[#2563eb] shadow-[0_0_20px_rgba(79,70,229,0.45)]';
                                         return (
                                             <div
-                                                className={`w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center text-[15px] sm:text-[16px] font-bold text-white shadow-sm overflow-hidden ${bgCol}`}
+                                                className={`w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center text-[15px] sm:text-[16px] font-bold text-white overflow-hidden ${bgCol}`}
                                             >
-                                                {isInstagram && l.profile_pic ? (
-                                                    <ProfilePic src={l.profile_pic} alt={displayName} fallbackText={avatarText} color="#5bb81d" />
+                                                {cId === 'instagram' && l.profile_pic ? (
+                                                    <ProfilePic src={l.profile_pic} alt={displayName} fallbackText={avatarText} color="#9333ea" />
                                                 ) : (
                                                     <span>{avatarText}</span>
                                                 )}
@@ -888,15 +888,12 @@ function ConversationSidebar({
                                         );
                                     })()}
 
-                                    {/* Top Right Online Indicator */}
-                                    <span className="absolute -top-0.5 right-0.5 w-3 h-3 rounded-full bg-[#22c55e] border-2 border-[#12131d] shadow-sm" />
-
                                     {/* Bottom Right Channel Badge */}
                                     <div
-                                        className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-[#12131d] shadow-md flex items-center justify-center overflow-hidden z-20 bg-[#12131d]"
+                                        className="absolute -bottom-1 -right-1 w-5.5 h-5.5 rounded-full border-2 border-[#12131d] shadow-md flex items-center justify-center overflow-hidden z-20 bg-transparent"
                                         title={l.channel || ch.id}
                                     >
-                                        <ChannelIcon channel={l.channel || ch} size={16} />
+                                        <ChannelIcon channel={l.channel || ch} size={18} />
                                     </div>
                                 </div>
 
@@ -920,9 +917,9 @@ function ConversationSidebar({
                                     {/* Line 3: Status Pill (• Open) + Unread Badge */}
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                         <span
-                                            className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-0.5 rounded-full border leading-tight bg-[#15233e] text-[#38bdf8] border-[#1e3a66]"
+                                            className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-0.5 rounded-full border leading-tight bg-[#0e1e38] text-[#38bdf8] border-[#1d3d6e] shadow-sm"
                                         >
-                                            <span className="w-1.5 h-1.5 rounded-full bg-[#38bdf8]" />
+                                            <span className="w-2 h-2 rounded-full bg-[#0ea5e9] shadow-[0_0_8px_rgba(14,165,233,0.85)]" />
                                             {pill.label}
                                         </span>
 
@@ -1389,11 +1386,15 @@ function ChatArea({
             }
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             audioChunksRef.current = [];
-            const mimeType = (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm'))
-                ? 'audio/webm'
+            const mimeType = (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/ogg; codecs=opus'))
+                ? 'audio/ogg; codecs=opus'
                 : (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/mp4'))
                     ? 'audio/mp4'
-                    : '';
+                    : (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm; codecs=opus'))
+                        ? 'audio/webm; codecs=opus'
+                        : (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm'))
+                            ? 'audio/webm'
+                            : '';
             const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
             mediaRecorderRef.current = recorder;
 
@@ -1440,9 +1441,9 @@ function ChatArea({
 
         recorder.onstop = () => {
             try {
-                const mimeType = recorder.mimeType || 'audio/webm';
+                const mimeType = recorder.mimeType || 'audio/ogg';
                 const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-                const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
+                const ext = mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mp4') ? 'm4a' : 'webm';
                 const audioFile = new File([audioBlob], `voice-note-${Date.now()}.${ext}`, { type: mimeType });
 
                 if (typeof onSendVoiceNote === 'function') {
@@ -1651,7 +1652,7 @@ function ChatArea({
     return (
         <div className={`flex flex-col h-full overflow-hidden ${isInstagram ? 'bg-black' : 'bg-[#0c0d14]'} relative select-none`}>
             {/* Header */}
-            <div className={`flex items-center justify-between px-5 py-2.5 border-b shrink-0 z-10 ${
+            <div className={`flex items-center justify-between px-5 py-2.5 border-b shrink-0 relative z-30 ${
                 isInstagram ? 'bg-black border-white/[0.08]' : 'bg-[#10111A] border-white/[0.07]'
             }`}>
                 {/* Left: Contact Info */}
@@ -1667,7 +1668,7 @@ function ChatArea({
                             className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-[14px] sm:text-[15px] font-bold text-white overflow-hidden shadow-sm ${
                                 isInstagram
                                     ? 'p-[2px] bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] shadow-md shadow-pink-900/20'
-                                    : 'bg-[#22c55e]'
+                                    : 'bg-gradient-to-br from-[#9333ea] via-[#4f46e5] to-[#2563eb] shadow-[0_0_18px_rgba(79,70,229,0.4)]'
                             }`}
                         >
                             <div className={`w-full h-full rounded-full overflow-hidden flex items-center justify-center ${isInstagram ? 'bg-[#14151a]' : ''}`}>
@@ -1679,10 +1680,10 @@ function ChatArea({
                             </div>
                         </div>
                         {/* Channel Badge bottom-right */}
-                        <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 flex items-center justify-center overflow-hidden shadow-sm z-20 ${
-                            isInstagram ? 'border-black bg-black' : 'border-[#10111A] bg-[#10111A]'
+                        <div className={`absolute -bottom-1 -right-1 w-5.5 h-5.5 rounded-full border-2 flex items-center justify-center overflow-hidden shadow-sm z-20 ${
+                            isInstagram ? 'border-black bg-black' : 'border-[#10111A] bg-transparent'
                         }`}>
-                            <ChannelIcon channel={lead.channel || ch} size={16} />
+                            <ChannelIcon channel={lead.channel || ch} size={18} />
                         </div>
                     </div>
 
@@ -1732,7 +1733,7 @@ function ChatArea({
                     {/* 24-Hour WhatsApp Gateway Countdown Ring (Images 3, 4, 5) */}
                     {isWhatsApp && (
                         <div
-                            className="relative flex items-center justify-center p-1 cursor-pointer"
+                            className="relative z-50 flex items-center justify-center p-1 cursor-pointer"
                             onMouseEnter={() => setIsRingHovered(true)}
                             onMouseLeave={() => setIsRingHovered(false)}
                         >
@@ -1764,9 +1765,9 @@ function ChatArea({
                                 )}
                             </svg>
 
-                            {/* Floating Tooltip matching Image 4 */}
+                            {/* Floating Tooltip matching Image 4 - Solid backdrop & high z-index */}
                             {isRingHovered && (
-                                <div className="absolute top-full right-0 mt-2 z-50 pointer-events-none whitespace-nowrap px-3 py-1.5 rounded-lg bg-[#181924] border border-white/10 text-zinc-100 shadow-2xl text-[12px] font-normal animate-in fade-in zoom-in-95 duration-150">
+                                <div className="absolute top-full right-0 mt-2 z-[9999] pointer-events-none whitespace-nowrap px-3.5 py-1.5 rounded-lg bg-[#0e1017] border border-white/20 text-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.95)] text-[12px] font-medium backdrop-blur-md animate-in fade-in zoom-in-95 duration-150">
                                     <span>{formattedTooltip}</span>
                                 </div>
                             )}
@@ -3376,7 +3377,7 @@ function InboxContent() {
                 </div>
 
                 {/* Right Column: Chat Area */}
-                <div className={`flex-1 min-w-0 h-full flex flex-col overflow-hidden relative ${
+                <div className={`flex-1 min-w-0 h-full flex flex-col overflow-hidden relative z-20 ${
                     ch.id === 'instagram' ? 'bg-black' : 'bg-[#0c0d14]'
                 }`}>
                     <ChatArea

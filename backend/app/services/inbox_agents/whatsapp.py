@@ -162,6 +162,115 @@ class WhatsAppService:
         except Exception as e:
             logger.error(f"Mark read error: {str(e)}")
 
+    def upload_media_to_meta(self, file_bytes: bytes, mime_type: str, filename: str) -> Optional[str]:
+        try:
+            url = f"https://graph.facebook.com/v19.0/{self.phone_number_id}/media"
+            headers = {"Authorization": f"Bearer {self.access_token}"}
+            files = {
+                "file": (filename, file_bytes, mime_type),
+            }
+            data = {
+                "messaging_product": "whatsapp",
+                "type": mime_type,
+            }
+            res = requests.post(url, headers=headers, files=files, data=data, timeout=30)
+            if res.status_code == 200:
+                res_data = res.json()
+                media_id = res_data.get("id")
+                logger.info(f"Successfully uploaded media to Meta: id={media_id}")
+                return media_id
+            logger.error(f"Meta media upload failed ({res.status_code}): {res.text}")
+            return None
+        except Exception as e:
+            logger.error(f"Error uploading media to Meta: {e}")
+            return None
+
+    def _resolve_media_bytes(self, media_url: str) -> Optional[tuple[bytes, str, str]]:
+        """Resolves raw media bytes, MIME type, and filename from local storage or URL."""
+        try:
+            from pathlib import Path
+            import mimetypes
+            from urllib.parse import urlparse, unquote
+
+            parsed = urlparse(media_url)
+            clean_path = unquote(parsed.path)
+
+            if clean_path.startswith("/temp_uploads/"):
+                rel_path = clean_path[len("/temp_uploads/"):]
+            elif "temp_uploads" in clean_path:
+                rel_path = clean_path.split("temp_uploads/")[-1]
+            else:
+                rel_path = clean_path.lstrip("/")
+
+            # 1. Try resolving via get_storage()
+            try:
+                from app.services.storage.service import get_storage
+                storage = get_storage()
+                b = storage.get_file_bytes(rel_path)
+                mime, _ = mimetypes.guess_type(rel_path)
+                return b, mime or "application/octet-stream", Path(rel_path).name
+            except Exception:
+                pass
+
+            # 2. Check local directories
+            candidate_dirs = [
+                Path(__file__).resolve().parents[3] / "temp_uploads",
+                Path(__file__).resolve().parents[4] / "temp_uploads",
+                Path.cwd() / "temp_uploads",
+                Path.cwd() / "backend" / "temp_uploads",
+            ]
+            for c_dir in candidate_dirs:
+                local_candidate = c_dir / rel_path
+                if local_candidate.exists() and local_candidate.is_file():
+                    b = local_candidate.read_bytes()
+                    mime, _ = mimetypes.guess_type(str(local_candidate))
+                    return b, mime or "application/octet-stream", local_candidate.name
+
+            # 3. Try fetching from URL if http/https
+            if media_url.startswith("http://") or media_url.startswith("https://"):
+                r = requests.get(media_url, timeout=15)
+                if r.status_code == 200:
+                    mime = r.headers.get("content-type", "application/octet-stream").split(";")[0].strip()
+                    name = Path(parsed.path).name or "media"
+                    return r.content, mime, name
+        except Exception as e:
+            logger.warning(f"Could not resolve media bytes for {media_url}: {e}")
+        return None
+
+    @staticmethod
+    def _convert_audio_for_whatsapp(file_bytes: bytes, mime_type: str = "audio/webm") -> tuple[bytes, str, str]:
+        """Converts audio to WhatsApp-compliant Opus OGG format using ffmpeg if needed."""
+        import shutil, subprocess, tempfile, os
+        ffmpeg_bin = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
+        if not os.path.exists(ffmpeg_bin):
+            return file_bytes, mime_type or "audio/ogg", "voice_note.ogg"
+
+        with tempfile.NamedTemporaryFile(suffix=".input", delete=False) as in_f:
+            in_f.write(file_bytes)
+            in_path = in_f.name
+
+        out_path = in_path + ".ogg"
+        try:
+            cmd = [
+                ffmpeg_bin, "-y", "-i", in_path,
+                "-c:a", "libopus", "-b:a", "64k",
+                "-f", "ogg", out_path
+            ]
+            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=15)
+            with open(out_path, "rb") as out_f:
+                converted_bytes = out_f.read()
+            return converted_bytes, "audio/ogg", "voice_note.ogg"
+        except Exception as e:
+            logger.warning(f"FFmpeg audio conversion to Opus failed: {e}")
+            return file_bytes, "audio/ogg", "voice_note.ogg"
+        finally:
+            for p in (in_path, out_path):
+                if os.path.exists(p):
+                    try:
+                        os.unlink(p)
+                    except Exception:
+                        pass
+
     # SEND MEDIA MESSAGE (IMAGE / VIDEO / DOCUMENT / AUDIO)
     def send_media_message(
         self,
@@ -171,26 +280,39 @@ class WhatsAppService:
         caption: Optional[str] = None
     ) -> Optional[str]:
         try:
+            to = self._clean_recipient_phone(to)
             media_type = media_type.lower()
             if media_type not in {"image", "video", "document", "audio"}:
                 media_type = "image"
+
+            media_id = None
+            resolved = self._resolve_media_bytes(media_url)
+            if resolved:
+                raw_bytes, raw_mime, filename = resolved
+                if media_type == "audio":
+                    audio_bytes, audio_mime, audio_name = self._convert_audio_for_whatsapp(raw_bytes, raw_mime)
+                    media_id = self.upload_media_to_meta(audio_bytes, audio_mime, audio_name)
+                elif not (media_url.startswith("https://") and "localhost" not in media_url and "127.0.0.1" not in media_url):
+                    media_id = self.upload_media_to_meta(raw_bytes, raw_mime, filename)
 
             payload = {
                 "messaging_product": "whatsapp",
                 "recipient_type": "individual",
                 "to": to,
                 "type": media_type,
-                media_type: {
-                    "link": media_url
-                }
             }
+
+            if media_id:
+                payload[media_type] = {"id": media_id}
+            else:
+                payload[media_type] = {"link": media_url}
 
             if caption and media_type in {"image", "video", "document"}:
                 import re
                 if not re.match(r"^\[(IMAGE|VIDEO|AUDIO|VOICE|DOCUMENT)\]$", caption.strip(), re.I):
                     payload[media_type]["caption"] = caption
 
-            if media_type == "document":
+            if media_type == "document" and "filename" not in payload[media_type]:
                 import os
                 from urllib.parse import urlparse
                 filename = os.path.basename(urlparse(media_url).path) or "document"
@@ -202,7 +324,7 @@ class WhatsAppService:
                 self.base_url,
                 json=payload,
                 headers=self._headers(),
-                timeout=10
+                timeout=15
             )
 
             logger.debug(f"WhatsApp send {media_type} response status: {response.status_code}")
@@ -210,7 +332,8 @@ class WhatsAppService:
 
             if response.status_code != 200:
                 logger.error(f"WhatsApp send {media_type} error: {data}")
-                return None
+                err_detail = data.get("error", {}).get("message") or str(data)
+                raise RuntimeError(f"WhatsApp API Error ({response.status_code}): {err_detail}")
 
             message_id = data.get("messages", [{}])[0].get("id")
             logger.info(f"WhatsApp {media_type} message sent: {message_id}")
@@ -218,7 +341,7 @@ class WhatsAppService:
 
         except Exception as e:
             logger.error(f"Send {media_type} failed: {str(e)}")
-            return None
+            raise
 
     # SEND INTERACTIVE BUTTONS (REPLY BUTTONS - MAX 3) WITH OPTIONAL MEDIA HEADER
     def send_interactive_buttons(
@@ -232,6 +355,7 @@ class WhatsAppService:
         media_type: Optional[str] = None,
     ) -> Optional[str]:
         try:
+            to = self._clean_recipient_phone(to)
             formatted_buttons = []
             for i, btn in enumerate(buttons[:3]):
                 label = btn.get("label") or btn.get("title") or f"Option {i+1}"

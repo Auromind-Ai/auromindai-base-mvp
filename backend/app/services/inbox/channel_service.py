@@ -104,17 +104,16 @@ class ChannelService:
                 return f"tw_mock_{uuid.uuid4().hex[:12]}"
 
         if channel == ChannelType.WHATSAPP:
-            try:
-                workspace = ChannelService._get_workspace(conversation)
-                return ChannelService._send_meta_whatsapp_message(
-                    workspace=workspace,
-                    to_number=conversation.phone or conversation.external_id or "",
-                    body=body,
-                    metadata=metadata,
-                )
-            except Exception as e:
-                logger.info("WhatsApp dispatch fallback for demo/test (%s)", e)
+            workspace = ChannelService._get_workspace(conversation)
+            if not workspace or not (workspace.meta_access_token and workspace.meta_phone_number_id):
+                logger.info("WhatsApp workspace credentials missing, using demo fallback")
                 return f"wa_mock_{uuid.uuid4().hex[:12]}"
+            return ChannelService._send_meta_whatsapp_message(
+                workspace=workspace,
+                to_number=conversation.phone or conversation.external_id or "",
+                body=body,
+                metadata=metadata,
+            )
 
         if channel == ChannelType.INSTAGRAM:
             try:
