@@ -10,6 +10,7 @@ class LeadFilters(BaseModel):
     lead_ids: list[UUID] = Field(default_factory=list, max_length=5000)
     search: str | None = Field(None, max_length=255)
     sources: list[str] = Field(default_factory=list, max_length=30)
+    flow_ids: list[UUID] = Field(default_factory=list, max_length=500)
     statuses: list[str] = Field(default_factory=list, max_length=30)
     tiers: list[Literal["hot", "warm", "cold"]] = Field(default_factory=list)
     min_score: int | None = Field(None, ge=0, le=100)

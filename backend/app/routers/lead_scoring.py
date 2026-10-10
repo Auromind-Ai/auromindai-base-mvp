@@ -100,6 +100,7 @@ def remove_follow_up_lead(lead_id: UUID, workspace_id: str | None = None, db: Se
 @router.get("/filter-options")
 def filter_options(workspace_id: str | None = None, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     from app.models.workspace import WorkspaceMember
+    from app.models.automation import AutomationFlow
     wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
     base = db.query(Lead).filter(Lead.workspace_id == wid)
     agents = db.query(User.id, User.full_name, User.email).join(WorkspaceMember, WorkspaceMember.user_id == User.id).filter(WorkspaceMember.workspace_id == wid).all()
@@ -111,6 +112,10 @@ def filter_options(workspace_id: str | None = None, db: Session = Depends(get_db
         "intents": list(get_scoring_config().get_weights()),
         "agents": [{"id": str(a.id), "name": a.full_name or a.email} for a in agents],
         "columns": lead_reporting.EXPORT_COLUMNS,
+        "flows": [{"id": str(flow.id), "name": flow.name or "Untitled flow"} for flow in
+                  db.query(AutomationFlow.id, AutomationFlow.name)
+                  .filter(AutomationFlow.workspace_id == wid)
+                  .order_by(AutomationFlow.name, AutomationFlow.id).all()],
         "tier_ranges": [{"tier": tier, "min": min(scores), "max": max(scores)} for tier in ("cold", "warm", "hot") if (scores := [i for i in range(101) if get_scoring_config().get_tier(i) == tier])],
     }
 
