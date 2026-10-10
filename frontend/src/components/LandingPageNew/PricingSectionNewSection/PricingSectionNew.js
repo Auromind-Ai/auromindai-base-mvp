@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronsDown } from 'lucide-react';
 
 import api from '@/lib/api';
+import { getAppUrl } from '@/lib/auth';
 import PricingComparisonTable from './PricingComparisonTable';
 
 const TOKENS_PER_CREDIT = 1000;
@@ -236,11 +237,19 @@ export default function PricingSectionNew() {
   }, []);
 
   const handlePlanClick = () => {
-    const paymentUrl = '/user/admin/billing/payment';
+    const paymentUrl = '/billing/payment';
     if (user) {
-      router.push(paymentUrl);
+      if (typeof window !== 'undefined' && window.location.hostname.endsWith('orbionagents.com') && !window.location.hostname.startsWith('app.')) {
+        window.location.href = getAppUrl(paymentUrl);
+      } else {
+        router.push(paymentUrl);
+      }
     } else {
-      router.push(`/login?redirect=${encodeURIComponent(paymentUrl)}`);
+      if (typeof window !== 'undefined' && window.location.hostname.endsWith('orbionagents.com') && !window.location.hostname.startsWith('app.')) {
+        window.location.href = getAppUrl(`/login?redirect=${encodeURIComponent(paymentUrl)}`);
+      } else {
+        router.push(`/login?redirect=${encodeURIComponent(paymentUrl)}`);
+      }
     }
   };
 

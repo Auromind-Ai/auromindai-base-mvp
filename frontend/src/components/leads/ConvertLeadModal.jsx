@@ -129,7 +129,7 @@ export default function ConvertLeadModal({ isOpen, onClose, conversation, onSucc
     const leadId = convertedLeadId;
     if (leadId) {
       onClose();
-      router.push(`/user/admin/leads?leadId=${leadId}`);
+      router.push(`/leads?leadId=${leadId}`);
     }
   };
 

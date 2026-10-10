@@ -51,33 +51,76 @@ const icons = {
 };
 
 //  Sidebar category item 
-const CatItem = ({ iconKey, label, active, onClick }) => (
+const CatItem = ({
+  iconKey,
+  icon,
+  label,
+  active,
+  onClick,
+  draggable = false,
+  onDragStart,
+  showGrip = false,
+  isButtonCategory = false,
+}) => (
   <button
+    type="button"
+    draggable={draggable}
+    onDragStart={onDragStart}
     onClick={onClick}
-    className={`w-full flex items-center gap-2.5 sm:gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-normal sm:font-medium transition-all duration-200
+    className={`w-full flex items-center justify-between gap-2.5 sm:gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-normal sm:font-medium transition-all duration-300 ease-in-out cursor-pointer mb-1.5 ${
+      draggable ? 'cursor-grab active:cursor-grabbing hover:scale-[1.01]' : ''
+    }
       ${active
-        ? 'bg-[#1A0B2E] text-white border border-[#3D1F6B]'
-        : 'text-[#B7B3C7] hover:text-white hover:bg-[#110820]'
+        ? 'bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 border border-white/20 text-white shadow-sm'
+        : isButtonCategory
+          ? 'text-[#B7B3C7] bg-[#0E061A]/40 border border-[#24113A]/60 hover:text-white hover:bg-gradient-to-b hover:from-[#814AC8]/40 hover:to-[#221253]/40 hover:border-white/20'
+          : 'text-[#B7B3C7] bg-[#0E061A]/40 border border-[#24113A]/60 hover:text-white hover:bg-white/10 hover:border-white/25'
       }`}
   >
-    <Icon d={icons[iconKey] || icons.template} size={14} />
-    <span>{label}</span>
+    <div className="flex items-center gap-2.5 min-w-0">
+      {icon ? icon : <Icon d={icons[iconKey] || icons.template} size={14} />}
+      <span className="truncate">{label}</span>
+    </div>
+    {showGrip && (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-white/30 shrink-0">
+        <circle cx="9" cy="5" r="1.5" />
+        <circle cx="15" cy="5" r="1.5" />
+        <circle cx="9" cy="12" r="1.5" />
+        <circle cx="15" cy="12" r="1.5" />
+        <circle cx="9" cy="19" r="1.5" />
+        <circle cx="15" cy="19" r="1.5" />
+      </svg>
+    )}
   </button>
 );
 
 //  Input ─
-const Input = ({ label, hint, placeholder, value, onChange, className = '' }) => (
+const Input = ({ label, hint, placeholder, value, onChange, onBlur, error, errorMessage, className = '' }) => (
   <div className={className}>
-    {label && <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">{label}</p>}
-    {hint && <p className="text-white/60 text-[11px] sm:text-xs mb-2 sm:mb-3 leading-relaxed font-normal">{hint}</p>}
+    {label && <p className="text-white text-sm sm:text-base font-normal sm:font-medium mb-1">{label}</p>}
+    {hint && <p className="text-white/60 text-xs sm:text-sm mb-2 sm:mb-3 leading-relaxed font-medium">{hint}</p>}
     <input
-      className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-normal text-white
-        placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]-500 focus:ring-2
-        focus:ring-[#814AC8]/20 transition-all duration-300"
+      className={`w-full bg-[#0B0613] border rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-normal text-white
+        placeholder:text-[#4A4359] focus:outline-none transition-all duration-300 ${
+          error
+            ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
+            : 'border-white/20 focus:border-[#814AC8] focus:ring-2 focus:ring-[#814AC8]/20'
+        }`}
       placeholder={placeholder}
       value={value}
       onChange={onChange}
+      onBlur={onBlur}
     />
+    {error && errorMessage && (
+      <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1.5 font-normal">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="15" y1="9" x2="9" y2="15" />
+          <line x1="9" y1="9" x2="15" y2="15" />
+        </svg>
+        <span>{errorMessage}</span>
+      </p>
+    )}
   </div>
 );
 
@@ -102,16 +145,6 @@ const buttonOptions = [
         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
         <polyline points="15 3 21 3 21 9"></polyline>
         <line x1="10" y1="14" x2="21" y2="3"></line>
-      </svg>
-    ),
-  },
-  {
-    type: 'VOICE_CALL',
-    label: 'Call on WhatsApp',
-    description: 'Direct WhatsApp voice call action button',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
       </svg>
     ),
   },
@@ -160,7 +193,7 @@ function renderFormattedAiText(text) {
       return (
         <span
           key={i}
-          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded bg-purple-500/20 text-[#c490e8] font-mono text-[12px] border border-purple-500/40 font-semibold align-baseline"
+          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded bg-purple-500/20 text-[#c490e8] text-[12px] border border-purple-500/40 font-semibold align-baseline"
         >
           {part}
         </span>
@@ -172,7 +205,7 @@ function renderFormattedAiText(text) {
 
 // ── Phone Preview Component (extracted to avoid deep nesting in return) ──
 function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', variableMapping = {} }) {
-  const whatsappPattern = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' opacity='0.08'%3E%3Cpath d='M10 10h12v12H10zM40 50h12v12H40zM70 20h12v12H70zM20 70h12v12H20zM70 70h12v12H70z' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3Ccircle cx='25' cy='35' r='5' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3Ccircle cx='75' cy='45' r='6' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3Cpath d='M45 15l10 10-10 10M15 85l10-10 10 10' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3C/svg%3E")`;
+  const whatsappPattern = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' opacity='0.05'%3E%3Cpath d='M10 10h12v12H10zM40 50h12v12H40zM70 20h12v12H70zM20 70h12v12H20zM70 70h12v12H70z' fill='none' stroke='%23000000' stroke-width='1'/%3E%3Ccircle cx='25' cy='35' r='5' fill='none' stroke='%23000000' stroke-width='1'/%3E%3Ccircle cx='75' cy='45' r='6' fill='none' stroke='%23000000' stroke-width='1'/%3E%3Cpath d='M45 15l10 10-10 10M15 85l10-10 10 10' fill='none' stroke='%23000000' stroke-width='1'/%3E%3C/svg%3E")`;
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -194,16 +227,16 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
         <div style={{
           width: '300px',
           borderRadius: '44px',
-          background: '#14121b',
+          background: '#1F242D',
           padding: '10px',
-          border: '1.5px solid rgba(255,255,255,0.12)',
-          boxShadow: '0 0 0 8px #14121b, 0 20px 60px rgba(0,0,0,0.9)',
+          border: '1.5px solid rgba(255,255,255,0.15)',
+          boxShadow: '0 0 0 8px #171c26, 0 20px 60px rgba(0,0,0,0.8)',
           position: 'relative',
         }}>
 
           {/* ── Phone screen ── */}
           <div style={{
-            background: '#0c0b11',
+            background: '#EFEAE2',
             borderRadius: '36px',
             overflow: 'hidden',
             position: 'relative',
@@ -212,24 +245,24 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
             flexDirection: 'column',
           }}>
 
-            {/* ── Top Header Section (#1C1C1C Fill Color) ── */}
+            {/* ── Top Header Section (Light WhatsApp iOS Style) ── */}
             <div style={{
-              background: '#1C1C1C',
+              background: '#F6F6F6',
               padding: '10px 14px 10px',
-              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              borderBottom: '1px solid rgba(0,0,0,0.08)',
               flexShrink: 0,
             }}>
-              {/* Status bar row: 9:05 + Dynamic Island + Icons */}
+              {/* Status bar row: 9:41 + Dynamic Island + Icons */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                color: '#ffffff',
+                color: '#000000',
                 fontSize: '12px',
                 fontWeight: '600',
                 marginBottom: '8px',
               }}>
-                <span style={{ minWidth: '40px' }}>9:05</span>
+                <span style={{ minWidth: '40px' }}>9:41</span>
 
                 {/* Dynamic Island Pill Notch */}
                 <div style={{
@@ -240,17 +273,24 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
                 }} />
 
                 <div style={{ display: 'flex', gap: '5px', alignItems: 'center', minWidth: '40px', justifyContent: 'flex-end' }}>
+                  {/* Cellular */}
+                  <svg width="14" height="10" viewBox="0 0 17 11" fill="none">
+                    <rect x="0.5" y="7.5" width="2.5" height="3" rx="0.5" fill="#000000" />
+                    <rect x="4.5" y="5.5" width="2.5" height="5" rx="0.5" fill="#000000" />
+                    <rect x="8.5" y="3" width="2.5" height="7.5" rx="0.5" fill="#000000" />
+                    <rect x="12.5" y="0.5" width="2.5" height="10" rx="0.5" fill="#000000" />
+                  </svg>
                   {/* WiFi */}
                   <svg width="13" height="10" viewBox="0 0 15 11" fill="none">
-                    <path d="M7.5 8.5C8.05 8.5 8.5 8.95 8.5 9.5C8.5 10.05 8.05 10.5 7.5 10.5C6.95 10.5 6.5 10.05 6.5 9.5C6.5 8.95 6.95 8.5 7.5 8.5Z" fill="white"/>
-                    <path d="M4.2 6.2C5.1 5.4 6.25 5 7.5 5C8.75 5 9.9 5.4 10.8 6.2" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
-                    <path d="M1.5 3.8C3.1 2.35 5.2 1.5 7.5 1.5C9.8 1.5 11.9 2.35 13.5 3.8" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+                    <path d="M7.5 8.5C8.05 8.5 8.5 8.95 8.5 9.5C8.5 10.05 8.05 10.5 7.5 10.5C6.95 10.5 6.5 10.05 6.5 9.5C6.5 8.95 6.95 8.5 7.5 8.5Z" fill="#000000"/>
+                    <path d="M4.2 6.2C5.1 5.4 6.25 5 7.5 5C8.75 5 9.9 5.4 10.8 6.2" stroke="#000000" strokeWidth="1.2" strokeLinecap="round"/>
+                    <path d="M1.5 3.8C3.1 2.35 5.2 1.5 7.5 1.5C9.8 1.5 11.9 2.35 13.5 3.8" stroke="#000000" strokeWidth="1.2" strokeLinecap="round"/>
                   </svg>
                   {/* Battery */}
                   <svg width="20" height="10" viewBox="0 0 24 12" fill="none">
-                    <rect x="0.5" y="0.5" width="20" height="11" rx="2.5" stroke="white" strokeOpacity="0.8"/>
-                    <rect x="1.5" y="1.5" width="17" height="9" rx="1.5" fill="white"/>
-                    <path d="M22 4V8C22.8 7.6 23.5 6.85 23.5 6C23.5 5.15 22.8 4.4 22 4Z" fill="white" fillOpacity="0.6"/>
+                    <rect x="0.5" y="0.5" width="20" height="11" rx="2.5" stroke="#000000" strokeOpacity="0.8"/>
+                    <rect x="1.5" y="1.5" width="17" height="9" rx="1.5" fill="#000000"/>
+                    <path d="M22 4V8C22.8 7.6 23.5 6.85 23.5 6C23.5 5.15 22.8 4.4 22 4Z" fill="#000000" fillOpacity="0.6"/>
                   </svg>
                 </div>
               </div>
@@ -264,7 +304,7 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
                 {/* Back arrow */}
                 <button style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                   <svg width="9" height="16" viewBox="0 0 10 17" fill="none">
-                    <path d="M9 1L1.5 8.5L9 16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M9 1L1.5 8.5L9 16" stroke="#007AFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
 
@@ -273,7 +313,7 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
                   width: '32px',
                   height: '32px',
                   borderRadius: '50%',
-                  background: '#2A2A2A',
+                  background: '#000000',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -289,19 +329,26 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
                   </svg>
                 </div>
 
-                {/* Name + status */}
+                {/* Name + verified badge + status */}
                 <div style={{ flex: 1, minWidth: 0, paddingRight: '4px' }}>
-                  <div style={{ color: '#FFFFFF', fontSize: '13px', fontWeight: '600', lineHeight: '1.2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Orbion Agents</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ color: '#000000', fontSize: '13px', fontWeight: '700', lineHeight: '1.2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      Orbion Agents
+                    </span>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="#25D366" style={{ flexShrink: 0 }}>
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                    </svg>
+                  </div>
                   <div style={{ color: '#8E8E93', fontSize: '10px' }}>Business account</div>
                 </div>
 
                 {/* Actions: video + phone */}
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexShrink: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
                     <rect width="14" height="12" x="2" y="6" rx="2" />
                   </svg>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 11.5 19.79 19.79 0 01.08 2.83 2 2 0 012.07 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
                   </svg>
                 </div>
@@ -312,23 +359,25 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
             <div style={{
               flex: 1,
               padding: '14px 12px',
-              background: '#0c0b11',
+              background: '#EFEAE2',
               backgroundImage: whatsappPattern,
               backgroundSize: '100px 100px',
               display: 'flex',
               flexDirection: 'column',
               gap: '10px',
-              minHeight: '430px',
+              minHeight: '410px',
+              overflowY: 'auto',
             }}>
               <div style={{ alignSelf: 'flex-start', width: '100%' }}>
 
                 {/* Message bubble */}
                 <div style={{
-                  background: '#1C1C1C',
-                  borderRadius: '18px',
+                  background: '#FFFFFF',
+                  borderRadius: '16px',
                   overflow: 'hidden',
-                  padding: '14px 16px',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                  padding: '12px 14px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                  border: '1px solid rgba(0,0,0,0.04)',
                 }}>
 
                   {/* Media header */}
@@ -340,7 +389,7 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
                         aspectRatio: '1.91 / 1',
                         overflow: 'hidden',
                         background: '#000',
-                        borderRadius: '12px',
+                        borderRadius: '10px',
                         marginBottom: '10px',
                         position: 'relative',
                         cursor: form.type === 'VIDEO' ? 'pointer' : 'default'
@@ -372,20 +421,20 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
 
                   <div>
                     {form.header && (
-                      <div style={{ fontWeight: '700', marginBottom: '6px', fontSize: '13px', color: '#ffffff' }}>
+                      <div style={{ fontWeight: '700', marginBottom: '6px', fontSize: '13px', color: '#111827' }}>
                         {form.header}
                       </div>
                     )}
-                    <div style={{ color: '#ffffff', fontSize: '12px', lineHeight: '1.6', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontWeight: '400' }}>
+                    <div style={{ color: '#111827', fontSize: '12px', lineHeight: '1.6', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontWeight: '400' }}>
                       {form.message
                         ? (previewMode === 'samples'
                             ? renderPreviewText(form.message, variableMapping, 'samples')
                             : form.message)
-                        : <span style={{ color: 'rgba(255,255,255,0.4)' }}>Hi {"{{customer_name}}"}, welcome to OrbionAgents.</span>
+                        : <span style={{ color: '#9CA3AF' }}>Hi {"{{customer_name}}"}, welcome to OrbionAgents.</span>
                       }
                     </div>
                     {form.footer && (
-                      <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', marginTop: '6px' }}>
+                      <div style={{ color: '#6B7280', fontSize: '10px', marginTop: '6px' }}>
                         {form.footer}
                       </div>
                     )}
@@ -399,18 +448,19 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
                 {form.category === 'AUTHENTICATION' && (
                   <div style={{
                     marginTop: '8px',
-                    background: '#1C1C1C',
-                    borderRadius: '14px',
+                    background: '#FFFFFF',
+                    borderRadius: '12px',
                     padding: '10px 14px',
                     textAlign: 'center',
-                    color: '#38bdf8',
+                    color: '#007AFF',
                     fontSize: '12px',
                     fontWeight: '600',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '6px',
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    border: '1px solid rgba(0,0,0,0.06)',
                   }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -426,18 +476,19 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
                       {buttons.map((b, idx) => (
                         <div key={b.id || idx} style={{
-                          background: '#1C1C1C',
-                          borderRadius: '14px',
+                          background: '#FFFFFF',
+                          borderRadius: '12px',
                           padding: '10px 14px',
                           textAlign: 'center',
-                          color: '#38bdf8',
+                          color: '#007AFF',
                           fontSize: '12px',
                           fontWeight: '600',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           gap: '6px',
-                          boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                          border: '1px solid rgba(0,0,0,0.06)',
                         }}>
                           {b.type === 'URL' && (
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -448,7 +499,7 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
                           )}
                           {b.type === 'PHONE_NUMBER' && (
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 3.07 9.8 19.79 19.79 0 0 1 .01 1.18 2 2 0 0 1 2 0h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L6.09 7.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 14.92v2z"></path>
+                              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 0 1 3.07 9.8 19.79 19.79 0 0 1 .01 1.18 2 2 0 0 1 2 0h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L6.09 7.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 14.92v2z"></path>
                             </svg>
                           )}
                           {b.type === 'VOICE_CALL' && (
@@ -485,18 +536,19 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
                   ) : (
                     <div style={{
                       marginTop: '8px',
-                      background: '#1C1C1C',
-                      borderRadius: '14px',
+                      background: '#FFFFFF',
+                      borderRadius: '12px',
                       padding: '10px 14px',
                       textAlign: 'center',
-                      color: '#38bdf8',
+                      color: '#007AFF',
                       fontSize: '12px',
                       fontWeight: '600',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '6px',
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                      border: '1px solid rgba(0,0,0,0.06)',
                     }}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <line x1="3" y1="12" x2="21" y2="12"></line>
@@ -512,14 +564,15 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
                 {form.category !== 'AUTHENTICATION' && (!buttons || buttons.length === 0) && actionMode === 'cta' && (
                   <div style={{
                     marginTop: '8px',
-                    background: '#1C1C1C',
-                    borderRadius: '16px',
-                    padding: '12px',
+                    background: '#FFFFFF',
+                    borderRadius: '12px',
+                    padding: '11px',
                     textAlign: 'center',
-                    color: '#2d60ff',
+                    color: '#007AFF',
                     fontSize: '13px',
                     fontWeight: '600',
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    border: '1px solid rgba(0,0,0,0.06)',
                   }}>
                     {form.ctaBtnTitle || 'Buy Now'}
                   </div>
@@ -530,13 +583,14 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
                   <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
                     {['Yes', 'No'].map(r => (
                       <div key={r} style={{
-                        background: '#1C1C1C',
-                        borderRadius: '16px',
-                        padding: '10px 18px',
-                        color: '#2d60ff',
+                        background: '#FFFFFF',
+                        borderRadius: '12px',
+                        padding: '8px 16px',
+                        color: '#007AFF',
                         fontSize: '12px',
                         fontWeight: '600',
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                        border: '1px solid rgba(0,0,0,0.06)',
                       }}>
                         {r}
                       </div>
@@ -544,6 +598,53 @@ function PhonePreview({ form, buttons = [], actionMode, previewMode = 'named', v
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* ── WhatsApp iOS Bottom Input Bar ── */}
+            <div style={{
+              background: '#F6F6F6',
+              padding: '8px 10px',
+              borderTop: '1px solid rgba(0,0,0,0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexShrink: 0,
+            }}>
+              {/* Plus icon */}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2.2" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              {/* Input field pill */}
+              <div style={{
+                flex: 1,
+                height: '30px',
+                background: '#FFFFFF',
+                borderRadius: '16px',
+                border: '1px solid rgba(0,0,0,0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 10px',
+              }}>
+                <div style={{ width: '6px' }} />
+              </div>
+              {/* Sticker / Document */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="4" />
+                <path d="M8 12h8" />
+              </svg>
+              {/* Camera icon */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              {/* Mic icon */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
             </div>
           </div>
         </div>
@@ -563,7 +664,7 @@ export default function CreateTemplatePage() {
     category: 'MARKETING',
     language: 'en_US',
     name: '',
-    type: 'TEXT',
+    type: 'NONE',
     header: '',
     message: '',
     footer: '',
@@ -577,11 +678,19 @@ export default function CreateTemplatePage() {
 
   const [aiPrompt, setAiPrompt] = useState('');
   const [tone, setTone] = useState('normal');
+  const [isAiOpen, setIsAiOpen] = useState(false);
   const [generatedTemplates, setGeneratedTemplates] = useState([]);
   const [actionMode, setActionMode] = useState('none');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isHeaderDragOver, setIsHeaderDragOver] = useState(false);
+  const [isButtonDragOver, setIsButtonDragOver] = useState(false);
+
+  // Interactive Buttons State (Meta WhatsApp Official Buttons)
+  const [buttons, setButtons] = useState([]);
+  const [buttonDropdownOpen, setButtonDropdownOpen] = useState(false);
+  const buttonDropdownRef = useRef(null);
 
   // Dynamic Variable System State
   const [variableMapping, setVariableMapping] = useState({});
@@ -589,6 +698,31 @@ export default function CreateTemplatePage() {
   const [activeDefineNumber, setActiveDefineNumber] = useState('1');
   const [previewMode, setPreviewMode] = useState('named'); // 'named' or 'samples'
   const messageTextareaRef = useRef(null);
+
+  // Form Validation State
+  const [touched, setTouched] = useState({ name: false, message: false });
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+
+  // Validation Memos
+  const nameError = useMemo(() => {
+    if (!touched.name && !hasSubmitted) return '';
+    if (!form.name || form.name.trim() === '') {
+      return 'Template name is required';
+    }
+    const nameRegex = /^[a-z0-9_]+$/;
+    if (!nameRegex.test(form.name)) {
+      return 'Template name can only contain lowercase alphanumeric characters and underscores';
+    }
+    return '';
+  }, [form.name, touched.name, hasSubmitted]);
+
+  const messageError = useMemo(() => {
+    if (!touched.message && !hasSubmitted) return '';
+    if (!form.message || form.message.trim() === '') {
+      return 'Message body is required';
+    }
+    return '';
+  }, [form.message, touched.message, hasSubmitted]);
 
   // Derive real-time WhatsApp mapping and variable list
   const mappingResult = useMemo(() => {
@@ -641,6 +775,32 @@ export default function CreateTemplatePage() {
     }
   };
 
+  const handleApplyFormatting = (prefix, suffix = prefix) => {
+    const textarea = messageTextareaRef.current;
+    if (!textarea) return;
+    const currentMsg = form.message || '';
+    const start = textarea.selectionStart ?? currentMsg.length;
+    const end = textarea.selectionEnd ?? currentMsg.length;
+    const selectedText = currentMsg.substring(start, end);
+    const before = currentMsg.substring(0, start);
+    const after = currentMsg.substring(end);
+
+    const replacement = selectedText
+      ? `${prefix}${selectedText}${suffix}`
+      : `${prefix}${suffix}`;
+
+    const newCursorPos = selectedText
+      ? start + replacement.length
+      : start + prefix.length;
+
+    setForm(prev => ({ ...prev, message: before + replacement + after }));
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
   const handleDefineVariable = (number, chosenName) => {
     const cleanName = sanitizeVariableName(chosenName);
     if (!cleanName) return;
@@ -672,6 +832,7 @@ export default function CreateTemplatePage() {
       const ctaBtnTitle = params.get('cta_btn_title');
 
       if (name || category || content || header || footer || cta || ctaBtnTitle) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(prev => ({
           ...prev,
           name: name || prev.name,
@@ -694,11 +855,6 @@ export default function CreateTemplatePage() {
       }
     }
   }, []);
-
-  // Interactive Buttons State (Meta WhatsApp Official Buttons)
-  const [buttons, setButtons] = useState([]);
-  const [buttonDropdownOpen, setButtonDropdownOpen] = useState(false);
-  const buttonDropdownRef = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -777,6 +933,39 @@ export default function CreateTemplatePage() {
         type: 'QUICK_REPLY',
         text: '',
       }]);
+    }
+  };
+
+  const handleHeaderDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsHeaderDragOver(false);
+    try {
+      const dataStr = e.dataTransfer.getData('application/x-template-header');
+      if (!dataStr) return;
+      const data = JSON.parse(dataStr);
+      if (data.kind === 'header' && data.type) {
+        setForm(prev => ({ ...prev, type: data.type }));
+        showToast(`${data.type.charAt(0) + data.type.slice(1).toLowerCase()} Header selected!`, 'info');
+      }
+    } catch (err) {
+      console.error('Header drop parse error:', err);
+    }
+  };
+
+  const handleButtonDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsButtonDragOver(false);
+    try {
+      const dataStr = e.dataTransfer.getData('application/x-template-button');
+      if (!dataStr) return;
+      const data = JSON.parse(dataStr);
+      if (data.kind === 'button' && data.type) {
+        handleAddButton(data.type);
+      }
+    } catch (err) {
+      console.error('Button drop parse error:', err);
     }
   };
 
@@ -878,6 +1067,9 @@ export default function CreateTemplatePage() {
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
+
+    setHasSubmitted(true);
+    setTouched({ name: true, message: true });
 
     if (!form.name || form.name.trim() === '') {
       showToast('Template Name is required', 'warning');
@@ -985,12 +1177,12 @@ export default function CreateTemplatePage() {
       if (form.mediaFile) {
         const fd = new FormData();
         fd.append('name', form.name);
-        fd.append('type', form.type);
+        fd.append('type', form.type === 'NONE' ? 'TEXT' : form.type);
         fd.append('message', numberedText);
         fd.append('named_content', form.message);
         fd.append('variable_mapping', JSON.stringify(mapping));
-        fd.append('header', form.header);
-        fd.append('footer', form.footer);
+        fd.append('header', form.header || '');
+        fd.append('footer', form.footer || '');
         fd.append('cta', ctaVal || '');
         fd.append('cta_btn_title', ctaTitleVal || '');
         fd.append('buttons', JSON.stringify(preparedButtons));
@@ -1002,12 +1194,12 @@ export default function CreateTemplatePage() {
       } else {
         payload = {
           name: form.name,
-          type: form.type,
+          type: form.type === 'NONE' ? 'TEXT' : form.type,
           message: numberedText,
           named_content: form.message,
           variable_mapping: mapping,
-          header: form.header,
-          footer: form.footer,
+          header: form.header || '',
+          footer: form.footer || '',
           cta: ctaVal || null,
           cta_btn_title: ctaTitleVal || null,
           buttons: preparedButtons,
@@ -1019,7 +1211,7 @@ export default function CreateTemplatePage() {
 
       await api.post('/templates/create', payload);
       showToast('Template submitted successfully for Meta approval!', 'success');
-      window.location.href = '/user/admin/templates';
+      window.location.href = '/templates';
     } catch (err) {
       console.error(err);
       showToast(err.message || err?.data?.detail || 'Failed to create template', 'error');
@@ -1069,15 +1261,17 @@ export default function CreateTemplatePage() {
           onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/*  CATEGORIES SIDEBAR  */}
+      {/* ── CATEGORIES SIDEBAR ── */}
       <aside className={`
-        fixed xl:static top-0 left-0 z-50 flex flex-col h-full w-[240px] xl:w-[240px] bg-[#060010] border-r border-[#1A0B2E] shadow-2xl xl:shadow-none
+        fixed xl:static top-0 left-0 z-50 flex flex-col h-full xl:h-[calc(100vh-2rem)] w-[240px] xl:w-[240px]
+        bg-[#090014] border border-white/20 xl:rounded-[24px] xl:my-4 xl:ml-4
+        shadow-[0_0_30px_rgba(168,85,247,0.05)] overflow-hidden shrink-0
         transition-transform duration-300
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'}
       `}>
         <nav className="flex-1 overflow-y-auto p-3 space-y-1 template-scroll">
           <div className="pt-4 pb-1">
-            <p className="text-[14px] text-white font-medium tracking-widest px-3 mb-2">Categories</p>
+            <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Template Type</p>
             <CatItem iconKey="sparkle" label="Marketing"       active={form.category === 'MARKETING'}
               onClick={() => { setForm({ ...form, category: 'MARKETING' }); setSidebarOpen(false); }} />
             <CatItem iconKey="template" label="Utility"        active={form.category === 'UTILITY'}
@@ -1096,13 +1290,46 @@ export default function CreateTemplatePage() {
               }} />
           </div>
           <div className="pt-4 pb-1">
-            <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Template Type</p>
-            <CatItem iconKey="text"  label="Text"  active={form.type === 'TEXT'}
-              onClick={() => { setForm({ ...form, type: 'TEXT' }); setSidebarOpen(false); }} />
-            <CatItem iconKey="image" label="Image" active={form.type === 'IMAGE'}
-              onClick={() => { setForm({ ...form, type: 'IMAGE' }); setSidebarOpen(false); }} />
-            <CatItem iconKey="video" label="Video" active={form.type === 'VIDEO'}
-              onClick={() => { setForm({ ...form, type: 'VIDEO' }); setSidebarOpen(false); }} />
+            <div className="flex items-center justify-between px-3 mb-2">
+              <p className="text-[14px] text-white font-medium uppercase tracking-widest">Header</p>
+              <span className="text-[9px] text-white/70 bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 px-1.5 py-0.5 rounded border border-white/20">Drag</span>
+            </div>
+            <CatItem
+              iconKey="text"
+              label="Text Header"
+              active={form.type === 'TEXT'}
+              draggable={true}
+              showGrip={true}
+              onDragStart={(e) => {
+                e.dataTransfer.setData('application/x-template-header', JSON.stringify({ kind: 'header', type: 'TEXT' }));
+                e.dataTransfer.effectAllowed = 'copy';
+              }}
+              onClick={() => { setForm({ ...form, type: 'TEXT' }); setSidebarOpen(false); }}
+            />
+            <CatItem
+              iconKey="image"
+              label="Image Header"
+              active={form.type === 'IMAGE'}
+              draggable={true}
+              showGrip={true}
+              onDragStart={(e) => {
+                e.dataTransfer.setData('application/x-template-header', JSON.stringify({ kind: 'header', type: 'IMAGE' }));
+                e.dataTransfer.effectAllowed = 'copy';
+              }}
+              onClick={() => { setForm({ ...form, type: 'IMAGE' }); setSidebarOpen(false); }}
+            />
+            <CatItem
+              iconKey="video"
+              label="Video Header"
+              active={form.type === 'VIDEO'}
+              draggable={true}
+              showGrip={true}
+              onDragStart={(e) => {
+                e.dataTransfer.setData('application/x-template-header', JSON.stringify({ kind: 'header', type: 'VIDEO' }));
+                e.dataTransfer.effectAllowed = 'copy';
+              }}
+              onClick={() => { setForm({ ...form, type: 'VIDEO' }); setSidebarOpen(false); }}
+            />
           </div>
 
           <div className="pt-4 pb-1">
@@ -1113,6 +1340,31 @@ export default function CreateTemplatePage() {
               onClick={() => { setForm({ ...form, language: 'ta' }); setSidebarOpen(false); }} />
             <CatItem iconKey="text" label="Hindi (हिन्दी)"  active={form.language === 'hi'}
               onClick={() => { setForm({ ...form, language: 'hi' }); setSidebarOpen(false); }} />
+          </div>
+
+          <div className="pt-4 pb-1">
+            <div className="flex items-center justify-between px-3 mb-2">
+              <p className="text-[14px] text-white font-medium uppercase tracking-widest">Buttons</p>
+              <span className="text-[9px] text-white/70 bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 px-1.5 py-0.5 rounded border border-white/20">Drag</span>
+            </div>
+            {buttonOptions.map((opt) => (
+              <CatItem
+                key={opt.type}
+                icon={opt.icon}
+                label={opt.label}
+                draggable={true}
+                showGrip={true}
+                isButtonCategory={true}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('application/x-template-button', JSON.stringify({ kind: 'button', type: opt.type }));
+                  e.dataTransfer.effectAllowed = 'copy';
+                }}
+                onClick={() => {
+                  handleAddButton(opt.type);
+                  setSidebarOpen(false);
+                }}
+              />
+            ))}
           </div>
         </nav>
       </aside>
@@ -1146,7 +1398,7 @@ export default function CreateTemplatePage() {
             </svg>
           </button>
           <div>
-            <h1 className="text-2xl lg:text-3xl font-semibold text-white tracking-tight">New Templates Message</h1>
+            <h1 className="text-xl lg:text-2xl font-semibold text-white tracking-tight">New Templates Message</h1>
             <p className="text-white/60 text-sm mt-0.5">Create, manage and approve WhatsApp Business templates.</p>
           </div>
         </div>
@@ -1158,98 +1410,135 @@ export default function CreateTemplatePage() {
             {/*  FORM COLUMN  */}
             <div className="flex-1 min-w-0 space-y-6">
 
-              {/* Generate with AI */}
+              {/* Generate with AI (Collapsible) */}
               {!isAuth && (
-                <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-8 shadow-[0_0_40px_rgba(168,85,247,0.08)]">
-                  <h2 className="text-lg sm:text-2xl font-semibold sm:font-bold text-center mb-1">Generate with AI</h2>
-                  <p className="text-white/60 text-xs sm:text-sm font-normal text-center mb-4 sm:mb-6 max-w-lg mx-auto leading-relaxed">
-                    Generate professional message templates in seconds using AI-powered
-                    content suggestions and smart personalization.
-                  </p>
-                  <div className="relative mb-4">
-                    <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">Write your prompt here*</p>
-                    <p className="text-white/60 text-[11px] sm:text-[13px] font-normal mb-2">
-                      "Describe the template you want to create and AI will generate it for you."
-                    </p>
-                    <textarea
-                      rows={3}
-                      placeholder="Write your prompt here..."
-                      value={aiPrompt}
-                      onChange={(e) => setAiPrompt(e.target.value)}
-                      className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-normal
-                        text-white placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]
-                        focus:ring-2 focus:ring-[#814AC8]/20 transition-all duration-300 resize-none"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex gap-2">
-                      {[
-                        { key: 'normal',   label: 'Normal' },
-                        { key: 'exciting', label: '🔥 Exciting' },
-                        { key: 'funny',    label: '😂 Funny' },
-                      ].map(({ key, label }) => (
+                <div className="bg-[#090014] border border-white/20 rounded-[20px] sm:rounded-[24px] shadow-[0_0_40px_rgba(168,85,247,0.05)] overflow-hidden transition-all duration-300">
+                  {/* Collapsible Header Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsAiOpen(prev => !prev)}
+                    className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-white/[0.02] transition-all cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 border border-white/20 flex items-center justify-center text-white shrink-0 shadow-sm">
+                        <Icon d={icons.sparkle} size={15} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-sm sm:text-base font-semibold text-white">Generate with AI</h2>
+                          <span className="text-[10px] text-white bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 border border-white/20 px-2 py-0.5 rounded-full font-medium">
+                            Optional
+                          </span>
+                        </div>
+                        <p className="text-white/60 text-xs mt-0.5 hidden sm:block">
+                          Generate template content instantly using AI prompt suggestions.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-medium text-white hidden sm:inline">
+                        {isAiOpen ? 'Close' : 'Open'}
+                      </span>
+                      <div className={`w-7 h-7 rounded-lg bg-[#140b24] border border-[#2e154f] flex items-center justify-center text-white/70 transition-transform duration-300 ${isAiOpen ? 'rotate-180 text-white' : ''}`}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M6 9l6 6 6-6"/>
+                        </svg>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Collapsible Content */}
+                  {isAiOpen && (
+                    <div className="px-4 pb-5 sm:px-6 sm:pb-6 border-t border-[#24113A]/60 pt-4 animate-in fade-in duration-200">
+                      <div className="relative mb-4">
+                        <p className="text-white text-sm sm:text-base font-normal sm:font-medium mb-1">Write your prompt here*</p>
+                        <p className="text-white/70 text-xs sm:text-sm font-medium mb-2">
+                          &quot;Describe the template you want to create and AI will generate it for you.&quot;
+                        </p>
+                        <textarea
+                          rows={3}
+                          placeholder="Write your prompt here..."
+                          value={aiPrompt}
+                          onChange={(e) => setAiPrompt(e.target.value)}
+                          className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-normal
+                            text-white placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]
+                            focus:ring-2 focus:ring-[#814AC8]/20 transition-all duration-300 resize-none"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div className="flex gap-2">
+                          {[
+                            { key: 'normal',   label: 'Normal' },
+                            { key: 'exciting', label: '🔥 Exciting' },
+                            { key: 'funny',    label: '😂 Funny' },
+                          ].map(({ key, label }) => (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => setTone(key)}
+                              className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-normal sm:font-medium transition-all duration-200 cursor-pointer
+                                ${tone === key
+                                  ? 'bg-[#814AC8] text-white shadow-[0_0_16px_rgba(168,85,247,0.4)]'
+                                  : 'bg-transparent border border-[#24113A] text-[#B7B3C7] hover:border-[#814AC8]/50 hover:text-white'
+                                }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
                         <button
-                          key={key}
-                          onClick={() => setTone(key)}
-                          className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-normal sm:font-medium transition-all duration-200
-                            ${tone === key
-                              ? 'bg-[#814AC8] text-white shadow-[0_0_16px_rgba(168,85,247,0.4)]'
-                              : 'bg-transparent border border-[#24113A] text-[#B7B3C7] hover:border-[#814AC8]/50 hover:text-white'
+                          type="button"
+                          onClick={handleGenerate}
+                          disabled={isGeneratingAI || !aiPrompt || aiPrompt.trim() === ''}
+                          className={`flex items-center gap-2 px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-normal sm:font-medium cursor-pointer
+                            transition-all duration-300 ${isGeneratingAI ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02]'}
+                            ${!aiPrompt || isGeneratingAI
+                              ? 'bg-[#1A0B2E] text-[#B7B3C7]/60 cursor-not-allowed'
+                              : 'bg-gradient-to-r from-[#814AC8] to-[#814AC8] text-white shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_28px_rgba(168,85,247,0.5)]'
                             }`}
                         >
-                          {label}
+                          {isGeneratingAI ? (
+                            <>
+                              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              <span>Generating...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Icon d={icons.sparkle} size={14} />
+                              ✨ Generate
+                            </>
+                          )}
                         </button>
-                      ))}
-                    </div>
-                    <button
-                      onClick={handleGenerate}
-                      disabled={isGeneratingAI || !aiPrompt || aiPrompt.trim() === ''}
-                      className={`flex items-center gap-2 px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-normal sm:font-medium
-                        transition-all duration-300 ${isGeneratingAI ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02]'}
-                        ${!aiPrompt || isGeneratingAI
-                          ? 'bg-[#1A0B2E] text-[#B7B3C7]/60 cursor-not-allowed'
-                          : 'bg-gradient-to-r from-[#814AC8] to-[#814AC8] text-white shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_28px_rgba(168,85,247,0.5)]'
-                        }`}
-                    >
-                      {isGeneratingAI ? (
-                        <>
-                          <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          <span>Generating...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Icon d={icons.sparkle} size={14} />
-                          ✨ Generate
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  {generatedTemplates.length > 0 && (
-                    <div className="mt-5 space-y-3">
-                      {generatedTemplates.map((tpl, i) => (
-                        <div key={i} className="bg-[#0D021A] border border-[#24113A] rounded-2xl p-4">
-                          <p className="text-sm text-[#B7B3C7] whitespace-pre-line mb-3 leading-relaxed">
-                            {renderFormattedAiText(tpl.text)}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const defaultAiMapping = { '1': 'customer_name', '2': 'plan_name', '3': 'amount', '4': 'product_name' };
-                              let raw = tpl.text || '';
-                              raw = String(raw).replace(/(?<!\{)\{([a-zA-Z0-9_]+)\}(?!\})/g, (_, v) => '{{' + v + '}}');
-                              const converted = convertNumberedToNamedText(raw, defaultAiMapping);
-                              const { mapping } = buildWhatsAppVariableMapping(converted);
-                              setVariableMapping(prev => ({ ...defaultAiMapping, ...mapping, ...prev }));
-                              setForm(prev => ({ ...prev, message: converted }));
-                              showToast('AI Template applied with dynamic variables!', 'info');
-                            }}
-                            className="w-full bg-[#814AC8]/20 border border-[#814AC8]/30 text-[#c490e8]
-                              py-2 rounded-xl text-sm hover:bg-[#814AC8]/30 transition-all duration-200 cursor-pointer font-medium"
-                          >
-                            Use this
-                          </button>
+                      </div>
+                      {generatedTemplates.length > 0 && (
+                        <div className="mt-5 space-y-3">
+                          {generatedTemplates.map((tpl, i) => (
+                            <div key={i} className="bg-[#0D021A] border border-[#24113A] rounded-2xl p-4">
+                              <p className="text-sm text-[#B7B3C7] whitespace-pre-line mb-3 leading-relaxed">
+                                {renderFormattedAiText(tpl.text)}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const defaultAiMapping = { '1': 'customer_name', '2': 'plan_name', '3': 'amount', '4': 'product_name' };
+                                  let raw = tpl.text || '';
+                                  raw = String(raw).replace(/(?<!\{)\{([a-zA-Z0-9_]+)\}(?!\})/g, (_, v) => '{{' + v + '}}');
+                                  const converted = convertNumberedToNamedText(raw, defaultAiMapping);
+                                  const { mapping } = buildWhatsAppVariableMapping(converted);
+                                  setVariableMapping(prev => ({ ...defaultAiMapping, ...mapping, ...prev }));
+                                  setForm(prev => ({ ...prev, message: converted }));
+                                  showToast('AI Template applied with dynamic variables!', 'info');
+                                }}
+                                className="w-full bg-[#814AC8]/20 border border-[#814AC8]/30 text-[#c490e8]
+                                  py-2 rounded-xl text-sm hover:bg-[#814AC8]/30 transition-all duration-200 cursor-pointer font-medium"
+                              >
+                                Use this
+                              </button>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
                 </div>
@@ -1257,7 +1546,7 @@ export default function CreateTemplatePage() {
 
               {/* Authentication Notice Banner */}
               {form.category === 'AUTHENTICATION' && (
-                <div className="bg-amber-950/30 border border-amber-500/40 rounded-[20px] p-4 text-xs text-amber-200/90 flex items-start gap-3 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
+                <div className="bg-gradient-to-r from-[#3b2a08]/80 via-[#261b05]/60 to-[#0d0902] border border-white/20 rounded-[20px] p-4 text-xs text-white/90 flex items-start gap-3 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
                   <span className="text-lg leading-none mt-0.5">ℹ️</span>
                   <div className="space-y-1">
                     <p className="font-semibold text-amber-300 text-sm">Authentication Category Notice</p>
@@ -1269,70 +1558,134 @@ export default function CreateTemplatePage() {
               )}
 
               {/* Template Name */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+              <div className="bg-[#090014] border border-white/20 rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
                 <Input
                   label="Template Name"
                   hint="Name can only be in lowercase alphanumeric characters and underscores. Special characters and white-space are not allowed e.g - app_verification_code"
                   placeholder="cart_revival_offerflow_x9k21"
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, name: e.target.value });
+                    if (!touched.name) setTouched(prev => ({ ...prev, name: true }));
+                  }}
+                  onBlur={() => setTouched(prev => ({ ...prev, name: true }))}
+                  error={!!nameError}
+                  errorMessage={nameError}
                 />
               </div>
 
-             
+              {/* Header Drop Zone & Config */}
+              <div
+                onDragOver={(e) => {
+                  if (e.dataTransfer.types.includes('application/x-template-header')) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                    setIsHeaderDragOver(true);
+                  }
+                }}
+                onDragLeave={() => setIsHeaderDragOver(false)}
+                onDrop={handleHeaderDrop}
+                className={`transition-all duration-300 rounded-[24px] ${
+                  isHeaderDragOver ? 'ring-2 ring-[#814AC8] shadow-[0_0_30px_rgba(168,85,247,0.3)] scale-[1.005]' : ''
+                }`}
+              >
+                {/* Initial State (When no header is selected) */}
+                {(!form.type || form.type === 'NONE') && (
+                  <div className="bg-[#090014] border border-white/20 rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                    <p className="text-white text-sm sm:text-base font-normal sm:font-medium mb-1">
+                      Template Header Text <span className="text-white/60 font-normal">(Optional)</span>
+                    </p>
+                    <p className="text-white/60 text-xs sm:text-sm mb-4 leading-relaxed font-medium">
+                      Add a short header to grab attention ( upto 60 characters)
+                    </p>
 
-              {/* Header */}
-              {form.type === 'TEXT' && (
-                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                  <Input
-                    label={<span>Template Header Text <span className="text-white/60 font-normal">(Optional)</span></span>}
-                    hint="Add a short header to grab attention ( upto 60 characters)"
-                    placeholder="Enter header text here"
-                    value={form.header}
-                    onChange={(e) => setForm({ ...form, header: e.target.value })}
-                  />
-                </div>
-              )}
-
-              {/* Header Media Upload — IMAGE / VIDEO types */}
-              {(form.type === 'IMAGE' || form.type === 'VIDEO') && (
-                <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                  <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">
-                    Header ({form.type === 'IMAGE' ? 'Image' : 'Video'}) <span className="text-white/60 font-normal">(Optional)</span>
-                  </p>
-                  <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-2 sm:mb-3 leading-relaxed">
-                    Upload {form.type === 'IMAGE' ? 'an image' : 'a video'} for your template header.
-                  </p>
-
-                  {!form.mediaPreviewUrl ? (
-                    <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[#3D1F6B] rounded-2xl py-6 sm:py-8 cursor-pointer hover:border-[#814AC8] transition-all duration-200">
-                      <Icon d={form.type === 'IMAGE' ? icons.image : icons.video} size={24} className="text-[#814AC8]" />
-                      <span className="text-xs sm:text-sm font-normal text-white/70">
-                        Drag &amp; Drop or <span className="text-[#c490e8] underline">Browse File</span>
-                      </span>
-                      <span className="text-[10px] sm:text-[11px] text-[#4A4359]">
-                        {form.type === 'IMAGE' ? 'JPG, PNG, WEBP • Max 5MB' : 'MP4 • Max 16MB'}
-                      </span>
-                      <input
-                        type="file"
-                        accept={form.type === 'IMAGE' ? 'image/jpeg,image/png,image/webp' : 'video/mp4'}
-                        className="hidden"
-                        onChange={handleMediaUpload}
-                      />
-                    </label>
-                  ) : (
-                    <div className="flex items-center gap-3 bg-[#0D021A] border border-[#24113A] rounded-2xl p-3">
-                      {form.type === 'IMAGE' ? (
-                        <img src={form.mediaPreviewUrl} alt={form.mediaName} className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover shrink-0" />
-                      ) : (
-                        <video src={form.mediaPreviewUrl} className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs sm:text-sm font-normal text-white truncate">{form.mediaName}</p>
-                        <p className="text-[10px] sm:text-xs text-white/50">{(form.mediaSize / (1024 * 1024)).toFixed(1)} MB</p>
+                    <div
+                      onClick={() => setForm(prev => ({ ...prev, type: 'TEXT' }))}
+                      className={`border border-dashed rounded-2xl py-7 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all duration-200 ${
+                        isHeaderDragOver
+                          ? 'border-[#814AC8] bg-[#814AC8]/20 shadow-[0_0_25px_rgba(129,74,200,0.3)]'
+                          : 'border-[#814AC8]/40 bg-[#814AC8]/10 hover:border-[#814AC8] hover:bg-[#814AC8]/15'
+                      }`}
+                    >
+                      <div className="text-[#c490e8]">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                          <circle cx="9" cy="9" r="2"/>
+                          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                          <path d="M12 3v6"/>
+                          <path d="M9 6h6"/>
+                        </svg>
                       </div>
-                      <label className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-[#24113A] text-[11px] sm:text-xs text-[#B7B3C7] hover:border-[#814AC8]/40 hover:text-white cursor-pointer transition-all duration-200">
-                        Replace
+                      <span className="text-xs sm:text-sm font-medium text-white/90">
+                        {isHeaderDragOver ? 'Drop header here' : 'Drag a header type here'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Text Header */}
+                {form.type === 'TEXT' && (
+                  <div className="bg-[#090014] border border-white/20 rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <Input
+                          label={<span>Template Header Text <span className="text-white/60 font-normal">(Optional)</span></span>}
+                          hint="Add a short header to grab attention ( upto 60 characters)"
+                          placeholder="Enter header text here"
+                          value={form.header}
+                          onChange={(e) => setForm({ ...form, header: e.target.value })}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setForm(prev => ({ ...prev, type: 'NONE', header: '' }))}
+                        className="p-1.5 rounded-lg text-white/40 hover:text-rose-400 hover:bg-rose-500/10 ml-2 mt-1 transition-colors cursor-pointer"
+                        title="Remove Header"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="18" y1="6" x2="6" y2="18"/>
+                          <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Header Media Upload — IMAGE / VIDEO types */}
+                {(form.type === 'IMAGE' || form.type === 'VIDEO') && (
+                  <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-white text-xs sm:text-sm font-normal sm:font-medium">
+                        Header ({form.type === 'IMAGE' ? 'Image' : 'Video'}) <span className="text-white/60 font-normal">(Optional)</span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          removeMedia();
+                          setForm(prev => ({ ...prev, type: 'NONE' }));
+                        }}
+                        className="p-1.5 rounded-lg text-white/40 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                        title="Remove Header"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="18" y1="6" x2="6" y2="18"/>
+                          <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      </button>
+                    </div>
+                    <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-2 sm:mb-3 leading-relaxed">
+                      Upload {form.type === 'IMAGE' ? 'an image' : 'a video'} for your template header.
+                    </p>
+
+                    {!form.mediaPreviewUrl ? (
+                      <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[#3D1F6B] rounded-2xl py-6 sm:py-8 cursor-pointer hover:border-[#814AC8] transition-all duration-200">
+                        <Icon d={form.type === 'IMAGE' ? icons.image : icons.video} size={24} className="text-[#814AC8]" />
+                        <span className="text-xs sm:text-sm font-normal text-white/70">
+                          Drag &amp; Drop or <span className="text-[#c490e8] underline">Browse File</span>
+                        </span>
+                        <span className="text-[10px] sm:text-[11px] text-[#4A4359]">
+                          {form.type === 'IMAGE' ? 'JPG, PNG, WEBP • Max 5MB' : 'MP4 • Max 16MB'}
+                        </span>
                         <input
                           type="file"
                           accept={form.type === 'IMAGE' ? 'image/jpeg,image/png,image/webp' : 'video/mp4'}
@@ -1340,61 +1693,164 @@ export default function CreateTemplatePage() {
                           onChange={handleMediaUpload}
                         />
                       </label>
-                      <button
-                        onClick={removeMedia}
-                        className="p-1.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all duration-200"
-                      >
-                        <Icon d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" size={14} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+                    ) : (
+                      <div className="flex items-center gap-3 bg-[#0D021A] border border-[#24113A] rounded-2xl p-3">
+                        {form.type === 'IMAGE' ? (
+                          <img src={form.mediaPreviewUrl} alt={form.mediaName} className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover shrink-0" />
+                        ) : (
+                          <video src={form.mediaPreviewUrl} className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs sm:text-sm font-normal text-white truncate">{form.mediaName}</p>
+                          <p className="text-[10px] sm:text-xs text-white/50">{(form.mediaSize / (1024 * 1024)).toFixed(1)} MB</p>
+                        </div>
+                        <label className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-[#24113A] text-[11px] sm:text-xs text-[#B7B3C7] hover:border-[#814AC8]/40 hover:text-white cursor-pointer transition-all duration-200">
+                          Replace
+                          <input
+                            type="file"
+                            accept={form.type === 'IMAGE' ? 'image/jpeg,image/png,image/webp' : 'video/mp4'}
+                            className="hidden"
+                            onChange={handleMediaUpload}
+                          />
+                        </label>
+                        <button
+                          onClick={removeMedia}
+                          className="p-1.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all duration-200"
+                        >
+                          <Icon d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Message Body */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                <div className="flex items-start justify-between gap-3 mb-2 flex-wrap">
-                  <div>
-                    <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">Message Content</p>
-                    <p className="text-white/60 text-[11px] sm:text-xs font-normal leading-relaxed">
-                      Use text formatting - *bold*, _italic_ &amp; ~strikethrough~<br />
-                      Personalize with meaningful variables like <code className="text-[#c490e8] font-mono">{"{{customer_name}}"}</code>, <code className="text-[#c490e8] font-mono">{"{{plan_name}}"}</code>, <code className="text-[#c490e8] font-mono">{"{{amount}}"}</code>.<br />
-                  
-                    </p>
-                  </div>
-                  {/* Variable Picker Button */}
-                  <VariablePicker onInsertVariable={handleInsertVariable} />
+              <div className="bg-[#090014] border border-white/20 rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                {/* Header row: Body | Required */}
+                <div className="flex items-center justify-between mb-3.5">
+                  <p className="text-white text-sm sm:text-base font-medium">Body (Message Content)</p>
+                  <span className="text-xs text-white/60 font-normal">Required</span>
                 </div>
 
-                <div className="relative mt-3">
+                {/* Toolbar: B I S <> | + Variable */}
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  <div className="flex items-center gap-1 bg-[#0B0613] border border-white/20 rounded-xl p-1">
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormatting('*')}
+                      title="Bold (*text*)"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-xs font-bold text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                    >
+                      B
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormatting('_')}
+                      title="Italic (_text_)"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-xs italic font-serif text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                    >
+                      I
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormatting('~')}
+                      title="Strikethrough (~text~)"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-xs line-through font-semibold text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                    >
+                      S
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormatting('```')}
+                      title="Monospace (```text```)"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-xs font-mono text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                    >
+                      &lt;&gt;
+                    </button>
+                  </div>
+
+                  <div className="w-[1px] h-6 bg-[#24113A] mx-0.5" />
+
+                  {/* Variable Picker Button */}
+                  <VariablePicker onInsertVariable={handleInsertVariable} triggerText="Variable" compact={true} />
+                </div>
+
+                {/* Textarea Input */}
+                <div className="relative">
                   <textarea
                     ref={messageTextareaRef}
                     rows={5}
-                    placeholder="Hi {{customer_name}}, your {{plan_name}} plan is ready. Amount: {{amount}}"
+                    placeholder="Enter your message body text here..."
                     value={form.message}
-                    onChange={handleMessageChange}
-                    className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-normal
-                      text-white placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]
-                      focus:ring-2 focus:ring-[#814AC8]/20 transition-all duration-300 resize-none font-sans"
+                    onChange={(e) => {
+                      handleMessageChange(e);
+                      if (!touched.message) setTouched(prev => ({ ...prev, message: true }));
+                    }}
+                    onBlur={() => setTouched(prev => ({ ...prev, message: true }))}
+                    className={`w-full bg-[#0B0613] border rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-normal
+                      text-white placeholder:text-[#4A4359] focus:outline-none transition-all duration-300 resize-none font-sans ${
+                        messageError
+                          ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
+                          : 'border-[#24113A] focus:border-[#814AC8] focus:ring-2 focus:ring-[#814AC8]/20'
+                      }`}
                   />
-                  <span className="absolute bottom-2.5 right-3 text-[10px] sm:text-[11px] text-[#4A4359]">
-                    {form.message.length} / 1024
-                  </span>
+                  <div className="flex items-center justify-between mt-1 px-1">
+                    {messageError ? (
+                      <p className="text-red-500 text-xs flex items-center gap-1.5 font-normal">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="15" y1="9" x2="9" y2="15" />
+                          <line x1="9" y1="9" x2="15" y2="15" />
+                        </svg>
+                        <span>{messageError}</span>
+                      </p>
+                    ) : (
+                      <div />
+                    )}
+                    <span className="text-[10px] sm:text-[11px] text-[#4A4359]">
+                      {form.message.length} / 1024
+                    </span>
+                  </div>
                 </div>
 
-                {/* Variable Mapping & Status Card */}
-                <VariableMappingCard
-                  variableList={mappingResult.variableList}
-                  unmappedNumberedVars={unmappedNumberedVars}
-                  onOpenDefineModal={(num) => {
-                    setActiveDefineNumber(num);
-                    setDefineModalOpen(true);
-                  }}
-                />
+                {/* Dynamic Variables List (Matching Reference Image) */}
+                {mappingResult.variableList && mappingResult.variableList.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-xs text-white/60 font-normal">
+                      {mappingResult.variableList.length} {mappingResult.variableList.length === 1 ? 'variable' : 'variables'}
+                    </p>
+                    <div className="space-y-2">
+                      {mappingResult.variableList.map((item) => (
+                        <div
+                          key={item.key}
+                          className="flex items-center gap-3 p-1.5 bg-[#0B0613] border border-[#24113A] rounded-xl"
+                        >
+                          <div className="px-3 py-1.5 bg-[#6D28D9] text-white rounded-lg text-xs font-semibold shrink-0 shadow-sm">
+                            {item.whatsappTag || `{{${item.number || item.key}}}`}
+                          </div>
+                          <input
+                            type="text"
+                            value={variableMapping[item.number || item.key] || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setVariableMapping(prev => ({
+                                ...prev,
+                                [item.number || item.key]: val,
+                              }));
+                            }}
+                            placeholder={`Example for ${item.whatsappTag || `{{${item.number || item.key}}}`}`}
+                            className="flex-1 bg-transparent text-xs sm:text-sm text-white/90 placeholder:text-[#4A4359] focus:outline-none border-none px-1"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Footer */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+              <div className="bg-[#090014] border border-white/20 rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
                 <Input
                   label={<span>Message Footer <span className="text-white/60 font-normal">(Optional)</span></span>}
                   hint="Your message content. Upto 60 characters are allowed."
@@ -1406,20 +1862,33 @@ export default function CreateTemplatePage() {
 
               {/* Buttons (Meta WhatsApp Official) */}
               {!isAuth && (
-                <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                <div
+                  onDragOver={(e) => {
+                    if (e.dataTransfer.types.includes('application/x-template-button')) {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'copy';
+                      setIsButtonDragOver(true);
+                    }
+                  }}
+                  onDragLeave={() => setIsButtonDragOver(false)}
+                  onDrop={handleButtonDrop}
+                  className={`bg-[#090014] border rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)] transition-all duration-200 ${
+                    isButtonDragOver ? 'border-[#814AC8] shadow-[0_0_30px_rgba(168,85,247,0.25)]' : 'border-white/20'
+                  }`}
+                >
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-2">
                     <div>
-                      <h3 className="text-white text-xs sm:text-sm font-semibold flex items-center gap-2">
+                      <h3 className="text-white text-xs sm:text-sm font-normal flex items-center gap-2">
                         <span>Buttons</span>
                         <span className="text-white/40 font-normal">• Optional</span>
                       </h3>
-                      <p className="text-white/60 text-[11px] sm:text-xs font-normal mt-1 leading-relaxed max-w-xl">
+                      <p className="text-white/60 text-xs sm:text-sm font-normal mt-1 leading-relaxed max-w-xl">
                         Create buttons that let customers respond to your message or take action. You can add up to ten buttons. If you add more than three buttons, they will appear in a list.
                       </p>
                     </div>
 
                     <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 relative" ref={buttonDropdownRef}>
-                      <span className="text-[11px] text-white/50 bg-[#140a26] border border-[#2c144d] px-2.5 py-1.5 rounded-xl font-mono">
+                      <span className="text-[11px] text-white/50 bg-[#140a26] border border-[#2c144d] px-2.5 py-1.5 rounded-xl">
                         {buttons.length} / 10
                       </span>
 
@@ -1428,10 +1897,10 @@ export default function CreateTemplatePage() {
                         type="button"
                         onClick={() => setButtonDropdownOpen(prev => !prev)}
                         disabled={buttons.length >= 10}
-                        className="flex items-center gap-2 px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-[#1A0B2E] border border-[#3D1F6B] text-white hover:bg-[#251042] hover:border-[#814AC8] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm cursor-pointer"
+                        className="flex items-center gap-2 px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 border border-white/20 text-white hover:bg-[#251042] hover:border-[#814AC8] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm cursor-pointer"
                       >
                         <span className="text-base leading-none font-light">+</span>
-                        <span>Add button</span>
+                        <span>Add Button</span>
                         <svg
                           width="12"
                           height="12"
@@ -1453,16 +1922,16 @@ export default function CreateTemplatePage() {
                               key={opt.type}
                               type="button"
                               onClick={() => handleAddButton(opt.type)}
-                              className="w-full flex items-start gap-2.5 p-2 rounded-xl hover:bg-[#1E0D38] text-left transition-colors group cursor-pointer"
+                              className="w-full flex items-start gap-2.5 p-2 rounded-xl border border-transparent hover:bg-gradient-to-b hover:from-[#814AC8]/40 hover:to-[#221253]/40 hover:border-white/20 text-white text-left transition-all duration-300 group cursor-pointer"
                             >
-                              <div className="mt-0.5 p-1.5 rounded-lg bg-[#180a2c] border border-[#2e1352] text-[#c490e8] group-hover:text-white group-hover:border-[#814AC8]">
+                              <div className="mt-0.5 p-1.5 rounded-lg bg-[#180a2c] border border-[#2e1352] text-white group-hover:text-white group-hover:border-white/30 transition-all">
                                 {opt.icon}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <span className="text-xs font-medium text-white group-hover:text-[#e0b0ff] block">
+                                <span className="text-xs font-medium text-white group-hover:text-white block transition-colors">
                                   {opt.label}
                                 </span>
-                                <span className="text-[10px] text-white/50 block leading-tight mt-0.5">
+                                <span className="text-[10px] text-white/50 group-hover:text-white/80 block leading-tight mt-0.5 transition-colors">
                                   {opt.description}
                                 </span>
                               </div>
@@ -1474,7 +1943,7 @@ export default function CreateTemplatePage() {
                   </div>
 
                   {/* Buttons List */}
-                  {buttons.length > 0 ? (
+                  {buttons.length > 0 && (
                     <div className="space-y-3 mt-4">
                       {buttons.map((btn, index) => {
                         const opt = buttonOptions.find(o => o.type === btn.type) || buttonOptions[0];
@@ -1486,7 +1955,7 @@ export default function CreateTemplatePage() {
                             {/* Card Header */}
                             <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-[#1c0d30]">
                               <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-mono text-white/40 font-semibold">
+                                <span className="text-[11px] text-white/40 font-semibold">
                                   #{index + 1}
                                 </span>
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border bg-[#1A0B2E] border-[#3D1F6B] text-[#c490e8]">
@@ -1590,7 +2059,7 @@ export default function CreateTemplatePage() {
                                     value={btn.code || ''}
                                     onChange={(e) => handleUpdateBtn(index, 'code', e.target.value.toUpperCase())}
                                     placeholder="SAVE20"
-                                    className="w-full bg-[#0E071A] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm font-mono text-emerald-400 placeholder:text-white/30 focus:outline-none focus:border-[#814AC8]"
+                                    className="w-full bg-[#0E071A] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm text-emerald-400 placeholder:text-white/30 focus:outline-none focus:border-[#814AC8]"
                                   />
                                   <p className="text-[10px] text-white/40 mt-1">Customers tap to copy code directly (max 15 chars)</p>
                                 </div>
@@ -1600,11 +2069,36 @@ export default function CreateTemplatePage() {
                         );
                       })}
                     </div>
-                  ) : (
-                    <div className="mt-4 p-4 rounded-2xl border border-dashed border-[#24113A] bg-[#0c0416] text-center">
-                      <p className="text-xs text-white/40">No buttons added yet. Click &quot;+ Add button&quot; to add interactive actions.</p>
-                    </div>
                   )}
+
+                  {/* Dedicated Drag & Drop Target Box */}
+                  <div
+                    onDragOver={(e) => {
+                      if (e.dataTransfer.types.includes('application/x-template-button')) {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'copy';
+                        setIsButtonDragOver(true);
+                      }
+                    }}
+                    onDragLeave={() => setIsButtonDragOver(false)}
+                    onDrop={handleButtonDrop}
+                    className={`mt-4 border-2 border-dashed rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer ${
+                      isButtonDragOver
+                        ? 'border-[#814AC8] bg-[#814AC8]/20 shadow-[0_0_25px_rgba(129,74,200,0.3)] scale-[1.01]'
+                        : 'border-[#3D1F6B]/60 bg-[#0c0416] hover:border-[#814AC8]/60 hover:bg-[#140824]'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-[#1A0B2E] border border-[#3D1F6B] flex items-center justify-center text-[#c490e8]">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                    </div>
+                    <span className="text-xs sm:text-sm font-medium text-white/90">
+                      {isButtonDragOver ? 'Drop to add button' : 'Drag buttons here'}
+                    </span>
+                    <span className="text-[12px] text-white/50">or click any button in sidebar / &quot;+ Add button&quot;</span>
+                  </div>
                 </div>
               )}
 
@@ -1616,7 +2110,7 @@ export default function CreateTemplatePage() {
                       <Icon d={icons.sparkle} size={14} className="text-[#c490e8]" />
                       <span>One-Tap OTP Button (Authentication)</span>
                     </p>
-                    <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium">
+                    <span className="text-[10px] text-white bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-white/10 px-2 py-0.5 rounded-full font-medium">
                       Copy Code
                     </span>
                   </div>
@@ -1653,7 +2147,7 @@ export default function CreateTemplatePage() {
             <div className="w-full xl:w-[300px] shrink-0 flex flex-col gap-5">
 
               {/* Template Preview card */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_0_30px_rgba(168,85,247,0.08)]">
+              <div className="bg-[#090014] border border-white/20 rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_0_30px_rgba(168,85,247,0.08)]">
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="text-xs sm:text-base font-normal sm:font-semibold text-white">Template Preview</h3>
                 </div>
@@ -1698,12 +2192,12 @@ export default function CreateTemplatePage() {
               {/* ↑ Template Preview card closes here */}
 
               {/* Quick Click-to-Insert Variables Palette */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+              <div className="bg-[#090014] border border-white/20 rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-xs sm:text-base font-medium text-white flex items-center gap-1.5">
                     <span>Quick Variables</span>
                   </h3>
-                  <span className="text-[10px] text-[#c490e8] bg-[#814AC8]/20 border border-[#814AC8]/30 px-2 py-0.5 rounded-full font-medium">
+                  <span className="text-[11px] text-white bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 border border-white/20 px-2 py-0.5 rounded-full font-normal">
                     Click to insert
                   </span>
                 </div>
@@ -1728,7 +2222,7 @@ export default function CreateTemplatePage() {
                           key={v.key}
                           type="button"
                           onClick={() => handleInsertVariable(v.key)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-mono bg-[#140a26] hover:bg-[#814AC8]/30 text-[#c490e8] hover:text-white border border-[#2c144d] hover:border-[#814AC8] transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg text-xs bg-[#140a26] hover:bg-[#814AC8]/30 text-[#c490e8] hover:text-white border border-[#2c144d] hover:border-[#814AC8] transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
                           title={`Insert {{${v.key}}}`}
                         >
                           <span className="text-white/40 text-[10px]">+</span>
@@ -1755,7 +2249,7 @@ export default function CreateTemplatePage() {
                           key={v.key}
                           type="button"
                           onClick={() => handleInsertVariable(v.key)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-mono bg-[#140a26] hover:bg-[#814AC8]/30 text-[#c490e8] hover:text-white border border-[#2c144d] hover:border-[#814AC8] transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg text-xs bg-[#140a26] hover:bg-[#814AC8]/30 text-[#c490e8] hover:text-white border border-[#2c144d] hover:border-[#814AC8] transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
                           title={`Insert {{${v.key}}}`}
                         >
                           <span className="text-white/40 text-[10px]">+</span>
@@ -1776,7 +2270,7 @@ export default function CreateTemplatePage() {
                       {mappingResult.variableList.map((v) => (
                         <div
                           key={v.key}
-                          className="flex items-center justify-between p-2 rounded-xl bg-[#0d021a] border border-[#24113A] text-xs font-mono"
+                          className="flex items-center justify-between p-2 rounded-xl bg-[#0d021a] border border-[#24113A] text-xs"
                         >
                           <span className="text-emerald-400 font-semibold">{`{{${v.key}}}`}</span>
                           <span className="text-white/50 text-[11px] font-sans truncate max-w-[120px]">

@@ -1026,16 +1026,16 @@ function QuickActionsCard({ onAddLeadClick }) {
 
     switch (action.title) {
       case 'New workflow':
-        router.push('/user/admin/automation');
+        router.push('/automation');
         break;
       case 'Broadcast':
-        router.push('/user/admin/templates');
+        router.push('/templates');
         break;
       case 'Add Lead':
         if (onAddLeadClick) onAddLeadClick();
         break;
       case 'Connect Channel':
-        router.push('/user/admin/channels');
+        router.push('/channels');
         break;
       default:
         break;

@@ -224,7 +224,7 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
                             <p className="text-zinc-400 text-[13px] font-medium">No approved WhatsApp templates found.</p>
                             <p className="text-zinc-500 text-[12px] max-w-xs mx-auto">Create and submit templates to Meta in the Templates section.</p>
                             <Link
-                                href="/user/admin/templates"
+                                href="/templates"
                                 className="inline-block text-[12px] font-bold text-emerald-400 hover:underline pt-2"
                             >
                                 Go to Templates Page →
@@ -337,7 +337,7 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
                                                     <span className="text-[12px] text-zinc-300 font-medium flex items-center gap-1.5">
                                                         <span>{displayLabel}</span>
                                                         {mappedName && (
-                                                            <span className="text-[11px] text-emerald-400 font-mono">
+                                                            <span className="text-[11px] text-emerald-400">
                                                                 {`{{${mappedName}}}`}
                                                             </span>
                                                         )}

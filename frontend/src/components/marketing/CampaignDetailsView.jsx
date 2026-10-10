@@ -108,7 +108,7 @@ export default function CampaignDetailsView({ campaignId }) {
         if (!isMounted) return;
         if (!camp) {
           showToast('Campaign not found', 'error');
-          router.push('/user/admin/marketing/bulkmessages');
+          router.push('/marketing/bulkmessages');
           return;
         }
         setCampaign(camp);
@@ -423,7 +423,7 @@ export default function CampaignDetailsView({ campaignId }) {
       <div className="flex flex-col gap-4">
         {/* Back Link */}
         <Link
-          href="/user/admin/marketing/bulkmessages"
+          href="/marketing/bulkmessages"
           className="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-[#814AC8] hover:text-[#9d62eb] transition-colors w-fit group"
         >
           <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />

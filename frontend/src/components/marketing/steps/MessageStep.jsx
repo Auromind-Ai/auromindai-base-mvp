@@ -661,7 +661,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
               {templates.length === 0 ? (
                 <div className="flex items-center gap-2 pt-1">
                   <a
-                    href="/user/admin/templates/create"
+                    href="/templates/create"
                     target="_blank"
                     rel="noreferrer"
                     className="px-3 py-1.5 rounded-lg bg-[#814AC8] text-white text-xs sm:text-sm font-medium hover:bg-[#703db5]"
@@ -870,7 +870,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
                           {mappedName ? (
-                            <span className="text-xs sm:text-sm font-semibold text-emerald-300 px-2.5 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 font-mono">
+                            <span className="text-xs sm:text-sm font-semibold text-emerald-300 px-2.5 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
                               {`{{${mappedName}}}`}
                             </span>
                           ) : (

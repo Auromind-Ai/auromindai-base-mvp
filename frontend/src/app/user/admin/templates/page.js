@@ -19,11 +19,7 @@ import { useToast } from '@/context/ToastContext';
 import { getWorkspaceIdFromToken } from '@/lib/auth';
 import { convertNumberedToNamedText, formatVariableLabel, getSampleValue } from '@/lib/variableUtils';
 
-
-
-/* ─
-   Config
-─ */
+/* ─ Config ─ */
 const TABS = ['All', 'Draft', 'Pending', 'Approved', 'Rejected', 'Action Required'];
 
 const STATUS = {
@@ -114,9 +110,7 @@ const INDUSTRIES = [
   { id: 'travel',      label: 'Travel',      Icon: Plane        },
 ];
 
-/* ─
-   Atoms
-─ */
+/* ─ Atoms ─ */
 const StatusPill = ({ status }) => {
   const normalized = String(status || 'draft').toLowerCase();
   const s = STATUS[normalized] || STATUS.draft;
@@ -140,9 +134,7 @@ const TypeTag = ({ type }) => (
   </span>
 );
 
-/* ─
-   Skeleton
-─ */
+/* ─ Skeleton ─ */
 const SkeletonCard = () => (
   <div className="bg-[#111122] border border-[#1e1e3f] rounded-[18px] p-6 flex flex-col items-center gap-3.5 w-full">
     <div className="w-[72px] h-[72px] rounded-[20px] bg-[#1c1c3a] animate-pulse" />
@@ -157,9 +149,7 @@ const SkeletonCard = () => (
   </div>
 );
 
-/* ─
-   Template Card Helpers
-─ */
+/* ─ Template Card Helpers ─ */
 function renderFormattedContent(text) {
   if (!text) return null;
   const parts = String(text).split(/(\{\{[a-zA-Z0-9_]+\}\})/g);
@@ -168,7 +158,7 @@ function renderFormattedContent(text) {
       return (
         <span
           key={i}
-          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded bg-purple-500/15 text-purple-300 font-mono text-[11px] sm:text-[12px] border border-purple-500/30 font-medium align-baseline"
+          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded bg-purple-500/15 text-purple-300 text-[11px] sm:text-[12px] border border-purple-500/30 font-medium align-baseline"
         >
           {part}
         </span>
@@ -178,9 +168,7 @@ function renderFormattedContent(text) {
   });
 }
 
-/* ─
-   Template Card
-─ */
+/* ─ Template Card ─ */
 function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
   const [hov, setHov] = useState(false);
   const isList = viewMode === 'list';
@@ -283,9 +271,7 @@ function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
   );
 }
 
-/* ─
-   Stat Card
-─ */
+/* ─ Stat Card ─ */
 function StatCard({ cfg, count, onClick, isActive }) {
   const [hov, setHov] = useState(false);
   const { label, Icon, iconStyle, glowColor, pct } = cfg;
@@ -320,23 +306,22 @@ function StatCard({ cfg, count, onClick, isActive }) {
 
       {/* Content */}
       <div className="flex-1 min-w-0 flex flex-col gap-0.5 relative z-10">
-        <p className="m-0 text-2xl font-extrabold text-white tracking-tight leading-none">
-          {count}
-        </p>
-        <p className="m-0 text-xs text-zinc-300 font-semibold truncate">
+
+        <p className="m-0 text-base text-white/80 font-medium truncate">
           {label}
         </p>
-        <p className="m-0 mt-1.5 text-[11px] text-emerald-400 font-semibold truncate">
-          {pct}% <span className="text-zinc-400 font-normal">from last month</span>
+        <p className="m-0 text-2xl font-semibold text-white tracking-tight leading-none">
+          {count}
+        </p>
+        <p className="m-0 mt-1.5 text-[11px] text-emerald-400 font-medium truncate">
+          {pct}% <span className="text-white/50 font-normal">from last month</span>
         </p>
       </div>
     </div>
   );
 }
 
-/* ─
-   Preview Drawer
-─ */
+/* ─ Preview Drawer ─ */
 function PreviewModal({ tpl, onClose, onSubmit, onUse, onUpdateTemplate }) {
   const { showToast } = useToast();
   const fileInputRef = useRef(null);
@@ -778,7 +763,7 @@ function UseTemplateModal({ tpl, onClose, onUpdateTemplate }) {
       header_url: currentMediaUrl || '',
       template_type: tpl.type || 'TEXT',
     }).toString();
-    router.push(`/user/admin/inbox?${query}`);
+    router.push(`/inbox?${query}`);
     onClose();
   };
 
@@ -883,7 +868,7 @@ function UseTemplateModal({ tpl, onClose, onUpdateTemplate }) {
                         {displayLabel}
                       </span>
                       {mappedName && (
-                        <span className="text-[10px] text-emerald-400 font-mono">
+                        <span className="text-[10px] text-emerald-400">
                           {`{{${mappedName}}}`}
                         </span>
                       )}
@@ -985,9 +970,7 @@ function ConnectWhatsAppModal({ open, onClose, onConnect }) {
   );
 }
 
-/* ─────────────────────────────────────────────
-   Category Sidebar Item
-─ */
+/* Category Sidebar Item ─ */
 function SidebarItem({ id, label, Icon, active, onClick }) {
   const [hov, setHov] = useState(false);
 
@@ -998,7 +981,7 @@ function SidebarItem({ id, label, Icon, active, onClick }) {
       onMouseLeave={() => setHov(false)}
       className={`flex items-center justify-center md:justify-start gap-1.5 sm:gap-2 px-2.5 sm:px-3 md:px-3.5 py-2 md:py-2.5 rounded-xl text-xs md:text-[13px] cursor-pointer w-full text-left transition-all border ${
         active
-          ? 'bg-[#814AC8] border-[#814AC8] text-white font-bold shadow-[0_2px_14px_rgba(129,74,200,0.4)]'
+          ? 'bg-[#814AC8] border-[#814AC8] text-white font-medium shadow-[0_2px_14px_rgba(129,74,200,0.4)]'
           : hov
           ? 'bg-purple-500/15 border-purple-500/30 text-[#C49FE0] font-medium'
           : 'bg-purple-500/5 border-white/10 text-white/70 font-medium'
@@ -1014,9 +997,7 @@ function SidebarItem({ id, label, Icon, active, onClick }) {
   );
 }
 
-/* ─
-   Main Page
-─ */
+/* ─ Main Page ─ */
 export default function TemplatesPage() {
   const router = useRouter();
   const { workspaceId } = useAuth();
@@ -1138,7 +1119,7 @@ export default function TemplatesPage() {
       const activeWs = workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null) || getWorkspaceIdFromToken();
       const data = await api.getChannelsStatus(activeWs);
       if (data.whatsapp?.connected) {
-        router.push('/user/admin/templates/create');
+        router.push('/templates/create');
       } else {
         setShowConnectModal(true);
       }
@@ -1282,7 +1263,7 @@ export default function TemplatesPage() {
           {/* Category & Industry Sidebar */}
           <div className="w-full md:w-[180px] lg:w-[200px] xl:w-[230px] shrink-0 bg-[#070012] border border-[#1e1e3f] rounded-2xl p-3.5 sm:p-4 md:p-5 flex flex-col justify-start">
             <div>
-              <p className="m-0 mb-2 md:mb-3 ml-1 text-[10px] sm:text-[11px] font-bold text-white/90 uppercase tracking-widest">
+              <p className="m-0 mb-2 md:mb-3 ml-1 text-[11px] sm:text-[12px] font-semibold text-white/90 uppercase tracking-widest">
                 Categories
               </p>
               <div className="grid grid-cols-2 md:grid-cols-1 gap-1.5 sm:gap-2 md:gap-2.5 mb-4 md:mb-7">
@@ -1299,7 +1280,7 @@ export default function TemplatesPage() {
                 ))}
               </div>
 
-              <p className="m-0 mb-2 md:mb-3 ml-1 text-[10px] sm:text-[11px] font-bold text-white/90 uppercase tracking-widest">
+              <p className="m-0 mb-2 md:mb-3 ml-1 text-[11px] sm:text-[12px] font-semibold text-white/90 uppercase tracking-widest">
                 Industry
               </p>
               <div className="grid grid-cols-2 md:grid-cols-1 gap-1.5 sm:gap-2 md:gap-2.5">
@@ -1330,14 +1311,14 @@ export default function TemplatesPage() {
                   <FileText size={26} strokeWidth={1.6} />
                 </div>
                 <p className="m-0 mb-1.5 text-base font-semibold text-white">
-                  No templates found
+                  No Templates found
                 </p>
-                <p className="m-0 mb-5 text-xs sm:text-sm text-[#7f7fa3] max-w-xs leading-relaxed">
+                <p className="m-0 mb-5 text-xs sm:text-sm text-white/50 max-w-xs leading-relaxed">
                   {search ? `Nothing matched "${search}". Try a different search.` : 'Create your first template to get started.'}
                 </p>
                 {!search && (
                   <button
-                    onClick={() => router.push('/user/admin/templates/create')}
+                    onClick={() => router.push('/templates/create')}
                     className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border-none text-white text-xs sm:text-sm font-bold cursor-pointer transition-all bg-[#814AC8] hover:shadow-[0_2px_18px_rgba(129,74,200,0.45)] hover:-translate-y-0.5"
                   >
                     <Plus size={15} strokeWidth={2.5} /> Create Template
@@ -1388,7 +1369,7 @@ export default function TemplatesPage() {
       <ConnectWhatsAppModal
         open={showConnectModal}
         onClose={() => setShowConnectModal(false)}
-        onConnect={() => router.push('/user/admin/channels')}
+        onConnect={() => router.push('/channels')}
       />
     </div>
   );

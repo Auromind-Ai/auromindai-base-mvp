@@ -13,6 +13,8 @@ _ADMIN_CORS_ORIGINS = [
     "http://orbionagents.com",
     "https://www.orbionagents.com",
     "http://www.orbionagents.com",
+    "https://app.orbionagents.com",
+    "http://app.orbionagents.com",
     "https://staging.orbionagents.com",
     "http://localhost:3000",
     "http://127.0.0.1:3000",

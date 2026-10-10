@@ -11,7 +11,7 @@ export default function UserAdminIndexPage() {
 
   useEffect(() => {
     if (loading || permissionsLoading) return;
-    const target = getFirstAccessibleWorkspacePath(hasPermission) || '/user/admin/dashboard';
+    const target = getFirstAccessibleWorkspacePath(hasPermission) || '/dashboard';
     router.replace(target);
   }, [loading, permissionsLoading, hasPermission, router]);
 

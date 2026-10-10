@@ -420,7 +420,7 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onSaveDraft, on
 
             <button
               type="button"
-              onClick={() => router.push('/user/admin/credits?tab=wcc')}
+              onClick={() => router.push('/credits?tab=wcc')}
               className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.4)] flex items-center justify-center gap-1.5 shrink-0 transition-all active:scale-[0.98] self-start sm:self-center cursor-pointer"
             >
               <Coins size={14} />

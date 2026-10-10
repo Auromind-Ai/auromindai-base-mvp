@@ -49,7 +49,7 @@ function resolveWebSocketBaseUrl() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 
   // Production domain fallback (ensures WebSocket connects to FastAPI backend rather than Next.js serverless frontend)
-  if (hostname === "orbionagents.com" || hostname === "www.orbionagents.com") {
+  if (hostname === "orbionagents.com" || hostname === "www.orbionagents.com" || hostname === "app.orbionagents.com" || hostname.endsWith("orbionagents.com")) {
     return "wss://api.orbionagents.com";
   }
 

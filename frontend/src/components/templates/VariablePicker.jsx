@@ -19,7 +19,7 @@ import {
   formatVariableLabel,
 } from '@/lib/variableUtils';
 
-export default function VariablePicker({ onInsertVariable, disabled = false }) {
+export default function VariablePicker({ onInsertVariable, disabled = false, triggerText, compact = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [customInputOpen, setCustomInputOpen] = useState(false);
   const [customVarName, setCustomVarName] = useState('');
@@ -90,7 +90,7 @@ export default function VariablePicker({ onInsertVariable, disabled = false }) {
 
   return (
     <div className="relative inline-block text-left" ref={dropdownRef}>
-      {/* ── Trigger Button: + Insert Variable ── */}
+      {/* ── Trigger Button: + Variable ── */}
       <button
         type="button"
         disabled={disabled}
@@ -98,16 +98,25 @@ export default function VariablePicker({ onInsertVariable, disabled = false }) {
           setIsOpen(!isOpen);
           setCustomInputOpen(false);
         }}
-        className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200
-          border border-[#814AC8]/50 bg-gradient-to-r from-[#814AC8]/20 to-[#632ca6]/20 text-[#c490e8]
-          hover:bg-[#814AC8]/30 hover:border-[#814AC8] hover:text-white hover:shadow-[0_0_16px_rgba(129,74,200,0.35)]
-          focus:outline-none focus:ring-2 focus:ring-[#814AC8]/40 active:scale-95
-          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-        `}
+        className={
+          compact || triggerText
+            ? `inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200
+               bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white border border-white/20
+               hover:from-[#814AC8]/60 hover:to-[#221253]/60 hover:border-white/40 hover:shadow-[0_0_16px_rgba(129,74,200,0.35)]
+               focus:outline-none focus:ring-2 focus:ring-[#814AC8]/40 active:scale-95 cursor-pointer
+               ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`
+            : `inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200
+               border border-white/20 bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white
+               hover:from-[#814AC8]/60 hover:to-[#221253]/60 hover:border-[#814AC8] hover:text-white hover:shadow-[0_0_16px_rgba(129,74,200,0.35)]
+               focus:outline-none focus:ring-2 focus:ring-[#814AC8]/40 active:scale-95
+               ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`
+        }
       >
         <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-        <span>Insert Variable</span>
-        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        <span>{triggerText || 'Insert Variable'}</span>
+        {!compact && !triggerText && (
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        )}
       </button>
 
       {/* ── Dropdown Menu ── */}
@@ -116,10 +125,10 @@ export default function VariablePicker({ onInsertVariable, disabled = false }) {
           {/* Header */}
           <div className="p-3 border-b border-[#24113A] bg-[#140b24]/80">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-purple-300/80">
+              <span className="text-xs font-medium uppercase tracking-wider text-white/90">
                 Variable Picker
               </span>
-              <span className="text-[10px] text-[#B7B3C7]/60">Select to insert</span>
+              <span className="text-[10px] text-white/60">Select to insert</span>
             </div>
             {/* Search Input */}
             <div className="relative">
@@ -157,7 +166,7 @@ export default function VariablePicker({ onInsertVariable, disabled = false }) {
                         <span className="text-white/80 group-hover:text-white font-medium truncate">
                           {variable.label}
                         </span>
-                        <code className="text-[10px] font-mono text-[#c490e8] bg-[#814AC8]/15 px-1.5 py-0.5 rounded border border-[#814AC8]/30">
+                        <code className="text-[10px] text-[#c490e8] bg-[#814AC8]/15 px-1.5 py-0.5 rounded border border-[#814AC8]/30">
                           {`{{${variable.key}}}`}
                         </code>
                       </div>
@@ -238,7 +247,7 @@ export default function VariablePicker({ onInsertVariable, disabled = false }) {
                   }}
                   className="inline-flex items-center gap-1.5 text-xs text-[#c490e8] hover:underline font-medium"
                 >
-                  <span>Insert "{sanitizeVariableName(searchQuery)}" as custom field</span>
+                  <span>Insert &quot;{sanitizeVariableName(searchQuery)}&quot; as custom field</span>
                   <ArrowRight className="w-3 h-3" />
                 </button>
               </div>

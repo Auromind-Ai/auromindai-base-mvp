@@ -564,7 +564,7 @@ export default function AutomationCanvas() {
       message: `Are you sure you want to delete the flow "${flowName}"? This action cannot be undone.`,
       confirmText: 'Delete',
       cancelText: 'Cancel',
-      confirmColor: 'bg-rose-600 hover:bg-rose-500',
+      confirmColor: 'bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] hover:from-[#5a0808]/90 hover:via-[#3a0505]/70 hover:to-[#160303] border border-white/20',
       isConfirm: true,
       onConfirm: () => {
         setCustomModal(prev => ({ ...prev, open: false }));

@@ -1,53 +1,38 @@
 import { NextResponse } from 'next/server';
-
-function isTokenExpired(token) {
-  if (!token || typeof token !== 'string') return true;
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return true;
-    const base64Url = parts[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=');
-    const jsonPayload = atob(padded);
-    const payload = JSON.parse(jsonPayload);
-    if (!payload.exp) return false;
-    const currentTime = Math.floor(Date.now() / 1000);
-    return payload.exp <= (currentTime + 5);
-  } catch {
-    return true;
-  }
-}
+import { resolveSubdomainAction } from './lib/subdomainRouting.mjs';
 
 export function middleware(request) {
-  const { pathname } = request.nextUrl;
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
+  const { pathname, search } = request.nextUrl;
+  const authToken = request.cookies.get('auth_token')?.value || null;
 
-  if (pathname.startsWith('/user/admin')) {
-    const authToken = request.cookies.get('auth_token')?.value;
-    if (!authToken) {
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-    if (isTokenExpired(authToken)) {
-      const loginUrl = new URL('/login?session_expired=true', request.url);
-      const response = NextResponse.redirect(loginUrl);
+  const action = resolveSubdomainAction({
+    host,
+    pathname,
+    search,
+    authToken,
+  });
+
+  if (action.type === 'redirect') {
+    const targetUrl = action.url.startsWith('http')
+      ? new URL(action.url)
+      : new URL(action.url, request.url);
+    const response = NextResponse.redirect(targetUrl, action.status || 307);
+    if (action.clearCookie) {
       response.cookies.delete('auth_token');
-      return response;
     }
+    return response;
   }
 
-  if (pathname.startsWith('/admin') && pathname !== '/admin' && pathname !== '/admin/') {
-    const authToken = request.cookies.get('auth_token')?.value;
-    if (!authToken || isTokenExpired(authToken)) {
-      const adminLoginUrl = new URL('/admin', request.url);
-      return NextResponse.redirect(adminLoginUrl);
-    }
+  if (action.type === 'rewrite') {
+    const rewriteUrl = new URL(action.url, request.url);
+    return NextResponse.rewrite(rewriteUrl);
   }
 
   return NextResponse.next();
 }
 
-// Run middleware on API routes and page requests (excluding static assets)
+// Run middleware on all relevant page and asset requests (excluding Next static internals)
 export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico).*)',

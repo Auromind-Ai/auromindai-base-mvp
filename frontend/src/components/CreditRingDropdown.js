@@ -221,11 +221,11 @@ export default function CreditRingDropdown({ user, size = 36 }) {
               <div className="flex items-center justify-between mb-3.5">
                 <div className="flex items-center gap-2 text-emerald-400">
                   <Wallet size={14} />
-                  <span className="font-regular text-xs tracking-wider">WhatsApp Wallet</span>
+                  <span className="font-normal text-xs tracking-wider">WhatsApp Wallet</span>
                 </div>
                 {canManageCredits && (
                   <button 
-                    onClick={() => { setIsOpen(false); router.push('/user/admin/credits?tab=wcc'); }}
+                    onClick={() => { setIsOpen(false); router.push('/credits?tab=wcc'); }}
                     className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-emerald-500/30 transition-colors"
                   >
                     Recharge
@@ -248,7 +248,7 @@ export default function CreditRingDropdown({ user, size = 36 }) {
             {canManageCredits ? (
               <div 
                 className="p-4 border-t border-white/5 bg-[#12121c]/40 flex items-center justify-between group cursor-pointer hover:bg-[#161622] transition-colors" 
-                onClick={() => { setIsOpen(false); router.push('/user/admin/credits'); }}
+                onClick={() => { setIsOpen(false); router.push('/credits'); }}
               >
                 <div>
                   <div className="font-semibold text-xs text-white flex items-center gap-1">

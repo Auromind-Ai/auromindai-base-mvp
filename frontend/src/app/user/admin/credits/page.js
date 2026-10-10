@@ -937,7 +937,7 @@ export default function CreditsPage() {
                                                 <span>🔒</span>
                                                 <span>{creditSummary?.status_message || "Credits locked — Upgrade to Pro to use purchased credits"}</span>
                                             </div>
-                                            <a href="/user/admin/billing/payment" className="text-xs px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition whitespace-nowrap">
+                                            <a href="/billing/payment" className="text-xs px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition whitespace-nowrap">
                                                 Upgrade
                                             </a>
                                         </div>
@@ -1169,7 +1169,7 @@ export default function CreditsPage() {
                             <div className="lg:col-span-2 xl:col-span-1 bg-[#0e0e14] rounded-2xl border border-white/5 shadow-xl overflow-hidden flex flex-col">
                                 <div className="p-5 md:p-6 pb-0">
                                     <div className="flex items-center justify-between mb-4">
-                                        <p className="text-white text-base sm:text-lg font-regular">Activity</p>
+                                        <p className="text-white text-base sm:text-lg font-normal">Activity</p>
                                         <button
                                             type="button"
                                             onClick={() => setIsAiCreditHistoryModalOpen(true)}
@@ -1306,7 +1306,7 @@ export default function CreditsPage() {
                                                 <span>🔒</span>
                                                 <span>{wccFuelData?.status_message || "WCC wallet locked — Upgrade to a paid plan to use your purchased balance"}</span>
                                             </div>
-                                            <a href="/user/admin/billing/payment" className="text-xs px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition whitespace-nowrap">
+                                            <a href="/billing/payment" className="text-xs px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition whitespace-nowrap">
                                                 Upgrade
                                             </a>
                                         </div>
@@ -1422,7 +1422,7 @@ export default function CreditsPage() {
                                             }`}
                                         >
                                             {opt.label}
-                                            <div className="text-[11px] font-normal sm:font-regular text-white/70 mt-0.5">
+                                            <div className="text-[11px] font-normal sm:font-normal text-white/70 mt-0.5">
                                                 {opt.rate != null ? `₹${Number(opt.rate).toFixed(3)} / ${opt.unit}` : 'Loading...'}
                                             </div>
                                         </button>

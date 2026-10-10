@@ -63,11 +63,13 @@ def set_auth_cookie(response: Response, request: Request, key: str, value: str, 
     if settings.FRONTEND_URL and request_host:
         from urllib.parse import urlparse
         parsed = urlparse(settings.FRONTEND_URL)
-        if parsed.hostname and (request_host == parsed.hostname or request_host.endswith("." + parsed.hostname)):
+        if parsed.hostname:
             parts = parsed.hostname.split(".")
             # Ignore IP addresses and localhost
             if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
-                cookie_domain = "." + ".".join(parts[-2:])
+                base_domain = ".".join(parts[-2:])
+                if request_host == base_domain or request_host.endswith("." + base_domain):
+                    cookie_domain = "." + base_domain
 
     response.set_cookie(
         key=key,
@@ -92,10 +94,12 @@ def delete_auth_cookie(response: Response, request: Request, key: str, path: str
     if settings.FRONTEND_URL and request_host:
         from urllib.parse import urlparse
         parsed = urlparse(settings.FRONTEND_URL)
-        if parsed.hostname and (request_host == parsed.hostname or request_host.endswith("." + parsed.hostname)):
+        if parsed.hostname:
             parts = parsed.hostname.split(".")
             if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
-                cookie_domain = "." + ".".join(parts[-2:])
+                base_domain = ".".join(parts[-2:])
+                if request_host == base_domain or request_host.endswith("." + base_domain):
+                    cookie_domain = "." + base_domain
 
     response.delete_cookie(
         key=key,
