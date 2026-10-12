@@ -122,7 +122,7 @@ async def receive_instagram(request: Request, db: Session = Depends(get_db)):
                 if ig_account_id:
                     from app.services.inbox.conversation_service import ConversationService
                     ws = ConversationService.get_workspace_for_instagram_account(db, str(ig_account_id))
-                    if ws and ws.meta_access_token:
+                    if ws and (getattr(ws, "meta_ig_access_token", None) or ws.meta_access_token):
                         verified_by_graph_api = True
                         break
 

@@ -98,12 +98,15 @@ class ConversationService:
         db: Session,
         instagram_account_id: str,
     ) -> Workspace | None:
+        if not instagram_account_id:
+            return None
+        clean_id = str(instagram_account_id).strip()
         workspace = (
             db.query(Workspace)
             .filter(
                 or_(
-                    Workspace.meta_ig_id == instagram_account_id,
-                    Workspace.meta_business_id == instagram_account_id,
+                    Workspace.meta_ig_id == clean_id,
+                    Workspace.meta_business_id == clean_id,
                 )
             )
             .first()

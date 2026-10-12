@@ -445,14 +445,16 @@ class ChannelConnectionService:
             profile_res = requests.get(
                 "https://graph.instagram.com/v21.0/me",
                 params={
-                    "fields": "id,username,name,account_type",
+                    "fields": "id,user_id,username,name,account_type",
                     "access_token": long_lived_token,
                 },
                 timeout=15,
             ).json()
             logger.info("Instagram /me profile response: %s", profile_res)
-            if profile_res.get("id"):
-                ig_id = str(profile_res["id"])
+            resolved_ig_id = profile_res.get("user_id") or ig_user_id_from_token or profile_res.get("id")
+            if resolved_ig_id:
+                ig_id = str(resolved_ig_id)
+            if profile_res.get("username") or profile_res.get("name"):
                 username = profile_res.get("username") or profile_res.get("name")
         except Exception as prof_err:
             logger.warning("Failed to fetch profile via graph.instagram.com/v21.0/me: %s", prof_err)
@@ -520,8 +522,12 @@ class ChannelConnectionService:
         if not workspace:
             raise HTTPException(404, "Workspace not found")
 
-        workspace.meta_access_token = long_lived_token
-        workspace.meta_business_id = ig_id
+        workspace.meta_ig_access_token = long_lived_token
+        # Preserve WhatsApp's access token if WhatsApp is already connected
+        if not workspace.meta_access_token:
+            workspace.meta_access_token = long_lived_token
+        if not workspace.meta_business_id:
+            workspace.meta_business_id = ig_id
         workspace.meta_ig_id = ig_id
         db.commit()
 

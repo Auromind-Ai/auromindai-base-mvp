@@ -180,15 +180,17 @@ async def disconnect_channel(
         raise HTTPException(status_code=404, detail="Workspace not found")
     
     if channel_type == "whatsapp":
-        workspace.meta_access_token = None
-        workspace.meta_business_id = None
-        workspace.meta_waba_id = None
         workspace.meta_phone_number_id = None
+        workspace.meta_waba_id = None
         workspace.meta_display_phone = None
+        workspace.meta_business_id = None
+        workspace.meta_access_token = None
     elif channel_type == "instagram":
         workspace.meta_ig_id = None
-        workspace.meta_access_token = None
-        workspace.meta_business_id = None
+        workspace.meta_ig_access_token = None
+        if not workspace.meta_phone_number_id:
+            workspace.meta_business_id = None
+            workspace.meta_access_token = None
     elif channel_type == "twilio":
         workspace.twilio_account_sid = None
         workspace.twilio_auth_token = None
