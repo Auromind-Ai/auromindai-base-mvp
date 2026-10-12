@@ -1146,7 +1146,8 @@ function ChannelsContent() {
             `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
             `&state=${encodeURIComponent(currentWorkspaceId)}` +
             `&scope=${encodeURIComponent('instagram_basic,instagram_manage_messages,instagram_manage_comments,pages_show_list,pages_messaging,pages_read_engagement,business_management')}` +
-            `&response_type=code`;
+            `&response_type=code` +
+            `&auth_type=rerequest`;
         window.location.href = authUrl;
     }, [workspace, showToast]);
 
