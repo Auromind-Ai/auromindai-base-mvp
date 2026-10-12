@@ -1741,7 +1741,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                 </header>
 
                 {upgraded && <>
-                <CrmControls workspaceId={workspaceId} filters={filters} onApply={values => { setSelectedFilter('all'); setFilters(values); }} options={filterOptions} selectedIds={selectedIds} search={debouncedSearch} quickFilter={selectedFilter} onClear={() => restoreFilters({})} onRestore={restoreFilters} />
+                <CrmControls onRefreshOptions={() => setOptionsRetry(v => v + 1)} workspaceId={workspaceId} filters={filters} onApply={values => { setSelectedFilter('all'); setFilters(values); }} options={filterOptions} selectedIds={selectedIds} search={debouncedSearch} quickFilter={selectedFilter} onClear={() => restoreFilters({})} onRestore={restoreFilters} />
                 <div className="flex gap-2 px-3 py-2 overflow-x-auto bg-[#0b111b] border-b border-white/10 shrink-0">{FILTER_OPTIONS.map(({ id, label }) => <button key={id} className={`whitespace-nowrap rounded-lg text-xs px-3 py-2 ${selectedFilter === id ? 'bg-violet-500/20 text-violet-200' : 'text-zinc-400 hover:bg-white/5'}`} onClick={() => changeQuickFilter(id)}>{label}</button>)}</div>
                 </>}
                 {optionsError && <p role="alert" className="px-4 py-2 text-sm text-rose-300">{optionsError} <button onClick={() => setOptionsRetry(v => v + 1)}>Retry filter options</button></p>}

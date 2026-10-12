@@ -15,12 +15,13 @@ from app.services.email_service import EmailService
 from app.schemas.crm_filters import LeadFilters
 from app.schemas.lead_report import LeadReportSettingsUpdate
 from app.services.crm.lead_query import lead_query
+from app.services.crm.lead_flow import get_lead_flow_names
 
 logger = logging.getLogger("auromind")
 
 CSV_COLUMNS = [
     ("serial", "S.no"), ("created_at", "Date"), ("source", "Source"),
-    ("name", "Name"), ("phone", "Phone"), ("score", "Lead Score"),
+    ("flow_name", "Flow Name"), ("name", "Name"), ("phone", "Phone"), ("score", "Lead Score"),
     ("lead_tier", "Lead Category"),
 ]
 DEFAULT_CSV_COLUMNS = [key for key, _ in CSV_COLUMNS]
@@ -234,7 +235,7 @@ class LeadEmailReportService:
         return lead_query(db, workspace_id, parsed).order_by(Lead.score.desc().nullsfirst(), Lead.id)
 
     @classmethod
-    def csv_rows(cls, leads, columns=None, timezone_name="Asia/Kolkata"):
+    def csv_rows(cls, leads, columns=None, timezone_name="Asia/Kolkata", flow_names=None):
         columns = validate_csv_columns(columns)
         try:
             tz = ZoneInfo(timezone_name)
@@ -249,6 +250,7 @@ class LeadEmailReportService:
                 "serial": index,
                 "created_at": created.astimezone(tz).strftime("%b %d, %Y") if created else "\u2014",
                 "source": sources.get((lead.source or "manual").lower(), lead.source or "Manual"),
+                "flow_name": (flow_names or {}).get(getattr(lead, "conversation_id", None), ""),
                 "name": lead.name or lead.phone or "Unknown Lead",
                 "phone": lead.phone or "\u2014",
                 "score": f"{lead.score or 0} / 100",
@@ -257,13 +259,13 @@ class LeadEmailReportService:
             yield [str(values[key]) for key in columns]
 
     @classmethod
-    def generate_csv_bytes(cls, leads: List[Lead], columns=None, timezone_name="Asia/Kolkata") -> bytes:
+    def generate_csv_bytes(cls, leads: List[Lead], columns=None, timezone_name="Asia/Kolkata", flow_names=None) -> bytes:
         columns = validate_csv_columns(columns)
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
         labels = dict(CSV_COLUMNS)
         writer.writerow([labels[key] for key in columns])
-        for row in cls.csv_rows(leads, columns, timezone_name):
+        for row in cls.csv_rows(leads, columns, timezone_name, flow_names):
             writer.writerow([_format_cell(value) for value in row])
         return output.getvalue().encode("utf-8-sig")
 
@@ -353,7 +355,8 @@ class LeadEmailReportService:
 
         attachments = []
         if setting.attach_csv:
-            csv_bytes = cls.generate_csv_bytes(leads, setting.csv_columns, cls.get_workspace_timezone(db, workspace_id))
+            flow_names = get_lead_flow_names(db, workspace_id, [lead.conversation_id for lead in leads]) if "flow_name" in validate_csv_columns(setting.csv_columns) else {}
+            csv_bytes = cls.generate_csv_bytes(leads, setting.csv_columns, cls.get_workspace_timezone(db, workspace_id), flow_names)
             attachments.append({
                 "filename": filename,
                 "content": csv_bytes,
@@ -467,6 +470,7 @@ class LeadEmailReportService:
             query = LeadEmailReportService.get_qualified_leads_query(db, workspace_id, min_score, report_filters)
             lead_count = query.count()
             leads = query.limit(10).all()
+            flow_names = get_lead_flow_names(db, workspace_id, [lead.conversation_id for lead in leads]) if "flow_name" in selected_columns else {}
         except ValueError as exc:
             raise ValueError(str(exc)) from exc
 
@@ -508,7 +512,7 @@ class LeadEmailReportService:
             "total_count": lead_count,
             "sample_leads": sample_items,
             "csv_columns": [{"key": key, "label": dict(CSV_COLUMNS)[key]} for key in selected_columns],
-            "csv_rows": list(LeadEmailReportService.csv_rows(leads, selected_columns, LeadEmailReportService.get_workspace_timezone(db, workspace_id))),
+            "csv_rows": list(LeadEmailReportService.csv_rows(leads, selected_columns, LeadEmailReportService.get_workspace_timezone(db, workspace_id), flow_names)),
             "subject": content["subject"],
             "body_text": content["plain_text"],
             "filename": filename,

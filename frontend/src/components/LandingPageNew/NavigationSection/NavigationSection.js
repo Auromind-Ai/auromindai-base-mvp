@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { poppins, jakarta } from '@/lib/fonts';
-import { Zap, Menu, X, ChevronDown } from 'lucide-react';
+import { Zap, Menu, X, ChevronDown, Inbox, MessageCircle, Users, Bot, CheckCircle2, Filter, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useBranding } from '@/context/BrandingContext';
@@ -54,52 +54,127 @@ const NavigationSection = () => {
               Product
             </button>
 
-            <div className="absolute left-0 top-[calc(100%+18px)] invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 w-[420px] rounded-3xl border border-white/10 bg-[#0B0B0F]/95 backdrop-blur-xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="absolute left-0 top-[calc(100%+18px)] invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 w-[600px] rounded-3xl border border-white/10 bg-[#0B0B0F]/95 backdrop-blur-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.55)]">
+              {/* Top row: 3 compact product cards */}
+              <div className="grid grid-cols-3 gap-2 mb-3">
                 <Link
                   href="/product/ai-brain"
-                  className="rounded-2xl p-4 hover:bg-white/5 transition"
+                  className="rounded-2xl p-3.5 hover:bg-white/5 transition group/card border border-transparent hover:border-white/8"
                 >
-                  <p className="text-white font-semibold text-sm">AI Brain</p>
-                  <p className="text-white/50 text-xs mt-1">
-                    Intelligent sales conversations
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="w-6 h-6 rounded-lg bg-[#A970FF]/15 flex items-center justify-center">
+                      <Bot className="w-3.5 h-3.5 text-[#A970FF]" />
+                    </div>
+                    <p className="text-white font-semibold text-sm">AI Brain</p>
+                  </div>
+                  <p className="text-white/45 text-[11.5px] leading-relaxed">
+                    Trains on your docs & closes sales conversations
                   </p>
                 </Link>
 
                 <Link
                   href="/product/wires"
-                  className="rounded-2xl p-4 hover:bg-white/5 transition"
+                  className="rounded-2xl p-3.5 hover:bg-white/5 transition group/card border border-transparent hover:border-white/8"
                 >
-                  <p className="text-white font-semibold text-sm">Wires</p>
-                  <p className="text-white/50 text-xs mt-1">
-                    Visual automation builder
-                  </p>
-                </Link>
-
-                <Link
-                  href="/product/inbox"
-                  className="rounded-2xl p-4 hover:bg-white/5 transition"
-                >
-                  <p className="text-white font-semibold text-sm">
-                    Omnichannel Inbox
-                  </p>
-                  <p className="text-white/50 text-xs mt-1">
-                    AI + Human collaboration
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="w-6 h-6 rounded-lg bg-[#60A5FA]/15 flex items-center justify-center">
+                      <Zap className="w-3.5 h-3.5 text-[#60A5FA]" />
+                    </div>
+                    <p className="text-white font-semibold text-sm">Wires</p>
+                  </div>
+                  <p className="text-white/45 text-[11.5px] leading-relaxed">
+                    No-code visual automation flow builder
                   </p>
                 </Link>
 
                 <Link
                   href="/product/whatsapp"
-                  className="rounded-2xl p-4 hover:bg-white/5 transition"
+                  className="rounded-2xl p-3.5 hover:bg-white/5 transition group/card border border-transparent hover:border-white/8"
                 >
-                  <p className="text-white font-semibold text-sm">
-                    WhatsApp Automation
-                  </p>
-                  <p className="text-white/50 text-xs mt-1">
-                    Lead capture & follow-ups
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="w-6 h-6 rounded-lg bg-[#22C55E]/15 flex items-center justify-center">
+                      <MessageCircle className="w-3.5 h-3.5 text-[#22C55E]" />
+                    </div>
+                    <p className="text-white font-semibold text-sm">WhatsApp</p>
+                  </div>
+                  <p className="text-white/45 text-[11.5px] leading-relaxed">
+                    Lead capture, broadcast & follow-ups
                   </p>
                 </Link>
               </div>
+
+              {/* Divider */}
+              <div className="h-px bg-white/[0.07] mb-3" />
+
+              {/* Inbox — Full-width Featured Card */}
+              <Link
+                href="/inbox"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group/inbox block rounded-2xl border border-[#A970FF]/20 bg-gradient-to-br from-[#A970FF]/8 via-[#7C3AED]/5 to-transparent hover:from-[#A970FF]/14 hover:border-[#A970FF]/35 transition-all duration-300 p-4"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  {/* Left: Icon + title + description */}
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="mt-0.5 w-9 h-9 rounded-xl bg-[#A970FF]/20 border border-[#A970FF]/30 flex items-center justify-center shrink-0">
+                      <Inbox className="w-4.5 h-4.5 text-[#A970FF]" style={{width:'18px',height:'18px'}} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-white font-semibold text-[14px]">Inbox</span>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#A970FF] bg-[#A970FF]/12 border border-[#A970FF]/25 rounded-full px-2 py-0.5">
+                          <Sparkles className="w-2.5 h-2.5" />
+                          AI + Human
+                        </span>
+                      </div>
+                      <p className="text-white/50 text-[12px] leading-relaxed">
+                        Unified omnichannel conversation hub — manage every customer chat across WhatsApp, email & more.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right: Open arrow */}
+                  <div className="shrink-0 mt-1 w-6 h-6 rounded-lg border border-white/10 flex items-center justify-center group-hover/inbox:border-[#A970FF]/40 group-hover/inbox:bg-[#A970FF]/10 transition-all">
+                    <svg className="w-3 h-3 text-white/40 group-hover/inbox:text-[#A970FF] transition-colors" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+                  </div>
+                </div>
+
+                {/* Feature pills row — real features from the inbox UI */}
+                <div className="mt-3.5 flex flex-wrap gap-1.5">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-white/70 bg-white/5 border border-white/10 rounded-full px-2.5 py-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                    Open
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-white/70 bg-white/5 border border-white/10 rounded-full px-2.5 py-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
+                    Pending
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-white/70 bg-white/5 border border-white/10 rounded-full px-2.5 py-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span>
+                    Resolved
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-white/70 bg-white/5 border border-white/10 rounded-full px-2.5 py-1">
+                    <Users className="w-3 h-3 text-white/50" />
+                    Team Assign
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-white/70 bg-white/5 border border-white/10 rounded-full px-2.5 py-1">
+                    <Filter className="w-3 h-3 text-white/50" />
+                    Smart Filters
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-white/70 bg-white/5 border border-white/10 rounded-full px-2.5 py-1">
+                    <Bot className="w-3 h-3 text-white/50" />
+                    Guide AI
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-white/70 bg-white/5 border border-white/10 rounded-full px-2.5 py-1">
+                    <MessageCircle className="w-3 h-3 text-[#22C55E]" />
+                    WhatsApp
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-white/70 bg-white/5 border border-white/10 rounded-full px-2.5 py-1">
+                    <CheckCircle2 className="w-3 h-3 text-white/50" />
+                    Templates
+                  </span>
+                </div>
+              </Link>
             </div>
           </div>
 
@@ -339,20 +414,48 @@ const NavigationSection = () => {
             </button>
             {productOpen && (
               <div className="pl-4 mt-2 space-y-2 border-l border-white/10">
-                <Link href="/product/ai-brain" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                <Link href="/product/ai-brain" className="flex items-center gap-2 text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                  <div className="w-5 h-5 rounded-md bg-[#A970FF]/15 flex items-center justify-center shrink-0">
+                    <Bot className="w-3 h-3 text-[#A970FF]" />
+                  </div>
                   AI Brain
                 </Link>
-                <Link href="/product/wires" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                <Link href="/product/wires" className="flex items-center gap-2 text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                  <div className="w-5 h-5 rounded-md bg-[#60A5FA]/15 flex items-center justify-center shrink-0">
+                    <Zap className="w-3 h-3 text-[#60A5FA]" />
+                  </div>
                   Wires
                 </Link>
-                <Link href="/product/inbox" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
-                  Omnichannel Inbox
+                {/* Inbox — Featured mobile card */}
+                <Link
+                  href="/inbox"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-xl border border-[#A970FF]/25 bg-[#A970FF]/8 p-3 hover:bg-[#A970FF]/12 transition-all"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Inbox className="w-3.5 h-3.5 text-[#A970FF] shrink-0" />
+                    <span className="text-white font-semibold text-[13px]">Inbox</span>
+                    <span className="text-[10px] text-[#A970FF] bg-[#A970FF]/15 rounded-full px-1.5 py-0.5 font-medium">AI + Human</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    <span className="inline-flex items-center gap-1 text-[10px] text-white/60 bg-white/5 border border-white/10 rounded-full px-2 py-0.5"><span className="w-1 h-1 rounded-full bg-emerald-400"></span>Open</span>
+                    <span className="inline-flex items-center gap-1 text-[10px] text-white/60 bg-white/5 border border-white/10 rounded-full px-2 py-0.5"><span className="w-1 h-1 rounded-full bg-amber-400"></span>Pending</span>
+                    <span className="inline-flex items-center gap-1 text-[10px] text-white/60 bg-white/5 border border-white/10 rounded-full px-2 py-0.5"><Users className="w-2.5 h-2.5 text-white/50" />Teams</span>
+                    <span className="inline-flex items-center gap-1 text-[10px] text-white/60 bg-white/5 border border-white/10 rounded-full px-2 py-0.5"><Bot className="w-2.5 h-2.5 text-white/50" />Guide AI</span>
+                  </div>
                 </Link>
-                <Link href="/product/whatsapp" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                <Link href="/product/whatsapp" className="flex items-center gap-2 text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                  <div className="w-5 h-5 rounded-md bg-[#22C55E]/15 flex items-center justify-center shrink-0">
+                    <MessageCircle className="w-3 h-3 text-[#22C55E]" />
+                  </div>
                   WhatsApp Automation
                 </Link>
               </div>
             )}
+
+
           </div>
 
           {/* Solutions Accordion */}

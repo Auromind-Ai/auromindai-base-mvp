@@ -9,10 +9,12 @@ from app.models.ai_action import Lead
 from app.models.user import User
 from app.models.workspace import WorkspaceMember
 from app.services.crm.lead_query import lead_query, signal_active, source_expression
+from app.services.crm.lead_flow import lead_flow_associations
 from app.utils.scoring_config import get_scoring_config
 
 EXPORT_COLUMNS = {
     "name": "Name", "phone": "Phone", "email": "Email", "source": "Source",
+    "flow_name": "Flow Name",
     "score": "Lead Score", "lead_tier": "Tier", "status": "Status",
     "intent_signals": "Buying Intent", "assigned_agent": "Assigned Agent",
     "created_at": "Created Date", "last_activity_at": "Last Activity",
@@ -64,7 +66,14 @@ def safe_cell(value):
 def export_file(query, columns, format):
     if any(c not in EXPORT_COLUMNS for c in columns) or len(set(columns)) != len(columns):
         raise ValueError("Choose valid, unique export fields")
-    fields = [User.full_name if c == "assigned_agent" else getattr(Lead, c) for c in columns]
+    flow_names = lead_flow_associations().subquery()
+    if "flow_name" in columns:
+        query = query.outerjoin(flow_names, and_(
+            flow_names.c.conversation_id == Lead.conversation_id,
+            flow_names.c.workspace_id == Lead.workspace_id,
+        ))
+    fields = [User.full_name if c == "assigned_agent" else
+              flow_names.c.flow_name if c == "flow_name" else getattr(Lead, c) for c in columns]
     rows = (query.outerjoin(WorkspaceMember, and_(WorkspaceMember.user_id == Lead.assigned_to,
                          WorkspaceMember.workspace_id == Lead.workspace_id))
             .outerjoin(User, User.id == WorkspaceMember.user_id)

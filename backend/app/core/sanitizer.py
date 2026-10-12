@@ -107,6 +107,27 @@ def sanitize_user_message(
 
     lower_msg = text_msg.lower()
 
+    # For client errors (400, 402, 404, 422), allow explicit user-facing business guidance
+    # through as long as it does not leak internal stack traces, database internals, or raw secret tokens.
+    if status_code in (400, 402, 404, 422):
+        has_internal_leak = any(
+            re.search(p, text_msg) for p in [
+                r"(?i)\btraceback\b",
+                r"(?i)\bfile\s+[\"'].*\.py[\"']",
+                r"(?i)\bline\s+\d+\b",
+                r"(?i)\b(?:typeerror|keyerror|valueerror|attributeerror|syntaxerror|runtimeerror|integrityerror|operationalerror)\b",
+                r"(?i)\bpsycopg\b",
+                r"(?i)\bsqlalchemy\b",
+                r"(?i)\bselect\s+.+\s+from\b",
+                r"(?i)\binsert\s+into\b",
+                r"(?i)\bviolates\s+.*constraint\b",
+                r"(?i)(?:password|secret|api_?key|access_?token|system_?user_?token)\s*[:=]",
+                r"(?i)\bbearer\s+[A-Za-z0-9\-\._~\+\/]{15,}=",
+            ]
+        )
+        if not has_internal_leak:
+            return text_msg
+
     # Check for technical leakage
     if contains_technical_leak(text_msg):
         # 1. Timeout / Duration errors

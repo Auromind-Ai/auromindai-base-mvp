@@ -909,7 +909,7 @@ export function CrmScoring({
                             <td className="py-3 px-3 text-zinc-400 text-xs max-w-xs">
                               {sig.example_message ||
                                 (sig.examples && sig.examples.join(", ")) ||
-                                "ΓÇö"}
+                                <span className="block max-w-xs text-center">-</span>}
                             </td>
 
                             {/* Points Controls */}

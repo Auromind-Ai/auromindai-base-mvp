@@ -31,6 +31,7 @@ import { useDashboard } from '@/lib/useDashboard';
 import AddLeadModal from '@/components/leads/AddLeadModal';
 import CreditRingDropdown from '@/components/CreditRingDropdown';
 import WhatsAppStatusIndicator from '@/components/dashboard/WhatsAppStatusIndicator';
+import Preloader from '@/components/Preloader';
 
 // Magic Bento helpers
 function parseRgb(hex) {
@@ -1666,8 +1667,28 @@ export default function DashboardPage() {
     endDate: dateRange.endDate
   });
 
+  const [dashboardLoaded, setDashboardLoaded] = useState(false);
+
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Smooth initial dashboard preloader (dismisses once metrics are ready)
+  useEffect(() => {
+    if (!loading && metrics && metrics.length > 0 && metrics[0]?.value !== '—') {
+      const timer = setTimeout(() => {
+        setDashboardLoaded(true);
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, metrics]);
+
+  // Safety fallback timeout so preloader smoothly dismisses within 1.2s max
+  useEffect(() => {
+    const fallbackTimer = setTimeout(() => {
+      setDashboardLoaded(true);
+    }, 1200);
+    return () => clearTimeout(fallbackTimer);
   }, []);
 
   useEffect(() => {
@@ -1679,13 +1700,27 @@ export default function DashboardPage() {
     return () => window.removeEventListener('lead-added', handleLeadAdded);
   }, [refetch]);
 
-  if (!mounted) return null;
+  if (!mounted) {
+    return (
+      <Preloader
+        text="Loading Dashboard..."
+        show={true}
+        fullScreen={true}
+      />
+    );
+  }
 
   const isInitialLoading = loading && (!metrics || metrics.length === 0 || metrics[0]?.value === '—');
   const cardStateClass = isInitialLoading ? "opacity-50 animate-pulse pointer-events-none" : "transition-opacity duration-300";
 
   return (
-    <div className={`${poppins.className} min-h-screen bg-[#050508] text-white px-3 py-4 sm:p-6 overflow-y-auto custom-scrollbar`}>
+    <>
+      <Preloader
+        text="Loading Dashboard..."
+        show={!dashboardLoaded}
+        fullScreen={true}
+      />
+      <div className={`${poppins.className} min-h-screen bg-[#050508] text-white px-3 py-4 sm:p-6 overflow-y-auto custom-scrollbar`}>
       
 
       {isImpersonated && (
@@ -1810,5 +1845,6 @@ export default function DashboardPage() {
         onSuccess={() => refetch()}
       />
     </div>
+    </>
   );
 }

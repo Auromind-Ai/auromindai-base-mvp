@@ -632,10 +632,16 @@ class WebhookService:
                                 logger.error(f"Failed to commit database updates for status {wamid}: {commit_exc}")
 
                 contacts = value.get("contacts") or []
-                contact_name = None
-                if contacts and isinstance(contacts, list) and len(contacts) > 0:
-                    profile = contacts[0].get("profile") or {}
-                    contact_name = profile.get("name")
+                wa_contact_names = {}
+                for c in (contacts or []):
+                    if isinstance(c, dict):
+                        w_id = c.get("wa_id")
+                        p_name = (c.get("profile") or {}).get("name")
+                        if w_id and p_name:
+                            wa_contact_names[str(w_id).strip()] = p_name
+                            clean_w_id = "".join(filter(str.isdigit, str(w_id)))
+                            if clean_w_id:
+                                wa_contact_names[clean_w_id] = p_name
 
                 messages = value.get("messages") or []
                 if not messages:
@@ -652,6 +658,13 @@ class WebhookService:
                     if not body:
                         logger.warning(f"Message has no textual body (unsupported media type?). Skipping. Raw message: {message}")
                         continue
+
+                    contact_name = None
+                    if from_number:
+                        clean_from = "".join(filter(str.isdigit, str(from_number)))
+                        contact_name = wa_contact_names.get(str(from_number).strip()) or wa_contact_names.get(clean_from)
+                    if not contact_name and contacts and isinstance(contacts, list) and len(contacts) > 0:
+                        contact_name = (contacts[0].get("profile") or {}).get("name")
 
                     if media_id and workspace:
                         try:

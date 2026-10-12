@@ -6,6 +6,7 @@ import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "fra
 import Link from "next/link";
 import NeatCTAButton from "@/components/ui/NeatCTAButton";
 import {
+  Inbox,
   MessageSquare,
   Bot,
   Zap,
@@ -396,7 +397,7 @@ export default function HeroShowcaseSection() {
                 )}
                 <div className="flex items-start gap-3 sm:gap-3.5 cursor-pointer">
                   <div className="mt-0.5 flex-shrink-0 text-white">
-                    <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 stroke-[1.5]" />
+                    <Inbox className="w-5 h-5 sm:w-6 sm:h-6 stroke-[1.5]" />
                   </div>
                   <div>
                     <span
@@ -407,7 +408,7 @@ export default function HeroShowcaseSection() {
                       01
                     </span>
                     <span className="block text-[15px] sm:text-[17px] font-semibold text-white tracking-tight mt-0.5">
-                      Omni Inbox
+                      Inbox
                     </span>
                     <span
                       className={`block text-[11.5px] sm:text-[12.5px] mt-0.5 transition-colors ${
