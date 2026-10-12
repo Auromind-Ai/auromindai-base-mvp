@@ -17,10 +17,12 @@ class MetaWhatsAppConnectRequest(BaseModel):
     fb_access_token: str | None = Field(None, max_length=2000)
     waba_id: str | None = Field(None, max_length=100)
     phone_number_id: str | None = Field(None, max_length=100)
+    app_id: str | None = Field(None, max_length=100)
 
 class InstagramConnectRequest(BaseModel):
     workspace_id: str | None = None
     code: str = Field(..., min_length=1, max_length=2000)
+    redirect_uri: str | None = Field(None, max_length=1000)
 
 
 class TwilioConnectRequest(BaseModel):

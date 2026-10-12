@@ -10,10 +10,44 @@ from app.services.inbox.webhook_service import WebhookService
 from app.schemas.webhook import InstagramConnectRequest
 from app.services.config_service import config_service
 
+import urllib.parse
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/instagram", tags=["instagram"])
 
 
+@router.get("/auth-url")
+def get_instagram_auth_url(
+    workspace_id: str,
+    redirect_uri: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    ws_uuid = verify_workspace_access(current_user, db, workspace_id, required_permission='channels.manage')
+    ig_app_id = config_service.get("ig_app_id") or config_service.get("meta_app_id")
+    if not ig_app_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Instagram App ID (ig_app_id) is not configured in system settings."
+        )
+
+    cb_uri = redirect_uri or config_service.get("ig_redirect_uri") or ""
+    params = {
+        "enable_fb_login": "0",
+        "force_reauth": "true",
+        "force_authentication": "1",
+        "client_id": str(ig_app_id),
+        "redirect_uri": cb_uri,
+        "response_type": "code",
+        "scope": "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments",
+        "state": str(ws_uuid),
+    }
+    auth_url = f"https://www.instagram.com/oauth/authorize?{urllib.parse.urlencode(params)}"
+    return {
+        "url": auth_url,
+        "client_id": str(ig_app_id),
+        "redirect_uri": cb_uri,
+    }
 
 
 @router.post("/connect")

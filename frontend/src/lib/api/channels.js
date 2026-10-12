@@ -21,6 +21,11 @@ export async function uploadWhatsAppProfilePhoto(formData) {
 }
 
 
+export async function getInstagramAuthUrl(params) {
+  const query = new URLSearchParams(params).toString();
+  return client.get(`/api/instagram/auth-url?${query}`);
+}
+
 export async function connectInstagram(payload) {
   return client.post('/api/instagram/connect', payload);
 }
