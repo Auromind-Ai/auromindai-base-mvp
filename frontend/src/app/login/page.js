@@ -705,15 +705,15 @@ function LoginContent() {
                 )}
             </AnimatePresence>
 
-            {/* Hidden Turnstile Container */}
+            {/* Turnstile Verification Container */}
             <div 
                 ref={containerRef} 
                 style={{ 
-                    position: 'absolute', 
-                    left: '-9999px', 
-                    top: '-9999px',
-                    width: '0px', 
-                    height: '0px'
+                    position: 'fixed', 
+                    bottom: '16px', 
+                    right: '16px', 
+                    zIndex: 99999,
+                    pointerEvents: 'auto'
                 }} 
             />
         </div>

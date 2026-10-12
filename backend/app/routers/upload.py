@@ -17,7 +17,7 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 ALLOWED_TYPES = {
     "image": ["image/jpeg", "image/png", "image/jpg", "image/webp", "image/gif"],
     "video": ["video/mp4", "video/webm", "video/quicktime"],
-    "audio": ["audio/mpeg", "audio/ogg", "audio/wav", "audio/mp4", "audio/aac", "audio/x-m4a"],
+    "audio": ["audio/mpeg", "audio/ogg", "audio/wav", "audio/mp4", "audio/aac", "audio/x-m4a", "audio/webm"],
     "document": ["application/pdf"]
 }
 
@@ -94,6 +94,7 @@ MIME_EXTENSION_MAP = {
     "audio/mp4": ".m4a",
     "audio/aac": ".aac",
     "audio/x-m4a": ".m4a",
+    "audio/webm": ".webm",
     "application/pdf": ".pdf",
 }
 

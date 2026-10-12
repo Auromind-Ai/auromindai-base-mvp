@@ -206,3 +206,11 @@ app.include_router(campaigns_router, prefix="/api")
 app.include_router(workspace_router)
 app.include_router(workspace_router, prefix="/api")
 
+# Static files for temp_uploads
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+_temp_uploads_dir = Path(__file__).resolve().parents[1] / "temp_uploads"
+_temp_uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/temp_uploads", StaticFiles(directory=str(_temp_uploads_dir)), name="temp_uploads")
+
+

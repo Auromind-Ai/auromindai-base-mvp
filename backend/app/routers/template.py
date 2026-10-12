@@ -1274,11 +1274,17 @@ def send_message(
         })
 
     # Clean phone number (Meta Cloud API requires digits only with country code)
-    cleaned_phone = re.sub(r"[^\d+]", "", data.phone)
+    cleaned_phone = re.sub(r"[^\d+]", "", str(data.phone))
     if cleaned_phone.startswith("+"):
         cleaned_phone = cleaned_phone[1:]
+    if cleaned_phone.startswith("0"):
+        cleaned_phone = cleaned_phone.lstrip("0")
     if len(cleaned_phone) == 10:
         cleaned_phone = f"91{cleaned_phone}"
+    elif len(cleaned_phone) == 11 and cleaned_phone.startswith("0"):
+        cleaned_phone = f"91{cleaned_phone[1:]}"
+    elif len(cleaned_phone) == 14 and cleaned_phone.startswith("9191"):
+        cleaned_phone = cleaned_phone[2:]
 
     payload = {
         "messaging_product": "whatsapp",
@@ -1313,8 +1319,26 @@ def send_message(
             err_data = res.json()
         except Exception:
             pass
-        err_msg = err_data.get("error", {}).get("message") or res.text
+        error_obj = err_data.get("error", {})
+        err_code = error_obj.get("code")
+        err_msg = error_obj.get("message") or res.text
+        error_details = str(error_obj.get("error_data", {}).get("details", "")).lower()
+        err_msg_lower = err_msg.lower()
         logger.error(f"[Template Send FAILED] {res.status_code}: {err_data}")
+
+        if (
+            err_code == 131026
+            or "incapable of receiving" in error_details
+            or "not a valid whatsapp user" in error_details
+            or "not a valid whatsapp user" in err_msg_lower
+            or "undeliverable" in err_msg_lower
+            or "recipient is not a valid" in err_msg_lower
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=f"The recipient +{cleaned_phone} does not have an active WhatsApp account."
+            )
+
         raise HTTPException(status_code=res.status_code, detail=f"Meta error: {err_msg}")
 
     res_data = res.json()
@@ -1384,6 +1408,8 @@ def send_message(
     if lead:
         if not lead.conversation_id:
             lead.conversation_id = conv.id
+        if lead.name and not lead.name.startswith('+') and not lead.name.isdigit():
+            conv.contact_name = lead.name
         lead.last_activity_at = datetime.utcnow()
         try:
             recalculate_lead_score(lead, db, reason="agent_reply", commit=False)

@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   LayoutDashboard,
   Sparkles,
-  MessageSquare,
+  Inbox,
   Users,
   TrendingUp,
   Zap,
@@ -32,7 +32,7 @@ const sectionsDefinition = [
   {
     title: "Customers",
     items: [
-      ["Omni-Inbox", MessageSquare, "inbox", "inbox.conversations"],
+      ["Inbox", Inbox, "inbox", "inbox.conversations"],
       ["Leads", Users, "leads", "leads.view"],
       ["CRM", TrendingUp, "crm", "crm.view"],
     ],
@@ -144,11 +144,13 @@ export default function WorkspaceNavigation({
                       active={marketingActive}
                     />
                   );
+                const isInbox = route === "inbox";
                 return (
                   <Link
                     key={route}
                     href={href}
                     onClick={onNavigate}
+                    {...(isInbox ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                     aria-current={active ? "page" : undefined}
                     title={collapsed ? label : undefined}
                     aria-label={collapsed ? label : undefined}
