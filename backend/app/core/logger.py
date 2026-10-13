@@ -56,6 +56,47 @@ class WebSocketNoiseFilter(logging.Filter):
         return True
 
 
+class SchedulerNoiseFilter(logging.Filter):
+    """Filters out repetitive scheduler, cron, and background polling noise when log level is below ERROR."""
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno < logging.ERROR:
+            name = record.name or ""
+            if any(name.startswith(p) for p in (
+                "apscheduler",
+                "celery.beat",
+            )):
+                return False
+
+            msg = record.getMessage()
+            if any(term in msg for term in (
+                "Scheduler Triggered at:",
+                "Email Scheduler Started at:",
+                "Email Scheduler started",
+                "Email Scheduler Stopped at:",
+                "Cleanup Scheduler started",
+                "EmailMonitor cycle started",
+                "EmailMonitor cycle completed",
+                "No email accounts found",
+                "No active Gmail integrations found",
+                "Checking emails for:",
+                "No valid primary emails found",
+                "[DynamicScheduler]",
+                "[LeadReportScheduler]",
+                "[DeletionJob]",
+                "[OutboxProcessor]",
+                "[cleanup_abandoned_wcc_recharges]",
+                "[cleanup_abandoned_pending_subscriptions]",
+                "[cleanup_expired_subscriptions]",
+                "[poll_scheduled_resumes]",
+                "check_scheduled_campaigns",
+                "Triggering scheduled campaign",
+                "auto_cleanup_expired",
+                "stale billing reservations",
+            )):
+                return False
+        return True
+
+
 # project root path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 LOG_DIR = os.path.join(BASE_DIR, "logs")
@@ -73,6 +114,7 @@ logger.propagate = False
 
 sensitive_filter = SensitiveDataFilter()
 ws_noise_filter = WebSocketNoiseFilter()
+scheduler_noise_filter = SchedulerNoiseFilter()
 
 class ErrorOnlyFilter(logging.Filter):
     """Ensures non-error logs do not leak into live output when level is ERROR."""
@@ -85,6 +127,7 @@ error_filter = ErrorOnlyFilter()
 
 logger.addFilter(sensitive_filter)
 logger.addFilter(ws_noise_filter)
+logger.addFilter(scheduler_noise_filter)
 logger.addFilter(error_filter)
 
 formatter = logging.Formatter(
@@ -107,6 +150,7 @@ console_handler.setLevel(LOG_LEVEL)
 console_handler.setFormatter(formatter)
 console_handler.addFilter(sensitive_filter)
 console_handler.addFilter(ws_noise_filter)
+console_handler.addFilter(scheduler_noise_filter)
 console_handler.addFilter(error_filter)
 logger.addHandler(console_handler)
 
@@ -118,6 +162,7 @@ try:
     file_handler.setFormatter(formatter)
     file_handler.addFilter(sensitive_filter)
     file_handler.addFilter(ws_noise_filter)
+    file_handler.addFilter(scheduler_noise_filter)
     file_handler.addFilter(error_filter)
     logger.addHandler(file_handler)
 except Exception as primary_err:
@@ -128,6 +173,7 @@ except Exception as primary_err:
         fallback_handler.setFormatter(formatter)
         fallback_handler.addFilter(sensitive_filter)
         fallback_handler.addFilter(ws_noise_filter)
+        fallback_handler.addFilter(scheduler_noise_filter)
         fallback_handler.addFilter(error_filter)
         logger.addHandler(fallback_handler)
     except Exception as fallback_err:
@@ -140,6 +186,7 @@ except Exception as primary_err:
 root_logger = logging.getLogger()
 root_logger.setLevel(LOG_LEVEL)
 root_logger.addFilter(ws_noise_filter)
+root_logger.addFilter(scheduler_noise_filter)
 root_logger.addFilter(error_filter)
 for h in list(root_logger.handlers):
     root_logger.removeHandler(h)
@@ -150,11 +197,13 @@ for _lib in (
     "websockets", "websockets.server", "websockets.protocol",
     "uvicorn", "uvicorn.access", "uvicorn.error",
     "fastapi", "asyncio", "urllib3", "requests", "httpcore", "httpx",
-    "watchfiles", "alembic"
+    "watchfiles", "alembic",
+    "apscheduler", "apscheduler.scheduler", "apscheduler.executors", "apscheduler.executors.default"
 ):
     _l = logging.getLogger(_lib)
     _l.setLevel(logging.ERROR)
     _l.addFilter(error_filter)
+    _l.addFilter(scheduler_noise_filter)
     if _lib == "uvicorn.access":
         _l.handlers = []
         _l.propagate = False

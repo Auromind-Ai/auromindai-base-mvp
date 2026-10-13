@@ -7,7 +7,6 @@ import secrets
 
 logger = logging.getLogger(__name__)
 
-# Allowed origins for CORS headers in blocked admin responses
 _ADMIN_CORS_ORIGINS = [
     "https://orbionagents.com",
     "http://orbionagents.com",

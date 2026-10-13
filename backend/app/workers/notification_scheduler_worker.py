@@ -78,7 +78,7 @@ def evaluate_dynamic_notification_schedules(db: Session | None = None):
                 elif event_name == "lead.sla_scan":
                     check_lead_sla_breaches(db=db)
 
-                logger.info(f"[DynamicScheduler] Executed schedule '{display_name}'. Next run at {next_run_str}.")
+                logger.debug(f"[DynamicScheduler] Executed schedule '{display_name}'. Next run at {next_run_str}.")
             except Exception as e:
                 logger.error(f"[DynamicScheduler] Error executing schedule: {e}", exc_info=True)
     except Exception as exc:
@@ -120,7 +120,7 @@ def process_scheduled_email_outbox():
                 logger.error(f"[OutboxProcessor] Error dispatching log {log.id}: {e}")
 
         if processed_count > 0:
-            logger.info(f"[OutboxProcessor] Processed {processed_count} outbox email(s).")
+            logger.debug(f"[OutboxProcessor] Processed {processed_count} outbox email(s).")
     except Exception as exc:
         logger.error(f"[OutboxProcessor] Outbox polling failed: {exc}", exc_info=True)
     finally:

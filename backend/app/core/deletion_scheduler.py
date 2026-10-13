@@ -23,7 +23,7 @@ def register_deletion_job() -> None:
         try:
             count = AccountService.run_permanent_deletion(db)
             if count:
-                logger.info(f"[DeletionJob] Processed {count} expired account(s).")
+                logger.debug(f"[DeletionJob] Processed {count} expired account(s).")
         except Exception as e:
             logger.error(f"[DeletionJob] Unexpected error: {e}")
         finally:
@@ -39,4 +39,4 @@ def register_deletion_job() -> None:
         replace_existing=True,
     )
     _scheduler.start()
-    logger.info("[DeletionJob] Daily deletion job registered — runs at 02:00 UTC.")
+    logger.debug("[DeletionJob] Daily deletion job registered — runs at 02:00 UTC.")

@@ -5,6 +5,16 @@ import { WifiOff, RefreshCw, CheckCircle2, ShieldAlert } from 'lucide-react';
 
 const HEALTH_CHECK_URL = '/api/health';
 const RETRY_INTERVAL_SEC = 5;
+const FAILURE_THRESHOLD = 3;
+
+function isBusyWithOperation() {
+  if (typeof window === 'undefined') return false;
+  if ((window.__orbionActiveRequests || 0) > 0) return true;
+  if (window.__orbionServerProcessingUntil && Date.now() < window.__orbionServerProcessingUntil) {
+    return true;
+  }
+  return false;
+}
 
 export default function ServerHealthMonitor() {
   const [isOffline, setIsOffline] = useState(false);
@@ -21,7 +31,7 @@ export default function ServerHealthMonitor() {
     try {
       setIsReconnecting(true);
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
+      const timeout = setTimeout(() => controller.abort(), 8000);
 
       const res = await fetch(HEALTH_CHECK_URL, {
         method: 'GET',
@@ -59,11 +69,46 @@ export default function ServerHealthMonitor() {
     return false;
   }, []);
 
+  const verifyBackendDown = useCallback(async () => {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(HEALTH_CHECK_URL, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (res.ok) {
+        errorCountRef.current = 0;
+        return false;
+      }
+      // /api/health only returns 500-504 when the backend process is down/unreachable
+      if ((res.status >= 500 && res.status <= 504) || (res.status >= 520 && res.status <= 526)) {
+        return true;
+      }
+      return false;
+    } catch (err) {
+      // If it timed out (AbortError) while an upload/connect/processing task is running,
+      // the backend is alive and busy working — not crashed.
+      if (err?.name === 'AbortError' && isBusyWithOperation()) {
+        return false;
+      }
+      // If it's a real network error (Failed to fetch / ECONNREFUSED), backend is down.
+      if (err?.name !== 'AbortError') {
+        return true;
+      }
+      errorCountRef.current += 1;
+      return errorCountRef.current >= FAILURE_THRESHOLD;
+    }
+  }, []);
+
   // Listen to APIClient error events
   useEffect(() => {
-    const handleConnectionError = () => {
-      errorCountRef.current += 1;
-            if (errorCountRef.current >= 1 && !isOffline) {
+    const handleConnectionError = async () => {
+      if (isOffline) return;
+      const isDown = await verifyBackendDown();
+      if (isDown) {
         setIsOffline(true);
         setCountdown(RETRY_INTERVAL_SEC);
       }
@@ -91,36 +136,23 @@ export default function ServerHealthMonitor() {
       window.removeEventListener('server-connection-error', handleConnectionError);
       window.removeEventListener('server-connection-success', handleConnectionSuccess);
     };
-  }, [isOffline]);
+  }, [isOffline, verifyBackendDown]);
 
   useEffect(() => {
     if (isOffline) return;
 
     const heartbeatInterval = setInterval(async () => {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3500);
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
 
-        const res = await fetch(HEALTH_CHECK_URL, {
-          method: 'GET',
-          cache: 'no-store',
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeout);
-
-        if (!res.ok && ((res.status >= 500 && res.status <= 504) || (res.status >= 520 && res.status <= 526))) {
-          setIsOffline(true);
-          setCountdown(RETRY_INTERVAL_SEC);
-        }
-      } catch {
+      const isDown = await verifyBackendDown();
+      if (isDown) {
         setIsOffline(true);
         setCountdown(RETRY_INTERVAL_SEC);
       }
     }, 10000);
 
     return () => clearInterval(heartbeatInterval);
-  }, [isOffline]);
+  }, [isOffline, verifyBackendDown]);
 
   // Handle countdown & auto-retry loop when offline
   useEffect(() => {

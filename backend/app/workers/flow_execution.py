@@ -272,17 +272,6 @@ def handle_node_timeout(
             )
         )
 
-        try:
-            db.query(ScheduledResume).filter(
-                ScheduledResume.conversation_id == conversation_id,
-                ScheduledResume.node_id == node_id,
-                ScheduledResume.status == "pending",
-                ScheduledResume.run_at <= datetime.now(timezone.utc) + timedelta(seconds=15),
-            ).update({"status": "executed"}, synchronize_session=False)
-            db.flush()
-        except Exception as sr_err:
-            logger.debug("[handle_node_timeout] Could not update ScheduledResume status: %s", sr_err)
-
         tracer.trace(
             db,
             conversation_id=conversation_id,
@@ -971,6 +960,16 @@ def sweep_stuck_messages():
                 continue
             if state.question_expires_at and state.question_expires_at > now_utc:
                 continue
+            ai_exp_raw = runtime_ctx.get("ai_expires_at")
+            if ai_exp_raw:
+                try:
+                    ai_exp = datetime.fromisoformat(ai_exp_raw)
+                    if ai_exp.tzinfo is None:
+                        ai_exp = ai_exp.replace(tzinfo=timezone.utc)
+                    if ai_exp > now_utc:
+                        continue
+                except (ValueError, TypeError):
+                    pass
 
             is_mid = (
                 state.current_node_id is not None
@@ -1057,13 +1056,24 @@ def poll_scheduled_resumes():
                         node_id=sr.node_id,
                         stage_index=pending_to.get("stage_index", 0),
                     )
-                else:
+                elif curr_state and curr_state.current_node_id == sr.node_id:
                     resume_flow_node.delay(
                         conversation_id=str(sr.conversation_id),
                         node_id=sr.node_id,
                         inbound_text=sr.inbound_text or "",
                         msg_sequence_val=sr.msg_sequence_val or 0,
                     )
+                else:
+                    logger.info(
+                        "[poll_scheduled_resumes] Stale resume node — cancelling | "
+                        "conversation=%s node=%s curr_node=%s",
+                        sr.conversation_id,
+                        sr.node_id,
+                        curr_state.current_node_id if curr_state else None,
+                    )
+                    sr.status = "cancelled"
+                    cancelled += 1
+                    continue
             except Exception as enqueue_exc:
                 # Enqueue failed — leave row as "pending" for next cycle
                 logger.warning(
@@ -1075,14 +1085,14 @@ def poll_scheduled_resumes():
             #  Mark executed ONLY after successful enqueue
             sr.status = "executed"
             dispatched += 1
-            logger.info(
+            logger.debug(
                 "[poll_scheduled_resumes] Fired resume | conversation=%s node=%s id=%s",
                 sr.conversation_id, sr.node_id, sr.id,
             )
 
         db.commit()
         if dispatched or cancelled:
-            logger.info(
+            logger.debug(
                 "[poll_scheduled_resumes] Done — dispatched=%d cancelled=%d",
                 dispatched, cancelled,
             )

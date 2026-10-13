@@ -35,7 +35,7 @@ def cleanup_abandoned_pending_subscriptions():
             cancelled_count += 1
 
         db.commit()
-        logger.info(f"[cleanup_abandoned_pending_subscriptions] Auto-cancelled {cancelled_count} abandoned pending checkouts older than 24 hours.")
+        logger.debug(f"[cleanup_abandoned_pending_subscriptions] Auto-cancelled {cancelled_count} abandoned pending checkouts older than 24 hours.")
         return {"cancelled_count": cancelled_count}
     except Exception as exc:
         db.rollback()
@@ -67,7 +67,7 @@ def cleanup_expired_subscriptions():
             expired_count += 1
 
         db.commit()
-        logger.info(f"[cleanup_expired_subscriptions] Marked {expired_count} past-due subscriptions as expired.")
+        logger.debug(f"[cleanup_expired_subscriptions] Marked {expired_count} past-due subscriptions as expired.")
         return {"expired_count": expired_count}
     except Exception as exc:
         db.rollback()
@@ -156,7 +156,7 @@ def wcc_daily_reconciliation():
 )
 def cleanup_abandoned_wcc_recharges():
     """Celery Beat Task: Automatically cancels/fails pending WCC recharges older than 24 hours."""
-    logger.info("[cleanup_abandoned_wcc_recharges] Starting cleanup of abandoned WCC recharges")
+    logger.debug("[cleanup_abandoned_wcc_recharges] Starting cleanup of abandoned WCC recharges")
     db = SessionLocal()
     try:
         expiry_hours = settings.WCC_PENDING_EXPIRY_HOURS
@@ -176,7 +176,7 @@ def cleanup_abandoned_wcc_recharges():
             cancelled_count += 1
             
         db.commit()
-        logger.info(f"[cleanup_abandoned_wcc_recharges] Auto-failed {cancelled_count} pending WCC recharges older than {expiry_hours} hours.")
+        logger.debug(f"[cleanup_abandoned_wcc_recharges] Auto-failed {cancelled_count} pending WCC recharges older than {expiry_hours} hours.")
         return {"failed_count": cancelled_count}
     except Exception as exc:
         db.rollback()

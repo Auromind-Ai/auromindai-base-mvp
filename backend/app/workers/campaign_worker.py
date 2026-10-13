@@ -650,7 +650,7 @@ def check_scheduled_campaigns():
             .all()
         )
         for camp in scheduled:
-            logger.info("Triggering scheduled campaign %s (scheduled at %s)", camp.id, camp.scheduled_at)
+            logger.debug("Triggering scheduled campaign %s (scheduled at %s)", camp.id, camp.scheduled_at)
             camp.status = "in_progress"
             camp.started_at = now_utc
             db.commit()
@@ -679,7 +679,7 @@ def check_scheduled_campaigns():
                         CampaignService.release_unspent_escrow(db, camp.workspace_id, unspent)
                         camp.held_cost = camp.actual_cost
                     db.commit()
-                    logger.info("[Sweeper] Auto-completed in_progress campaign %s with 0 remaining recipients", camp.id)
+                    logger.debug("[Sweeper] Auto-completed in_progress campaign %s with 0 remaining recipients", camp.id)
                 elif camp.started_at:
                     st_tz = camp.started_at if camp.started_at.tzinfo else camp.started_at.replace(tzinfo=timezone.utc)
                     stalled_sec = (now_utc - st_tz).total_seconds()

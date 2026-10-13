@@ -52,7 +52,7 @@ class ReservationCleanupSchedulerService:
             released_count = cleanup_stale_reservations(db)
             db.commit()
             if released_count:
-                logger.info("Released %s stale billing reservations", released_count)
+                logger.debug("Released %s stale billing reservations", released_count)
         except Exception as exc:
             db.rollback()
             logger.error("Reservation cleanup failed: %s", exc)

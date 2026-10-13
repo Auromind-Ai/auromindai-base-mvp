@@ -1250,8 +1250,40 @@ export default function AutomationCanvas() {
     setIsSaving(true);
     try {
       const sanitizedNodes = nodes.map(node => {
-        if (node.type === 'action' && node.config?.type === 'send_msg') {
-          return { ...node, config: { ...node.config, message_type: node.config.message_type || 'text', mode: node.config.mode || 'manual' } };
+        if (node.type === 'action') {
+          const actionType = node.config?.type || 'send_msg';
+          const msgType = node.config?.message_type || 'text';
+          const isInteractive =
+            (actionType === 'send_msg' && msgType === 'button_message') ||
+            actionType === 'brain_query' ||
+            actionType === 'ask_question';
+          if (actionType === 'send_msg') {
+            return {
+              ...node,
+              config: {
+                ...node.config,
+                message_type: msgType,
+                mode: node.config.mode || 'manual',
+                wait_for_response: isInteractive ? (node.config.wait_for_response ?? false) : false,
+              },
+            };
+          }
+          if (!isInteractive) {
+            return {
+              ...node,
+              config: {
+                ...node.config,
+                wait_for_response: false,
+              },
+            };
+          }
+          return {
+            ...node,
+            config: {
+              ...node.config,
+              wait_for_response: Boolean(node.config?.wait_for_response),
+            },
+          };
         }
         return node;
       });
@@ -1457,7 +1489,7 @@ export default function AutomationCanvas() {
       type: 'action',
       label: 'New Step',
       position: position || { x: sourceNode.position.x + 350, y: sourceNode.position.y + targetOffsetY },
-      config: { type: 'send_msg', message_type: 'text', text: '', mode: 'manual', delay_amount: 0, delay_unit: 'minutes' },
+      config: { type: 'send_msg', message_type: 'text', text: '', mode: 'manual', wait_for_response: false, delay_amount: 0, delay_unit: 'minutes' },
     };
 
     setNodes((prev) => [...prev, newNode]);
