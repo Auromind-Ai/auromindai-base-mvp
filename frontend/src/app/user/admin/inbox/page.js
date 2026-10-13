@@ -2665,7 +2665,7 @@ function InboxContent() {
     const [isLoadingOlder, setIsLoadingOlder] = useState(false);
 
     const fetchMessages = useCallback(async (id) => {
-        if (!id) return;
+        if (!id || String(id).startsWith('whatsapp-')) return;
         try {
             const data = await api.get(`/api/messages/${id}?limit=50`);
             if (!Array.isArray(data)) { console.warn("Messages API non-array:", data); return; }
@@ -2948,7 +2948,7 @@ function InboxContent() {
         if (!workspace?.id) return;
         const interval = setInterval(() => {
             fetchConversations();
-            if (leadRef.current?.id) {
+            if (leadRef.current?.id && !String(leadRef.current.id).startsWith('whatsapp-')) {
                 fetchMessages(leadRef.current.id);
             }
         }, 4000);

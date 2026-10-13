@@ -1259,19 +1259,109 @@ def send_message(
             "parameters": [{"type": "text", "text": str(v)} for v in variables],
         })
 
-    # For AUTHENTICATION templates with COPY_CODE button, Meta also expects the button parameter
-    if category == "AUTHENTICATION" and variables:
-        components.append({
+    # 3. Interactive Buttons (COPY_CODE, URL, OTP)
+    button_components = []
+    parsed_buttons = []
+    if template and getattr(template, "buttons", None):
+        try:
+            parsed_buttons = json.loads(template.buttons) if isinstance(template.buttons, str) else (template.buttons or [])
+        except Exception:
+            parsed_buttons = []
+
+    def resolve_coupon_code(default_val="OFFER20"):
+        if getattr(data, "coupon_code", None) and str(data.coupon_code).strip():
+            return str(data.coupon_code).strip()
+
+        # Check template variable mapping if available
+        var_map = {}
+        if template and getattr(template, "variable_mapping", None):
+            try:
+                var_map = json.loads(template.variable_mapping) if isinstance(template.variable_mapping, str) else (template.variable_mapping or {})
+            except Exception:
+                var_map = {}
+
+        for num_k, name_v in var_map.items():
+            if any(term in str(name_v).lower() for term in ("code", "promo", "coupon", "offer", "discount", "otp")):
+                try:
+                    idx = int(num_k) - 1
+                    if 0 <= idx < len(variables) and str(variables[idx]).strip():
+                        return str(variables[idx]).strip()
+                except Exception:
+                    pass
+
+        # If category is AUTHENTICATION, variables[0] is typically the OTP code
+        if category == "AUTHENTICATION" and variables:
+            return str(variables[0]).strip()
+
+        # Check if any variable looks like a coupon / promo code
+        for v in variables:
+            v_str = str(v).strip()
+            if v_str and len(v_str) <= 20 and not (" " in v_str) and any(c.isdigit() for c in v_str):
+                return v_str
+
+        return default_val
+
+    if parsed_buttons:
+        for b_idx, btn in enumerate(parsed_buttons):
+            b_type = (btn.get("type") or "").upper()
+            if b_type in ("COPY_CODE", "COPY_OFFER_CODE") or (b_type == "OTP" and btn.get("otp_type") == "COPY_CODE"):
+                btn_code = btn.get("code") or btn.get("example")
+                resolved_code = resolve_coupon_code(default_val=btn_code or "OFFER20")
+                button_components.append({
+                    "type": "button",
+                    "sub_type": "copy_code",
+                    "index": str(b_idx),
+                    "parameters": [
+                        {
+                            "type": "coupon_code",
+                            "coupon_code": resolved_code
+                        }
+                    ]
+                })
+            elif b_type == "URL":
+                url_val = btn.get("url") or ""
+                if "{{" in url_val or btn.get("url_type") == "dynamic":
+                    param_val = btn.get("example") or "home"
+                    button_components.append({
+                        "type": "button",
+                        "sub_type": "url",
+                        "index": str(b_idx),
+                        "parameters": [
+                            {
+                                "type": "text",
+                                "text": str(param_val)
+                            }
+                        ]
+                    })
+    elif category == "AUTHENTICATION":
+        otp_val = str(variables[0]) if variables else "123456"
+        button_components.append({
             "type": "button",
-            "sub_type": "url",
+            "sub_type": "copy_code",
             "index": "0",
             "parameters": [
                 {
-                    "type": "text",
-                    "text": str(variables[0])
+                    "type": "coupon_code",
+                    "coupon_code": str(otp_val)
                 }
             ]
         })
+    elif template and getattr(template, "cta_btn_title", None) and any(w in str(template.cta_btn_title).lower() for w in ("copy", "code", "coupon")):
+        resolved_code = resolve_coupon_code("SAVE20")
+        button_components.append({
+            "type": "button",
+            "sub_type": "copy_code",
+            "index": "0",
+            "parameters": [
+                {
+                    "type": "coupon_code",
+                    "coupon_code": resolved_code
+                }
+            ]
+        })
+
+    if button_components:
+        components.extend(button_components)
 
     # Clean phone number (Meta Cloud API requires digits only with country code)
     cleaned_phone = re.sub(r"[^\d+]", "", str(data.phone))
@@ -1313,6 +1403,54 @@ def send_message(
     }
     
     res = requests.post(url, json=payload, headers=headers, timeout=10)
+    if res.status_code >= 400:
+        err_data = {}
+        try:
+            err_data = res.json()
+        except Exception:
+            pass
+        error_obj = err_data.get("error", {})
+        err_code = error_obj.get("code")
+        err_msg = error_obj.get("message") or res.text
+        error_details = str(error_obj.get("error_data", {}).get("details", "")).lower()
+        err_msg_lower = err_msg.lower()
+
+        # Self-healing retry for Meta Error 131008 (Missing button coupon_code)
+        if err_code == 131008 and "copy_code requires a non-empty parameter coupon_code" in (error_details + " " + err_msg_lower):
+            logger.warning(
+                f"[Template Send] Auto-recovering missing copy_code button parameter for recipient {cleaned_phone}"
+            )
+            recovered_code = resolve_coupon_code("OFFER20")
+            payload_comps = payload.get("template", {}).get("components", [])
+            payload_comps = [c for c in payload_comps if not (c.get("type") == "button" and str(c.get("index")) == "0")]
+            payload_comps.append({
+                "type": "button",
+                "sub_type": "copy_code",
+                "index": "0",
+                "parameters": [
+                    {
+                        "type": "coupon_code",
+                        "coupon_code": recovered_code
+                    }
+                ]
+            })
+            payload["template"]["components"] = payload_comps
+
+            retry_res = requests.post(url, json=payload, headers=headers, timeout=10)
+            if retry_res.status_code < 400:
+                res = retry_res
+            else:
+                try:
+                    err_data = retry_res.json()
+                except Exception:
+                    pass
+                error_obj = err_data.get("error", {})
+                err_code = error_obj.get("code")
+                err_msg = error_obj.get("message") or retry_res.text
+                error_details = str(error_obj.get("error_data", {}).get("details", "")).lower()
+                err_msg_lower = err_msg.lower()
+                logger.error(f"[Template Send FAILED after retry] {retry_res.status_code}: {err_data}")
+
     if res.status_code >= 400:
         err_data = {}
         try:
