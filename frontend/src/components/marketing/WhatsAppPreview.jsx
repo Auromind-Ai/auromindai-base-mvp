@@ -14,6 +14,8 @@ import {
   Mic,
   CornerDownLeft,
   CheckCheck,
+  Copy,
+  ExternalLink,
 } from 'lucide-react';
 
 export default function WhatsAppPreview({
@@ -49,9 +51,28 @@ export default function WhatsAppPreview({
       ...variables,
     };
 
+    const escapeRegExp = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
     Object.keys(defaults).forEach((k) => {
-      const reg = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
-      result = result.replace(reg, defaults[k]);
+      if (!k) return;
+      const cleanK = String(k).replace(/[{}]/g, '').trim();
+      const val = defaults[k] !== undefined && defaults[k] !== null ? String(defaults[k]) : '';
+      try {
+        const reg = new RegExp(`\\{\\{\\s*${escapeRegExp(cleanK)}\\s*\\}\\}`, 'gi');
+        result = result.replace(reg, val);
+      } catch (e) {
+        result = result.split(`{{${cleanK}}}`).join(val);
+      }
+      // Also try replacing bracketed version like {{[discount]}} if cleanK is "discount"
+      const bracketClean = cleanK.replace(/[\[\]]/g, '');
+      if (bracketClean !== cleanK) {
+        try {
+          const regBracket = new RegExp(`\\{\\{\\s*\\[${escapeRegExp(bracketClean)}\\]\\s*\\}\\}`, 'gi');
+          result = result.replace(regBracket, val);
+        } catch (e) {
+          result = result.split(`{{[${bracketClean}]}}`).join(val);
+        }
+      }
     });
 
     return (
@@ -180,19 +201,64 @@ export default function WhatsAppPreview({
               </div>
 
               {/* Action / Quick Reply Buttons */}
-              {Array.isArray(buttons) && buttons.length > 0 && (
-                <div className="space-y-1 pt-0.5">
-                  {buttons.map((btn, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-white rounded-xl py-2 px-3 shadow-[0_1px_2px_rgba(0,0,0,0.08)] border border-black/[0.05] flex items-center justify-center gap-1.5 text-[11px] sm:text-[11.5px] font-semibold text-[#008069] cursor-pointer hover:bg-zinc-50 transition-colors"
-                    >
-                      <CornerDownLeft size={12} className="text-[#008069] shrink-0" />
-                      <span className="truncate">{btn.text || btn.label || btn}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {(() => {
+                let list = buttons;
+                if (typeof list === 'string') {
+                  try {
+                    list = JSON.parse(list);
+                  } catch (e) {
+                    list = [];
+                  }
+                }
+                if (!Array.isArray(list) || list.length === 0) return null;
+
+                const getButtonDetails = (btn, idx) => {
+                  if (typeof btn === 'string') {
+                    return { label: btn, icon: 'reply' };
+                  }
+                  if (!btn || typeof btn !== 'object') {
+                    return { label: `Option ${idx + 1}`, icon: 'reply' };
+                  }
+                  const bType = (btn.type || btn.sub_type || '').toUpperCase();
+                  if (bType === 'COPY_CODE' || bType === 'COPY_OFFER_CODE' || btn.coupon_code || btn.code) {
+                    const code = btn.coupon_code || btn.code || (Array.isArray(btn.example) ? btn.example[0] : btn.example) || 'SAVE20';
+                    return { label: `Copy: ${code}`, icon: 'copy' };
+                  }
+                  if (bType === 'URL' || btn.url) {
+                    return { label: btn.text || btn.label || btn.url_title || 'Visit Website', icon: 'url' };
+                  }
+                  if (bType === 'PHONE_NUMBER' || btn.phone_number) {
+                    return { label: btn.text || btn.label || btn.phone_number || 'Call Us', icon: 'phone' };
+                  }
+                  const label = btn.text || btn.label || btn.title || (Array.isArray(btn.example) ? btn.example[0] : btn.example) || `Option ${idx + 1}`;
+                  return { label: String(label), icon: 'reply' };
+                };
+
+                return (
+                  <div className="space-y-1 pt-0.5">
+                    {list.map((btn, idx) => {
+                      const details = getButtonDetails(btn, idx);
+                      return (
+                        <div
+                          key={idx}
+                          className="bg-white rounded-xl py-2 px-3 shadow-[0_1px_2px_rgba(0,0,0,0.08)] border border-black/[0.05] flex items-center justify-center gap-1.5 text-[11px] sm:text-[11.5px] font-semibold text-[#008069] cursor-pointer hover:bg-zinc-50 transition-colors"
+                        >
+                          {details.icon === 'copy' ? (
+                            <Copy size={12} className="text-[#008069] shrink-0" />
+                          ) : details.icon === 'url' ? (
+                            <ExternalLink size={12} className="text-[#008069] shrink-0" />
+                          ) : details.icon === 'phone' ? (
+                            <Phone size={12} className="text-[#008069] shrink-0" />
+                          ) : (
+                            <CornerDownLeft size={12} className="text-[#008069] shrink-0" />
+                          )}
+                          <span className="truncate">{details.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
