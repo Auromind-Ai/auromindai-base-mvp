@@ -157,7 +157,7 @@ export default function ApiKeysPage() {
       <div className="mb-10 mx-2 p-4 rounded-2xl bg-indigo-500/5 border border-white/5 flex gap-4 text-gray-400 text-xs leading-relaxed">
         <Info size={20} className="text-indigo-400 shrink-0" strokeWidth={2.5} />
         <p>
-          These keys are applied globally across the entire Auromind platform. Ensure you are using production-ready API keys for live environments. 
+          These keys are applied globally across the entire Orbion Agents platform. Ensure you are using production-ready API keys for live environments. 
           Keys are stored encrypted in the database and masked in this view for your security.
         </p>
       </div>

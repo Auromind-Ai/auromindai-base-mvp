@@ -109,7 +109,7 @@ export default function SalesAutomationPage() {
               variants={itemVariants}
               className="text-lg text-white/70 max-w-2xl mx-auto lg:mx-0 leading-relaxed"
             >
-              Close deals while you sleep. Integrate Auromind sales automation with Instagram Direct and WhatsApp to handle client objections, send dynamic checkout links, and capture revenue 24/7.
+              Close deals while you sleep. Integrate Orbion Agents sales automation with Instagram Direct and WhatsApp to handle client objections, send dynamic checkout links, and capture revenue 24/7.
             </MotionP>
 
             {/* CTA Buttons */}

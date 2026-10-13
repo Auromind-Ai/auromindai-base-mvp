@@ -351,7 +351,7 @@ function PreferencesSection() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-normal tracking-tight text-white">
+        <h1 className="text-xl md:text-2xl font-normal tracking-tight text-white">
           My Account
         </h1>
         <p className="mt-1.5 text-sm text-white/65">
@@ -359,7 +359,7 @@ function PreferencesSection() {
         </p>
       </div>
 
-      <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
+      <div className="mb-4 h-px w-full bg-[rgba(124,58,237,0.15)]" />
 
 
       <div className="mb-4">
@@ -1214,7 +1214,7 @@ function SecuritySection() {
                       </h2>
                       {viewingDetail === 'active_sessions' && (
                         <p className="text-xs text-white/50 mt-0.5">
-                          Devices currently signed into your Auromind account.
+                          Devices currently signed into your Orbion Agents account.
                         </p>
                       )}
                     </div>
@@ -1591,7 +1591,7 @@ function MyAccountSection({
 
       {/* Page header - Reduced size on mobile */}
       <div className="mb-4 sm:mb-8">
-        <h1 className="text-xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight text-white">
           My Account
         </h1>
         <p className="mt-1 text-xs sm:text-sm text-zinc-400">

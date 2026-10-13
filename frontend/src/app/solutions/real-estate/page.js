@@ -109,7 +109,7 @@ export default function RealEstatePage() {
               variants={itemVariants}
               className="text-lg text-white/70 max-w-2xl mx-auto lg:mx-0 leading-relaxed"
             >
-              Convert social media attention into scheduled viewings. Integrate Auromind's conversational AI agents with WhatsApp and Instagram to respond instantly to buyers, recommend active listings, and qualify buyer intent.
+              Convert social media attention into scheduled viewings. Integrate Orbion Agentsconversational AI agents with WhatsApp and Instagram to respond instantly to buyers, recommend active listings, and qualify buyer intent.
             </MotionP>
 
             {/* CTA Buttons */}
