@@ -576,7 +576,7 @@ function mapTemplateRecord(t) {
   // If variable_mapping is empty, but vars contains named strings (not just digits "1", "2")
   if (Object.keys(varMap).length === 0 && Array.isArray(vars) && vars.length > 0) {
     vars.forEach((v, idx) => {
-      const clean = String(v).replace(/[{}]/g, '').trim();
+      const clean = String(v).replace(/[\[\]{}]/g, '').trim();
       if (!/^\d+$/.test(clean)) {
         varMap[String(idx + 1)] = clean;
       }
