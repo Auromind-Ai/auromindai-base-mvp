@@ -230,6 +230,10 @@ export class APIClient {
     const timeoutId = controller ? setTimeout(() => { isTimeout = true; controller.abort('timeout'); }, timeoutMs) : null;
     config.signal = optSignal || controller?.signal;
 
+    if (typeof window !== 'undefined') {
+      window.__orbionActiveRequests = (window.__orbionActiveRequests || 0) + 1;
+    }
+
     try {
       if (isDev) {
         console.log(`[API Request] ${config.method || 'GET'}: ${url}${isRetryAttempt ? ' (Retry)' : ''}`);
@@ -329,8 +333,16 @@ export class APIClient {
           }
         }
 
-        if ((response.status >= 502 && response.status <= 504) || (response.status >= 520 && response.status <= 526)) {
+        const isGatewayOrProxyDown =
+          (response.status === 500 && !data) ||
+          (response.status >= 502 && response.status <= 504) ||
+          (response.status >= 520 && response.status <= 526);
+
+        if (isGatewayOrProxyDown) {
           if (typeof window !== 'undefined') {
+            window.__orbionActiveRequests = Math.max(0, (window.__orbionActiveRequests || 1) - 1);
+            window.__orbionServerProcessingUntil = 0;
+            config.__decremented = true;
             window.dispatchEvent(new CustomEvent('server-connection-error', { detail: { status: response.status } }));
           }
         }
@@ -378,6 +390,9 @@ export class APIClient {
 
       if (isFetchNetworkError) {
         if (typeof window !== 'undefined') {
+          window.__orbionActiveRequests = Math.max(0, (window.__orbionActiveRequests || 1) - 1);
+          window.__orbionServerProcessingUntil = 0;
+          config.__decremented = true;
           window.dispatchEvent(new CustomEvent('server-connection-error', { detail: { status: 0 } }));
         }
         const networkErr = new Error('Unable to connect to the server. Please check your internet connection and try again.');
@@ -387,6 +402,10 @@ export class APIClient {
       }
 
       throw error;
+    } finally {
+      if (typeof window !== 'undefined' && !config.__decremented) {
+        window.__orbionActiveRequests = Math.max(0, (window.__orbionActiveRequests || 1) - 1);
+      }
     }
   }
 
@@ -405,6 +424,10 @@ export class APIClient {
       } catch {
         data = {};
       }
+    }
+
+    if (typeof window !== 'undefined' && data && (data.status === 'pending' || data.status === 'processing')) {
+      window.__orbionServerProcessingUntil = Date.now() + 30000;
     }
 
     return data !== null ? data : {};
