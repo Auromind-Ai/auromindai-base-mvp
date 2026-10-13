@@ -2004,9 +2004,9 @@ export default function AutomationCanvas() {
                 </span>
               </div>
             </div>
-            {flowValidation.errors.length > 0 && (
+            {flowValidation.errors.filter(item => !item.includes('has no message text')).length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
-                {flowValidation.errors.map((item, index) => (
+                {flowValidation.errors.filter(item => !item.includes('has no message text')).map((item, index) => (
                   <div key={`error-${index}`} className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-[11px] text-rose-300">{item}</div>
                 ))}
               </div>
@@ -2037,9 +2037,9 @@ export default function AutomationCanvas() {
           <p className="text-[11px] text-white/70">
             Execution preview reaches {flowValidation.reachableNodeIds.size} of {nodes.length} node{nodes.length === 1 ? '' : 's'}.
           </p>
-          {flowValidation.errors.length > 0 && (
+          {flowValidation.errors.filter(item => !item.includes('has no message text')).length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
-              {flowValidation.errors.map((item, index) => (
+              {flowValidation.errors.filter(item => !item.includes('has no message text')).map((item, index) => (
                 <div key={`mob-err-${index}`} className="rounded-md border border-rose-500/20 bg-rose-500/10 px-2 py-1 text-[10px] text-rose-300">{item}</div>
               ))}
             </div>

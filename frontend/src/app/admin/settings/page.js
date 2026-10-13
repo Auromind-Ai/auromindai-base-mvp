@@ -103,7 +103,7 @@ export default function SettingsPage() {
   const { refreshBranding } = useBranding()
   const [settings, setSettings] = useState({
     // ---------------- Brand ----------------
-    app_name: "Auromind",
+    app_name: "Orbion Agents",
     app_logo_url: "/logo.png",
 
     // ---------------- Pricing ----------------
@@ -115,7 +115,7 @@ export default function SettingsPage() {
     pro_plan_name: "Pro",
     enterprise_plan_name: "Business",
 
-    free_plan_desc: "Try Auromind for free and see the ROI yourself.",
+    free_plan_desc: "Try Orbion Agents for free and see the ROI yourself.",
     pro_plan_desc: "Everything you need to automate and scale.",
     enterprise_plan_desc: "Enterprise-grade scale for large teams.",
 

@@ -109,7 +109,7 @@ export default function SaaSPage() {
               variants={itemVariants}
               className="text-lg text-white/70 max-w-2xl mx-auto lg:mx-0 leading-relaxed"
             >
-              Streamline trial signup workflows. Deploy Auromind conversational AI agents on Instagram and WhatsApp to resolve API documentation questions, pre-qualify prospects, and book product demo meetings automatically.
+              Streamline trial signup workflows. Deploy Orbion Agents conversational AI agents on Instagram and WhatsApp to resolve API documentation questions, pre-qualify prospects, and book product demo meetings automatically.
             </MotionP>
 
             {/* CTA Buttons */}

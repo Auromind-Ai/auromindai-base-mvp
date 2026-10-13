@@ -617,7 +617,7 @@ export default function NodeInspector({
                         </select>
                       </div>
                       {delayAmount > 0 && (
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[11px] font-medium">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[12px] font-medium">
                           <Timer size={12} className="text-violet-400 shrink-0" />
                           <span>
                             Wait {delayAmount} {delayUnit} before sending
@@ -754,7 +754,7 @@ export default function NodeInspector({
                               </div>
 
                               {/* Character Count */}
-                              <div className="text-[11px] text-zinc-500">
+                              <div className="text-[12px] text-zinc-500">
                                 {(activeNode.config?.text || '').length}/1024
                               </div>
                             </div>
@@ -845,7 +845,7 @@ export default function NodeInspector({
                                     &#123;&#125;
                                   </button>
                                 </div>
-                                <div className="text-[11px] text-zinc-500">
+                                <div className="text-[12px] text-zinc-500">
                                   {(activeNode.config?.text || '').length}/1024
                                 </div>
                               </div>
@@ -869,7 +869,7 @@ export default function NodeInspector({
 
                             {/* Variable Store for Button Selection */}
                             <div className="p-3 rounded-xl bg-[#0F101A] border border-white/5 space-y-1.5">
-                              <label className="text-[11px] font-semibold text-zinc-400 block">
+                              <label className="text-[12px] font-semibold text-zinc-400 block">
                                 Save Selection As (Optional Variable)
                               </label>
                               <input
@@ -2091,7 +2091,7 @@ export default function NodeInspector({
                             ))}
                           </div>
                         ) : (
-                          <p className="text-[11px] text-white bg-gradient-to-r from-[#3b2a08]/80 via-[#261b05]/60 to-[#0d0902] border border-white/20 p-2.5 rounded-lg">
+                          <p className="text-[12px] text-white bg-gradient-to-r from-[#3b2a08]/80 via-[#261b05]/60 to-[#0d0902] border border-white/20 p-2.5 rounded-lg">
                             No keywords configured. Trigger fires on ALL incoming messages.
                           </p>
                         )}
@@ -2251,7 +2251,7 @@ export default function NodeInspector({
                                     <span className="text-zinc-300 group-hover:text-white font-medium">
                                       {item.label}
                                     </span>
-                                    <span className="text-[11px] text-violet-400/90 group-hover:text-violet-300">
+                                    <span className="text-[12px] text-violet-400/90 group-hover:text-violet-300">
                                       &#123;&#123;{item.token}&#125;&#125;
                                     </span>
                                   </button>
@@ -2294,7 +2294,7 @@ export default function NodeInspector({
                                   <span className="text-zinc-300 group-hover:text-white font-medium">
                                     {item.label}
                                   </span>
-                                  <span className="text-[11px] text-emerald-400/90 group-hover:text-emerald-300">
+                                  <span className="text-[12px] text-emerald-400/90 group-hover:text-emerald-300">
                                     &#123;&#123;{item.token}&#125;&#125;
                                   </span>
                                 </button>

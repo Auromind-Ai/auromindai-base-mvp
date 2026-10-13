@@ -40,7 +40,7 @@ function CanvasGrid({
     <section
       className={`absolute inset-0 z-10 ${isSpacePressed ? 'cursor-grabbing' : 'cursor-grab'}`}
       style={{
-        top: zenMode ? '0px' : (flowValidation.errors.length > 0 || flowValidation.warnings.length > 0 ? '80px' : '48px'),
+        top: zenMode ? '0px' : (((flowValidation.errors || []).some(item => !item.includes('has no message text')) || (flowValidation.warnings || []).length > 0) ? '80px' : '48px'),
         touchAction: 'none'
       }}
       ref={canvasRef}
@@ -133,6 +133,10 @@ function CanvasGrid({
             const nodeButtons = getNodeButtons(node);
             const nodeBranches = getNodeBranches(node);
             const delayLabel = formatDelay(node.config?.delay_amount, node.config?.delay_unit);
+            const isSendMsg = node.type === 'action' && (!node.config?.type || node.config?.type === 'send_msg');
+            const isMediaType = ['image', 'video', 'document'].includes(node.config?.message_type || 'text');
+            const hasNoTextMessage = isSendMsg && !isMediaType && !(node.config?.text || '').trim();
+            const nodeValidationMessage = (flowValidation?.errors || []).find(e => e.includes(`Node "${node.label || node.id}" has no message text`)) || (hasNoTextMessage ? `Node "${node.label || node.id}" has no message text. Please add text before saving.` : null);
 
             return (
               <motion.div
@@ -241,15 +245,21 @@ function CanvasGrid({
                     <>
                       {/* Message text preview */}
                       <div className="mb-3">
-                        <div className="bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-3 py-2.5">
+                        <div className={`bg-[#140D1F] border ${hasNoTextMessage ? 'border-rose-500/40' : 'border-[#2B2C33]'} border-[0.5px] rounded-2xl px-3 py-2.5`}>
                           <p className="text-[11px] tracking-[1px] text-white mb-2">
                             {node.config?.type === 'brain_query' ? 'AI Reply' :
                             node.config?.type === 'ask_question' ? 'Question' : 'Reply Message'}
                           </p>
-                          <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-2 min-h-[1.5rem]">
-                            {node.config?.text || node.config?.question ||
-                            <span className="italic text-zinc-600">No message yet</span>}
-                          </p>
+                          {hasNoTextMessage ? (
+                            <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-1.5 text-[11px] text-rose-300 leading-relaxed">
+                              {nodeValidationMessage}
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-2 min-h-[1.5rem]">
+                              {node.config?.text || node.config?.question ||
+                              <span className="italic text-zinc-600">No message yet</span>}
+                            </p>
+                          )}
                         </div>
                       </div>
                       {/* Purple preview button */}
@@ -266,6 +276,11 @@ function CanvasGrid({
                   {/* MULTI-PATH NODES (button/condition): remove badge, show preview button at bottom */}
                   {nodeButtons.length > 0 && (
                     <div className="mb-4 space-y-2">
+                      {hasNoTextMessage && (
+                        <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-1.5 text-[11px] text-rose-300 leading-relaxed">
+                          {nodeValidationMessage}
+                        </div>
+                      )}
                       {nodeButtons.map((button, index) => {
                         const handleId = getHandleIdForButton(button, index);
                         return (

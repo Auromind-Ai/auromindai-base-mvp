@@ -290,7 +290,7 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
       name:       settings.free_plan_name  || 'Free',
       price:      settings.free_plan_price === 0 ? 'Free' : `₹${settings.free_plan_price}`,
       usage:      `${Math.round((settings.token_limit_per_plan?.free || 0) / TOKENS_PER_CREDIT)} credits / month`,
-      description: settings.free_plan_desc  || 'Try Auromind for free and see the ROI yourself.',
+      description: settings.free_plan_desc  || 'Try Orbion Agents for free and see the ROI yourself.',
       features:    settings.free_plan_features || [
         `${Math.round((settings.token_limit_per_plan?.free || 0) / TOKENS_PER_CREDIT)} monthly AI credits`,
         'Core workspace access',
