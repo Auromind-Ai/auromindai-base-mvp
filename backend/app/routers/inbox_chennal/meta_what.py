@@ -164,6 +164,22 @@ async def get_channels_status(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.get("/whatsapp/meta-status")
+@router.get("/whatsapp/business-status")
+async def get_whatsapp_meta_status(
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    verified_ws = verify_workspace_access(
+        current_user,
+        db,
+        workspace_id,
+        required_permission=("templates.manage", "channels.manage", "inbox.conversations", "marketing.campaigns")
+    )
+    return ChannelConnectionService.get_meta_status(db, verified_ws)
+
+
 @router.delete("/channels/disconnect/{channel_type}")
 async def disconnect_channel(
     channel_type: str,

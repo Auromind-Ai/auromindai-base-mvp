@@ -15,6 +15,11 @@ export async function getTemplatesStatus(workspace_id) {
   return client.get(`/api/templates/status/${ws}`);
 }
 
+export async function getWhatsAppMetaStatus(workspace_id) {
+  const ws = getActiveWorkspaceId(workspace_id);
+  return client.get(`/api/whatsapp/meta-status?workspace_id=${encodeURIComponent(ws || '')}`);
+}
+
 export async function getTemplates(workspaceId) {
   const ws = getActiveWorkspaceId(workspaceId);
   return client.get(`/api/templates${ws ? `?workspace_id=${encodeURIComponent(ws)}` : ""}`);

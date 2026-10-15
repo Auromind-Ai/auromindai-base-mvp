@@ -639,6 +639,116 @@ class ChannelConnectionService:
         }
 
     @staticmethod
+    def get_meta_status(db: Session, workspace_id: str):
+        import os
+        from app.core.security import to_uuid
+        from app.services.config_service import config_service
+
+        ws_uuid = to_uuid(workspace_id)
+        workspace = db.query(models.Workspace).filter(models.Workspace.id == ws_uuid).first()
+        if not workspace:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+
+        waba_id = workspace.meta_waba_id
+        phone_number_id = workspace.meta_phone_number_id
+        is_connected = bool(waba_id and phone_number_id)
+
+        if not is_connected:
+            return {
+                "connected": False,
+                "waba_id": waba_id,
+                "phone_number_id": phone_number_id,
+                "display_phone_number": workspace.meta_display_phone or "",
+                "business_name": None,
+                "business_verification_status": "unverified",
+                "code_verification_status": "",
+                "is_verified": False,
+                "account_review_status": None,
+                "message": "WhatsApp Business Account is not connected."
+            }
+
+        system_token = config_service.get("meta_system_user_token")
+        access_token = system_token or getattr(workspace, "meta_access_token", None) or os.getenv("META_ACCESS_TOKEN")
+
+        if not access_token:
+            return {
+                "connected": True,
+                "waba_id": waba_id,
+                "phone_number_id": phone_number_id,
+                "display_phone_number": workspace.meta_display_phone or "",
+                "business_name": None,
+                "business_verification_status": "unverified",
+                "code_verification_status": "",
+                "is_verified": False,
+                "account_review_status": None,
+                "message": "Meta credentials are not configured."
+            }
+
+        raw_biz_status = "unverified"
+        account_review_status = None
+        code_verification_status = ""
+        owner_name = None
+
+        # 1. Query WABA node for business verification status
+        try:
+            waba_res = requests.get(
+                f"https://graph.facebook.com/v21.0/{waba_id}",
+                params={
+                    "fields": "id,name,business_verification_status,account_review_status,owner_business_info",
+                    "access_token": access_token
+                },
+                timeout=10
+            )
+            if waba_res.status_code == 200:
+                waba_data = waba_res.json()
+                owner_name = waba_data.get("name")
+                account_review_status = waba_data.get("account_review_status")
+
+                if waba_data.get("business_verification_status"):
+                    raw_biz_status = waba_data.get("business_verification_status")
+                else:
+                    owner_info = waba_data.get("owner_business_info") or {}
+                    if owner_info.get("verification_status"):
+                        raw_biz_status = owner_info.get("verification_status")
+            else:
+                logger.warning("Meta WABA status API returned %s: %s", waba_res.status_code, waba_res.text)
+        except Exception as e:
+            logger.error("Failed to query Meta WABA status: %s", e)
+
+        # 2. Query Phone node for code verification status
+        if phone_number_id:
+            try:
+                phone_res = requests.get(
+                    f"https://graph.facebook.com/v21.0/{phone_number_id}",
+                    params={
+                        "fields": "code_verification_status,quality_rating,name_status",
+                        "access_token": access_token
+                    },
+                    timeout=8
+                )
+                if phone_res.status_code == 200:
+                    phone_data = phone_res.json()
+                    code_verification_status = phone_data.get("code_verification_status") or ""
+            except Exception as e:
+                logger.warning("Failed to query Meta phone verification status: %s", e)
+
+        clean_status = str(raw_biz_status).lower().strip()
+        is_verified = (clean_status == "verified")
+
+        return {
+            "connected": True,
+            "waba_id": waba_id,
+            "phone_number_id": phone_number_id,
+            "display_phone_number": workspace.meta_display_phone or "",
+            "business_name": owner_name,
+            "business_verification_status": clean_status,
+            "code_verification_status": code_verification_status,
+            "is_verified": is_verified,
+            "account_review_status": account_review_status,
+            "message": "Verified" if is_verified else "Business verification unverified"
+        }
+
+    @staticmethod
     def update_whatsapp_profile(db: Session, data: dict):
         import time
         from app.core.security import to_uuid

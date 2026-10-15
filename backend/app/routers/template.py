@@ -627,7 +627,7 @@ async def create_template(
         detailed_msg = error_user_msg or error_user_title or error_msg
         if subcode == 2388185:
             if getattr(data, "category", "") == "AUTHENTICATION":
-                detailed_msg = "Currently, your WhatsApp account is not eligible for Authentication templates."
+                detailed_msg = "Business verification unverified. Please verify business and create authentication template."
             else:
                 detailed_msg = "Your WhatsApp account does not have permission for this action. Please check your account settings."
         raise HTTPException(400, f"Template rejected: {detailed_msg}")
@@ -1692,7 +1692,7 @@ def submit_template(
         detailed_msg = error_user_msg or error_user_title or error_msg
         if subcode == 2388185:
             if template.category == "AUTHENTICATION":
-                detailed_msg = "Currently, your WhatsApp account is not eligible for Authentication templates."
+                detailed_msg = "Business verification unverified. Please verify business and create authentication template."
             else:
                 detailed_msg = "Your WhatsApp account does not have permission for this action. Please check your account settings."
         raise HTTPException(400, f"Template rejected: {detailed_msg}")
