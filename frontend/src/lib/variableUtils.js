@@ -64,7 +64,7 @@ export function sanitizeVariableName(input) {
   return String(input)
     .trim()
     .toLowerCase()
-    .replace(/[{}\s\-]+/g, '_')
+    .replace(/[{}()\[\]\s\-]+/g, '_')
     .replace(/[^a-z0-9_]/g, '')
     .replace(/^_+|_+$/g, '');
 }
@@ -75,11 +75,13 @@ export function sanitizeVariableName(input) {
  */
 export function formatVariableLabel(key) {
   if (!key) return '';
-  const known = ALL_KNOWN_VARIABLES.find((v) => v.key === key || v.id === key);
+  const clean = sanitizeVariableName(key);
+  const known = ALL_KNOWN_VARIABLES.find((v) => v.key === clean || v.id === clean);
   if (known) return known.label;
 
-  return key
+  return clean
     .split('_')
+    .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
 }
@@ -93,7 +95,13 @@ export function getSampleValue(key) {
   if (known?.sample) return known.sample;
 
   if (clean.includes('otp') || clean.includes('passcode') || clean.includes('verification')) return '492018';
-  if (clean.includes('name')) return 'John';
+  if (clean.includes('discount')) return '20% OFF';
+  if (clean.includes('promo') || clean.includes('coupon') || clean.includes('code')) return 'SAVE20';
+  if (clean.includes('offer')) return 'Festive Mega Offer';
+  if (clean.includes('expiry') || clean.includes('valid')) return 'Valid till 31st Oct';
+  if (clean.includes('renewal') || clean.includes('link') || clean.includes('url')) return 'https://example.com';
+  if (clean.includes('name') && (clean.includes('cust') || clean.includes('user') || clean.includes('first') || clean === 'name')) return 'John';
+  if (clean.includes('product')) return 'Orbion AI';
   if (clean.includes('plan')) return 'Pro';
   if (clean.includes('amount') || clean.includes('price') || clean.includes('cost')) return '$49.00';
   if (clean.includes('order')) return 'ORD-1029';
@@ -101,9 +109,8 @@ export function getSampleValue(key) {
   if (clean.includes('company')) return 'Acme Inc';
   if (clean.includes('phone')) return '+1 (555) 019-2834';
   if (clean.includes('email')) return 'customer@example.com';
-  if (clean.includes('code')) return 'SAVE20';
 
-  return `[${formatVariableLabel(key)}]`;
+  return formatVariableLabel(key);
 }
 
 /**
@@ -266,6 +273,9 @@ export function convertNumberedToNamedText(text, mapping = {}, category = '') {
 
   // Normalize single-brace {var} to double {{var}}
   let normalized = String(text).replace(/(?<!\{)\{([a-zA-Z0-9_]+)\}(?!\})/g, (_, v) => '{{' + v + '}}');
+
+  // Normalize bracketed variable names like {{[discount]}} to {{discount}}
+  normalized = normalized.replace(/\{\{\s*\[([a-zA-Z0-9_]+)\]\s*\}\}/g, '{{$1}}');
 
   return normalized.replace(/\{\{\[?(\d+)\]?\}\}/g, (match, num) => {
     const mappedName = mapObj[num] || mapObj[parseInt(num, 10)];

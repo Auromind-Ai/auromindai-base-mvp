@@ -81,6 +81,8 @@ class CampaignCreateRequest(BaseModel):
     contact_list_ids: Optional[List[str]] = None
     lead_ids: Optional[List[str]] = None
     variable_mapping: Optional[Dict[str, Any]] = None
+    template_buttons: Optional[List[Any]] = None
+    buttons: Optional[List[Any]] = None
     recipients: List[RecipientInput] = []
 
 

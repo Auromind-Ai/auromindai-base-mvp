@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { poppins } from '@/lib/fonts';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -687,6 +687,36 @@ export default function CreateTemplatePage() {
   const [isHeaderDragOver, setIsHeaderDragOver] = useState(false);
   const [isButtonDragOver, setIsButtonDragOver] = useState(false);
 
+  // Meta WhatsApp Status & Business Verification State
+  const [metaStatus, setMetaStatus] = useState(null);
+  const [checkingMetaStatus, setCheckingMetaStatus] = useState(false);
+
+  const fetchMetaStatus = useCallback(async (force = false) => {
+    if (!activeWsId) return;
+    if (!force && metaStatus !== null) return;
+    setCheckingMetaStatus(true);
+    try {
+      const data = await api.getWhatsAppMetaStatus(activeWsId);
+      setMetaStatus(data);
+    } catch (err) {
+      console.error('Failed to fetch Meta business status:', err);
+      setMetaStatus({
+        connected: false,
+        business_verification_status: 'unverified',
+        is_verified: false,
+        message: 'Business verification unverified'
+      });
+    } finally {
+      setCheckingMetaStatus(false);
+    }
+  }, [activeWsId, metaStatus]);
+
+  useEffect(() => {
+    if (activeWsId) {
+      fetchMetaStatus();
+    }
+  }, [activeWsId, fetchMetaStatus]);
+
   // Interactive Buttons State (Meta WhatsApp Official Buttons)
   const [buttons, setButtons] = useState([]);
   const [buttonDropdownOpen, setButtonDropdownOpen] = useState(false);
@@ -994,6 +1024,7 @@ export default function CreateTemplatePage() {
   };
 
   const isAuth = form.category === 'AUTHENTICATION';
+  const isAuthDisabled = isAuth && (!metaStatus?.is_verified || checkingMetaStatus);
 
   const handleGenerate = async () => {
     if (isGeneratingAI) return;
@@ -1067,6 +1098,11 @@ export default function CreateTemplatePage() {
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
+
+    if (isAuth && (!metaStatus || !metaStatus.is_verified)) {
+      showToast('Business verification unverified. Please verify business and create authentication template.', 'error');
+      return;
+    }
 
     setHasSubmitted(true);
     setTouched({ name: true, message: true });
@@ -1287,6 +1323,7 @@ export default function CreateTemplatePage() {
                   ctaBtnTitle: prev.ctaBtnTitle && prev.ctaBtnTitle !== 'Buy Now' ? prev.ctaBtnTitle : 'Copy Code',
                 }));
                 setSidebarOpen(false);
+                fetchMetaStatus(true);
               }} />
           </div>
           <div className="pt-4 pb-1">
@@ -1573,17 +1610,58 @@ export default function CreateTemplatePage() {
                 </div>
               )}
 
-              {/* Authentication Notice Banner */}
-              {form.category === 'AUTHENTICATION' && (
-                <div className="bg-gradient-to-r from-[#3b2a08]/80 via-[#261b05]/60 to-[#0d0902] border border-white/20 rounded-[20px] p-4 text-xs text-white/90 flex items-start gap-3 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
-                  <span className="text-lg leading-none mt-0.5">ℹ️</span>
-                  <div className="space-y-1">
-                    <p className="font-semibold text-amber-300 text-sm">Authentication Category Notice</p>
-                    <p className="text-white/80 leading-relaxed">
-                      If your WhatsApp account is currently not eligible for Authentication templates, you can switch category to <button type="button" onClick={() => setForm(prev => ({ ...prev, category: 'UTILITY' }))} className="underline font-bold text-white hover:text-purple-300 cursor-pointer">Utility</button>.
-                    </p>
+              {/* Authentication Business Verification Notice Banner */}
+              {isAuth && (
+                checkingMetaStatus ? (
+                  <div className="bg-[#120924]/80 border border-[#814AC8]/30 rounded-[20px] p-4 text-xs text-white/90 flex items-center gap-3">
+                    <svg className="animate-spin h-5 w-5 text-[#c490e8]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="text-white/80">Checking WhatsApp business verification status with Meta...</p>
                   </div>
-                </div>
+                ) : !metaStatus?.is_verified ? (
+                  <div className="bg-gradient-to-r from-[#380e0e]/90 via-[#240a0a]/70 to-[#0e0404] border border-red-500/40 rounded-[20px] p-4 sm:p-5 text-xs text-white/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[0_0_25px_rgba(239,68,68,0.18)]">
+                    <div className="flex items-start gap-3">
+                      <span className="text-xl leading-none mt-0.5">⚠️</span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-red-300 text-sm">Business Verification Required</p>
+                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider bg-red-500/20 text-red-300 border border-red-500/30">
+                            Status: {metaStatus?.business_verification_status ? metaStatus.business_verification_status.replace(/_/g, ' ') : 'Unverified'}
+                          </span>
+                        </div>
+                        <p className="text-white/80 text-xs sm:text-[13px] leading-relaxed">
+                          Please verify business and create authentication template. Meta requires official business verification to approve Authentication OTP templates.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => fetchMetaStatus(true)}
+                        disabled={checkingMetaStatus}
+                        className="px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 border border-white/10 hover:bg-white/10 text-white/90 transition-all cursor-pointer flex items-center gap-1.5"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={checkingMetaStatus ? 'animate-spin' : ''}>
+                          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                        </svg>
+                        Refresh
+                      </button>
+                      <a
+                        href="https://business.facebook.com/settings/security"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-xl text-xs font-medium bg-red-600/80 hover:bg-red-500 text-white transition-all cursor-pointer flex items-center gap-1"
+                      >
+                        Verify Business
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
+                        </svg>
+                      </a>
+                    </div>
+                  </div>
+                ) : null
               )}
 
               {/* Template Name */}
@@ -2161,14 +2239,20 @@ export default function CreateTemplatePage() {
               {/* Submit */}
               <button
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isAuthDisabled}
                 className="w-full py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-normal sm:font-semibold text-xs sm:text-base text-white
                   bg-[#814AC8] disabled:opacity-50 disabled:cursor-not-allowed
                   shadow-[0_0_30px_rgba(168,85,247,0.3)]
                   hover:shadow-[0_0_40px_rgba(168,85,247,0.5)] hover:scale-[1.01]
                   transition-all duration-300"
               >
-                {isSubmitting ? 'Submitting...' : 'Submit'}
+                {isSubmitting
+                  ? 'Submitting...'
+                  : checkingMetaStatus && isAuth
+                    ? 'Checking Business Verification...'
+                    : isAuthDisabled
+                      ? 'Business Verification Required to Submit'
+                      : 'Submit'}
               </button>
             </div>
 

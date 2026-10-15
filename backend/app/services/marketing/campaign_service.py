@@ -364,6 +364,20 @@ class CampaignService:
         db.add(campaign)
         db.flush()
 
+        # If frontend passed template buttons, ensure template record in DB has them saved
+        if template_uuid:
+            try:
+                from app.models.templates import Template
+                tpl_record = db.query(Template).filter(Template.id == template_uuid).first()
+                if tpl_record:
+                    passed_buttons = data.get("template_buttons") or data.get("buttons")
+                    if passed_buttons and (not tpl_record.buttons or str(tpl_record.buttons).strip() in ("", "[]", "null")):
+                        import json
+                        tpl_record.buttons = json.dumps(passed_buttons) if isinstance(passed_buttons, list) else str(passed_buttons)
+                        db.flush()
+            except Exception as e:
+                logger.warning("Notice auto-persisting template buttons in campaign: %s", e)
+
         # Resolve audience snapshot with deduplication
         recipient_objs = []
         seen_phones = set()

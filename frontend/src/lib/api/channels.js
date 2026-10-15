@@ -4,6 +4,11 @@ export async function getChannelsStatus(workspace_id) {
   return client.get(`/api/channels/status?workspace_id=${workspace_id}`);
 }
 
+export async function getWhatsAppMetaStatus(workspace_id) {
+  const ws = workspace_id || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null);
+  return client.get(`/api/whatsapp/meta-status?workspace_id=${encodeURIComponent(ws || '')}`);
+}
+
 export async function connectWhatsApp(payload) {
   return client.post('/api/whatsapp/connect', payload);
 }
