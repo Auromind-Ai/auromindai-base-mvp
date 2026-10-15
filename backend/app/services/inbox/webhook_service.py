@@ -878,7 +878,7 @@ class WebhookService:
                 source=source,
                 db=db,
             )
-            if lead and lead.status == "closed":
+            if lead and lead.status in ("closed", "follow_up"):
                 lead.status = "open"
                 if lead.lead_tier == "inactive":
                     lead.lead_tier = "warm"

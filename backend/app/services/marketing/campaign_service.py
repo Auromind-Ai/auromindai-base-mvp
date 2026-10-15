@@ -1283,6 +1283,7 @@ class CampaignService:
                     meta_dict["message_type"] = campaign.media_type
 
         # 2. Get or create conversation
+        is_new_conv = False
         conv = db.query(Conversation).filter(
             Conversation.workspace_id == campaign.workspace_id,
             Conversation.channel == ChannelType.WHATSAPP,
@@ -1298,6 +1299,8 @@ class CampaignService:
                 external_id=clean_phone,
                 contact_name=recipient.recipient_name or clean_phone,
             )
+            conv.status = ConversationStatus.FOLLOW_UP
+            is_new_conv = True
 
         if conv:
             if recipient.recipient_name and not recipient.recipient_name.isdigit():
