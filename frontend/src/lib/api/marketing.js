@@ -199,6 +199,8 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
     variable_mapping: c.variableMapping || null,
     message_type: c.messageMode === 'template' ? 'template' : (c.messageMode === 'ai' ? 'ai_generated' : 'custom'),
     template_id: c.selectedTemplateId || c.template_id || c.templateId || null,
+    template_buttons: c.templateButtons || c.buttons || [],
+    buttons: c.templateButtons || c.buttons || [],
     message_content: c.messageBody || '',
     media_url: c.mediaUrl || null,
     media_type: c.mediaType || (c.mediaUrl ? 'image' : null),
@@ -222,9 +224,39 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
       const vars = { ...(r.variables || {}) };
 
       if (c.variableMapping && typeof c.variableMapping === 'object') {
-        const mappingEntries = Object.entries(c.variableMapping);
-        mappingEntries.forEach(([varKey, mapping], idx) => {
-          const cleanKey = String(varKey).replace(/[{}]/g, '');
+        const seenVars = new Set();
+        const orderedMappings = [];
+
+        // Check 1-based numeric keys in sequence (1, 2, 3...)
+        let maxIndex = 0;
+        for (let i = 1; i <= 20; i++) {
+          if (c.variableMapping[String(i)]) {
+            maxIndex = i;
+          }
+        }
+
+        if (maxIndex > 0) {
+          for (let i = 1; i <= maxIndex; i++) {
+            const m = c.variableMapping[String(i)];
+            if (m) {
+              const nameKey = (m.mappedName || m.cleanKey || String(i)).replace(/[\[\]{}]/g, '').trim();
+              seenVars.add(nameKey);
+              seenVars.add(String(i));
+              orderedMappings.push({ index: i, nameKey, mapping: m });
+            }
+          }
+        }
+
+        // Any named keys not matched by numeric keys
+        Object.entries(c.variableMapping).forEach(([k, m]) => {
+          const cleanK = String(k).replace(/[\[\]{}]/g, '').trim();
+          if (!seenVars.has(cleanK) && !/^\d+$/.test(cleanK)) {
+            seenVars.add(cleanK);
+            orderedMappings.push({ index: orderedMappings.length + 1, nameKey: cleanK, mapping: m });
+          }
+        });
+
+        orderedMappings.forEach(({ index, nameKey, mapping }) => {
           let val = '';
           if (mapping?.source === 'custom') {
             val = mapping?.customValue || mapping?.fallback || '';
@@ -240,24 +272,27 @@ export function mapFrontendCampaignToBackend(c, workspaceId) {
                 '';
               if (!val) {
                 const lower = col.toLowerCase();
-                if (lower.includes('name')) val = recipientName;
+                const isPersonName = (lower.includes('name') || lower.includes('user') || lower.includes('customer') || lower.includes('client')) &&
+                  !lower.includes('offer') && !lower.includes('product') && !lower.includes('item') && !lower.includes('plan') && !lower.includes('brand') && !lower.includes('company');
+                if (isPersonName) val = recipientName;
                 else if (lower.includes('phone') || lower.includes('mobile') || lower.includes('contact')) val = recipientPhone;
                 else if (lower.includes('email')) val = r.email || '';
                 else if (lower.includes('company')) val = r.company || '';
               }
             }
           }
-          const finalVal = val || mapping?.fallback || (cleanKey === '1' || cleanKey.includes('name') ? 'Customer' : '');
-          vars[cleanKey] = finalVal;
 
-          // Also set numeric index key (e.g. "1", "2") and mapped name key so backend worker finds both!
-          const mappedName = mapping?.mappedName;
-          if (mappedName && mappedName !== cleanKey) {
-            vars[mappedName] = finalVal;
+          const isPersonName = index === 1 && (nameKey.includes('name') || nameKey.includes('customer'));
+          const finalVal = val || mapping?.fallback || (isPersonName ? 'Customer' : '');
+
+          const numStr = String(index);
+          vars[numStr] = finalVal;
+          if (nameKey && nameKey !== numStr) {
+            vars[nameKey] = finalVal;
           }
-          const numKey = String(idx + 1);
-          if (!vars[numKey]) {
-            vars[numKey] = finalVal;
+          if (mapping?.mappedName) {
+            const cleanMapped = String(mapping.mappedName).replace(/[\[\]{}]/g, '').trim();
+            if (cleanMapped) vars[cleanMapped] = finalVal;
           }
         });
       } else if (!vars['1'] && recipientName) {
@@ -541,7 +576,7 @@ function mapTemplateRecord(t) {
   // If variable_mapping is empty, but vars contains named strings (not just digits "1", "2")
   if (Object.keys(varMap).length === 0 && Array.isArray(vars) && vars.length > 0) {
     vars.forEach((v, idx) => {
-      const clean = String(v).replace(/[{}]/g, '').trim();
+      const clean = String(v).replace(/[\[\]{}]/g, '').trim();
       if (!/^\d+$/.test(clean)) {
         varMap[String(idx + 1)] = clean;
       }

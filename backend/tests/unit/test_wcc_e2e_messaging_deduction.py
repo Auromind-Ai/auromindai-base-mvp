@@ -1,9 +1,10 @@
 import uuid
+import json
 import asyncio
 import pytest
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from app.database import engine, Base, SessionLocal
 from app.models.user import User
@@ -842,5 +843,165 @@ def test_leads_send_template_deducts_wcc_wallet_on_success(db):
     # Balance remains at 48.75 (no extra deduction on failure)
     w_after_fail = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
     assert w_after_fail.balance == Decimal("48.7500")
+
+
+def test_send_template_with_copy_code_button(db):
+    """Verifies that templates with COPY_CODE button format parameters correctly."""
+    from app.routers.template import send_message
+    from app.schemas.template import TemplateSendRequest
+    from app.routers.auth import CurrentUser
+    from app.models.templates import Template
+
+    ws, user = _create_workspace(db, "CopyCode WS", phone_number_id="10987654321")
+    wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
+    wallet.balance = Decimal("50.00")
+
+    tmpl = Template(
+        workspace_id=ws.id,
+        user_id=user.id,
+        name="discount_promo_offer",
+        type="TEXT",
+        category="MARKETING",
+        language="en_US",
+        content="Enjoy a special discount on your purchase!",
+        buttons=json.dumps([{"type": "COPY_CODE", "example": "DISCOUNT50"}])
+    )
+    db.add(tmpl)
+    db.commit()
+
+    current_user = CurrentUser(
+        user=user,
+        workspace_id=ws.id
+    )
+
+    req_data = TemplateSendRequest(
+        workspace_id=str(ws.id),
+        phone="918056035369",
+        template_name="discount_promo_offer",
+        variables=[]
+    )
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"messages": [{"id": "wamid.copy_code_success_456"}]}
+
+    recorded_payloads = []
+    def mock_post(url, **kwargs):
+        recorded_payloads.append(kwargs.get("json", {}))
+        return mock_resp
+
+    with patch("app.services.config_service.config_service.get", return_value="dummy_meta_token"), \
+         patch("requests.post", side_effect=mock_post):
+        res = send_message(data=req_data, db=db, current_user=current_user)
+
+    assert res["status"] == "sent"
+    assert len(recorded_payloads) == 1
+    components = recorded_payloads[0].get("template", {}).get("components", [])
+    btn_comp = next((c for c in components if c.get("type") == "button"), None)
+    assert btn_comp is not None
+    assert btn_comp["sub_type"] == "copy_code"
+    assert btn_comp["parameters"][0]["type"] == "coupon_code"
+    assert btn_comp["parameters"][0]["coupon_code"] == "DISCOUNT50"
+
+
+def test_send_template_copy_code_auto_recovery_131008(db):
+    """Verifies that Meta 131008 error ('copy_code requires coupon_code') is auto-recovered and retried."""
+    from app.routers.template import send_message
+    from app.schemas.template import TemplateSendRequest
+    from app.routers.auth import CurrentUser
+    from app.models.templates import Template
+
+    ws, user = _create_workspace(db, "Recovery WS", phone_number_id="10987654322")
+    wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
+    wallet.balance = Decimal("50.00")
+
+    # Template in DB has no buttons field (e.g. Meta has copy_code button that wasn't in local DB)
+    tmpl = Template(
+        workspace_id=ws.id,
+        user_id=user.id,
+        name="meta_only_button_template",
+        type="TEXT",
+        category="MARKETING",
+        language="en_US",
+        content="Get your discount now!"
+    )
+    db.add(tmpl)
+    db.commit()
+
+    current_user = CurrentUser(
+        user=user,
+        workspace_id=ws.id
+    )
+
+    req_data = TemplateSendRequest(
+        workspace_id=str(ws.id),
+        phone="918056035369",
+        template_name="meta_only_button_template",
+        variables=[]
+    )
+
+    mock_fail = MagicMock()
+    mock_fail.status_code = 400
+    mock_fail.json.return_value = {
+        "error": {
+            "message": "(#131008) Required parameter is missing",
+            "code": 131008,
+            "error_data": {
+                "details": "buttons: Button at index 0 of type copy_code requires a non-empty parameter coupon_code"
+            }
+        }
+    }
+
+    mock_success = MagicMock()
+    mock_success.status_code = 200
+    mock_success.json.return_value = {"messages": [{"id": "wamid.recovered_success_789"}]}
+
+    call_count = 0
+    recorded_payloads = []
+    def mock_post_retry(url, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        recorded_payloads.append(kwargs.get("json", {}))
+        if call_count == 1:
+            return mock_fail
+        return mock_success
+
+    with patch("app.services.config_service.config_service.get", return_value="dummy_meta_token"), \
+         patch("requests.post", side_effect=mock_post_retry):
+        res = send_message(data=req_data, db=db, current_user=current_user)
+
+    assert res["status"] == "sent"
+    assert res["wamid"] == "wamid.recovered_success_789"
+    assert call_count == 2
+    retry_components = recorded_payloads[1].get("template", {}).get("components", [])
+    btn_comp = next((c for c in retry_components if c.get("type") == "button"), None)
+    assert btn_comp is not None
+    assert btn_comp["sub_type"] == "copy_code"
+    assert btn_comp["parameters"][0]["type"] == "coupon_code"
+    assert btn_comp["parameters"][0]["coupon_code"] == "OFFER20"
+
+
+def test_get_messages_with_placeholder_whatsapp_id(db):
+    """Verifies that GET /messages/whatsapp-XXXXXX returns empty list cleanly without 400 error."""
+    from app.routers.inbox_chennal.conversations import get_messages
+    from app.routers.auth import CurrentUser
+    from fastapi import Request
+
+    ws, user = _create_workspace(db, "Inbox WS")
+    current_user = CurrentUser(
+        user=user,
+        workspace_id=ws.id
+    )
+
+    mock_request = MagicMock(spec=Request)
+
+    res = get_messages(
+        conversation_id="whatsapp-918056035369",
+        request=mock_request,
+        db=db,
+        current_user=current_user
+    )
+
+    assert res == []
 
 

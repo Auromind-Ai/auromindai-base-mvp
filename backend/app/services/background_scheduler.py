@@ -12,7 +12,7 @@ class EmailSchedulerService:
         self.monitor = EmailMonitor()
 
     def start(self):
-        logger.info(f"Email Scheduler Started at: {datetime.now()}")
+        logger.debug(f"Email Scheduler Started at: {datetime.now()}")
         self.scheduler.add_job(
             self._run_email_monitor,
             trigger="interval",
@@ -32,7 +32,7 @@ class EmailSchedulerService:
         self.scheduler.start()
 
     def stop(self):
-        logger.info(f"Email Scheduler Stopped at: {datetime.now()}")
+        logger.debug(f"Email Scheduler Stopped at: {datetime.now()}")
         self.scheduler.shutdown(wait=False)
 
     def _run_lead_email_reports(self):
@@ -41,7 +41,7 @@ class EmailSchedulerService:
         try:
             processed = LeadEmailReportService.process_due_reports(db)
             if processed > 0:
-                logger.info(f"[LeadReportScheduler] Successfully processed and sent {processed} scheduled lead report(s)")
+                logger.debug(f"[LeadReportScheduler] Successfully processed and sent {processed} scheduled lead report(s)")
         except Exception as e:
             logger.error(f"[LeadReportScheduler] Error in lead report schedule cycle: {e}", exc_info=True)
             try:
@@ -55,7 +55,7 @@ class EmailSchedulerService:
                 pass
 
     def _run_email_monitor(self):
-        logger.info(f"Scheduler Triggered at: {datetime.now()}")
+        logger.debug(f"Scheduler Triggered at: {datetime.now()}")
         db = self.SessionLocal()
         try:
             self.monitor.run_cycle(db)

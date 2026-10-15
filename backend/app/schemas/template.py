@@ -68,6 +68,8 @@ class TemplateSendRequest(BaseModel):
     workspace_id: str | None = None
     variables: list[Any] = Field(default_factory=list, max_length=50)
     media_url: str | None = Field(None, max_length=2048)
+    coupon_code: str | None = Field(None, max_length=100)
+    button_params: list[dict] | None = None
 
 
 class GenerateRequest(BaseModel):

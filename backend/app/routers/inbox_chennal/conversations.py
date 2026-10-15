@@ -5,6 +5,7 @@ import hmac
 import hashlib
 import base64
 import time
+import re
 
 from fastapi import (
     APIRouter,
@@ -115,14 +116,28 @@ def verify_media_token(
 
 
 def verify_conversation_access(db: Session, current_user, conversation_id: str) -> str:
-
-    
     conv_uuid = to_uuid(conversation_id)
-    if not conv_uuid:
-        raise HTTPException(status_code=400, detail="Invalid conversation ID format")
-        
-    conv = db.query(Conversation).filter(Conversation.id == conv_uuid).first()
+    conv = None
+    if conv_uuid:
+        conv = db.query(Conversation).filter(Conversation.id == conv_uuid).first()
+    else:
+        # Check if conversation_id is phone or placeholder like 
+        raw_val = str(conversation_id).replace("whatsapp-", "").strip()
+        cleaned = re.sub(r"[^\d+]", "", raw_val)
+        if cleaned:
+            user_ws_ids = [m.workspace_id for m in db.query(WorkspaceMember.workspace_id).filter(
+                WorkspaceMember.user_id == current_user.id,
+                WorkspaceMember.is_active == True
+            ).all()]
+            if user_ws_ids:
+                conv = db.query(Conversation).filter(
+                    Conversation.workspace_id.in_(user_ws_ids),
+                    (Conversation.phone == cleaned) | (Conversation.phone == f"+{cleaned}") | (Conversation.external_id == cleaned)
+                ).first()
+
     if not conv:
+        if not conv_uuid and not str(conversation_id).startswith("whatsapp-"):
+            raise HTTPException(status_code=400, detail="Invalid conversation ID format")
         raise HTTPException(status_code=404, detail="Conversation not found")
         
     membership = db.query(WorkspaceMember).filter(
@@ -246,6 +261,29 @@ def get_messages(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
+    # Handle pending new chat placeholder 
+    conv_uuid = to_uuid(conversation_id)
+    if not conv_uuid:
+        raw_val = str(conversation_id).replace("whatsapp-", "").strip()
+        cleaned = re.sub(r"[^\d+]", "", raw_val)
+        if cleaned:
+            user_ws_ids = [m.workspace_id for m in db.query(WorkspaceMember.workspace_id).filter(
+                WorkspaceMember.user_id == current_user.id,
+                WorkspaceMember.is_active == True
+            ).all()]
+            conv = db.query(Conversation).filter(
+                Conversation.workspace_id.in_(user_ws_ids),
+                (Conversation.phone == cleaned) | (Conversation.phone == f"+{cleaned}") | (Conversation.external_id == cleaned)
+            ).first() if user_ws_ids else None
+
+            if conv:
+                conversation_id = str(conv.id)
+            else:
+                # Placeholder chat not yet persisted in database; return empty list cleanly
+                return []
+        else:
+            raise HTTPException(status_code=400, detail="Invalid conversation ID format")
+
     workspace_id = verify_conversation_access(
         db,
         current_user,

@@ -12,6 +12,7 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
     const [templates, setTemplates] = useState([]);
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [variables, setVariables] = useState({});
+    const [couponCode, setCouponCode] = useState('');
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
     const [uploadingMedia, setUploadingMedia] = useState(false);
@@ -20,6 +21,26 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
     const workspaceId = workspace?.id || (typeof workspace === 'string' ? workspace : null);
     const recipientPhone = lead?.phone || lead?.contact_phone || lead?.external_id || '';
     const recipientName = lead?.name || lead?.contact_name || 'Lead';
+
+    const getTemplateCopyCode = (tmpl) => {
+        if (!tmpl) return '';
+        if (tmpl.buttons) {
+            try {
+                const btns = typeof tmpl.buttons === 'string' ? JSON.parse(tmpl.buttons) : (tmpl.buttons || []);
+                const copyBtn = btns.find(b => {
+                    const t = (b.type || '').toUpperCase();
+                    return t === 'COPY_CODE' || t === 'COPY_OFFER_CODE' || (t === 'OTP' && b.otp_type === 'COPY_CODE');
+                });
+                if (copyBtn) {
+                    return copyBtn.code || copyBtn.example || 'SAVE20';
+                }
+            } catch (e) {}
+        }
+        if ((tmpl.category || '').toUpperCase() === 'AUTHENTICATION') {
+            return '123456';
+        }
+        return '';
+    };
 
     const extractVariables = (template) => {
         if (!template || !template.content) return {};
@@ -73,6 +94,8 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
     const handleSelectTemplate = useCallback((template) => {
         setSelectedTemplate(template);
         setVariables(extractVariables(template));
+        const initCode = getTemplateCopyCode(template);
+        setCouponCode(initCode || '');
     }, []);
 
     useEffect(() => {
@@ -100,6 +123,21 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
 
     const isMediaType = selectedTemplate?.type === 'IMAGE' || selectedTemplate?.type === 'VIDEO' || selectedTemplate?.type === 'DOCUMENT';
     const resolvedMedia = selectedTemplate?.media_url || (selectedTemplate?.header?.startsWith('http') ? selectedTemplate?.header : null);
+    const hasCopyCode = Boolean(
+        (selectedTemplate?.category || '').toUpperCase() === 'AUTHENTICATION' ||
+        (() => {
+            if (!selectedTemplate?.buttons) return false;
+            try {
+                const btns = typeof selectedTemplate.buttons === 'string' ? JSON.parse(selectedTemplate.buttons) : (selectedTemplate.buttons || []);
+                return Array.isArray(btns) && btns.some(b => {
+                    const t = (b.type || '').toUpperCase();
+                    return t === 'COPY_CODE' || t === 'COPY_OFFER_CODE' || (t === 'OTP' && b.otp_type === 'COPY_CODE');
+                });
+            } catch (e) {
+                return false;
+            }
+        })()
+    );
 
     const getPreviewContent = () => {
         if (!selectedTemplate) return '';
@@ -149,13 +187,18 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
                 .sort((a, b) => parseInt(a) - parseInt(b))
                 .map(k => variables[k]);
 
-            const res = await api.post('/api/messages/send', {
+            const payload = {
                 workspace_id: workspaceId,
                 phone: recipientPhone,
                 template_name: selectedTemplate.name,
                 variables: varArray,
                 media_url: resolvedMedia
-            });
+            };
+            if (hasCopyCode) {
+                payload.coupon_code = couponCode.trim() || (selectedTemplate?.category === 'AUTHENTICATION' ? '123456' : 'SAVE20');
+            }
+
+            const res = await api.post('/api/messages/send', payload);
 
             // Dispatch global event so wallet balance badges & indicators update immediately
             if (typeof window !== 'undefined') {
@@ -362,6 +405,32 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
                                 </div>
                             )}
 
+                            {/* Copy Code / Coupon / OTP Button Input */}
+                            {hasCopyCode && (
+                                <div className="space-y-1.5 pt-1">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                                            <span>{selectedTemplate?.category === 'AUTHENTICATION' ? 'Verification / OTP Code' : 'Offer / Coupon Code'}</span>
+                                            <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-mono">
+                                                COPY_CODE
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={couponCode}
+                                        onChange={e => setCouponCode(e.target.value)}
+                                        placeholder={selectedTemplate?.category === 'AUTHENTICATION' ? 'e.g. 123456' : 'e.g. SAVE20'}
+                                        className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl px-3.5 py-2.5 text-[13px] text-white outline-none focus:border-emerald-500/50 transition-colors font-mono"
+                                    />
+                                    <p className="text-[11px] text-zinc-500">
+                                        {selectedTemplate?.category === 'AUTHENTICATION'
+                                            ? 'Recipients can tap the button on WhatsApp to copy this verification code.'
+                                            : 'Recipients can tap the button on WhatsApp to copy this coupon code directly.'}
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Live Preview */}
                             <div className="space-y-1.5">
                                 <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Preview</label>
@@ -372,6 +441,14 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
                                     {getPreviewContent() || 'No preview available.'}
                                     {selectedTemplate?.footer && (
                                         <div className="text-[11px] text-zinc-400 mt-2">{selectedTemplate.footer}</div>
+                                    )}
+                                    {hasCopyCode && (
+                                        <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-center">
+                                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-xs font-medium">
+                                                <span>📋</span>
+                                                <span>Copy: <strong className="font-mono text-white">{couponCode || (selectedTemplate?.category === 'AUTHENTICATION' ? '123456' : 'SAVE20')}</strong></span>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>

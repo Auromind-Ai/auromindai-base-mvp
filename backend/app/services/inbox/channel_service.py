@@ -383,8 +383,8 @@ class ChannelService:
         metadata: Dict[str, Any],
     ) -> Optional[str]:
         service = InstagramService(
-            access_token=workspace.meta_access_token,
-            page_id=workspace.meta_business_id,
+            access_token=getattr(workspace, "meta_ig_access_token", None) or workspace.meta_access_token,
+            page_id=workspace.meta_ig_id or workspace.meta_business_id,
         )
 
         buttons = metadata.get("buttons")

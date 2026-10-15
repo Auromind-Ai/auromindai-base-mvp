@@ -30,7 +30,7 @@ function parseVarMap(tpl) {
   // Auto-infer mapping from tpl.variables if available
   if (Array.isArray(tpl.variables) && tpl.variables.length > 0) {
     tpl.variables.forEach((v, idx) => {
-      const clean = String(v).replace(/[{}]/g, '').trim();
+      const clean = String(v).replace(/[\[\]{}]/g, '').trim();
       const numKey = String(idx + 1);
       if (!map[numKey] && !/^\d+$/.test(clean)) {
         map[numKey] = clean;
@@ -42,19 +42,40 @@ function parseVarMap(tpl) {
 
 function detectBestColumn(cleanKey, mappedName, audienceCols) {
   if (!audienceCols || !audienceCols.length) return 'custom';
-  const target = (mappedName || cleanKey || '').toLowerCase();
+  const target = (mappedName || cleanKey || '').toLowerCase().replace(/[\[\]{}]/g, '').trim();
 
-  // Name match
-  if (target.includes('name') || target === '1' || target.includes('customer') || target.includes('first')) {
+  // If target is an offer, promo, discount, product, service, plan, date, amount, code -> NEVER match contact name!
+  const isOfferOrProductOrPromo =
+    target.includes('offer') ||
+    target.includes('product') ||
+    target.includes('item') ||
+    target.includes('deal') ||
+    target.includes('plan') ||
+    target.includes('brand') ||
+    target.includes('discount') ||
+    target.includes('coupon') ||
+    target.includes('promo') ||
+    target.includes('code') ||
+    target.includes('expiry') ||
+    target.includes('date') ||
+    target.includes('amount') ||
+    target.includes('price') ||
+    target.includes('bill') ||
+    target.includes('url') ||
+    target.includes('link');
+
+  // Contact / Person's Name match (only for genuine recipient names)
+  if (!isOfferOrProductOrPromo && (target.includes('name') || target === '1' || target.includes('customer') || target.includes('client') || target.includes('user') || target.includes('recipient') || target.includes('first'))) {
     const found = audienceCols.find((c) => {
       const l = c.toLowerCase();
-      return l.includes('name') || l.includes('user') || l.includes('customer') || l.includes('client') || l.includes('first');
+      return (l.includes('name') || l.includes('user') || l.includes('customer') || l.includes('client')) &&
+        !l.includes('company') && !l.includes('offer') && !l.includes('product') && !l.includes('item');
     });
     if (found) return found;
   }
 
   // Phone match
-  if (target.includes('phone') || target.includes('mobile')) {
+  if (target.includes('phone') || target.includes('mobile') || target.includes('contact')) {
     const found = audienceCols.find((c) => {
       const l = c.toLowerCase();
       return l.includes('phone') || l.includes('mobile') || l.includes('whatsapp');
@@ -82,11 +103,13 @@ function detectBestColumn(cleanKey, mappedName, audienceCols) {
 
   // Direct keyword matches for any other audience columns
   const cleanTarget = target.replace(/[^a-z0-9]/g, '');
-  const directMatch = audienceCols.find((c) => {
-    const colClean = c.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return colClean === cleanTarget || colClean.includes(cleanTarget) || cleanTarget.includes(colClean);
-  });
-  if (directMatch) return directMatch;
+  if (cleanTarget.length > 1) {
+    const directMatch = audienceCols.find((c) => {
+      const colClean = c.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return colClean === cleanTarget || (colClean.length > 2 && (colClean.includes(cleanTarget) || cleanTarget.includes(colClean)));
+    });
+    if (directMatch) return directMatch;
+  }
 
   return 'custom';
 }
@@ -272,26 +295,49 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
     const varMap = parseVarMap(selectedTemplate);
 
-    let vars = Array.isArray(selectedTemplate.variables) ? selectedTemplate.variables : [];
-    if (vars.length === 0 && (selectedTemplate.body || selectedTemplate.content)) {
-      const matched = (selectedTemplate.body || selectedTemplate.content).match(/\{\{[^}]+\}\}/g);
-      vars = matched ? Array.from(new Set(matched)) : [];
+    let rawList = [];
+    if (Array.isArray(selectedTemplate.variables) && selectedTemplate.variables.length > 0) {
+      rawList = selectedTemplate.variables;
+    } else {
+      const bodyText = selectedTemplate.body || selectedTemplate.content || '';
+      rawList = bodyText.match(/\{\{[^}]+\}\}/g) || [];
     }
 
-    return vars.map((tag, idx) => {
-      const normalized = tag.startsWith('{{') ? tag : `{{${tag}}}`;
-      const cleanKey = normalized.replace(/[{}]/g, '');
+    const seen = new Set();
+    const result = [];
+
+    rawList.forEach((tag, idx) => {
+      const normalized = String(tag).startsWith('{{') ? String(tag) : `{{${tag}}}`;
+      const rawClean = normalized.replace(/[{}]/g, '').trim();
+      const cleanKey = rawClean.replace(/[\[\]]/g, '').trim();
       const numKey = String(idx + 1);
-      const mappedName = varMap[cleanKey] || varMap[numKey] || (/^[a-zA-Z_]/.test(cleanKey) ? cleanKey : null);
-      const displayTag = mappedName ? `{{${mappedName}}}` : normalized;
-      return {
-        tag: displayTag,
-        numKey,
-        cleanKey,
-        mappedName: mappedName || cleanKey,
-        label: mappedName ? `${formatVariableLabel(mappedName)} ({{${mappedName}}})` : `Variable {{${cleanKey}}}`,
-      };
+      const mappedName = (
+        varMap[cleanKey] ||
+        varMap[rawClean] ||
+        varMap[numKey] ||
+        (/^[a-zA-Z_]/.test(cleanKey) ? cleanKey : null) ||
+        cleanKey
+      ).replace(/[\[\]]/g, '').trim();
+
+      const canonicalKey = mappedName || cleanKey || numKey;
+      const dedupeKey = canonicalKey.toLowerCase();
+
+      if (!seen.has(dedupeKey)) {
+        seen.add(dedupeKey);
+        const slotIndex = String(result.length + 1);
+        const displayTag = mappedName ? `{{${mappedName}}}` : `{{${cleanKey}}}`;
+        result.push({
+          tag: displayTag,
+          rawTag: normalized,
+          numKey: slotIndex,
+          cleanKey: canonicalKey,
+          mappedName: mappedName || cleanKey,
+          label: mappedName ? `${formatVariableLabel(mappedName)} ({{${mappedName}}})` : `Variable {{${cleanKey}}}`,
+        });
+      }
     });
+
+    return result;
   }, [selectedTemplate]);
 
   // Ensure initial mapping for any missing variables when selected template or audience changes
@@ -302,22 +348,22 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     const next = { ...mappingRef.current };
     displayedVariables.forEach(({ cleanKey, numKey, mappedName }) => {
       const effectiveKey = mappedName || cleanKey;
-      if (!next[effectiveKey] && !next[cleanKey]) {
+      if (!next[cleanKey] && !next[effectiveKey] && !next[numKey]) {
         updated = true;
         const bestCol = detectBestColumn(cleanKey, mappedName, audienceColumns);
-        const isName = (mappedName && (mappedName.includes('name') || mappedName.includes('customer'))) || cleanKey === '1' || numKey === '1';
+        const isPersonName = numKey === '1' && (mappedName.includes('customer') || mappedName.includes('recipient') || (mappedName.includes('name') && !mappedName.includes('product') && !mappedName.includes('offer') && !mappedName.includes('plan')));
         const item = {
           source: bestCol,
-          fallback: isName ? 'Customer' : '',
+          fallback: isPersonName ? 'Customer' : '',
           customValue: '',
           mappedName: mappedName || cleanKey,
+          cleanKey: cleanKey,
+          numKey: numKey,
         };
+        next[numKey] = item;
         next[cleanKey] = item;
         if (effectiveKey !== cleanKey) {
           next[effectiveKey] = item;
-        }
-        if (numKey && !next[numKey]) {
-          next[numKey] = item;
         }
       }
     });
@@ -341,6 +387,9 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     };
     if (merged.mappedName && merged.mappedName !== cleanKey) {
       next[merged.mappedName] = merged;
+    }
+    if (merged.numKey) {
+      next[merged.numKey] = merged;
     }
     setVariableMapping(next);
     updateData({ variableMapping: next });
@@ -373,31 +422,46 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     const namedBody = tpl.named_content || (Object.keys(varMap).length > 0 ? convertNumberedToNamedText(bodyContent, varMap, tpl.category) : convertNumberedToNamedText(bodyContent, {}, tpl.category));
     setMessage(namedBody);
 
-    let vars = Array.isArray(tpl.variables) ? tpl.variables : [];
-    if (vars.length === 0 && bodyContent) {
-      const matched = bodyContent.match(/\{\{[^}]+\}\}/g);
-      vars = matched ? Array.from(new Set(matched)) : [];
+    let rawList = [];
+    if (Array.isArray(tpl.variables) && tpl.variables.length > 0) {
+      rawList = tpl.variables;
+    } else {
+      rawList = bodyContent.match(/\{\{[^}]+\}\}/g) || [];
     }
 
+    const seen = new Set();
     const newMapping = {};
-    vars.forEach((v, idx) => {
-      const clean = String(v).replace(/[{}]/g, '');
-      const numKey = String(idx + 1);
-      const mappedName = varMap[clean] || varMap[numKey] || (/^[a-zA-Z_]/.test(clean) ? clean : null);
-      const bestCol = detectBestColumn(clean, mappedName, audienceColumns);
-      const isName = (mappedName && (mappedName.includes('name') || mappedName.includes('customer'))) || clean === '1' || numKey === '1';
+    let varCounter = 0;
 
-      const mapObj = {
-        source: bestCol,
-        fallback: isName ? 'Customer' : '',
-        customValue: '',
-        mappedName: mappedName || clean,
-      };
-      newMapping[clean] = mapObj;
-      if (mappedName && mappedName !== clean) {
-        newMapping[mappedName] = mapObj;
+    rawList.forEach((v, idx) => {
+      const clean = String(v).replace(/[\[\]{}]/g, '').trim();
+      const numKey = String(idx + 1);
+      const mappedName = (varMap[clean] || varMap[numKey] || (/^[a-zA-Z_]/.test(clean) ? clean : null) || clean).replace(/[\[\]]/g, '').trim();
+      const canonicalKey = mappedName || clean || numKey;
+      const dedupeKey = canonicalKey.toLowerCase();
+
+      if (!seen.has(dedupeKey)) {
+        seen.add(dedupeKey);
+        varCounter += 1;
+        const currentSlotKey = String(varCounter);
+        const bestCol = detectBestColumn(clean, mappedName, audienceColumns);
+        const isPersonName = currentSlotKey === '1' && (mappedName.includes('customer') || mappedName.includes('recipient') || (mappedName.includes('name') && !mappedName.includes('product') && !mappedName.includes('offer') && !mappedName.includes('plan')));
+
+        const mapObj = {
+          source: bestCol,
+          fallback: isPersonName ? 'Customer' : '',
+          customValue: '',
+          mappedName: mappedName || clean,
+          cleanKey: canonicalKey,
+          numKey: currentSlotKey,
+        };
+        newMapping[currentSlotKey] = mapObj;
+        newMapping[canonicalKey] = mapObj;
+        newMapping[clean] = mapObj;
+        if (mappedName && mappedName !== clean) {
+          newMapping[mappedName] = mapObj;
+        }
       }
-      newMapping[numKey] = mapObj;
     });
 
     setVariableMapping(newMapping);
@@ -474,12 +538,12 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     const sampleRecipient = (data?.recipients && data.recipients.length > 0) ? data.recipients[0] : null;
 
     let rendered = base;
-    displayedVariables.forEach(({ tag, cleanKey, numKey, mappedName }) => {
+    displayedVariables.forEach(({ tag, rawTag, cleanKey, numKey, mappedName }) => {
       const map = variableMapping[cleanKey] || variableMapping[mappedName] || variableMapping[numKey] || { source: 'custom', customValue: '' };
-      let sampleVal = tag;
+      let sampleVal = '';
 
       if (map.source === 'custom') {
-        sampleVal = map.customValue?.trim() || (mappedName ? `[${getSampleValue(mappedName)}]` : `[Value ${cleanKey}]`);
+        sampleVal = map.customValue?.trim() || getSampleValue(mappedName || cleanKey) || `[${cleanKey}]`;
       } else {
         const colName = map.source;
         if (sampleRecipient) {
@@ -487,23 +551,28 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
             sampleRecipient?.variables?.[colName] ||
             sampleRecipient?.variables?.[colName.toLowerCase()] ||
             sampleRecipient?.[colName] ||
-            (colName.toLowerCase().includes('name') ? (sampleRecipient?.recipient_name || sampleRecipient?.name) : null) ||
+            (colName.toLowerCase().includes('name') && !colName.toLowerCase().includes('offer') ? (sampleRecipient?.recipient_name || sampleRecipient?.name) : null) ||
             (colName.toLowerCase().includes('phone') ? (sampleRecipient?.phone_number || sampleRecipient?.phone) : null) ||
+            getSampleValue(mappedName || cleanKey) ||
             `[${colName}]`;
         } else {
-          sampleVal = `[${colName}]`;
+          sampleVal = getSampleValue(mappedName || cleanKey) || `[${colName}]`;
         }
       }
-      rendered = rendered.split(tag).join(sampleVal);
-      if (mappedName) {
-        rendered = rendered.split(`{{${mappedName}}}`).join(sampleVal);
-      }
-      if (cleanKey) {
-        rendered = rendered.split(`{{${cleanKey}}}`).join(sampleVal);
-      }
-      if (numKey) {
-        rendered = rendered.split(`{{${numKey}}}`).join(sampleVal);
-      }
+
+      const tagsToReplace = [
+        tag,
+        rawTag,
+        `{{${cleanKey}}}`,
+        `{{[${cleanKey}]}}`,
+        `{{${numKey}}}`,
+        `{{${mappedName}}}`,
+        `{{[${mappedName}]}}`,
+      ].filter(Boolean);
+
+      tagsToReplace.forEach((t) => {
+        rendered = rendered.split(t).join(sampleVal);
+      });
     });
 
     return rendered;
@@ -847,11 +916,11 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
             {displayedVariables.length > 0 ? (
               <div className="space-y-3 pt-1">
-                {displayedVariables.map(({ tag, cleanKey, mappedName }) => {
-                  const isNameField = (mappedName && (mappedName.includes('name') || mappedName.includes('customer'))) || cleanKey === '1';
-                  const current = variableMapping[cleanKey] || {
+                {displayedVariables.map(({ tag, cleanKey, numKey, mappedName }) => {
+                  const isPersonalName = (mappedName && (mappedName.includes('customer') || mappedName.includes('recipient') || (mappedName.includes('name') && !mappedName.includes('product') && !mappedName.includes('offer') && !mappedName.includes('plan') && !mappedName.includes('brand') && !mappedName.includes('company')))) || (numKey === '1' && (!mappedName || (!mappedName.includes('product') && !mappedName.includes('offer'))));
+                  const current = variableMapping[cleanKey] || variableMapping[mappedName] || variableMapping[numKey] || {
                     source: detectBestColumn(cleanKey, mappedName, audienceColumns),
-                    fallback: isNameField ? 'Customer' : '',
+                    fallback: isPersonalName ? 'Customer' : '',
                     customValue: '',
                   };
 
@@ -951,7 +1020,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                             type="text"
                             value={current.fallback ?? ''}
                             onChange={(e) => handleUpdateMapping(cleanKey, { fallback: e.target.value })}
-                            placeholder={isNameField ? 'e.g. Customer, Valued Member' : (mappedName ? `e.g. ${getSampleValue(mappedName)}` : 'Default value')}
+                            placeholder={isPersonalName ? 'e.g. Customer, Valued Member' : (mappedName ? `e.g. ${getSampleValue(mappedName)}` : 'Default value')}
                             className="w-full px-3 py-2 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs sm:text-sm text-white font-normal placeholder-[#716d8a] outline-none focus:border-[#814AC8]"
                           />
                         </div>

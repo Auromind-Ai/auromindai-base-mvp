@@ -19,26 +19,40 @@ function InstagramCallbackContent() {
         if (!searchParams || hasRun.current) return;
         hasRun.current = true;
 
-        const code = searchParams.get("code");
+        let code = searchParams.get("code");
         const error = searchParams.get("error");
+        const errorReason = searchParams.get("error_reason");
+        const errorDescription = searchParams.get("error_description");
         const workspace_id = searchParams.get("state");
 
+        // Remove Facebook/Instagram OAuth trailing hash from URL if present
+        if (typeof window !== "undefined" && window.location.hash === "#_") {
+            try {
+                window.history.replaceState(null, "", window.location.pathname + window.location.search);
+            } catch {
+                // Ignore history update errors
+            }
+        }
+
         // OAuth error handling
-        if (error) {
+        if (error || errorReason) {
             setIsError(true);
-            if (error === 'access_denied') {
-                setStatus("Connection Canceled: You denied access to connect Instagram. Please try again and grant all permissions.");
+            if (error === 'access_denied' || errorReason === 'user_denied') {
+                setStatus("Connection Canceled: You canceled or denied access to connect Instagram. Please try again and approve all requested permissions.");
             } else {
-                setStatus(`OAuth failed: ${error}`);
+                setStatus(`Instagram OAuth failed: ${errorDescription || errorReason || error}`);
             }
             return;
         }
 
         if (!code) {
             setIsError(true);
-            setStatus("No code received from Instagram.");
+            setStatus("No authorization code received from Instagram.");
             return;
         }
+
+        // Strip trailing #_ from authorization code if Instagram appends it
+        code = code.replace(/#_$/, "");
 
         if (!workspace_id) {
             setIsError(true);
@@ -46,15 +60,17 @@ function InstagramCallbackContent() {
             return;
         }
 
-
         const connectInstagram = async () => {
             try {
+                const redirect_uri = `${window.location.origin}/instagram/callback`;
                 const data = await api.connectInstagram({
                     code,
                     workspace_id,
+                    redirect_uri,
                 });
 
-                setStatus("Connected! Redirecting...");
+                const username = data?.username ? `@${data.username}` : "Instagram";
+                setStatus(`Connected ${username}! Redirecting to channels...`);
 
                 setTimeout(() => {
                     router.push("/user/admin/channels");

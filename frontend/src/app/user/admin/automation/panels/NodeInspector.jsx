@@ -140,7 +140,14 @@ export default function NodeInspector({
   const timeoutAmount = activeNode?.config?.timeout_amount ?? (activeNode?.config?.wait_timeout || 30);
   const timeoutUnit = activeNode?.config?.timeout_unit ?? 'seconds';
   const timeoutAction = activeNode?.config?.timeout_action ?? 'send_followup';
-  const waitForResponse = activeNode?.config?.wait_for_response ?? true;
+  const supportsWaitForResponse =
+    isAction &&
+    ((actionType === 'send_msg' && messageType === 'button_message') ||
+      actionType === 'brain_query' ||
+      actionType === 'ask_question');
+  const waitForResponse = supportsWaitForResponse
+    ? (activeNode?.config?.wait_for_response ?? false)
+    : false;
   const followUpText = activeNode?.config?.follow_up_message || '';
   const currentButtons = activeNode ? getNodeButtons(activeNode) : [];
 
@@ -179,7 +186,25 @@ export default function NodeInspector({
             }
           ];
 
-      const updated = currentList.map((t, idx) => (idx === index ? { ...t, ...updates } : t));
+      const clampAmount = (amount, unit) => {
+        const num = Math.max(1, parseInt(amount, 10) || 1);
+        const maxVal = unit === 'hours' ? 24 : unit === 'minutes' ? 1440 : 86400;
+        return Math.min(num, maxVal);
+      };
+
+      const updated = currentList.map((t, idx) => {
+        if (idx !== index) return t;
+        const targetUnit = updates.timeout_unit !== undefined ? updates.timeout_unit : (t.timeout_unit ?? 'seconds');
+        const targetRawAmount = updates.timeout_amount !== undefined ? updates.timeout_amount : (t.timeout_amount ?? 30);
+        const clampedAmount = clampAmount(targetRawAmount, targetUnit);
+        return {
+          ...t,
+          ...updates,
+          timeout_amount: clampedAmount,
+          timeout_unit: targetUnit,
+        };
+      });
+
       const first = updated[0] || {};
       return {
         ...config,
@@ -416,6 +441,7 @@ export default function NodeInspector({
         config: {
           ...(node.config || {}),
           type: 'condition',
+          wait_for_response: false,
           field: 'user_input',
           operator: 'equals',
           compare_value: '',
@@ -429,11 +455,21 @@ export default function NodeInspector({
       if (activeNode.config?.type === 'condition') {
         setEdges((prev) => prev.filter((e) => !(e.source === activeNodeId && e.sourceHandle)));
       }
-      updateNode(activeNodeId, (node) => ({
-        ...node,
-        label: labelMap[newType] || 'New Step',
-        config: { ...(node.config || {}), type: newType }
-      }));
+      updateNode(activeNodeId, (node) => {
+        const isInteractive =
+          newType === 'brain_query' ||
+          newType === 'ask_question' ||
+          (newType === 'send_msg' && node.config?.message_type === 'button_message');
+        return {
+          ...node,
+          label: labelMap[newType] || 'New Step',
+          config: {
+            ...(node.config || {}),
+            type: newType,
+            wait_for_response: isInteractive ? (node.config?.wait_for_response ?? false) : false,
+          },
+        };
+      });
     }
   };
 
@@ -442,6 +478,7 @@ export default function NodeInspector({
     updateNodeConfig(activeNodeId, (config) => ({
       ...config,
       message_type: nextType,
+      wait_for_response: nextType === 'button_message' ? (config.wait_for_response ?? false) : false,
       buttons: nextType === 'button_message'
         ? normalizeButtons(config.buttons?.length ? config.buttons : [createDefaultButton(0)])
         : [],
@@ -617,7 +654,7 @@ export default function NodeInspector({
                         </select>
                       </div>
                       {delayAmount > 0 && (
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[11px] font-medium">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[12px] font-medium">
                           <Timer size={12} className="text-violet-400 shrink-0" />
                           <span>
                             Wait {delayAmount} {delayUnit} before sending
@@ -754,7 +791,7 @@ export default function NodeInspector({
                               </div>
 
                               {/* Character Count */}
-                              <div className="text-[11px] text-zinc-500">
+                              <div className="text-[12px] text-zinc-500">
                                 {(activeNode.config?.text || '').length}/1024
                               </div>
                             </div>
@@ -845,7 +882,7 @@ export default function NodeInspector({
                                     &#123;&#125;
                                   </button>
                                 </div>
-                                <div className="text-[11px] text-zinc-500">
+                                <div className="text-[12px] text-zinc-500">
                                   {(activeNode.config?.text || '').length}/1024
                                 </div>
                               </div>
@@ -869,7 +906,7 @@ export default function NodeInspector({
 
                             {/* Variable Store for Button Selection */}
                             <div className="p-3 rounded-xl bg-[#0F101A] border border-white/5 space-y-1.5">
-                              <label className="text-[11px] font-semibold text-zinc-400 block">
+                              <label className="text-[12px] font-semibold text-zinc-400 block">
                                 Save Selection As (Optional Variable)
                               </label>
                               <input
@@ -1167,345 +1204,6 @@ export default function NodeInspector({
                           )}
                         </div>
                       )}
-
-                      {/* ── SECTION 3: WAIT FOR CUSTOMER RESPONSE ── */}
-                      <div className="p-4 sm:p-5 rounded-2xl bg-[#141522] border border-white/10 space-y-4">
-                        {/* Section 3 Header with Toggle */}
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div>
-                              <h3 className="text-base font-semibold text-white tracking-wide">
-                                Wait for Customer Response
-                              </h3>
-                              <p className="text-xs text-white/60">
-                                Continue the flow based on whether the customer replies or not.
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* ON/OFF Switch */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateNodeConfig(activeNodeId, {
-                                wait_for_response: !waitForResponse,
-                              })
-                            }
-                            className={`w-11 h-6 flex items-center rounded-full p-1 transition cursor-pointer shrink-0 ${
-                              waitForResponse ? 'bg-[#814AC8]' : 'bg-white/10'
-                            }`}
-                          >
-                            <div
-                              className={`bg-white w-4 h-4 rounded-full shadow-md transform transition ${
-                                waitForResponse ? 'translate-x-5' : 'translate-x-0'
-                              }`}
-                            />
-                          </button>
-                        </div>
-
-                        {waitForResponse && (
-                          <div className="space-y-4 pt-1">
-                            {/* Stage 0 (First Timeout) */}
-                            {(() => {
-                              const stage0 = timeoutsList[0] || {
-                                timeout_amount: timeoutAmount,
-                                timeout_unit: timeoutUnit,
-                                timeout_action: timeoutAction,
-                                follow_up_message: followUpMessage,
-                              };
-                              const stage0Amount = stage0.timeout_amount ?? 30;
-                              const stage0Unit = stage0.timeout_unit ?? 'seconds';
-                              const stage0Action = stage0.timeout_action ?? 'send_followup';
-                              const stage0Message = stage0.follow_up_message ?? '';
-
-                              return (
-                                <div className="space-y-3">
-                                  {/* Timeout Row */}
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs text-zinc-400 font-medium">Timeout</span>
-                                    <input
-                                      type="number"
-                                      min={1}
-                                      max={stage0Unit === 'hours' ? 72 : stage0Unit === 'minutes' ? 1440 : 86400}
-                                      value={stage0Amount}
-                                      onChange={(e) =>
-                                        updateTimeoutStage(0, {
-                                          timeout_amount: parseInt(e.target.value, 10) || 30,
-                                        })
-                                      }
-                                      className="w-20 bg-[#0F101A] border border-white/10 rounded-xl px-3 py-1.5 text-xs font-bold text-white text-center outline-none focus:border-violet-500/60"
-                                    />
-                                    <select
-                                      value={stage0Unit}
-                                      onChange={(e) =>
-                                        updateTimeoutStage(0, { timeout_unit: e.target.value })
-                                      }
-                                      className="bg-[#0F101A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500/60 cursor-pointer"
-                                    >
-                                      <option value="seconds">Seconds</option>
-                                      <option value="minutes">Minutes</option>
-                                      <option value="hours">Hours</option>
-                                    </select>
-                                  </div>
-
-                                  {/* Branch 1: If customer replies (Green Box) */}
-                                  <div className="p-3.5 rounded-xl border border-emerald-500/25 bg-[#0b1f18] flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] text-white flex items-center justify-center border-white/20 shrink-0">
-                                      <MessageSquare size={16} />
-                                    </div>
-                                    <div>
-                                      <h4 className="text-sm font-semibold text-white">If customer replies</h4>
-                                      <p className="text-xs text-white/80">Continue to next step (Cancel all pending timeouts)</p>
-                                    </div>
-                                  </div>
-
-                                  {/* Branch 2: If no reply (Timeout Box) */}
-                                  <div className="p-3.5 rounded-xl border border-rose-500/25 bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] space-y-3">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] border border-white/20 text-white flex items-center justify-center shrink-0">
-                                          <Clock size={16} />
-                                        </div>
-                                        <div>
-                                          <h4 className="text-sm font-semibold text-white">If no reply (Timeout)</h4>
-                                        </div>
-                                      </div>
-
-                                      <select
-                                        value={stage0Action}
-                                        onChange={(e) =>
-                                          updateTimeoutStage(0, { timeout_action: e.target.value })
-                                        }
-                                        className="bg-[#140606] border border-rose-500/30 rounded-lg px-2.5 py-1 text-xs text-rose-200 outline-none cursor-pointer"
-                                      >
-                                        <option value="send_followup">Send a follow-up message</option>
-                                        <option value="end_flow">End Flow</option>
-                                      </select>
-                                    </div>
-
-                                    {stage0Action === 'send_followup' && (
-                                      <div className="relative rounded-xl border border-white/10 bg-[#0F101A] focus-within:border-rose-500/50 transition overflow-hidden">
-                                        <textarea
-                                          ref={(el) => {
-                                            followUpInputRef.current = el;
-                                            followUpTextareaRef.current = el;
-                                          }}
-                                          onFocus={() => setActiveTextarea('followup-0')}
-                                          value={stage0Message}
-                                          onChange={(e) =>
-                                            updateTimeoutStage(0, { follow_up_message: e.target.value })
-                                          }
-                                          rows={2}
-                                          placeholder="Just checking if you'd like me to share more details about OrbionAgents? Let me know if you have any questions! 😊"
-                                          className="w-full bg-transparent p-3 text-xs font-medium text-white outline-none placeholder:text-zinc-600 resize-none"
-                                        />
-                                        <div className="px-3 py-1.5 border-t border-white/5 bg-[#12131D]/80 flex items-center justify-between">
-                                          <div className="flex items-center gap-1.5 relative">
-                                            <button
-                                              type="button"
-                                              onClick={() => setActiveEmojiStage(activeEmojiStage === 0 ? null : 0)}
-                                              className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
-                                              title="Add Emoji"
-                                            >
-                                              <Smile size={14} />
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setActiveTextarea('followup-0');
-                                                handleInsertVariable('customer_name');
-                                              }}
-                                              className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer text-xs"
-                                              title="Insert customer name"
-                                            >
-                                              &#123; &#125;
-                                            </button>
-
-                                            {activeEmojiStage === 0 && (
-                                              <div className="absolute bottom-full left-0 mb-2 p-2 rounded-xl bg-[#181926] border border-white/15 shadow-xl grid grid-cols-5 gap-1.5 z-30">
-                                                {QUICK_EMOJIS.map((emoji) => (
-                                                  <button
-                                                    key={emoji}
-                                                    type="button"
-                                                    onClick={() => {
-                                                      updateTimeoutStage(0, { follow_up_message: stage0Message + emoji });
-                                                      setActiveEmojiStage(null);
-                                                    }}
-                                                    className="w-7 h-7 text-sm rounded-lg hover:bg-white/10 flex items-center justify-center transition cursor-pointer"
-                                                  >
-                                                    {emoji}
-                                                  </button>
-                                                ))}
-                                              </div>
-                                            )}
-                                          </div>
-
-                                          <span className="text-[10px] text-zinc-500">
-                                            {stage0Message.length}/1024
-                                          </span>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })()}
-
-                            {/* Subsequent Timeouts (Timeout #2, #3, etc.) */}
-                            {timeoutsList.slice(1).map((stage, idx) => {
-                              const stageIdx = idx + 1;
-                              const stageAmount = stage.timeout_amount ?? 60;
-                              const stageUnit = stage.timeout_unit ?? 'seconds';
-                              const stageAction = stage.timeout_action ?? 'send_followup';
-                              const stageMessage = stage.follow_up_message ?? '';
-
-                              return (
-                                <div
-                                  key={stage.id || `timeout-${stageIdx}`}
-                                  className="p-3.5 rounded-xl border border-rose-500/25 bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] space-y-3"
-                                >
-                                  <div className="flex items-center justify-between gap-2 pb-1 border-b border-rose-500/20">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-6 h-6 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
-                                        <Clock size={13} />
-                                      </div>
-                                      <span className="text-xs font-bold text-rose-300">Timeout #{stageIdx + 1}</span>
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => removeTimeoutStage(stageIdx)}
-                                      className="p-1 rounded-lg hover:bg-rose-500/20 text-rose-400/70 hover:text-rose-300 transition cursor-pointer"
-                                      title="Remove this timeout"
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  </div>
-
-                                  {/* Wait Duration */}
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs text-zinc-400 font-medium">Wait</span>
-                                    <input
-                                      type="number"
-                                      min={1}
-                                      max={stageUnit === 'hours' ? 72 : stageUnit === 'minutes' ? 1440 : 86400}
-                                      value={stageAmount}
-                                      onChange={(e) =>
-                                        updateTimeoutStage(stageIdx, {
-                                          timeout_amount: parseInt(e.target.value, 10) || 30,
-                                        })
-                                      }
-                                      className="w-20 bg-[#0F101A] border border-white/10 rounded-xl px-3 py-1.5 text-xs font-bold text-white text-center outline-none focus:border-violet-500/60"
-                                    />
-                                    <select
-                                      value={stageUnit}
-                                      onChange={(e) =>
-                                        updateTimeoutStage(stageIdx, { timeout_unit: e.target.value })
-                                      }
-                                      className="bg-[#0F101A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500/60 cursor-pointer"
-                                    >
-                                      <option value="seconds">Seconds</option>
-                                      <option value="minutes">Minutes</option>
-                                      <option value="hours">Hours</option>
-                                    </select>
-                                  </div>
-
-                                  {/* If no reply */}
-                                  <div className="space-y-2">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="text-xs font-semibold text-rose-300">If no reply</span>
-                                      <select
-                                        value={stageAction}
-                                        onChange={(e) =>
-                                          updateTimeoutStage(stageIdx, { timeout_action: e.target.value })
-                                        }
-                                        className="bg-[#140606] border border-rose-500/30 rounded-lg px-2.5 py-1 text-xs text-rose-200 outline-none cursor-pointer"
-                                      >
-                                        <option value="send_followup">Send a follow-up message</option>
-                                        <option value="end_flow">End Flow</option>
-                                      </select>
-                                    </div>
-
-                                    {stageAction === 'send_followup' && (
-                                      <div className="relative rounded-xl border border-white/10 bg-[#0F101A] focus-within:border-rose-500/50 transition overflow-hidden">
-                                        <textarea
-                                          onFocus={() => setActiveTextarea(`followup-${stageIdx}`)}
-                                          value={stageMessage}
-                                          onChange={(e) =>
-                                            updateTimeoutStage(stageIdx, { follow_up_message: e.target.value })
-                                          }
-                                          rows={2}
-                                          placeholder="No problem! You can contact us anytime."
-                                          className="w-full bg-transparent p-3 text-xs font-medium text-white outline-none placeholder:text-zinc-600 resize-none"
-                                        />
-                                        <div className="px-3 py-1.5 border-t border-white/5 bg-[#12131D]/80 flex items-center justify-between">
-                                          <div className="flex items-center gap-1.5 relative">
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                setActiveEmojiStage(activeEmojiStage === stageIdx ? null : stageIdx)
-                                              }
-                                              className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
-                                            >
-                                              <Smile size={14} />
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setActiveTextarea(`followup-${stageIdx}`);
-                                                handleInsertVariable('customer_name');
-                                              }}
-                                              className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer text-xs"
-                                            >
-                                              &#123; &#125;
-                                            </button>
-
-                                            {activeEmojiStage === stageIdx && (
-                                              <div className="absolute bottom-full left-0 mb-2 p-2 rounded-xl bg-[#181926] border border-white/15 shadow-xl grid grid-cols-5 gap-1.5 z-30">
-                                                {QUICK_EMOJIS.map((emoji) => (
-                                                  <button
-                                                    key={emoji}
-                                                    type="button"
-                                                    onClick={() => {
-                                                      updateTimeoutStage(stageIdx, {
-                                                        follow_up_message: stageMessage + emoji,
-                                                      });
-                                                      setActiveEmojiStage(null);
-                                                    }}
-                                                    className="w-7 h-7 text-sm rounded-lg hover:bg-white/10 flex items-center justify-center transition cursor-pointer"
-                                                  >
-                                                    {emoji}
-                                                  </button>
-                                                ))}
-                                              </div>
-                                            )}
-                                          </div>
-
-                                          <span className="text-[10px] text-zinc-500">
-                                            {stageMessage.length}/1024
-                                          </span>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-
-                            {/* Add Another Timeout Button */}
-                            {timeoutsList.length < 5 && (
-                              <button
-                                type="button"
-                                onClick={addTimeoutStage}
-                                className="px-3.5 py-2 rounded-xl border border-dashed border-violet-500/40 bg-violet-500/5 hover:bg-violet-500/10 text-xs font-semibold text-zinc-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer"
-                              >
-                                <Plus size={14} />
-                                <span>Add Another Timeout</span>
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
                     </>
                   )}
 
@@ -1782,42 +1480,436 @@ export default function NodeInspector({
                           />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/5">
-                          <div>
-                            <label className="text-xs font-semibold text-zinc-400 block mb-1">
-                              Input Type
-                            </label>
-                            <select
-                              value={activeNode.config?.input_type || 'text'}
-                              onChange={(e) =>
-                                updateNodeConfig(activeNodeId, { input_type: e.target.value })
-                              }
-                              className="w-full bg-[#0F101A] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-violet-500/60 cursor-pointer"
-                            >
-                              <option value="text">Text (Any message)</option>
-                              <option value="email">Email Address</option>
-                              <option value="number">Numeric value</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-xs font-semibold text-zinc-400 block mb-1">
-                              Timeout (Mins)
-                            </label>
-                            <input
-                              type="number"
-                              min={1}
-                              max={1440}
-                              value={activeNode.config?.timeout_minutes ?? 1}
-                              onChange={(e) =>
-                                updateNodeConfig(activeNodeId, {
-                                  timeout_minutes: Math.max(1, parseInt(e.target.value, 10) || 1),
-                                })
-                              }
-                              className="w-full bg-[#0F101A] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-violet-500/60 text-center"
-                            />
-                          </div>
+                        <div className="pt-2 border-t border-white/5">
+                          <label className="text-xs font-semibold text-zinc-400 block mb-1">
+                            Input Type
+                          </label>
+                          <select
+                            value={activeNode.config?.input_type || 'text'}
+                            onChange={(e) =>
+                              updateNodeConfig(activeNodeId, { input_type: e.target.value })
+                            }
+                            className="w-full bg-[#0F101A] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-violet-500/60 cursor-pointer"
+                          >
+                            <option value="text">Text (Any message)</option>
+                            <option value="email">Email Address</option>
+                            <option value="number">Numeric value</option>
+                          </select>
                         </div>
                       </div>
+
+                      {/* Single Path Next Step Connection for Ask Question */}
+                      <div className="p-4 rounded-xl bg-[#141522] border border-white/10 space-y-2">
+                        <label className="text-sm font-semibold text-zinc-300 block">
+                          Next Step Connection
+                        </label>
+                        {connectedTargetNode ? (
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-[#0F101A] border border-violet-500/30">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <CornerDownRight size={15} className="text-violet-400 shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-[10px] text-zinc-400 uppercase font-semibold">
+                                  Connected To:
+                                </p>
+                                <p className="text-xs font-semibold text-white truncate">
+                                  {connectedTargetNode.label}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEdges((prev) => prev.filter((e) => e.source !== activeNodeId))
+                              }
+                              className="px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg text-xs font-medium transition cursor-pointer"
+                            >
+                              Unlink
+                            </button>
+                          </div>
+                        ) : (
+                          <select
+                            value=""
+                            onChange={(e) => {
+                              if (!e.target.value) return;
+                              setEdges((prev) => [
+                                ...prev,
+                                {
+                                  id: `e-${activeNodeId}-default-${e.target.value}`,
+                                  source: activeNodeId,
+                                  sourceHandle: null,
+                                  target: e.target.value,
+                                },
+                              ]);
+                            }}
+                            className="w-full bg-[#0F101A] border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-300 outline-none focus:border-violet-500/60 cursor-pointer"
+                          >
+                            <option value="">-- Connect to next flow step --</option>
+                            {nodes
+                              .filter(
+                                (n) =>
+                                  n.id !== activeNodeId &&
+                                  n.type !== 'trigger' &&
+                                  !edges.some((e) => e.source === activeNodeId && e.target === n.id)
+                              )
+                              .map((n) => (
+                                <option key={n.id} value={n.id}>
+                                  {n.label}
+                                </option>
+                              ))}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── WAIT FOR CUSTOMER RESPONSE (Button Message, AI Reply, Ask Question) ── */}
+                  {supportsWaitForResponse && (
+                    <div className="p-4 sm:p-5 rounded-2xl bg-[#141522] border border-white/10 space-y-4">
+                      {/* Header with Toggle */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <h3 className="text-base font-semibold text-white tracking-wide">
+                              Wait for Customer Response
+                            </h3>
+                            <p className="text-xs text-white/60">
+                              Continue the flow based on whether the customer replies or not.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* ON/OFF Switch */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateNodeConfig(activeNodeId, {
+                              wait_for_response: !waitForResponse,
+                            })
+                          }
+                          className={`w-11 h-6 flex items-center rounded-full p-1 transition cursor-pointer shrink-0 ${
+                            waitForResponse ? 'bg-[#814AC8]' : 'bg-white/10'
+                          }`}
+                        >
+                          <div
+                            className={`bg-white w-4 h-4 rounded-full shadow-md transform transition ${
+                              waitForResponse ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {waitForResponse && (
+                        <div className="space-y-4 pt-1">
+                          {/* Stage 0 (First Timeout) */}
+                          {(() => {
+                            const stage0 = timeoutsList[0] || {
+                              timeout_amount: timeoutAmount,
+                              timeout_unit: timeoutUnit,
+                              timeout_action: timeoutAction,
+                              follow_up_message: followUpText,
+                            };
+                            const stage0Amount = stage0.timeout_amount ?? 30;
+                            const stage0Unit = stage0.timeout_unit ?? 'seconds';
+                            const stage0Action = stage0.timeout_action ?? 'send_followup';
+                            const stage0Message = stage0.follow_up_message ?? '';
+
+                            return (
+                              <div className="space-y-3">
+                                {/* Timeout Row */}
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-xs text-zinc-400 font-medium">Timeout</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={stage0Unit === 'hours' ? 24 : stage0Unit === 'minutes' ? 1440 : 86400}
+                                    value={stage0Amount}
+                                    onChange={(e) =>
+                                      updateTimeoutStage(0, {
+                                        timeout_amount: parseInt(e.target.value, 10) || 1,
+                                      })
+                                    }
+                                    className="w-20 bg-[#0F101A] border border-white/10 rounded-xl px-3 py-1.5 text-xs font-bold text-white text-center outline-none focus:border-violet-500/60"
+                                  />
+                                  <select
+                                    value={stage0Unit}
+                                    onChange={(e) =>
+                                      updateTimeoutStage(0, { timeout_unit: e.target.value })
+                                    }
+                                    className="bg-[#0F101A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500/60 cursor-pointer"
+                                  >
+                                    <option value="seconds">Seconds</option>
+                                    <option value="minutes">Minutes</option>
+                                    <option value="hours">Hours</option>
+                                  </select>
+                                  <span className="text-[11px] text-zinc-500 font-medium">
+                                    (Max 24h — WhatsApp window)
+                                  </span>
+                                </div>
+
+                                {/* Branch 1: If customer replies (Green Box) */}
+                                <div className="p-3.5 rounded-xl border border-emerald-500/25 bg-[#0b1f18] flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] text-white flex items-center justify-center border-white/20 shrink-0">
+                                    <MessageSquare size={16} />
+                                  </div>
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-white">If customer replies</h4>
+                                    <p className="text-xs text-white/80">
+                                      {actionType === 'brain_query'
+                                        ? 'Continue AI conversation (Cancel all pending timeouts)'
+                                        : 'Continue to next step (Cancel all pending timeouts)'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Branch 2: If no reply (Timeout Box) */}
+                                <div className="p-3.5 rounded-xl border border-rose-500/25 bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] space-y-3">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] border border-white/20 text-white flex items-center justify-center shrink-0">
+                                        <Clock size={16} />
+                                      </div>
+                                      <div>
+                                        <h4 className="text-sm font-semibold text-white">If no reply (Timeout)</h4>
+                                      </div>
+                                    </div>
+
+                                    <select
+                                      value={stage0Action}
+                                      onChange={(e) =>
+                                        updateTimeoutStage(0, { timeout_action: e.target.value })
+                                      }
+                                      className="bg-[#140606] border border-rose-500/30 rounded-lg px-2.5 py-1 text-xs text-rose-200 outline-none cursor-pointer"
+                                    >
+                                      <option value="send_followup">Send a follow-up message</option>
+                                      <option value="end_flow">End Flow</option>
+                                    </select>
+                                  </div>
+
+                                  {stage0Action === 'send_followup' && (
+                                    <div className="relative rounded-xl border border-white/10 bg-[#0F101A] focus-within:border-rose-500/50 transition overflow-hidden">
+                                      <textarea
+                                        ref={(el) => {
+                                          followUpInputRef.current = el;
+                                          followUpTextareaRef.current = el;
+                                        }}
+                                        onFocus={() => setActiveTextarea('followup-0')}
+                                        value={stage0Message}
+                                        onChange={(e) =>
+                                          updateTimeoutStage(0, { follow_up_message: e.target.value })
+                                        }
+                                        rows={2}
+                                        placeholder="Just checking if you'd like me to share more details about OrbionAgents? Let me know if you have any questions! 😊"
+                                        className="w-full bg-transparent p-3 text-xs font-medium text-white outline-none placeholder:text-zinc-600 resize-none"
+                                      />
+                                      <div className="px-3 py-1.5 border-t border-white/5 bg-[#12131D]/80 flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5 relative">
+                                          <button
+                                            type="button"
+                                            onClick={() => setActiveEmojiStage(activeEmojiStage === 0 ? null : 0)}
+                                            className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+                                            title="Add Emoji"
+                                          >
+                                            <Smile size={14} />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveTextarea('followup-0');
+                                              handleInsertVariable('customer_name');
+                                            }}
+                                            className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer text-xs"
+                                            title="Insert customer name"
+                                          >
+                                            &#123; &#125;
+                                          </button>
+
+                                          {activeEmojiStage === 0 && (
+                                            <div className="absolute bottom-full left-0 mb-2 p-2 rounded-xl bg-[#181926] border border-white/15 shadow-xl grid grid-cols-5 gap-1.5 z-30">
+                                              {QUICK_EMOJIS.map((emoji) => (
+                                                <button
+                                                  key={emoji}
+                                                  type="button"
+                                                  onClick={() => {
+                                                    updateTimeoutStage(0, { follow_up_message: stage0Message + emoji });
+                                                    setActiveEmojiStage(null);
+                                                  }}
+                                                  className="w-7 h-7 text-sm rounded-lg hover:bg-white/10 flex items-center justify-center transition cursor-pointer"
+                                                >
+                                                  {emoji}
+                                                </button>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        <span className="text-[10px] text-zinc-500">
+                                          {stage0Message.length}/1024
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Subsequent Timeouts (Timeout #2, #3, etc.) */}
+                          {timeoutsList.slice(1).map((stage, idx) => {
+                            const stageIdx = idx + 1;
+                            const stageAmount = stage.timeout_amount ?? 60;
+                            const stageUnit = stage.timeout_unit ?? 'seconds';
+                            const stageAction = stage.timeout_action ?? 'send_followup';
+                            const stageMessage = stage.follow_up_message ?? '';
+
+                            return (
+                              <div
+                                key={stage.id || `timeout-${stageIdx}`}
+                                className="p-3.5 rounded-xl border border-rose-500/25 bg-gradient-to-r from-[#3b0606]/80 via-[#240303]/60 to-[#0c0202] space-y-3"
+                              >
+                                <div className="flex items-center justify-between gap-2 pb-1 border-b border-rose-500/20">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+                                      <Clock size={13} />
+                                    </div>
+                                    <span className="text-xs font-bold text-rose-300">Timeout #{stageIdx + 1}</span>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => removeTimeoutStage(stageIdx)}
+                                    className="p-1 rounded-lg hover:bg-rose-500/20 text-rose-400/70 hover:text-rose-300 transition cursor-pointer"
+                                    title="Remove this timeout"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+
+                                {/* Wait Duration */}
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-xs text-zinc-400 font-medium">Wait</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={stageUnit === 'hours' ? 24 : stageUnit === 'minutes' ? 1440 : 86400}
+                                    value={stageAmount}
+                                    onChange={(e) =>
+                                      updateTimeoutStage(stageIdx, {
+                                        timeout_amount: parseInt(e.target.value, 10) || 1,
+                                      })
+                                    }
+                                    className="w-20 bg-[#0F101A] border border-white/10 rounded-xl px-3 py-1.5 text-xs font-bold text-white text-center outline-none focus:border-violet-500/60"
+                                  />
+                                  <select
+                                    value={stageUnit}
+                                    onChange={(e) =>
+                                      updateTimeoutStage(stageIdx, { timeout_unit: e.target.value })
+                                    }
+                                    className="bg-[#0F101A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500/60 cursor-pointer"
+                                  >
+                                    <option value="seconds">Seconds</option>
+                                    <option value="minutes">Minutes</option>
+                                    <option value="hours">Hours</option>
+                                  </select>
+                                  <span className="text-[11px] text-zinc-500 font-medium">
+                                    (Max 24h)
+                                  </span>
+                                </div>
+
+                                {/* If no reply */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-semibold text-rose-300">If no reply</span>
+                                    <select
+                                      value={stageAction}
+                                      onChange={(e) =>
+                                        updateTimeoutStage(stageIdx, { timeout_action: e.target.value })
+                                      }
+                                      className="bg-[#140606] border border-rose-500/30 rounded-lg px-2.5 py-1 text-xs text-rose-200 outline-none cursor-pointer"
+                                    >
+                                      <option value="send_followup">Send a follow-up message</option>
+                                      <option value="end_flow">End Flow</option>
+                                    </select>
+                                  </div>
+
+                                  {stageAction === 'send_followup' && (
+                                    <div className="relative rounded-xl border border-white/10 bg-[#0F101A] focus-within:border-rose-500/50 transition overflow-hidden">
+                                      <textarea
+                                        onFocus={() => setActiveTextarea(`followup-${stageIdx}`)}
+                                        value={stageMessage}
+                                        onChange={(e) =>
+                                          updateTimeoutStage(stageIdx, { follow_up_message: e.target.value })
+                                        }
+                                        rows={2}
+                                        placeholder="No problem! You can contact us anytime."
+                                        className="w-full bg-transparent p-3 text-xs font-medium text-white outline-none placeholder:text-zinc-600 resize-none"
+                                      />
+                                      <div className="px-3 py-1.5 border-t border-white/5 bg-[#12131D]/80 flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5 relative">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setActiveEmojiStage(activeEmojiStage === stageIdx ? null : stageIdx)
+                                            }
+                                            className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+                                          >
+                                            <Smile size={14} />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveTextarea(`followup-${stageIdx}`);
+                                              handleInsertVariable('customer_name');
+                                            }}
+                                            className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer text-xs"
+                                          >
+                                            &#123; &#125;
+                                          </button>
+
+                                          {activeEmojiStage === stageIdx && (
+                                            <div className="absolute bottom-full left-0 mb-2 p-2 rounded-xl bg-[#181926] border border-white/15 shadow-xl grid grid-cols-5 gap-1.5 z-30">
+                                              {QUICK_EMOJIS.map((emoji) => (
+                                                <button
+                                                  key={emoji}
+                                                  type="button"
+                                                  onClick={() => {
+                                                    updateTimeoutStage(stageIdx, {
+                                                      follow_up_message: stageMessage + emoji,
+                                                    });
+                                                    setActiveEmojiStage(null);
+                                                  }}
+                                                  className="w-7 h-7 text-sm rounded-lg hover:bg-white/10 flex items-center justify-center transition cursor-pointer"
+                                                >
+                                                  {emoji}
+                                                </button>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        <span className="text-[10px] text-zinc-500">
+                                          {stageMessage.length}/1024
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {/* Add Another Timeout Button */}
+                          {timeoutsList.length < 5 && (
+                            <button
+                              type="button"
+                              onClick={addTimeoutStage}
+                              className="px-3.5 py-2 rounded-xl border border-dashed border-violet-500/40 bg-violet-500/5 hover:bg-violet-500/10 text-xs font-semibold text-zinc-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Plus size={14} />
+                              <span>Add Another Timeout</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -2091,7 +2183,7 @@ export default function NodeInspector({
                             ))}
                           </div>
                         ) : (
-                          <p className="text-[11px] text-white bg-gradient-to-r from-[#3b2a08]/80 via-[#261b05]/60 to-[#0d0902] border border-white/20 p-2.5 rounded-lg">
+                          <p className="text-[12px] text-white bg-gradient-to-r from-[#3b2a08]/80 via-[#261b05]/60 to-[#0d0902] border border-white/20 p-2.5 rounded-lg">
                             No keywords configured. Trigger fires on ALL incoming messages.
                           </p>
                         )}
@@ -2251,7 +2343,7 @@ export default function NodeInspector({
                                     <span className="text-zinc-300 group-hover:text-white font-medium">
                                       {item.label}
                                     </span>
-                                    <span className="text-[11px] text-violet-400/90 group-hover:text-violet-300">
+                                    <span className="text-[12px] text-violet-400/90 group-hover:text-violet-300">
                                       &#123;&#123;{item.token}&#125;&#125;
                                     </span>
                                   </button>
@@ -2294,7 +2386,7 @@ export default function NodeInspector({
                                   <span className="text-zinc-300 group-hover:text-white font-medium">
                                     {item.label}
                                   </span>
-                                  <span className="text-[11px] text-emerald-400/90 group-hover:text-emerald-300">
+                                  <span className="text-[12px] text-emerald-400/90 group-hover:text-emerald-300">
                                     &#123;&#123;{item.token}&#125;&#125;
                                   </span>
                                 </button>

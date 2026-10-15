@@ -175,7 +175,7 @@ export default function AIBrainPage() {
         <div id="demo" className="mt-32 pt-16 border-t border-white/5">
           <MotionDiv variants={itemVariants} className="text-center max-w-3xl mx-auto mb-16">
             <h2 className="text-3xl font-bold">Comprehensive Guarded AI Architecture</h2>
-            <p className="text-white/60 mt-4">Auromind integrates deep retrieval tools alongside compliance controls to build the ultimate business co-pilot.</p>
+            <p className="text-white/60 mt-4">Orbion Agents integrates deep retrieval tools alongside compliance controls to build the ultimate business co-pilot.</p>
           </MotionDiv>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -1332,15 +1332,6 @@ export default function CreateTemplatePage() {
             />
           </div>
 
-          <div className="pt-4 pb-1">
-            <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Language</p>
-            <CatItem iconKey="text" label="English (US)"    active={form.language === 'en_US'}
-              onClick={() => { setForm({ ...form, language: 'en_US' }); setSidebarOpen(false); }} />
-            <CatItem iconKey="text" label="Tamil (தமிழ்)"   active={form.language === 'ta'}
-              onClick={() => { setForm({ ...form, language: 'ta' }); setSidebarOpen(false); }} />
-            <CatItem iconKey="text" label="Hindi (हिन्दी)"  active={form.language === 'hi'}
-              onClick={() => { setForm({ ...form, language: 'hi' }); setSidebarOpen(false); }} />
-          </div>
 
           <div className="pt-4 pb-1">
             <div className="flex items-center justify-between px-3 mb-2">
@@ -1451,6 +1442,44 @@ export default function CreateTemplatePage() {
                   {/* Collapsible Content */}
                   {isAiOpen && (
                     <div className="px-4 pb-5 sm:px-6 sm:pb-6 border-t border-[#24113A]/60 pt-4 animate-in fade-in duration-200">
+                      {/* Language Selector */}
+                      <div className="border border-white/20 rounded-2xl p-3 sm:p-4 mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 bg-[#0B0613]/40">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#814AC8] flex items-center justify-center text-white shrink-0 shadow-sm">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="2" y1="12" x2="22" y2="12" />
+                              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <h3 className="text-xs sm:text-sm font-semibold text-white">Language</h3>
+                            <p className="text-[11px] sm:text-xs text-white/60 mt-0.5">Select the language for AI generation.</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+                          {[
+                            { code: 'en_US', label: 'English (US)' },
+                            { code: 'ta', label: 'Tamil (தமிழ்)' },
+                            { code: 'hi', label: 'Hindi (हिन्दी)' },
+                          ].map(({ code, label }) => (
+                            <button
+                              key={code}
+                              type="button"
+                              onClick={() => setForm({ ...form, language: code })}
+                              className={`px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer ${
+                                form.language === code
+                                  ? 'bg-[#814AC8] text-white shadow-[0_0_16px_rgba(168,85,247,0.4)]'
+                                  : 'bg-transparent border border-[#24113A] text-[#B7B3C7] hover:border-[#814AC8]/50 hover:text-white'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       <div className="relative mb-4">
                         <p className="text-white text-sm sm:text-base font-normal sm:font-medium mb-1">Write your prompt here*</p>
                         <p className="text-white/70 text-xs sm:text-sm font-medium mb-2">
@@ -1653,7 +1682,7 @@ export default function CreateTemplatePage() {
 
                 {/* Header Media Upload — IMAGE / VIDEO types */}
                 {(form.type === 'IMAGE' || form.type === 'VIDEO') && (
-                  <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                  <div className="bg-[#090014] border border-white/20 rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
                     <div className="flex items-center justify-between mb-1">
                       <p className="text-white text-xs sm:text-sm font-normal sm:font-medium">
                         Header ({form.type === 'IMAGE' ? 'Image' : 'Video'}) <span className="text-white/60 font-normal">(Optional)</span>
@@ -1826,7 +1855,7 @@ export default function CreateTemplatePage() {
                           key={item.key}
                           className="flex items-center gap-3 p-1.5 bg-[#0B0613] border border-[#24113A] rounded-xl"
                         >
-                          <div className="px-3 py-1.5 bg-[#6D28D9] text-white rounded-lg text-xs font-semibold shrink-0 shadow-sm">
+                          <div className="px-3 py-1.5 bg-[#814AC8] text-white rounded-lg text-xs font-semibold shrink-0 shadow-sm">
                             {item.whatsappTag || `{{${item.number || item.key}}}`}
                           </div>
                           <input
@@ -1916,7 +1945,7 @@ export default function CreateTemplatePage() {
 
                       {/* Dropdown Menu */}
                       {buttonDropdownOpen && (
-                        <div className="absolute right-0 top-full mt-2 w-64 bg-[#110620] border border-[#3D1F6B] rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] p-1.5 z-50">
+                        <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-64 max-w-[calc(100vw-2.5rem)] bg-[#110620] border border-[#3D1F6B] rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] p-1.5 z-50">
                           {buttonOptions.map((opt) => (
                             <button
                               key={opt.type}
@@ -1924,7 +1953,7 @@ export default function CreateTemplatePage() {
                               onClick={() => handleAddButton(opt.type)}
                               className="w-full flex items-start gap-2.5 p-2 rounded-xl border border-transparent hover:bg-gradient-to-b hover:from-[#814AC8]/40 hover:to-[#221253]/40 hover:border-white/20 text-white text-left transition-all duration-300 group cursor-pointer"
                             >
-                              <div className="mt-0.5 p-1.5 rounded-lg bg-[#180a2c] border border-[#2e1352] text-white group-hover:text-white group-hover:border-white/30 transition-all">
+                              <div className="mt-0.5 p-1.5 rounded-lg bg-[#180a2c] border border-[#2e1352] text-white group-hover:text-white group-hover:border-white/30 transition-all shrink-0">
                                 {opt.icon}
                               </div>
                               <div className="flex-1 min-w-0">
@@ -2084,11 +2113,11 @@ export default function CreateTemplatePage() {
                     onDrop={handleButtonDrop}
                     className={`mt-4 border-2 border-dashed rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer ${
                       isButtonDragOver
-                        ? 'border-[#814AC8] bg-[#814AC8]/20 shadow-[0_0_25px_rgba(129,74,200,0.3)] scale-[1.01]'
+                        ? 'border-[#814AC8] bg-[#814AC8]/50 shadow-[0_0_25px_rgba(129,74,200,0.3)] scale-[1.01]'
                         : 'border-[#3D1F6B]/60 bg-[#0c0416] hover:border-[#814AC8]/60 hover:bg-[#140824]'
                     }`}
                   >
-                    <div className="w-8 h-8 rounded-xl bg-[#1A0B2E] border border-[#3D1F6B] flex items-center justify-center text-[#c490e8]">
+                    <div className="w-8 h-8 rounded-xl bg-[#1A0B2E] border border-[#3D1F6B] flex items-center justify-center text-white">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                         <line x1="12" y1="5" x2="12" y2="19"></line>
                         <line x1="5" y1="12" x2="19" y2="12"></line>

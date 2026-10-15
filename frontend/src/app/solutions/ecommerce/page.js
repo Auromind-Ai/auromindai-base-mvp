@@ -109,7 +109,7 @@ export default function EcommercePage() {
               variants={itemVariants}
               className="text-lg text-white/70 max-w-2xl mx-auto lg:mx-0 leading-relaxed"
             >
-              Convert passive browsers into paying customers. Connect Auromind to Shopify or custom platforms to deliver interactive product catalogs, recover abandoned shopping carts, and generate stripe checkout cards instantly inside chat.
+              Convert passive browsers into paying customers. Connect Orbion Agents to Shopify or custom platforms to deliver interactive product catalogs, recover abandoned shopping carts, and generate stripe checkout cards instantly inside chat.
             </MotionP>
 
             {/* CTA Buttons */}

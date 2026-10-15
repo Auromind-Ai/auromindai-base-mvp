@@ -1250,8 +1250,40 @@ export default function AutomationCanvas() {
     setIsSaving(true);
     try {
       const sanitizedNodes = nodes.map(node => {
-        if (node.type === 'action' && node.config?.type === 'send_msg') {
-          return { ...node, config: { ...node.config, message_type: node.config.message_type || 'text', mode: node.config.mode || 'manual' } };
+        if (node.type === 'action') {
+          const actionType = node.config?.type || 'send_msg';
+          const msgType = node.config?.message_type || 'text';
+          const isInteractive =
+            (actionType === 'send_msg' && msgType === 'button_message') ||
+            actionType === 'brain_query' ||
+            actionType === 'ask_question';
+          if (actionType === 'send_msg') {
+            return {
+              ...node,
+              config: {
+                ...node.config,
+                message_type: msgType,
+                mode: node.config.mode || 'manual',
+                wait_for_response: isInteractive ? (node.config.wait_for_response ?? false) : false,
+              },
+            };
+          }
+          if (!isInteractive) {
+            return {
+              ...node,
+              config: {
+                ...node.config,
+                wait_for_response: false,
+              },
+            };
+          }
+          return {
+            ...node,
+            config: {
+              ...node.config,
+              wait_for_response: Boolean(node.config?.wait_for_response),
+            },
+          };
         }
         return node;
       });
@@ -1457,7 +1489,7 @@ export default function AutomationCanvas() {
       type: 'action',
       label: 'New Step',
       position: position || { x: sourceNode.position.x + 350, y: sourceNode.position.y + targetOffsetY },
-      config: { type: 'send_msg', message_type: 'text', text: '', mode: 'manual', delay_amount: 0, delay_unit: 'minutes' },
+      config: { type: 'send_msg', message_type: 'text', text: '', mode: 'manual', wait_for_response: false, delay_amount: 0, delay_unit: 'minutes' },
     };
 
     setNodes((prev) => [...prev, newNode]);
@@ -2004,9 +2036,9 @@ export default function AutomationCanvas() {
                 </span>
               </div>
             </div>
-            {flowValidation.errors.length > 0 && (
+            {flowValidation.errors.filter(item => !item.includes('has no message text')).length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
-                {flowValidation.errors.map((item, index) => (
+                {flowValidation.errors.filter(item => !item.includes('has no message text')).map((item, index) => (
                   <div key={`error-${index}`} className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-[11px] text-rose-300">{item}</div>
                 ))}
               </div>
@@ -2037,9 +2069,9 @@ export default function AutomationCanvas() {
           <p className="text-[11px] text-white/70">
             Execution preview reaches {flowValidation.reachableNodeIds.size} of {nodes.length} node{nodes.length === 1 ? '' : 's'}.
           </p>
-          {flowValidation.errors.length > 0 && (
+          {flowValidation.errors.filter(item => !item.includes('has no message text')).length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
-              {flowValidation.errors.map((item, index) => (
+              {flowValidation.errors.filter(item => !item.includes('has no message text')).map((item, index) => (
                 <div key={`mob-err-${index}`} className="rounded-md border border-rose-500/20 bg-rose-500/10 px-2 py-1 text-[10px] text-rose-300">{item}</div>
               ))}
             </div>

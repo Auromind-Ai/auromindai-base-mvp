@@ -56,6 +56,7 @@ class Workspace(Base):
     meta_phone_number_id = Column(String(255), nullable=True)
     meta_display_phone = Column(String(50), nullable=True)
     meta_ig_id = Column(String(255), nullable=True)
+    meta_ig_access_token = Column(Text, nullable=True)
 
     # OPTIONAL (FUTURE SAFE)
     meta_token_expiry = Column(DateTime(timezone=True), nullable=True)

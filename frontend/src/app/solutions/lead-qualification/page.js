@@ -109,7 +109,7 @@ export default function LeadQualificationPage() {
               variants={itemVariants}
               className="text-lg text-white/70 max-w-2xl mx-auto lg:mx-0 leading-relaxed"
             >
-              Don't waste manual hours filtering low-intent leads. Let Auromind qualifying agents hold automated chats, rank client intent, and hand over only the hottest pipeline opportunities to your reps.
+              Don't waste manual hours filtering low-intent leads. Let Orbion Agents qualifying agents hold automated chats, rank client intent, and hand over only the hottest pipeline opportunities to your reps.
             </MotionP>
 
             {/* CTA Buttons */}

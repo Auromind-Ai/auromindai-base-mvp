@@ -10,8 +10,6 @@ class InstagramService:
         self.page_id = page_id
 
     def send_message(self, recipient_id: str, text: str) -> dict:
-        url = f"https://graph.facebook.com/v19.0/{self.page_id}/messages"
-
         payload = {
             "recipient": {"id": recipient_id},
             "message": {"text": text}
@@ -21,8 +19,30 @@ class InstagramService:
             "access_token": self.access_token
         }
 
-        res = requests.post(url, json=payload, params=params, timeout=10)
+        # Attempt Instagram API with Instagram Login endpoint first
+        try:
+            ig_url = "https://graph.instagram.com/v21.0/me/messages"
+            res = requests.post(ig_url, json=payload, params=params, timeout=10)
+            data = res.json()
+            if "message_id" in data or "recipient_id" in data or not data.get("error"):
+                return data
+            logger.warning("graph.instagram.com/me/messages returned error: %s. Falling back to graph.facebook.com", data.get("error"))
+        except Exception as exc:
+            logger.warning("Failed to send message via graph.instagram.com: %s", exc)
 
+        url = f"https://graph.facebook.com/v19.0/{self.page_id}/messages"
+        # Attempt Instagram API with Instagram Login endpoint first
+        try:
+            ig_url = "https://graph.instagram.com/v21.0/me/messages"
+            res = requests.post(ig_url, json=payload, params=params, timeout=10)
+            data = res.json()
+            if "message_id" in data or "recipient_id" in data or not data.get("error"):
+                return data
+            logger.warning("graph.instagram.com/me/messages returned error for interactive buttons: %s. Falling back to graph.facebook.com", data.get("error"))
+        except Exception as exc:
+            logger.warning("Failed to send interactive buttons via graph.instagram.com: %s", exc)
+
+        res = requests.post(url, json=payload, params=params, timeout=10)
         return res.json()
 
     def send_interactive_buttons(self, recipient_id: str, text: str, buttons: list) -> dict:

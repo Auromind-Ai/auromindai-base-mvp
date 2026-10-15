@@ -1214,12 +1214,15 @@ async def get_marketing_templates(
         resolved_vars = []
         for idx, v in enumerate(vars_found):
             clean_num = v.replace("{", "").replace("}", "").strip()
-            if clean_num in var_map:
+            clean_str = re.sub(r"[\[\]]", "", clean_num).strip()
+            if clean_str in var_map:
+                resolved_vars.append(var_map[clean_str])
+            elif clean_num in var_map:
                 resolved_vars.append(var_map[clean_num])
             elif str(idx + 1) in var_map:
                 resolved_vars.append(var_map[str(idx + 1)])
             else:
-                resolved_vars.append(clean_num)
+                resolved_vars.append(clean_str or clean_num)
 
         items.append({
             "id": str(t.id),

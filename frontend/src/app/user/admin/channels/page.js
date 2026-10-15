@@ -90,9 +90,9 @@ const CHANNELS_DATA = [
     {
         id: 'instagram',
         name: 'Instagram',
-        subHeader: 'Meta Business',
+        subHeader: 'Instagram Business Login',
         badgeColor: 'bg-pink-500/20 text-white border border-pink-500/30',
-        description: 'Sync DMs and comments from Instagram to your Unified Inbox.',
+        description: 'Connect your Instagram Professional or Business account directly to automate DMs and replies.',
         iconBg: 'from-pink-500 via-red-500 to-yellow-500',
         cardBorderClass: 'border border-[#C7368D]',
         glowColor: 'rgba(199,54,141,0.18)',
@@ -1063,7 +1063,11 @@ function ChannelsContent() {
 
     const connectWhatsAppToBackend = async (payload) => {
         try {
-            const data = await api.connectWhatsApp({ ...payload, workspace_id: workspace?.id });
+            const data = await api.connectWhatsApp({
+                ...payload,
+                app_id: process.env.NEXT_PUBLIC_FB_APP_ID || '990851527207522',
+                workspace_id: workspace?.id,
+            });
             if (data?.status === 'connected') {
                 const phone = data.phone_number || data.display_number || "Connected";
                 const phoneId = data.phone_number_id || '';
@@ -1132,21 +1136,41 @@ function ChannelsContent() {
         );
     };
 
-    const startInstagramLogin = useCallback(() => {
+    const startInstagramLogin = useCallback(async () => {
         setConnecting('instagram');
         const currentWorkspaceId = workspace?.id;
         if (!currentWorkspaceId) {
             showToast("Workspace not loaded. Please wait...", "warning");
+            setConnecting(null);
             return;
         }
         const REDIRECT_URI = `${window.location.origin}/instagram/callback`;
+
+        try {
+            // Fetch dynamic Instagram Business Login authorization URL from backend
+            const res = await api.getInstagramAuthUrl({
+                workspace_id: currentWorkspaceId,
+                redirect_uri: REDIRECT_URI,
+            });
+            if (res?.url) {
+                window.location.href = res.url;
+                return;
+            }
+        } catch (err) {
+            console.warn("Dynamic Instagram auth URL fetch failed, falling back to direct URL:", err);
+        }
+
+        const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID || process.env.NEXT_PUBLIC_IG_APP_ID || process.env.NEXT_PUBLIC_FB_APP_ID;
         const authUrl =
-            `https://www.facebook.com/v19.0/dialog/oauth?` +
-            `client_id=${process.env.NEXT_PUBLIC_FB_APP_ID}` +
-            `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-            `&state=${encodeURIComponent(currentWorkspaceId)}` +
-            `&scope=${encodeURIComponent('instagram_basic,instagram_manage_messages,instagram_manage_comments,pages_show_list,pages_messaging,pages_read_engagement,business_management')}` +
-            `&response_type=code`;
+            `https://www.instagram.com/oauth/authorize?` +
+            `enable_fb_login=0&` +
+            `force_reauth=true&` +
+            `force_authentication=1&` +
+            `client_id=${clientId}&` +
+            `redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+            `&response_type=code` +
+            `&scope=${encodeURIComponent('instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments')}` +
+            `&state=${encodeURIComponent(currentWorkspaceId)}`;
         window.location.href = authUrl;
     }, [workspace, showToast]);
 

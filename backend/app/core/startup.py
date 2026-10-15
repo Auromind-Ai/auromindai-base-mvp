@@ -49,14 +49,14 @@ def init_schedulers(app):
     email_scheduler = EmailSchedulerService(engine)
     email_scheduler.start()
     app.state.email_scheduler = email_scheduler
-    logger.info("Email Scheduler started")
+    logger.debug("Email Scheduler started")
 
     register_deletion_job()
 
     cleanup_scheduler = ReservationCleanupSchedulerService(engine)
     cleanup_scheduler.start()
     app.state.reservation_cleanup_scheduler = cleanup_scheduler
-    logger.info("Cleanup Scheduler started")
+    logger.debug("Cleanup Scheduler started")
 
 
 def shutdown_schedulers(app):

@@ -1032,15 +1032,31 @@ class WebhookService:
     @staticmethod
     def _fetch_instagram_profile(workspace, sender_id: str) -> dict[str, str | None]:
         try:
+            ig_token = getattr(workspace, "meta_ig_access_token", None) or workspace.meta_access_token
+            # 1. Attempt using Instagram Graph API (Instagram API with Instagram Login)
             response = requests.get(
-                f"https://graph.facebook.com/v19.0/{sender_id}",
+                f"https://graph.instagram.com/v21.0/{sender_id}",
                 params={
                     "fields": "name,username,profile_pic",
-                    "access_token": workspace.meta_access_token,
+                    "access_token": ig_token,
                 },
                 timeout=10,
             )
             data = response.json()
+            if not data.get("username") and not data.get("name"):
+                # 2. Fallback to Facebook Graph API
+                fb_response = requests.get(
+                    f"https://graph.facebook.com/v19.0/{sender_id}",
+                    params={
+                        "fields": "name,username,profile_pic",
+                        "access_token": ig_token,
+                    },
+                    timeout=10,
+                )
+                fb_data = fb_response.json()
+                if fb_data.get("username") or fb_data.get("name"):
+                    data = fb_data
+
             return {
                 "contact_name": data.get("username") or data.get("name") or sender_id,
                 "profile_pic": data.get("profile_pic"),

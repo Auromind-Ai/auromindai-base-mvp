@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import WhatsAppPreview from '../WhatsAppPreview';
 import { isFutureSchedule } from '@/lib/campaignScheduleUtils';
+import { getSampleValue } from '@/lib/variableUtils';
 
 export default function ReviewStep({ data, onEditStep, onLaunch, onSaveDraft, onBack, isLaunching, isSavingDraft }) {
   const router = useRouter();
@@ -36,12 +37,13 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onSaveDraft, on
     if (data.variableMapping && typeof data.variableMapping === 'object') {
       const entries = Object.entries(data.variableMapping);
       entries.forEach(([k, v], idx) => {
-        const cleanK = String(k).replace(/[{}]/g, '');
-        const tag = `{{${cleanK}}}`;
-        const numTag = `{{${idx + 1}}}`;
-        let sample = tag;
+        const cleanK = String(k).replace(/[\[\]{}]/g, '').trim();
+        const mappedK = v?.mappedName ? String(v.mappedName).replace(/[\[\]{}]/g, '').trim() : cleanK;
+        const numStr = String(idx + 1);
+
+        let sample = '';
         if (v?.source === 'custom') {
-          sample = v.customValue || (v?.mappedName ? `[${v.mappedName}]` : `[Value ${cleanK}]`);
+          sample = v.customValue?.trim() || getSampleValue(mappedK || cleanK) || `[${cleanK}]`;
         } else {
           const colName = v?.source;
           if (sampleRecipient) {
@@ -49,18 +51,26 @@ export default function ReviewStep({ data, onEditStep, onLaunch, onSaveDraft, on
               sampleRecipient?.variables?.[colName] ||
               sampleRecipient?.variables?.[colName?.toLowerCase()] ||
               sampleRecipient?.[colName] ||
-              (colName?.toLowerCase().includes('name') ? (sampleRecipient?.recipient_name || sampleRecipient?.name) : null) ||
+              (colName?.toLowerCase().includes('name') && !colName?.toLowerCase().includes('offer') ? (sampleRecipient?.recipient_name || sampleRecipient?.name) : null) ||
               (colName?.toLowerCase().includes('phone') ? (sampleRecipient?.phone_number || sampleRecipient?.phone) : null) ||
+              getSampleValue(mappedK || cleanK) ||
               `[${colName}]`;
           } else {
-            sample = `[${colName}]`;
+            sample = getSampleValue(mappedK || cleanK) || `[${colName}]`;
           }
         }
-        text = text.split(tag).join(sample);
-        text = text.split(numTag).join(sample);
-        if (v?.mappedName) {
-          text = text.split(`{{${v.mappedName}}}`).join(sample);
-        }
+
+        const tagsToReplace = [
+          `{{${cleanK}}}`,
+          `{{[${cleanK}]}}`,
+          `{{${numStr}}}`,
+          `{{${mappedK}}}`,
+          `{{[${mappedK}]}}`,
+          `{{${k}}}`,
+        ];
+        tagsToReplace.forEach((t) => {
+          text = text.split(t).join(sample);
+        });
       });
     }
     return text;

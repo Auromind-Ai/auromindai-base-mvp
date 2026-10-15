@@ -23,8 +23,16 @@ class ChannelConnectionService:
             raise HTTPException(status_code=400, detail="Missing required credentials: code or fb_access_token is required")
 
         from app.services.config_service import config_service
-        app_id = config_service.get("meta_app_id") or config_service.get("ig_app_id")
-        app_secret = config_service.get("meta_app_secret") or config_service.get("ig_app_secret")
+        # Meta WhatsApp uses the parent Facebook/Meta App ID and Secret (never Instagram child App ID)
+        app_id = (
+            data.get("app_id")
+            or config_service.get("meta_app_id")
+            or config_service.get("fb_app_id")
+        )
+        app_secret = (
+            config_service.get("meta_app_secret")
+            or config_service.get("fb_app_secret")
+        )
         if not app_id or not app_secret:
             raise HTTPException(status_code=400, detail="Meta credentials (App ID & Secret) are not configured in system settings.")
 
@@ -339,82 +347,167 @@ class ChannelConnectionService:
         if not workspace_id:
             raise HTTPException(status_code=400, detail="Missing workspace_id")
         from app.services.config_service import config_service
-        ig_app_id = config_service.get("ig_app_id")
-        ig_app_secret = config_service.get("ig_app_secret")
+        ig_app_id = config_service.get("ig_app_id") or config_service.get("meta_app_id")
+        ig_app_secret = config_service.get("ig_app_secret") or config_service.get("meta_app_secret")
         if not ig_app_id or not ig_app_secret:
             raise HTTPException(status_code=400, detail="Instagram credentials (App ID & Secret) are not configured in system settings.")
-        
-        # Configuration details are not printed to standard output for security
-        
 
-        token_res = requests.get(
-            "https://graph.facebook.com/v19.0/oauth/access_token",
-            params={
-                "client_id": config_service.get("ig_app_id"),
-                "client_secret": config_service.get("ig_app_secret"),
-                "redirect_uri": config_service.get("ig_redirect_uri"),
-                "code": code,
-            },
-            timeout=10,
-        ).json()
-        access_token = token_res.get("access_token")
-        if not access_token:
-            error_detail = token_res.get("error", {})
-            logger.error("Instagram token exchange failed: %s", error_detail)
-            raise HTTPException(
-                status_code=400,
-                detail=f"Token exchange failed: {error_detail.get('message', 'Unknown Meta error')}"
+        # Strip trailing hash/fragment from Instagram OAuth code if present
+        clean_code = str(code).removesuffix("#_").strip()
+        redirect_uri = data.get("redirect_uri") or config_service.get("ig_redirect_uri") or ""
+
+        # Step 1: Exchange authorization code for short-lived access token using Instagram Business Login endpoint
+        token_payload = {
+            "client_id": ig_app_id,
+            "client_secret": ig_app_secret,
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
+            "code": clean_code,
+        }
+
+        short_lived_token = None
+        ig_user_id_from_token = None
+        token_res = {}
+
+        try:
+            ig_token_req = requests.post(
+                "https://api.instagram.com/oauth/access_token",
+                data=token_payload,
+                timeout=15,
             )
+            token_res = ig_token_req.json()
+            short_lived_token = token_res.get("access_token")
+            ig_user_id_from_token = token_res.get("user_id")
+        except Exception as e:
+            logger.warning("api.instagram.com token exchange attempt failed: %s", e)
 
-        long_token_res = requests.get(
-            "https://graph.facebook.com/v19.0/oauth/access_token",
-            params={
-                "grant_type": "fb_exchange_token",
-                "client_id": config_service.get("ig_app_id"),
-                "client_secret": config_service.get("ig_app_secret"),
-                "fb_exchange_token": access_token,
-            },
-            timeout=10,
-        ).json()
-        long_lived_token = long_token_res.get("access_token", access_token)
-
-        pages_res = requests.get(
-            "https://graph.facebook.com/v19.0/me/accounts",
-            params={"access_token": long_lived_token},
-            timeout=10,
-        ).json()
-        pages = pages_res.get("data", [])
-        if not pages:
-            raise HTTPException(400, "No Facebook Pages found")
-
-        page_id = None
-        page_access_token = None
-        ig_id = None
-
-        for page in pages:
-            temp_page_id = page["id"]
-            temp_page_access_token = page["access_token"]
-
-            ig_data = requests.get(
-                f"https://graph.facebook.com/v19.0/{temp_page_id}",
+        # Fallback to Facebook Graph OAuth endpoint if Instagram direct endpoint did not return token
+        if not short_lived_token:
+            fb_token_res = requests.get(
+                "https://graph.facebook.com/v19.0/oauth/access_token",
                 params={
-                    "fields": "instagram_business_account",
-                    "access_token": temp_page_access_token,
+                    "client_id": ig_app_id,
+                    "client_secret": ig_app_secret,
+                    "redirect_uri": redirect_uri,
+                    "code": clean_code,
                 },
-                timeout=10,
+                timeout=15,
             ).json()
-            
-            temp_ig_id = ig_data.get("instagram_business_account", {}).get("id")
-            if temp_ig_id:
-                page_id = temp_page_id
-                page_access_token = temp_page_access_token
-                ig_id = temp_ig_id
-                break
+            short_lived_token = fb_token_res.get("access_token")
+            if not short_lived_token:
+                err_msg = (
+                    token_res.get("error_message")
+                    or token_res.get("error", {}).get("message")
+                    or fb_token_res.get("error", {}).get("message")
+                    or "Unknown error during Instagram token exchange"
+                )
+                logger.error("Instagram token exchange failed: %s (ig_resp=%s, fb_resp=%s)", err_msg, token_res, fb_token_res)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Instagram token exchange failed: {err_msg}"
+                )
+
+        # Step 2: Exchange short-lived token for long-lived access token (60 days)
+        long_lived_token = short_lived_token
+        try:
+            long_token_res = requests.get(
+                "https://graph.instagram.com/access_token",
+                params={
+                    "grant_type": "ig_exchange_token",
+                    "client_secret": ig_app_secret,
+                    "access_token": short_lived_token,
+                },
+                timeout=15,
+            ).json()
+            if long_token_res.get("access_token"):
+                long_lived_token = long_token_res["access_token"]
+            else:
+                fb_long_res = requests.get(
+                    "https://graph.facebook.com/v19.0/oauth/access_token",
+                    params={
+                        "grant_type": "fb_exchange_token",
+                        "client_id": ig_app_id,
+                        "client_secret": ig_app_secret,
+                        "fb_exchange_token": short_lived_token,
+                    },
+                    timeout=15,
+                ).json()
+                if fb_long_res.get("access_token"):
+                    long_lived_token = fb_long_res["access_token"]
+        except Exception as exchange_err:
+            logger.warning("Could not exchange for long-lived Instagram token: %s", exchange_err)
+
+        # Step 3: Fetch Instagram User Profile directly (Direct Instagram Account, NO Facebook Page required)
+        ig_id = str(ig_user_id_from_token) if ig_user_id_from_token else None
+        username = None
+
+        try:
+            profile_res = requests.get(
+                "https://graph.instagram.com/v21.0/me",
+                params={
+                    "fields": "id,user_id,username,name,account_type",
+                    "access_token": long_lived_token,
+                },
+                timeout=15,
+            ).json()
+            logger.info("Instagram /me profile response: %s", profile_res)
+            resolved_ig_id = profile_res.get("user_id") or ig_user_id_from_token or profile_res.get("id")
+            if resolved_ig_id:
+                ig_id = str(resolved_ig_id)
+            if profile_res.get("username") or profile_res.get("name"):
+                username = profile_res.get("username") or profile_res.get("name")
+        except Exception as prof_err:
+            logger.warning("Failed to fetch profile via graph.instagram.com/v21.0/me: %s", prof_err)
+
+        # Fallback check via graph.facebook.com for legacy pages only if direct lookup didn't yield ig_id
+        if not ig_id:
+            try:
+                pages_res = requests.get(
+                    "https://graph.facebook.com/v19.0/me/accounts",
+                    params={"access_token": long_lived_token},
+                    timeout=10,
+                ).json()
+                pages = pages_res.get("data", [])
+                for page in pages:
+                    temp_page_id = page.get("id")
+                    temp_page_access_token = page.get("access_token")
+                    ig_data = requests.get(
+                        f"https://graph.facebook.com/v19.0/{temp_page_id}",
+                        params={
+                            "fields": "instagram_business_account",
+                            "access_token": temp_page_access_token,
+                        },
+                        timeout=10,
+                    ).json()
+                    temp_ig_id = ig_data.get("instagram_business_account", {}).get("id")
+                    if temp_ig_id:
+                        ig_id = str(temp_ig_id)
+                        long_lived_token = temp_page_access_token
+                        break
+            except Exception as fb_err:
+                logger.warning("Fallback Facebook page search failed: %s", fb_err)
 
         if not ig_id:
-            raise HTTPException(400, "No Instagram Business Account linked")
+            raise HTTPException(
+                status_code=400,
+                detail="Could not retrieve Instagram Account ID. Please ensure you are logging into an Instagram Professional (Business or Creator) account."
+            )
 
-        # Instagram duplicate check
+        if not username:
+            try:
+                ig_profile = requests.get(
+                    f"https://graph.instagram.com/v21.0/{ig_id}",
+                    params={
+                        "fields": "username,name",
+                        "access_token": long_lived_token,
+                    },
+                    timeout=10,
+                ).json()
+                username = ig_profile.get("username") or ig_profile.get("name") or ig_id
+            except Exception:
+                username = ig_id
+
+        # Instagram duplicate check across workspaces
         existing_ig = db.query(models.Workspace).filter(
             models.Workspace.meta_ig_id == ig_id,
             models.Workspace.id != workspace_id
@@ -422,46 +515,50 @@ class ChannelConnectionService:
         if existing_ig:
             raise HTTPException(
                 status_code=400,
-                detail="This Instagram Business Account is already connected to another workspace."
+                detail=f"This Instagram account (@{username}) is already connected to another workspace."
             )
-
-        ig_profile = requests.get(
-            f"https://graph.facebook.com/v19.0/{ig_id}",
-            params={
-                "fields": "username,name",
-                "access_token": page_access_token,
-            },
-            timeout=10,
-        ).json()
-        username = ig_profile.get("username") or ig_profile.get("name") or ig_id
 
         workspace = db.query(models.Workspace).filter(models.Workspace.id == workspace_id).first()
         if not workspace:
             raise HTTPException(404, "Workspace not found")
-        
 
-        workspace.meta_access_token = page_access_token
-        workspace.meta_business_id = page_id
+        workspace.meta_ig_access_token = long_lived_token
+        # Preserve WhatsApp's access token if WhatsApp is already connected
+        if not workspace.meta_access_token:
+            workspace.meta_access_token = long_lived_token
+        if not workspace.meta_business_id:
+            workspace.meta_business_id = ig_id
         workspace.meta_ig_id = ig_id
         db.commit()
 
-        # Subscribe the Facebook Page to this app's webhooks for Instagram messaging
+        # Step 4: Programmatically subscribe the Instagram account to webhooks
         try:
             sub_res = requests.post(
-                f"https://graph.facebook.com/v19.0/{page_id}/subscribed_apps",
+                "https://graph.instagram.com/v21.0/me/subscribed_apps",
                 params={
-                    "subscribed_fields": "messages,messaging_postbacks,message_reactions",
-                    "access_token": page_access_token,
+                    "subscribed_fields": "messages,messaging_postbacks,message_reactions,comments",
+                    "access_token": long_lived_token,
                 },
                 timeout=10,
             ).json()
-            logger.info("Instagram page subscribed_apps response: %s", sub_res)
+            logger.info("Instagram subscribed_apps response (graph.instagram.com): %s", sub_res)
         except Exception as sub_err:
-            logger.warning("Failed to subscribe page to app webhooks: %s", sub_err)
+            logger.warning("Failed to subscribe via graph.instagram.com: %s", sub_err)
+            try:
+                sub_res2 = requests.post(
+                    f"https://graph.facebook.com/v21.0/{ig_id}/subscribed_apps",
+                    params={
+                        "subscribed_fields": "messages,messaging_postbacks,message_reactions",
+                        "access_token": long_lived_token,
+                    },
+                    timeout=10,
+                ).json()
+                logger.info("Instagram subscribed_apps response (graph.facebook.com fallback): %s", sub_res2)
+            except Exception as e2:
+                logger.warning("Fallback subscription also failed: %s", e2)
 
         return {
             "status": "connected",
-            "page_id": page_id,
             "ig_id": ig_id,
             "username": username,
         }

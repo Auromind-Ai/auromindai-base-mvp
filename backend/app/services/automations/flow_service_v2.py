@@ -286,9 +286,23 @@ class FlowServiceV2:
                 self._persist_state(db, state)
                 is_mid_conversation = False
 
-            # Cancel pending timeout if customer replied
             pending_timeout = (state.runtime_context or {}).get("pending_timeout")
-            if pending_timeout:
+            is_button_reply = False
+            if state.pending_button:
+                is_button_reply = bool(match_button_target(
+                    state.pending_button.get("buttons", []),
+                    inbound_text=inbound_text,
+                    interactive_value=metadata.get("interactive_value"),
+                    interactive_label=metadata.get("interactive_label"),
+                ))
+            valid_pending_reply = bool(
+                (state.pending_button and is_button_reply)
+                or state.pending_question
+                or (state.runtime_context or {}).get("active_ai_session")
+                or (pending_timeout and not state.pending_button and not state.pending_question
+                    and not (state.runtime_context or {}).get("active_ai_session"))
+            )
+            if pending_timeout and valid_pending_reply:
                 logger.info(
                     "Customer replied for conversation %s. Cancelling pending timeout actions for node %s",
                     conversation.id,
@@ -381,13 +395,11 @@ class FlowServiceV2:
                                 _trigger_send_next(conversation.id, countdown=1)
                                 return True
 
-                        # If no fallback target, clear pending state and send default fallback message
+                        # If no fallback target, keep pending button active so timeouts and subsequent valid button clicks continue to work
                         logger.info(
                             f"Button mismatch on node with no fallback target. "
-                            f"Clearing state and sending default fallback message."
+                            f"Keeping pending button state active and sending fallback message."
                         )
-                        state.pending_button = None
-                        state.button_expires_at = None
                         await self._queue_outbound_message(
                             db=db,
                             conversation_id=conversation.id,
@@ -424,6 +436,25 @@ class FlowServiceV2:
                 if state and state.runtime_context
                 else False
             )
+
+            ai_expires_at = (state.runtime_context or {}).get("ai_expires_at")
+            if active_ai and ai_expires_at:
+                try:
+                    expiry = datetime.fromisoformat(ai_expires_at)
+                    if expiry.tzinfo is None:
+                        expiry = expiry.replace(tzinfo=timezone.utc)
+                    if datetime.now(timezone.utc) >= expiry:
+                        logger.info("AI session expired for conversation %s", conversation.id)
+                        return await self._handle_expired_pending(
+                            db,
+                            conversation,
+                            state,
+                            node_id=state.current_node_id,
+                            source_label="ai",
+                            execution_token=execution_token,
+                        )
+                except (TypeError, ValueError):
+                    logger.warning("Invalid AI session expiry for conversation %s", conversation.id)
 
             if active_ai and state.current_node_id:
                 # Check if AI session expired/completed
@@ -728,7 +759,12 @@ class FlowServiceV2:
                 return False
 
             pending = (state.runtime_context or {}).get("pending_timeout")
-            if not pending or pending.get("node_id") != node_id or pending.get("stage_index") != stage_index:
+            if (
+                not pending
+                or pending.get("node_id") != node_id
+                or pending.get("stage_index") != stage_index
+                or pending.get("exhausted")
+            ):
                 logger.info(
                     "[handle_node_timeout] Timeout expired/cancelled/mismatched | conv=%s node=%s stage=%d",
                     conversation_id, node_id, stage_index
@@ -747,6 +783,7 @@ class FlowServiceV2:
 
             if action == "end_flow":
                 state.runtime_context["pending_timeout"] = None
+                state.runtime_context["active_ai_session"] = False
                 state.active_flow_id = None
                 state.current_node_id = None
                 state.pending_button = None
@@ -819,6 +856,14 @@ class FlowServiceV2:
                 },
             )
 
+            # Mark current stage ScheduledResume as executed so poller won't re-dispatch it
+            db.query(ScheduledResume).filter(
+                ScheduledResume.conversation_id == conversation.id,
+                ScheduledResume.node_id == node_id,
+                ScheduledResume.status == "pending",
+            ).update({"status": "executed"}, synchronize_session=False)
+            db.flush()
+
             # Check if there is a next timeout stage
             next_stage_index = stage_index + 1
             if next_stage_index < len(timeouts) and action != "end_flow":
@@ -849,6 +894,7 @@ class FlowServiceV2:
                     },
                     countdown=next_seconds,
                 )
+
             else:
                 # All timeout stages exhausted
                 logger.info("All timeout stages exhausted for conversation %s node %s", conversation.id, node_id)
@@ -863,6 +909,8 @@ class FlowServiceV2:
                     state.button_expires_at = post_timeout_expiry
                 if state.pending_question:
                     state.question_expires_at = post_timeout_expiry
+                if state.runtime_context.get("active_ai_session"):
+                    state.runtime_context["ai_expires_at"] = post_timeout_expiry.isoformat()
 
                 if next_node_id:
                     state.runtime_context["pending_timeout"] = {
@@ -873,12 +921,12 @@ class FlowServiceV2:
                     }
                 else:
                     state.runtime_context["pending_timeout"] = None
-                    if not state.pending_button and not state.pending_question:
+                    if not state.pending_button and not state.pending_question and not state.runtime_context.get("active_ai_session"):
                         state.active_flow_id = None
                         state.current_node_id = None
                     else:
                         logger.info(
-                            "Timeout follow-up sent. Flow remains active awaiting pending button/question with 5-minute grace window | conv=%s active_flow_id=%s",
+                            "Timeout follow-up sent. Flow remains active awaiting pending button/question/AI session with 5-minute grace window | conv=%s active_flow_id=%s",
                             conversation.id,
                             state.active_flow_id,
                         )
@@ -1265,6 +1313,13 @@ class FlowServiceV2:
 
         state.pending_button = None
         state.button_expires_at = None
+        if (state.runtime_context or {}).get("pending_timeout"):
+            state.runtime_context["pending_timeout"] = None
+            db.query(ScheduledResume).filter(
+                ScheduledResume.conversation_id == conversation.id,
+                ScheduledResume.status == "pending",
+            ).update({"status": "cancelled"}, synchronize_session=False)
+            db.flush()
         button_node_id = pending.get("node_id")
         button_value = matched_button.get("value") or ""
         target_node_id = next(
@@ -1293,6 +1348,8 @@ class FlowServiceV2:
                 " No target found for button '%s' on node '%s'. Stopping flow.",
                 button_value, button_node_id,
             )
+            state.active_flow_id = None
+            state.current_node_id = None
             return True
 
         await self._execute_from_node(
@@ -1385,6 +1442,13 @@ class FlowServiceV2:
         # Clear pending state
         state.pending_question = None
         state.question_expires_at = None
+        if (state.runtime_context or {}).get("pending_timeout"):
+            state.runtime_context["pending_timeout"] = None
+            db.query(ScheduledResume).filter(
+                ScheduledResume.conversation_id == conversation.id,
+                ScheduledResume.status == "pending",
+            ).update({"status": "cancelled"}, synchronize_session=False)
+            db.flush()
 
         # Continue from the next node after the ask_question node
         next_node_id = pending.get("next_node_id")
@@ -1398,6 +1462,9 @@ class FlowServiceV2:
                 inbound_text=inbound_text,
                 execution_token=execution_token,
             )
+        else:
+            state.active_flow_id = None
+            state.current_node_id = None
 
         return True
 
@@ -1865,6 +1932,18 @@ class FlowServiceV2:
                 state.runtime_context["active_ai_session"] = True
                 state.runtime_context["assigned_agent"] = agent_type
                 state.current_node_id = node.get("id")
+                has_timeout = self._schedule_node_timeout(
+                    db,
+                    conversation=conversation,
+                    flow=flow,
+                    state=state,
+                    node=node,
+                    config=config,
+                )
+                timeout_stages = (state.runtime_context or {}).get("pending_timeout", {}).get("timeouts", [])
+                expiry_seconds = sum(int(t.get("timeout_seconds") or 30) for t in timeout_stages) + 300 if has_timeout else 300
+                state.runtime_context["ai_expires_at"] = (datetime.now(timezone.utc) + timedelta(seconds=expiry_seconds)).isoformat()
+                flag_modified(state, "runtime_context")
                 return True
 
             
@@ -2061,13 +2140,13 @@ class FlowServiceV2:
         has_timeout = self._schedule_node_timeout(db, conversation=conversation, flow=flow, state=state, node=node, config=config)
         if has_timeout:
             timeouts = (state.runtime_context or {}).get("pending_timeout", {}).get("timeouts", [])
-            first_timeout_sec = int(timeouts[0].get("timeout_seconds") or 300) if timeouts else 300
+            timeout_window = sum(int(t.get("timeout_seconds") or 30) for t in timeouts) if timeouts else 0
             state.question_expires_at = datetime.now(timezone.utc) + timedelta(
-                seconds=first_timeout_sec + 300
+                seconds=timeout_window + 300
             )
         else:
             state.question_expires_at = datetime.now(timezone.utc) + timedelta(
-                minutes=timeout_minutes
+                minutes=5
             )
 
         self.tracer.trace(
@@ -2095,20 +2174,11 @@ class FlowServiceV2:
         node: Dict[str, Any],
         config: Dict[str, Any],
     ) -> bool:
+        if config.get("wait_for_response") is False:
+            return False
+
         timeouts = self._parse_node_timeouts(config)
         if not timeouts:
-            if config.get("wait_for_response"):
-                # Waiting for response without explicit timeout: expire in 5 minutes
-                next_node_id = self._get_default_target(flow.edges or [], node.get("id"))
-                state.runtime_context = state.runtime_context or {}
-                state.runtime_context["pending_timeout"] = {
-                    "node_id": node.get("id"),
-                    "next_node_id": next_node_id,
-                    "exhausted": True,
-                    "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
-                }
-                flag_modified(state, "runtime_context")
-                return True
             return False
 
         next_node_id = self._get_default_target(flow.edges or [], node.get("id"))
@@ -2123,7 +2193,7 @@ class FlowServiceV2:
         }
         flag_modified(state, "runtime_context")
 
-        # Directly use exact user-configured seconds for Celery countdown
+        # ScheduledResume is the single source of truth; the beat poller dispatches it.
         first_timeout_seconds = int(timeouts[0].get("timeout_seconds") or 30)
 
         # Persist DB backup for timeout stage so worker restarts recover seamlessly
@@ -2234,8 +2304,6 @@ class FlowServiceV2:
                 execution_token=execution_token,
                 state=state,
             )
-            if self._schedule_node_timeout(db, conversation=conversation, flow=flow, state=state, node=node, config=config):
-                return True
             return False
 
         #  Button message 
@@ -2270,14 +2338,13 @@ class FlowServiceV2:
             has_timeout = self._schedule_node_timeout(db, conversation=conversation, flow=flow, state=state, node=node, config=config)
             if has_timeout:
                 timeouts = (state.runtime_context or {}).get("pending_timeout", {}).get("timeouts", [])
-                first_timeout_sec = int(timeouts[0].get("timeout_seconds") or 300) if timeouts else 300
+                timeout_window = sum(int(t.get("timeout_seconds") or 30) for t in timeouts) if timeouts else 0
                 state.button_expires_at = datetime.now(timezone.utc) + timedelta(
-                    seconds=first_timeout_sec + 300
+                    seconds=timeout_window + 300
                 )
             else:
-                button_timeout_minutes = int(config.get("button_timeout_minutes") or 5)
                 state.button_expires_at = datetime.now(timezone.utc) + timedelta(
-                    minutes=button_timeout_minutes
+                    minutes=5
                 )
             return True  # Stop execution — wait for button reply or timeout
 
@@ -2301,10 +2368,6 @@ class FlowServiceV2:
                 execution_token=execution_token,
                 state=state,
             )
-
-        #  Wait for Customer Response / Timeout Handling 
-        if self._schedule_node_timeout(db, conversation=conversation, flow=flow, state=state, node=node, config=config):
-            return True  # Stop execution — wait for customer reply or timeout
 
         return False
 
@@ -2441,7 +2504,8 @@ class FlowServiceV2:
                     return default_seconds
                 unit_str = str(unit_val or "seconds").lower().strip()
                 mult = unit_multipliers.get(unit_str, 1)
-                return max(1, int(num * mult))
+                # Cap to 24 hours (86,400 seconds) to strictly respect WhatsApp customer service window
+                return max(1, min(86400, int(num * mult)))
             except (ValueError, TypeError):
                 return default_seconds
 
@@ -2592,6 +2656,8 @@ class FlowServiceV2:
         state.question_expires_at = None
         if state.runtime_context:
             state.runtime_context["pending_timeout"] = None
+            state.runtime_context["active_ai_session"] = False
+            state.runtime_context.pop("ai_expires_at", None)
             flag_modified(state, "runtime_context")
 
         await self._queue_outbound_message(

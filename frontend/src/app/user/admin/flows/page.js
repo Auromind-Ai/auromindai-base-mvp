@@ -352,7 +352,7 @@ export default function FlowsPage() {
                                     <span className="text-[13px] font-bold text-white">AI Weaver</span>
                                 </div>
                                 <p className="text-[11px] text-[#71717a] mb-5 leading-relaxed">
-                                    Describe your process goals and let Auromind construct the flow steps automatically.
+                                    Describe your process goals and let Orbion Agents construct the flow steps automatically.
                                 </p>
                                 <button className="w-full py-2 bg-indigo-600 text-white text-[11px] font-bold rounded-md shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all">
                                     Initiate AI Mapping

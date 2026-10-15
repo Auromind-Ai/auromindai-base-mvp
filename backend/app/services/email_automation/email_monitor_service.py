@@ -40,24 +40,24 @@ class EmailMonitor:
             return
 
         self.is_running = True
-        logger.info(" EmailMonitor cycle started")
+        logger.debug("EmailMonitor cycle started")
 
         try:
 
             email_configs = self.fetch_email_data(db)
 
             if not email_configs:
-                logger.info("No email accounts found.")
+                logger.debug("No email accounts found.")
                 return
 
             for config in email_configs:
                 try:
-                    logger.info(f"Checking emails for: {config['email']}")
+                    logger.debug(f"Checking emails for: {config['email']}")
 
                     valid_emails = self.crawel_validate(db, config)
 
                     if not valid_emails:
-                        logger.info("No valid primary emails found.")
+                        logger.debug("No valid primary emails found.")
                         continue
 
                     for mail in valid_emails:
@@ -65,11 +65,10 @@ class EmailMonitor:
 
                 except Exception as e:
                     logger.error(
-                        f"Error processing account {config.get('email')}: {str(e)}",
-                        exc_info=True
+                        f"Error processing account {config.get('email')}: {str(e)}"
                     )
 
-            logger.info(" EmailMonitor cycle completed successfully")
+            logger.debug("EmailMonitor cycle completed successfully")
 
         except Exception as e:
             logger.error(f"Critical failure in EmailMonitor: {str(e)}", exc_info=True)
@@ -91,7 +90,7 @@ class EmailMonitor:
             )
 
             if not integrations:
-                logger.info("No active Gmail integrations found.")
+                logger.debug("No active Gmail integrations found.")
                 return []
 
             email_configs = []

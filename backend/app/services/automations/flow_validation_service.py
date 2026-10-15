@@ -149,7 +149,14 @@ class FlowValidationService:
                     f'Node "{node.get("label") or node_id}" has {len(buttons)} buttons. A message node can have at most 3 buttons (WhatsApp limit).'
                 )
 
-            if config.get("wait_for_response"):
+            action_type = config.get("type") or node.get("type")
+            msg_type = config.get("message_type") or "text"
+            supports_wait_for_response = (
+                action_type in ("brain_query", "ask_question")
+                or (action_type == "send_msg" and msg_type in ("button_message", "button"))
+            )
+
+            if supports_wait_for_response and config.get("wait_for_response"):
                 timeouts = config.get("timeouts") or []
                 if not timeouts:
                     has_single = config.get("timeout_amount") is not None or config.get("timeout_seconds") is not None
@@ -159,16 +166,29 @@ class FlowValidationService:
                         )
                     else:
                         amount_val = config.get("timeout_amount") if config.get("timeout_amount") is not None else config.get("timeout_seconds")
+                        unit_val = str(config.get("timeout_unit") or "seconds").lower()
+                        mult = 3600 if "hour" in unit_val else (60 if "min" in unit_val else 1)
                         if int(amount_val or 0) <= 0:
                             errors.append(
                                 f'Timeout in node "{node.get("label") or node_id}" duration must be greater than 0.'
                             )
+                        elif int(amount_val or 0) * (mult if config.get("timeout_seconds") is None else 1) > 86400:
+                            errors.append(
+                                f'Timeout in node "{node.get("label") or node_id}" cannot exceed 24 hours (WhatsApp policy limit).'
+                            )
                 else:
                     for idx, t in enumerate(timeouts):
                         secs = t.get("timeout_seconds") if t.get("timeout_seconds") is not None else t.get("timeout_amount")
+                        unit_val = str(t.get("timeout_unit") or "seconds").lower()
+                        mult = 3600 if "hour" in unit_val else (60 if "min" in unit_val else 1)
+                        actual_secs = int(secs or 0) * (mult if t.get("timeout_seconds") is None else 1)
                         if not secs or int(secs) <= 0:
                             errors.append(
                                 f'Timeout #{idx + 1} in node "{node.get("label") or node_id}" duration must be greater than 0.'
+                            )
+                        elif actual_secs > 86400:
+                            errors.append(
+                                f'Timeout #{idx + 1} in node "{node.get("label") or node_id}" cannot exceed 24 hours (WhatsApp policy limit).'
                             )
                         act = t.get("action") or t.get("timeout_action") or "send_msg"
                         if act in ("send_msg", "send_followup"):
