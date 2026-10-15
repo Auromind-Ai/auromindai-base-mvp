@@ -2831,9 +2831,11 @@ function InboxContent() {
             }
 
             let urlConvId = null;
+            let urlPhone = null;
             if (typeof window !== 'undefined') {
                 const params = new URLSearchParams(window.location.search);
                 urlConvId = params.get('conversationId') || params.get('conversation');
+                urlPhone = params.get('phone');
             }
 
             let nextLead = null;
@@ -2843,6 +2845,19 @@ function InboxContent() {
                     const newParams = new URLSearchParams(searchParams.toString());
                     newParams.delete('conversationId');
                     newParams.delete('conversation');
+                    router.replace(`${pathname}${newParams.toString() ? '?' + newParams.toString() : ''}`, { scroll: false });
+                }
+            } else if (urlPhone) {
+                const cleanQueryPhone = String(urlPhone).replace(/\D/g, '');
+                nextLead = uniqueData.find(item => {
+                    const itemPhone = String(item.phone || item.external_id || '').replace(/\D/g, '');
+                    if (itemPhone && cleanQueryPhone && itemPhone === cleanQueryPhone) return true;
+                    if (cleanQueryPhone.length >= 10 && itemPhone.length >= 10 && cleanQueryPhone.slice(-10) === itemPhone.slice(-10)) return true;
+                    return false;
+                });
+                if (nextLead && typeof window !== 'undefined') {
+                    const newParams = new URLSearchParams(searchParams.toString());
+                    newParams.delete('phone');
                     router.replace(`${pathname}${newParams.toString() ? '?' + newParams.toString() : ''}`, { scroll: false });
                 }
             } else if (leadRef.current) {

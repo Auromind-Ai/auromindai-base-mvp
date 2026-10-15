@@ -564,6 +564,28 @@ def send_whatsapp_message_task(
                 )
                 return
 
+        # 4b. Guard: abort if this is a timeout follow-up but customer has already interacted / timeout was cancelled
+        meta_source = (row.metadata_json or {}).get("source")
+        if meta_source in ("timeout_followup", "timeout_end_flow"):
+            current_state = (
+                db.query(FlowExecutionState)
+                .filter(FlowExecutionState.conversation_id == conv_uuid)
+                .first()
+            )
+            pending_to = (current_state.runtime_context or {}).get("pending_timeout") if current_state else None
+            timeout_node_id = (row.metadata_json or {}).get("node_id")
+            if not pending_to or (timeout_node_id and pending_to.get("node_id") != timeout_node_id):
+                logger.info(
+                    "[send_whatsapp_message_task] ⚠️ Timeout cancelled by customer interaction — aborting follow-up | id=%s conv=%s",
+                    outbound_message_id, conversation_id,
+                )
+                row.status = "cancelled"
+                db.commit()
+                send_next_pending_message.apply_async(
+                    args=[conversation_id], countdown=0
+                )
+                return
+
         # Release the SELECT FOR UPDATE lock before making the blocking external network call
         db.commit()
 

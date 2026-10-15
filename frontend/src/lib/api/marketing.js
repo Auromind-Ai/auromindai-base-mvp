@@ -414,6 +414,16 @@ export async function resumeCampaign(id) {
   }
 }
 
+export async function syncCampaignToInbox(id) {
+  try {
+    const res = await client.post(`/api/marketing/campaigns/${id}/sync-inbox`);
+    return res?.data || res;
+  } catch (e) {
+    const res = await client.post(`/marketing/campaigns/${id}/sync-inbox`);
+    return res?.data || res;
+  }
+}
+
 export async function getContactLists(workspaceId) {
   const wsId = workspaceId || getStoredWorkspaceId();
   try {

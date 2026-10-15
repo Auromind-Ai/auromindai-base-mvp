@@ -280,6 +280,9 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
 
                 # 4. Construct Payload
                 clean_phone = recipient.normalized_phone.replace("+", "").strip()
+                body_params = []
+                parsed_buttons = []
+                text_body = None
                 if template:
                     # Form Meta Template payload
                     components = []
@@ -555,6 +558,25 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
                         "[Campaign %s] Message ACCEPTED for recipient %s (%s) | wamid=%s",
                         campaign.id, recipient.id, clean_phone, res.get("wamid")
                     )
+
+                    # Record outbound campaign message into Omni Inbox so it immediately appears in conversation thread
+                    try:
+                        CampaignService.record_campaign_message_to_inbox(
+                            db=db,
+                            campaign=campaign,
+                            recipient=recipient,
+                            wamid=res.get("wamid"),
+                            template=template,
+                            body_params=body_params,
+                            parsed_buttons=parsed_buttons,
+                            text_body=text_body if not template else None,
+                            now_dt=now_dt,
+                        )
+                    except Exception as inbox_err:
+                        logger.warning(
+                            "[Campaign %s] Error recording message to Omni Inbox for recipient %s: %s",
+                            campaign.id, recipient.id, inbox_err, exc_info=True
+                        )
                 elif res.get("is_marketing_frequency_limit"):
                     # Meta Error 131049: Circuit Breaker Immune
                     recipient.status = "skipped_marketing_frequency_limit"

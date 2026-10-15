@@ -316,6 +316,7 @@ class FlowServiceV2:
                     ScheduledResume.status == "pending",
                 ).update({"status": "cancelled"}, synchronize_session=False)
                 db.flush()
+                self._cancel_queued_timeout_messages(db, conversation.id)
                 self.tracer.trace(
                     db,
                     conversation_id=conversation.id,
@@ -325,6 +326,9 @@ class FlowServiceV2:
                     status="success",
                     metadata={"reason": "customer_replied", "inbound_text": inbound_text},
                 )
+            elif valid_pending_reply:
+                # Cancel any unsent timeout message even if pending_timeout was already cleared
+                self._cancel_queued_timeout_messages(db, conversation.id)
 
             #  Priority 1: pending button reply 
             if state.pending_button:
@@ -722,6 +726,35 @@ class FlowServiceV2:
         finally:
             self._release_execution_slot(db, conversation.id, execution_token)
 
+    def _cancel_queued_timeout_messages(self, db: Session, conversation_id: Any) -> int:
+        """Cancels any unsent timeout follow-up messages in OutboundMessage for this conversation."""
+        try:
+            conv_uuid = to_uuid(conversation_id)
+            unsent = (
+                db.query(OutboundMessage)
+                .filter(
+                    OutboundMessage.conversation_id == conv_uuid,
+                    OutboundMessage.status.in_(["queued", "pending", "sending"]),
+                )
+                .all()
+            )
+            cancelled_count = 0
+            for om in unsent:
+                meta = om.metadata_json or {}
+                if meta.get("source") in ("timeout_followup", "timeout_end_flow"):
+                    om.status = "cancelled"
+                    cancelled_count += 1
+                    logger.info(
+                        "[cancel_timeout_msg] Cancelled unsent timeout message id=%s seq=%d | conv=%s",
+                        om.id, om.sequence, conversation_id
+                    )
+            if cancelled_count:
+                db.flush()
+            return cancelled_count
+        except Exception as exc:
+            logger.warning("[cancel_timeout_msg] Error cancelling timeout messages: %s", exc)
+            return 0
+
     # TIMEOUT EXECUTION
     async def handle_node_timeout_execution(
         self,
@@ -777,6 +810,89 @@ class FlowServiceV2:
                 flag_modified(state, "runtime_context")
                 self._persist_state(db, state)
                 return False
+
+            # Check if customer has already sent an inbound message since this timeout was scheduled
+            scheduled_at_str = pending.get("scheduled_at")
+            if scheduled_at_str:
+                try:
+                    scheduled_at_dt = datetime.fromisoformat(scheduled_at_str)
+                    if scheduled_at_dt.tzinfo is None:
+                        scheduled_at_dt = scheduled_at_dt.replace(tzinfo=timezone.utc)
+                    has_inbound = (
+                        db.query(Message)
+                        .filter(
+                            Message.conversation_id == conversation.id,
+                            Message.sender_type == SenderType.USER,
+                            Message.timestamp >= scheduled_at_dt,
+                        )
+                        .first()
+                    )
+                    if has_inbound:
+                        logger.info(
+                            "[handle_node_timeout] Customer already replied since scheduled_at | conv=%s node=%s. Aborting timeout.",
+                            conversation_id, node_id,
+                        )
+                        state.runtime_context["pending_timeout"] = None
+                        flag_modified(state, "runtime_context")
+                        db.query(ScheduledResume).filter(
+                            ScheduledResume.conversation_id == conversation.id,
+                            ScheduledResume.status == "pending",
+                        ).update({"status": "cancelled"}, synchronize_session=False)
+                        self._cancel_queued_timeout_messages(db, conversation.id)
+                        self._persist_state(db, state)
+                        return False
+                except Exception as check_exc:
+                    logger.warning("[handle_node_timeout] Inbound message check error: %s", check_exc)
+
+            # Check if parent outbound message has finished sending or needs deferral
+            node_outbound = (
+                db.query(OutboundMessage)
+                .filter(
+                    OutboundMessage.conversation_id == conversation.id,
+                    OutboundMessage.flow_id == flow.id,
+                )
+                .order_by(OutboundMessage.sequence.desc())
+                .first()
+            )
+            if node_outbound and node_outbound.status in ("queued", "sending"):
+                logger.info(
+                    "[handle_node_timeout] Parent message seq=%d still %s. Deferring timeout by 5s | conv=%s node=%s",
+                    node_outbound.sequence, node_outbound.status, conversation_id, node_id,
+                )
+                from app.workers.flow_execution import handle_node_timeout
+                handle_node_timeout.apply_async(
+                    kwargs={
+                        "conversation_id": str(conversation.id),
+                        "node_id": node_id,
+                        "stage_index": stage_index,
+                    },
+                    countdown=5,
+                )
+                return False
+
+            if node_outbound and node_outbound.status in ("sent", "delivered", "read") and stage_index == 0:
+                sent_at = node_outbound.updated_at or node_outbound.created_at
+                if sent_at:
+                    if sent_at.tzinfo is None:
+                        sent_at = sent_at.replace(tzinfo=timezone.utc)
+                    elapsed_since_sent = (datetime.now(timezone.utc) - sent_at).total_seconds()
+                    stage_seconds = int(timeouts[stage_index].get("timeout_seconds") or 30)
+                    if elapsed_since_sent < (stage_seconds - 2):
+                        remaining_secs = max(2, int(stage_seconds - elapsed_since_sent))
+                        logger.info(
+                            "[handle_node_timeout] Elapsed (%0.1fs) < stage timeout (%ds). Rescheduling remaining %ds | conv=%s node=%s",
+                            elapsed_since_sent, stage_seconds, remaining_secs, conversation_id, node_id,
+                        )
+                        from app.workers.flow_execution import handle_node_timeout
+                        handle_node_timeout.apply_async(
+                            kwargs={
+                                "conversation_id": str(conversation.id),
+                                "node_id": node_id,
+                                "stage_index": stage_index,
+                            },
+                            countdown=remaining_secs,
+                        )
+                        return False
 
             current_stage = timeouts[stage_index]
             action = current_stage.get("action") or current_stage.get("timeout_action") or "send_followup"
@@ -1320,6 +1436,7 @@ class FlowServiceV2:
                 ScheduledResume.status == "pending",
             ).update({"status": "cancelled"}, synchronize_session=False)
             db.flush()
+        self._cancel_queued_timeout_messages(db, conversation.id)
         button_node_id = pending.get("node_id")
         button_value = matched_button.get("value") or ""
         target_node_id = next(
@@ -1449,6 +1566,7 @@ class FlowServiceV2:
                 ScheduledResume.status == "pending",
             ).update({"status": "cancelled"}, synchronize_session=False)
             db.flush()
+        self._cancel_queued_timeout_messages(db, conversation.id)
 
         # Continue from the next node after the ask_question node
         next_node_id = pending.get("next_node_id")
