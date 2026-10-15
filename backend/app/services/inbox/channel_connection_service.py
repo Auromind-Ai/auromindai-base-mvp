@@ -327,6 +327,15 @@ class ChannelConnectionService:
         except Exception as e:
             logger.warning("Could not fetch initial Meta tier limit on connection: %s", e)
 
+        # Check initial 2FA and business verification status from Meta
+        try:
+            from app.services.onboarding_service import OnboardingService
+            if business_id:
+                OnboardingService.check_2fa_status(db, str(workspace.id))
+                OnboardingService.check_business_verification(db, str(workspace.id))
+        except Exception as e:
+            logger.warning("Could not check initial onboarding 2fa/verification on connection: %s", e)
+
         db.commit()
 
         return {

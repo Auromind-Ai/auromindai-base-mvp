@@ -343,6 +343,10 @@ class IntegrationService:
                 ws.meta_waba_id = None
                 ws.meta_phone_number_id = None
                 ws.meta_display_phone = None
+                ws.meta_tier_limit = None
+                ws.meta_2fa_enabled = False
+                ws.meta_business_verification_status = "not_verified"
+                ws.meta_onboarding_completed_at = None
                 db.commit()
                 return True
             return False

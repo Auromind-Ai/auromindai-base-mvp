@@ -31,6 +31,7 @@ import { useDashboard } from '@/lib/useDashboard';
 import AddLeadModal from '@/components/leads/AddLeadModal';
 import CreditRingDropdown from '@/components/CreditRingDropdown';
 import WhatsAppStatusIndicator from '@/components/dashboard/WhatsAppStatusIndicator';
+import WhatsAppOnboardingSection from '@/components/onboarding/WhatsAppOnboardingSection';
 import Preloader from '@/components/Preloader';
 
 // Magic Bento helpers
@@ -1649,6 +1650,7 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState('current_week');
   const [dateRange, setDateRange] = useState(() => calculateDatesForPeriod('current_week'));
   const [revenueRangeView, setRevenueRangeView] = useState('jan_jun');
+  const [isOnboardingActive, setIsOnboardingActive] = useState(false);
 
   const handlePeriodChange = (newPeriod) => {
     setPeriod(newPeriod);
@@ -1734,8 +1736,21 @@ export default function DashboardPage() {
         {/* HEADER */}
         <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-xl lg:text-2xl font-semibold tracking-tight text-white/90">Dashboard</h1>
-            <p className="text-[14px] text-white/70 mt-0.5">Good morning! Here are your key actions for today.</p>
+            <h1 className="text-xl lg:text-2xl font-semibold tracking-tight text-white/90">
+              {isOnboardingActive ? "Welcome to Orbion Agents 👋" : "Dashboard"}
+            </h1>
+            <div className="text-[14px] text-white/70 mt-0.5">
+              {isOnboardingActive ? (
+                <div>
+                  <span className="font-medium text-white/85">Let&apos;s get your WhatsApp workspace ready.</span>
+                  <p className="text-white/50 text-[13px] mt-0.5">
+                    Connect your WhatsApp Business account and start automating customer conversations with AI.
+                  </p>
+                </div>
+              ) : (
+                "Good morning! Here are your key actions for today."
+              )}
+            </div>
           </div>
           <div className="flex items-center flex-nowrap gap-1.5 sm:gap-3 py-0.5 justify-start xl:justify-end">
             <WhatsAppStatusIndicator />
@@ -1753,6 +1768,12 @@ export default function DashboardPage() {
             </div>
           </div>
         </header>
+
+        {/* WHATSAPP ONBOARDING FLOW */}
+        <WhatsAppOnboardingSection
+          workspaceId={workspaceId}
+          onStatusChange={({ isActive }) => setIsOnboardingActive(isActive)}
+        />
 
         {/* METRICS GRID */}
         <div className={cardStateClass}>

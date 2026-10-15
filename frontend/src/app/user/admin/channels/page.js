@@ -972,6 +972,18 @@ function ChannelsContent() {
     useEffect(() => {
         if (!workspace?.id) return;
         loadIntegrationStatus();
+
+        const handleStatusChange = () => {
+            loadIntegrationStatus();
+        };
+
+        window.addEventListener('channel-status-changed', handleStatusChange);
+        window.addEventListener('focus', handleStatusChange);
+
+        return () => {
+            window.removeEventListener('channel-status-changed', handleStatusChange);
+            window.removeEventListener('focus', handleStatusChange);
+        };
     }, [workspace?.id, loadIntegrationStatus]);
 
     const [searchQuery, setSearchQuery] = useState('');

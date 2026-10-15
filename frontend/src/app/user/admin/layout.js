@@ -101,6 +101,37 @@ function AdminLayoutContent({ children }) {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isWsDropdownOpen]);
 
+    // Initialize Meta Facebook SDK for WhatsApp Business onboarding
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const appId = process.env.NEXT_PUBLIC_FB_APP_ID || '990851527207522';
+        window.fbAsyncInit = function () {
+            if (window.FB) {
+                window.FB.init({
+                    appId: appId,
+                    cookie: true,
+                    xfbml: true,
+                    version: 'v19.0'
+                });
+            }
+        };
+
+        if (!document.getElementById('facebook-jssdk')) {
+            const js = document.createElement('script');
+            js.id = 'facebook-jssdk';
+            js.src = 'https://connect.facebook.net/en_US/sdk.js';
+            js.async = true;
+            js.defer = true;
+            js.crossOrigin = 'anonymous';
+            const fjs = document.getElementsByTagName('script')[0];
+            if (fjs && fjs.parentNode) {
+                fjs.parentNode.insertBefore(js, fjs);
+            } else {
+                document.head.appendChild(js);
+            }
+        }
+    }, []);
+
 
     const [isCollapsed, setIsCollapsed] = useState(() => {
         if (typeof window === 'undefined') return false;
