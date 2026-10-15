@@ -834,15 +834,17 @@ function ConversationSidebar({
                         />
                     </div>
 
-                    {/* Compose Button (Opens New Chat modal) */}
-                    <button
-                        type="button"
-                        onClick={onOpenNewChat}
-                        className="w-10 h-10 rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed] flex items-center justify-center text-white shadow-md shadow-purple-900/30 transition-transform active:scale-95 shrink-0 cursor-pointer"
-                        title="New chat"
-                    >
-                        <MessageSquarePlus size={19} strokeWidth={2} className="text-white" />
-                    </button>
+                    {/* WhatsApp Compose Button (Opens New Chat modal) */}
+                    {ch.id === 'whatsapp' && (
+                        <button
+                            type="button"
+                            onClick={onOpenNewChat}
+                            className="w-10 h-10 rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed] flex items-center justify-center text-white shadow-md shadow-purple-900/30 transition-transform active:scale-95 shrink-0 cursor-pointer"
+                            title="New chat"
+                        >
+                            <MessageSquarePlus size={19} strokeWidth={2} className="text-white" />
+                        </button>
+                    )}
                 </div>
 
                 {/* Segmented Filter Bar (All, Open, Follow Up, Converted) */}
@@ -1853,7 +1855,7 @@ function ChatArea({
                         </div>
                     )}
 
-                    {/* Star Button */}
+                    {/* Star Button
                     <button
                         type="button"
                         onClick={() => setIsFavorite(prev => !prev)}
@@ -1863,7 +1865,7 @@ function ChatArea({
                         title="Star conversation"
                     >
                         <Star size={15} className={isFavorite ? 'fill-amber-400' : ''} />
-                    </button>
+                    </button> */}
 
                     {/* Phone / Call Button */}
                     {lead.phone && (
@@ -2652,7 +2654,7 @@ function InboxContent() {
     }, [resolvedLeadId]);
 
     const fetchLeadIdForConversation = useCallback(async (conversationId) => {
-        if (!conversationId || !workspace?.id) return null;
+        if (!conversationId || String(conversationId).startsWith('whatsapp-') || !workspace?.id) return null;
         try {
             const data = await api.get('/api/lead-scoring/leads?limit=100&offset=0');
             const items = data.items || data || [];
@@ -2665,7 +2667,7 @@ function InboxContent() {
     const [isLoadingOlder, setIsLoadingOlder] = useState(false);
 
     const fetchMessages = useCallback(async (id) => {
-        if (!id) return;
+        if (!id || String(id).startsWith('whatsapp-')) return;
         try {
             const data = await api.get(`/api/messages/${id}?limit=50`);
             if (!Array.isArray(data)) { console.warn("Messages API non-array:", data); return; }
@@ -2948,7 +2950,7 @@ function InboxContent() {
         if (!workspace?.id) return;
         const interval = setInterval(() => {
             fetchConversations();
-            if (leadRef.current?.id) {
+            if (leadRef.current?.id && !String(leadRef.current.id).startsWith('whatsapp-')) {
                 fetchMessages(leadRef.current.id);
             }
         }, 4000);
@@ -2956,7 +2958,7 @@ function InboxContent() {
     }, [workspace?.id, fetchConversations, fetchMessages]);
 
     useEffect(() => {
-        if (!lead?.id) return;
+        if (!lead?.id || String(lead.id).startsWith('whatsapp-')) return;
         subscribeConversation(lead.id);
         return () => unsubscribeConversation(lead.id);
     }, [lead?.id, subscribeConversation, unsubscribeConversation]);
@@ -3214,8 +3216,20 @@ function InboxContent() {
         });
     }
 
+    function closeContactDetails() {
+        setDesktopDrawerOpen(false);
+        setTabletRight('chat');
+        setMobileView(view => view === 'info' ? 'chat' : view);
+    }
+
+    function promptConvertConversation() {
+        closeContactDetails();
+        setShowConvertModal(true);
+    }
+
     function promptCloseConversation(conversationId) {
         if (!conversationId) return;
+        closeContactDetails();
         setCloseTargetId(conversationId);
         setShowCloseModal(true);
     }
@@ -3307,10 +3321,15 @@ function InboxContent() {
         if (!l) return;
         setLead(l);
         leadRef.current = l;
-        fetchMessages(l.id);
-        setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
-        api.post(`/api/conversations/${l.id}/read`).catch(() => {});
-        fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+        if (!String(l.id).startsWith('whatsapp-')) {
+            fetchMessages(l.id);
+            setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+            api.post(`/api/conversations/${l.id}/read`).catch(() => {});
+            fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+        } else {
+            setMessages([]);
+            setResolvedLeadId(null);
+        }
         setTabletRight('chat');
     }
 
@@ -3318,10 +3337,15 @@ function InboxContent() {
         if (!l) return;
         setLead(l);
         leadRef.current = l;
-        fetchMessages(l.id);
-        setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
-        api.post(`/api/conversations/${l.id}/read`).catch(() => {});
-        fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+        if (!String(l.id).startsWith('whatsapp-')) {
+            fetchMessages(l.id);
+            setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+            api.post(`/api/conversations/${l.id}/read`).catch(() => {});
+            fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+        } else {
+            setMessages([]);
+            setResolvedLeadId(null);
+        }
         setMobileView('chat');
     }
 
@@ -3373,21 +3397,15 @@ function InboxContent() {
         ch, lead,
         resolvedLeadId, messages,
         onCloseConversation: promptCloseConversation,
-        onConvertClick: () => setShowConvertModal(true),
+        onConvertClick: promptConvertConversation,
         leadDetail, setLeadDetail,
         activeFilter,
     };
 
     const handleStartNewChat = useCallback((fullPhoneNumber) => {
-        let cleanDigits = String(fullPhoneNumber).replace(/\D/g, '');
+        // NewChatModal already includes the selected country code; preserve it.
+        const cleanDigits = String(fullPhoneNumber).replace(/\D/g, '');
         if (!cleanDigits) return;
-
-        // Strip duplicate country codes (e.g. 91917695951519 -> 917695951519)
-        if (cleanDigits.length === 14 && cleanDigits.startsWith('9191')) {
-            cleanDigits = cleanDigits.slice(2);
-        } else if (cleanDigits.length === 10) {
-            cleanDigits = `91${cleanDigits}`;
-        }
 
         // Ensure WhatsApp channel is selected
         const waCh = CHANNELS.find(c => c.id === 'whatsapp') || ch;
@@ -3482,10 +3500,15 @@ function InboxContent() {
                         onLeadSelect={(l) => {
                             setLead(l);
                             leadRef.current = l;
-                            fetchMessages(l.id);
-                            setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
-                            api.post(`/api/conversations/${l.id}/read`).catch(() => {});
-                            fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+                            if (!String(l.id).startsWith('whatsapp-')) {
+                                fetchMessages(l.id);
+                                setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+                                api.post(`/api/conversations/${l.id}/read`).catch(() => {});
+                                fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+                            } else {
+                                setMessages([]);
+                                setResolvedLeadId(null);
+                            }
                         }}
                     />
                 </div>
