@@ -1276,6 +1276,7 @@ class CampaignService:
                     meta_dict["message_type"] = campaign.media_type
 
         # 2. Get or create conversation
+        is_new_conv = False
         conv = db.query(Conversation).filter(
             Conversation.workspace_id == campaign.workspace_id,
             Conversation.channel == ChannelType.WHATSAPP,
@@ -1291,6 +1292,11 @@ class CampaignService:
                 external_id=clean_phone,
                 contact_name=recipient.recipient_name or clean_phone,
             )
+            # Brand new conversation created purely by an outbound campaign broadcast:
+            # Set to FOLLOW_UP so the active OPEN support inbox queue is not flooded.
+            # Only when the user interacts or sends an inbound reply will WebhookService promote it to OPEN!
+            conv.status = ConversationStatus.FOLLOW_UP
+            is_new_conv = True
 
         if conv:
             # Outbound campaign broadcast does NOT reopen a CLOSED or FOLLOW_UP conversation.
