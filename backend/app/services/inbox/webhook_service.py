@@ -434,6 +434,24 @@ class WebhookService:
                                             )
                                         db.flush()
                                         logger.info(f"Updated message status for {wamid} to {status_str}")
+                                        try:
+                                            from app.services.analytics.realtime_service import publish_to_workspace, EventType
+                                            from app.models.conversation import Conversation
+                                            conv_item = db.query(Conversation.workspace_id).filter(Conversation.id == msg.conversation_id).first()
+                                            if conv_item:
+                                                publish_to_workspace(
+                                                    workspace_id=str(conv_item.workspace_id),
+                                                    event_type=EventType.MESSAGE_STATUS_UPDATED,
+                                                    payload={
+                                                        "message_id": str(msg.id),
+                                                        "conversation_id": str(msg.conversation_id),
+                                                        "status": msg.status.value.lower() if hasattr(msg.status, "value") else str(msg.status).lower(),
+                                                        "external_id": wamid,
+                                                    },
+                                                    conversation_id=str(msg.conversation_id),
+                                                )
+                                        except Exception as pub_err:
+                                            logger.debug(f"Failed to publish status update event: {pub_err}")
 
                                 outbound = db.query(OutboundMessage).filter(OutboundMessage.twilio_sid == wamid).first()
                                 if outbound:
@@ -964,11 +982,22 @@ class WebhookService:
 
             interactive = message.get("interactive") or {}
             button_reply = interactive.get("button_reply") or {}
-
             if button_reply:
                 interactive_value = button_reply.get("id")
                 interactive_label = button_reply.get("title")
                 text = text or interactive_label
+
+            list_reply = interactive.get("list_reply") or {}
+            if list_reply:
+                interactive_value = list_reply.get("id")
+                interactive_label = list_reply.get("title")
+                text = text or interactive_label
+
+            nfm_reply = interactive.get("nfm_reply") or {}
+            if nfm_reply:
+                interactive_value = nfm_reply.get("name")
+                interactive_label = nfm_reply.get("response_json")
+                text = text or f"[Flow Response: {nfm_reply.get('name') or 'Form'}]"
 
             msg_type = (message.get("type") or "").lower()
 

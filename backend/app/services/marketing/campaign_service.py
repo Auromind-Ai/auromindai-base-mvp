@@ -13,7 +13,10 @@ from app.models.wcc import WCCWallet, WCCRateCard
 from app.models.workspace import Workspace
 from app.models.templates import Template
 from app.models.ai_action import Lead
-from app.models.conversation import Conversation, ChannelType
+from app.models.conversation import Conversation, ChannelType, ConversationStatus
+from app.models.message import Message, SenderType, MessageStatus
+from app.services.inbox.conversation_service import ConversationService
+import json
 from app.services.wcc_service import WCCService, InsufficientWCCBalanceError
 from app.services.marketing.audience_service import normalize_phone
 from app.services.marketing.whatsapp_tier_service import WhatsAppTierService
@@ -1152,4 +1155,300 @@ class CampaignService:
         db.commit()
         db.refresh(campaign)
         return campaign
+
+    @classmethod
+    def record_campaign_message_to_inbox(
+        cls,
+        db: Session,
+        *,
+        campaign: Campaign,
+        recipient: CampaignRecipient,
+        wamid: Optional[str] = None,
+        template: Optional[Template] = None,
+        body_params: Optional[List[Dict[str, Any]]] = None,
+        parsed_buttons: Optional[List[Dict[str, Any]]] = None,
+        text_body: Optional[str] = None,
+        now_dt: Optional[datetime] = None,
+    ) -> Optional[Message]:
+        clean_phone = (recipient.normalized_phone or recipient.phone_number or "").replace("+", "").strip()
+        if not clean_phone:
+            return None
+
+        now_dt = now_dt or datetime.now(timezone.utc)
+
+        # 1. Resolve formatted body & rich metadata
+        campaign_cat = "marketing"
+        if template:
+            if getattr(template, "category", None):
+                campaign_cat = str(template.category).lower()
+            elif campaign.campaign_type:
+                campaign_cat = str(campaign.campaign_type).lower()
+
+            body_text = template.content or f"Template: {template.name}"
+            formatted_content = body_text
+
+            # Parse template variable mapping if present (e.g. {"1": "customer_name", "2": "discount"})
+            var_map = {}
+            if getattr(template, "variable_mapping", None):
+                try:
+                    var_map = json.loads(template.variable_mapping) if isinstance(template.variable_mapping, str) else (template.variable_mapping or {})
+                except Exception:
+                    var_map = {}
+
+            # 1.A Apply explicit body_params from Meta dispatch
+            if body_params:
+                for idx, p in enumerate(body_params, start=1):
+                    val_str = str(p.get("text", "")) if isinstance(p, dict) else str(p)
+                    formatted_content = formatted_content.replace(f"{{{{{idx}}}}}", val_str)
+
+            # 1.B Apply recipient variables mapping (named & numeric keys)
+            vars_dict = recipient.variables or {}
+            if vars_dict:
+                for num_idx, named_key in var_map.items():
+                    val = vars_dict.get(named_key) or vars_dict.get(named_key.lower()) or vars_dict.get(num_idx)
+                    if val is not None:
+                        formatted_content = formatted_content.replace(f"{{{{{num_idx}}}}}", str(val))
+                        formatted_content = formatted_content.replace(f"{{{{{named_key}}}}}", str(val))
+
+                for k, v in vars_dict.items():
+                    clean_k = str(k).replace("{", "").replace("}", "").strip()
+                    formatted_content = formatted_content.replace(f"{{{{{clean_k}}}}}", str(v))
+                    formatted_content = formatted_content.replace(f"{{{{{k}}}}}", str(v))
+
+            # 1.C Fallback for any unreplaced {{1}}, {{name}}, {{customer_name}} with recipient name
+            rec_name = recipient.recipient_name
+            if rec_name and not rec_name.isdigit():
+                formatted_content = formatted_content.replace("{{1}}", rec_name)
+                formatted_content = formatted_content.replace("{{name}}", rec_name)
+                formatted_content = formatted_content.replace("{{customer_name}}", rec_name)
+                formatted_content = formatted_content.replace("{{first_name}}", rec_name)
+
+            meta_dict = {
+                "template_name": template.name,
+                "language": template.language or "en_US",
+                "template_category": campaign_cat,
+                "is_template": True,
+                "source": "campaign_broadcast",
+                "campaign_id": str(campaign.id),
+                "campaign_name": campaign.name,
+            }
+            if template.header:
+                h_text = template.header
+                if vars_dict:
+                    for k, v in vars_dict.items():
+                        clean_k = str(k).replace("{", "").replace("}", "").strip()
+                        h_text = h_text.replace(f"{{{{{clean_k}}}}}", str(v))
+                        h_text = h_text.replace(f"{{{{{k}}}}}", str(v))
+                if rec_name and not rec_name.isdigit():
+                    h_text = h_text.replace("{{1}}", rec_name).replace("{{name}}", rec_name)
+                meta_dict["template_header"] = h_text
+            if template.footer:
+                meta_dict["template_footer"] = template.footer
+            if parsed_buttons:
+                meta_dict["buttons"] = parsed_buttons
+            elif getattr(template, "buttons", None):
+                try:
+                    btns = json.loads(template.buttons) if isinstance(template.buttons, str) else template.buttons
+                    meta_dict["buttons"] = btns
+                except Exception:
+                    pass
+
+            media_url = campaign.media_url or getattr(template, "media_url", None)
+            if media_url:
+                meta_dict["media_url"] = media_url
+                tmpl_type = (template.type or "TEXT").upper()
+                if tmpl_type in ("IMAGE", "VIDEO", "DOCUMENT"):
+                    meta_dict["message_type"] = tmpl_type.lower()
+        else:
+            raw_body = text_body or campaign.message_content or "Hello"
+            formatted_content = raw_body
+            vars_dict = recipient.variables or {}
+            if vars_dict:
+                for k, v in vars_dict.items():
+                    clean_k = str(k).replace("{", "").replace("}", "").strip()
+                    formatted_content = formatted_content.replace(f"{{{{{clean_k}}}}}", str(v))
+                    formatted_content = formatted_content.replace(f"{{{{{k}}}}}", str(v))
+            rec_name = recipient.recipient_name
+            if rec_name and not rec_name.isdigit():
+                formatted_content = formatted_content.replace("{{1}}", rec_name).replace("{{name}}", rec_name)
+
+            meta_dict = {
+                "source": "campaign_broadcast",
+                "campaign_id": str(campaign.id),
+                "campaign_name": campaign.name,
+            }
+            if campaign.media_url:
+                meta_dict["media_url"] = campaign.media_url
+                if campaign.media_type:
+                    meta_dict["message_type"] = campaign.media_type
+
+        # 2. Get or create conversation
+        conv = db.query(Conversation).filter(
+            Conversation.workspace_id == campaign.workspace_id,
+            Conversation.channel == ChannelType.WHATSAPP,
+            (Conversation.phone == clean_phone) | (Conversation.phone == f"+{clean_phone}") | (Conversation.external_id == clean_phone)
+        ).first()
+
+        if not conv:
+            conv = ConversationService.get_or_create_conversation(
+                db=db,
+                workspace_id=str(campaign.workspace_id),
+                channel=ChannelType.WHATSAPP,
+                phone=clean_phone,
+                external_id=clean_phone,
+                contact_name=recipient.recipient_name or clean_phone,
+            )
+
+        if conv:
+            if recipient.recipient_name and not recipient.recipient_name.isdigit():
+                conv.contact_name = recipient.recipient_name
+            elif not conv.contact_name or conv.contact_name.isdigit():
+                conv.contact_name = recipient.recipient_name or clean_phone
+            conv.last_message_at = now_dt
+            conv.updated_at = now_dt
+            db.flush()
+
+        # 3. Check for existing message with this external_id to prevent duplicates
+        effective_wamid = wamid or recipient.wamid
+        msg = None
+        if effective_wamid:
+            msg = db.query(Message).filter(Message.external_id == effective_wamid).first()
+
+        if not msg and conv:
+            msg_status = MessageStatus.SENT
+            rec_status = str(recipient.status or "").lower()
+            if rec_status in ("delivered",):
+                msg_status = MessageStatus.DELIVERED
+            elif rec_status in ("read",):
+                msg_status = MessageStatus.DELIVERED
+
+            msg = Message(
+                id=uuid.uuid4(),
+                conversation_id=conv.id,
+                content=formatted_content,
+                sender_type=SenderType.AGENT,
+                status=msg_status,
+                external_id=effective_wamid,
+                metadata_json=json.dumps(meta_dict),
+                source="campaign_broadcast",
+                timestamp=now_dt,
+                is_read=True,
+            )
+            db.add(msg)
+            db.flush()
+
+        # 4. Upsert or link CRM Lead
+        try:
+            lead = db.query(Lead).filter(
+                Lead.workspace_id == campaign.workspace_id,
+                (Lead.conversation_id == conv.id) | (Lead.phone == clean_phone) | (Lead.phone == f"+{clean_phone}")
+            ).first()
+            if not lead:
+                lead = Lead(
+                    workspace_id=campaign.workspace_id,
+                    conversation_id=conv.id,
+                    name=recipient.recipient_name or clean_phone,
+                    phone=clean_phone,
+                    source="campaign",
+                    status="new",
+                    score=0,
+                    last_activity_at=now_dt,
+                    updated_at=now_dt,
+                )
+                db.add(lead)
+                db.flush()
+            else:
+                if not lead.conversation_id:
+                    lead.conversation_id = conv.id
+                if recipient.recipient_name and not recipient.recipient_name.isdigit():
+                    if not lead.name or lead.name == clean_phone or lead.name == f"+{clean_phone}":
+                        lead.name = recipient.recipient_name
+                lead.last_activity_at = now_dt
+                db.flush()
+        except Exception as lead_err:
+            logger.debug("Lead link warning during campaign inbox recording: %s", lead_err)
+
+        # 5. Emit realtime WebSocket notification to workspace
+        if conv and msg:
+            try:
+                from app.services.analytics.realtime_service import publish_to_workspace, EventType
+                publish_to_workspace(
+                    workspace_id=str(campaign.workspace_id),
+                    event_type=EventType.NEW_MESSAGE,
+                    payload={
+                        "id": str(msg.id),
+                        "conversation_id": str(conv.id),
+                        "content": formatted_content,
+                        "sender_type": "agent",
+                        "status": "sent",
+                        "direction": "outbound",
+                        "workspace_id": str(campaign.workspace_id),
+                        "channel": "whatsapp",
+                    },
+                    conversation_id=str(conv.id),
+                )
+            except Exception as ws_err:
+                logger.debug("Realtime publication skipped: %s", ws_err)
+
+        return msg
+
+    @classmethod
+    def sync_campaign_recipients_to_inbox(
+        cls,
+        db: Session,
+        campaign_id: Optional[uuid.UUID] = None,
+        workspace_id: Optional[uuid.UUID] = None,
+        limit: int = 1000,
+    ) -> int:
+        query = db.query(CampaignRecipient).filter(
+            CampaignRecipient.status.in_(["accepted", "sent", "delivered", "read"]),
+            CampaignRecipient.wamid.isnot(None),
+        )
+        if campaign_id:
+            query = query.filter(CampaignRecipient.campaign_id == campaign_id)
+        elif workspace_id:
+            query = query.filter(CampaignRecipient.workspace_id == workspace_id)
+
+        recipients = query.order_by(CampaignRecipient.created_at.asc()).limit(limit).all()
+        synced_count = 0
+        campaign_cache = {}
+        template_cache = {}
+
+        for rec in recipients:
+            existing_msg = db.query(Message.id).filter(Message.external_id == rec.wamid).first()
+            if existing_msg:
+                continue
+
+            if rec.campaign_id not in campaign_cache:
+                camp = db.query(Campaign).filter(Campaign.id == rec.campaign_id).first()
+                campaign_cache[rec.campaign_id] = camp
+            camp = campaign_cache.get(rec.campaign_id)
+            if not camp:
+                continue
+
+            tpl = None
+            if camp.template_id:
+                if camp.template_id not in template_cache:
+                    template_cache[camp.template_id] = db.query(Template).filter(Template.id == camp.template_id).first()
+                tpl = template_cache.get(camp.template_id)
+
+            try:
+                msg = cls.record_campaign_message_to_inbox(
+                    db=db,
+                    campaign=camp,
+                    recipient=rec,
+                    wamid=rec.wamid,
+                    template=tpl,
+                    now_dt=rec.accepted_at or rec.created_at or datetime.now(timezone.utc),
+                )
+                if msg:
+                    synced_count += 1
+            except Exception as e:
+                logger.warning("Failed to sync recipient %s to inbox: %s", rec.id, e)
+
+        if synced_count > 0:
+            db.commit()
+
+        return synced_count
+
 

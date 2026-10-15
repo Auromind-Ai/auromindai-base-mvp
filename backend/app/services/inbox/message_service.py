@@ -127,7 +127,8 @@ class MessageService:
                 "media_url": metadata.get("media_url"),
                 "media_type": metadata.get("media_type"),
                 "mime_type": metadata.get("mime_type"),
-
+                "metadata": metadata,
+                "metadata_json": message.metadata_json,
             })
 
         return result
