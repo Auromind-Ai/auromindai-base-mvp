@@ -411,7 +411,7 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
                                     <div className="flex items-center justify-between">
                                         <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                                             <span>{selectedTemplate?.category === 'AUTHENTICATION' ? 'Verification / OTP Code' : 'Offer / Coupon Code'}</span>
-                                            <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-mono">
+                                            <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
                                                 COPY_CODE
                                             </span>
                                         </label>
@@ -421,7 +421,7 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
                                         value={couponCode}
                                         onChange={e => setCouponCode(e.target.value)}
                                         placeholder={selectedTemplate?.category === 'AUTHENTICATION' ? 'e.g. 123456' : 'e.g. SAVE20'}
-                                        className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl px-3.5 py-2.5 text-[13px] text-white outline-none focus:border-emerald-500/50 transition-colors font-mono"
+                                        className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl px-3.5 py-2.5 text-[13px] text-white outline-none focus:border-emerald-500/50 transition-colors"
                                     />
                                     <p className="text-[11px] text-zinc-500">
                                         {selectedTemplate?.category === 'AUTHENTICATION'
@@ -446,7 +446,7 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
                                         <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-center">
                                             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-xs font-medium">
                                                 <span>📋</span>
-                                                <span>Copy: <strong className="font-mono text-white">{couponCode || (selectedTemplate?.category === 'AUTHENTICATION' ? '123456' : 'SAVE20')}</strong></span>
+                                                <span>Copy: <strong className="text-white">{couponCode || (selectedTemplate?.category === 'AUTHENTICATION' ? '123456' : 'SAVE20')}</strong></span>
                                             </div>
                                         </div>
                                     )}

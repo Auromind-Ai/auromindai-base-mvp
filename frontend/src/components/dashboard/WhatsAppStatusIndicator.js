@@ -120,13 +120,17 @@ export default function WhatsAppStatusIndicator() {
 
     useEffect(() => {
         let isMounted = true;
+        let lastFetch = 0;
 
-        const load = () => {
+        const load = (force = false) => {
+            const now = Date.now();
+            if (!force && now - lastFetch < 1500) return;
+            lastFetch = now;
             fetchStatus().catch(() => {});
         };
 
         // Initial fetch from backend (single source of truth)
-        load();
+        load(true);
 
         // 1. Refresh when user switches back to this tab
         const handleVisibilityChange = () => {

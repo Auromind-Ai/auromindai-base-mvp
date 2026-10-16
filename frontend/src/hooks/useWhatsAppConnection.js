@@ -17,6 +17,7 @@ export function useWhatsAppConnection({ workspaceId, onSuccess, onError } = {}) 
     if (typeof window === 'undefined') return;
 
     if (window.FB) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsSdkLoaded(true);
       return;
     }
@@ -96,12 +97,14 @@ export function useWhatsAppConnection({ workspaceId, onSuccess, onError } = {}) 
         const phone = data.phone_number || data.display_number || 'Connected';
         const phoneId = data.phone_number_id || '';
         const wabaId = data.waba_id || '';
+        const businessId = data.business_id || '';
 
         if (typeof window !== 'undefined') {
           localStorage.setItem('whatsapp_connected', 'true');
           if (phone) localStorage.setItem('whatsapp_phone', phone);
           if (phoneId) localStorage.setItem('whatsapp_phone_id', phoneId);
           if (wabaId) localStorage.setItem('whatsapp_waba_id', wabaId);
+          if (businessId) localStorage.setItem('whatsapp_business_id', businessId);
 
           window.dispatchEvent(new CustomEvent('channel-status-changed'));
           window.dispatchEvent(new CustomEvent('onboarding-status-changed'));

@@ -6,11 +6,36 @@ import { X, Lock, Check, ExternalLink, ShieldCheck, RefreshCw, AlertCircle, Info
 import api from '@/lib/api';
 import { useToast } from '@/context/ToastContext';
 
-export default function TwoFactorModal({ isOpen, onClose, workspaceId, isCompleted, onStatusUpdated }) {
+export default function TwoFactorModal({
+  isOpen,
+  onClose,
+  workspaceId,
+  businessId,
+  metaUrl,
+  isCompleted,
+  onStatusUpdated,
+}) {
   const { showToast } = useToast();
   const [checking, setChecking] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [metaResult, setMetaResult] = useState(null);
+
+  const effectiveBusinessId =
+    businessId ||
+    (typeof window !== 'undefined' ? localStorage.getItem('whatsapp_business_id') : '');
+
+  const cleanBusinessId =
+    effectiveBusinessId && effectiveBusinessId !== 'undefined' && effectiveBusinessId !== 'null'
+      ? String(effectiveBusinessId).trim()
+      : '';
+
+  let twoFactorUrl = metaUrl || '';
+  if (!twoFactorUrl || twoFactorUrl.endsWith('?business_id=') || twoFactorUrl.endsWith('?business_id')) {
+    twoFactorUrl = cleanBusinessId
+      ? `https://business.facebook.com/latest/settings/business_info?business_id=${encodeURIComponent(cleanBusinessId)}`
+      : 'https://business.facebook.com/latest/settings/business_info';
+  }
 
   if (!isOpen) return null;
 
@@ -22,6 +47,10 @@ export default function TwoFactorModal({ isOpen, onClose, workspaceId, isComplet
       if (res?.two_factor_enabled || res?.meta_verified) {
         showToast('Two-factor authentication verified successfully!', 'success');
         setMetaResult({ success: true, message: 'Verified by Meta Graph API: 2FA is active.' });
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('onboarding-status-changed'));
+          window.dispatchEvent(new CustomEvent('channel-status-changed'));
+        }
         if (onStatusUpdated) onStatusUpdated(res);
       } else {
         const msg = res?.meta_message || '2FA is not yet active or Meta has not propagated the change.';
@@ -45,6 +74,10 @@ export default function TwoFactorModal({ isOpen, onClose, workspaceId, isComplet
     try {
       const res = await api.check2FAStatus(workspaceId, true);
       showToast('Two-factor authentication confirmed for your workspace.', 'success');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('onboarding-status-changed'));
+        window.dispatchEvent(new CustomEvent('channel-status-changed'));
+      }
       if (onStatusUpdated) onStatusUpdated(res);
       setTimeout(() => {
         onClose();
@@ -68,11 +101,11 @@ export default function TwoFactorModal({ isOpen, onClose, workspaceId, isComplet
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 bg-white/[0.02]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#814AC8]/20 border border-[#814AC8]/40 flex items-center justify-center text-[#a77bee]">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 border border-white/20 flex items-center justify-center text-white">
               <Lock size={20} />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white">Enable Two-Factor Authentication</h3>
+              <h3 className="text-base font-medium text-white">Enable Two-Factor Authentication</h3>
               <p className="text-xs text-white/50">Step 2: Secure your Meta Business Suite</p>
             </div>
           </div>
@@ -104,7 +137,7 @@ export default function TwoFactorModal({ isOpen, onClose, workspaceId, isComplet
                 <p className="font-medium text-white">Open Meta Business Suite Security Center</p>
                 <p className="text-white/50">Navigate to your Meta Business Manager security settings.</p>
                 <a
-                  href="https://business.facebook.com/settings/security"
+                  href={twoFactorUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#814AC8]/20 hover:bg-[#814AC8]/30 border border-[#814AC8]/40 text-[#a77bee] hover:text-white font-medium text-[11px] transition-all"
@@ -157,8 +190,8 @@ export default function TwoFactorModal({ isOpen, onClose, workspaceId, isComplet
           )}
 
           {isCompleted && (
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300 flex items-center gap-2">
-              <Check size={16} className="text-emerald-400 shrink-0" />
+            <div className="p-3 rounded-xl bg-gradient-to-r from-[#063b27]/80 via-[#032418]/60 to-[#020c08] border border-white/20 text-xs text-white flex items-center gap-2">
+              <Check size={16} className="text-white shrink-0" />
               <span>Two-Factor Authentication is completed for this workspace.</span>
             </div>
           )}
@@ -180,9 +213,9 @@ export default function TwoFactorModal({ isOpen, onClose, workspaceId, isComplet
             {!isCompleted && (
               <button
                 type="button"
-                onClick={handleManualConfirm}
+                onClick={() => setShowConfirmDialog(true)}
                 disabled={checking || confirming}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-white bg-[#814AC8] hover:bg-[#703bb5] shadow-lg shadow-[#814AC8]/25 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                className="px-4 py-2 rounded-xl text-xs font-medium text-white bg-[#814AC8] hover:bg-[#703bb5] shadow-lg shadow-[#814AC8]/25 transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
                 <Check size={13} />
                 {confirming ? 'Saving...' : 'I Have Enabled 2FA'}
@@ -191,12 +224,71 @@ export default function TwoFactorModal({ isOpen, onClose, workspaceId, isComplet
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-white/70 hover:text-white hover:bg-white/5 transition-all"
+              className="px-4 py-2 rounded-xl text-xs font-medium text-white/70 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
             >
               Done
             </button>
           </div>
         </div>
+
+        {/* In-Modal Confirmation Dialog */}
+        <AnimatePresence>
+          {showConfirmDialog && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                className="w-full max-w-sm rounded-2xl bg-[#121322] border border-[#814AC8]/40 shadow-2xl p-5 text-white"
+              >
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 border border-white/20 flex items-center justify-center text-white shrink-0">
+                    <Lock size={18} />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-medium text-white">Confirm Two-Factor Authentication</h4>
+                    <p className="text-[12px] text-white/50 mt-0.5">Meta Business Security</p>
+                  </div>
+                </div>
+
+                <p className="text-sm text-white/90 leading-relaxed mb-2 font-medium">
+                  Have you enabled two-factor authentication in Meta Business Suite?
+                </p>
+                <p className="text-[12px] text-white/50 leading-relaxed mb-5">
+                  Please ensure 2FA is set to &quot;Everyone&quot; or &quot;Admins only&quot; in your Meta settings.
+                </p>
+
+                <div className="flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmDialog(false)}
+                    disabled={confirming}
+                    className="px-3.5 py-2 rounded-xl text-xs font-medium text-white/70 hover:text-white bg-white/5 hover:bg-white/10 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setShowConfirmDialog(false);
+                      await handleManualConfirm();
+                    }}
+                    disabled={confirming}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-[#814AC8] to-[#59269e] hover:from-[#9554e8] hover:to-[#6a2fbe] shadow-lg shadow-[#814AC8]/30 flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Check size={13} />
+                    {confirming ? 'Saving...' : 'Yes, Confirm'}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );

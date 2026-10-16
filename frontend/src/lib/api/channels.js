@@ -1,11 +1,22 @@
 import client from './client';
+import { getWorkspaceIdFromToken } from '@/lib/auth';
+
+export function getActiveWorkspaceId(overrideId) {
+  if (overrideId && overrideId !== 'null' && overrideId !== 'undefined') return overrideId;
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('workspace_id');
+    if (saved && saved !== 'null' && saved !== 'undefined') return saved;
+  }
+  return getWorkspaceIdFromToken();
+}
 
 export async function getChannelsStatus(workspace_id) {
-  return client.get(`/api/channels/status?workspace_id=${workspace_id}`);
+  const ws = getActiveWorkspaceId(workspace_id);
+  return client.get(`/api/channels/status?workspace_id=${ws}`);
 }
 
 export async function getWhatsAppMetaStatus(workspace_id) {
-  const ws = workspace_id || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null);
+  const ws = getActiveWorkspaceId(workspace_id);
   return client.get(`/api/whatsapp/meta-status?workspace_id=${encodeURIComponent(ws || '')}`);
 }
 

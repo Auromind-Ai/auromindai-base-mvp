@@ -2232,7 +2232,7 @@ function ChatArea({
 
                                 <div className="flex items-center gap-2.5">
                                     <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-                                    <span className="text-[13.5px] font-mono font-medium text-white tracking-wide">
+                                    <span className="text-[13.5px] font-medium text-white tracking-wide">
                                         {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}
                                     </span>
                                     {/* Animated voice amplitude equalizer */}

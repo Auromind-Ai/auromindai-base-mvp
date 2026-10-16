@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Building2, Check, ExternalLink, ShieldCheck, RefreshCw, AlertCircle, Clock, Info } from 'lucide-react';
+import { X, Building2, ExternalLink, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 import { useToast } from '@/context/ToastContext';
 
@@ -10,13 +10,30 @@ export default function BusinessVerificationModal({
   isOpen,
   onClose,
   workspaceId,
+  businessId,
+  metaUrl,
   currentStatus = 'not_verified',
   onStatusUpdated,
 }) {
   const { showToast } = useToast();
   const [checking, setChecking] = useState(false);
-  const [updating, setUpdating] = useState(false);
   const [metaResult, setMetaResult] = useState(null);
+
+  const effectiveBusinessId =
+    businessId ||
+    (typeof window !== 'undefined' ? localStorage.getItem('whatsapp_business_id') : '');
+
+  const cleanBusinessId =
+    effectiveBusinessId && effectiveBusinessId !== 'undefined' && effectiveBusinessId !== 'null'
+      ? String(effectiveBusinessId).trim()
+      : '';
+
+  let verificationUrl = metaUrl || '';
+  if (!verificationUrl || verificationUrl.endsWith('?business_id=') || verificationUrl.endsWith('?business_id')) {
+    verificationUrl = cleanBusinessId
+      ? `https://business.facebook.com/latest/settings/security_center?business_id=${encodeURIComponent(cleanBusinessId)}`
+      : 'https://business.facebook.com/latest/settings/security_center';
+  }
 
   if (!isOpen) return null;
 
@@ -42,33 +59,13 @@ export default function BusinessVerificationModal({
       if (onStatusUpdated) onStatusUpdated(res);
     } catch (err) {
       console.error('Business verification check error:', err);
-      showToast('Could not query Meta API directly. You can update status manually below.', 'warning');
+      showToast('Could not query Meta API directly. Please try again later.', 'warning');
       setMetaResult({
         success: false,
-        message: 'Could not query Meta API directly. You can track your submission status below.',
+        message: 'Could not query Meta API directly. Please try again later.',
       });
     } finally {
       setChecking(false);
-    }
-  };
-
-  const handleSetManualStatus = async (statusValue) => {
-    setUpdating(true);
-    try {
-      const res = await api.checkBusinessVerificationStatus(workspaceId, statusValue);
-      const label = statusValue === 'verified' ? 'Verified' : statusValue === 'pending' ? 'Under Review' : 'Updated';
-      showToast(`Verification status set to: ${label}`, 'success');
-      if (onStatusUpdated) onStatusUpdated(res);
-      if (statusValue === 'verified') {
-        setTimeout(() => {
-          onClose();
-        }, 500);
-      }
-    } catch (err) {
-      console.error('Manual status update error:', err);
-      showToast(err?.message || 'Failed to update verification status.', 'error');
-    } finally {
-      setUpdating(false);
     }
   };
 
@@ -78,7 +75,7 @@ export default function BusinessVerificationModal({
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="relative w-full max-w-lg rounded-2xl bg-[#0b0c16] border border-[#814AC8]/30 shadow-[0_0_50px_-10px_rgba(129,74,200,0.3)] overflow-hidden text-white"
+        className="relative w-full max-w-xl rounded-2xl bg-[#0b0c16] border border-[#814AC8]/30 shadow-[0_0_50px_-10px_rgba(129,74,200,0.3)] overflow-hidden text-white"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 bg-white/[0.02]">
@@ -101,79 +98,106 @@ export default function BusinessVerificationModal({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
-          {/* Status Badge */}
-          <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-            <span className="text-xs text-white/60">Current Status:</span>
-            {currentStatus === 'verified' && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
-                <Check size={12} /> Verified by Meta
-              </span>
-            )}
-            {currentStatus === 'pending' && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-300">
-                <Clock size={12} /> Pending Meta Review
-              </span>
-            )}
-            {currentStatus === 'failed' && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/15 border border-rose-500/30 text-rose-400">
-                <AlertCircle size={12} /> Verification Failed
-              </span>
-            )}
-            {currentStatus === 'not_verified' && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-white/10 border border-white/15 text-white/70">
-                Action Required
-              </span>
-            )}
-          </div>
+        <div className="p-6 space-y-4">
+          <div
+            className={`border rounded-2xl p-6 ${
+              currentStatus === 'verified'
+                ? 'bg-gradient-to-b from-[#071d13]/90 via-[#04130c]/95 to-[#020b07] border-emerald-500/50 shadow-[0_0_35px_rgba(16,185,129,0.18)]'
+                : currentStatus === 'pending'
+                ? 'bg-gradient-to-b from-[#221603]/90 via-[#160e02]/95 to-[#0d0801] border-amber-500/50 shadow-[0_0_35px_rgba(245,158,11,0.18)]'
+                : 'bg-gradient-to-b from-[#1c0508]/90 via-[#120305]/95 to-[#0b0203] border-red-600/50 shadow-[0_0_35px_rgba(220,38,38,0.18)]'
+            }`}
+          >
+            {/* Top row: Icon box + Title & Status Badge */}
+            <div className="flex items-start gap-4">
+              {currentStatus === 'verified' ? (
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                  <svg className="w-6 h-6 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+              ) : currentStatus === 'pending' ? (
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0">
+                  <svg className="w-6 h-6 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                </div>
+              ) : (
+                <div className="w-12 h-12 rounded-2xl bg-[#2a0a0e] border border-red-500/30 flex items-center justify-center shrink-0">
+                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M12 2.5a2 2 0 0 0-1.73 1L1.4 18.2A2 2 0 0 0 3.13 21h17.74a2 2 0 0 0 1.73-2.8L13.73 3.5a2 2 0 0 0-1.73-1z"
+                      fill="#f59e0b"
+                    />
+                    <path d="M12 8.5v5" stroke="#1c0507" strokeWidth="2" strokeLinecap="round" />
+                    <circle cx="12" cy="16.5" r="1" fill="#1c0507" />
+                  </svg>
+                </div>
+              )}
 
-          <div className="p-3.5 rounded-xl bg-[#814AC8]/10 border border-[#814AC8]/25 text-xs text-white/80 leading-relaxed flex items-start gap-2.5">
-            <Info size={16} className="text-[#a77bee] shrink-0 mt-0.5" />
-            <span>
-              Meta requires business verification to lift WhatsApp messaging limits, access official green checkmark badges, and ensure enterprise compliance.
-            </span>
-          </div>
+              <div className="space-y-1.5">
+                <h4 className="text-base sm:text-lg font-semibold text-white tracking-tight">
+                  {currentStatus === 'verified'
+                    ? 'Business Verified'
+                    : currentStatus === 'pending'
+                    ? 'Business Verification Pending Review'
+                    : 'Business Verification Required'}
+                </h4>
+                <div>
+                  <span
+                    className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold tracking-wider uppercase border ${
+                      currentStatus === 'verified'
+                        ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/40'
+                        : currentStatus === 'pending'
+                        ? 'bg-amber-950/60 text-amber-400 border-amber-500/40'
+                        : 'bg-[#2b0c10]/80 text-red-400 border-red-500/40'
+                    }`}
+                  >
+                    STATUS:{' '}
+                    {currentStatus === 'verified'
+                      ? 'VERIFIED'
+                      : currentStatus === 'pending'
+                      ? 'PENDING REVIEW'
+                      : currentStatus
+                      ? currentStatus.replace(/_/g, ' ')
+                      : 'NOT VERIFIED'}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-          {/* Stepper instructions */}
-          <div className="space-y-3">
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-              <span className="w-5 h-5 rounded-full bg-white/10 text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                1
-              </span>
-              <div className="text-xs space-y-1.5 flex-1">
-                <p className="font-medium text-white">Go to Meta Business Security Center</p>
-                <p className="text-white/50">Navigate to Business Verification in your Meta settings.</p>
+            {/* Description Paragraph */}
+            <p className="mt-5 text-xs sm:text-sm text-white/80 leading-relaxed">
+              {currentStatus === 'verified'
+                ? 'Your business is officially verified with Meta. All WhatsApp messaging limits and template capabilities are active.'
+                : currentStatus === 'pending'
+                ? 'Your business documents are submitted and under review by Meta. Meta typically approves within 24–48 hours.'
+                : 'Please verify business with Meta. Meta requires official business verification to approve templates and lift WhatsApp messaging limits.'}
+            </p>
+
+            {/* Bottom Row Buttons */}
+            <div className="flex items-center justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={handleCheckMetaStatus}
+                disabled={checking}
+                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-medium bg-[#1c131d]/80 hover:bg-white/10 text-white border border-white/15 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={checking ? 'animate-spin' : ''} />
+                Refresh
+              </button>
+              {currentStatus !== 'verified' && (
                 <a
-                  href="https://business.facebook.com/settings/security"
+                  href={verificationUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#814AC8]/20 hover:bg-[#814AC8]/30 border border-[#814AC8]/40 text-[#a77bee] hover:text-white font-medium text-[11px] transition-all"
+                  className="px-5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-[#dc2626] hover:bg-[#ef4444] text-white shadow-lg shadow-red-950/50 transition-all cursor-pointer flex items-center gap-1.5"
                 >
-                  Open Meta Business Verification <ExternalLink size={12} />
+                  Verify Business
+                  <ExternalLink size={14} />
                 </a>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-              <span className="w-5 h-5 rounded-full bg-white/10 text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                2
-              </span>
-              <div className="text-xs space-y-1">
-                <p className="font-medium text-white">Provide Legal Business Documents</p>
-                <p className="text-white/50">
-                  Upload proof of legal business registration (e.g., GST Certificate, Incorporation Certificate, or business bank statement).
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-              <span className="w-5 h-5 rounded-full bg-white/10 text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                3
-              </span>
-              <div className="text-xs space-y-1">
-                <p className="font-medium text-white">Confirm Verification Code</p>
-                <p className="text-white/50">Meta will verify via business email or SMS. Once submitted, Meta typically approves within 24–48 hours.</p>
-              </div>
+              )}
             </div>
           </div>
 
@@ -197,52 +221,6 @@ export default function BusinessVerificationModal({
               </div>
             </div>
           )}
-        </div>
-
-        {/* Footer actions */}
-        <div className="px-6 py-4 border-t border-white/10 bg-white/[0.02] flex flex-wrap items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={handleCheckMetaStatus}
-            disabled={checking || updating}
-            className="px-4 py-2 rounded-xl text-xs font-medium text-white bg-white/10 hover:bg-white/15 border border-white/15 flex items-center gap-2 transition-all disabled:opacity-50"
-          >
-            <RefreshCw size={13} className={checking ? 'animate-spin' : ''} />
-            {checking ? 'Checking Meta...' : 'Check Status'}
-          </button>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {currentStatus !== 'pending' && currentStatus !== 'verified' && (
-              <button
-                type="button"
-                onClick={() => handleSetManualStatus('pending')}
-                disabled={checking || updating}
-                className="px-3.5 py-2 rounded-xl text-xs font-medium text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 transition-all disabled:opacity-50"
-              >
-                {updating ? 'Updating...' : 'I Submitted Documents'}
-              </button>
-            )}
-
-            {currentStatus !== 'verified' && (
-              <button
-                type="button"
-                onClick={() => handleSetManualStatus('verified')}
-                disabled={checking || updating}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-white bg-[#814AC8] hover:bg-[#703bb5] shadow-lg shadow-[#814AC8]/25 transition-all flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <Check size={13} />
-                {updating ? 'Saving...' : 'Mark Verified'}
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-white/70 hover:text-white hover:bg-white/5 transition-all"
-            >
-              Done
-            </button>
-          </div>
         </div>
       </motion.div>
     </div>

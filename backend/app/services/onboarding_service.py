@@ -21,7 +21,11 @@ class OnboardingService:
         if not ws:
             raise HTTPException(status_code=404, detail="Workspace not found")
 
-        whatsapp_connected = bool(ws.meta_access_token and ws.meta_phone_number_id)
+        whatsapp_connected = bool(
+            (ws.meta_access_token and ws.meta_phone_number_id) or
+            (ws.meta_waba_id and ws.meta_phone_number_id) or
+            bool(ws.meta_phone_number_id)
+        )
         two_factor_enabled = bool(ws.meta_2fa_enabled)
         business_verification_status = ws.meta_business_verification_status or "not_verified"
         onboarding_dismissed = bool(ws.meta_onboarding_dismissed)
@@ -48,6 +52,36 @@ class OnboardingService:
 
         percentage = round((completed_count / 3.0) * 100)
 
+        # Attempt to auto-fetch business_id if missing but WABA & access token exist
+        if not ws.meta_business_id and ws.meta_waba_id and ws.meta_access_token:
+            try:
+                res = requests.get(
+                    f"https://graph.facebook.com/v19.0/{ws.meta_waba_id}",
+                    params={"fields": "owner_business_info", "access_token": ws.meta_access_token},
+                    timeout=5,
+                )
+                waba_data = res.json()
+                owner_info = waba_data.get("owner_business_info")
+                if owner_info and owner_info.get("id"):
+                    ws.meta_business_id = str(owner_info.get("id"))
+                    db.commit()
+                    db.refresh(ws)
+            except Exception as e:
+                logger.warning(f"Could not auto-fetch business_id for workspace {workspace_id}: {e}")
+
+        raw_biz = (ws.meta_business_id or "").strip()
+        business_id = raw_biz if raw_biz.lower() not in ("null", "undefined", "none", "") else None
+        two_factor_url = (
+            f"https://business.facebook.com/latest/settings/business_info?business_id={business_id}"
+            if business_id
+            else "https://business.facebook.com/latest/settings/business_info"
+        )
+        verification_url = (
+            f"https://business.facebook.com/latest/settings/security_center?business_id={business_id}"
+            if business_id
+            else "https://business.facebook.com/latest/settings/security_center"
+        )
+
         steps = {
             "step_1": {
                 "step": 1,
@@ -72,6 +106,8 @@ class OnboardingService:
                 "completed": two_factor_enabled,
                 "status": "completed" if two_factor_enabled else "action_required",
                 "status_label": "Completed" if two_factor_enabled else "Action required",
+                "business_id": ws.meta_business_id,
+                "meta_url": two_factor_url,
             },
             "step_3": {
                 "step": 3,
@@ -91,6 +127,8 @@ class OnboardingService:
                     if business_verification_status == "failed"
                     else "Action required"
                 ),
+                "business_id": ws.meta_business_id,
+                "meta_url": verification_url,
             },
         }
 
@@ -109,6 +147,8 @@ class OnboardingService:
             "meta_display_phone": ws.meta_display_phone,
             "meta_business_id": ws.meta_business_id,
             "meta_waba_id": ws.meta_waba_id,
+            "two_factor_url": two_factor_url,
+            "verification_url": verification_url,
         }
 
     @staticmethod
@@ -137,10 +177,30 @@ class OnboardingService:
         meta_verified = False
         meta_message = None
 
-        if ws.meta_access_token and ws.meta_business_id:
+        # Attempt to auto-fetch business_id if missing but WABA & access token exist
+        if not ws.meta_business_id and ws.meta_waba_id and ws.meta_access_token:
             try:
                 res = requests.get(
-                    f"https://graph.facebook.com/v19.0/{ws.meta_business_id}",
+                    f"https://graph.facebook.com/v19.0/{ws.meta_waba_id}",
+                    params={"fields": "owner_business_info", "access_token": ws.meta_access_token},
+                    timeout=5,
+                )
+                waba_data = res.json()
+                owner_info = waba_data.get("owner_business_info")
+                if owner_info and owner_info.get("id"):
+                    ws.meta_business_id = str(owner_info.get("id"))
+                    db.commit()
+                    db.refresh(ws)
+            except Exception as e:
+                logger.warning(f"Could not auto-fetch business_id for workspace {workspace_id}: {e}")
+
+        raw_biz = (ws.meta_business_id or "").strip()
+        business_id = raw_biz if raw_biz.lower() not in ("null", "undefined", "none", "") else None
+
+        if ws.meta_access_token and business_id:
+            try:
+                res = requests.get(
+                    f"https://graph.facebook.com/v19.0/{business_id}",
                     params={
                         "fields": "two_factor_type",
                         "access_token": ws.meta_access_token,
@@ -150,17 +210,22 @@ class OnboardingService:
                 data = res.json()
                 if "error" not in data:
                     two_factor_type = data.get("two_factor_type")
-                    if two_factor_type in ["everyone", "admin_only"]:
+                    two_factor_str = str(two_factor_type).strip().lower() if two_factor_type else ""
+                    # Meta 2FA is active if two_factor_type is set and not 'none'/'off'/'nobody'
+                    if two_factor_str and two_factor_str not in ["none", "off", "nobody", "no_one", "null", "false", "disabled"]:
                         meta_verified = True
                         ws.meta_2fa_enabled = True
-                    meta_message = f"Meta Business two_factor_type: {two_factor_type or 'none'}"
+                        label = "Admins only" if "admin" in two_factor_str else "Everyone" if "all" in two_factor_str or "every" in two_factor_str else two_factor_type
+                        meta_message = f"Meta Business 2FA active ({label})"
+                    else:
+                        meta_message = f"Meta Business two_factor_type: {two_factor_type or 'none'}"
                 else:
                     meta_message = data.get("error", {}).get("message")
             except Exception as e:
                 logger.warning(f"Failed to query Meta for 2FA status: {e}")
                 meta_message = str(e)
 
-        if manual_confirm and not meta_verified:
+        if manual_confirm:
             ws.meta_2fa_enabled = True
 
         all_completed = bool(
@@ -190,62 +255,13 @@ class OnboardingService:
         if not ws:
             raise HTTPException(status_code=404, detail="Workspace not found")
 
-        meta_verified = False
-        meta_status = None
-        meta_message = None
-
-        if ws.meta_access_token:
-            # 1. Try Business Manager ID
-            if ws.meta_business_id:
-                try:
-                    res = requests.get(
-                        f"https://graph.facebook.com/v19.0/{ws.meta_business_id}",
-                        params={
-                            "fields": "verification_status",
-                            "access_token": ws.meta_access_token,
-                        },
-                        timeout=10,
-                    )
-                    data = res.json()
-                    if "error" not in data:
-                        raw_status = str(data.get("verification_status") or "").lower()
-                        meta_status = raw_status
-                        if raw_status in ["verified", "approved"]:
-                            ws.meta_business_verification_status = "verified"
-                            meta_verified = True
-                        elif raw_status in ["pending", "in_review", "submitted"]:
-                            ws.meta_business_verification_status = "pending"
-                        elif raw_status in ["failed", "rejected"]:
-                            ws.meta_business_verification_status = "failed"
-                    else:
-                        meta_message = data.get("error", {}).get("message")
-                except Exception as e:
-                    logger.warning(f"Failed to query Meta Business verification_status: {e}")
-                    meta_message = str(e)
-
-            # 2. Try WABA verification status if business query didn't confirm
-            if not meta_verified and ws.meta_waba_id:
-                try:
-                    res = requests.get(
-                        f"https://graph.facebook.com/v19.0/{ws.meta_waba_id}",
-                        params={
-                            "fields": "account_review_status,business_verification_status",
-                            "access_token": ws.meta_access_token,
-                        },
-                        timeout=10,
-                    )
-                    data = res.json()
-                    if "error" not in data:
-                        waba_bv = str(data.get("business_verification_status") or "").lower()
-                        if waba_bv in ["verified", "approved"]:
-                            ws.meta_business_verification_status = "verified"
-                            meta_verified = True
-                            meta_status = waba_bv
-                        elif waba_bv in ["pending", "in_review", "submitted"]:
-                            ws.meta_business_verification_status = "pending"
-                            meta_status = waba_bv
-                except Exception as e:
-                    logger.warning(f"Failed to query WABA business_verification_status: {e}")
+        # Reuse existing canonical get_meta_status from ChannelConnectionService
+        from app.services.inbox.channel_connection_service import ChannelConnectionService
+        meta_result = {}
+        try:
+            meta_result = ChannelConnectionService.get_meta_status(db, workspace_id)
+        except Exception as e:
+            logger.warning("Error calling existing get_meta_status: %s", e)
 
         # If user explicitly provides manual_status ('pending', 'verified', 'not_verified')
         if manual_status and manual_status in ["not_verified", "pending", "verified", "failed"]:
@@ -261,6 +277,11 @@ class OnboardingService:
 
         db.commit()
         db.refresh(ws)
+
+        # Extract status fields from canonical meta_result
+        meta_verified = meta_result.get("is_verified", False)
+        meta_status = meta_result.get("business_verification_status", "not_verified")
+        meta_message = meta_result.get("message", None)
 
         status_result = OnboardingService.get_onboarding_status(db, workspace_id)
         status_result["meta_verified"] = meta_verified

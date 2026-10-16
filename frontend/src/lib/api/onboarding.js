@@ -1,5 +1,14 @@
 import client from './client';
-import { getActiveWorkspaceId } from './channels';
+import { getWorkspaceIdFromToken } from '@/lib/auth';
+
+export function getActiveWorkspaceId(overrideId) {
+  if (overrideId && overrideId !== 'null' && overrideId !== 'undefined') return overrideId;
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('workspace_id');
+    if (saved && saved !== 'null' && saved !== 'undefined') return saved;
+  }
+  return getWorkspaceIdFromToken();
+}
 
 export async function getOnboardingStatus(workspaceId) {
   const ws = getActiveWorkspaceId(workspaceId);
