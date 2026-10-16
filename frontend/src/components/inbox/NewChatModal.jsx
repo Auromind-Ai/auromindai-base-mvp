@@ -141,7 +141,7 @@ export default function NewChatModal({ isOpen, onClose, onStartChat }) {
                           <span className="text-base">{c.flag}</span>
                           <span className="font-medium text-[13px]">{c.name}</span>
                         </div>
-                        <span className="text-zinc-400 font-mono text-[12px]">{c.dial}</span>
+                        <span className="text-zinc-400 text-[12px]">{c.dial}</span>
                       </button>
                     ))}
                   </div>

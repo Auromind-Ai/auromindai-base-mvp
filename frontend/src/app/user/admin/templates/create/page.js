@@ -1871,7 +1871,7 @@ export default function CreateTemplatePage() {
                       type="button"
                       onClick={() => handleApplyFormatting('```')}
                       title="Monospace (```text```)"
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-xs font-mono text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-xs text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                     >
                       &lt;&gt;
                     </button>

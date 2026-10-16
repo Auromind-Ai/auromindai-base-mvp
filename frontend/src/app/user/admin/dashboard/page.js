@@ -31,6 +31,7 @@ import { useDashboard } from '@/lib/useDashboard';
 import AddLeadModal from '@/components/leads/AddLeadModal';
 import CreditRingDropdown from '@/components/CreditRingDropdown';
 import WhatsAppStatusIndicator from '@/components/dashboard/WhatsAppStatusIndicator';
+import WhatsAppOnboardingSection from '@/components/onboarding/WhatsAppOnboardingSection';
 import Preloader from '@/components/Preloader';
 
 // Magic Bento helpers
@@ -1649,6 +1650,52 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState('current_week');
   const [dateRange, setDateRange] = useState(() => calculateDatesForPeriod('current_week'));
   const [revenueRangeView, setRevenueRangeView] = useState('jan_jun');
+  const [isOnboardingActive, setIsOnboardingActive] = useState(false);
+  const [onboardingInfo, setOnboardingInfo] = useState(null);
+  const [showOnboardingCards, setShowOnboardingCards] = useState(false);
+
+  const handleOnboardingStatusChange = useCallback(({ isActive, data }) => {
+    setIsOnboardingActive((prev) => (prev !== isActive ? isActive : prev));
+    setOnboardingInfo((prev) => {
+      if (
+        prev &&
+        data &&
+        prev.completed_count === data.completed_count &&
+        prev.progress_percentage === data.progress_percentage &&
+        prev.onboarding_completed === data.onboarding_completed &&
+        prev.two_factor_enabled === data.two_factor_enabled &&
+        prev.business_verification_status === data.business_verification_status &&
+        prev.whatsapp_connected === data.whatsapp_connected
+      ) {
+        return prev;
+      }
+      return data;
+    });
+  }, []);
+
+  const [cachedWhatsAppConnected, setCachedWhatsAppConnected] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const checkConnected = () => {
+        const isConn = localStorage.getItem('whatsapp_connected') === 'true';
+        setCachedWhatsAppConnected(isConn);
+      };
+      checkConnected();
+      window.addEventListener('storage', checkConnected);
+      window.addEventListener('channel-status-changed', checkConnected);
+      return () => {
+        window.removeEventListener('storage', checkConnected);
+        window.removeEventListener('channel-status-changed', checkConnected);
+      };
+    }
+  }, []);
+
+  const isWhatsAppConnected = onboardingInfo ? Boolean(onboardingInfo.whatsapp_connected) : cachedWhatsAppConnected;
+  const isSetupPending = isWhatsAppConnected && !onboardingInfo?.onboarding_completed;
+  const onboardingProgress = onboardingInfo?.progress_percentage ?? (
+    Math.round(((isWhatsAppConnected ? 1 : 0) + (Boolean(onboardingInfo?.two_factor_enabled) ? 1 : 0) + (onboardingInfo?.business_verification_status === 'verified' ? 1 : 0)) / 3 * 100)
+  );
 
   const handlePeriodChange = (newPeriod) => {
     setPeriod(newPeriod);
@@ -1734,17 +1781,82 @@ export default function DashboardPage() {
         {/* HEADER */}
         <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-xl lg:text-2xl font-semibold tracking-tight text-white/90">Dashboard</h1>
-            <p className="text-[14px] text-white/70 mt-0.5">Good morning! Here are your key actions for today.</p>
+            <h1 className="text-xl lg:text-2xl font-semibold tracking-tight text-white/90">
+              {!isWhatsAppConnected && isOnboardingActive ? "Welcome to Orbion Agents 👋" : "Dashboard"}
+            </h1>
+            <div className="text-[14px] text-white/70 mt-0.5">
+              {!isWhatsAppConnected && isOnboardingActive ? (
+                <div>
+                  <span className="font-medium text-white/85">Let&apos;s get your WhatsApp workspace ready.</span>
+                  <p className="text-white/50 text-[13px] mt-0.5">
+                    Connect your WhatsApp Business account and start automating customer conversations with AI.
+                  </p>
+                </div>
+              ) : (
+                "Good morning! Here are your key actions for today."
+              )}
+            </div>
           </div>
           <div className="flex items-center flex-nowrap gap-1.5 sm:gap-3 py-0.5 justify-start xl:justify-end">
+            {/* WhatsApp Setup Pending Indication (Click to toggle full setup cards) */}
+            {isSetupPending && (
+              <button
+                type="button"
+                onClick={() => setShowOnboardingCards((prev) => !prev)}
+                className={`
+                  relative h-8 sm:h-[42px] px-2.5 sm:px-3.5 rounded-lg sm:rounded-2xl flex items-center gap-1.5 sm:gap-2.5 
+                  bg-[#09090e]/90 backdrop-blur-md select-none transition-all duration-200 cursor-pointer flex-shrink-0 shrink-0 group
+                  ${showOnboardingCards
+                    ? 'border border-amber-500/60 bg-amber-500/15 shadow-[0_0_15px_rgba(245,158,11,0.25)] ring-1 ring-amber-500/30'
+                    : 'border border-amber-500/35 hover:border-amber-500/60 hover:bg-amber-500/10 shadow-[0_0_10px_rgba(245,158,11,0.1)]'
+                  }
+                `}
+                title={showOnboardingCards ? "Click to hide WhatsApp setup steps" : "WhatsApp setup pending — Click to open setup steps"}
+                aria-label="WhatsApp setup pending"
+              >
+                {/* Amber pulsating indicator */}
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                </span>
+
+                {/* "Pending" label */}
+                <span className="text-[11px] sm:text-xs font-semibold text-amber-400 tracking-tight shrink-0">
+                  Pending
+                </span>
+
+                {/* Mini progress bar matching user's drawing */}
+                <div className="w-8 sm:w-14 h-1.5 rounded-full bg-white/10 overflow-hidden shrink-0 hidden sm:block">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-300 transition-all duration-500"
+                    style={{ width: `${onboardingProgress || 33}%` }}
+                  />
+                </div>
+
+                {/* Percentage number */}
+                <span className="text-[10px] sm:text-[11px] font-semibold text-amber-300/90 shrink-0">
+                  {onboardingProgress || 33}%
+                </span>
+
+                {/* Toggle chevron */}
+                <ChevronDown
+                  size={13}
+                  className={`text-amber-400/70 transition-transform duration-200 shrink-0 ${
+                    showOnboardingCards ? 'rotate-180' : 'group-hover:translate-y-0.5'
+                  }`}
+                />
+              </button>
+            )}
+
             <WhatsAppStatusIndicator />
-            <PeriodPicker
-              period={period}
-              dateRange={dateRange}
-              onPeriodChange={handlePeriodChange}
-              onCustomDateChange={handleCustomDateChange}
-            />
+            {isWhatsAppConnected && (
+              <PeriodPicker
+                period={period}
+                dateRange={dateRange}
+                onPeriodChange={handlePeriodChange}
+                onCustomDateChange={handleCustomDateChange}
+              />
+            )}
             <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 flex-shrink-0">
               <NotificationBell />
               <div className="relative z-50 shrink-0 flex-shrink-0">
@@ -1754,88 +1866,101 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        {/* METRICS GRID */}
-        <div className={cardStateClass}>
-          <BentoMetricsGrid metrics={metrics} />
-        </div>
+        {/* WHATSAPP ONBOARDING FLOW */}
+        <WhatsAppOnboardingSection
+          workspaceId={workspaceId}
+          isForceOpen={showOnboardingCards}
+          onToggleOpen={setShowOnboardingCards}
+          onStatusChange={handleOnboardingStatusChange}
+        />
 
-        {/* ROW 1: Monthly Revenue + Recent Activity */}
-        <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5 overflow-visible ${cardStateClass}`}>
-          {/* Monthly Revenue — 2/3 */}
-          <section className="lg:col-span-2 rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden flex flex-col justify-between">
-            {/* Header: Title on Left, 2 Toggle buttons on Right */}
-            <div className="px-5 pt-4 pb-1 flex items-center justify-between">
-              <div>
-                <h2 className="text-[15px] font-medium text-white/90">Monthly Revenue</h2>
-                <p className="text-[12px] text-white/70 mt-0.5">This year vs last year (INR)</p>
-              </div>
+        {/* DASHBOARD METRICS & SECTIONS (Only shown once WhatsApp is connected) */}
+        {isWhatsAppConnected && (
+          <>
+            {/* METRICS GRID */}
+            <div className={cardStateClass}>
+              <BentoMetricsGrid metrics={metrics} />
+            </div>
 
-              {/* 2 Range Filter Buttons */}
-              <div className="flex items-center bg-white/5 border border-white/10 p-0.5 rounded-lg shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setRevenueRangeView('jan_jun')}
-                  className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all cursor-pointer ${
-                    revenueRangeView === 'jan_jun'
-                      ? 'bg-[#814AC8] text-white shadow-sm font-semibold'
-                      : 'text-white/60 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  Jan – Jun
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRevenueRangeView('jul_dec')}
-                  className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all cursor-pointer ${
-                    revenueRangeView === 'jul_dec'
-                      ? 'bg-[#814AC8] text-white shadow-sm font-semibold'
-                      : 'text-white/60 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  Jul – Dec
-                </button>
+            {/* ROW 1: Monthly Revenue + Recent Activity */}
+            <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5 overflow-visible ${cardStateClass}`}>
+              {/* Monthly Revenue — 2/3 */}
+              <section className="lg:col-span-2 rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden flex flex-col justify-between">
+                {/* Header: Title on Left, 2 Toggle buttons on Right */}
+                <div className="px-5 pt-4 pb-1 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-[15px] font-medium text-white/90">Monthly Revenue</h2>
+                    <p className="text-[12px] text-white/70 mt-0.5">This year vs last year (INR)</p>
+                  </div>
+
+                  {/* 2 Range Filter Buttons */}
+                  <div className="flex items-center bg-white/5 border border-white/10 p-0.5 rounded-lg shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setRevenueRangeView('jan_jun')}
+                      className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all cursor-pointer ${
+                        revenueRangeView === 'jan_jun'
+                          ? 'bg-[#814AC8] text-white shadow-sm font-semibold'
+                          : 'text-white/60 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      Jan – Jun
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRevenueRangeView('jul_dec')}
+                      className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all cursor-pointer ${
+                        revenueRangeView === 'jul_dec'
+                          ? 'bg-[#814AC8] text-white shadow-sm font-semibold'
+                          : 'text-white/60 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      Jul – Dec
+                    </button>
+                  </div>
+                </div>
+
+                {/* Dynamic Year Legend in its Original CENTER place */}
+                <div className="flex items-center justify-center gap-5 px-5 pt-1 pb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#39ff7e', boxShadow: '0 0 8px #39ff7e' }} />
+                    <span className="text-[11px] text-white/70 font-medium">{revenue.current_year || new Date().getFullYear()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#b794f4', boxShadow: '0 0 8px #b794f4' }} />
+                    <span className="text-[11px] text-white/70 font-medium">{revenue.prior_year || new Date().getFullYear() - 1}</span>
+                  </div>
+                </div>
+
+                <div className="px-3 pb-3">
+                  <MonthlyRevenueChart 
+                    months={revenue.months} 
+                    currentData={revenue.current_data} 
+                    priorData={revenue.prior_data}
+                    currentYear={revenue.current_year}
+                    priorYear={revenue.prior_year}
+                    rangeView={revenueRangeView}
+                  />
+                </div>
+              </section>
+
+              {/* Recent Activity — 1/3 xl, full-width lg */}
+              <div className="lg:col-span-2 xl:col-span-1 h-full">
+                <RecentActivityCard activities={activities} />
               </div>
             </div>
 
-            {/* Dynamic Year Legend in its Original CENTER place */}
-            <div className="flex items-center justify-center gap-5 px-5 pt-1 pb-1">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#39ff7e', boxShadow: '0 0 8px #39ff7e' }} />
-                <span className="text-[11px] text-white/70 font-medium">{revenue.current_year || new Date().getFullYear()}</span>
+            {/* ROW 2: Quick Actions + AI Insights */}
+            <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5 ${cardStateClass}`}>
+              <div className="lg:col-span-2 h-full">
+                <QuickActionsCard onAddLeadClick={() => setShowAddLead(true)} />
               </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#b794f4', boxShadow: '0 0 8px #b794f4' }} />
-                <span className="text-[11px] text-white/70 font-medium">{revenue.prior_year || new Date().getFullYear() - 1}</span>
+              <div className="lg:col-span-2 xl:col-span-1">
+                <AIInsightsCard insights={insights} />
               </div>
             </div>
-
-            <div className="px-3 pb-3">
-              <MonthlyRevenueChart 
-                months={revenue.months} 
-                currentData={revenue.current_data} 
-                priorData={revenue.prior_data}
-                currentYear={revenue.current_year}
-                priorYear={revenue.prior_year}
-                rangeView={revenueRangeView}
-              />
-            </div>
-          </section>
-
-          {/* Recent Activity — 1/3 xl, full-width lg */}
-          <div className="lg:col-span-2 xl:col-span-1 h-full">
-            <RecentActivityCard activities={activities} />
-          </div>
-        </div>
-
-        {/* ROW 2: Quick Actions + AI Insights */}
-        <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5 ${cardStateClass}`}>
-          <div className="lg:col-span-2 h-full">
-            <QuickActionsCard onAddLeadClick={() => setShowAddLead(true)} />
-          </div>
-          <div className="lg:col-span-2 xl:col-span-1">
-            <AIInsightsCard insights={insights} />
-          </div>
-        </div>
+          </>
+        )}
 
       </div>
 

@@ -13,6 +13,7 @@ import * as templates from './templates';
 import * as users from './users';
 import * as dashboard from './dashboard';
 import * as workspace from './workspace';
+import * as onboarding from './onboarding';
 
 const api = {
   // Expose the base request helpers as well
@@ -42,6 +43,7 @@ const api = {
   ...users,
   ...dashboard,
   ...workspace,
+  ...onboarding,
 };
 
 

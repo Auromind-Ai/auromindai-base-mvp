@@ -23,15 +23,8 @@ def seed_marketing_data():
             user = db.query(User).filter(User.id == ws.created_by).first() if ws.created_by else db.query(User).first()
             user_id = user.id if user else None
 
-            # Ensure Meta WhatsApp line is connected on workspace
-            if not ws.meta_display_phone or not ws.meta_phone_number_id or not ws.meta_access_token:
-                ws.meta_access_token = ws.meta_access_token or "EAAN_MOCK_CONNECTED_TOKEN_WHATSAPP_LIVE"
-                ws.meta_display_phone = ws.meta_display_phone or "+91 98765 43210"
-                ws.meta_phone_number_id = ws.meta_phone_number_id or "109283746501928"
-                ws.meta_waba_id = ws.meta_waba_id or "104857692019283"
-                ws.meta_business_id = ws.meta_business_id or "102938475610293"
-                ws.meta_tier_limit = ws.meta_tier_limit or 10000
-                db.flush()
+            # Do not auto-seed fake Meta WhatsApp connection on workspaces.
+            # Real connections should be established via Meta OAuth / Embedded Signup.
 
             # 1. Seed Templates if none exist
             existing_templates = db.query(Template).filter(Template.workspace_id == ws.id).all()

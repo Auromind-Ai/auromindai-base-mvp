@@ -327,6 +327,15 @@ class ChannelConnectionService:
         except Exception as e:
             logger.warning("Could not fetch initial Meta tier limit on connection: %s", e)
 
+        # Check initial 2FA and business verification status from Meta
+        try:
+            from app.services.onboarding_service import OnboardingService
+            if business_id:
+                OnboardingService.check_2fa_status(db, str(workspace.id))
+                OnboardingService.check_business_verification(db, str(workspace.id))
+        except Exception as e:
+            logger.warning("Could not check initial onboarding 2fa/verification on connection: %s", e)
+
         db.commit()
 
         return {
@@ -734,6 +743,29 @@ class ChannelConnectionService:
 
         clean_status = str(raw_biz_status).lower().strip()
         is_verified = (clean_status == "verified")
+
+        # Sync verification status to workspace record for persistent onboarding state
+        try:
+            from datetime import datetime, timezone
+            if is_verified:
+                workspace.meta_business_verification_status = "verified"
+            elif clean_status in ["pending", "in_review", "submitted"]:
+                workspace.meta_business_verification_status = "pending"
+            elif clean_status in ["failed", "rejected"]:
+                workspace.meta_business_verification_status = "failed"
+            elif clean_status and clean_status != "unverified":
+                workspace.meta_business_verification_status = clean_status
+
+            all_completed = bool(
+                (workspace.meta_access_token and workspace.meta_phone_number_id)
+                and getattr(workspace, "meta_2fa_enabled", False)
+                and (workspace.meta_business_verification_status == "verified")
+            )
+            if all_completed and not getattr(workspace, "meta_onboarding_completed_at", None):
+                workspace.meta_onboarding_completed_at = datetime.now(timezone.utc)
+            db.commit()
+        except Exception as e:
+            logger.warning("Could not sync verification status to workspace: %s", e)
 
         return {
             "connected": True,

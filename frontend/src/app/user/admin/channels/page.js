@@ -943,9 +943,6 @@ function ChannelsContent() {
                 localStorage.removeItem("whatsapp_phone_id");
                 localStorage.removeItem("whatsapp_waba_id");
             }
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('channel-status-changed'));
-            }
 
             if (data.instagram?.connected) {
                 setConnectedInfo(prev => ({ ...prev, instagram: data.instagram.username || "Connected" }));
@@ -972,6 +969,22 @@ function ChannelsContent() {
     useEffect(() => {
         if (!workspace?.id) return;
         loadIntegrationStatus();
+
+        let lastFetchTime = Date.now();
+        const handleStatusChange = () => {
+            const now = Date.now();
+            if (now - lastFetchTime < 1500) return;
+            lastFetchTime = now;
+            loadIntegrationStatus();
+        };
+
+        window.addEventListener('channel-status-changed', handleStatusChange);
+        window.addEventListener('focus', handleStatusChange);
+
+        return () => {
+            window.removeEventListener('channel-status-changed', handleStatusChange);
+            window.removeEventListener('focus', handleStatusChange);
+        };
     }, [workspace?.id, loadIntegrationStatus]);
 
     const [searchQuery, setSearchQuery] = useState('');

@@ -201,6 +201,9 @@ async def disconnect_channel(
         workspace.meta_display_phone = None
         workspace.meta_business_id = None
         workspace.meta_access_token = None
+        workspace.meta_2fa_enabled = False
+        workspace.meta_business_verification_status = "not_verified"
+        workspace.meta_onboarding_completed_at = None
     elif channel_type == "instagram":
         workspace.meta_ig_id = None
         workspace.meta_ig_access_token = None

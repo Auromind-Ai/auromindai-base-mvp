@@ -62,6 +62,12 @@ class Workspace(Base):
     meta_token_expiry = Column(DateTime(timezone=True), nullable=True)
     meta_tier_limit = Column(Integer, nullable=True)
 
+    # WHATSAPP ONBOARDING FIELDS
+    meta_2fa_enabled = Column(Boolean, default=False, nullable=False, server_default='false')
+    meta_business_verification_status = Column(String(50), default="not_verified", nullable=False, server_default='not_verified')
+    meta_onboarding_completed_at = Column(DateTime(timezone=True), nullable=True)
+    meta_onboarding_dismissed = Column(Boolean, default=False, nullable=False, server_default='false')
+
     twilio_account_sid = Column(Text, nullable=True)
     twilio_auth_token = Column(Text, nullable=True)
     twilio_phone_number = Column(String(50), nullable=True)
