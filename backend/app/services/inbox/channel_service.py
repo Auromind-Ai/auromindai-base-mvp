@@ -288,12 +288,17 @@ class ChannelService:
                             media_url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
 
                     param_type = template.type.lower()
+                    header_dict = {"link": media_url}
+                    if param_type == "document":
+                        doc_filename = metadata.get("filename") or metadata.get("file_name") or metadata.get("original_filename")
+                        if doc_filename:
+                            header_dict["filename"] = doc_filename
                     components.append({
                         "type": "header",
                         "parameters": [
                             {
                                 "type": param_type,
-                                param_type: {"link": media_url}
+                                param_type: header_dict
                             }
                         ]
                     })
@@ -361,11 +366,17 @@ class ChannelService:
                     media_type=message_type if media_url else None
                 )
             elif media_url:
+                filename = (
+                    metadata.get("filename")
+                    or metadata.get("file_name")
+                    or metadata.get("original_filename")
+                )
                 message_id = service.send_media_message(
                     to=to_number,
                     media_url=media_url,
                     media_type=message_type,
-                    caption=body
+                    caption=body,
+                    filename=filename
                 )
             else:
                 message_id = service.send_text_message(to_number, body)

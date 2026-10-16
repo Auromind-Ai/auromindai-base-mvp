@@ -18,7 +18,20 @@ ALLOWED_TYPES = {
     "image": ["image/jpeg", "image/png", "image/jpg", "image/webp", "image/gif"],
     "video": ["video/mp4", "video/webm", "video/quicktime"],
     "audio": ["audio/mpeg", "audio/ogg", "audio/wav", "audio/mp4", "audio/aac", "audio/x-m4a", "audio/webm"],
-    "document": ["application/pdf"]
+    "document": [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "text/plain",
+        "text/csv",
+        "application/rtf",
+        "application/zip",
+        "application/x-zip-compressed",
+    ]
 }
 
 
@@ -34,6 +47,15 @@ _MAGIC_SIGNATURES: dict[str, list[tuple[int, bytes]]] = {
     "audio/ogg":  [(0, b"OggS")],
     "audio/wav":  [(0, b"RIFF")],
     "application/pdf": [(0, b"%PDF")],
+    "application/rtf": [(0, b"{\\rtf")],
+    "application/zip": [(0, b"PK\x03\x04")],
+    "application/x-zip-compressed": [(0, b"PK\x03\x04")],
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [(0, b"PK\x03\x04")],
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [(0, b"PK\x03\x04")],
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": [(0, b"PK\x03\x04")],
+    "application/msword": [(0, b"\xd0\xcf\x11\xe0")],
+    "application/vnd.ms-excel": [(0, b"\xd0\xcf\x11\xe0")],
+    "application/vnd.ms-powerpoint": [(0, b"\xd0\xcf\x11\xe0")],
 }
 
 
@@ -50,16 +72,22 @@ def _validate_mime(file_content: bytes, header_mime: Optional[str] = None) -> st
     
     real_mime = _detect_mime_from_bytes(file_content)
 
-    if real_mime is None and header_mime:
+    if header_mime:
         cleaned_header = header_mime.split(";")[0].strip().lower()
         allowed_flat = [m for mimes in ALLOWED_TYPES.values() for m in mimes]
-        if cleaned_header in allowed_flat:
+        # For ZIP-based formats (.docx, .xlsx, .pptx) or OLE-based formats (.doc, .xls, .ppt),
+        # header_mime disambiguates the specific document type:
+        if real_mime in {"application/zip", "application/x-zip-compressed"} and cleaned_header in allowed_flat:
+            real_mime = cleaned_header
+        elif real_mime in {"application/msword", "application/vnd.ms-excel", "application/vnd.ms-powerpoint"} and cleaned_header in allowed_flat:
+            real_mime = cleaned_header
+        elif real_mime is None and cleaned_header in allowed_flat:
             real_mime = cleaned_header
 
     if real_mime is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File type could not be determined. Allowed formats: Images (JPG, PNG, WebP, GIF), Videos (MP4, WebM, MOV), Audio (MP3, WAV, OGG), and PDF.",
+            detail="File type could not be determined. Allowed formats: Images, Videos, Audio, and Documents (PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, CSV, RTF, ZIP).",
         )
 
     allowed_flat = [m for mimes in ALLOWED_TYPES.values() for m in mimes]
@@ -96,6 +124,17 @@ MIME_EXTENSION_MAP = {
     "audio/x-m4a": ".m4a",
     "audio/webm": ".webm",
     "application/pdf": ".pdf",
+    "application/msword": ".doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/vnd.ms-excel": ".xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    "application/vnd.ms-powerpoint": ".ppt",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+    "text/plain": ".txt",
+    "text/csv": ".csv",
+    "application/rtf": ".rtf",
+    "application/zip": ".zip",
+    "application/x-zip-compressed": ".zip",
 }
 
 
@@ -144,6 +183,8 @@ async def upload_file(
         EntitlementService.raise_entitlement_exceeded(db, ws_uuid, "storage", ent_check.get("limit", 100))
 
     file_extension = MIME_EXTENSION_MAP.get(real_mime, "")
+    if not file_extension and "." in clean_filename:
+        file_extension = f".{clean_filename.rsplit('.', 1)[-1].lower()}"
     unique_filename = f"{uuid.uuid4()}{file_extension}"
     relative_path = f"{ws_uuid}/{file_type}/{unique_filename}"
 

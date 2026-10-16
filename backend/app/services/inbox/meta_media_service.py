@@ -35,8 +35,17 @@ MIME_EXTENSION_MAP = {
     "audio/aac": ".aac",
     "audio/x-m4a": ".m4a",
     "application/pdf": ".pdf",
+    "application/msword": ".doc",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/vnd.ms-excel": ".xls",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    "application/vnd.ms-powerpoint": ".ppt",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+    "text/plain": ".txt",
+    "text/csv": ".csv",
+    "application/rtf": ".rtf",
+    "application/zip": ".zip",
+    "application/x-zip-compressed": ".zip",
 }
 
 EXTENSION_MIME_MAP = {v: k for k, v in MIME_EXTENSION_MAP.items()}
@@ -143,6 +152,7 @@ class MetaMediaService:
         access_token: Optional[str] = None,
         mime_type: Optional[str] = None,
         media_type: Optional[str] = None,
+        original_filename: Optional[str] = None,
         db: Optional[Session] = None,
     ) -> tuple[Optional[bytes], Optional[str], Optional[str]]:
         """
@@ -214,16 +224,14 @@ class MetaMediaService:
                     logger.warning("Token failed with HTTP %s for media %s, trying next token if available", res.status_code, media_id)
                     continue
                 elif res.status_code in (400, 404):
-                    logger.info("Meta reported media %s as expired or not found (HTTP %s)", media_id, res.status_code)
-                    FAILED_META_MEDIA_CACHE[media_id] = time.time() + 3600
-                    _mark_media_expired_in_db(db, message_id)
-                    return None, None, None
+                    logger.warning("Token returned HTTP %s for media %s, trying next token if available: %s", res.status_code, media_id, res.text)
+                    continue
             except requests.RequestException as req_exc:
                 logger.warning("Meta Graph API request error for media %s: %s", media_id, req_exc)
                 continue
 
         if not media_info or not working_token:
-            FAILED_META_MEDIA_CACHE[media_id] = time.time() + 1800
+            FAILED_META_MEDIA_CACHE[media_id] = time.time() + 300
             _mark_media_expired_in_db(db, message_id)
             return None, None, None
 
@@ -239,7 +247,11 @@ class MetaMediaService:
             or "application/octet-stream"
         ).split(";")[0].strip().lower()
 
-        ext = MIME_EXTENSION_MAP.get(resolved_mime, "")
+        ext = ""
+        if original_filename and "." in original_filename:
+            ext = f".{original_filename.rsplit('.', 1)[-1].lower()}"
+        if not ext:
+            ext = MIME_EXTENSION_MAP.get(resolved_mime, "")
         if not ext:
             if media_type == "image":
                 ext = ".jpg"
@@ -262,7 +274,7 @@ class MetaMediaService:
             if download_res.status_code not in (200, 206):
                 logger.warning("Downloading media from Meta temporary URL failed with HTTP %s", download_res.status_code)
                 if download_res.status_code in (403, 404):
-                    FAILED_META_MEDIA_CACHE[media_id] = time.time() + 3600
+                    FAILED_META_MEDIA_CACHE[media_id] = time.time() + 600
                     _mark_media_expired_in_db(db, message_id)
                 return None, None, None
 
@@ -302,11 +314,13 @@ class MetaMediaService:
                         workspace_id=ws_uuid,
                         file_path=relative_path,
                         file_type=media_type or "image",
-                        original_filename=f"meta_{media_id}{ext}",
+                        original_filename=original_filename or f"meta_{media_id}{ext}",
                         file_size=len(file_bytes),
                         mime_type=resolved_mime,
                     )
                     db.add(db_file)
+                elif original_filename and (not existing_mf.original_filename or existing_mf.original_filename.startswith("meta_")):
+                    existing_mf.original_filename = original_filename
 
                 # Update Message metadata
                 msg_uuid = _to_uuid(message_id)
@@ -323,6 +337,10 @@ class MetaMediaService:
                         meta["is_cached"] = True
                         meta["file_size"] = len(file_bytes)
                         meta["mime_type"] = resolved_mime
+                        if original_filename:
+                            meta["filename"] = original_filename
+                            meta["file_name"] = original_filename
+                            meta["original_filename"] = original_filename
                         msg.metadata_json = json.dumps(meta)
 
                 db.commit()
@@ -340,33 +358,40 @@ class MetaMediaService:
         message_id: Optional[str] = None,
         mime_type: Optional[str] = None,
         media_type: Optional[str] = None,
+        original_filename: Optional[str] = None,
     ) -> None:
         """
         Background task triggered upon webhook ingestion to download and store
         media proactively before it expires on Meta servers.
         """
-        from app.database import SessionLocal
-        db = SessionLocal()
-        try:
-            resolved_msg_id = message_id
-            if not resolved_msg_id and message_external_id:
-                msg = db.query(Message).filter(Message.external_id == message_external_id).first()
-                if msg:
-                    resolved_msg_id = str(msg.id)
+        import asyncio
 
-            logger.info("Starting background download of Meta media %s for workspace %s", media_id, workspace_id)
-            MetaMediaService.download_and_store_meta_media(
-                workspace_id=workspace_id,
-                media_id=media_id,
-                message_id=resolved_msg_id,
-                mime_type=mime_type,
-                media_type=media_type,
-                db=db,
-            )
-        except Exception as bg_exc:
-            logger.warning("Background download of Meta media %s encountered an error: %s", media_id, bg_exc)
-        finally:
-            db.close()
+        def _sync_worker():
+            from app.database import SessionLocal
+            db = SessionLocal()
+            try:
+                resolved_msg_id = message_id
+                if not resolved_msg_id and message_external_id:
+                    msg = db.query(Message).filter(Message.external_id == message_external_id).first()
+                    if msg:
+                        resolved_msg_id = str(msg.id)
+
+                logger.info("Starting background download of Meta media %s for workspace %s", media_id, workspace_id)
+                MetaMediaService.download_and_store_meta_media(
+                    workspace_id=workspace_id,
+                    media_id=media_id,
+                    message_id=resolved_msg_id,
+                    mime_type=mime_type,
+                    media_type=media_type,
+                    original_filename=original_filename,
+                    db=db,
+                )
+            except Exception as bg_exc:
+                logger.warning("Background download of Meta media %s encountered an error: %s", media_id, bg_exc)
+            finally:
+                db.close()
+
+        await asyncio.to_thread(_sync_worker)
 
 
 def _mark_media_expired_in_db(db: Optional[Session], message_id: Optional[str | uuid.UUID]) -> None:

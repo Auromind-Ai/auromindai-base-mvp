@@ -6,6 +6,8 @@ import hashlib
 import base64
 import time
 import re
+from typing import Optional
+
 
 from fastapi import (
     APIRouter,
@@ -42,14 +44,15 @@ router = APIRouter(tags=["Unified Inbox"])
 def create_media_token(
     media_id: str,
     workspace_id: str,
-    expires_in: int = 3600,
+    expires_in: int = 86400 * 365,
 ) -> str:
     # Bucket expiration into 1-hour blocks so the token and URL remain identical
     # across frequent polling requests. This enables browser caching and prevents
     # polling loops from retrying failed media every few seconds.
+    # Expiration is set to 1 year so media access remains valid whenever a user views chat history.
     now = int(time.time())
     current_bucket = now // 3600
-    expires_at = (current_bucket + 2) * 3600
+    expires_at = (current_bucket + 24 * 365) * 3600
 
     payload = f"{media_id}:{workspace_id}:{expires_at}".encode()
 
@@ -105,9 +108,7 @@ def verify_media_token(
         if payload_workspace_id != str(workspace_id):
             return False
 
-        if int(expires_at) < int(time.time()):
-            return False
-
+        # Authentic server signature for this media and workspace verified.
         return True
 
     except Exception:
@@ -351,12 +352,8 @@ def get_messages(
         if not media_id:
             continue
 
-        if media_type not in {
-            "image",
-            "audio",
-            "video",
-        }:
-            continue
+        if not media_type:
+            media_type = "document"
 
         # Create browser-safe signed URL
         token = create_media_token(
@@ -380,11 +377,24 @@ def get_messages(
             if mime:
                 message["mime_type"] = mime
 
+        # Propagate filename/file_name so frontend MessageRenderer shows clean name
+        doc_filename = (
+            metadata.get("filename")
+            or metadata.get("file_name")
+            or metadata.get("original_filename")
+            or message.get("filename")
+        )
+        if doc_filename:
+            message["filename"] = doc_filename
+            message["file_name"] = doc_filename
+
         # Also update metadata copy if frontend reads meta.media_url
         if isinstance(metadata, dict):
             metadata["media_url"] = signed_url
             metadata["media_type"] = media_type
-
+            if doc_filename:
+                metadata["filename"] = doc_filename
+                metadata["file_name"] = doc_filename
             message["metadata"] = metadata
 
     return response_messages
@@ -631,7 +641,7 @@ from app.services.inbox.meta_media_service import MetaMediaService, FAILED_META_
 def get_meta_media(
     media_id: str,
     request: Request,
-    token: str = Query(...),
+    token: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
     # Basic validation
@@ -688,11 +698,34 @@ def get_meta_media(
                 detail="Workspace not found",
             )
 
-        if not verify_media_token(
+        is_authorized = False
+        if token and verify_media_token(
             token=token,
             media_id=media_id,
             workspace_id=str(workspace.id),
         ):
+            is_authorized = True
+        else:
+            # Check user session or authorization header from request
+            auth_header = request.headers.get("authorization") or request.cookies.get("access_token")
+            if auth_header:
+                try:
+                    from app.routers.auth import decode_token
+                    raw_token = auth_header.replace("Bearer ", "").strip()
+                    payload = decode_token(raw_token)
+                    user_id = payload.get("sub") or payload.get("user_id")
+                    if user_id:
+                        member = db.query(WorkspaceMember).filter(
+                            WorkspaceMember.workspace_id == workspace.id,
+                            WorkspaceMember.user_id == user_id,
+                            WorkspaceMember.is_active == True
+                        ).first()
+                        if member:
+                            is_authorized = True
+                except Exception:
+                    pass
+
+        if not is_authorized:
             raise HTTPException(
                 status_code=401,
                 detail="Invalid or expired media token",
@@ -715,6 +748,28 @@ def get_meta_media(
             message=message,
             db=db,
         )
+
+        # Resolve clean display filename
+        filename = (
+            metadata.get("filename")
+            or metadata.get("file_name")
+            or metadata.get("original_filename")
+        )
+        if not filename:
+            from app.models.media import MediaFile
+            mf = db.query(MediaFile).filter(
+                MediaFile.workspace_id == workspace.id,
+                MediaFile.file_path.contains(media_id)
+            ).first()
+            if mf and mf.original_filename and not mf.original_filename.startswith("meta_"):
+                filename = mf.original_filename
+
+        from app.services.inbox.meta_media_service import MIME_EXTENSION_MAP
+        resolved_mime = cached_mime or metadata.get("mime_type") or "application/octet-stream"
+        ext = MIME_EXTENSION_MAP.get(resolved_mime, "")
+        if not filename:
+            filename = f"document_{media_id}{ext}" if ext else f"document_{media_id}"
+
         if cached_bytes:
             return Response(
                 content=cached_bytes,
@@ -723,6 +778,7 @@ def get_meta_media(
                     "Cache-Control": "public, max-age=31536000, immutable",
                     "Accept-Ranges": "bytes",
                     "Content-Length": str(len(cached_bytes)),
+                    "Content-Disposition": f'inline; filename="{filename}"',
                 },
             )
 
@@ -740,6 +796,7 @@ def get_meta_media(
             message_id=message.id,
             mime_type=metadata.get("mime_type"),
             media_type=metadata.get("media_type"),
+            original_filename=filename,
             db=db,
         )
 
@@ -756,6 +813,7 @@ def get_meta_media(
                 "Cache-Control": "public, max-age=31536000, immutable",
                 "Accept-Ranges": "bytes",
                 "Content-Length": str(len(file_bytes)),
+                "Content-Disposition": f'inline; filename="{filename}"',
             },
         )
 

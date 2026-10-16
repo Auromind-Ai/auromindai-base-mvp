@@ -277,23 +277,57 @@ class WhatsAppService:
         to: str,
         media_url: str,
         media_type: str = "image",
-        caption: Optional[str] = None
+        caption: Optional[str] = None,
+        filename: Optional[str] = None
     ) -> Optional[str]:
         try:
+            import os
+            import re
+            from urllib.parse import urlparse
+
             to = self._clean_recipient_phone(to)
             media_type = media_type.lower()
             if media_type not in {"image", "video", "document", "audio"}:
                 media_type = "image"
 
-            media_id = None
+            display_filename = (filename or "").strip() or None
+
             resolved = self._resolve_media_bytes(media_url)
+            resolved_fn = resolved[2] if resolved else os.path.basename(urlparse(media_url).path)
+
+            # Check if display_filename is missing or looks like an alphanumeric UUID hash
+            uuid_regex = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+            is_uuid = bool(re.search(uuid_regex, display_filename or resolved_fn, re.I))
+
+            if not display_filename or is_uuid:
+                try:
+                    from app.database import SessionLocal
+                    from app.models.media import MediaFile
+                    db = SessionLocal()
+                    try:
+                        search_key = resolved_fn or os.path.basename(urlparse(media_url).path)
+                        mf = db.query(MediaFile).filter(
+                            (MediaFile.file_path.contains(search_key))
+                        ).first()
+                        if mf and mf.original_filename and not re.search(uuid_regex, mf.original_filename, re.I):
+                            display_filename = mf.original_filename
+                    finally:
+                        db.close()
+                except Exception as db_lookup_err:
+                    logger.debug(f"Could not query MediaFile original filename: {db_lookup_err}")
+
+            if not display_filename:
+                display_filename = resolved_fn or "document"
+
+            media_id = None
             if resolved:
-                raw_bytes, raw_mime, filename = resolved
+                raw_bytes, raw_mime, _ = resolved
+                upload_name = display_filename
                 if media_type == "audio":
                     audio_bytes, audio_mime, audio_name = self._convert_audio_for_whatsapp(raw_bytes, raw_mime)
                     media_id = self.upload_media_to_meta(audio_bytes, audio_mime, audio_name)
                 elif not (media_url.startswith("https://") and "localhost" not in media_url and "127.0.0.1" not in media_url):
-                    media_id = self.upload_media_to_meta(raw_bytes, raw_mime, filename)
+                    media_id = self.upload_media_to_meta(raw_bytes, raw_mime, upload_name)
 
             payload = {
                 "messaging_product": "whatsapp",
@@ -308,15 +342,11 @@ class WhatsAppService:
                 payload[media_type] = {"link": media_url}
 
             if caption and media_type in {"image", "video", "document"}:
-                import re
                 if not re.match(r"^\[(IMAGE|VIDEO|AUDIO|VOICE|DOCUMENT)\]$", caption.strip(), re.I):
                     payload[media_type]["caption"] = caption
 
-            if media_type == "document" and "filename" not in payload[media_type]:
-                import os
-                from urllib.parse import urlparse
-                filename = os.path.basename(urlparse(media_url).path) or "document"
-                payload[media_type]["filename"] = filename
+            if media_type == "document":
+                payload[media_type]["filename"] = display_filename
 
             logger.debug(f"Sending WhatsApp {media_type} message to: {to}")
 

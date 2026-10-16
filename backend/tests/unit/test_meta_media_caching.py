@@ -131,3 +131,49 @@ def test_download_and_store_meta_media_expired_404():
         assert mime_type is None
         assert stored_path is None
         assert FAILED_META_MEDIA_CACHE.get(media_id, 0) > time.time()
+
+
+def test_download_and_store_meta_media_document_with_filename():
+    """Verify download_and_store_meta_media preserves original_filename and format for documents."""
+    ws_id = str(uuid.uuid4())
+    media_id = "doc_test_999"
+    fake_pdf = b"%PDF-1.4 sample content"
+    orig_name = "MyReport.pdf"
+
+    mock_db = MagicMock()
+    mock_db.query.return_value.filter.return_value.first.return_value = None
+
+    with patch.object(MetaMediaService, "get_cached_media", return_value=(None, None, None)), \
+         patch("app.services.inbox.meta_media_service.requests.get") as mock_requests_get, \
+         patch("app.services.inbox.meta_media_service.get_storage") as mock_get_storage:
+
+        mock_storage = MagicMock()
+        mock_get_storage.return_value = mock_storage
+
+        meta_info_resp = MagicMock()
+        meta_info_resp.status_code = 200
+        meta_info_resp.json.return_value = {
+            "url": "https://lookaside.fbsbx.com/temp_doc_url",
+            "mime_type": "application/pdf",
+        }
+
+        download_resp = MagicMock()
+        download_resp.status_code = 200
+        download_resp.content = fake_pdf
+
+        mock_requests_get.side_effect = [meta_info_resp, download_resp]
+
+        content, mime_type, stored_path = MetaMediaService.download_and_store_meta_media(
+            workspace_id=ws_id,
+            media_id=media_id,
+            access_token="fake_access_token",
+            original_filename=orig_name,
+            media_type="document",
+            db=mock_db,
+        )
+
+        assert content == fake_pdf
+        assert mime_type == "application/pdf"
+        assert stored_path == f"{ws_id}/meta_media/{media_id}.pdf"
+        mock_storage.save_file_sync.assert_called_once_with(stored_path, fake_pdf, "application/pdf")
+

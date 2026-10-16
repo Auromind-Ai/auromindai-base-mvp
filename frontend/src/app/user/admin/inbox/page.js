@@ -2215,7 +2215,7 @@ function ChatArea({
                         <input
                             type="file"
                             ref={fileInputRef}
-                            accept="image/*,video/*,audio/*,application/pdf"
+                            accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
                             onChange={handleFileSelect}
                             className="hidden"
                         />
@@ -3070,6 +3070,8 @@ function InboxContent() {
             let uploadedMediaUrl = null;
             let detectedMessageType = null;
             let detectedMimeType = null;
+            let originalDocName = null;
+            let originalDocSize = null;
 
             if (selectedFile) {
                 const formData = new FormData();
@@ -3081,7 +3083,9 @@ function InboxContent() {
                     selectedFile.type.startsWith('audio/') ? 'audio' :
                     selectedFile.type.startsWith('image/') ? 'image' : 'document'
                 );
-                detectedMimeType = selectedFile.type;
+                detectedMimeType = selectedFile.type || uploadRes.mime_type;
+                originalDocName = selectedFile.name || uploadRes.filename || 'Document';
+                originalDocSize = selectedFile.size ? `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB` : (uploadRes?.file_size ? `${(uploadRes.file_size / (1024 * 1024)).toFixed(1)} MB` : '');
             }
 
             const payload = {
@@ -3094,6 +3098,10 @@ function InboxContent() {
                     media_url: uploadedMediaUrl,
                     message_type: detectedMessageType,
                     mime_type: detectedMimeType,
+                    filename: originalDocName,
+                    file_name: originalDocName,
+                    original_filename: originalDocName,
+                    file_size: originalDocSize,
                 };
             }
 
@@ -3106,6 +3114,8 @@ function InboxContent() {
                     media_url: templateMediaUrl || (uploadedMediaUrl || null),
                     header_url: templateMediaUrl || (uploadedMediaUrl || null),
                     template_type: templateMediaType || 'TEXT',
+                    filename: originalDocName || payload.metadata?.filename,
+                    file_name: originalDocName || payload.metadata?.file_name,
                 };
             }
 
@@ -3122,6 +3132,8 @@ function InboxContent() {
                 media_url: uploadedMediaUrl || null,
                 media_type: detectedMessageType || null,
                 mime_type: detectedMimeType || null,
+                filename: originalDocName || null,
+                file_name: originalDocName || null,
                 metadata: payload.metadata || {}
             };
             setMessages(prev => [...prev, optimisticMsg]);
