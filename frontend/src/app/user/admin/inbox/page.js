@@ -2356,13 +2356,24 @@ function ChatArea({
                                         </span>
                                     </div>
                                 ) : (
-                                    <input
+                                    <textarea
+                                        ref={(element) => {
+                                            if (!element) return;
+                                            element.style.height = 'auto';
+                                            element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
+                                        }}
+                                        rows={1}
                                         value={msg}
                                         onChange={(e) => setMsg(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                                                e.preventDefault();
+                                                sendMessage();
+                                            }
+                                        }}
                                         placeholder={selectedFilePreview ? "Add a caption..." : isInstagram ? "Message..." : "Type a message..."}
                                         disabled={isUploadingMedia}
-                                        className="flex-1 bg-transparent text-[14.5px] text-white placeholder:text-zinc-500 outline-none px-2 font-normal"
+                                        className="flex-1 min-w-0 max-h-40 overflow-y-auto resize-none bg-transparent text-[14.5px] text-white placeholder:text-zinc-500 outline-none px-2 font-normal"
                                     />
                                 )}
 

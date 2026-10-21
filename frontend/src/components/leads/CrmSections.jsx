@@ -168,8 +168,9 @@ export function CrmAnalytics({
                 <DropdownMenu.RadioGroup
                   value={period}
                   onValueChange={(value) => {
-                    setData(null);
-                    setPeriod(value);
+                    if (value !== period) {
+                      setPeriod(value);
+                    }
                   }}
                 >
                   {[
