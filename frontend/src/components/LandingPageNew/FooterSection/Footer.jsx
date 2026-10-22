@@ -15,7 +15,7 @@ const footerLinks = {
     { name: "Home", href: "/" },
     { name: "About", href: "/" },
     { name: "Blog", href: "/resources/blog" },
-    { name: "Contact", href: "mailto:orbionagents@gmail.com" },
+    { name: "Contact", href: "mailto:hello@orbionagents.com" },
   ],
   Legal: [
     { name: "Privacy Policy", href: "/privacy" },
@@ -75,11 +75,11 @@ export default function Footer() {
                 Contact
               </p>
               <a
-                href="mailto:orbionagents@gmail.com"
+                href="mailto:hello@orbionagents.com"
                 className="text-sm transition-colors duration-150 hover:text-white"
                 style={{ color: "#A1A1AA", fontFamily: "'Poppins', sans-serif" }}
               >
-                orbionagents@gmail.com
+                hello@orbionagents.com
               </a>
             </div>
           </div>
