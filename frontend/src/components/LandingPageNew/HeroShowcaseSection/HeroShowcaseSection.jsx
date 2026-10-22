@@ -289,7 +289,7 @@ export default function HeroShowcaseSection() {
           
                     {/* Book a Demo Button */}
                     <NeatCTAButton
-                      onClick={() => window.location.assign("https://wa.me/919514909701")}
+                      onClick={() => window.open("https://cal.com/orbionagents/orbionagents-demo-ai-automation", "_blank", "noopener,noreferrer")}
                       className="group relative overflow-hidden flex items-center justify-center gap-2 h-[36px] w-[145px] rounded-[8px] border border-white/10 bg-white/5 text-[14px] font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10 md:h-[42px] md:w-[165px] cursor-pointer"
                     >
                       {/* Play icon - static */}
