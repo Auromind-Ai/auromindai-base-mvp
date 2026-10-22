@@ -101,7 +101,7 @@ export default function CTASection() {
 
             {/* Book a Demo */}
             <NeatCTAButton
-              href="/resources/demo-videos"
+              onClick={() => window.location.assign("https://wa.me/919514909701")}
               className="group relative overflow-hidden flex items-center justify-center gap-2 h-[44px] w-[180px] rounded-[12px] border border-white/10 bg-white/5 text-[16px] font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10"
             >
               {/* Play icon */}
