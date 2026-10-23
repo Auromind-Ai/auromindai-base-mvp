@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, StyleProp, ViewStyle, ImageStyle } from 'react-native';
-import { BrandColors } from '@/theme/tokens';
+import { BrandColors } from '../../theme/tokens';
 
 // High-resolution logo mark copied from frontend/public/logo.png
-const LOGO_SOURCE = require('@/../assets/images/logo.png');
+const LOGO_SOURCE = require('../../../assets/images/logo.png');
 
 interface OrbionLogoProps {
   size?: 'sm' | 'md' | 'lg';

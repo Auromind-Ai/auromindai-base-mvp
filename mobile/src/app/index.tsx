@@ -9,8 +9,8 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { OrbionLogo } from '@/components/common/OrbionLogo';
-import { BrandColors } from '@/theme/tokens';
+import { OrbionLogo } from '../components/common/OrbionLogo';
+import { BrandColors } from '../theme/tokens';
 
 export default function SplashScreen() {
   const router = useRouter();
