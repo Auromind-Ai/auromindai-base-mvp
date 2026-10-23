@@ -36,7 +36,7 @@ DEFAULT_LIMITS = {
     "global": 300,
 }
 
-DEFAULT_MAX_UPLOAD_MB = 25
+DEFAULT_MAX_UPLOAD_MB = 50
 DEFAULT_MAX_CONCURRENT_AI = 15
 
 _in_memory_store = defaultdict(deque)
