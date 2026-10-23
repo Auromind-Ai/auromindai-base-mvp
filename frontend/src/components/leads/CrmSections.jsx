@@ -1465,6 +1465,21 @@ export function CrmScoring({
 }
 
 const DEFAULT_SUBJ = "{frequency} Qualified Leads Report ({date})";
+const DEFAULT_ZERO_LEADS_SUBJ = "{frequency} Qualified Leads Update - No New Leads ({date})";
+const DEFAULT_ZERO_LEADS_BODY = `Hi Team,
+
+This is your scheduled {frequency_lower} qualified leads update for {date}.
+
+Currently, there are no new qualified leads meeting your criteria (lead score ≥ {min_score}) since the last report.
+
+• New Qualified Leads: 0
+• Minimum Score Threshold: {min_score}
+• Status: All previous leads have been delivered. AI agents are actively monitoring incoming traffic and inquiries.
+
+You will automatically receive the next scheduled report as soon as new qualified leads arrive.
+
+Regards,
+{workspace_name}`;
 const DEFAULT_BODY = `Hi Team,
 
 Please find attached the {frequency_lower} qualified leads report.
@@ -1531,13 +1546,14 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
   const [recipientEmails, setRecipientEmails] = useState([]);
   const [emailInput, setEmailInput] = useState("");
   const [attachCsv, setAttachCsv] = useState(true);
+  const [onlyNewLeads, setOnlyNewLeads] = useState(true);
   const [csvColumns, setCsvColumns] = useState([]);
   const [availableCsvColumns, setAvailableCsvColumns] = useState([]);
   const [previewError, setPreviewError] = useState("");
   const [countLoading, setCountLoading] = useState(false);
   const [sampleColumns, setSampleColumns] = useState([]);
   const [sampleRows, setSampleRows] = useState([]);
-  const previewQuery = `workspace_id=${effectiveWorkspaceId}&min_score=${minScore}&frequency=${frequency}&columns=${encodeURIComponent(JSON.stringify(csvColumns))}`;
+  const previewQuery = `workspace_id=${effectiveWorkspaceId}&min_score=${minScore}&frequency=${frequency}&only_new_leads=${onlyNewLeads}&columns=${encodeURIComponent(JSON.stringify(csvColumns))}`;
   const [qualifyingCount, setQualifyingCount] = useState(0);
 
   // Template editing states
@@ -1605,6 +1621,9 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
           setCsvColumns(s.csv_columns || []);
           if (s.attach_csv !== undefined) {
             setAttachCsv(Boolean(s.attach_csv));
+          }
+          if (s.only_new_leads !== undefined) {
+            setOnlyNewLeads(Boolean(s.only_new_leads));
           }
           if (s.subject_template) {
             setSubjectTemplate(s.subject_template);
@@ -1756,6 +1775,7 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
           send_times: sendTimes,
           recipient_emails: recipientEmails,
           attach_csv: attachCsv,
+          only_new_leads: onlyNewLeads,
           report_filters: {},
           csv_columns: csvColumns,
           subject_template: subjectTemplate,
@@ -1844,6 +1864,7 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
             min_score: minScore,
             frequency,
             attach_csv: attachCsv,
+            only_new_leads: onlyNewLeads,
             report_filters: {},
             csv_columns: csvColumns,
             subject_template: subjectTemplate,
@@ -1853,9 +1874,12 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
       );
       const data = res?.data || res;
       const isSim = data?.delivery_result?.simulated;
+      const count = data?.lead_count ?? 0;
       const msg = isSim
-        ? `Test report simulated! (${data.lead_count} lead(s) exported. Check backend logs for preview)`
-        : `Test report email sent successfully to ${recipientEmails.join(", ")}!`;
+        ? `Test report simulated! (${count} lead(s). Check backend logs for preview)`
+        : count === 0
+          ? `Test update email sent successfully to ${recipientEmails.join(", ")}! (0 new leads - professional update sent)`
+          : `Test report email sent successfully with ${count} new lead(s) to ${recipientEmails.join(", ")}!`;
       setFeedback({ type: "success", message: msg });
       showToast(msg, "success");
     } catch (err) {
@@ -1924,11 +1948,17 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
     return res;
   };
 
+  const isZeroLeads = onlyNewLeads && qualifyingCount === 0;
+
   const renderedSubject = renderClientTemplate(
-    subjectTemplate || defaultSubject || DEFAULT_SUBJ,
+    isZeroLeads && (!subjectTemplate || subjectTemplate === defaultSubject || subjectTemplate === DEFAULT_SUBJ)
+      ? DEFAULT_ZERO_LEADS_SUBJ
+      : (subjectTemplate || defaultSubject || DEFAULT_SUBJ),
   );
   const renderedBody = renderClientTemplate(
-    bodyTemplate || defaultBody || DEFAULT_BODY,
+    isZeroLeads && (!bodyTemplate || bodyTemplate === defaultBody || bodyTemplate === DEFAULT_BODY)
+      ? DEFAULT_ZERO_LEADS_BODY
+      : (bodyTemplate || defaultBody || DEFAULT_BODY),
   );
 
   const isCustomized =
@@ -2206,6 +2236,24 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
           </div>
         </div>
 
+        {/* Checkbox: Only send new leads */}
+        <div className="pt-1">
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={onlyNewLeads}
+              onChange={(e) => setOnlyNewLeads(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded text-violet-600 bg-[#191328] border-white/20 focus:ring-violet-500 focus:ring-offset-0 focus:ring-1"
+            />
+            <div>
+              <p className="text-sm font-medium text-white">Only send new leads</p>
+              <p className="text-xs text-zinc-400">
+                Exclude duplicate and old leads previously sent. Sends a professional update if no new leads are received.
+              </p>
+            </div>
+          </label>
+        </div>
+
         {/* Checkbox: Attach CSV file */}
         <div className="pt-1">
           <label className="flex items-start gap-3 cursor-pointer select-none">
@@ -2453,7 +2501,19 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
                 </p>
               </div>
 
-              {attachCsv && (
+              {isZeroLeads ? (
+                <div className="shrink-0 flex items-center gap-2.5 bg-blue-500/10 border border-blue-500/20 text-blue-300 rounded-xl px-3.5 py-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                  <div>
+                    <p className="text-xs font-medium text-blue-200">
+                      0 New Leads • AI Monitoring Active
+                    </p>
+                    <p className="text-[10px] text-blue-400/80">
+                      Professional update preview (no duplicate leads)
+                    </p>
+                  </div>
+                </div>
+              ) : attachCsv ? (
                 <div className="shrink-0 flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-3.5 py-2">
                   <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
                     <FileSpreadsheet size={16} />
@@ -2465,7 +2525,7 @@ export function CrmReports({ workspaceId: propWorkspaceId }) {
                     <p className="text-[10px] text-zinc-500">~2.4 KB</p>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
 
             <div className="border-t border-white/10 pt-4 text-zinc-300 whitespace-pre-wrap leading-relaxed">
