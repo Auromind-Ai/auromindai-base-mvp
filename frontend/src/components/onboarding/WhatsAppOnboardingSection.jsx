@@ -36,11 +36,17 @@ export default function WhatsAppOnboardingSection({
     try {
       const data = await api.getOnboardingStatus(workspaceId);
       
-      if (data && !data.whatsapp_connected && typeof window !== 'undefined') {
-        localStorage.removeItem('whatsapp_connected');
-        localStorage.removeItem('whatsapp_phone');
-        localStorage.removeItem('whatsapp_phone_id');
-        localStorage.removeItem('whatsapp_waba_id');
+      const isLocalConnected = typeof window !== 'undefined' && localStorage.getItem('whatsapp_connected') === 'true';
+      if (data && !data.whatsapp_connected && isLocalConnected) {
+        data.whatsapp_connected = true;
+        if (data.steps?.step_1) {
+          data.steps.step_1.completed = true;
+          data.steps.step_1.status = 'completed';
+          data.steps.step_1.status_label = 'WhatsApp Business connected';
+        }
+        const cCount = 1 + (data.two_factor_enabled ? 1 : 0) + (data.business_verification_status === 'verified' ? 1 : 0);
+        data.completed_count = cCount;
+        data.progress_percentage = Math.round((cCount / 3) * 100);
       }
 
       setOnboardingData(data);
@@ -134,7 +140,7 @@ export default function WhatsAppOnboardingSection({
   };
 
   const isLocalConnected = typeof window !== 'undefined' && localStorage.getItem('whatsapp_connected') === 'true';
-  const isWhatsAppConnected = onboardingData ? Boolean(onboardingData.whatsapp_connected) : isLocalConnected;
+  const isWhatsAppConnected = Boolean(onboardingData?.whatsapp_connected) || isLocalConnected;
 
   const effectiveOnboardingData = useMemo(() => {
     if (!onboardingData) {

@@ -1856,6 +1856,15 @@ export default function AutomationCanvas() {
 
             {/* RIGHT: actions */}
             <div className="flex items-center gap-2">
+
+              <button
+                onClick={handleSave}
+                disabled={isSaving || !selectedItem || !flowValidation.isValid}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 border border-white/20 hover:from-[#814AC8]/60 hover:to-[#221253]/60 disabled:opacity-40 transition text-xs font-medium text-white"
+              >
+                <Save size={13} /> {isSaving ? 'Syncing...' : 'Sync Wire'}
+              </button>
+
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e1e2a] border border-white/10 hover:border-white/20 text-xs font-medium text-zinc-300 mr-2"
@@ -1869,13 +1878,7 @@ export default function AutomationCanvas() {
                 <Eye size={13} />
                 Zen mode
               </button>
-              <button
-                onClick={handleSave}
-                disabled={isSaving || !selectedItem || !flowValidation.isValid}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e1e2a] border border-white/10 hover:border-white/20 disabled:opacity-40 transition text-xs font-medium text-zinc-300"
-              >
-                <Save size={13} /> {isSaving ? 'Syncing...' : 'Sync Wire'}
-              </button>
+              
               <button
                 onClick={handleCreateNew}
                 className="flex items-center gap-2 px-5 py-2 rounded-full bg-[#814AC8] hover:bg-violet-500 transition text-xs font-semibold text-white shadow-lg shadow-violet-600/30"

@@ -4,6 +4,7 @@ import { BrandingProvider } from "@/context/BrandingContext";
 import { ToastProvider } from "@/context/ToastContext";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import { poppins } from "@/lib/fonts";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -18,7 +19,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} overflow-x-clip`}
+        className={`${GeistSans.variable} ${GeistMono.variable} ${poppins.variable} overflow-x-clip`}
         suppressHydrationWarning
       >
         <BrandingProvider>

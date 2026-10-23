@@ -1691,7 +1691,7 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const isWhatsAppConnected = onboardingInfo ? Boolean(onboardingInfo.whatsapp_connected) : cachedWhatsAppConnected;
+  const isWhatsAppConnected = Boolean(onboardingInfo?.whatsapp_connected) || cachedWhatsAppConnected;
   const isSetupPending = isWhatsAppConnected && !onboardingInfo?.onboarding_completed;
   const onboardingProgress = onboardingInfo?.progress_percentage ?? (
     Math.round(((isWhatsAppConnected ? 1 : 0) + (Boolean(onboardingInfo?.two_factor_enabled) ? 1 : 0) + (onboardingInfo?.business_verification_status === 'verified' ? 1 : 0)) / 3 * 100)
@@ -1787,7 +1787,6 @@ export default function DashboardPage() {
             <div className="text-[14px] text-white/70 mt-0.5">
               {!isWhatsAppConnected && isOnboardingActive ? (
                 <div>
-                  <span className="font-medium text-white/85">Let&apos;s get your WhatsApp workspace ready.</span>
                   <p className="text-white/50 text-[13px] mt-0.5">
                     Connect your WhatsApp Business account and start automating customer conversations with AI.
                   </p>

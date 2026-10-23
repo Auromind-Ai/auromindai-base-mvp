@@ -166,7 +166,7 @@ export default function TwoFactorModal({
                   href={twoFactorUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#814AC8]/20 hover:bg-[#814AC8]/30 border border-[#814AC8]/40 text-[#a77bee] hover:text-white font-medium text-[11px] transition-all"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 hover:from-[#814AC8]/60 hover:to-[#221253]/60 border border-white/20 text-white font-medium text-[11px] transition-all"
                 >
                   Open Meta Security Center <ExternalLink size={12} />
                 </a>

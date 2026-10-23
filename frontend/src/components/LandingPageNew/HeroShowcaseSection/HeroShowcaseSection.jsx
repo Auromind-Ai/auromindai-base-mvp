@@ -42,27 +42,7 @@ import { poppins } from "@/lib/fonts";
 import ThreeAiAgentsSection from "./ThreeAiAgentsSection";
 
 function AnimatedHeadline({ text }) {
-  const words = text.split(" ");
-  return (
-    <span className="inline">
-      {words.map((word, i) => (
-        <motion.span
-          key={i}
-          initial={{ opacity: 0, y: 18, filter: "blur(8px)" }}
-          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          viewport={{ once: true }}
-          transition={{
-            duration: 0.6,
-            delay: 0.15 + i * 0.05,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-          className="inline-block mr-[0.26em] will-change-transform"
-        >
-          {word}
-        </motion.span>
-      ))}
-    </span>
-  );
+  return <span className="inline">{text}</span>;
 }
 
 // Channel Icon Helpers
@@ -104,7 +84,7 @@ const INBOX_CONVERSATIONS_DATA = [
     time: "11:30 AM",
     message: "Hi, I need help with my subscription plan.",
     unread: 2,
-    avatar: "/images/inbox/sarah.png",
+    avatar: "/images/inbox/sarah.webp",
   },
   {
     id: 2,
@@ -113,7 +93,7 @@ const INBOX_CONVERSATIONS_DATA = [
     time: "11:28 AM",
     message: "Can you share your pricing details ?",
     unread: 1,
-    avatar: "/images/inbox/mark.png",
+    avatar: "/images/inbox/mark.webp",
   },
   {
     id: 3,
@@ -122,7 +102,7 @@ const INBOX_CONVERSATIONS_DATA = [
     time: "11:15 AM",
     message: "Is there a free trial available?",
     unread: 0,
-    avatar: "/images/inbox/emma.png",
+    avatar: "/images/inbox/emma.webp",
   },
   {
     id: 4,
@@ -131,7 +111,7 @@ const INBOX_CONVERSATIONS_DATA = [
     time: "10:45 AM",
     message: "My payment failed. Can you help?.",
     unread: 3,
-    avatar: "/images/inbox/david.png",
+    avatar: "/images/inbox/david.webp",
   },
   {
     id: 5,
@@ -140,7 +120,7 @@ const INBOX_CONVERSATIONS_DATA = [
     time: "10:30 AM",
     message: "How can I automate WhatsApp replies?",
     unread: 1,
-    avatar: "/images/inbox/lisa.png",
+    avatar: "/images/inbox/lisa.webp",
   },
 ];
 
@@ -655,7 +635,7 @@ export default function HeroShowcaseSection() {
                     <div className="lg:col-span-7 w-full flex items-center justify-center">
                       <div className="relative w-full h-[320px] sm:h-[370px] md:h-[400px] flex items-center justify-center">
                         <Image
-                          src="/images/Whatsapp_Automation_Image.png"
+                          src="/images/Whatsapp_Automation_Image.webp"
                           alt="Powerful WhatsApp Automation for Smarter Business"
                           fill
                           className="object-contain"
@@ -773,11 +753,11 @@ export default function HeroShowcaseSection() {
                       </div>
                     </div>
 
-                    {/* Right Column: HeroSection_Automation_Image.png Expanded in the red mark area */}
+                    {/* Right Column: HeroSection_Automation_Image.webp Expanded in the red mark area */}
                     <div className="lg:col-span-7 xl:col-span-8 w-full flex items-center justify-center lg:justify-end">
                       <div className="relative w-full h-[360px] sm:h-[430px] md:h-[480px] lg:h-[520px] xl:h-[560px] flex items-center justify-center">
                         <Image
-                          src="/images/HeroSection_Automation_Image.png" 
+                          src="/images/HeroSection_Automation_Image.webp" 
                           alt="Visual Automation Builder Flow"
                           fill
                           className="object-contain object-center lg:object-right"
