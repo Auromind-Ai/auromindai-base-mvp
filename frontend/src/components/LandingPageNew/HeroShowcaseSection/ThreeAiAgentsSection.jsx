@@ -45,7 +45,7 @@ export const AGENTS_DATA = {
     ringColor: "rgba(168, 85, 247, 0.35)",
     glowGradient: "from-purple-600/30 via-indigo-600/10 to-transparent",
     icon: Crosshair,
-    avatar: "/images/Ai_Agent_image.png",
+    avatar: "/images/Ai_Agent_image.webp",
     badgeText: "✦ Lead Agent",
     roleTitle: "Your AI-powered lead generation specialist",
     featuresHeader: "LEAD AGENT FEATURES",
@@ -99,7 +99,7 @@ export const AGENTS_DATA = {
     ringColor: "rgba(59, 130, 246, 0.35)",
     glowGradient: "from-blue-600/30 via-cyan-600/10 to-transparent",
     icon: ShoppingCart,
-    avatar: "/images/Ai_Agent_image.png",
+    avatar: "/images/Ai_Agent_image.webp",
     badgeText: "🛒 Sales Agent",
     roleTitle: "Your AI-powered sales consultant",
     featuresHeader: "SALES AGENT FEATURES",
@@ -153,7 +153,7 @@ export const AGENTS_DATA = {
     ringColor: "rgba(16, 103, 185, 0.35)",
     glowGradient: "from-emerald-600/30 via-teal-600/10 to-transparent",
     icon: Headphones,
-    avatar: "/images/Ai_Agent_image.png",
+    avatar: "/images/Ai_Agent_image.webp",
     badgeText: "🎧 Support Agent",
     roleTitle: "Your AI-powered support specialist",
     featuresHeader: "SUPPORT AGENT FEATURES",
@@ -332,7 +332,7 @@ export default function ThreeAiAgentsSection() {
               }}
             >
               <Image
-                src="/images/Ai_Agent_image.png"
+                src="/images/Ai_Agent_image.webp"
                 alt="AI Agent"
                 fill
                 sizes="(max-width: 768px) 240px, 300px"

@@ -544,10 +544,15 @@ function LeadsPanel({
                             {upgraded ? `${totalCount.toLocaleString()} leads found` : leads.length}
                         </span>
                     </div>
-                    <div className="text-zinc-500 group-hover:text-zinc-300 transition-colors p-1">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 border ${
+                        isFilterDropdownOpen 
+                            ? 'bg-[#7C4DFF]/20 border-[#7C4DFF]/40 text-[#9E7BFF] shadow-sm shadow-[#7C4DFF]/20' 
+                            : 'bg-white/[0.06] border-white/10 text-zinc-200 group-hover:bg-white/[0.1] group-hover:text-white group-hover:border-white/20'
+                    }`}>
                         <ChevronDown 
-                            size={16} 
-                            className={`transition-transform duration-200 ${isFilterDropdownOpen ? 'rotate-180 text-white' : ''}`} 
+                            size={15} 
+                            strokeWidth={2.2}
+                            className={`transition-transform duration-200 ${isFilterDropdownOpen ? 'rotate-180' : ''}`} 
                         />
                     </div>
                 </button>

@@ -139,3 +139,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.swp
+
+
+# Mobile Application
+mobile/
