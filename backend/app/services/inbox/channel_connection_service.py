@@ -23,7 +23,7 @@ class ChannelConnectionService:
             raise HTTPException(status_code=400, detail="Missing required credentials: code or fb_access_token is required")
 
         from app.services.config_service import config_service
-        # Meta WhatsApp uses the parent Facebook/Meta App ID and Secret (never Instagram child App ID)
+        # Meta WhatsApp uses the parent Facebook/Meta App ID and Secret 
         app_id = (
             data.get("app_id")
             or config_service.get("meta_app_id")

@@ -80,45 +80,45 @@ const INBOX_CONVERSATIONS_DATA = [
   {
     id: 1,
     channel: "whatsapp",
-    name: "Sarah Johnson",
+    name: "Priya Sharma",
     time: "11:30 AM",
-    message: "Hi, I need help with my order.",
+    message: "Hi, I need help with my subscription plan.",
     unread: 2,
     avatar: "/images/inbox/sarah.webp",
   },
   {
     id: 2,
     channel: "instagram",
-    name: "Mark Thompson",
+    name: "Arjun Kumar",
     time: "11:28 AM",
-    message: "Can you share the pricing?",
+    message: "Can you share your pricing details ?",
     unread: 1,
     avatar: "/images/inbox/mark.webp",
   },
   {
     id: 3,
     channel: "twilio",
-    name: "Emma Williams",
+    name: "Sneha Reddy",
     time: "11:15 AM",
-    message: "Do you have this in blue?",
+    message: "Is there a free trial available?",
     unread: 0,
     avatar: "/images/inbox/emma.webp",
   },
   {
     id: 4,
     channel: "whatsapp",
-    name: "David Brown",
+    name: "Rahul Verma",
     time: "10:45 AM",
-    message: "My payment failed, please help.",
+    message: "My payment failed. Can you help?.",
     unread: 3,
     avatar: "/images/inbox/david.webp",
   },
   {
     id: 5,
     channel: "instagram",
-    name: "Lisa Anderson",
+    name: "Divya Krishnan",
     time: "10:30 AM",
-    message: "When will it be delivered?",
+    message: "How can I automate WhatsApp replies?",
     unread: 1,
     avatar: "/images/inbox/lisa.webp",
   },
@@ -269,7 +269,7 @@ export default function HeroShowcaseSection() {
           
                     {/* Book a Demo Button */}
                     <NeatCTAButton
-                      href="/resources/demo-videos"
+                      onClick={() => window.open("https://cal.com/orbionagents/orbionagents-demo-ai-automation", "_blank", "noopener,noreferrer")}
                       className="group relative overflow-hidden flex items-center justify-center gap-2 h-[36px] w-[145px] rounded-[8px] border border-white/10 bg-white/5 text-[14px] font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10 md:h-[42px] md:w-[165px] cursor-pointer"
                     >
                       {/* Play icon - static */}

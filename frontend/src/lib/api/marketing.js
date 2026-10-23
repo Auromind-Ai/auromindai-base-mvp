@@ -449,6 +449,16 @@ export async function resumeCampaign(id) {
   }
 }
 
+export async function syncCampaignToInbox(id) {
+  try {
+    const res = await client.post(`/api/marketing/campaigns/${id}/sync-inbox`);
+    return res?.data || res;
+  } catch (e) {
+    const res = await client.post(`/marketing/campaigns/${id}/sync-inbox`);
+    return res?.data || res;
+  }
+}
+
 export async function getContactLists(workspaceId) {
   const wsId = workspaceId || getStoredWorkspaceId();
   try {
@@ -576,7 +586,7 @@ function mapTemplateRecord(t) {
   // If variable_mapping is empty, but vars contains named strings (not just digits "1", "2")
   if (Object.keys(varMap).length === 0 && Array.isArray(vars) && vars.length > 0) {
     vars.forEach((v, idx) => {
-      const clean = String(v).replace(/[{}]/g, '').trim();
+      const clean = String(v).replace(/[\[\]{}]/g, '').trim();
       if (!/^\d+$/.test(clean)) {
         varMap[String(idx + 1)] = clean;
       }

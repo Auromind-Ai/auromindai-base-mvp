@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
@@ -814,7 +814,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                     Integrated Toolset &amp; Capabilities
                   </span>
                   <h2 className="text-xl sm:text-2xl font-semibold text-white tracking-tight flex items-center gap-2.5">
-                    <Workflow className="w-6 h-6 text-violet-400" />
+                    <Workflow className="w-6 h-6 text-violet-400"/>
                     Flow Builder Core Capabilities
                   </h2>
                   <p className="text-sm text-zinc-400 mt-1">

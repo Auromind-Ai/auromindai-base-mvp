@@ -9,6 +9,13 @@ export const BrandColors = {
   twilio: '#F22F46',
 };
 
+export const Fonts = {
+  regular: 'Inter-Regular',
+  medium: 'Inter-Medium',
+  semiBold: 'Inter-SemiBold',
+  bold: 'Inter-Bold',
+};
+
 export const ColorTokens = {
   dark: {
     background: '#08080C',

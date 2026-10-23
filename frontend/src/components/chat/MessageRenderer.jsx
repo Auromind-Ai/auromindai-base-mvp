@@ -281,14 +281,27 @@ export default function MessageRenderer({
   }
 
   if (mediaUrl && (messageType === 'document' || (!messageType && mediaUrl))) {
-    const fileName = meta.file_name || meta.filename || extractFileName(mediaUrl);
+    let fileName = meta.file_name || meta.filename || meta.original_filename;
+    if (!fileName && content && /\.[a-z0-9]{2,5}$/i.test(content.trim()) && !/^\[(DOCUMENT|IMAGE|VIDEO|AUDIO|VOICE)\]$/i.test(content.trim())) {
+      fileName = content.trim();
+    }
+    if (!fileName) {
+      fileName = extractFileName(mediaUrl);
+    }
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\.[a-z0-9]+)?$/i.test(fileName);
+    if (isUuid && content && !/^\[.*\]$/.test(content.trim())) {
+      fileName = content.trim();
+    }
     const fileSize = meta.file_size || '';
+    const hasDifferentCaption = Boolean(content && content.trim() !== fileName && !/^\[(DOCUMENT|IMAGE|VIDEO|AUDIO|VOICE)\]$/i.test(content.trim()));
+
     return (
       <div>
         <a
           href={mediaUrl}
           target="_blank"
           rel="noopener noreferrer"
+          download={fileName || true}
           className="flex items-center gap-3 p-3 rounded-xl mb-2 hover:opacity-90 transition"
           style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
         >
@@ -301,7 +314,7 @@ export default function MessageRenderer({
           </div>
           <Download size={14} className="text-white/40 shrink-0" />
         </a>
-        {content && (
+        {hasDifferentCaption && (
           <p className="text-[12px] text-white/80 whitespace-pre-wrap">{content}</p>
         )}
       </div>
@@ -713,8 +726,9 @@ function WhatsAppAudioMessage({ url, isMe, timeNode }) {
 
 function extractFileName(url) {
   try {
-    const pathname = new URL(url).pathname;
-    const name = pathname.split('/').pop();
+    if (!url) return 'Document';
+    const rawPath = url.includes('://') ? new URL(url).pathname : url.split('?')[0];
+    const name = rawPath.split('/').filter(Boolean).pop();
     return name && name.length > 0 ? decodeURIComponent(name) : 'Document';
   } catch {
     return 'Document';

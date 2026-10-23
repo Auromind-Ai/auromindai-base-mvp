@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, StyleProp, ViewStyle, ImageStyle } from 'react-native';
-import { BrandColors } from '../../theme/tokens';
+import { BrandColors, Fonts } from '../../theme/tokens';
 
 // High-resolution logo mark copied from frontend/public/logo.png
 const LOGO_SOURCE = require('../../../assets/images/logo.png');
@@ -111,29 +111,33 @@ const styles = StyleSheet.create({
   textOrbion: {
     color: '#FFFFFF',
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: Fonts.bold,
     letterSpacing: -0.4,
   },
   textOrbionLg: {
     fontSize: 28,
+    fontFamily: Fonts.bold,
     letterSpacing: -0.5,
   },
   textOrbionSm: {
     fontSize: 20,
+    fontFamily: Fonts.bold,
     letterSpacing: -0.3,
   },
   textAgents: {
     color: '#C084FC',
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: Fonts.bold,
     letterSpacing: -0.4,
   },
   textAgentsLg: {
     fontSize: 28,
+    fontFamily: Fonts.bold,
     letterSpacing: -0.5,
   },
   textAgentsSm: {
     fontSize: 20,
+    fontFamily: Fonts.bold,
     letterSpacing: -0.3,
   },
 });

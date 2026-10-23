@@ -706,6 +706,48 @@ async def launch_campaign(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@router.post("/campaigns/{campaign_id}/sync-inbox")
+async def sync_campaign_to_inbox(
+    campaign_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Backfills/syncs all sent messages for a specific campaign into Omni Inbox conversations.
+    """
+    c_uuid = to_uuid(campaign_id)
+    campaign = db.query(Campaign).filter(Campaign.id == c_uuid).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    verify_workspace_access(current_user, db, campaign.workspace_id, required_permission='marketing.campaigns')
+
+    synced = CampaignService.sync_campaign_recipients_to_inbox(db, campaign_id=c_uuid)
+    return {
+        "status": "success",
+        "campaign_id": str(campaign.id),
+        "synced_count": synced,
+    }
+
+
+@router.post("/campaigns/sync-inbox")
+async def sync_workspace_campaigns_to_inbox(
+    workspace_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Backfills/syncs all sent campaign messages across a workspace into Omni Inbox conversations.
+    """
+    ws_uuid = resolve_workspace_id(current_user, db, workspace_id)
+    synced = CampaignService.sync_campaign_recipients_to_inbox(db, workspace_id=ws_uuid)
+    return {
+        "status": "success",
+        "workspace_id": str(ws_uuid),
+        "synced_count": synced,
+    }
+
+
 @router.post("/campaigns/{campaign_id}/pause")
 async def pause_campaign(
     campaign_id: str,
@@ -1214,12 +1256,15 @@ async def get_marketing_templates(
         resolved_vars = []
         for idx, v in enumerate(vars_found):
             clean_num = v.replace("{", "").replace("}", "").strip()
-            if clean_num in var_map:
+            clean_str = re.sub(r"[\[\]]", "", clean_num).strip()
+            if clean_str in var_map:
+                resolved_vars.append(var_map[clean_str])
+            elif clean_num in var_map:
                 resolved_vars.append(var_map[clean_num])
             elif str(idx + 1) in var_map:
                 resolved_vars.append(var_map[str(idx + 1)])
             else:
-                resolved_vars.append(clean_num)
+                resolved_vars.append(clean_str or clean_num)
 
         items.append({
             "id": str(t.id),

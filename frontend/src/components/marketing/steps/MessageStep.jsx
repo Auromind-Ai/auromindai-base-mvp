@@ -295,39 +295,49 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
     const varMap = parseVarMap(selectedTemplate);
 
-    let vars = [];
-    const bodyText = selectedTemplate.body || selectedTemplate.content || '';
-    const bodyMatches = bodyText.match(/\{\{[^}]+\}\}/g) || [];
-
+    let rawList = [];
     if (Array.isArray(selectedTemplate.variables) && selectedTemplate.variables.length > 0) {
-      vars = [...selectedTemplate.variables];
-      bodyMatches.forEach((m) => {
-        const cleanM = m.replace(/[\[\]{}]/g, '').trim();
-        const already = vars.some((v) => String(v).replace(/[\[\]{}]/g, '').trim() === cleanM);
-        if (!already) {
-          vars.push(m);
-        }
-      });
+      rawList = selectedTemplate.variables;
     } else {
-      vars = Array.from(new Set(bodyMatches));
+      const bodyText = selectedTemplate.body || selectedTemplate.content || '';
+      rawList = bodyText.match(/\{\{[^}]+\}\}/g) || [];
     }
 
-    return vars.map((tag, idx) => {
+    const seen = new Set();
+    const result = [];
+
+    rawList.forEach((tag, idx) => {
       const normalized = String(tag).startsWith('{{') ? String(tag) : `{{${tag}}}`;
       const rawClean = normalized.replace(/[{}]/g, '').trim();
       const cleanKey = rawClean.replace(/[\[\]]/g, '').trim();
       const numKey = String(idx + 1);
-      const mappedName = (varMap[cleanKey] || varMap[rawClean] || varMap[numKey] || (/^[a-zA-Z_]/.test(cleanKey) ? cleanKey : null) || cleanKey).replace(/[\[\]]/g, '').trim();
-      const displayTag = mappedName ? `{{${mappedName}}}` : `{{${cleanKey}}}`;
-      return {
-        tag: displayTag,
-        rawTag: normalized,
-        numKey,
-        cleanKey,
-        mappedName: mappedName || cleanKey,
-        label: mappedName ? `${formatVariableLabel(mappedName)} ({{${mappedName}}})` : `Variable {{${cleanKey}}}`,
-      };
+      const mappedName = (
+        varMap[cleanKey] ||
+        varMap[rawClean] ||
+        varMap[numKey] ||
+        (/^[a-zA-Z_]/.test(cleanKey) ? cleanKey : null) ||
+        cleanKey
+      ).replace(/[\[\]]/g, '').trim();
+
+      const canonicalKey = mappedName || cleanKey || numKey;
+      const dedupeKey = canonicalKey.toLowerCase();
+
+      if (!seen.has(dedupeKey)) {
+        seen.add(dedupeKey);
+        const slotIndex = String(result.length + 1);
+        const displayTag = mappedName ? `{{${mappedName}}}` : `{{${cleanKey}}}`;
+        result.push({
+          tag: displayTag,
+          rawTag: normalized,
+          numKey: slotIndex,
+          cleanKey: canonicalKey,
+          mappedName: mappedName || cleanKey,
+          label: mappedName ? `${formatVariableLabel(mappedName)} ({{${mappedName}}})` : `Variable {{${cleanKey}}}`,
+        });
+      }
     });
+
+    return result;
   }, [selectedTemplate]);
 
   // Ensure initial mapping for any missing variables when selected template or audience changes
@@ -341,7 +351,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
       if (!next[cleanKey] && !next[effectiveKey] && !next[numKey]) {
         updated = true;
         const bestCol = detectBestColumn(cleanKey, mappedName, audienceColumns);
-        const isPersonName = numKey === '1' && (mappedName.includes('name') || mappedName.includes('customer'));
+        const isPersonName = numKey === '1' && (mappedName.includes('customer') || mappedName.includes('recipient') || (mappedName.includes('name') && !mappedName.includes('product') && !mappedName.includes('offer') && !mappedName.includes('plan')));
         const item = {
           source: bestCol,
           fallback: isPersonName ? 'Customer' : '',
@@ -412,41 +422,45 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
     const namedBody = tpl.named_content || (Object.keys(varMap).length > 0 ? convertNumberedToNamedText(bodyContent, varMap, tpl.category) : convertNumberedToNamedText(bodyContent, {}, tpl.category));
     setMessage(namedBody);
 
-    let vars = [];
-    const bodyMatches = bodyContent.match(/\{\{[^}]+\}\}/g) || [];
+    let rawList = [];
     if (Array.isArray(tpl.variables) && tpl.variables.length > 0) {
-      vars = [...tpl.variables];
-      bodyMatches.forEach((m) => {
-        const cleanM = m.replace(/[\[\]{}]/g, '').trim();
-        const already = vars.some((v) => String(v).replace(/[\[\]{}]/g, '').trim() === cleanM);
-        if (!already) {
-          vars.push(m);
-        }
-      });
+      rawList = tpl.variables;
     } else {
-      vars = Array.from(new Set(bodyMatches));
+      rawList = bodyContent.match(/\{\{[^}]+\}\}/g) || [];
     }
 
+    const seen = new Set();
     const newMapping = {};
-    vars.forEach((v, idx) => {
+    let varCounter = 0;
+
+    rawList.forEach((v, idx) => {
       const clean = String(v).replace(/[\[\]{}]/g, '').trim();
       const numKey = String(idx + 1);
       const mappedName = (varMap[clean] || varMap[numKey] || (/^[a-zA-Z_]/.test(clean) ? clean : null) || clean).replace(/[\[\]]/g, '').trim();
-      const bestCol = detectBestColumn(clean, mappedName, audienceColumns);
-      const isPersonName = numKey === '1' && (mappedName.includes('name') || mappedName.includes('customer'));
+      const canonicalKey = mappedName || clean || numKey;
+      const dedupeKey = canonicalKey.toLowerCase();
 
-      const mapObj = {
-        source: bestCol,
-        fallback: isPersonName ? 'Customer' : '',
-        customValue: '',
-        mappedName: mappedName || clean,
-        cleanKey: clean,
-        numKey: numKey,
-      };
-      newMapping[numKey] = mapObj;
-      newMapping[clean] = mapObj;
-      if (mappedName && mappedName !== clean) {
-        newMapping[mappedName] = mapObj;
+      if (!seen.has(dedupeKey)) {
+        seen.add(dedupeKey);
+        varCounter += 1;
+        const currentSlotKey = String(varCounter);
+        const bestCol = detectBestColumn(clean, mappedName, audienceColumns);
+        const isPersonName = currentSlotKey === '1' && (mappedName.includes('customer') || mappedName.includes('recipient') || (mappedName.includes('name') && !mappedName.includes('product') && !mappedName.includes('offer') && !mappedName.includes('plan')));
+
+        const mapObj = {
+          source: bestCol,
+          fallback: isPersonName ? 'Customer' : '',
+          customValue: '',
+          mappedName: mappedName || clean,
+          cleanKey: canonicalKey,
+          numKey: currentSlotKey,
+        };
+        newMapping[currentSlotKey] = mapObj;
+        newMapping[canonicalKey] = mapObj;
+        newMapping[clean] = mapObj;
+        if (mappedName && mappedName !== clean) {
+          newMapping[mappedName] = mapObj;
+        }
       }
     });
 
@@ -902,11 +916,11 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
 
             {displayedVariables.length > 0 ? (
               <div className="space-y-3 pt-1">
-                {displayedVariables.map(({ tag, cleanKey, mappedName }) => {
-                  const isNameField = (mappedName && (mappedName.includes('name') || mappedName.includes('customer'))) || cleanKey === '1';
-                  const current = variableMapping[cleanKey] || {
+                {displayedVariables.map(({ tag, cleanKey, numKey, mappedName }) => {
+                  const isPersonalName = (mappedName && (mappedName.includes('customer') || mappedName.includes('recipient') || (mappedName.includes('name') && !mappedName.includes('product') && !mappedName.includes('offer') && !mappedName.includes('plan') && !mappedName.includes('brand') && !mappedName.includes('company')))) || (numKey === '1' && (!mappedName || (!mappedName.includes('product') && !mappedName.includes('offer'))));
+                  const current = variableMapping[cleanKey] || variableMapping[mappedName] || variableMapping[numKey] || {
                     source: detectBestColumn(cleanKey, mappedName, audienceColumns),
-                    fallback: isNameField ? 'Customer' : '',
+                    fallback: isPersonalName ? 'Customer' : '',
                     customValue: '',
                   };
 
@@ -1006,7 +1020,7 @@ export default function MessageStep({ data, updateData, onNext, onBack, workspac
                             type="text"
                             value={current.fallback ?? ''}
                             onChange={(e) => handleUpdateMapping(cleanKey, { fallback: e.target.value })}
-                            placeholder={isNameField ? 'e.g. Customer, Valued Member' : (mappedName ? `e.g. ${getSampleValue(mappedName)}` : 'Default value')}
+                            placeholder={isPersonalName ? 'e.g. Customer, Valued Member' : (mappedName ? `e.g. ${getSampleValue(mappedName)}` : 'Default value')}
                             className="w-full px-3 py-2 rounded-lg bg-[#0c0b17] border border-[#2d2650] text-xs sm:text-sm text-white font-normal placeholder-[#716d8a] outline-none focus:border-[#814AC8]"
                           />
                         </div>

@@ -434,6 +434,24 @@ class WebhookService:
                                             )
                                         db.flush()
                                         logger.info(f"Updated message status for {wamid} to {status_str}")
+                                        try:
+                                            from app.services.analytics.realtime_service import publish_to_workspace, EventType
+                                            from app.models.conversation import Conversation
+                                            conv_item = db.query(Conversation.workspace_id).filter(Conversation.id == msg.conversation_id).first()
+                                            if conv_item:
+                                                publish_to_workspace(
+                                                    workspace_id=str(conv_item.workspace_id),
+                                                    event_type=EventType.MESSAGE_STATUS_UPDATED,
+                                                    payload={
+                                                        "message_id": str(msg.id),
+                                                        "conversation_id": str(msg.conversation_id),
+                                                        "status": msg.status.value.lower() if hasattr(msg.status, "value") else str(msg.status).lower(),
+                                                        "external_id": wamid,
+                                                    },
+                                                    conversation_id=str(msg.conversation_id),
+                                                )
+                                        except Exception as pub_err:
+                                            logger.debug(f"Failed to publish status update event: {pub_err}")
 
                                 outbound = db.query(OutboundMessage).filter(OutboundMessage.twilio_sid == wamid).first()
                                 if outbound:
@@ -649,7 +667,7 @@ class WebhookService:
                 
                 for message in messages:
                     logger.info(f"Processing message ID: {message.get('id')}")
-                    (body,interactive_value,interactive_label,media_url,media_type,mime_type, media_id) = WebhookService._extract_meta_whatsapp_body(message)
+                    (body, interactive_value, interactive_label, media_url, media_type, mime_type, media_id, filename) = WebhookService._extract_meta_whatsapp_body(message)
                     from_number = message.get("from")
                     
                     if not from_number:
@@ -696,18 +714,21 @@ class WebhookService:
                             phone=from_number,
                             message_external_id=message.get("id"),
                             contact_name=contact_name,
-                           metadata={
-                                        "interactive_value": interactive_value,
-                                        "interactive_label": interactive_label,
-                                        "provider": "meta_whatsapp",
-                                        "phone_number_id": phone_number_id,
-                                        "media_url": media_url,
-                                        "media_type": media_type,
-                                        "mime_type": mime_type,
-                                        "media_id": media_id,
-                                        "is_unsupported": is_unsupported_msg,
-                                        "errors": message.get("errors") if is_unsupported_msg else None,
-                                    },
+                            metadata={
+                                "interactive_value": interactive_value,
+                                "interactive_label": interactive_label,
+                                "provider": "meta_whatsapp",
+                                "phone_number_id": phone_number_id,
+                                "media_url": media_url,
+                                "media_type": media_type,
+                                "mime_type": mime_type,
+                                "media_id": media_id,
+                                "filename": filename,
+                                "file_name": filename,
+                                "original_filename": filename,
+                                "is_unsupported": is_unsupported_msg,
+                                "errors": message.get("errors") if is_unsupported_msg else None,
+                            },
                         )
                         logger.info(f"Pipeline processing result: {result}")
 
@@ -715,13 +736,16 @@ class WebhookService:
                         if media_id and workspace:
                             try:
                                 from app.services.inbox.meta_media_service import MetaMediaService
+                                msg_id = result.get("message_id") if isinstance(result, dict) else None
                                 asyncio.create_task(
                                     MetaMediaService.download_and_store_meta_media_background(
                                         workspace_id=str(workspace.id),
                                         media_id=str(media_id),
                                         message_external_id=message.get("id"),
+                                        message_id=msg_id,
                                         mime_type=mime_type,
                                         media_type=media_type,
+                                        original_filename=filename,
                                     )
                                 )
                             except Exception as bg_task_err:
@@ -860,7 +884,7 @@ class WebhookService:
                 source=source,
                 db=db,
             )
-            if lead and lead.status == "closed":
+            if lead and lead.status in ("closed", "follow_up"):
                 lead.status = "open"
                 if lead.lead_tier == "inactive":
                     lead.lead_tier = "warm"
@@ -928,7 +952,11 @@ class WebhookService:
                     normalized_channel.value,
                     message_external_id,
                 )
-            return {"status": "queued", "conversation_id": str(conversation.id)}
+            return {
+                "status": "queued",
+                "conversation_id": str(conversation.id),
+                "message_id": str(message.id) if message else None,
+            }
         except Exception as exc:
             db.rollback()
             logger.exception("Error processing incoming %s message: %s", normalized_channel.value, exc)
@@ -938,6 +966,7 @@ class WebhookService:
     def _extract_meta_whatsapp_body(
             message: dict[str, Any]
         ) -> tuple[
+            str | None,
             str | None,
             str | None,
             str | None,
@@ -955,6 +984,7 @@ class WebhookService:
             media_type = None
             mime_type = None
             media_id = None
+            filename = None
 
             button = message.get("button") or {}
             if button:
@@ -964,11 +994,22 @@ class WebhookService:
 
             interactive = message.get("interactive") or {}
             button_reply = interactive.get("button_reply") or {}
-
             if button_reply:
                 interactive_value = button_reply.get("id")
                 interactive_label = button_reply.get("title")
                 text = text or interactive_label
+
+            list_reply = interactive.get("list_reply") or {}
+            if list_reply:
+                interactive_value = list_reply.get("id")
+                interactive_label = list_reply.get("title")
+                text = text or interactive_label
+
+            nfm_reply = interactive.get("nfm_reply") or {}
+            if nfm_reply:
+                interactive_value = nfm_reply.get("name")
+                interactive_label = nfm_reply.get("response_json")
+                text = text or f"[Flow Response: {nfm_reply.get('name') or 'Form'}]"
 
             msg_type = (message.get("type") or "").lower()
 
@@ -1027,6 +1068,7 @@ class WebhookService:
                 media_type,
                 mime_type,
                 media_id,
+                filename,
             )
 
     @staticmethod

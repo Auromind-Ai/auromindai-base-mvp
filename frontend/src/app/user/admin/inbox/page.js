@@ -834,15 +834,17 @@ function ConversationSidebar({
                         />
                     </div>
 
-                    {/* Compose Button (Opens New Chat modal) */}
-                    <button
-                        type="button"
-                        onClick={onOpenNewChat}
-                        className="w-10 h-10 rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed] flex items-center justify-center text-white shadow-md shadow-purple-900/30 transition-transform active:scale-95 shrink-0 cursor-pointer"
-                        title="New chat"
-                    >
-                        <MessageSquarePlus size={19} strokeWidth={2} className="text-white" />
-                    </button>
+                    {/* WhatsApp Compose Button (Opens New Chat modal) */}
+                    {ch.id === 'whatsapp' && (
+                        <button
+                            type="button"
+                            onClick={onOpenNewChat}
+                            className="w-10 h-10 rounded-xl bg-[#8b5cf6] hover:bg-[#7c3aed] flex items-center justify-center text-white shadow-md shadow-purple-900/30 transition-transform active:scale-95 shrink-0 cursor-pointer"
+                            title="New chat"
+                        >
+                            <MessageSquarePlus size={19} strokeWidth={2} className="text-white" />
+                        </button>
+                    )}
                 </div>
 
                 {/* Segmented Filter Bar (All, Open, Follow Up, Converted) */}
@@ -1853,7 +1855,7 @@ function ChatArea({
                         </div>
                     )}
 
-                    {/* Star Button */}
+                    {/* Star Button
                     <button
                         type="button"
                         onClick={() => setIsFavorite(prev => !prev)}
@@ -1863,7 +1865,7 @@ function ChatArea({
                         title="Star conversation"
                     >
                         <Star size={15} className={isFavorite ? 'fill-amber-400' : ''} />
-                    </button>
+                    </button> */}
 
                     {/* Phone / Call Button */}
                     {lead.phone && (
@@ -2213,7 +2215,7 @@ function ChatArea({
                         <input
                             type="file"
                             ref={fileInputRef}
-                            accept="image/*,video/*,audio/*,application/pdf"
+                            accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
                             onChange={handleFileSelect}
                             className="hidden"
                         />
@@ -2354,13 +2356,24 @@ function ChatArea({
                                         </span>
                                     </div>
                                 ) : (
-                                    <input
+                                    <textarea
+                                        ref={(element) => {
+                                            if (!element) return;
+                                            element.style.height = 'auto';
+                                            element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
+                                        }}
+                                        rows={1}
                                         value={msg}
                                         onChange={(e) => setMsg(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                                                e.preventDefault();
+                                                sendMessage();
+                                            }
+                                        }}
                                         placeholder={selectedFilePreview ? "Add a caption..." : isInstagram ? "Message..." : "Type a message..."}
                                         disabled={isUploadingMedia}
-                                        className="flex-1 bg-transparent text-[14.5px] text-white placeholder:text-zinc-500 outline-none px-2 font-normal"
+                                        className="flex-1 min-w-0 max-h-40 overflow-y-auto resize-none bg-transparent text-[14.5px] text-white placeholder:text-zinc-500 outline-none px-2 font-normal"
                                     />
                                 )}
 
@@ -2652,7 +2665,7 @@ function InboxContent() {
     }, [resolvedLeadId]);
 
     const fetchLeadIdForConversation = useCallback(async (conversationId) => {
-        if (!conversationId || !workspace?.id) return null;
+        if (!conversationId || String(conversationId).startsWith('whatsapp-') || !workspace?.id) return null;
         try {
             const data = await api.get('/api/lead-scoring/leads?limit=100&offset=0');
             const items = data.items || data || [];
@@ -2831,9 +2844,11 @@ function InboxContent() {
             }
 
             let urlConvId = null;
+            let urlPhone = null;
             if (typeof window !== 'undefined') {
                 const params = new URLSearchParams(window.location.search);
                 urlConvId = params.get('conversationId') || params.get('conversation');
+                urlPhone = params.get('phone');
             }
 
             let nextLead = null;
@@ -2843,6 +2858,19 @@ function InboxContent() {
                     const newParams = new URLSearchParams(searchParams.toString());
                     newParams.delete('conversationId');
                     newParams.delete('conversation');
+                    router.replace(`${pathname}${newParams.toString() ? '?' + newParams.toString() : ''}`, { scroll: false });
+                }
+            } else if (urlPhone) {
+                const cleanQueryPhone = String(urlPhone).replace(/\D/g, '');
+                nextLead = uniqueData.find(item => {
+                    const itemPhone = String(item.phone || item.external_id || '').replace(/\D/g, '');
+                    if (itemPhone && cleanQueryPhone && itemPhone === cleanQueryPhone) return true;
+                    if (cleanQueryPhone.length >= 10 && itemPhone.length >= 10 && cleanQueryPhone.slice(-10) === itemPhone.slice(-10)) return true;
+                    return false;
+                });
+                if (nextLead && typeof window !== 'undefined') {
+                    const newParams = new URLSearchParams(searchParams.toString());
+                    newParams.delete('phone');
                     router.replace(`${pathname}${newParams.toString() ? '?' + newParams.toString() : ''}`, { scroll: false });
                 }
             } else if (leadRef.current) {
@@ -2956,7 +2984,7 @@ function InboxContent() {
     }, [workspace?.id, fetchConversations, fetchMessages]);
 
     useEffect(() => {
-        if (!lead?.id) return;
+        if (!lead?.id || String(lead.id).startsWith('whatsapp-')) return;
         subscribeConversation(lead.id);
         return () => unsubscribeConversation(lead.id);
     }, [lead?.id, subscribeConversation, unsubscribeConversation]);
@@ -3053,6 +3081,8 @@ function InboxContent() {
             let uploadedMediaUrl = null;
             let detectedMessageType = null;
             let detectedMimeType = null;
+            let originalDocName = null;
+            let originalDocSize = null;
 
             if (selectedFile) {
                 const formData = new FormData();
@@ -3064,7 +3094,9 @@ function InboxContent() {
                     selectedFile.type.startsWith('audio/') ? 'audio' :
                     selectedFile.type.startsWith('image/') ? 'image' : 'document'
                 );
-                detectedMimeType = selectedFile.type;
+                detectedMimeType = selectedFile.type || uploadRes.mime_type;
+                originalDocName = selectedFile.name || uploadRes.filename || 'Document';
+                originalDocSize = selectedFile.size ? `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB` : (uploadRes?.file_size ? `${(uploadRes.file_size / (1024 * 1024)).toFixed(1)} MB` : '');
             }
 
             const payload = {
@@ -3077,6 +3109,10 @@ function InboxContent() {
                     media_url: uploadedMediaUrl,
                     message_type: detectedMessageType,
                     mime_type: detectedMimeType,
+                    filename: originalDocName,
+                    file_name: originalDocName,
+                    original_filename: originalDocName,
+                    file_size: originalDocSize,
                 };
             }
 
@@ -3089,6 +3125,8 @@ function InboxContent() {
                     media_url: templateMediaUrl || (uploadedMediaUrl || null),
                     header_url: templateMediaUrl || (uploadedMediaUrl || null),
                     template_type: templateMediaType || 'TEXT',
+                    filename: originalDocName || payload.metadata?.filename,
+                    file_name: originalDocName || payload.metadata?.file_name,
                 };
             }
 
@@ -3105,6 +3143,8 @@ function InboxContent() {
                 media_url: uploadedMediaUrl || null,
                 media_type: detectedMessageType || null,
                 mime_type: detectedMimeType || null,
+                filename: originalDocName || null,
+                file_name: originalDocName || null,
                 metadata: payload.metadata || {}
             };
             setMessages(prev => [...prev, optimisticMsg]);
@@ -3214,8 +3254,20 @@ function InboxContent() {
         });
     }
 
+    function closeContactDetails() {
+        setDesktopDrawerOpen(false);
+        setTabletRight('chat');
+        setMobileView(view => view === 'info' ? 'chat' : view);
+    }
+
+    function promptConvertConversation() {
+        closeContactDetails();
+        setShowConvertModal(true);
+    }
+
     function promptCloseConversation(conversationId) {
         if (!conversationId) return;
+        closeContactDetails();
         setCloseTargetId(conversationId);
         setShowCloseModal(true);
     }
@@ -3307,10 +3359,15 @@ function InboxContent() {
         if (!l) return;
         setLead(l);
         leadRef.current = l;
-        fetchMessages(l.id);
-        setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
-        api.post(`/api/conversations/${l.id}/read`).catch(() => {});
-        fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+        if (!String(l.id).startsWith('whatsapp-')) {
+            fetchMessages(l.id);
+            setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+            api.post(`/api/conversations/${l.id}/read`).catch(() => {});
+            fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+        } else {
+            setMessages([]);
+            setResolvedLeadId(null);
+        }
         setTabletRight('chat');
     }
 
@@ -3318,10 +3375,15 @@ function InboxContent() {
         if (!l) return;
         setLead(l);
         leadRef.current = l;
-        fetchMessages(l.id);
-        setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
-        api.post(`/api/conversations/${l.id}/read`).catch(() => {});
-        fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+        if (!String(l.id).startsWith('whatsapp-')) {
+            fetchMessages(l.id);
+            setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+            api.post(`/api/conversations/${l.id}/read`).catch(() => {});
+            fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+        } else {
+            setMessages([]);
+            setResolvedLeadId(null);
+        }
         setMobileView('chat');
     }
 
@@ -3373,21 +3435,15 @@ function InboxContent() {
         ch, lead,
         resolvedLeadId, messages,
         onCloseConversation: promptCloseConversation,
-        onConvertClick: () => setShowConvertModal(true),
+        onConvertClick: promptConvertConversation,
         leadDetail, setLeadDetail,
         activeFilter,
     };
 
     const handleStartNewChat = useCallback((fullPhoneNumber) => {
-        let cleanDigits = String(fullPhoneNumber).replace(/\D/g, '');
+        // NewChatModal already includes the selected country code; preserve it.
+        const cleanDigits = String(fullPhoneNumber).replace(/\D/g, '');
         if (!cleanDigits) return;
-
-        // Strip duplicate country codes (e.g. 91917695951519 -> 917695951519)
-        if (cleanDigits.length === 14 && cleanDigits.startsWith('9191')) {
-            cleanDigits = cleanDigits.slice(2);
-        } else if (cleanDigits.length === 10) {
-            cleanDigits = `91${cleanDigits}`;
-        }
 
         // Ensure WhatsApp channel is selected
         const waCh = CHANNELS.find(c => c.id === 'whatsapp') || ch;
@@ -3482,10 +3538,15 @@ function InboxContent() {
                         onLeadSelect={(l) => {
                             setLead(l);
                             leadRef.current = l;
-                            fetchMessages(l.id);
-                            setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
-                            api.post(`/api/conversations/${l.id}/read`).catch(() => {});
-                            fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+                            if (!String(l.id).startsWith('whatsapp-')) {
+                                fetchMessages(l.id);
+                                setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+                                api.post(`/api/conversations/${l.id}/read`).catch(() => {});
+                                fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+                            } else {
+                                setMessages([]);
+                                setResolvedLeadId(null);
+                            }
                         }}
                     />
                 </div>
