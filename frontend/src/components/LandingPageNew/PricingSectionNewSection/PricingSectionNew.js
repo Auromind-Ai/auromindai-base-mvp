@@ -316,7 +316,7 @@ export default function PricingSectionNew() {
         
         {/* Header Section */}
         <div className="mx-auto max-w-4xl text-center mb-12 md:mb-16">
-          <h2 className="font-['Poppins'] text-3xl sm:text-5xl lg:text-6xl font-semibold text-white tracking-tight leading-[1.15]">
+          <h2 className="font-['Poppins'] text-xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.15]">
             Simple, Transparent Pricing
             <br />
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-purple-200 to-purple-400">
