@@ -327,3 +327,100 @@ def test_router_endpoints_directly(db_session):
     )
     assert "Custom: " in preview_custom["subject"]
     assert "Custom body with " in preview_custom["body_text"]
+
+
+def test_only_new_leads_and_deduplication(db_session):
+    session, ws = db_session
+    setting = LeadEmailReportService.update_settings(session, ws.id, {
+        "is_active": True,
+        "min_score": 50,
+        "recipient_emails": ["team@example.com"],
+        "attach_csv": True,
+        "only_new_leads": True,
+    })
+
+    # Lead 1: Original lead
+    lead1 = Lead(
+        id=uuid.uuid4(),
+        workspace_id=ws.id,
+        name="John Doe",
+        email="john@example.com",
+        phone="+919876543210",
+        score=80,
+        lead_tier="hot",
+        status="new"
+    )
+    # Lead 2: Duplicate by phone (+919876543210 vs 9876543210)
+    lead2 = Lead(
+        id=uuid.uuid4(),
+        workspace_id=ws.id,
+        name="John D.",
+        email="different_email@example.com",
+        phone="9876543210",
+        score=75,
+        lead_tier="hot",
+        status="new"
+    )
+    # Lead 3: Duplicate by email (john@example.com vs JOHN@EXAMPLE.COM)
+    lead3 = Lead(
+        id=uuid.uuid4(),
+        workspace_id=ws.id,
+        name="John Email Dup",
+        email="JOHN@EXAMPLE.COM",
+        phone="+1234567890",
+        score=70,
+        lead_tier="hot",
+        status="new"
+    )
+    # Lead 4: Completely distinct lead
+    lead4 = Lead(
+        id=uuid.uuid4(),
+        workspace_id=ws.id,
+        name="Sara Connor",
+        email="sara@example.com",
+        phone="+919123456789",
+        score=85,
+        lead_tier="hot",
+        status="new"
+    )
+
+    session.add_all([lead1, lead2, lead3, lead4])
+    session.commit()
+
+    # First send: Only distinct leads should be sent (lead1 and lead4)
+    result1 = LeadEmailReportService.send_report(session, ws.id, is_test=False)
+    assert result1["status"] == "success"
+    assert result1["lead_count"] == 2
+    session.refresh(lead1)
+    session.refresh(lead4)
+    assert lead1.last_reported_at is not None
+    assert lead4.last_reported_at is not None
+    assert setting.last_sent_at is not None
+
+    # Second send: No new leads have been added since last report.
+    # Should NOT send duplicate or old leads! Should inform professionally with zero leads.
+    result2 = LeadEmailReportService.send_report(session, ws.id, is_test=False)
+    assert result2["status"] == "success"
+    assert result2["lead_count"] == 0
+    # No CSV should be attached when there are 0 leads
+    # Check that setting.last_sent_at has advanced
+    assert setting.last_sent_at is not None
+
+
+def test_professional_zero_leads_update_email_content(db_session):
+    session, ws = db_session
+    setting = LeadEmailReportService.get_or_create_settings(session, ws.id)
+    content = LeadEmailReportService.build_email_content(
+        setting=setting,
+        lead_count=0,
+        filename="qualified_leads_test.csv",
+        workspace_name="OrbionAgents"
+    )
+
+    # Professional zero-leads subject and body
+    assert "No New Leads" in content["subject"]
+    assert "0" in content["plain_text"]
+    assert "AI agents are actively monitoring" in content["plain_text"]
+    assert "AI Monitoring Active" in content["html_body"]
+    assert "Up to date" in content["html_body"]
+

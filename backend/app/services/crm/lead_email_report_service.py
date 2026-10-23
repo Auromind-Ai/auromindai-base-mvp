@@ -58,6 +58,23 @@ The leads in this report have a lead score of {min_score} or higher.
 Regards,
 {workspace_name}"""
 
+DEFAULT_ZERO_LEADS_SUBJECT = "{frequency} Qualified Leads Update - No New Leads ({date})"
+
+DEFAULT_ZERO_LEADS_BODY_TEMPLATE = """Hi Team,
+
+This is your scheduled {frequency_lower} qualified leads update for {date}.
+
+Currently, there are no new qualified leads meeting your criteria (lead score ≥ {min_score}) since the last report.
+
+• New Qualified Leads: 0
+• Minimum Score Threshold: {min_score}
+• Status: All previous leads have been delivered. AI agents are actively monitoring incoming traffic and inquiries.
+
+You will automatically receive the next scheduled report as soon as new qualified leads arrive.
+
+Regards,
+{workspace_name}"""
+
 
 def render_template(template_str: Any, variables: Dict[str, Any]) -> str:
     if not isinstance(template_str, str) or not template_str:
@@ -116,6 +133,7 @@ class LeadEmailReportService:
                 send_time="09:00",
                 recipient_emails=[],
                 attach_csv=True,
+                only_new_leads=True,
                 subject_template=DEFAULT_SUBJECT_TEMPLATE,
                 body_template=DEFAULT_BODY_TEMPLATE,
             )
@@ -207,6 +225,8 @@ class LeadEmailReportService:
                 setting.recipient_emails = [str(e).strip() for e in emails if e and "@" in str(e)]
         if "attach_csv" in data:
             setting.attach_csv = bool(data["attach_csv"])
+        if "only_new_leads" in data:
+            setting.only_new_leads = bool(data["only_new_leads"])
 
         if "subject_template" in data:
             val = str(data["subject_template"]).strip() if data["subject_template"] else None
@@ -230,9 +250,66 @@ class LeadEmailReportService:
         return setting
 
     @classmethod
-    def get_qualified_leads_query(cls, db: Session, workspace_id: UUID, min_score: int, filters=None):
+    def get_qualified_leads_query(
+        cls,
+        db: Session,
+        workspace_id: UUID,
+        min_score: int,
+        filters=None,
+        only_new: bool = True,
+        last_sent_at: Optional[datetime] = None
+    ):
         parsed = validate_report_filters(filters or {}, min_score)
-        return lead_query(db, workspace_id, parsed).order_by(Lead.score.desc().nullsfirst(), Lead.id)
+        q = lead_query(db, workspace_id, parsed)
+
+        if only_new:
+            from sqlalchemy import and_, or_
+            conditions = []
+            if hasattr(Lead, "last_reported_at"):
+                conditions.append(Lead.last_reported_at.is_(None))
+            if last_sent_at is not None:
+                conditions.append(
+                    or_(
+                        Lead.created_at > last_sent_at,
+                        and_(Lead.updated_at.isnot(None), Lead.updated_at > last_sent_at)
+                    )
+                )
+            if conditions:
+                q = q.filter(and_(*conditions))
+
+        return q.order_by(Lead.score.desc().nullsfirst(), Lead.created_at.desc(), Lead.id)
+
+    @classmethod
+    def deduplicate_leads(cls, leads: List[Lead]) -> List[Lead]:
+        seen_phones = set()
+        seen_emails = set()
+        seen_ids = set()
+        unique: List[Lead] = []
+
+        for lead in leads:
+            if lead.id in seen_ids:
+                continue
+
+            raw_phone = getattr(lead, "normalized_phone", None) or getattr(lead, "phone", None) or ""
+            phone_digits = "".join(ch for ch in str(raw_phone) if ch.isdigit())
+            phone_key = phone_digits[-10:] if len(phone_digits) >= 10 else phone_digits
+
+            raw_email = getattr(lead, "normalized_email", None) or getattr(lead, "email", None) or ""
+            email_key = str(raw_email).strip().lower()
+
+            if phone_key and phone_key in seen_phones:
+                continue
+            if email_key and email_key in seen_emails:
+                continue
+
+            if phone_key:
+                seen_phones.add(phone_key)
+            if email_key:
+                seen_emails.add(email_key)
+            seen_ids.add(lead.id)
+            unique.append(lead)
+
+        return unique
 
     @classmethod
     def csv_rows(cls, leads, columns=None, timezone_name="Asia/Kolkata", flow_names=None):
@@ -296,16 +373,61 @@ class LeadEmailReportService:
             "workspace_name": workspace_name,
         }
 
-        subj_tmpl = (custom_subject if isinstance(custom_subject, str) and custom_subject else None) or setting.subject_template or DEFAULT_SUBJECT_TEMPLATE
-        body_tmpl = (custom_body if isinstance(custom_body, str) and custom_body else None) or setting.body_template or DEFAULT_BODY_TEMPLATE
-
-        subject = render_template(subj_tmpl, variables)
-        body_text = render_template(body_tmpl, variables)
-
         import html
-        escaped_body = html.escape(body_text)
 
-        body_html = f"""<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; line-height: 1.6;">
+        if lead_count == 0:
+            subj_tmpl = (custom_subject if isinstance(custom_subject, str) and custom_subject else None)
+            if not subj_tmpl or subj_tmpl == DEFAULT_SUBJECT_TEMPLATE:
+                subj_tmpl = DEFAULT_ZERO_LEADS_SUBJECT
+
+            body_tmpl = (custom_body if isinstance(custom_body, str) and custom_body else None)
+            if not body_tmpl or body_tmpl == DEFAULT_BODY_TEMPLATE or (getattr(setting, "body_template", None) and body_tmpl == setting.body_template and not custom_body):
+                body_tmpl = DEFAULT_ZERO_LEADS_BODY_TEMPLATE
+
+            subject = render_template(subj_tmpl, variables)
+            body_text = render_template(body_tmpl, variables)
+            escaped_body = html.escape(body_text)
+
+            body_html = f"""<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; line-height: 1.6; background-color: #ffffff;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #e2e8f0;">
+        <span style="font-size: 15px; font-weight: 700; color: #0f172a;">{html.escape(workspace_name)}</span>
+        <span style="display: inline-block; padding: 3px 10px; font-size: 11px; font-weight: 600; color: #2563eb; background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 9999px;">AI Monitoring Active</span>
+    </div>
+    <h2 style="color: #0f172a; margin-top: 0; font-size: 18px;">{html.escape(subject)}</h2>
+    <div style="font-size: 14px; color: #334155; white-space: pre-wrap; word-break: break-word;">{escaped_body}</div>
+    <div style="margin-top: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 8px;">Lead Delivery Status</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+                <td style="padding: 4px 0; color: #64748b;">New Qualified Leads</td>
+                <td style="padding: 4px 0; text-align: right; font-weight: 600; color: #0f172a;">0</td>
+            </tr>
+            <tr>
+                <td style="padding: 4px 0; color: #64748b;">Qualification Score</td>
+                <td style="padding: 4px 0; text-align: right; font-weight: 600; color: #0f172a;">&ge; {setting.min_score}%</td>
+            </tr>
+            <tr>
+                <td style="padding: 4px 0; color: #64748b;">Reporting Schedule</td>
+                <td style="padding: 4px 0; text-align: right; font-weight: 600; color: #0f172a;">{freq_label}</td>
+            </tr>
+            <tr>
+                <td style="padding: 4px 0; color: #64748b;">Status</td>
+                <td style="padding: 4px 0; text-align: right; font-weight: 600; color: #16a34a;">Up to date &bull; No duplicates</td>
+            </tr>
+        </table>
+    </div>
+    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+    <p style="font-size: 13px; color: #64748b; margin-bottom: 0;">Sent automatically by <strong style="color: #0f172a;">{html.escape(workspace_name)}</strong> CRM</p>
+</div>"""
+        else:
+            subj_tmpl = (custom_subject if isinstance(custom_subject, str) and custom_subject else None) or setting.subject_template or DEFAULT_SUBJECT_TEMPLATE
+            body_tmpl = (custom_body if isinstance(custom_body, str) and custom_body else None) or setting.body_template or DEFAULT_BODY_TEMPLATE
+
+            subject = render_template(subj_tmpl, variables)
+            body_text = render_template(body_tmpl, variables)
+            escaped_body = html.escape(body_text)
+
+            body_html = f"""<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; line-height: 1.6;">
     <h2 style="color: #0f172a; margin-top: 0; font-size: 18px;">{html.escape(subject)}</h2>
     <div style="font-size: 14px; color: #334155; white-space: pre-wrap; word-break: break-word;">{escaped_body}</div>
     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
@@ -333,8 +455,8 @@ class LeadEmailReportService:
         if is_test and settings_override is not None:
             from types import SimpleNamespace
             settings_override = LeadReportSettingsUpdate.model_validate(settings_override).model_dump(exclude_unset=True)
-            fields = ("min_score", "frequency", "attach_csv", "report_filters", "csv_columns", "subject_template", "body_template", "recipient_emails")
-            setting = SimpleNamespace(**{key: settings_override.get(key, getattr(setting, key)) for key in fields})
+            fields = ("min_score", "frequency", "attach_csv", "only_new_leads", "report_filters", "csv_columns", "subject_template", "body_template", "recipient_emails")
+            setting = SimpleNamespace(**{key: settings_override.get(key, getattr(setting, key, None)) for key in fields}, last_sent_at=getattr(setting, "last_sent_at", None))
             validate_report_filters(setting.report_filters or {}, setting.min_score)
             validate_csv_columns(setting.csv_columns)
         recipients = recipient_override or setting.recipient_emails
@@ -342,7 +464,14 @@ class LeadEmailReportService:
         if not recipients:
             raise ValueError("No recipient emails configured for this report.")
 
-        leads = cls.get_qualified_leads_query(db, workspace_id, setting.min_score, setting.report_filters).all()
+        only_new = getattr(setting, "only_new_leads", True)
+        last_sent = getattr(setting, "last_sent_at", None)
+        raw_leads = cls.get_qualified_leads_query(
+            db, workspace_id, setting.min_score, getattr(setting, "report_filters", None),
+            only_new=only_new,
+            last_sent_at=last_sent
+        ).all()
+        leads = cls.deduplicate_leads(raw_leads)
         lead_count = len(leads)
 
         date_slug = datetime.now().strftime("%Y-%m-%d")
@@ -354,9 +483,9 @@ class LeadEmailReportService:
         content = cls.build_email_content(setting, lead_count, filename, ws_name)
 
         attachments = []
-        if setting.attach_csv:
-            flow_names = get_lead_flow_names(db, workspace_id, [lead.conversation_id for lead in leads]) if "flow_name" in validate_csv_columns(setting.csv_columns) else {}
-            csv_bytes = cls.generate_csv_bytes(leads, setting.csv_columns, cls.get_workspace_timezone(db, workspace_id), flow_names)
+        if getattr(setting, "attach_csv", True) and lead_count > 0:
+            flow_names = get_lead_flow_names(db, workspace_id, [lead.conversation_id for lead in leads]) if "flow_name" in validate_csv_columns(getattr(setting, "csv_columns", None)) else {}
+            csv_bytes = cls.generate_csv_bytes(leads, getattr(setting, "csv_columns", None), cls.get_workspace_timezone(db, workspace_id), flow_names)
             attachments.append({
                 "filename": filename,
                 "content": csv_bytes,
@@ -375,6 +504,9 @@ class LeadEmailReportService:
 
         if not is_test:
             now_utc = datetime.now(timezone.utc)
+            for lead in leads:
+                if hasattr(lead, "last_reported_at"):
+                    lead.last_reported_at = now_utc
             setting.last_sent_at = now_utc
             tz_str = cls.get_workspace_timezone(db, workspace_id)
             setting.next_run_at = cls.calculate_next_run(
@@ -434,7 +566,13 @@ class LeadEmailReportService:
 
     @classmethod
     def settings_payload(cls, db, workspace_id, setting):
-        lead_count = LeadEmailReportService.get_qualified_leads_query(db, workspace_id, setting.min_score, setting.report_filters).count()
+        only_new = getattr(setting, "only_new_leads", True)
+        raw_leads = LeadEmailReportService.get_qualified_leads_query(
+            db, workspace_id, setting.min_score, setting.report_filters,
+            only_new=only_new,
+            last_sent_at=setting.last_sent_at
+        ).all()
+        lead_count = len(cls.deduplicate_leads(raw_leads))
 
         return {
             "settings": {
@@ -448,12 +586,15 @@ class LeadEmailReportService:
                 "timezone": cls.get_workspace_timezone(db, workspace_id),
                 "recipient_emails": setting.recipient_emails or [],
                 "attach_csv": setting.attach_csv,
+                "only_new_leads": only_new,
                 "report_filters": setting.report_filters or {},
                 "csv_columns": setting.csv_columns,
                 "subject_template": setting.subject_template or DEFAULT_SUBJECT_TEMPLATE,
                 "body_template": setting.body_template or DEFAULT_BODY_TEMPLATE,
                 "default_subject": DEFAULT_SUBJECT_TEMPLATE,
                 "default_body": DEFAULT_BODY_TEMPLATE,
+                "default_zero_leads_subject": DEFAULT_ZERO_LEADS_SUBJECT,
+                "default_zero_leads_body": DEFAULT_ZERO_LEADS_BODY_TEMPLATE,
                 "last_sent_at": setting.last_sent_at.isoformat() if setting.last_sent_at else None,
                 "next_run_at": setting.next_run_at.isoformat() if setting.next_run_at else None,
             },
@@ -462,14 +603,21 @@ class LeadEmailReportService:
         }
 
     @classmethod
-    def sample_preview(cls, db, workspace_id, min_score, filters, columns, frequency, subject_template, body_template):
+    def sample_preview(cls, db, workspace_id, min_score, filters, columns, frequency, subject_template, body_template, only_new_leads: bool = True):
         import json
         try:
             report_filters = json.loads(filters) if isinstance(filters, str) else {}
             selected_columns = validate_csv_columns(json.loads(columns) if isinstance(columns, str) else None)
-            query = LeadEmailReportService.get_qualified_leads_query(db, workspace_id, min_score, report_filters)
-            lead_count = query.count()
-            leads = query.limit(10).all()
+            setting = LeadEmailReportService.get_or_create_settings(db, workspace_id)
+            query = LeadEmailReportService.get_qualified_leads_query(
+                db, workspace_id, min_score, report_filters,
+                only_new=only_new_leads,
+                last_sent_at=setting.last_sent_at
+            )
+            raw_leads = query.all()
+            deduped_leads = cls.deduplicate_leads(raw_leads)
+            lead_count = len(deduped_leads)
+            leads = deduped_leads[:10]
             flow_names = get_lead_flow_names(db, workspace_id, [lead.conversation_id for lead in leads]) if "flow_name" in selected_columns else {}
         except ValueError as exc:
             raise ValueError(str(exc)) from exc
@@ -494,13 +642,18 @@ class LeadEmailReportService:
         ws = db.query(Workspace).filter(Workspace.id == workspace_id).first()
         ws_name = ws.name if ws and ws.name else "OrbionAgents"
 
-        setting = LeadEmailReportService.get_or_create_settings(db, workspace_id)
         from types import SimpleNamespace
-        setting = SimpleNamespace(min_score=min_score, frequency=frequency,
-            subject_template=setting.subject_template, body_template=setting.body_template)
+        preview_setting = SimpleNamespace(
+            min_score=min_score,
+            frequency=frequency,
+            only_new_leads=only_new_leads,
+            last_sent_at=setting.last_sent_at,
+            subject_template=setting.subject_template,
+            body_template=setting.body_template
+        )
 
         content = LeadEmailReportService.build_email_content(
-            setting=setting,
+            setting=preview_setting,
             lead_count=lead_count,
             filename=filename,
             workspace_name=ws_name,
@@ -515,6 +668,7 @@ class LeadEmailReportService:
             "csv_rows": list(LeadEmailReportService.csv_rows(leads, selected_columns, LeadEmailReportService.get_workspace_timezone(db, workspace_id), flow_names)),
             "subject": content["subject"],
             "body_text": content["plain_text"],
+            "html_body": content["html_body"],
             "filename": filename,
             "date_str": content["date_str"],
         }

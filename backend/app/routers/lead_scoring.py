@@ -1342,6 +1342,7 @@ def get_sample_preview(
     frequency: Literal["daily", "weekly", "monthly"] = Query("daily"),
     subject_template: str | None = Query(None),
     body_template: str | None = Query(None),
+    only_new_leads: bool = Query(True),
     workspace_id: str | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -1350,6 +1351,8 @@ def get_sample_preview(
     wid = to_uuid(verify_workspace_access(current_user, db, workspace_id, required_permission=('leads.view', 'crm.view')))
 
     try:
-        return LeadEmailReportService.sample_preview(db, wid, min_score, filters, columns, frequency, subject_template, body_template)
+        return LeadEmailReportService.sample_preview(
+            db, wid, min_score, filters, columns, frequency, subject_template, body_template, only_new_leads=only_new_leads
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
