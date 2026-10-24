@@ -13,11 +13,11 @@ from app.core.rate_limit import RateLimitMiddleware
 from app.core.uuid_validation import UUIDValidationMiddleware
 from app.core.admin_middleware import AdminConsoleMiddleware
 from app.core.csrf_middleware import csrf_protection_middleware
-from app.core.startup import ( init_schedulers,
-    shutdown_schedulers, init_llm_router,
+from app.core.startup import (
+    init_llm_router,
     init_pubsub, shutdown_pubsub,
     init_metrics, shutdown_metrics,
-    init_rag, init_notification_defaults,
+    init_rag,
 )
 
 # Routers
@@ -86,8 +86,6 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to load dynamic CORS allowed origins: {e}")
 
     init_rag(app)
-    init_notification_defaults()
-    init_schedulers(app)
     await init_llm_router(app)
     await init_pubsub(app)
     await init_metrics(app)              # async Redis for metrics
@@ -97,7 +95,6 @@ async def lifespan(app: FastAPI):
     await stop_system_metrics_updater(app)
     await shutdown_pubsub(app)
     await shutdown_metrics(app)          # close metrics Redis client
-    shutdown_schedulers(app)
     logger.info("Orbionagents Production System Stopped")
 
 

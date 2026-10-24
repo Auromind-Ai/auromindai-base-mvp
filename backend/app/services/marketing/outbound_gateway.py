@@ -34,11 +34,11 @@ end
 
 if tokens >= 1 then
     tokens = tokens - 1
-    redis.call('HMSET', key, 'tokens', tokens, 'last_updated', last_updated)
+    redis.call('HSET', key, 'tokens', tokens, 'last_updated', last_updated)
     redis.call('EXPIRE', key, 60)
     return 1 -- Token granted
 else
-    redis.call('HMSET', key, 'tokens', tokens, 'last_updated', last_updated)
+    redis.call('HSET', key, 'tokens', tokens, 'last_updated', last_updated)
     redis.call('EXPIRE', key, 60)
     return 0 -- Rate limited
 end
