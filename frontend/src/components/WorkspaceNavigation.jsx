@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   LayoutDashboard,
+  Bot,
   Sparkles,
   Inbox,
   Users,
@@ -26,6 +27,7 @@ const sectionsDefinition = [
     title: "Workspace",
     items: [
       ["Dashboard", LayoutDashboard, "dashboard", "dashboard.overview"],
+      ["AI Agents", Bot, "ai-agents", "ai.chat"],
       ["AI Workspace", Sparkles, "ai", "ai.chat"],
     ],
   },
@@ -136,6 +138,13 @@ export default function WorkspaceNavigation({
                   cleanPath?.startsWith(`${href}/`) ||
                   pathname === legacyHref ||
                   pathname?.startsWith(`${legacyHref}/`);
+                if (route === "ai-agents")
+                  return (
+                    <AIAgentsMenu
+                      key={pathname}
+                      {...{ collapsed, onExpand, onNavigate, pathname, cleanPath }}
+                    />
+                  );
                 if (route === "marketing")
                   return (
                     <MarketingMenu
@@ -265,6 +274,78 @@ function MarketingMenu({ collapsed, active, onExpand, onNavigate }) {
             className={rowClass(active, false)}
           >
             Bulk Messages
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function AIAgentsMenu({ collapsed, pathname, cleanPath, onExpand, onNavigate }) {
+  const isAgentsActive =
+    cleanPath === "/ai-agents" ||
+    cleanPath?.startsWith("/ai-agents/") ||
+    pathname === "/user/admin/ai-agents" ||
+    pathname?.startsWith("/user/admin/ai-agents/");
+
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div>
+      <button
+        type="button"
+        aria-label="AI Agents"
+        aria-expanded={!collapsed && open}
+        onClick={() => {
+          if (collapsed) {
+            onExpand?.();
+            setOpen(true);
+          } else setOpen((value) => !value);
+        }}
+        title={collapsed ? "AI Agents" : undefined}
+        className={rowClass(isAgentsActive, collapsed)}
+      >
+        <Bot
+          size={16}
+          strokeWidth={2}
+          className={`shrink-0 ${isAgentsActive ? "text-purple-400" : "text-[#7e7e7e] group-hover:text-white"}`}
+        />
+        {!collapsed && (
+          <>
+            <span className="flex-1">AI Agents</span>
+            <ChevronDown
+              size={15}
+              className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+            />
+          </>
+        )}
+      </button>
+      {!collapsed && open && (
+        <div className="ml-5 mt-0.5 border-l border-white/10 pl-3 space-y-0.5">
+          <Link
+            href="/ai-agents"
+            onClick={onNavigate}
+            aria-current={cleanPath === "/ai-agents" ? "page" : undefined}
+            className={`flex items-center px-2.5 py-1.5 rounded-[6px] text-xs transition-colors ${
+              (cleanPath === "/ai-agents" || cleanPath === "/user/admin/ai-agents")
+                ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white font-medium shadow-md shadow-purple-900/20"
+                : "text-[#9b9b9b] hover:text-white hover:bg-white/5"
+            }`}
+          >
+            My Agents
+          </Link>
+          <Link
+            href="/ai-agents/create"
+            onClick={onNavigate}
+            aria-current={cleanPath?.startsWith("/ai-agents/create") ? "page" : undefined}
+            className={`flex items-center px-2.5 py-1.5 rounded-[6px] text-xs transition-colors ${
+              (cleanPath === "/ai-agents/create" || cleanPath?.startsWith("/ai-agents/create") || cleanPath?.startsWith("/user/admin/ai-agents/create"))
+                ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white font-medium shadow-md shadow-purple-900/20"
+                : "text-[#9b9b9b] hover:text-white hover:bg-white/5"
+            }`}
+          >
+            Create Agent
           </Link>
         </div>
       )}

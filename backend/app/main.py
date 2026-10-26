@@ -40,6 +40,7 @@ from app.routers.contact import router as contact_inquiry_router
 from app.routers.campaigns import router as campaigns_router
 from app.routers.workspace import router as workspace_router
 from app.routers.onboarding import router as onboarding_router
+from app.routers.ai_agents import router as ai_agents_router
 
 #Lifespan 
 @asynccontextmanager
@@ -205,6 +206,8 @@ app.include_router(workspace_router)
 app.include_router(workspace_router, prefix="/api")
 app.include_router(onboarding_router)
 app.include_router(onboarding_router, prefix="/api")
+app.include_router(ai_agents_router)
+app.include_router(ai_agents_router, prefix="/api")
 
 # Static files for temp_uploads
 from fastapi.staticfiles import StaticFiles
