@@ -26,8 +26,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/agents", tags=["ai_agents"])
 
-# In-memory workspace creation draft store (keyed by workspace_id)
-_WORKSPACE_AGENT_DRAFTS: Dict[str, Dict[str, Any]] = {}
+# Durable workspace creation drafts are persisted directly in PostgreSQL (ai_agents.is_draft=True)
 
 MODEL_CAPABILITY_SPECS: Dict[str, Dict[str, Any]] = {
     # OpenAI
@@ -256,8 +255,7 @@ async def get_supported_models(
         "anthropic": bool(config_service.get("anthropic_api_key")),
         "google": bool(config_service.get("google_api_key") or config_service.get("gemini_api_key")),
         "groq": bool(config_service.get("groq_api_key")),
-        "meta": bool(config_service.get("groq_api_key")),
-        "custom": True
+        "meta": bool(config_service.get("groq_api_key"))
     }
 
     # 2. Query active models configured in DB (ModelConfig table)
@@ -299,11 +297,6 @@ async def get_supported_models(
             "provider": "meta",
             "displayName": "Meta",
             "models": ["llama-3.3-70b", "llama-3.1-8b"]
-        },
-        {
-            "provider": "custom",
-            "displayName": "Custom Provider / BYOK",
-            "models": ["custom-endpoint"]
         }
     ]
 
@@ -473,14 +466,6 @@ async def get_channels_status(
             "badgeText": "Connected" if "instagram" in connected_types else "Not Connected"
         },
         {
-            "id": "messenger",
-            "name": "Facebook Messenger",
-            "description": "Connect your Facebook page",
-            "icon": "messenger",
-            "connected": "facebook" in connected_types or "messenger" in connected_types,
-            "badgeText": "Connected" if ("facebook" in connected_types or "messenger" in connected_types) else "Not Connected"
-        },
-        {
             "id": "website",
             "name": "Website Chat",
             "description": "Add a chat widget to your website",
@@ -515,10 +500,14 @@ async def get_agent_draft(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Retrieve persisted agent creation wizard draft."""
+    """Retrieve persisted agent creation wizard draft from PostgreSQL."""
     ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission="ai.chat")
-    draft = _WORKSPACE_AGENT_DRAFTS.get(str(ws_id))
-    return {"draft": draft}
+    draft = db.query(AIAgent).filter(
+        AIAgent.workspace_id == to_uuid(ws_id),
+        AIAgent.is_draft == True
+    ).order_by(AIAgent.created_at.desc()).first()
+
+    return {"draft": draft.to_dict() if draft else None}
 
 
 @router.post("/draft")
@@ -528,10 +517,55 @@ async def save_agent_draft(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Persist agent creation wizard draft to preserve work-in-progress."""
+    """Persist agent creation wizard draft to PostgreSQL to preserve work-in-progress across sessions."""
     ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission="ai.chat")
-    _WORKSPACE_AGENT_DRAFTS[str(ws_id)] = draft_data
-    return {"status": "saved"}
+    draft = db.query(AIAgent).filter(
+        AIAgent.workspace_id == to_uuid(ws_id),
+        AIAgent.is_draft == True
+    ).first()
+
+    name = (draft_data.get("name") or "").strip() or "Untitled Draft Agent"
+
+    if not draft:
+        draft = AIAgent(
+            workspace_id=to_uuid(ws_id),
+            created_by=to_uuid(current_user.id),
+            name=name,
+            description=draft_data.get("description"),
+            agent_type=draft_data.get("agent_type", "sales_assistant"),
+            avatar_url=draft_data.get("avatar_url"),
+            language=draft_data.get("language", "English (India)"),
+            tone_of_voice=draft_data.get("tone_of_voice", "Friendly & Professional"),
+            business_name=draft_data.get("business_name"),
+            website_url=draft_data.get("website_url"),
+            status="draft",
+            is_draft=True,
+            channels_config=draft_data.get("channels_config") or {},
+            channel_settings=draft_data.get("channel_settings") or {},
+            ai_config=draft_data.get("ai_config") or {},
+            knowledge_config=draft_data.get("knowledge_config") or {},
+            conversations_count={"total": 0, "active": 0}
+        )
+        db.add(draft)
+    else:
+        draft.name = name
+        draft.description = draft_data.get("description", draft.description)
+        draft.agent_type = draft_data.get("agent_type", draft.agent_type)
+        draft.avatar_url = draft_data.get("avatar_url", draft.avatar_url)
+        draft.language = draft_data.get("language", draft.language)
+        draft.tone_of_voice = draft_data.get("tone_of_voice", draft.tone_of_voice)
+        draft.business_name = draft_data.get("business_name", draft.business_name)
+        draft.website_url = draft_data.get("website_url", draft.website_url)
+        draft.status = "draft"
+        draft.is_draft = True
+        draft.channels_config = draft_data.get("channels_config", draft.channels_config)
+        draft.channel_settings = draft_data.get("channel_settings", draft.channel_settings)
+        draft.ai_config = draft_data.get("ai_config", draft.ai_config)
+        draft.knowledge_config = draft_data.get("knowledge_config", draft.knowledge_config)
+
+    db.commit()
+    db.refresh(draft)
+    return {"status": "saved", "draft": draft.to_dict()}
 
 
 @router.delete("/draft")
@@ -540,9 +574,13 @@ async def clear_agent_draft(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Clear wizard draft upon successful creation or cancellation."""
+    """Clear wizard draft upon successful creation or cancellation from PostgreSQL."""
     ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission="ai.chat")
-    _WORKSPACE_AGENT_DRAFTS.pop(str(ws_id), None)
+    db.query(AIAgent).filter(
+        AIAgent.workspace_id == to_uuid(ws_id),
+        AIAgent.is_draft == True
+    ).delete()
+    db.commit()
     return {"status": "cleared"}
 
 
@@ -559,8 +597,10 @@ async def list_agents(
 
     query = db.query(AIAgent).filter(AIAgent.workspace_id == to_uuid(ws_id))
 
-    if status_filter and status_filter.lower() != "all":
-        query = query.filter(AIAgent.status == status_filter.lower())
+    if status_filter and status_filter.lower() == "drafts":
+        query = query.filter((AIAgent.status == "draft") | (AIAgent.is_draft == True))
+    elif status_filter and status_filter.lower() != "all":
+        query = query.filter(AIAgent.status == status_filter.lower(), AIAgent.is_draft == False)
 
     if search:
         search_pattern = f"%{search.strip()}%"
@@ -614,7 +654,8 @@ async def create_agent(
     # Prevent duplicate active agents with exact same name in the same workspace
     existing = db.query(AIAgent).filter(
         AIAgent.workspace_id == to_uuid(ws_id),
-        AIAgent.name.ilike(request.name.strip())
+        AIAgent.name.ilike(request.name.strip()),
+        AIAgent.is_draft == False
     ).first()
     if existing:
         raise HTTPException(
@@ -646,8 +687,12 @@ async def create_agent(
     db.commit()
     db.refresh(new_agent)
 
-    # Clear saved draft upon successful creation
-    _WORKSPACE_AGENT_DRAFTS.pop(str(ws_id), None)
+    # Clear saved draft upon successful creation from PostgreSQL
+    db.query(AIAgent).filter(
+        AIAgent.workspace_id == to_uuid(ws_id),
+        AIAgent.is_draft == True
+    ).delete()
+    db.commit()
 
     return {"agent": new_agent.to_dict(), "message": "Agent created successfully"}
 
@@ -777,7 +822,9 @@ async def test_agent_chat(
 
     ai_conf = agent_config.get("ai_config", {})
     knowledge_conf = agent_config.get("knowledge_config", {})
-    business_name = agent_config.get("business_name") or "Orbion Store"
+    ws_obj = db.query(Workspace).filter(Workspace.id == to_uuid(ws_id)).first() if ws_id else None
+    ws_fallback_name = ws_obj.name if ws_obj and ws_obj.name else "Your Business"
+    business_name = agent_config.get("business_name") or ws_fallback_name
     agent_name = agent_config.get("name") or "AI Assistant"
     agent_type = agent_config.get("agent_type") or "sales_assistant"
     tone = agent_config.get("tone_of_voice") or "Friendly & Professional"
