@@ -7,6 +7,8 @@ from app.models.subscription import Subscription
 from app.models.billing import Payment
 from app.models.wcc import WCCTransaction, WCCRechargeLog
 from app.core.enums import SubscriptionStatus, PaymentStatus
+from app.services.account_service import AccountService
+from app.services.cleanup_service import cleanup_stale_reservations
 from sqlalchemy import func
 from app.core.config import settings
 
@@ -155,7 +157,6 @@ def wcc_daily_reconciliation():
     name="app.workers.billing_worker.cleanup_abandoned_wcc_recharges",
 )
 def cleanup_abandoned_wcc_recharges():
-    """Celery Beat Task: Automatically cancels/fails pending WCC recharges older than 24 hours."""
     logger.debug("[cleanup_abandoned_wcc_recharges] Starting cleanup of abandoned WCC recharges")
     db = SessionLocal()
     try:
@@ -181,6 +182,43 @@ def cleanup_abandoned_wcc_recharges():
     except Exception as exc:
         db.rollback()
         logger.error(f"[cleanup_abandoned_wcc_recharges] Error: {exc}")
+        raise exc
+    finally:
+        db.close()
+
+
+@celery_app.task(
+    name="app.workers.billing_worker.cleanup_stale_reservations_task",
+)
+def cleanup_stale_reservations_task():
+    db = SessionLocal()
+    try:
+        released = cleanup_stale_reservations(db)
+        db.commit()
+        if released:
+            logger.debug(f"[cleanup_stale_reservations_task] Released {released} stale reservations.")
+        return {"released": released}
+    except Exception as exc:
+        db.rollback()
+        logger.error(f"[cleanup_stale_reservations_task] Error: {exc}")
+        raise exc
+    finally:
+        db.close()
+
+
+@celery_app.task(
+    name="app.workers.billing_worker.account_permanent_deletion_task",
+)
+def account_permanent_deletion_task():
+   
+    db = SessionLocal()
+    try:
+        count = AccountService.run_permanent_deletion(db)
+        if count:
+            logger.info(f"[account_permanent_deletion_task] Processed {count} expired account(s).")
+        return {"deleted_count": count}
+    except Exception as exc:
+        logger.error(f"[account_permanent_deletion_task] Error: {exc}")
         raise exc
     finally:
         db.close()

@@ -14,6 +14,7 @@ import * as users from './users';
 import * as dashboard from './dashboard';
 import * as workspace from './workspace';
 import * as onboarding from './onboarding';
+import * as agents from './agents';
 
 const api = {
   // Expose the base request helpers as well
@@ -44,8 +45,8 @@ const api = {
   ...dashboard,
   ...workspace,
   ...onboarding,
+  ...agents,
 };
-
 
 export default api;
 export { api };

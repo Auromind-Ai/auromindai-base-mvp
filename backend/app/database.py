@@ -27,8 +27,8 @@ else:
         "pool_pre_ping": True,
         "pool_recycle": 1800,
         "pool_timeout": 30,
-        "pool_size": 25,
-        "max_overflow": 35,
+        "pool_size": 10,
+        "max_overflow": 15,
     }
 
 engine = create_engine(

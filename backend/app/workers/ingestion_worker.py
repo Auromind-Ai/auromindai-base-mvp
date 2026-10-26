@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import traceback
@@ -89,8 +90,8 @@ async def process_document_background(
         is_image = content_type in ["image", "png", "jpg", "jpeg", "webp"]
 
         if not is_image:
-            #  CHUNKING 
-            chunks = chunker.build_chunks(
+            chunks = await asyncio.to_thread(
+                chunker.build_chunks,
                 doc_result["text"]
             )
 
@@ -102,13 +103,14 @@ async def process_document_background(
             for chunk in chunks:
                 chunk["metadata"] = ingestion_metadata
 
-            #  EMBEDDINGS 
-            embeddings = embedding_generator.generate_embeddings(
+            embeddings = await asyncio.to_thread(
+                embedding_generator.generate_embeddings,
                 [chunk["text"] for chunk in chunks]
             )
 
-            #  VECTOR STORAGE 
-            vector_store.add_chunks(
+           
+            await asyncio.to_thread(
+                vector_store.add_chunks,
                 db=db,
                 workspace_id=workspace_id,
                 chunks=chunks,
