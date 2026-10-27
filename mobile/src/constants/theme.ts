@@ -1,6 +1,5 @@
 /**
  * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://unistyl.es/), etc.
  */
 
 import '@/global.css';
@@ -28,28 +27,29 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
+    sans: 'Inter-Regular',
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
+    rounded: 'Inter-Regular',
     mono: 'ui-monospace',
   },
   default: {
-    sans: 'normal',
+    sans: 'Inter-Regular',
     serif: 'serif',
-    rounded: 'normal',
+    rounded: 'Inter-Regular',
     mono: 'monospace',
   },
   web: {
-    sans: 'var(--font-display)',
+    sans: 'Inter, system-ui, sans-serif',
     serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
+    rounded: 'Inter, system-ui, sans-serif',
     mono: 'var(--font-mono)',
   },
-});
+}) as {
+  sans: string;
+  serif: string;
+  rounded: string;
+  mono: string;
+};
 
 export const Spacing = {
   half: 2,
