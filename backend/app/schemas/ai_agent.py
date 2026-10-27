@@ -30,7 +30,8 @@ class AgentAIConfig(BaseModel):
     stream_response: bool = False
     structured_output: bool = False
     function_calling: bool = False
-    system_prompt: Optional[str] = None
+    tone: str = Field(default="Friendly & Professional", description="AI tone of voice and persona")
+    system_prompt: Optional[str] = Field(default=None, description="Custom system prompt specifying behavior, personality and boundaries")
     example_user_message: Optional[str] = None
 
 
@@ -53,6 +54,7 @@ class FAQItem(BaseModel):
 
 
 class AgentKnowledgeConfig(BaseModel):
+    collection: Optional[str] = Field(None, max_length=100, description="Dedicated vector DB collection tag")
     files: List[Dict[str, Any]] = Field(default_factory=list)
     website_urls: List[str] = Field(default_factory=list)
     faqs: List[Dict[str, Any]] = Field(default_factory=list)

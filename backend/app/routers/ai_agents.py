@@ -12,6 +12,7 @@ from app.models.ai_agent import AIAgent
 from app.models.brain import BrainEntry
 from app.models.model_configs import ModelConfig
 from app.services.config_service import config_service
+from app.services.ai.agent_executor import execute_agent_conversation
 from app.schemas.ai_agent import (
     AgentCreateRequest,
     AgentUpdateRequest,
@@ -611,6 +612,21 @@ async def create_agent(
     if not request.name.strip():
         raise HTTPException(status_code=400, detail="Agent name is required")
 
+    # Enforce Custom System Prompt requirement for active agents
+    if not request.is_draft:
+        ai_cfg = request.ai_config or {}
+        sys_prompt = (ai_cfg.get("system_prompt") or "").strip()
+        if not sys_prompt:
+            raise HTTPException(
+                status_code=400,
+                detail="Custom System Prompt is required. Please define how your AI agent should interact and operate."
+            )
+        if ai_cfg.get("access_mode") == "byok" and not (ai_cfg.get("custom_api_key") or "").strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Custom API Key is required when 'Use My Own Key (BYOK)' is selected."
+            )
+
     # Prevent duplicate active agents with exact same name in the same workspace
     existing = db.query(AIAgent).filter(
         AIAgent.workspace_id == to_uuid(ws_id),
@@ -621,6 +637,12 @@ async def create_agent(
             status_code=400,
             detail=f"An agent named '{request.name.strip()}' already exists in this workspace."
         )
+
+    knowledge_conf = (request.knowledge_config or {}).copy()
+    collection_tag = knowledge_conf.get("collection")
+    if not collection_tag:
+        collection_tag = f"agent_{uuid.uuid4().hex[:12]}"
+        knowledge_conf["collection"] = collection_tag
 
     new_agent = AIAgent(
         workspace_id=to_uuid(ws_id),
@@ -638,13 +660,53 @@ async def create_agent(
         channels_config=request.channels_config or {},
         channel_settings=request.channel_settings or {},
         ai_config=request.ai_config or {},
-        knowledge_config=request.knowledge_config or {},
+        knowledge_config=knowledge_conf,
         conversations_count={"total": 0, "active": 0}
     )
 
     db.add(new_agent)
     db.commit()
     db.refresh(new_agent)
+
+    # Auto-index FAQs into vector DB under this agent's unique collection tag
+    faqs = knowledge_conf.get("faqs", [])
+    if faqs:
+        try:
+            from app.services.agentic_rag.rag_service import get_rag_service
+            rag = get_rag_service()
+            updated_faqs = False
+            for faq in faqs:
+                q = faq.get("question", "").strip()
+                a = faq.get("answer", "").strip()
+                if q and a and not faq.get("entry_id"):
+                    try:
+                        entry = rag.ingest_document(
+                            db=db,
+                            workspace_id=str(ws_id),
+                            text=f"Question: {q}\nAnswer: {a}",
+                            title=f"FAQ: {q[:50]}",
+                            content_type="faq",
+                            source="agent_faq",
+                            metadata={
+                                "collection": collection_tag,
+                                "agent_id": str(new_agent.id),
+                                "question": q
+                            },
+                            file_name=f"FAQ-{q[:30]}",
+                            file_size=len(q) + len(a),
+                            credits_charged=0.0,
+                            embedding_status="completed"
+                        )
+                        faq["entry_id"] = str(entry.id)
+                        updated_faqs = True
+                    except Exception as f_err:
+                        logger.warning(f"Failed to ingest FAQ into vector store: {f_err}")
+            if updated_faqs:
+                new_agent.knowledge_config = {**knowledge_conf, "faqs": faqs}
+                db.commit()
+                db.refresh(new_agent)
+        except Exception as rag_err:
+            logger.warning(f"Error accessing rag service during agent creation: {rag_err}")
 
     # Clear saved draft upon successful creation
     _WORKSPACE_AGENT_DRAFTS.pop(str(ws_id), None)
@@ -674,15 +736,70 @@ async def update_agent(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found in workspace")
 
+    if request.ai_config is not None:
+        target_draft = request.is_draft if request.is_draft is not None else agent.is_draft
+        target_status = request.status if request.status is not None else agent.status
+        if not target_draft and target_status == "active":
+            sys_prompt = (request.ai_config.get("system_prompt") or "").strip()
+            if not sys_prompt:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Custom System Prompt is required for active agents."
+                )
+
     fields = [
         "name", "description", "agent_type", "avatar_url", "language",
         "tone_of_voice", "business_name", "website_url", "channels_config",
-        "channel_settings", "ai_config", "knowledge_config", "status", "is_draft"
+        "channel_settings", "ai_config", "status", "is_draft"
     ]
     for field in fields:
         val = getattr(request, field, None)
         if val is not None:
             setattr(agent, field, val)
+
+    if request.knowledge_config is not None:
+        kc = dict(request.knowledge_config)
+        existing_kc = agent.knowledge_config or {}
+        if not kc.get("collection"):
+            kc["collection"] = existing_kc.get("collection") or f"agent_{agent.id}"
+        agent.knowledge_config = kc
+
+        faqs = kc.get("faqs", [])
+        if faqs:
+            try:
+                from app.services.agentic_rag.rag_service import get_rag_service
+                rag = get_rag_service()
+                updated_faqs = False
+                for faq in faqs:
+                    q = faq.get("question", "").strip()
+                    a = faq.get("answer", "").strip()
+                    if q and a and not faq.get("entry_id"):
+                        try:
+                            entry = rag.ingest_document(
+                                db=db,
+                                workspace_id=str(ws_id),
+                                text=f"Question: {q}\nAnswer: {a}",
+                                title=f"FAQ: {q[:50]}",
+                                content_type="faq",
+                                source="agent_faq",
+                                metadata={
+                                    "collection": kc["collection"],
+                                    "agent_id": str(agent.id),
+                                    "question": q
+                                },
+                                file_name=f"FAQ-{q[:30]}",
+                                file_size=len(q) + len(a),
+                                credits_charged=0.0,
+                                embedding_status="completed"
+                            )
+                            faq["entry_id"] = str(entry.id)
+                            updated_faqs = True
+                        except Exception as f_err:
+                            logger.warning(f"Failed to ingest FAQ in update: {f_err}")
+                if updated_faqs:
+                    agent.knowledge_config = {**kc, "faqs": faqs}
+            except Exception as rag_err:
+                logger.warning(f"Error indexing FAQs on agent update: {rag_err}")
 
     db.commit()
     db.refresh(agent)
@@ -756,11 +873,9 @@ async def test_agent_chat(
     Never sends live customer messages or external actions.
     Never exposes internal system prompt or secrets in the reply.
     """
-    start_time = time.time()
     ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission="ai.chat")
 
-    agent_config = {}
-    sources_used = []
+    agent_config: Dict[str, Any] = {}
 
     if request.agent_id:
         agent_uuid = to_uuid(request.agent_id)
@@ -775,174 +890,19 @@ async def test_agent_chat(
     if not agent_config and request.draft_config:
         agent_config = request.draft_config
 
-    ai_conf = agent_config.get("ai_config", {})
-    knowledge_conf = agent_config.get("knowledge_config", {})
-    business_name = agent_config.get("business_name") or "Orbion Store"
-    agent_name = agent_config.get("name") or "AI Assistant"
-    agent_type = agent_config.get("agent_type") or "sales_assistant"
-    tone = agent_config.get("tone_of_voice") or "Friendly & Professional"
-    channel = request.channel or "whatsapp"
-
-    # Search workspace Brain entries if knowledge base is enabled
-    knowledge_context = ""
-    faqs = knowledge_conf.get("faqs", [])
-    if faqs:
-        for faq in faqs:
-            q = faq.get("question", "")
-            a = faq.get("answer", "")
-            if q and a:
-                knowledge_context += f"Q: {q}\nA: {a}\n\n"
-                sources_used.append(f"FAQ: {q[:30]}...")
-
-    files = knowledge_conf.get("files", [])
-    if files:
-        for f in files:
-            sources_used.append(f.get("name") or "Uploaded Document")
-
-    # Also search DB Brain entries for additional workspace context
-    try:
-        entries = db.query(BrainEntry).filter(
-            BrainEntry.workspace_id == to_uuid(ws_id),
-            BrainEntry.status == "completed"
-        ).limit(3).all()
-        for entry in entries:
-            if entry.title:
-                sources_used.append(f"Doc: {entry.title}")
-            if entry.content:
-                knowledge_context += f"{entry.title or 'Note'}:\n{entry.content[:300]}\n\n"
-    except Exception as e:
-        logger.warning(f"Error querying brain entries for test chat: {e}")
-
-    # Build system instructions
-    custom_sys_prompt = ai_conf.get("system_prompt")
-    default_prompt = (
-        f"You are {agent_name}, an AI {agent_type.replace('_', ' ')} representing '{business_name}'. "
-        f"Channel context: {channel.capitalize()}. "
-        f"Tone of voice: {tone}. "
-        f"Answer clearly, courteously, and helpfully based on the business knowledge provided. "
-        f"Do not mention you are an AI unless asked. Keep responses concise and natural for chat."
+    result = await execute_agent_conversation(
+        agent_config=agent_config,
+        message=request.message,
+        conversation_history=request.conversation_history,
+        channel=request.channel or "whatsapp",
+        db=db,
+        workspace_id=str(ws_id)
     )
-    system_instruction = custom_sys_prompt if (custom_sys_prompt and custom_sys_prompt.strip()) else default_prompt
-
-    if knowledge_context:
-        system_instruction += f"\n\nBusiness Knowledge:\n{knowledge_context}"
-
-    # Model selection
-    model_name = ai_conf.get("model") or "gpt-4o"
-    temperature = float(ai_conf.get("temperature", 0.7))
-    max_tokens = int(ai_conf.get("max_tokens", 1024))
-
-    # Attempt live execution: BYOK (user API key) or platform router
-    reply_text = ""
-    provider_name = (ai_conf.get("provider") or "openai").lower()
-    is_byok = ai_conf.get("access_mode") == "byok" and bool(ai_conf.get("custom_api_key"))
-
-    if is_byok:
-        try:
-            custom_key = ai_conf["custom_api_key"].strip()
-            custom_url = ai_conf.get("custom_base_url")
-
-            if provider_name in ["openai", "custom", "meta"]:
-                from openai import OpenAI
-                cli = OpenAI(api_key=custom_key, base_url=custom_url if custom_url else None)
-                res = cli.chat.completions.create(
-                    model=model_name,
-                    messages=[
-                        {"role": "system", "content": system_instruction},
-                        {"role": "user", "content": request.message}
-                    ],
-                    temperature=temperature,
-                    max_tokens=max_tokens
-                )
-                reply_text = res.choices[0].message.content or ""
-
-            elif provider_name in ["anthropic", "claude"]:
-                from anthropic import Anthropic
-                cli = Anthropic(api_key=custom_key)
-                res = cli.messages.create(
-                    model=model_name,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    system=system_instruction,
-                    messages=[{"role": "user", "content": request.message}]
-                )
-                reply_text = res.content[0].text or ""
-
-            elif provider_name in ["google", "gemini"]:
-                from google import genai
-                cli = genai.Client(api_key=custom_key)
-                res = cli.models.generate_content(
-                    model=model_name,
-                    contents=request.message,
-                    config=dict(system_instruction=system_instruction, temperature=temperature, max_output_tokens=max_tokens)
-                )
-                reply_text = getattr(res, "text", "") or ""
-
-            elif provider_name == "groq":
-                from groq import Groq
-                cli = Groq(api_key=custom_key)
-                res = cli.chat.completions.create(
-                    model=model_name,
-                    messages=[
-                        {"role": "system", "content": system_instruction},
-                        {"role": "user", "content": request.message}
-                    ],
-                    temperature=temperature,
-                    max_tokens=max_tokens
-                )
-                reply_text = res.choices[0].message.content or ""
-        except Exception as byok_err:
-            logger.warning(f"BYOK direct LLM execution error: {byok_err}")
-
-    if not reply_text:
-        try:
-            from app.services.ai.llm_router import LLMRouter
-            router_instance = LLMRouter()
-            # Build prompt from conversation history and new message
-            prompt_lines = []
-            for msg in request.conversation_history[-4:]:
-                role = "Customer" if msg.get("sender") == "user" else "Assistant"
-                prompt_lines.append(f"{role}: {msg.get('text', '')}")
-            prompt_lines.append(f"Customer: {request.message}")
-            full_prompt = "\n".join(prompt_lines)
-
-            result = await router_instance.generate(
-                prompt=full_prompt,
-                system_prompt=system_instruction,
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
-            if isinstance(result, dict):
-                reply_text = result.get("text") or result.get("content") or ""
-            elif isinstance(result, str):
-                reply_text = result
-        except Exception as llm_err:
-            logger.info(f"LLMRouter execution fallback for test chat: {llm_err}")
-
-    # Fallback to realistic response generation based on scenario if LLM provider not connected
-    if not reply_text:
-        msg_lower = request.message.lower()
-        if "stock" in msg_lower or "product" in msg_lower or "available" in msg_lower:
-            reply_text = f"Hi! 👋 Yes, this product is currently in stock at {business_name}. It is available in multiple variants. Would you like to know the price or see more details about it?"
-        elif "price" in msg_lower or "cost" in msg_lower or "rate" in msg_lower:
-            reply_text = f"Our pricing starts at \$49 for standard plans, with premium options available. We also offer seasonal discounts! Would you like a personalized quote for your requirements?"
-        elif "order" in msg_lower or "status" in msg_lower or "tracking" in msg_lower:
-            reply_text = "I can certainly look up your order status! Could you please provide your order ID or the phone number associated with your purchase?"
-        elif "return" in msg_lower or "refund" in msg_lower:
-            reply_text = f"We have a hassle-free 7-day return policy at {business_name}. Items should be in original condition with tags. Shall I guide you through submitting a return request?"
-        elif "meeting" in msg_lower or "book" in msg_lower or "schedule" in msg_lower:
-            reply_text = "I'd be happy to set up a meeting for you with our specialist. We have slots available tomorrow morning at 10:00 AM or 2:30 PM. Which time works best for you?"
-        elif "delivery" in msg_lower or "shipping" in msg_lower or "cod" in msg_lower:
-            reply_text = "We offer standard delivery (3-5 business days) and express delivery (next-day). Cash on Delivery is supported for eligible postal codes!"
-        else:
-            reply_text = f"Thank you for reaching out to {business_name}! I am {agent_name}. I can help you with product enquiries, pricing, placing orders, or support. How may I assist you today?"
-
-    execution_ms = int((time.time() - start_time) * 1000)
 
     return AgentTestChatResponse(
-        reply=reply_text,
-        channel=channel,
-        model_used=model_name,
-        sources_used=list(set(sources_used))[:3],
-        execution_time_ms=execution_ms
+        reply=result["reply"],
+        channel=result["channel"],
+        model_used=result["model_used"],
+        sources_used=result["sources_used"],
+        execution_time_ms=result["execution_time_ms"]
     )

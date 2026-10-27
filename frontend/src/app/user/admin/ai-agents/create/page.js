@@ -30,7 +30,8 @@ import {
   Key,
   Eye,
   EyeOff,
-  ShieldCheck
+  ShieldCheck,
+  Database
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -120,6 +121,7 @@ const DEFAULT_AI_CONFIG = {
   stream_response: true,
   structured_output: false,
   function_calling: false,
+  tone: 'Friendly & Professional',
   system_prompt: '',
   example_user_message: '',
 };
@@ -179,6 +181,7 @@ function CreateAgentWizardContent() {
 
     // Step 4: Knowledge Base
     knowledge_config: {
+      collection: '',
       files: [
         { id: '1', name: 'Product_Catalog.pdf', size: '2.4 MB', time: 'Uploaded 3 mins ago', status: 'Processed' },
         { id: '2', name: 'Pricing_Details.docx', size: '1.1 MB', time: 'Uploaded 5 mins ago', status: 'Processed' },
@@ -211,7 +214,23 @@ function CreateAgentWizardContent() {
   const [newFaq, setNewFaq] = useState({ question: '', answer: '' });
   const [showAddFaqModal, setShowAddFaqModal] = useState(false);
   const [newWebsiteUrl, setNewWebsiteUrl] = useState('');
+  const [isKnowledgeBusy, setIsKnowledgeBusy] = useState(false);
+  const [knowledgeFeedback, setKnowledgeFeedback] = useState({ message: '', type: '' });
   const fileInputRef = useRef(null);
+
+  // Initialize dedicated collection tag if empty
+  useEffect(() => {
+    if (!formData.knowledge_config?.collection) {
+      const generatedTag = `agent_${Math.random().toString(36).substring(2, 10)}`;
+      setFormData((prev) => ({
+        ...prev,
+        knowledge_config: {
+          ...prev.knowledge_config,
+          collection: prev.knowledge_config?.collection || generatedTag,
+        },
+      }));
+    }
+  }, []);
 
   // If editId is provided, fetch existing agent
   useEffect(() => {
@@ -231,7 +250,19 @@ function CreateAgentWizardContent() {
             channels_config: a.channels_config || {},
             channel_settings: a.channel_settings || {},
             ai_config: { ...DEFAULT_AI_CONFIG, ...(a.ai_config || {}) },
-            knowledge_config: a.knowledge_config || { files: [], website_urls: [], faqs: [], integrations: [], settings: {} },
+            knowledge_config: {
+              collection: a.knowledge_config?.collection || `agent_${Math.random().toString(36).substring(2, 10)}`,
+              files: a.knowledge_config?.files || [],
+              website_urls: a.knowledge_config?.website_urls || [],
+              faqs: a.knowledge_config?.faqs || [],
+              integrations: a.knowledge_config?.integrations || [],
+              settings: a.knowledge_config?.settings || {
+                use_knowledge_base: true,
+                web_search: false,
+                auto_sync: true,
+                ocr: true,
+              },
+            },
           });
         }
       }).catch(console.error);
@@ -299,6 +330,16 @@ function CreateAgentWizardContent() {
         return false;
       }
     }
+    if (step === 3) {
+      if (!formData.ai_config?.system_prompt?.trim()) {
+        setErrorMessage('Custom System Prompt is required. Please define how your AI agent should interact and operate.');
+        return false;
+      }
+      if (formData.ai_config?.access_mode === 'byok' && !formData.ai_config?.custom_api_key?.trim()) {
+        setErrorMessage('Custom API Key is required when using your own key (BYOK).');
+        return false;
+      }
+    }
     return true;
   };
 
@@ -323,6 +364,14 @@ function CreateAgentWizardContent() {
   const handleCreateAgent = async () => {
     if (!validateStep(1)) {
       setCurrentStep(1);
+      return;
+    }
+    if (!validateStep(2)) {
+      setCurrentStep(2);
+      return;
+    }
+    if (!validateStep(3)) {
+      setCurrentStep(3);
       return;
     }
     try {
@@ -373,30 +422,88 @@ function CreateAgentWizardContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // File Upload Handler
-  const handleFileUpload = (e) => {
+  // File Upload Handler (Direct Vector DB Chunking with Collection Tag)
+  const handleFileUpload = async (e) => {
     const fileList = Array.from(e.target.files || []);
     if (!fileList.length) return;
 
-    const newUploaded = fileList.map((f, i) => ({
-      id: `local-${Date.now()}-${i}`,
-      name: f.name,
-      size: `${(f.size / (1024 * 1024)).toFixed(1)} MB`,
-      time: 'Uploaded just now',
-      status: 'Processed',
-    }));
+    setIsKnowledgeBusy(true);
+    setKnowledgeFeedback({ message: '', type: '' });
 
-    setFormData((prev) => ({
-      ...prev,
-      knowledge_config: {
-        ...prev.knowledge_config,
-        files: [...prev.knowledge_config.files, ...newUploaded],
-      },
-    }));
+    const collectionTag = formData.knowledge_config.collection || `agent_${Math.random().toString(36).substring(2, 10)}`;
+
+    for (const f of fileList) {
+      const tempId = `file-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const newFileObj = {
+        id: tempId,
+        entry_id: null,
+        name: f.name,
+        size: `${(f.size / (1024 * 1024)).toFixed(1)} MB`,
+        time: 'Indexing chunks...',
+        status: 'Indexing',
+      };
+
+      setFormData((prev) => ({
+        ...prev,
+        knowledge_config: {
+          ...prev.knowledge_config,
+          collection: collectionTag,
+          files: [...prev.knowledge_config.files, newFileObj],
+        },
+      }));
+
+      try {
+        if (workspaceId) {
+          const res = await api.uploadDocument(f, workspaceId, collectionTag);
+          const entryId = res?.entry_id || res?.id || tempId;
+          setFormData((prev) => ({
+            ...prev,
+            knowledge_config: {
+              ...prev.knowledge_config,
+              files: prev.knowledge_config.files.map((item) =>
+                item.id === tempId
+                  ? { ...item, id: entryId, entry_id: entryId, status: 'Indexed', time: 'Indexed in Vector DB' }
+                  : item
+              ),
+            },
+          }));
+          setKnowledgeFeedback({ message: `"${f.name}" indexed successfully into collection ${collectionTag}!`, type: 'success' });
+        } else {
+          setFormData((prev) => ({
+            ...prev,
+            knowledge_config: {
+              ...prev.knowledge_config,
+              files: prev.knowledge_config.files.map((item) =>
+                item.id === tempId ? { ...item, status: 'Processed', time: 'Ready' } : item
+              ),
+            },
+          }));
+        }
+      } catch (err) {
+        console.error('File vector upload error:', err);
+        const errDetail = err?.response?.data?.detail || err?.message || 'Failed to index file.';
+        setKnowledgeFeedback({ message: `Error indexing "${f.name}": ${errDetail}`, type: 'error' });
+        setFormData((prev) => ({
+          ...prev,
+          knowledge_config: {
+            ...prev.knowledge_config,
+            files: prev.knowledge_config.files.map((item) =>
+              item.id === tempId ? { ...item, status: 'Error', time: 'Failed to index' } : item
+            ),
+          },
+        }));
+      }
+    }
+
+    setIsKnowledgeBusy(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Delete File Handler
-  const handleDeleteFile = (fileId) => {
+  // Delete File Handler (Removes from Vector DB if entry exists)
+  const handleDeleteFile = async (fileItem) => {
+    const fileId = typeof fileItem === 'object' ? fileItem.id : fileItem;
+    const entryId = typeof fileItem === 'object' ? (fileItem.entry_id || fileItem.id) : fileItem;
+
     setFormData((prev) => ({
       ...prev,
       knowledge_config: {
@@ -404,29 +511,69 @@ function CreateAgentWizardContent() {
         files: prev.knowledge_config.files.filter((f) => f.id !== fileId),
       },
     }));
+
+    if (workspaceId && entryId && !String(entryId).startsWith('file-') && !String(entryId).startsWith('local-')) {
+      try {
+        await api.deleteBrainEntry(entryId, workspaceId);
+      } catch (e) {
+        console.warn('Vector entry deletion notice:', e);
+      }
+    }
   };
 
-  // Add FAQ Handler
-  const handleAddFaq = () => {
+  // Add FAQ Handler (Indexes into Vector DB under Agent Collection Tag)
+  const handleAddFaq = async () => {
     if (!newFaq.question.trim() || !newFaq.answer.trim()) return;
+    setIsKnowledgeBusy(true);
+    setKnowledgeFeedback({ message: '', type: '' });
+
+    const q = newFaq.question.trim();
+    const a = newFaq.answer.trim();
+    const collectionTag = formData.knowledge_config.collection || `agent_${Math.random().toString(36).substring(2, 10)}`;
+    const tempId = `faq-${Date.now()}`;
+
+    let entryId = null;
+    if (workspaceId) {
+      try {
+        const res = await api.addTextKnowledge(
+          `FAQ: ${q}`,
+          `Question: ${q}\nAnswer: ${a}`,
+          workspaceId,
+          collectionTag
+        );
+        entryId = res?.entry_id || res?.id || null;
+        setKnowledgeFeedback({ message: 'FAQ indexed into Vector DB collection!', type: 'success' });
+      } catch (err) {
+        console.warn('FAQ Vector indexing deferred:', err);
+      }
+    }
+
     const faqItem = {
-      id: `faq-${Date.now()}`,
-      question: newFaq.question.trim(),
-      answer: newFaq.answer.trim(),
+      id: entryId || tempId,
+      entry_id: entryId,
+      question: q,
+      answer: a,
     };
+
     setFormData((prev) => ({
       ...prev,
       knowledge_config: {
         ...prev.knowledge_config,
+        collection: collectionTag,
         faqs: [...prev.knowledge_config.faqs, faqItem],
       },
     }));
+
     setNewFaq({ question: '', answer: '' });
     setShowAddFaqModal(false);
+    setIsKnowledgeBusy(false);
   };
 
-  // Delete FAQ Handler
-  const handleDeleteFaq = (faqId) => {
+  // Delete FAQ Handler (Deletes from Vector DB if indexed)
+  const handleDeleteFaq = async (faqItem) => {
+    const faqId = typeof faqItem === 'object' ? faqItem.id : faqItem;
+    const entryId = typeof faqItem === 'object' ? (faqItem.entry_id || faqItem.id) : faqItem;
+
     setFormData((prev) => ({
       ...prev,
       knowledge_config: {
@@ -434,24 +581,88 @@ function CreateAgentWizardContent() {
         faqs: prev.knowledge_config.faqs.filter((f) => f.id !== faqId),
       },
     }));
+
+    if (workspaceId && entryId && !String(entryId).startsWith('faq-')) {
+      try {
+        await api.deleteBrainEntry(entryId, workspaceId);
+      } catch (e) {
+        console.warn('FAQ vector deletion notice:', e);
+      }
+    }
   };
 
-  // Add Website URL Handler
-  const handleAddWebsiteUrl = () => {
+  // Add Website URL Handler (Syncs URL into Vector DB with Agent Collection Tag)
+  const handleAddWebsiteUrl = async () => {
     if (!newWebsiteUrl.trim()) return;
     const url = newWebsiteUrl.trim();
+    setIsKnowledgeBusy(true);
+    setKnowledgeFeedback({ message: '', type: '' });
+
+    const collectionTag = formData.knowledge_config.collection || `agent_${Math.random().toString(36).substring(2, 10)}`;
+    const tempId = `web-${Date.now()}`;
+    const newFileEntry = {
+      id: tempId,
+      entry_id: null,
+      name: url,
+      size: 'Website link',
+      time: 'Syncing & vectorizing...',
+      status: 'Syncing',
+    };
+
     setFormData((prev) => ({
       ...prev,
       knowledge_config: {
         ...prev.knowledge_config,
-        website_urls: [...prev.knowledge_config.website_urls, url],
-        files: [
-          ...prev.knowledge_config.files,
-          { id: `web-${Date.now()}`, name: url, size: 'Website link', time: 'Synced just now', status: 'Synced' },
-        ],
+        collection: collectionTag,
+        website_urls: [...(prev.knowledge_config.website_urls || []), url],
+        files: [...prev.knowledge_config.files, newFileEntry],
       },
     }));
-    setNewWebsiteUrl('');
+
+    try {
+      if (workspaceId) {
+        const res = await api.syncURL(url, workspaceId, collectionTag);
+        const entryId = res?.entry_id || res?.id || tempId;
+        setFormData((prev) => ({
+          ...prev,
+          knowledge_config: {
+            ...prev.knowledge_config,
+            files: prev.knowledge_config.files.map((item) =>
+              item.id === tempId
+                ? { ...item, id: entryId, entry_id: entryId, status: 'Synced', time: 'Indexed in Vector DB' }
+                : item
+            ),
+          },
+        }));
+        setKnowledgeFeedback({ message: `"${url}" indexed into collection ${collectionTag}!`, type: 'success' });
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          knowledge_config: {
+            ...prev.knowledge_config,
+            files: prev.knowledge_config.files.map((item) =>
+              item.id === tempId ? { ...item, status: 'Synced', time: 'Synced' } : item
+            ),
+          },
+        }));
+      }
+      setNewWebsiteUrl('');
+    } catch (err) {
+      console.error('URL sync failed:', err);
+      const errDetail = err?.response?.data?.detail || err?.message || 'Failed to sync URL.';
+      setKnowledgeFeedback({ message: `Error syncing URL: ${errDetail}`, type: 'error' });
+      setFormData((prev) => ({
+        ...prev,
+        knowledge_config: {
+          ...prev.knowledge_config,
+          files: prev.knowledge_config.files.map((item) =>
+            item.id === tempId ? { ...item, status: 'Error', time: 'Failed to sync' } : item
+          ),
+        },
+      }));
+    } finally {
+      setIsKnowledgeBusy(false);
+    }
   };
 
   // Reset AI Config
@@ -778,13 +989,21 @@ function CreateAgentWizardContent() {
                     <label className="text-xs font-medium text-zinc-300">Tone of Voice</label>
                     <select
                       value={formData.tone_of_voice}
-                      onChange={(e) => setFormData({ ...formData, tone_of_voice: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          tone_of_voice: e.target.value,
+                          ai_config: { ...formData.ai_config, tone: e.target.value },
+                        })
+                      }
                       className="w-full bg-[#121927] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500/50 transition-colors"
                     >
                       <option value="Friendly & Professional">Friendly & Professional</option>
                       <option value="Casual & Conversational">Casual & Conversational</option>
-                      <option value="Formal & Authoritative">Formal & Authoritative</option>
+                      <option value="Sales & Persuasive">Sales & Persuasive</option>
                       <option value="Empathetic & Supportive">Empathetic & Supportive</option>
+                      <option value="Concise & Direct">Concise & Direct</option>
+                      <option value="Formal & Authoritative">Formal & Authoritative</option>
                     </select>
                   </div>
                 </div>
@@ -1521,11 +1740,18 @@ function CreateAgentWizardContent() {
                 </div>
               </div>
 
-              {/* System Prompt Customizer */}
+              {/* System Prompt Customizer (Required) */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-300">Custom System Prompt (Optional)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-zinc-300">
+                    Custom System Prompt <span className="text-purple-400 font-semibold">* (Required)</span>
+                  </label>
+                  <span className="text-[10px] text-zinc-500 font-mono">
+                    {formData.ai_config.system_prompt?.length || 0} characters
+                  </span>
+                </div>
                 <textarea
-                  rows={3}
+                  rows={4}
                   value={formData.ai_config.system_prompt}
                   onChange={(e) =>
                     setFormData({
@@ -1534,8 +1760,11 @@ function CreateAgentWizardContent() {
                     })
                   }
                   placeholder={`You are ${formData.name}, a helpful AI assistant representing ${formData.business_name || 'our company'}. Respond politely and accurately...`}
-                  className="w-full bg-[#121927] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500/50 resize-none"
+                  className="w-full bg-[#121927] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500/50 resize-y leading-relaxed font-mono"
                 />
+                <div className="flex items-center justify-between text-[10px] text-zinc-500">
+                  <span>Define greeting style, qualification questions, and escalation policies.</span>
+                </div>
               </div>
             </motion.div>
           )}
@@ -1554,17 +1783,30 @@ function CreateAgentWizardContent() {
             >
               {/* Left Column: Knowledge Sources Tabs */}
               <div className="lg:col-span-4 space-y-3">
-                <h2 className="text-sm font-semibold text-white mb-2">Knowledge Sources</h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-white">Knowledge Sources</h2>
+                </div>
+                {/* Collection Tag Isolation Badge */}
+                <div className="p-3 rounded-xl bg-purple-950/20 border border-purple-500/20 space-y-1">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-purple-300">
+                    <Database size={13} className="text-purple-400" />
+                    <span>Vector Collection Tag</span>
+                  </div>
+                  <div className="text-[11px] font-mono text-purple-200 bg-black/40 px-2 py-1 rounded border border-purple-500/10 truncate">
+                    {formData.knowledge_config.collection || 'agent_collection'}
+                  </div>
+                  <p className="text-[10px] text-zinc-400 leading-tight">
+                    All chunks are isolated under this tag in Vector DB.
+                  </p>
+                </div>
+
                 <div className="space-y-1.5">
                   {[
                     { id: 'upload', label: 'Upload Files', icon: <Upload size={15} /> },
                     { id: 'website', label: 'Website Links', icon: <Globe size={15} /> },
                     { id: 'faq', label: 'Text / FAQs', icon: <FileText size={15} /> },
-                    { id: 'notion', label: 'Notion', icon: <FileText size={15} /> },
                     { id: 'drive', label: 'Google Drive', icon: <FileText size={15} /> },
                     { id: 'sheets', label: 'Google Sheets', icon: <FileText size={15} /> },
-                    { id: 'youtube', label: 'YouTube', icon: <FileText size={15} /> },
-                    { id: 'api', label: 'Custom API', icon: <Sliders size={15} /> },
                   ].map((src) => {
                     const isSelected = knowledgeTab === src.id;
                     return (
@@ -1588,6 +1830,40 @@ function CreateAgentWizardContent() {
 
               {/* Right Column: Knowledge Content Area */}
               <div className="lg:col-span-8 space-y-5">
+                {/* Knowledge Base Activity or Error Banner */}
+                {knowledgeFeedback.message && (
+                  <div
+                    className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+                      knowledgeFeedback.type === 'error'
+                        ? 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                        : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {knowledgeFeedback.type === 'error' ? (
+                        <AlertCircle size={15} className="shrink-0" />
+                      ) : (
+                        <CheckCircle2 size={15} className="shrink-0" />
+                      )}
+                      <span>{knowledgeFeedback.message}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setKnowledgeFeedback({ message: '', type: '' })}
+                      className="text-zinc-400 hover:text-white cursor-pointer ml-2"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {isKnowledgeBusy && (
+                  <div className="p-3 rounded-xl bg-purple-900/20 border border-purple-500/30 flex items-center gap-2 text-xs text-purple-200">
+                    <Loader2 size={15} className="animate-spin text-purple-400 shrink-0" />
+                    <span>Vector DB is indexing chunks into collection <b>{formData.knowledge_config.collection}</b>...</span>
+                  </div>
+                )}
+
                 {/* Tab: Upload Files */}
                 {knowledgeTab === 'upload' && (
                   <div className="space-y-5">
@@ -1678,7 +1954,7 @@ function CreateAgentWizardContent() {
                               </span>
                               <button
                                 type="button"
-                                onClick={() => handleDeleteFile(file.id)}
+                                onClick={() => handleDeleteFile(file)}
                                 className="text-zinc-500 hover:text-red-400 transition-colors p-1"
                                 title="Remove file"
                               >
@@ -1707,14 +1983,16 @@ function CreateAgentWizardContent() {
                         />
                         <button
                           type="button"
+                          disabled={isKnowledgeBusy || !newWebsiteUrl.trim()}
                           onClick={handleAddWebsiteUrl}
-                          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-medium cursor-pointer inline-flex items-center gap-1.5"
                         >
-                          + Add URL
+                          {isKnowledgeBusy ? <Loader2 size={13} className="animate-spin" /> : null}
+                          <span>+ Add URL</span>
                         </button>
                       </div>
                       <p className="text-[11px] text-zinc-400">
-                        The agent will index information on this website to answer questions accurately.
+                        The agent will index information on this website into this agent's private collection in Vector DB.
                       </p>
                     </div>
                   </div>
@@ -1749,7 +2027,7 @@ function CreateAgentWizardContent() {
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleDeleteFaq(faq.id)}
+                            onClick={() => handleDeleteFaq(faq)}
                             className="text-zinc-500 hover:text-red-400 transition-colors p-1"
                             title="Delete FAQ"
                           >
@@ -1761,8 +2039,8 @@ function CreateAgentWizardContent() {
                   </div>
                 )}
 
-                {/* Other Integration Tabs (Notion, Drive, etc.) */}
-                {['notion', 'drive', 'sheets', 'youtube', 'api'].includes(knowledgeTab) && (
+                {/* Other Integration Tabs (Google Drive, Google Sheets) */}
+                {['drive', 'sheets'].includes(knowledgeTab) && (
                   <div className="p-8 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] text-center space-y-3">
                     <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300 mx-auto">
                       <Globe size={24} />
@@ -1975,6 +2253,20 @@ function CreateAgentWizardContent() {
                       <span className="text-zinc-400">Top P</span>
                       <span className="font-mono text-zinc-200">{formData.ai_config.top_p}</span>
                     </div>
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-zinc-400">Tone</span>
+                      <span className="text-purple-300 font-medium">{formData.tone_of_voice}</span>
+                    </div>
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-zinc-400">Format</span>
+                      <span className="text-zinc-200 capitalize">{formData.ai_config.response_format}</span>
+                    </div>
+                    <div className="pt-2 border-t border-white/5 space-y-1">
+                      <span className="text-zinc-400 text-[11px] block">System Prompt Preview</span>
+                      <p className="text-[11px] text-zinc-300 font-mono bg-[#121927] p-2 rounded-lg line-clamp-3 leading-relaxed">
+                        {formData.ai_config.system_prompt || 'No system prompt defined.'}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -1993,6 +2285,10 @@ function CreateAgentWizardContent() {
                     </button>
                   </div>
                   <div className="space-y-1.5 text-xs">
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-zinc-400">Vector Collection</span>
+                      <span className="text-purple-300 font-mono text-[11px]">{formData.knowledge_config.collection || 'agent_default'}</span>
+                    </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-zinc-400">Files Uploaded</span>
                       <span className="text-white">{formData.knowledge_config.files.length} files</span>
@@ -2091,10 +2387,12 @@ function CreateAgentWizardContent() {
               </button>
               <button
                 type="button"
+                disabled={isKnowledgeBusy || !newFaq.question.trim() || !newFaq.answer.trim()}
                 onClick={handleAddFaq}
-                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
               >
-                Save FAQ
+                {isKnowledgeBusy ? <Loader2 size={13} className="animate-spin" /> : null}
+                <span>Save FAQ</span>
               </button>
             </div>
           </div>
