@@ -13,25 +13,17 @@ import {
   Upload,
   Globe,
   FileText,
-  Sliders,
   Sparkles,
   Bot,
   RotateCcw,
   AlertCircle,
-  HelpCircle,
-  ExternalLink,
-  ChevronDown,
   Calendar,
   Mail,
   Loader2,
   CheckCircle2,
   X,
-  Edit2,
-  Key,
-  Eye,
-  EyeOff,
-  ShieldCheck,
   Database
+
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -108,9 +100,6 @@ const AGENT_TYPES = [
 const DEFAULT_AI_CONFIG = {
   provider: 'google',
   model: 'gemini-1.5-flash',
-  access_mode: 'platform',
-  custom_api_key: '',
-  custom_base_url: '',
   temperature: 0.7,
   max_tokens: 1024,
   top_p: 1.0,
@@ -153,19 +142,18 @@ function CreateAgentWizardContent() {
   const [formData, setFormData] = useState({
     // Step 1: Basic Info
     agent_type: 'sales_assistant',
-    name: 'Orbion Sales Agent',
-    description: 'Helps customers with product enquiries, provides pricing and converts leads into sales.',
+    name: '',
+    description: '',
     avatar_url: '',
     language: 'English (India)',
     tone_of_voice: 'Friendly & Professional',
-    business_name: 'Orbion Store',
-    website_url: 'https://www.orbionstore.com',
+    business_name: '',
+    website_url: '',
 
-    // Step 2: Channels
+    // Step 2: Channels (only native website chat ready by default; external channels require backend connection)
     channels_config: {
-      whatsapp: { enabled: true },
-      instagram: { enabled: true },
-      messenger: { enabled: false },
+      whatsapp: { enabled: false },
+      instagram: { enabled: false },
       website: { enabled: true },
       gmail: { enabled: false },
       calendar: { enabled: false },
@@ -181,18 +169,9 @@ function CreateAgentWizardContent() {
 
     // Step 4: Knowledge Base
     knowledge_config: {
-      collection: '',
-      files: [
-        { id: '1', name: 'Product_Catalog.pdf', size: '2.4 MB', time: 'Uploaded 3 mins ago', status: 'Processed' },
-        { id: '2', name: 'Pricing_Details.docx', size: '1.1 MB', time: 'Uploaded 5 mins ago', status: 'Processed' },
-        { id: '3', name: 'https://www.orbionstore.com', size: 'Website content', time: 'Added 10 mins ago', status: 'Synced' },
-      ],
-      website_urls: ['https://www.orbionstore.com'],
-      faqs: [
-        { id: '1', question: 'What are your delivery charges?', answer: 'Standard delivery is free on all orders above $50.' },
-        { id: '2', question: 'Do you offer COD?', answer: 'Yes, Cash on Delivery is available for eligible pin codes.' },
-        { id: '3', question: 'What is the return policy?', answer: 'We offer a hassle-free 7-day return policy for unused items.' },
-      ],
+      files: [],
+      website_urls: [],
+      faqs: [],
       integrations: [],
       settings: {
         use_knowledge_base: true,
@@ -206,10 +185,6 @@ function CreateAgentWizardContent() {
   // Providers & models metadata from backend
   const [providersData, setProvidersData] = useState([]);
   const [channelsData, setChannelsData] = useState([]);
-  const [isTestingKey, setIsTestingKey] = useState(false);
-  const [keyValidationResult, setKeyValidationResult] = useState(null);
-  const [showCustomKey, setShowCustomKey] = useState(false);
-  const [customDiscoveredModels, setCustomDiscoveredModels] = useState([]);
   const [knowledgeTab, setKnowledgeTab] = useState('upload');
   const [newFaq, setNewFaq] = useState({ question: '', answer: '' });
   const [showAddFaqModal, setShowAddFaqModal] = useState(false);
@@ -283,11 +258,40 @@ function CreateAgentWizardContent() {
 
         if (!isMounted) return;
 
-        if (modelsRes.status === 'fulfilled' && modelsRes.value?.providers) {
-          setProvidersData(modelsRes.value.providers);
+        if (modelsRes.status === 'fulfilled' && modelsRes.value?.providers?.length > 0) {
+          const provs = modelsRes.value.providers;
+          setProvidersData(provs);
+          // Auto-select first recommended model if current model is default or unselected
+          setFormData((prev) => {
+            if (prev.ai_config.model && prev.ai_config.model !== 'gemini-1.5-flash') return prev;
+            const activeP = provs.find((p) => p.models && p.models.length > 0) || provs[0];
+            const recM = activeP?.models?.find((m) => m.isRecommended) || activeP?.models?.[0];
+            if (recM) {
+              return {
+                ...prev,
+                ai_config: {
+                  ...prev.ai_config,
+                  provider: activeP.provider,
+                  model: recM.id,
+                },
+              };
+            }
+            return prev;
+          });
         }
         if (channelsRes.status === 'fulfilled' && channelsRes.value?.channels) {
-          setChannelsData(channelsRes.value.channels);
+          const chList = channelsRes.value.channels;
+          setChannelsData(chList);
+          // Set initial channel enable flags based on confirmed backend connection
+          setFormData((prev) => {
+            const updated = { ...prev.channels_config };
+            chList.forEach((c) => {
+              if (c.connected && updated[c.id] === undefined) {
+                updated[c.id] = { enabled: true };
+              }
+            });
+            return { ...prev, channels_config: updated };
+          });
         }
         if (draftRes.status === 'fulfilled' && draftRes.value?.draft && !editId) {
           setFormData((prev) => ({ ...prev, ...draftRes.value.draft }));
@@ -671,45 +675,9 @@ function CreateAgentWizardContent() {
       ...prev,
       ai_config: { ...DEFAULT_AI_CONFIG },
     }));
-    setCustomDiscoveredModels([]);
-    setKeyValidationResult(null);
   };
 
-  const handleValidateCustomKey = async () => {
-    if (!formData.ai_config.custom_api_key?.trim()) {
-      setKeyValidationResult({ success: false, message: 'Please enter an API key to validate.' });
-      return;
-    }
-    try {
-      setIsTestingKey(true);
-      setKeyValidationResult(null);
-      const res = await api.validateUserApiKey(
-        {
-          provider: formData.ai_config.provider,
-          api_key: formData.ai_config.custom_api_key.trim(),
-          base_url: formData.ai_config.custom_base_url?.trim() || undefined,
-        },
-        workspaceId
-      );
 
-      if (res.valid) {
-        setKeyValidationResult({ success: true, message: res.message });
-        if (res.models && res.models.length > 0) {
-          setCustomDiscoveredModels(res.models);
-          setFormData((prev) => ({
-            ...prev,
-            ai_config: { ...prev.ai_config, model: res.models[0].id },
-          }));
-        }
-      } else {
-        setKeyValidationResult({ success: false, message: res.message || 'Key validation failed.' });
-      }
-    } catch (err) {
-      setKeyValidationResult({ success: false, message: err?.message || 'Error validating API key.' });
-    } finally {
-      setIsTestingKey(false);
-    }
-  };
 
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-[#070b13] text-white">
@@ -908,7 +876,7 @@ function CreateAgentWizardContent() {
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g. Orbion Sales Agent"
+                    placeholder="e.g. Sales Assistant"
                     className="w-full bg-[#121927] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500/50 transition-colors"
                   />
                 </div>
@@ -1016,7 +984,7 @@ function CreateAgentWizardContent() {
                       type="text"
                       value={formData.business_name}
                       onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
-                      placeholder="e.g. Orbion Store"
+                      placeholder="e.g. Acme Corp"
                       className="w-full bg-[#121927] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500/50 transition-colors"
                     />
                   </div>
@@ -1062,7 +1030,6 @@ function CreateAgentWizardContent() {
                     id: 'whatsapp',
                     name: 'WhatsApp Business',
                     description: 'Connect your WhatsApp Business account',
-                    connected: true,
                     iconBg: 'bg-emerald-500',
                     icon: (
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -1074,7 +1041,6 @@ function CreateAgentWizardContent() {
                     id: 'instagram',
                     name: 'Instagram',
                     description: 'Connect your Instagram Business account',
-                    connected: true,
                     iconBg: 'bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600',
                     icon: (
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1085,22 +1051,9 @@ function CreateAgentWizardContent() {
                     ),
                   },
                   {
-                    id: 'messenger',
-                    name: 'Facebook Messenger',
-                    description: 'Connect your Facebook page',
-                    connected: false,
-                    iconBg: 'bg-blue-600',
-                    icon: (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
-                      </svg>
-                    ),
-                  },
-                  {
                     id: 'website',
                     name: 'Website Chat',
                     description: 'Add a chat widget to your website',
-                    connected: true,
                     iconBg: 'bg-indigo-600',
                     icon: <Globe size={18} />,
                   },
@@ -1108,7 +1061,6 @@ function CreateAgentWizardContent() {
                     id: 'gmail',
                     name: 'Gmail',
                     description: 'Connect Gmail for email support',
-                    connected: false,
                     iconBg: 'bg-red-600',
                     icon: <Mail size={18} />,
                   },
@@ -1116,12 +1068,14 @@ function CreateAgentWizardContent() {
                     id: 'calendar',
                     name: 'Google Calendar',
                     description: 'Connect to book meetings',
-                    connected: false,
                     iconBg: 'bg-amber-600',
                     icon: <Calendar size={18} />,
                   },
                 ].map((channel) => {
-                  const isEnabled = formData.channels_config[channel.id]?.enabled;
+                  const isEnabled = Boolean(formData.channels_config[channel.id]?.enabled);
+                  const backendChannel = channelsData.find((c) => c.id === channel.id);
+                  const isConnected = backendChannel ? backendChannel.connected : (channel.id === 'website');
+
                   return (
                     <div
                       key={channel.id}
@@ -1139,24 +1093,33 @@ function CreateAgentWizardContent() {
                           <div className="flex items-center gap-2 mt-2">
                             <span
                               className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
-                                channel.connected
+                                isConnected
                                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                                   : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
                               }`}
                             >
                               <span
                                 className={`w-1 h-1 rounded-full ${
-                                  channel.connected ? 'bg-emerald-400' : 'bg-zinc-500'
+                                  isConnected ? 'bg-emerald-400' : 'bg-zinc-500'
                                 }`}
                               />
-                              <span>{channel.connected ? 'Connected' : 'Not Connected'}</span>
+                              <span>{isConnected ? 'Connected' : 'Not Connected'}</span>
                             </span>
-                            {channel.connected && (
+                            {isConnected ? (
                               <button
                                 type="button"
+                                onClick={() => router.push('/user/admin/integrations')}
                                 className="text-[10px] text-zinc-400 hover:text-white underline cursor-pointer"
                               >
                                 Manage
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => router.push('/user/admin/integrations')}
+                                className="text-[10px] text-purple-400 hover:text-purple-300 underline cursor-pointer"
+                              >
+                                Connect →
                               </button>
                             )}
                           </div>
@@ -1167,6 +1130,11 @@ function CreateAgentWizardContent() {
                       <button
                         type="button"
                         onClick={() => {
+                          if (!isConnected) {
+                            setErrorMessage(`Please connect ${channel.name} in Settings > Integrations before enabling it.`);
+                            return;
+                          }
+                          setErrorMessage('');
                           setFormData((prev) => ({
                             ...prev,
                             channels_config: {
@@ -1285,18 +1253,17 @@ function CreateAgentWizardContent() {
               {/* Model Provider Chips */}
               {(() => {
                 const defaultProvidersList = [
-                  { provider: 'google', displayName: 'Google', hasPlatformKey: false, models: [{ id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', isRecommended: true, description: 'Fast, cost-efficient model' }] },
-                  { provider: 'openai', displayName: 'OpenAI', hasPlatformKey: false, models: [{ id: 'gpt-4o', name: 'GPT-4o', isRecommended: true, description: 'Advanced multimodal flagship' }] },
-                  { provider: 'anthropic', displayName: 'Anthropic', hasPlatformKey: false, models: [{ id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', isRecommended: true, description: 'State-of-the-art intelligence' }] },
+                  { provider: 'google', displayName: 'Google', hasPlatformKey: true, models: [{ id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', isRecommended: true, description: 'Fast, cost-efficient model' }] },
+                  { provider: 'openai', displayName: 'OpenAI', hasPlatformKey: true, models: [{ id: 'gpt-4o', name: 'GPT-4o', isRecommended: true, description: 'Advanced multimodal flagship' }] },
+                  { provider: 'anthropic', displayName: 'Anthropic', hasPlatformKey: true, models: [{ id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', isRecommended: true, description: 'State-of-the-art intelligence' }] },
                   { provider: 'groq', displayName: 'Groq', hasPlatformKey: true, models: [{ id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile', isRecommended: true, description: 'Sub-second inference speed' }] },
                   { provider: 'meta', displayName: 'Meta', hasPlatformKey: true, models: [{ id: 'llama-3.3-70b', name: 'Llama 3.3 70B', isRecommended: true, description: 'Open-weights conversational model' }] },
-                  { provider: 'custom', displayName: 'Custom Provider / BYOK', hasPlatformKey: true, models: [{ id: 'custom-endpoint', name: 'Custom Model / BYOK', isRecommended: false, description: 'Private endpoint' }] },
                 ];
-                const activeProvidersList = providersData.length > 0 ? providersData : defaultProvidersList;
+                const activeProvidersList = providersData.length > 0
+                  ? providersData.filter((p) => p.provider !== 'custom')
+                  : defaultProvidersList;
                 const currentProviderObj = activeProvidersList.find((p) => p.provider === formData.ai_config.provider) || activeProvidersList[0];
-                const availableModels = (formData.ai_config.access_mode === 'byok' && customDiscoveredModels.length > 0)
-                  ? customDiscoveredModels
-                  : (currentProviderObj?.models || []);
+                const availableModels = currentProviderObj?.models || [];
                 const currentModelObj = availableModels.find((m) => m.id === formData.ai_config.model) || availableModels[0] || {
                   id: formData.ai_config.model,
                   name: formData.ai_config.model,
@@ -1330,8 +1297,6 @@ function CreateAgentWizardContent() {
                                   ...prev,
                                   ai_config: { ...prev.ai_config, provider: p.provider, model: fallback },
                                 }));
-                                setCustomDiscoveredModels([]);
-                                setKeyValidationResult(null);
                               }}
                               className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all border cursor-pointer flex items-center gap-1.5 ${
                                 isSelected
@@ -1349,164 +1314,7 @@ function CreateAgentWizardContent() {
                       </div>
                     </div>
 
-                    {/* API Access Credentials (Platform Key vs BYOK User Key) */}
-                    <div className="rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] p-5 space-y-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <Key size={14} className="text-purple-400" />
-                            <h3 className="text-xs font-semibold text-white tracking-wide uppercase">
-                              API Access Credentials
-                            </h3>
-                          </div>
-                          <p className="text-[11px] text-zinc-400 mt-0.5">
-                            Choose between platform credits or using your own personal API key.
-                          </p>
-                        </div>
 
-                        <div className="flex items-center bg-[#121927] p-1 rounded-xl border border-white/10 self-start sm:self-auto">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFormData((prev) => ({
-                                ...prev,
-                                ai_config: { ...prev.ai_config, access_mode: 'platform' }
-                              }));
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                              formData.ai_config.access_mode === 'platform'
-                                ? 'bg-purple-600 text-white shadow'
-                                : 'text-zinc-400 hover:text-white'
-                            }`}
-                          >
-                            Platform Key
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFormData((prev) => ({
-                                ...prev,
-                                ai_config: { ...prev.ai_config, access_mode: 'byok' }
-                              }));
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                              formData.ai_config.access_mode === 'byok'
-                                ? 'bg-purple-600 text-white shadow'
-                                : 'text-zinc-400 hover:text-white'
-                            }`}
-                          >
-                            Use My Own Key (BYOK)
-                          </button>
-                        </div>
-                      </div>
-
-                      {formData.ai_config.access_mode === 'platform' && (
-                        <div className="p-3.5 rounded-xl bg-[#121927] border border-white/5 flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2.5">
-                            <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
-                            <span className="text-zinc-300">
-                              {currentProviderObj.hasPlatformKey
-                                ? `Platform master access is connected for ${currentProviderObj.displayName}. Conversations use shared platform credits.`
-                                : `Platform key is not configured for ${currentProviderObj.displayName}. Switch to 'Use My Own Key (BYOK)' to connect your credentials.`}
-                            </span>
-                          </div>
-                          {currentProviderObj.hasPlatformKey && (
-                            <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
-                              Platform Active
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {formData.ai_config.access_mode === 'byok' && (
-                        <div className="space-y-3 pt-1">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                              <label className="text-xs font-medium text-zinc-300 flex items-center justify-between">
-                                <span>{currentProviderObj.displayName} API Key</span>
-                                <span className="text-[10px] text-zinc-500">Encrypted on save</span>
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type={showCustomKey ? "text" : "password"}
-                                  value={formData.ai_config.custom_api_key || ''}
-                                  onChange={(e) => {
-                                    setFormData({
-                                      ...formData,
-                                      ai_config: { ...formData.ai_config, custom_api_key: e.target.value }
-                                    });
-                                    setKeyValidationResult(null);
-                                  }}
-                                  placeholder={
-                                    formData.ai_config.provider === 'openai' ? 'sk-proj-...' :
-                                    formData.ai_config.provider === 'anthropic' ? 'sk-ant-api03-...' :
-                                    formData.ai_config.provider === 'google' ? 'AIzaSy...' :
-                                    formData.ai_config.provider === 'groq' ? 'gsk_...' : 'Enter your API key...'
-                                  }
-                                  className="w-full bg-[#121927] border border-white/10 rounded-xl pl-3.5 pr-10 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500/50"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setShowCustomKey(!showCustomKey)}
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
-                                >
-                                  {showCustomKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                                </button>
-                              </div>
-                            </div>
-
-                            <div className="space-y-1.5">
-                              <label className="text-xs font-medium text-zinc-300 flex items-center justify-between">
-                                <span>Base URL {formData.ai_config.provider !== 'custom' ? '(Optional)' : '(Required)'}</span>
-                                <span className="text-[10px] text-zinc-500">Custom endpoint</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={formData.ai_config.custom_base_url || ''}
-                                onChange={(e) => setFormData({
-                                  ...formData,
-                                  ai_config: { ...formData.ai_config, custom_base_url: e.target.value }
-                                })}
-                                placeholder={formData.ai_config.provider === 'custom' ? 'https://openrouter.ai/api/v1' : 'Leave empty for default'}
-                                className="w-full bg-[#121927] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500/50"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                            <button
-                              type="button"
-                              onClick={handleValidateCustomKey}
-                              disabled={isTestingKey || !formData.ai_config.custom_api_key?.trim()}
-                              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-xs font-semibold text-white transition-colors cursor-pointer"
-                            >
-                              {isTestingKey ? (
-                                <>
-                                  <Loader2 size={13} className="animate-spin" />
-                                  <span>Validating & Discovering Models...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Sparkles size={13} />
-                                  <span>Validate Key & Discover Models</span>
-                                </>
-                              )}
-                            </button>
-
-                            {keyValidationResult && (
-                              <div className={`text-xs px-3 py-1.5 rounded-xl border flex items-center gap-1.5 ${
-                                keyValidationResult.success
-                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                  : 'bg-red-500/10 text-red-400 border-red-500/20'
-                              }`}>
-                                {keyValidationResult.success ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
-                                <span>{keyValidationResult.message}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
 
                     {/* Model Selection & Capabilities Box */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1926,7 +1734,12 @@ function CreateAgentWizardContent() {
                         Uploaded Files ({formData.knowledge_config.files.length})
                       </h3>
                       <div className="space-y-2">
-                        {formData.knowledge_config.files.map((file) => (
+                        {formData.knowledge_config.files.length === 0 ? (
+                          <div className="p-6 rounded-xl bg-[#0e1424]/50 border border-dashed border-white/10 text-center text-xs text-zinc-500">
+                            No documents uploaded yet. Upload PDF, DOCX, TXT or CSV files above to give your agent domain knowledge.
+                          </div>
+                        ) : (
+                          formData.knowledge_config.files.map((file) => (
                           <div
                             key={file.id}
                             className="p-3 rounded-xl bg-[#0e1424] border border-white/10 flex items-center justify-between gap-4"
@@ -1962,7 +1775,7 @@ function CreateAgentWizardContent() {
                               </button>
                             </div>
                           </div>
-                        ))}
+                        )))}
                       </div>
                     </div>
                   </div>
@@ -2016,7 +1829,12 @@ function CreateAgentWizardContent() {
                     </div>
 
                     <div className="space-y-2">
-                      {formData.knowledge_config.faqs.map((faq) => (
+                      {formData.knowledge_config.faqs.length === 0 ? (
+                        <div className="p-6 rounded-xl bg-[#0e1424]/50 border border-dashed border-white/10 text-center text-xs text-zinc-500">
+                          No custom FAQs added yet. Click &quot;+ Add FAQ&quot; above to provide direct answers for common customer questions.
+                        </div>
+                      ) : (
+                        formData.knowledge_config.faqs.map((faq) => (
                         <div
                           key={faq.id}
                           className="p-3.5 rounded-xl bg-[#0e1424] border border-white/10 flex items-start justify-between gap-4"
@@ -2034,7 +1852,7 @@ function CreateAgentWizardContent() {
                             <Trash2 size={13} />
                           </button>
                         </div>
-                      ))}
+                      )))}
                     </div>
                   </div>
                 )}
@@ -2232,10 +2050,6 @@ function CreateAgentWizardContent() {
                     <div className="flex justify-between py-0.5">
                       <span className="text-zinc-400">Model Provider</span>
                       <span className="text-white capitalize">{formData.ai_config.provider}</span>
-                    </div>
-                    <div className="flex justify-between py-0.5">
-                      <span className="text-zinc-400">Access Mode</span>
-                      <span className="text-purple-300">{formData.ai_config.access_mode === 'byok' ? 'Custom API Key (BYOK)' : 'Platform Key (Shared)'}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-zinc-400">Model</span>
