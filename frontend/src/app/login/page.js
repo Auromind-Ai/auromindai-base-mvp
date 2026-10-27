@@ -335,7 +335,7 @@ function LoginContent() {
 
                 {/* Clean Dark Poster Image */}
                 <img
-                    src="/images/login_hero_dark_clean.jpg"
+                    src="/images/login_hero_dark_clean.webp"
                     alt="Automate every WhatsApp conversation - Orbion Agents"
                     className="w-full h-full object-cover select-none pointer-events-none"
                 />

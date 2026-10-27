@@ -7,7 +7,7 @@ import {
     Search, Plus, Filter, Phone, Instagram, Globe, Mail,
     MessageSquare, Clock, User, ChevronDown, ArrowUpRight,
     TrendingUp, Check, CheckCircle2, MoreHorizontal, Star, Inbox, Zap, Users,
-    FileText, Tag, Info, X
+    FileText, Tag, Info, X, Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CrmControls, { cleanFilters } from '@/components/leads/CrmControls';
@@ -749,6 +749,33 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onOpenTemplateMo
         }));
     };
 
+    const [copiedLeadMsgId, setCopiedLeadMsgId] = useState(null);
+
+    const handleCopyLeadMessage = async (text, id) => {
+        if (!text) return;
+        try {
+            if (typeof navigator !== 'undefined' && navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand('copy');
+                textArea.remove();
+            }
+            setCopiedLeadMsgId(id);
+            setTimeout(() => {
+                setCopiedLeadMsgId(prev => (prev === id ? null : prev));
+            }, 2000);
+        } catch (e) {
+            console.error('Failed to copy message:', e);
+        }
+    };
+
     const messagesToRender = getNormalizedMessages(leadDetail?.conversation_log);
     let lastDateLabel = '';
 
@@ -895,34 +922,65 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onOpenTemplateMo
                         const isTimeValid = m.sent_at && !isNaN(new Date(m.sent_at).getTime());
                         const displayTime = isTimeValid ? new Date(m.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : m.time;
 
-                        return (
-                            <div key={m.id || i} className="space-y-2">
-                                {showSeparator && (
-                                    <div className="flex items-center justify-center my-4">
-                                        <span className="text-xs text-zinc-600 bg-[#111118] px-4 py-1 rounded-full border border-white/[0.04]">{dateLabel}</span>
+                                const isCopied = copiedLeadMsgId === (m.id || i);
+                                const textToCopy = m.text || (m.media_url ? m.media_url : '');
+
+                                return (
+                                    <div key={m.id || i} className="space-y-2">
+                                        {showSeparator && (
+                                            <div className="flex items-center justify-center my-4">
+                                                <span className="text-xs text-zinc-600 bg-[#111118] px-4 py-1 rounded-full border border-white/[0.04]">{dateLabel}</span>
+                                            </div>
+                                        )}
+                                        <div className={`flex items-center gap-1.5 ${isMe ? 'justify-end' : 'justify-start'} group/leadmsg`}>
+                                            {isMe && Boolean(textToCopy) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleCopyLeadMessage(textToCopy, m.id || i)}
+                                                    title={isCopied ? "Copied!" : "Copy message"}
+                                                    className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer shadow-sm border ${
+                                                        isCopied
+                                                            ? 'opacity-100 bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                                                            : 'opacity-0 group-hover/leadmsg:opacity-100 bg-[#1e1e24] hover:bg-[#282832] text-zinc-400 hover:text-white border-white/10'
+                                                    }`}
+                                                >
+                                                    {isCopied ? <Check size={12} /> : <Copy size={12} />}
+                                                </button>
+                                            )}
+                                            <div
+                                                className={`max-w-[72%] px-4 py-3 select-text ${!isMe ? 'rounded-[20px_20px_20px_6px] bg-[#252525]' : `rounded-[20px_20px_6px_20px] bg-gradient-to-br ${theme.bubbleGradient} border border-white/10 shadow-lg ${theme.accentGlow}`}`}
+                                            >
+                                                <MessageRenderer
+                                                    content={m.text}
+                                                    metadata={m.metadata}
+                                                    media_url={m.media_url}
+                                                    media_type={m.media_type}
+                                                    mime_type={m.mime_type}
+                                                    isMe={isMe}
+                                                    theme={theme}
+                                                    onPreviewMedia={setPreviewMedia}
+                                                />
+                                                <p className="text-[10px] text-white/40 mt-1.5">
+                                                    {displayTime}
+                                                </p>
+                                            </div>
+                                            {!isMe && Boolean(textToCopy) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleCopyLeadMessage(textToCopy, m.id || i)}
+                                                    title={isCopied ? "Copied!" : "Copy message"}
+                                                    className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer shadow-sm border ${
+                                                        isCopied
+                                                            ? 'opacity-100 bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                                                            : 'opacity-0 group-hover/leadmsg:opacity-100 bg-[#1e1e24] hover:bg-[#282832] text-zinc-400 hover:text-white border-white/10'
+                                                    }`}
+                                                >
+                                                    {isCopied ? <Check size={12} /> : <Copy size={12} />}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                )}
-                                <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                    <div
-                                        className={`max-w-[72%] px-4 py-3 ${!isMe ? 'rounded-[20px_20px_20px_6px] bg-[#252525]' : `rounded-[20px_20px_6px_20px] bg-gradient-to-br ${theme.bubbleGradient} border border-white/10 shadow-lg ${theme.accentGlow}`}`}
-                                    >
-                                        <MessageRenderer
-                                            content={m.text}
-                                            metadata={m.metadata}
-                                            media_url={m.media_url}
-                                            media_type={m.media_type}
-                                            mime_type={m.mime_type}
-                                            isMe={isMe}
-                                            theme={theme}
-                                            onPreviewMedia={setPreviewMedia}
-                                        />
-                                        <p className="text-[10px] text-white/40 mt-1.5">
-                                            {displayTime}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        );
+                                );
                     })
                 )}
                 <div ref={endRef} />

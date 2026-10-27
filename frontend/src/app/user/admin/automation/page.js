@@ -1923,42 +1923,96 @@ export default function AutomationCanvas() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* RIGHT: actions */}
+          {/* When space is available (>= 820px): show all 4 buttons outside */}
+          <div className="hidden min-[820px]:flex items-center gap-2">
+            <button
+              onClick={handleSave}
+              disabled={isSaving || !selectedItem || !flowValidation.isValid}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 border border-white/20 hover:from-[#814AC8]/60 hover:to-[#221253]/60 disabled:opacity-40 transition text-xs font-medium text-white whitespace-nowrap cursor-pointer"
+            >
+              <Save size={13} /> {isSaving ? 'Syncing...' : 'Sync Wire'}
+            </button>
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1e1e2a] border border-white/10 text-xs text-zinc-300"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1e1e2a] border border-white/10 hover:border-white/20 text-xs font-medium text-zinc-300 transition whitespace-nowrap cursor-pointer"
             >
               <Layers size={13} /> Flows List
             </button>
             <button
+              onClick={() => setZenMode(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1e1e2a] border border-white/10 hover:border-white/20 text-xs font-medium text-zinc-400 hover:text-zinc-200 transition whitespace-nowrap cursor-pointer"
+            >
+              <Eye size={13} /> Zen mode
+            </button>
+            <button
               onClick={handleCreateNew}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#814AC8] text-xs font-semibold text-white"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#814AC8] hover:bg-violet-500 transition text-xs font-semibold text-white shadow-md whitespace-nowrap cursor-pointer"
             >
               <Plus size={14} /> New Wire
             </button>
+          </div>
+
+          {/* When space is not enough (< 820px): all 4 buttons go inside the three-dot menu */}
+          <div className="flex min-[820px]:hidden items-center">
             <div className="relative">
               <button
                 onClick={() => setTabletMenuOpen(!tabletMenuOpen)}
-                className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300"
+                className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300 hover:text-white transition cursor-pointer"
+                aria-label="More Options"
               >
                 <MoreHorizontal size={18} />
               </button>
               {tabletMenuOpen && (
-                <div className="absolute right-0 top-10 w-44 bg-[#161622] border border-white/15 rounded-xl shadow-2xl p-1.5 z-[150] space-y-1">
-                  <button
-                    onClick={() => { setZenMode(true); setTabletMenuOpen(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 rounded-lg text-left"
-                  >
-                    <Eye size={14} /> Zen mode
-                  </button>
-                  <button
-                    onClick={() => { handleSave(); setTabletMenuOpen(false); }}
-                    disabled={isSaving || !selectedItem || !flowValidation.isValid}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 rounded-lg text-left disabled:opacity-40"
-                  >
-                    <Save size={14} /> Sync Wire
-                  </button>
-                </div>
+                <>
+                  <div
+                    className="fixed inset-0 z-[140]"
+                    onClick={() => setTabletMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 top-10 w-48 bg-[#161622] border border-white/15 rounded-xl shadow-2xl p-1.5 z-[150] space-y-1">
+                    <button
+                      onClick={() => {
+                        handleSave();
+                        setTabletMenuOpen(false);
+                      }}
+                      disabled={isSaving || !selectedItem || !flowValidation.isValid}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 rounded-lg text-left disabled:opacity-40 transition cursor-pointer"
+                    >
+                      <Save size={14} className="text-emerald-400" />
+                      <span>{isSaving ? 'Syncing...' : 'Sync Wire'}</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSidebarOpen(!sidebarOpen);
+                        setTabletMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 rounded-lg text-left transition cursor-pointer"
+                    >
+                      <Layers size={14} className="text-violet-400" />
+                      <span>Flows List</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setZenMode(true);
+                        setTabletMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 rounded-lg text-left transition cursor-pointer"
+                    >
+                      <Eye size={14} className="text-indigo-400" />
+                      <span>Zen mode</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleCreateNew();
+                        setTabletMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white bg-[#814AC8] hover:bg-violet-500 rounded-lg text-left font-semibold transition shadow cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      <span>New Wire</span>
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           </div>
