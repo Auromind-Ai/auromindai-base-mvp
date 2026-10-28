@@ -693,6 +693,7 @@ function LeadsPanel({
 function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onOpenTemplateModal, onToggleFavorite, onToggleOverview, isTabletView, isMobileView }) {
     const endRef = useRef(null);
     const [previewMedia, setPreviewMedia] = useState(null);
+    const [copiedLeadMsgId, setCopiedLeadMsgId] = useState(null);
 
     const recipientPhone = lead?.phone || leadDetail?.phone || '';
     const hasPhone = Boolean(recipientPhone && recipientPhone.trim());
@@ -749,7 +750,7 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onOpenTemplateMo
         }));
     };
 
-    const [copiedLeadMsgId, setCopiedLeadMsgId] = useState(null);
+  
 
     const handleCopyLeadMessage = async (text, id) => {
         if (!text) return;
