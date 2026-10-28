@@ -17,10 +17,12 @@ import { AlertCircle } from 'lucide-react-native';
 import { OrbionLogo } from '../../components/common/OrbionLogo';
 import { GoogleIcon } from '../../components/common/GoogleIcon';
 import { sendOTP, googleLogin } from '../../api/auth';
-import { BrandColors } from '../../theme/tokens';
+import { BrandColors, Fonts } from '../../theme/tokens';
+import { useAppTheme } from '../../context/theme-context';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { colors, isDark, statusBarStyle } = useAppTheme();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -77,11 +79,8 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
-
-      {/* Ambient Atmospheric Purple Glow in background */}
-      <View pointerEvents="none" style={styles.ambientGlow} />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <StatusBar style={statusBarStyle} />
 
       <KeyboardAvoidingView
         style={styles.keyboardView}
@@ -98,11 +97,21 @@ export default function LoginScreen() {
           </View>
 
           {/* Form Card matching exact web application login box */}
-          <View style={styles.loginCard}>
+          <View
+            style={[
+              styles.loginCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.cardBorder,
+              },
+            ]}
+          >
             {/* Card Titles */}
             <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Welcome Back</Text>
-              <Text style={styles.cardSubtitle}>Log in to your account to continue</Text>
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Welcome Back</Text>
+              <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
+                Log in to your account to continue
+              </Text>
             </View>
 
             {/* Error Banner */}
@@ -115,7 +124,14 @@ export default function LoginScreen() {
 
             {/* Google OAuth Button */}
             <TouchableOpacity
-              style={styles.googleButton}
+              style={[
+                styles.googleButton,
+                {
+                  backgroundColor: isDark ? '#FFFFFF' : colors.cardElevated,
+                  borderColor: colors.cardBorder,
+                  borderWidth: isDark ? 0 : 1,
+                },
+              ]}
               activeOpacity={0.88}
               onPress={handleGoogleLoginPress}
               disabled={googleLoading}
@@ -127,25 +143,34 @@ export default function LoginScreen() {
               ) : (
                 <>
                   <GoogleIcon size={20} />
-                  <Text style={styles.googleButtonText}>Continue with Google</Text>
+                  <Text style={[styles.googleButtonText, { color: isDark ? '#111827' : colors.textPrimary }]}>
+                    Continue with Google
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
 
             {/* Divider: OR CONTINUE WITH EMAIL */}
             <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or continue with email</Text>
-              <View style={styles.dividerLine} />
+              <View style={[styles.dividerLine, { backgroundColor: colors.divider }]} />
+              <Text style={[styles.dividerText, { color: colors.textMuted }]}>or continue with email</Text>
+              <View style={[styles.dividerLine, { backgroundColor: colors.divider }]} />
             </View>
 
             {/* Manual Email Input Section */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email</Text>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Email</Text>
               <TextInput
-                style={styles.emailInput}
+                style={[
+                  styles.emailInput,
+                  {
+                    backgroundColor: colors.inputBg,
+                    borderColor: colors.inputBorder,
+                    color: colors.inputText,
+                  },
+                ]}
                 placeholder="your@email.com"
-                placeholderTextColor="#6B7280"
+                placeholderTextColor={colors.placeholder}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -181,18 +206,14 @@ export default function LoginScreen() {
 
             {/* Footer Sign Up Link */}
             <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Don't have an account? </Text>
+              <Text style={[styles.footerText, { color: colors.textSecondary }]}>Don't have an account? </Text>
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => {
-                  // Direct to sign up or show informative alert
-                  router.push({
-                    pathname: '/(auth)/login',
-                    params: { mode: 'signup' },
-                  });
+                  router.push('/(auth)/signup');
                 }}
               >
-                <Text style={styles.signUpLink}>Sign Up</Text>
+                <Text style={[styles.signUpLink, { color: colors.primary }]}>Sign Up</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -207,17 +228,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#08080C',
     position: 'relative',
-  },
-  ambientGlow: {
-    position: 'absolute',
-    top: 60,
-    alignSelf: 'center',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: '#814AC8',
-    opacity: 0.15,
-    transform: [{ scaleX: 1.4 }],
   },
   keyboardView: {
     flex: 1,
@@ -252,6 +262,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: '#FFFFFF',
+    fontFamily: Fonts.bold,
     fontSize: 25,
     fontWeight: '700',
     letterSpacing: -0.3,
@@ -260,6 +271,7 @@ const styles = StyleSheet.create({
   },
   cardSubtitle: {
     color: '#9CA3AF',
+    fontFamily: Fonts.regular,
     fontSize: 13.5,
     textAlign: 'center',
     lineHeight: 19,
@@ -281,6 +293,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#F87171',
+    fontFamily: Fonts.regular,
     fontSize: 13,
     flex: 1,
     lineHeight: 18,
@@ -302,6 +315,7 @@ const styles = StyleSheet.create({
   },
   googleButtonText: {
     color: '#111827',
+    fontFamily: Fonts.semiBold,
     fontSize: 15,
     fontWeight: '600',
     letterSpacing: -0.1,
@@ -319,6 +333,7 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     color: '#6B7280',
+    fontFamily: Fonts.semiBold,
     fontSize: 11,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -329,12 +344,14 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     color: '#9CA3AF',
+    fontFamily: Fonts.medium,
     fontSize: 13,
     fontWeight: '500',
     marginBottom: 8,
   },
   emailInput: {
     backgroundColor: '#1D1D21',
+    fontFamily: Fonts.regular,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 14,
@@ -361,6 +378,7 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     color: '#FFFFFF',
+    fontFamily: Fonts.bold,
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.2,
@@ -373,10 +391,12 @@ const styles = StyleSheet.create({
   },
   footerText: {
     color: '#9CA3AF',
+    fontFamily: Fonts.regular,
     fontSize: 13,
   },
   signUpLink: {
     color: '#FFFFFF',
+    fontFamily: Fonts.bold,
     fontSize: 13,
     fontWeight: '700',
   },

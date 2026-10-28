@@ -18,14 +18,18 @@ import { ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react-native';
 import { OrbionLogo } from '../../components/common/OrbionLogo';
 import { verifyOTP, sendOTP } from '../../api/auth';
 import { authStore } from '../../store/auth';
-import { BrandColors } from '../../theme/tokens';
+import { BrandColors, Fonts } from '../../theme/tokens';
+import { useAppTheme } from '../../context/theme-context';
 
 const OTP_LENGTH = 6;
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ contact?: string; method?: string }>();
+  const { colors, isDark, statusBarStyle } = useAppTheme();
+  const params = useLocalSearchParams<{ contact?: string; method?: string; authType?: 'login' | 'signup'; fullName?: string }>();
   const displayContact = params.contact || 'your@email.com';
+  const authType = params.authType || 'login';
+  const fullName = params.fullName;
 
   const [otp, setOtp] = useState('');
   const [timer, setTimer] = useState(60);
@@ -51,7 +55,7 @@ export default function VerifyOtpScreen() {
     setResendLoading(true);
 
     try {
-      await sendOTP(displayContact, 'login');
+      await sendOTP(displayContact, authType);
       setTimer(60);
       setOtp('');
       setSuccessMessage('Verification code resent successfully.');
@@ -70,7 +74,7 @@ export default function VerifyOtpScreen() {
     setLoading(true);
 
     try {
-      const data = await verifyOTP(displayContact, otp, 'login');
+      const data = await verifyOTP(displayContact, otp, authType, fullName);
 
       // Save token and user details into auth store
       if (data?.access_token) {
@@ -81,8 +85,8 @@ export default function VerifyOtpScreen() {
         });
       }
 
-      // Navigate to Workspace Selection Screen
-      router.push('/workspace-selection');
+      // Navigate directly to Inbox Screen
+      router.replace('/(tabs)/inbox');
     } catch (err: any) {
       const msg: string = err?.message || '';
       if (
@@ -106,8 +110,8 @@ export default function VerifyOtpScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar style={statusBarStyle} />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <KeyboardAvoidingView
           style={styles.keyboardView}
@@ -117,12 +121,12 @@ export default function VerifyOtpScreen() {
           <View style={styles.topBar}>
             <TouchableOpacity
               onPress={() => router.back()}
-              style={styles.backButton}
+              style={[styles.backButton, { backgroundColor: colors.cardElevated }]}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="Back"
             >
-              <ArrowLeft size={22} color="#FFFFFF" />
+              <ArrowLeft size={22} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -133,14 +137,16 @@ export default function VerifyOtpScreen() {
             </View>
 
             {/* Title & Subtitle */}
-            <Text style={styles.title}>Verify Your Email</Text>
-            <Text style={styles.subtitleLead}>We have sent a 6-digit code to</Text>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>Verify Your Email</Text>
+            <Text style={[styles.subtitleLead, { color: colors.textSecondary }]}>
+              We have sent a 6-digit code to
+            </Text>
 
             {/* Target Contact Display with Edit Link */}
             <View style={styles.contactRow}>
-              <Text style={styles.contactText}>{displayContact}</Text>
+              <Text style={[styles.contactText, { color: colors.textPrimary }]}>{displayContact}</Text>
               <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
-                <Text style={styles.editLink}>Edit</Text>
+                <Text style={[styles.editLink, { color: colors.primary }]}>Edit</Text>
               </TouchableOpacity>
             </View>
 
@@ -194,11 +200,23 @@ export default function VerifyOtpScreen() {
                     key={index}
                     style={[
                       styles.otpBox,
-                      isFocused && styles.otpBoxFocused,
-                      isFilled && styles.otpBoxFilled,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.cardBorder,
+                      },
+                      isFocused && [
+                        styles.otpBoxFocused,
+                        {
+                          borderColor: colors.primary,
+                          backgroundColor: isDark
+                            ? 'rgba(129, 74, 200, 0.15)'
+                            : 'rgba(139, 92, 246, 0.1)',
+                        },
+                      ],
+                      isFilled && [styles.otpBoxFilled, { borderColor: colors.primary }],
                     ]}
                   >
-                    <Text style={styles.otpDigit}>{digit}</Text>
+                    <Text style={[styles.otpDigit, { color: colors.textPrimary }]}>{digit}</Text>
                   </View>
                 );
               })}
@@ -206,14 +224,20 @@ export default function VerifyOtpScreen() {
 
             {/* Resend Code Countdown */}
             <View style={styles.resendRow}>
-              <Text style={styles.resendPrefix}>Didn't receive the code? </Text>
+              <Text style={[styles.resendPrefix, { color: colors.textSecondary }]}>
+                Didn't receive the code?{' '}
+              </Text>
               {resendLoading ? (
-                <ActivityIndicator size="small" color="#C084FC" />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : timer > 0 ? (
-                <Text style={styles.timerText}>Resend in {formatTimer(timer)}</Text>
+                <Text style={[styles.timerText, { color: colors.primary }]}>
+                  Resend in {formatTimer(timer)}
+                </Text>
               ) : (
                 <TouchableOpacity onPress={handleResend} activeOpacity={0.7}>
-                  <Text style={styles.resendActiveText}>Resend OTP</Text>
+                  <Text style={[styles.resendActiveText, { color: colors.primary }]}>
+                    Resend OTP
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -277,6 +301,7 @@ const styles = StyleSheet.create({
   title: {
     color: '#FFFFFF',
     fontSize: 24,
+    fontFamily: Fonts.bold,
     fontWeight: '700',
     letterSpacing: -0.3,
     marginBottom: 8,
@@ -285,6 +310,7 @@ const styles = StyleSheet.create({
   subtitleLead: {
     color: '#9CA3AF',
     fontSize: 14,
+    fontFamily: Fonts.regular,
     textAlign: 'center',
   },
   contactRow: {
@@ -297,11 +323,13 @@ const styles = StyleSheet.create({
   contactText: {
     color: '#FFFFFF',
     fontSize: 15,
+    fontFamily: Fonts.semiBold,
     fontWeight: '600',
   },
   editLink: {
     color: '#C084FC',
     fontSize: 14,
+    fontFamily: Fonts.semiBold,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
@@ -321,6 +349,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#F87171',
     fontSize: 13,
+    fontFamily: Fonts.regular,
     flex: 1,
   },
   successBanner: {
@@ -339,6 +368,7 @@ const styles = StyleSheet.create({
   successText: {
     color: '#34D399',
     fontSize: 13,
+    fontFamily: Fonts.regular,
     flex: 1,
   },
   hiddenInput: {
@@ -379,6 +409,7 @@ const styles = StyleSheet.create({
   otpDigit: {
     color: '#FFFFFF',
     fontSize: 22,
+    fontFamily: Fonts.bold,
     fontWeight: '700',
   },
   resendRow: {
@@ -391,15 +422,18 @@ const styles = StyleSheet.create({
   resendPrefix: {
     color: '#9CA3AF',
     fontSize: 13,
+    fontFamily: Fonts.regular,
   },
   timerText: {
     color: '#C084FC',
     fontSize: 13,
+    fontFamily: Fonts.semiBold,
     fontWeight: '600',
   },
   resendActiveText: {
     color: '#C084FC',
     fontSize: 13,
+    fontFamily: Fonts.bold,
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
@@ -422,8 +456,8 @@ const styles = StyleSheet.create({
   verifyButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontFamily: Fonts.bold,
     fontWeight: '700',
     letterSpacing: 0.2,
   },
 });
-

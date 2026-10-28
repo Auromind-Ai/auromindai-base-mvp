@@ -10,11 +10,13 @@ import * as Device from 'expo-device';
  * - iOS Simulator / Web / Local: http://localhost:8000
  */
 export function getApiBaseUrl(): string {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
+  // Web platform check: if opened in web browser (localhost or local IP)
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
+    const hostname = window.location.hostname;
+    return `http://${hostname}:8000`;
   }
 
-  // When running on physical device or Expo Go, extract host IP from Metro bundler
+  // When running on physical device or Expo Go, extract host IP dynamically from Metro bundler
   const hostUri =
     Constants.expoConfig?.hostUri ||
     (Constants as any).expoGoConfig?.debuggerHost ||
@@ -27,13 +29,14 @@ export function getApiBaseUrl(): string {
     }
   }
 
-  // Web platform check: if opened via browser from another device or localhost
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
-    const hostname = window.location.hostname;
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      return `http://${hostname}:8000`;
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    const configuredUrl = process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
+    // If running on a physical mobile device and the URL is localhost or 127.0.0.1,
+    // localhost points to the phone itself and will fail! Fall back to LAN IP.
+    if (Device.isDevice && (configuredUrl.includes('localhost') || configuredUrl.includes('127.0.0.1'))) {
+      return 'http://192.168.0.7:8000';
     }
-    return 'http://localhost:8000';
+    return configuredUrl;
   }
 
   // When running on Android emulator (not physical device), 10.0.2.2 points to host machine
@@ -43,7 +46,7 @@ export function getApiBaseUrl(): string {
 
   // Physical device fallback if hostUri was somehow not provided
   if (Device.isDevice) {
-    return 'http://192.168.0.6:8000';
+    return 'http://192.168.0.7:8000';
   }
 
   // iOS simulator / local fallback

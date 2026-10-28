@@ -1,55 +1,58 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, StyleProp, ViewStyle, ImageStyle } from 'react-native';
-import { BrandColors, Fonts } from '../../theme/tokens';
+import { Fonts } from '../../theme/tokens';
+import { useAppTheme } from '../../context/theme-context';
 
-// High-resolution logo mark copied from frontend/public/logo.png
+// High-resolution clean logo mark
 const LOGO_SOURCE = require('../../../assets/images/logo.png');
 
 interface OrbionLogoProps {
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   showText?: boolean;
   style?: StyleProp<ViewStyle>;
   glow?: boolean;
+  width?: number;
+  height?: number;
+  textColor?: string;
 }
 
 export function OrbionLogo({
   size = 'md',
   showText = true,
   style,
-  glow = true,
+  glow = false,
+  width,
+  height,
+  textColor,
 }: OrbionLogoProps) {
-  const isLg = size === 'lg';
-  const isSm = size === 'sm';
+  const { colors, isDark } = useAppTheme();
+  const effectiveTextColor = textColor || (isDark ? '#FFFFFF' : '#111827');
 
-  // Base emblem dimensions maintaining aspect ratio (693:631 ≈ 1.1:1)
-  const iconWidth = isLg ? 96 : isSm ? 56 : 74;
-  const iconHeight = isLg ? 87 : isSm ? 51 : 67;
+  // Dimensions calibrated to exact 2.065:1 aspect ratio of the clean emblem
+  const dimensions = {
+    sm: { width: 66, height: 32, textSpacing: 8, textSize: 19 },
+    md: { width: 112, height: 54, textSpacing: 12, textSize: 24 },
+    lg: { width: 206, height: 100, textSpacing: 20, textSize: 34 },
+    xl: { width: 230, height: 111, textSpacing: 24, textSize: 38 },
+  }[size] || { width: 112, height: 54, textSpacing: 12, textSize: 24 };
+
+  const iconWidth = width ?? dimensions.width;
+  const iconHeight = height ?? dimensions.height;
+  const textSpacing = dimensions.textSpacing;
 
   return (
     <View style={[styles.container, style]}>
-      {/* Emblem Container with ambient glowing backdrop */}
+      {/* Pure emblem logo image without any background circle, glow or shadow */}
       <View
         style={[
           styles.emblemContainer,
           {
             width: iconWidth,
             height: iconHeight,
+            marginBottom: showText ? textSpacing : 0,
           },
         ]}
       >
-        {glow && (
-          <View
-            style={[
-              styles.emblemGlow,
-              {
-                width: iconWidth * 0.9,
-                height: iconHeight * 0.9,
-                borderRadius: (iconWidth * 0.9) / 2,
-              },
-            ]}
-          />
-        )}
-
         <Image
           source={LOGO_SOURCE}
           style={
@@ -69,10 +72,24 @@ export function OrbionLogo({
       {/* Brand Text: Orbion Agents */}
       {showText && (
         <View style={styles.textRow}>
-          <Text style={[styles.textOrbion, isLg && styles.textOrbionLg, isSm && styles.textOrbionSm]}>
+          <Text
+            style={[
+              styles.textOrbion,
+              { fontSize: dimensions.textSize, color: effectiveTextColor },
+              size === 'lg' && styles.textOrbionLg,
+              size === 'sm' && styles.textOrbionSm,
+            ]}
+          >
             Orbion
           </Text>
-          <Text style={[styles.textAgents, isLg && styles.textAgentsLg, isSm && styles.textAgentsSm]}>
+          <Text
+            style={[
+              styles.textAgents,
+              { fontSize: dimensions.textSize },
+              size === 'lg' && styles.textAgentsLg,
+              size === 'sm' && styles.textAgentsSm,
+            ]}
+          >
             Agents
           </Text>
         </View>
@@ -87,22 +104,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emblemContainer: {
-    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
-  },
-  emblemGlow: {
-    position: 'absolute',
-    backgroundColor: '#814AC8',
-    opacity: 0.38,
-    transform: [{ scale: 1.25 }],
   },
   logoImage: {
-    shadowColor: '#A855F7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
+    // Pure logo image with no shadow or circle artifacts
   },
   textRow: {
     flexDirection: 'row',
@@ -110,34 +116,42 @@ const styles = StyleSheet.create({
   },
   textOrbion: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: Fonts.bold,
+    fontWeight: '700',
     letterSpacing: -0.4,
   },
   textOrbionLg: {
-    fontSize: 28,
+    fontSize: 34,
     fontFamily: Fonts.bold,
-    letterSpacing: -0.5,
+    fontWeight: '700',
+    letterSpacing: -0.6,
   },
   textOrbionSm: {
-    fontSize: 20,
+    fontSize: 19,
     fontFamily: Fonts.bold,
+    fontWeight: '700',
     letterSpacing: -0.3,
   },
   textAgents: {
-    color: '#C084FC',
-    fontSize: 22,
+    color: '#A855F7',
+    fontSize: 24,
     fontFamily: Fonts.bold,
+    fontWeight: '700',
     letterSpacing: -0.4,
   },
   textAgentsLg: {
-    fontSize: 28,
+    color: '#A855F7',
+    fontSize: 34,
     fontFamily: Fonts.bold,
-    letterSpacing: -0.5,
+    fontWeight: '700',
+    letterSpacing: -0.6,
   },
   textAgentsSm: {
-    fontSize: 20,
+    color: '#A855F7',
+    fontSize: 19,
     fontFamily: Fonts.bold,
+    fontWeight: '700',
     letterSpacing: -0.3,
   },
 });

@@ -132,6 +132,9 @@ fallback_origins = [
     "http://192.168.0.6:8081",
     "http://192.168.0.6:3000",
     "http://192.168.0.6:8000",
+    "http://192.168.0.7:8081",
+    "http://192.168.0.7:3000",
+    "http://192.168.0.7:8000",
 ]
 for origin in fallback_origins:
     if origin not in allowed_origins:

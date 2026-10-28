@@ -46,14 +46,21 @@ export async function verifyOTP(
   email: string,
   otp: string,
   authType: 'login' | 'signup' = 'login',
+  fullName?: string,
   turnstileToken = '1x00000000000000000000AA'
 ): Promise<VerifyOTPResponse> {
-  const result = await apiClient.post<VerifyOTPResponse>('/auth/verify-otp', {
+  const payload: Record<string, any> = {
     email: email.trim().toLowerCase(),
     otp: otp.trim(),
     auth_type: authType,
     turnstile_token: turnstileToken,
-  });
+  };
+
+  if (fullName && fullName.trim()) {
+    payload.full_name = fullName.trim();
+  }
+
+  const result = await apiClient.post<VerifyOTPResponse>('/auth/verify-otp', payload);
 
   if (result.access_token) {
     apiClient.setToken(result.access_token);
@@ -63,10 +70,10 @@ export async function verifyOTP(
 }
 
 /**
- * Initiates the Google OAuth login flow using the backend /auth/google/login endpoint.
+ * Initiates the Google OAuth login/signup flow using the backend /auth/google/login endpoint.
  */
-export async function googleLogin(): Promise<void> {
-  const loginUrl = `${apiClient.baseURL}/auth/google/login?type=login`;
+export async function googleLogin(type: 'login' | 'signup' = 'login'): Promise<void> {
+  const loginUrl = `${apiClient.baseURL}/auth/google/login?type=${type}`;
 
   if (Platform.OS === 'web') {
     if (typeof window !== 'undefined') {
@@ -97,3 +104,15 @@ export async function googleLogin(): Promise<void> {
 export async function getCurrentUser() {
   return apiClient.get('/auth/me');
 }
+
+/**
+ * Logs out the user by revoking the session on the backend.
+ */
+export async function logout(): Promise<{ status: string; message: string }> {
+  try {
+    return await apiClient.post<{ status: string; message: string }>('/auth/logout', {});
+  } catch {
+    return { status: 'success', message: 'Logged out locally' };
+  }
+}
+

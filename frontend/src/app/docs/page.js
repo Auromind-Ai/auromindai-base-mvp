@@ -327,7 +327,7 @@ export default function DocsHomePage() {
             badge="Live Sync"
             description="Unite WhatsApp, Instagram, Twilio SMS, and Webchat in a single collaborative inbox with automated AI handoffs."
             href="/docs/features/omni-inbox"
-            imageSrc="/images/docs/Docs_OmniInbox.png"
+            imageSrc="/images/docs/Docs_OmniInbox.webp"
             priority={true}
           />
 
@@ -338,7 +338,7 @@ export default function DocsHomePage() {
             badge="pgvector"
             description="Ingest company PDFs, dynamic URLs, and sitemaps. Generate strictly grounded answers with exact source citations."
             href="/docs/features/brain-rag"
-            imageSrc="/images/docs/Docs_AI_Brain.png"
+            imageSrc="/images/docs/Docs_AI_Brain.webp"
             priority={true}
           />
 
@@ -349,7 +349,7 @@ export default function DocsHomePage() {
             badge="Multi-Model"
             description="Test live prompt variations with token-by-token streaming, intent scoring, and dynamic tool-calling inspection."
             href="/docs/features/ai-workspace"
-            imageSrc="/images/docs/Docs_AiWorkspace.png"
+            imageSrc="/images/docs/Docs_AiWorkspace.webp"
           />
 
           {/* AI Lead Intelligence */}
@@ -359,7 +359,7 @@ export default function DocsHomePage() {
             badge="Scoring Engine"
             description="Dynamically categorize conversations into Hot, Warm, and Cold tiers with automated contact extraction."
             href="/docs/features/leads-crm"
-            imageSrc="/images/docs/Docs_Lead_CRM.png"
+            imageSrc="/images/docs/Docs_Lead_CRM.webp"
           />
 
           {/* Automation Wire */}
@@ -369,7 +369,7 @@ export default function DocsHomePage() {
             badge="Showcase Hero"
             description="Visual canvas for constructing multi-step logic, intent triggers, delay timers, and human handoff conditions."
             href="/docs/features/agentic-orchestrator"
-            imageSrc="/images/docs/Docs_Automation.png"
+            imageSrc="/images/docs/Docs_Automation.webp"
           />
 
           {/* AI Governance */}
@@ -379,7 +379,7 @@ export default function DocsHomePage() {
             badge="Deterministic"
             description="Enforce Model Context Protocol policies, PII redaction, blacklisted competitor terms, and human escalations."
             href="/docs/account/ai-governance"
-            imageSrc="/images/docs/Docs_AI_Governance.png"
+            imageSrc="/images/docs/Docs_AI_Governance.webp"
           />
 
           {/* Wallet & Credits */}
@@ -389,7 +389,7 @@ export default function DocsHomePage() {
             badge="Orbion Fuel"
             description="Track real-time token expenditure, WhatsApp conversation credits (WCC), and configure auto-recharge triggers."
             href="/docs/features/credits-wallet"
-            imageSrc="/images/docs/Docs_Credits.png"
+            imageSrc="/images/docs/Docs_Credits.webp"
           />
 
           {/* Multi-Channel Architecture */}
@@ -399,7 +399,7 @@ export default function DocsHomePage() {
             badge="Meta Certified"
             description="Direct infrastructure connectors uniting Meta Cloud API, Instagram Graph API, Twilio, and Gmail in one stack."
             href="/docs/integrations/whatsapp-cloud-api"
-            imageSrc="/images/docs/Docs_Channels.png"
+            imageSrc="/images/docs/Docs_Channels.webp"
           />
         </div>
       </section>
