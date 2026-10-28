@@ -148,8 +148,27 @@ export const PRODUCT_MODULES = [
     ],
   },
   {
-    id: 'ai-chatbot',
+    id: 'twilio',
     number: '7',
+    name: 'Twilio (SMS/WhatsApp)',
+    subtitle: 'SMS & WhatsApp messaging',
+    badge: 'Omnichannel Messaging',
+    description:
+      'Connect Twilio to send and receive SMS and WhatsApp messages, automate customer updates, and track message delivery in one place.',
+    primaryHref: '/inbox?channel=twilio',
+    primaryLabel: 'Explore Twilio',
+    demoHref: '/resources/demo-videos',
+    icon: Smartphone,
+    features: [
+      { title: 'SMS Campaigns', desc: 'Reach selected audiences', icon: Megaphone },
+      { title: 'WhatsApp via Twilio', desc: 'Two-way conversations', icon: MessageCircle },
+      { title: 'Automated Notifications', desc: 'Order updates & reminders', icon: Sparkles },
+      { title: 'Delivery Reports', desc: 'Track message status', icon: BarChart3 },
+    ],
+  },
+  {
+    id: 'ai-chatbot',
+    number: '8',
     name: 'AI Chatbot',
     subtitle: '24/7 intelligent web assistant',
     badge: '24/7 Web Assistant',
@@ -168,7 +187,7 @@ export const PRODUCT_MODULES = [
   },
   {
     id: 'broadcast',
-    number: '8',
+    number: '9',
     name: 'Broadcast',
     subtitle: 'Segmented messaging at scale',
     badge: 'Send at Scale',
@@ -187,7 +206,7 @@ export const PRODUCT_MODULES = [
   },
   {
     id: 'crm',
-    number: '9',
+    number: '10',
     name: 'CRM & Analytics',
     subtitle: 'Pipeline & revenue tracking',
     badge: 'Pipeline & Revenue',
@@ -284,9 +303,9 @@ export default function ProductMegaMenu({ isOpen, onClose }) {
         <div className="flex-1 flex flex-col justify-between min-w-0 pl-0 lg:pl-4">
           {/* Top header row */}
           <div>
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-              <div className="flex items-center gap-3">
-                <h3 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2">
+            <div className={`flex flex-wrap items-center justify-between gap-3 mb-3 ${activeTabId === 'twilio' ? 'lg:flex-nowrap' : ''}`}>
+              <div className={`flex gap-3 ${activeTabId === 'twilio' ? 'min-w-0 flex-col items-start' : 'items-center'}`}>
+                <h3 className={`${activeTabId === 'twilio' ? 'text-xl xl:text-2xl' : 'text-2xl sm:text-3xl'} font-bold tracking-tight text-white flex items-center gap-2`}>
                   <span className="text-[#C084FC]">{currentModule.number}.</span>
                   <span>{currentModule.name}</span>
                 </h3>
@@ -297,7 +316,7 @@ export default function ProductMegaMenu({ isOpen, onClose }) {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-3">
+              <div className="flex shrink-0 items-center gap-3 whitespace-nowrap">
                 <Link
                   href={getAppUrl(user ? currentModule.primaryHref : '/login')}
                   aria-disabled={loading}
@@ -330,13 +349,14 @@ export default function ProductMegaMenu({ isOpen, onClose }) {
             </p>
 
             {/* Product Preview */}
-            <div className={`h-[320px] rounded-2xl border border-white/10 bg-[#07060A]/90 shadow-inner flex flex-col ${(activeTabId === 'inbox' || activeTabId === 'ai-brain' || activeTabId === 'whatsapp' || activeTabId === 'ai-chatbot' || activeTabId === 'broadcast' || activeTabId === 'crm' || activeTabId === 'instagram' || activeTabId === 'wires' || activeTabId === 'ai-agents') ? 'overflow-hidden justify-center' : 'p-5 sm:p-6 overflow-y-auto'}`}>
+            <div className={`h-[320px] rounded-2xl border border-white/10 bg-[#07060A]/90 shadow-inner flex flex-col ${(activeTabId === 'inbox' || activeTabId === 'ai-brain' || activeTabId === 'whatsapp' || activeTabId === 'ai-chatbot' || activeTabId === 'broadcast' || activeTabId === 'crm' || activeTabId === 'instagram' || activeTabId === 'wires' || activeTabId === 'ai-agents' || activeTabId === 'twilio') ? 'overflow-hidden justify-center' : 'p-5 sm:p-6 overflow-y-auto'}`}>
               {activeTabId === 'inbox' && <InboxPreview />}
               {activeTabId === 'ai-agents' && <AiAgentsPreview />}
               {activeTabId === 'ai-brain' && <AiBrainPreview />}
               {activeTabId === 'wires' && <WiresPreview />}
               {activeTabId === 'whatsapp' && <WhatsAppPreview />}
               {activeTabId === 'instagram' && <InstagramPreview />}
+              {activeTabId === 'twilio' && <TwilioPreview />}
               {activeTabId === 'ai-chatbot' && <AiChatbotPreview />}
               {activeTabId === 'broadcast' && <BroadcastPreview />}
               {activeTabId === 'crm' && <CrmPreview />}
@@ -665,6 +685,31 @@ function CrmPreview() {
       <Image
         src="/images/product-previews/crm-analytics-preview.png"
         alt="CRM pipeline with lead stages, customer details, follow-up actions and revenue analytics"
+        width={1536}
+        height={1024}
+        sizes="(max-width: 1280px) 35vw, 450px"
+        className="block w-full h-full min-h-0 object-contain rounded-xl"
+      />
+    </div>
+  );
+}
+
+function TwilioPreview() {
+  return (
+    <div className="grid grid-cols-[0.9fr_1.1fr] items-center gap-5 h-full min-h-0 p-5 sm:p-6">
+      <div className="min-w-0 text-left space-y-3">
+        <p className="text-[10px] font-semibold tracking-[0.22em] text-[#C084FC]">SMS & WHATSAPP</p>
+        <h4 className="text-xl xl:text-2xl font-bold leading-tight tracking-tight text-white">
+          Keep customers updated.<br />Keep conversations going.
+        </h4>
+        <p className="text-xs leading-relaxed text-white/60">
+          Share order confirmations, timely reminders and offers through your connected Twilio number.
+        </p>
+        <ChannelFeaturePills labels={['SMS & WhatsApp', 'Templates', 'Automation', 'Delivery Reports']} />
+      </div>
+      <Image
+        src="/images/product-previews/twilio-preview.png"
+        alt="Twilio SMS and WhatsApp message composer with order updates and delivery activity"
         width={1536}
         height={1024}
         sizes="(max-width: 1280px) 35vw, 450px"
