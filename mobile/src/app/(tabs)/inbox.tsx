@@ -7,6 +7,7 @@ import {
   FlatList,
   StyleSheet,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -164,6 +165,10 @@ export default function OmniInboxScreen() {
   const [selectedStatus, setSelectedStatus] = useState<StatusType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [newContactName, setNewContactName] = useState('');
+  const [newContactPhone, setNewContactPhone] = useState('');
+  const [newContactChannel, setNewContactChannel] = useState<'whatsapp' | 'instagram' | 'twilio' | 'website'>('whatsapp');
 
   // Filter conversations
   const filteredConversations = useMemo(() => {
@@ -311,6 +316,7 @@ export default function OmniInboxScreen() {
           <TouchableOpacity
             style={styles.newChatButton}
             activeOpacity={0.85}
+            onPress={() => setShowNewChatModal(true)}
           >
             <Plus size={18} color="#FFFFFF" strokeWidth={2.5} />
           </TouchableOpacity>
@@ -488,7 +494,20 @@ export default function OmniInboxScreen() {
             style={styles.convCard}
             activeOpacity={0.8}
             onPress={() => {
-              // Navigates to chat detail in subsequent steps
+              router.push({
+                pathname: '/chat/[id]',
+                params: {
+                  id: item.id,
+                  name: item.name,
+                  phoneOrHandle: item.phoneOrHandle,
+                  channel: item.channel,
+                  status: item.status,
+                  systemTier: item.systemTier,
+                  avatarInitials: item.avatarInitials,
+                  avatarColor: item.avatarColor,
+                  isOnline: item.isOnline ? '1' : '0',
+                },
+              });
             }}
           >
             {/* Avatar with Channel Badge and Online Indicator */}
@@ -582,6 +601,124 @@ export default function OmniInboxScreen() {
           </View>
         }
       />
+
+      {/* New Chat Modal */}
+      <Modal
+        visible={showNewChatModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowNewChatModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowNewChatModal(false)}
+        >
+          <View style={styles.newChatModalContent} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalHandle} />
+
+            <View style={styles.newChatHeader}>
+              <View>
+                <Text style={styles.newChatTitle}>Start New Conversation</Text>
+                <Text style={styles.newChatSubtitle}>Reach a lead across connected channels</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setShowNewChatModal(false)}
+              >
+                <X size={18} color="#A1A1AA" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Channel Selector */}
+            <Text style={styles.inputSectionLabel}>SELECT CHANNEL</Text>
+            <View style={styles.newChatChannelsRow}>
+              {[
+                { key: 'whatsapp', label: 'WhatsApp', color: '#25D366' },
+                { key: 'instagram', label: 'Instagram', color: '#E1306C' },
+                { key: 'twilio', label: 'Twilio SMS', color: '#F22F46' },
+                { key: 'website', label: 'Web Chat', color: '#0EA5E9' },
+              ].map((ch) => (
+                <TouchableOpacity
+                  key={ch.key}
+                  style={[
+                    styles.channelSelectPill,
+                    newContactChannel === ch.key && styles.channelSelectPillActive,
+                  ]}
+                  onPress={() => setNewContactChannel(ch.key as any)}
+                >
+                  <View style={[styles.channelDot, { backgroundColor: ch.color }]} />
+                  <Text
+                    style={[
+                      styles.channelSelectText,
+                      newContactChannel === ch.key && styles.channelSelectTextActive,
+                    ]}
+                  >
+                    {ch.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Contact Name Input */}
+            <Text style={styles.inputSectionLabel}>CONTACT NAME</Text>
+            <TextInput
+              style={styles.newChatInput}
+              placeholder="e.g. Rahul Verma"
+              placeholderTextColor="#71717A"
+              value={newContactName}
+              onChangeText={setNewContactName}
+            />
+
+            {/* Contact Phone / Handle Input */}
+            <Text style={styles.inputSectionLabel}>PHONE / USERNAME</Text>
+            <TextInput
+              style={styles.newChatInput}
+              placeholder="e.g. +91 98765 12345 or @handle"
+              placeholderTextColor="#71717A"
+              value={newContactPhone}
+              onChangeText={setNewContactPhone}
+            />
+
+            {/* Submit / Launch Button */}
+            <TouchableOpacity
+              style={styles.startChatBtn}
+              activeOpacity={0.8}
+              onPress={() => {
+                const name = newContactName.trim() || 'New Lead';
+                const phone = newContactPhone.trim() || '+91 90000 00000';
+                const initials = name
+                  .split(' ')
+                  .map((w) => w[0])
+                  .join('')
+                  .toUpperCase()
+                  .slice(0, 2) || 'NL';
+
+                setShowNewChatModal(false);
+                setNewContactName('');
+                setNewContactPhone('');
+
+                router.push({
+                  pathname: '/chat/[id]',
+                  params: {
+                    id: `new-${Date.now()}`,
+                    name,
+                    phoneOrHandle: phone,
+                    channel: newContactChannel,
+                    status: 'open',
+                    systemTier: 'hot',
+                    avatarInitials: initials,
+                    avatarColor: BrandColors.primary,
+                    isOnline: '1',
+                  },
+                });
+              }}
+            >
+              <Text style={styles.startChatBtnText}>Start Conversation</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -985,5 +1122,117 @@ const styles = StyleSheet.create({
     color: BrandColors.primaryLight,
     fontSize: 12,
     fontFamily: Fonts.semiBold,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  newChatModalContent: {
+    backgroundColor: '#12131A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  newChatHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 18,
+  },
+  newChatTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontFamily: Fonts.bold,
+  },
+  newChatSubtitle: {
+    color: '#71717A',
+    fontSize: 12,
+    fontFamily: Fonts.regular,
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1C1D26',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inputSectionLabel: {
+    color: '#71717A',
+    fontSize: 10,
+    fontFamily: Fonts.bold,
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    marginTop: 10,
+  },
+  newChatChannelsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  channelSelectPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#181922',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  channelSelectPillActive: {
+    backgroundColor: 'rgba(129, 74, 200, 0.2)',
+    borderColor: BrandColors.primaryLight,
+  },
+  channelSelectText: {
+    color: '#A1A1AA',
+    fontSize: 12,
+    fontFamily: Fonts.medium,
+  },
+  channelSelectTextActive: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.bold,
+  },
+  newChatInput: {
+    backgroundColor: '#181922',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: Fonts.regular,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 6,
+  },
+  startChatBtn: {
+    backgroundColor: BrandColors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 16,
+    shadowColor: BrandColors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+  },
+  startChatBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: Fonts.bold,
   },
 });
