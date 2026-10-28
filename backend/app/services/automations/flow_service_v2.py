@@ -1340,6 +1340,9 @@ class FlowServiceV2:
             agent_dict["channel_settings"] = channel_settings
             agent_dict["channels_config"] = channels_config
 
+            lead_record = db.query(Lead).filter(Lead.conversation_id == conversation.id).first()
+            conv_client_email = getattr(lead_record, "email", None) if lead_record else None
+
             exec_res = await execute_agent_conversation(
                 agent_config=agent_dict,
                 message=inbound_text,
@@ -1347,6 +1350,11 @@ class FlowServiceV2:
                 channel=channel_name,
                 db=db,
                 workspace_id=str(conversation.workspace_id),
+                conversation_id=str(conversation.id),
+                sender=conversation.phone or conversation.contact_name,
+                client_name=conversation.contact_name,
+                client_email=conv_client_email,
+                client_phone=conversation.phone,
             )
 
             reply_text = exec_res.get("reply")

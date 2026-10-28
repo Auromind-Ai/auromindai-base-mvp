@@ -338,18 +338,19 @@ function CreateAgentWizardContent() {
               ...prev,
               ...draft,
               channels_config: mergedConfig,
-            channel_settings: {
-              auto_reply: true,
-              sync_crm: true,
-              channel_specific_tone: true,
-              channel_tones: {
-                whatsapp: 'Friendly & Professional',
-                instagram: 'Casual & Conversational',
-                twilio: 'Concise & Direct',
+              channel_settings: {
+                auto_reply: true,
+                sync_crm: true,
+                channel_specific_tone: true,
+                channel_tones: {
+                  whatsapp: 'Friendly & Professional',
+                  instagram: 'Casual & Conversational',
+                  twilio: 'Concise & Direct',
+                },
+                ...(draft.channel_settings || {}),
               },
-              ...(draft.channel_settings || {}),
-            },
-          }));
+            };
+            });
         }
       } catch (err) {
         console.warn("Failed to load metadata:", err);
