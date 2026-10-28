@@ -15,10 +15,8 @@ class AgentChannelSettings(BaseModel):
 
 
 class AgentAIConfig(BaseModel):
-    provider: str = Field(default="openai", description="AI Provider (openai, anthropic, google, meta, groq, custom)")
-    model: str = Field(default="gpt-4o", description="Model name")
-    access_mode: str = Field(default="platform", description="Access mode: 'platform' or 'byok'")
-    custom_api_key: Optional[str] = Field(default=None, description="User's custom API key (BYOK)")
+    provider: str = Field(default="google", description="AI Provider (google, groq)")
+    model: str = Field(default="gemini-1.5-flash", description="Model name")
     custom_base_url: Optional[str] = Field(default=None, description="Custom API endpoint base URL")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=1024, ge=1, le=32768)
@@ -33,12 +31,14 @@ class AgentAIConfig(BaseModel):
     tone: str = Field(default="Friendly & Professional", description="AI tone of voice and persona")
     system_prompt: Optional[str] = Field(default=None, description="Custom system prompt specifying behavior, personality and boundaries")
     example_user_message: Optional[str] = None
+    api_key: Optional[str] = Field(default=None, description="Optional custom API key for this agent")
 
 
 class ValidateKeyRequest(BaseModel):
     provider: str
     api_key: str
     base_url: Optional[str] = None
+    save_key: Optional[bool] = True
 
 
 class ValidateKeyResponse(BaseModel):

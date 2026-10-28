@@ -63,8 +63,11 @@ def test_models_metadata(setup_db):
     data = res.json()
     assert "providers" in data
     assert len(data["providers"]) > 0
-    openai_provider = next(p for p in data["providers"] if p["provider"] == "openai")
-    assert any(m["id"] == "gpt-4o" for m in openai_provider["models"])
+    prov_ids = [p["provider"] for p in data["providers"]]
+    assert "google" in prov_ids
+    assert "groq" in prov_ids
+    assert "openai" not in prov_ids
+    assert "anthropic" not in prov_ids
 
 def test_channels_metadata(setup_db):
     app.dependency_overrides[get_current_user] = lambda: setup_db["user"]
@@ -77,7 +80,11 @@ def test_channels_metadata(setup_db):
     channels = {c["id"]: c for c in data["channels"]}
     assert "whatsapp" in channels
     assert "instagram" in channels
-    assert "website" in channels
+    assert channels["instagram"]["connected"] is False
+    assert "twilio" in channels
+    assert "website" not in channels
+    assert "gmail" not in channels
+    assert "calendar" not in channels
 
 def test_draft_persistence(setup_db):
     app.dependency_overrides[get_current_user] = lambda: setup_db["user"]
@@ -117,13 +124,14 @@ def test_agent_crud_and_status(setup_db):
         "channels_config": {"whatsapp": {"enabled": True}, "website": {"enabled": True}},
         "channel_settings": {"auto_reply": True, "sync_crm": True, "channel_specific_tone": True},
         "ai_config": {
-            "provider": "openai",
-            "model": "gpt-4o",
+            "provider": "google",
+            "model": "gemini-1.5-flash",
             "temperature": 0.7,
             "max_tokens": 1024,
             "top_p": 1.0,
             "response_format": "markdown",
-            "max_response_time": "normal"
+            "max_response_time": "normal",
+            "system_prompt": "You are a helpful assistant representing Orbion Store."
         },
         "knowledge_config": {
             "files": [],
