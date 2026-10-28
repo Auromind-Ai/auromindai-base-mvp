@@ -8,7 +8,6 @@ import {
   Plus,
   ArrowRight,
   Search,
-  Filter,
   LayoutGrid,
   List,
   MessageSquare,
@@ -36,7 +35,7 @@ import api from '@/lib/api';
 
 export default function MyAgentsPage() {
   const router = useRouter();
-  const { workspaceId, user } = useAuth();
+  const { workspaceId } = useAuth();
 
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +44,27 @@ export default function MyAgentsPage() {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+
+  // Restore saved viewMode preference
+  useEffect(() => {
+    try {
+      const savedMode = localStorage.getItem('ai_agents_view_mode');
+      if (savedMode === 'grid' || savedMode === 'list') {
+        setViewMode(savedMode);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('ai_agents_view_mode', mode);
+    } catch (e) {
+      // ignore
+    }
+  };
 
   // Fetch agents on mount or when workspace changes
   useEffect(() => {
@@ -133,61 +153,6 @@ export default function MyAgentsPage() {
 
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-[#070b13] text-white">
-      {/* Top Search & Profile Bar matching OrbionAgents mockups */}
-      <header className="h-16 px-6 border-b border-white/[0.08] flex items-center justify-between shrink-0 bg-[#080d16]/60 backdrop-blur-md sticky top-0 z-20">
-        <div className="flex items-center gap-3 w-full max-w-md">
-          <div className="relative w-full">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <input
-              type="text"
-              placeholder="Search conversations, leads, contacts..."
-              className="w-full bg-[#101726]/80 border border-white/10 rounded-xl pl-10 pr-12 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-purple-500/50 transition-colors"
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-zinc-400 font-mono">
-              ⌘ K
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          {/* Notification Bell */}
-          <button
-            type="button"
-            className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 flex items-center justify-center text-zinc-300 relative transition-colors cursor-pointer"
-            aria-label="Notifications"
-          >
-            <span className="w-2 h-2 rounded-full bg-red-500 absolute top-2 right-2 ring-2 ring-[#080d16]" />
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-            </svg>
-          </button>
-
-          {/* Help Button */}
-          <button
-            type="button"
-            className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 flex items-center justify-center text-zinc-300 transition-colors cursor-pointer"
-            aria-label="Help"
-          >
-            <span className="text-sm font-semibold">?</span>
-          </button>
-
-          {/* User Profile */}
-          <div className="flex items-center gap-2.5 pl-2 border-l border-white/10">
-            <div className="w-8 h-8 rounded-xl bg-[#814AC8] flex items-center justify-center text-xs text-white font-bold shadow-md shadow-purple-900/40">
-              {(user?.full_name || user?.name || 'S').charAt(0).toUpperCase()}
-            </div>
-            <div className="hidden sm:block text-left">
-              <div className="text-xs font-semibold text-white leading-tight">
-                {user?.full_name || user?.name || 'Santosh'}
-              </div>
-              <div className="text-[10px] text-zinc-400 capitalize leading-tight">
-                {user?.platform_role === 'platform_admin' ? 'Admin' : 'Workspace Admin'}
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
 
       {/* Main Container */}
       <main className="flex-1 px-8 py-7 overflow-y-auto custom-scrollbar max-w-[1440px] w-full mx-auto">
@@ -258,18 +223,10 @@ export default function MyAgentsPage() {
               />
             </div>
 
-            <button
-              type="button"
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
-              title="Filter"
-            >
-              <Filter size={15} />
-            </button>
-
             <div className="flex items-center bg-[#101726] p-0.5 rounded-xl border border-white/10">
               <button
                 type="button"
-                onClick={() => setViewMode('list')}
+                onClick={() => handleSetViewMode('list')}
                 className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                   viewMode === 'list' ? 'bg-purple-600 text-white' : 'text-zinc-400 hover:text-white'
                 }`}
@@ -279,7 +236,7 @@ export default function MyAgentsPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setViewMode('grid')}
+                onClick={() => handleSetViewMode('grid')}
                 className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                   viewMode === 'grid' ? 'bg-purple-600 text-white' : 'text-zinc-400 hover:text-white'
                 }`}
@@ -461,6 +418,142 @@ export default function MyAgentsPage() {
               Reset filters
             </button>
           </div>
+        ) : viewMode === 'list' ? (
+          /* Active Agents List View */
+          <div className="flex flex-col gap-3">
+            {filteredAgents.map((agent) => {
+              const isActionLoading = actionLoadingId === agent.id;
+              const channels = agent.channels_config || {};
+              const enabledChannels = Object.keys(channels).filter((k) => channels[k]?.enabled);
+
+              return (
+                <div
+                  key={agent.id}
+                  className="rounded-2xl bg-[#0c1220]/90 border border-white/[0.08] hover:border-purple-500/40 p-4 transition-all shadow-md hover:shadow-purple-900/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 group"
+                >
+                  {/* Left: Avatar + Agent Info */}
+                  <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-900/30 shrink-0 overflow-hidden relative border border-purple-400/20">
+                      {agent.avatar_url ? (
+                        <img src={agent.avatar_url} alt={agent.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Bot size={22} />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <h3 className="text-sm font-semibold text-white group-hover:text-purple-300 transition-colors truncate">
+                          {agent.name}
+                        </h3>
+                        {/* Status Badge */}
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium border ${
+                            agent.status === 'active'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              agent.status === 'active' ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'
+                            }`}
+                          />
+                          <span className="capitalize">{agent.status}</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] text-zinc-400">
+                          {getAgentTypeLabel(agent.agent_type)}
+                        </span>
+                        {agent.business_name && (
+                          <>
+                            <span className="text-[10px] text-zinc-600">•</span>
+                            <span className="text-[10px] text-zinc-400 truncate max-w-[120px]">
+                              {agent.business_name}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {agent.description && (
+                        <p className="text-xs text-zinc-400 line-clamp-1 mt-1 max-w-xl leading-relaxed">
+                          {agent.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Middle: Connected Channels & Model */}
+                  <div className="flex items-center gap-6 shrink-0 lg:px-4 py-2 lg:py-0 border-y lg:border-y-0 lg:border-x border-white/5">
+                    {/* Connected Channels */}
+                    <div className="flex flex-col gap-1 min-w-[130px]">
+                      <span className="text-[10px] text-zinc-400 font-medium">Active Channels:</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {enabledChannels.length > 0 ? (
+                          enabledChannels.map((c) => (
+                            <span
+                              key={c}
+                              className="px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-[10px] font-medium text-zinc-300 capitalize"
+                            >
+                              {c}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[10px] text-zinc-500">None connected</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* AI Model */}
+                    <div className="flex flex-col gap-1 min-w-[110px]">
+                      <span className="text-[10px] text-zinc-400 font-medium">Model:</span>
+                      <span className="text-[11px] font-mono text-purple-300">
+                        {agent.ai_config?.model || 'gpt-4o'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right: Action Buttons */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link
+                      href={`/ai-agents/test?agentId=${agent.id}`}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-xs font-semibold transition-all cursor-pointer"
+                    >
+                      <Sparkles size={13} />
+                      <span>Test Agent</span>
+                    </Link>
+
+                    <Link
+                      href={`/ai-agents/create?editId=${agent.id}`}
+                      className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                      title="Edit Agent Configuration"
+                    >
+                      <Edit3 size={14} />
+                    </Link>
+
+                    <button
+                      type="button"
+                      disabled={isActionLoading}
+                      onClick={() => handleToggleStatus(agent)}
+                      className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                      title={agent.status === 'active' ? 'Pause Agent' : 'Activate Agent'}
+                    >
+                      {agent.status === 'active' ? <Pause size={14} /> : <Play size={14} />}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isActionLoading}
+                      onClick={() => setDeleteConfirmId(agent.id)}
+                      className="p-2 rounded-xl bg-white/5 hover:bg-red-500/20 border border-white/10 text-zinc-400 hover:text-red-400 transition-colors cursor-pointer"
+                      title="Delete Agent"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
           /* Active Agents Grid View */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -478,8 +571,12 @@ export default function MyAgentsPage() {
                     {/* Card Header */}
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-900/30 shrink-0">
-                          <Bot size={22} />
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-900/30 shrink-0 overflow-hidden relative border border-purple-400/20">
+                          {agent.avatar_url ? (
+                            <img src={agent.avatar_url} alt={agent.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <Bot size={22} />
+                          )}
                         </div>
                         <div>
                           <h3 className="text-sm font-semibold text-white group-hover:text-purple-300 transition-colors line-clamp-1">

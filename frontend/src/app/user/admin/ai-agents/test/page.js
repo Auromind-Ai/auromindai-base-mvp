@@ -17,10 +17,25 @@ import {
   Paperclip,
   Smile,
   MoreVertical,
-  ChevronDown
+  ChevronDown,
+  Copy,
+  Check
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
+
+function getCurrentTimeStr() {
+  try {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return new Date().toLocaleTimeString();
+  }
+}
+
+function getUniqueId(prefix = 'msg') {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
 
 const SCENARIOS = [
   { id: 'product', label: 'Product enquiry', text: 'Hi 👋 Do you have this product in stock?' },
@@ -56,10 +71,23 @@ function TestAgentContent() {
 
   const [selectedChannel, setSelectedChannel] = useState('whatsapp'); // 'whatsapp' | 'instagram' | 'website'
   const [messages, setMessages] = useState([]);
+  const [copiedId, setCopiedId] = useState(null);
+
+  const handleCopyMessage = (id, textToCopy) => {
+    if (!textToCopy) return;
+    try {
+      navigator.clipboard.writeText(textToCopy);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (e) {
+      console.warn("Failed to copy message:", e);
+    }
+  };
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sourcesUsed, setSourcesUsed] = useState([]);
   const messagesEndRef = useRef(null);
+  const chatScrollContainerRef = useRef(null);
 
   // Load agents
   useEffect(() => {
@@ -75,6 +103,19 @@ function TestAgentContent() {
           if (list.length > 0) {
             const target = list.find((a) => a.id === agentIdParam) || list[0];
             setSelectedAgent(target);
+            const bizName = target?.business_name || target?.name || 'our company';
+            const initialGreeting =
+              target?.agent_type === 'sales_assistant'
+                ? `Hi! 👋 Welcome to ${bizName}. How can I help you find the right product or offer today?`
+                : `Hello! 👋 How can I assist you with ${bizName} today?`;
+            setMessages([
+              {
+                id: 'welcome',
+                sender: 'agent',
+                text: initialGreeting,
+                time: getCurrentTimeStr(),
+              },
+            ]);
           }
         }
       } catch (err) {
@@ -87,29 +128,16 @@ function TestAgentContent() {
     return () => { isMounted = false; };
   }, [workspaceId, agentIdParam]);
 
-  // Set initial welcome message when agent is loaded
-  useEffect(() => {
-    if (selectedAgent && messages.length === 0) {
-      const bizName = selectedAgent?.business_name || selectedAgent?.name || 'our company';
-      const initialGreeting =
-        selectedAgent.agent_type === 'sales_assistant'
-          ? `Hi! 👋 Welcome to ${bizName}. How can I help you find the right product or offer today?`
-          : `Hello! 👋 How can I assist you with ${bizName} today?`;
 
-      setMessages([
-        {
-          id: 'welcome',
-          sender: 'agent',
-          text: initialGreeting,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ]);
+
+  // Scroll to bottom when messages update inside chat container
+  useEffect(() => {
+    if (chatScrollContainerRef.current) {
+      chatScrollContainerRef.current.scrollTo({
+        top: chatScrollContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
-  }, [selectedAgent]);
-
-  // Scroll to bottom when messages update
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isSending]);
 
   // Send message handler
@@ -118,10 +146,10 @@ function TestAgentContent() {
     if (!text || isSending) return;
 
     const userMsg = {
-      id: `user-${Date.now()}`,
+      id: getUniqueId('user'),
       sender: 'user',
       text,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: getCurrentTimeStr(),
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -142,10 +170,10 @@ function TestAgentContent() {
       const res = await api.testAgentChat(payload, workspaceId);
 
       const agentMsg = {
-        id: `agent-${Date.now()}`,
+        id: getUniqueId('agent'),
         sender: 'agent',
         text: res.reply || 'Thank you for your message! How else may I assist you?',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: getCurrentTimeStr(),
         modelUsed: res.model_used,
         executionTime: res.execution_time_ms,
       };
@@ -157,10 +185,10 @@ function TestAgentContent() {
     } catch (err) {
       console.error("Test message failed:", err);
       const errorMsg = {
-        id: `err-${Date.now()}`,
+        id: getUniqueId('err'),
         sender: 'agent',
         text: 'Sorry, I encountered an issue processing this test message. Please verify your configuration.',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: getCurrentTimeStr(),
         isError: true,
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -177,16 +205,16 @@ function TestAgentContent() {
         id: 'welcome-reset',
         sender: 'agent',
         text: `Hi! 👋 Conversation reset. How can I assist you with ${bizName}?`,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: getCurrentTimeStr(),
       },
     ]);
     setSourcesUsed([]);
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-[#070b13] text-white">
+    <div className="flex-1 flex flex-col h-full max-h-[100dvh] overflow-hidden bg-[#070b13] text-white">
       {/* Header */}
-      <header className="px-8 py-4 border-b border-white/[0.08] flex items-center justify-between bg-[#080d16]/80 backdrop-blur-md sticky top-0 z-20">
+      <header className="px-6 py-3.5 border-b border-white/[0.08] flex items-center justify-between bg-[#080d16]/80 backdrop-blur-md shrink-0 z-20">
         <div className="flex items-center gap-4">
           <Link
             href="/ai-agents"
@@ -220,9 +248,9 @@ function TestAgentContent() {
       </header>
 
       {/* Main Grid: Left Controls, Right Chat Interface */}
-      <div className="flex-1 max-w-6xl w-full mx-auto px-8 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
+      <div className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-6 py-4 grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-0 overflow-hidden">
         {/* Left Column: Selectors & Scenarios */}
-        <div className="lg:col-span-4 space-y-5">
+        <div className="lg:col-span-4 flex flex-col h-full min-h-0 overflow-y-auto custom-scrollbar space-y-4 pr-1">
           {/* Agent Selector Card */}
           <div className="p-4 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] space-y-2">
             <label className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
@@ -248,7 +276,20 @@ function TestAgentContent() {
                     const found = agents.find((a) => a.id === e.target.value);
                     if (found) {
                       setSelectedAgent(found);
-                      setMessages([]);
+                      const bizName = found?.business_name || found?.name || 'our company';
+                      const initialGreeting =
+                        found?.agent_type === 'sales_assistant'
+                          ? `Hi! 👋 Welcome to ${bizName}. How can I help you find the right product or offer today?`
+                          : `Hello! 👋 How can I assist you with ${bizName} today?`;
+                      setMessages([
+                        {
+                          id: 'welcome',
+                          sender: 'agent',
+                          text: initialGreeting,
+                          time: getCurrentTimeStr(),
+                        },
+                      ]);
+                      setSourcesUsed([]);
                     }
                   }}
                   className="w-full bg-[#121927] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500/50 appearance-none cursor-pointer"
@@ -262,6 +303,17 @@ function TestAgentContent() {
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
               </div>
             )}
+            {selectedAgent && (
+              <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between text-[11px]">
+                <div className="flex items-center gap-1.5 text-zinc-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Real AI Engine:</span>
+                </div>
+                <span className="font-mono text-purple-300 font-medium text-[10px] bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                  {selectedAgent?.ai_config?.provider || 'Groq'}: {selectedAgent?.ai_config?.model || 'openai/gpt-oss-120b'}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Channel Selector */}
@@ -273,7 +325,7 @@ function TestAgentContent() {
               {[
                 {
                   id: 'whatsapp',
-                  label: 'WhatsApp',
+                  label: 'WhatsApp Business',
                   color: 'hover:border-emerald-500/40',
                   activeBg: 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30',
                   icon: (
@@ -296,35 +348,13 @@ function TestAgentContent() {
                   ),
                 },
                 {
-                  id: 'website',
-                  label: 'Website Chat',
-                  color: 'hover:border-indigo-500/40',
-                  activeBg: 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30',
-                  icon: <Globe size={15} />,
-                },
-                {
-                  id: 'gmail',
-                  label: 'Gmail',
+                  id: 'twilio',
+                  label: 'Twilio SMS',
                   color: 'hover:border-red-500/40',
                   activeBg: 'bg-red-600 text-white shadow-lg shadow-red-900/30',
                   icon: (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect width="20" height="16" x="2" y="4" rx="2" />
-                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                    </svg>
-                  ),
-                },
-                {
-                  id: 'calendar',
-                  label: 'Calendar',
-                  color: 'hover:border-amber-500/40',
-                  activeBg: 'bg-amber-600 text-white shadow-lg shadow-amber-900/30',
-                  icon: (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-                      <line x1="16" x2="16" y1="2" y2="6" />
-                      <line x1="8" x2="8" y1="2" y2="6" />
-                      <line x1="3" x2="21" y1="10" y2="10" />
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                     </svg>
                   ),
                 },
@@ -380,15 +410,36 @@ function TestAgentContent() {
               ))}
             </div>
           </div>
+
+          {/* Sources Used Badge if any */}
+          {sourcesUsed.length > 0 && (
+            <div className="p-4 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] space-y-2">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                <Sparkles size={13} />
+                <span>Knowledge Sources Consulted</span>
+              </label>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {sourcesUsed.map((s, idx) => (
+                  <span key={idx} className="text-[10px] px-2 py-0.5 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-200">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Column: Chat Testing Window */}
-        <div className="lg:col-span-8 flex flex-col rounded-2xl bg-[#0c1220]/90 border border-white/[0.08] shadow-2xl overflow-hidden min-h-[560px]">
+        <div className="lg:col-span-8 flex flex-col h-full min-h-0 rounded-2xl bg-[#0c1220]/90 border border-white/[0.08] shadow-2xl overflow-hidden">
           {/* Chat Window Top Bar */}
-          <div className="px-5 py-3.5 bg-[#0e1424] border-b border-white/10 flex items-center justify-between">
+          <div className="px-5 py-3 bg-[#0e1424] border-b border-white/10 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-900/40">
-                <Bot size={18} />
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-900/40 overflow-hidden relative border border-purple-400/20 shrink-0">
+                {selectedAgent?.avatar_url ? (
+                  <img src={selectedAgent.avatar_url} alt={selectedAgent.name} className="w-full h-full object-cover" />
+                ) : (
+                  <Bot size={18} />
+                )}
               </div>
               <div>
                 <h3 className="text-xs font-semibold text-white">
@@ -415,32 +466,113 @@ function TestAgentContent() {
           </div>
 
           {/* Chat Message Scroll Area */}
-          <div className="flex-1 p-5 overflow-y-auto space-y-4 custom-scrollbar bg-[#080d16]/40">
+          <div ref={chatScrollContainerRef} className="flex-1 min-h-0 p-5 overflow-y-auto space-y-4 custom-scrollbar bg-[#080d16]/50">
             {messages.map((msg) => {
               const isUser = msg.sender === 'user';
               return (
                 <div
                   key={msg.id}
-                  className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
+                  className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div
-                    className={`max-w-[78%] px-4 py-2.5 rounded-2xl text-xs leading-relaxed shadow-md ${
-                      isUser
-                        ? selectedChannel === 'whatsapp'
-                          ? 'bg-[#005c4b] text-white rounded-tr-none'
-                          : 'bg-purple-600 text-white rounded-tr-none'
-                        : 'bg-[#151c2e] text-zinc-100 rounded-tl-none border border-white/[0.08]'
-                    }`}
-                  >
-                    <div>{msg.text}</div>
+                  {isUser ? (
+                    /* User Message Bubble */
                     <div
-                      className={`text-[9px] mt-1 text-right ${
-                        isUser ? 'text-white/70' : 'text-zinc-500'
+                      className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-xs leading-relaxed shadow-md ${
+                        selectedChannel === 'whatsapp'
+                          ? 'bg-[#005c4b] text-white rounded-tr-sm'
+                          : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-tr-sm'
                       }`}
                     >
-                      {msg.time}
+                      <div className="whitespace-pre-wrap">{msg.text}</div>
+                      <div className="text-[9px] mt-1.5 text-white/70 text-right">
+                        {msg.time}
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    /* AI Agent Response Bubble (Rich Markdown like AI Workspace) */
+                    <div className="flex items-start gap-2.5 max-w-[85%] group">
+                      <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white shadow-sm overflow-hidden shrink-0 mt-0.5 border border-purple-400/20">
+                        {selectedAgent?.avatar_url ? (
+                          <img src={selectedAgent.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                        ) : (
+                          <Bot size={14} />
+                        )}
+                      </div>
+
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2 px-1">
+                          <span className="text-[11px] font-semibold text-white">
+                            {selectedAgent?.business_name || selectedAgent?.name || 'AI Assistant'}
+                          </span>
+                          {msg.modelUsed && (
+                            <span className="text-[10px] text-purple-300 font-mono px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 flex items-center gap-1">
+                              <Sparkles size={8} />
+                              {msg.modelUsed}
+                            </span>
+                          )}
+                        </div>
+
+                        <div
+                          className={`px-4 py-3 rounded-2xl rounded-tl-sm text-[13px] leading-relaxed shadow-lg ${
+                            msg.isError
+                              ? 'bg-rose-950/60 text-rose-200 border border-rose-500/30'
+                              : 'bg-[#121927] text-zinc-100 border border-white/[0.08]'
+                          }`}
+                        >
+                          <div className="assistant-message-content leading-relaxed text-zinc-100 text-[13px]">
+                            <ReactMarkdown
+                              components={{
+                                h1: ({ node, ...props }) => <h1 className="text-base font-bold text-white mt-3 mb-1.5 border-b border-white/10 pb-1" {...props} />,
+                                h2: ({ node, ...props }) => <h2 className="text-sm font-bold text-white mt-2.5 mb-1 border-b border-white/10 pb-0.5" {...props} />,
+                                h3: ({ node, ...props }) => <h3 className="text-xs font-bold text-white mt-2 mb-1" {...props} />,
+                                h4: ({ node, ...props }) => <h4 className="text-xs font-semibold text-white mt-1.5 mb-0.5" {...props} />,
+                                p: ({ node, ...props }) => <p className="mb-2 leading-relaxed text-zinc-100 last:mb-0" {...props} />,
+                                ul: ({ node, ...props }) => <ul className="list-disc pl-5 my-2 space-y-1 text-zinc-100" {...props} />,
+                                ol: ({ node, ...props }) => <ol className="list-decimal pl-5 my-2 space-y-1 text-zinc-100" {...props} />,
+                                li: ({ node, ...props }) => <li className="leading-relaxed text-zinc-100" {...props} />,
+                                strong: ({ node, ...props }) => <strong className="font-semibold text-white" {...props} />,
+                                em: ({ node, ...props }) => <em className="italic text-purple-200" {...props} />,
+                                code: ({ node, ...props }) => (
+                                  <code className="bg-black/40 border border-white/10 px-1.5 py-0.5 rounded text-[11px] font-mono text-purple-300" {...props} />
+                                ),
+                                pre: ({ node, ...props }) => (
+                                  <pre className="bg-[#0b101c] p-3 rounded-xl overflow-x-auto text-xs border border-white/10 my-2 text-zinc-200 font-mono" {...props} />
+                                ),
+                                blockquote: ({ node, ...props }) => (
+                                  <blockquote className="border-l-2 border-purple-500 pl-3 italic text-zinc-300 my-2" {...props} />
+                                ),
+                                a: ({ node, ...props }) => (
+                                  <a className="text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors" target="_blank" rel="noreferrer" {...props} />
+                                ),
+                                hr: ({ node, ...props }) => <hr className="border-t border-white/10 my-3" {...props} />,
+                              }}
+                            >
+                              {msg.text}
+                            </ReactMarkdown>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2 mt-2 border-t border-white/5 text-[10px] text-zinc-500">
+                            <span>{msg.executionTime ? `⚡ ${msg.executionTime}ms` : ''}</span>
+                            <div className="flex items-center gap-2">
+                              <span>{msg.time}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyMessage(msg.id, msg.text)}
+                                className="p-1 hover:text-white rounded hover:bg-white/5 transition-colors cursor-pointer"
+                                title="Copy message"
+                              >
+                                {copiedId === msg.id ? (
+                                  <Check size={11} className="text-emerald-400" />
+                                ) : (
+                                  <Copy size={11} />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -456,7 +588,7 @@ function TestAgentContent() {
           </div>
 
           {/* Bottom Chat Input */}
-          <div className="p-3 bg-[#0e1424] border-t border-white/10 space-y-2">
+          <div className="p-3 bg-[#0e1424] border-t border-white/10 space-y-2 shrink-0">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -500,6 +632,22 @@ function TestAgentContent() {
           </div>
         </div>
       </div>
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.12);
+          border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.25);
+        }
+      `}</style>
     </div>
   );
 }

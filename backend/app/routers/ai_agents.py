@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
+import os
 import uuid
 import time
 import logging
@@ -27,217 +28,36 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/agents", tags=["ai_agents"])
 
-# Durable workspace creation drafts are persisted directly in PostgreSQL (ai_agents.is_draft=True)
-
-MODEL_CAPABILITY_SPECS: Dict[str, Dict[str, Any]] = {
-    # OpenAI
-    "gpt-4o": {
-        "displayName": "GPT-4o",
-        "description": "Advanced multimodal flagship model with exceptional reasoning, tool use, and vision.",
-        "contextWindow": 128000,
-        "maxTokensLimit": 4096,
-        "supportsTools": True,
-        "supportsStructuredOutput": True,
-        "isRecommended": True
-    },
-    "gpt-4o-mini": {
-        "displayName": "GPT-4o Mini",
-        "description": "Fast, cost-efficient model ideal for high-throughput customer conversations.",
-        "contextWindow": 128000,
-        "maxTokensLimit": 4096,
-        "supportsTools": True,
-        "supportsStructuredOutput": True,
-        "isRecommended": False
-    },
-    "o1": {
-        "displayName": "OpenAI o1",
-        "description": "High-order reasoning model designed for complex logic and analytical customer cases.",
-        "contextWindow": 200000,
-        "maxTokensLimit": 8192,
-        "supportsTools": True,
-        "supportsStructuredOutput": True,
-        "isRecommended": False
-    },
-    "o3-mini": {
-        "displayName": "OpenAI o3-mini",
-        "description": "Fast reasoning model optimized for coding, mathematics, and structured logic.",
-        "contextWindow": 200000,
-        "maxTokensLimit": 8192,
-        "supportsTools": True,
-        "supportsStructuredOutput": True,
-        "isRecommended": False
-    },
-    # Anthropic
-    "claude-3-5-sonnet": {
-        "displayName": "Claude 3.5 Sonnet",
-        "description": "State-of-the-art intelligence, warm conversational empathy, and precise tool reasoning.",
-        "contextWindow": 200000,
-        "maxTokensLimit": 8192,
-        "supportsTools": True,
-        "supportsStructuredOutput": True,
-        "isRecommended": True
-    },
-    "claude-3-5-sonnet-20241022": {
-        "displayName": "Claude 3.5 Sonnet (v2)",
-        "description": "Upgraded Sonnet with best-in-class multi-step reasoning and tool execution.",
-        "contextWindow": 200000,
-        "maxTokensLimit": 8192,
-        "supportsTools": True,
-        "supportsStructuredOutput": True,
-        "isRecommended": True
-    },
-    "claude-3-5-haiku": {
-        "displayName": "Claude 3.5 Haiku",
-        "description": "Sub-second responsiveness for high-velocity chat with solid general knowledge.",
-        "contextWindow": 200000,
-        "maxTokensLimit": 4096,
-        "supportsTools": True,
-        "supportsStructuredOutput": True,
-        "isRecommended": False
-    },
-    "claude-3-5-haiku-20241022": {
-        "displayName": "Claude 3.5 Haiku",
-        "description": "Fast conversational model with near-instant turnarounds.",
-        "contextWindow": 200000,
-        "maxTokensLimit": 4096,
-        "supportsTools": True,
-        "supportsStructuredOutput": True,
-        "isRecommended": False
-    },
-    "claude-3-opus-20240229": {
-        "displayName": "Claude 3 Opus",
-        "description": "Deep analytical comprehension for extensive business knowledge bases.",
-        "contextWindow": 200000,
-        "maxTokensLimit": 4096,
-        "supportsTools": True,
-        "supportsStructuredOutput": True,
-        "isRecommended": False
-    },
-    # Google
-    "gemini-1.5-flash": {
-        "displayName": "Gemini 1.5 Flash",
-        "description": "Fast, cost-efficient model optimized for low-latency dialogue and document handling.",
-        "contextWindow": 1000000,
-        "maxTokensLimit": 8192,
-        "supportsTools": True,
-        "supportsStructuredOutput": True,
-        "isRecommended": True
-    },
-    "gemini-1.5-pro": {
-        "displayName": "Gemini 1.5 Pro",
-        "description": "High-capacity multimodal reasoning with expansive 2-million-token context.",
-        "contextWindow": 2000000,
-        "maxTokensLimit": 8192,
-        "supportsTools": True,
-        "supportsStructuredOutput": True,
-        "isRecommended": False
-    },
-    "gemini-2.0-flash": {
-        "displayName": "Gemini 2.0 Flash",
-        "description": "Next-gen ultra-fast multimodal model with integrated tool use and real-time speed.",
-        "contextWindow": 1000000,
-        "maxTokensLimit": 8192,
-        "supportsTools": True,
-        "supportsStructuredOutput": True,
-        "isRecommended": True
-    },
-    # Groq & Meta
-    "llama-3.3-70b-versatile": {
-        "displayName": "Llama 3.3 70B Versatile",
-        "description": "Sub-second inference speed on Groq LPUs with high conversational fidelity.",
-        "contextWindow": 128000,
-        "maxTokensLimit": 4096,
-        "supportsTools": True,
-        "supportsStructuredOutput": False,
-        "isRecommended": True
-    },
-    "llama-3.1-8b-instant": {
-        "displayName": "Llama 3.1 8B Instant",
-        "description": "Ultra-fast lightweight triage and instantaneous replies.",
-        "contextWindow": 128000,
-        "maxTokensLimit": 2048,
-        "supportsTools": False,
-        "supportsStructuredOutput": False,
-        "isRecommended": False
-    },
-    "llama-3.3-70b": {
-        "displayName": "Llama 3.3 70B",
-        "description": "State-of-the-art open model for enterprise dialogue and multilingual queries.",
-        "contextWindow": 128000,
-        "maxTokensLimit": 4096,
-        "supportsTools": True,
-        "supportsStructuredOutput": False,
-        "isRecommended": True
-    },
-    "llama-3.1-8b": {
-        "displayName": "Llama 3.1 8B",
-        "description": "Ultra-fast low-cost agent model for quick replies.",
-        "contextWindow": 128000,
-        "maxTokensLimit": 2048,
-        "supportsTools": False,
-        "supportsStructuredOutput": False,
-        "isRecommended": False
-    },
-    "deepseek-r1-distill-llama-70b": {
-        "displayName": "DeepSeek R1 Distill 70B",
-        "description": "Advanced reasoning model with deep chain-of-thought capabilities.",
-        "contextWindow": 128000,
-        "maxTokensLimit": 4096,
-        "supportsTools": False,
-        "supportsStructuredOutput": False,
-        "isRecommended": False
-    },
-    "openai/gpt-oss-120b": {
-        "displayName": "GPT-OSS 120B",
-        "description": "High-throughput open weights architecture for versatile conversation.",
-        "contextWindow": 128000,
-        "maxTokensLimit": 4096,
-        "supportsTools": True,
-        "supportsStructuredOutput": False,
-        "isRecommended": False
-    }
-}
-
-
 def enrich_model_specs(model_id: str, default_name: Optional[str] = None, provider: Optional[str] = None) -> Dict[str, Any]:
+    """Generates dynamic model capabilities and specs without any hardcoded dictionary."""
     norm_id = model_id.strip()
-    if norm_id in MODEL_CAPABILITY_SPECS:
-        spec = MODEL_CAPABILITY_SPECS[norm_id]
-        return {
-            "id": norm_id,
-            "name": default_name or spec["displayName"],
-            "description": spec["description"],
-            "contextWindow": spec["contextWindow"],
-            "maxTokensLimit": spec["maxTokensLimit"],
-            "supportsTools": spec["supportsTools"],
-            "supportsStructuredOutput": spec["supportsStructuredOutput"],
-            "isRecommended": spec["isRecommended"]
-        }
-
     lower = norm_id.lower()
-    for k, spec in MODEL_CAPABILITY_SPECS.items():
-        if k in lower or lower in k:
-            return {
-                "id": norm_id,
-                "name": default_name or norm_id,
-                "description": spec["description"],
-                "contextWindow": spec["contextWindow"],
-                "maxTokensLimit": spec["maxTokensLimit"],
-                "supportsTools": spec["supportsTools"],
-                "supportsStructuredOutput": spec["supportsStructuredOutput"],
-                "isRecommended": False
-            }
 
-    is_gpt = any(x in lower for x in ["gpt", "claude", "gemini"])
+    if default_name:
+        display_name = default_name
+    elif "/" in norm_id:
+        parts = norm_id.split("/")
+        display_name = f"{parts[-1].replace('-', ' ').title()} ({parts[0].capitalize()})"
+    else:
+        display_name = norm_id.replace('-', ' ').replace('_', ' ').title()
+
+    p_str = (provider or "").lower()
+    is_gemini = "gemini" in lower or p_str == "google"
+    is_rec = False
+    if is_gemini:
+        is_rec = "flash" in lower and any(v in lower for v in ["1.5", "2.0", "2.5"])
+    elif p_str == "groq":
+        is_rec = "120b" in lower or "versatile" in lower
+
     return {
         "id": norm_id,
-        "name": default_name or norm_id,
-        "description": f"{provider.capitalize() if provider else 'AI'} model connected via API.",
-        "contextWindow": 128000 if is_gpt else 32000,
-        "maxTokensLimit": 4096,
-        "supportsTools": is_gpt,
-        "supportsStructuredOutput": "gpt" in lower or "claude" in lower,
-        "isRecommended": False
+        "name": display_name,
+        "description": f"{provider.capitalize() if provider else 'AI'} model loaded dynamically from API.",
+        "contextWindow": 1048576 if is_gemini else 128000,
+        "maxTokensLimit": 8192 if is_gemini else 4096,
+        "supportsTools": True,
+        "supportsStructuredOutput": True,
+        "isRecommended": is_rec
     }
 
 
@@ -247,89 +67,69 @@ async def get_supported_models(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Returns dynamic model providers, active DB models, platform key statuses and parameter ranges."""
+    """Returns dynamic model providers (Google, Groq), active DB models, platform key statuses and parameter ranges."""
     verify_workspace_access(current_user, db, workspace_id, required_permission="ai.chat")
 
-    # 1. Check platform keys from config_service
-    platform_keys = {
-        "openai": bool(config_service.get("openai_api_key")),
-        "anthropic": bool(config_service.get("anthropic_api_key")),
-        "google": bool(config_service.get("google_api_key") or config_service.get("gemini_api_key")),
-        "groq": bool(config_service.get("groq_api_key")),
-        "meta": bool(config_service.get("groq_api_key"))
-    }
+    google_key = config_service.get("google_api_key") or config_service.get("gemini_api_key") or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+    groq_key = config_service.get("groq_api_key") or os.getenv("GROQ_API_KEY")
 
-    # 2. Query active models configured in DB (ModelConfig table)
+    # Query active models configured in DB (ModelConfig table)
     db_configs = db.query(ModelConfig).filter(ModelConfig.is_active == True).all()
     db_models_by_provider: Dict[str, List[Dict[str, Any]]] = {}
     for cfg in db_configs:
         p = cfg.provider.lower()
         if p == "gemini":
             p = "google"
-        elif p == "claude":
-            p = "anthropic"
+        if p not in ["google", "groq"]:
+            continue
         if p not in db_models_by_provider:
             db_models_by_provider[p] = []
         db_models_by_provider[p].append(enrich_model_specs(cfg.model, default_name=cfg.display_name, provider=p))
 
-    # 3. Standard fallback models for catalog
-    standard_provider_definitions = [
-        {
-            "provider": "google",
-            "displayName": "Google",
-            "models": ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
-        },
-        {
-            "provider": "openai",
-            "displayName": "OpenAI",
-            "models": ["gpt-4o", "gpt-4o-mini", "o1", "o3-mini"]
-        },
-        {
-            "provider": "anthropic",
-            "displayName": "Anthropic",
-            "models": ["claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus-20240229"]
-        },
-        {
-            "provider": "groq",
-            "displayName": "Groq",
-            "models": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "deepseek-r1-distill-llama-70b"]
-        },
-        {
-            "provider": "meta",
-            "displayName": "Meta",
-            "models": ["llama-3.3-70b", "llama-3.1-8b"]
-        }
-    ]
-
     providers_response = []
-    for prov in standard_provider_definitions:
-        p_id = prov["provider"]
-        p_display = prov["displayName"]
-        has_key = platform_keys.get(p_id, False)
 
-        seen_ids = set()
-        merged_models = []
+    # 1. Google Provider (Dynamic models loaded via API Key)
+    google_models = []
+    if google_key:
+        try:
+            google_models = fetch_google_models_dynamic(google_key)
+        except Exception as e:
+            logger.warning(f"Failed to dynamically fetch Google models: {e}")
+            google_models = []
 
-        # First add active models from DB if any
-        if p_id in db_models_by_provider:
-            for m in db_models_by_provider[p_id]:
-                if m["id"] not in seen_ids:
-                    seen_ids.add(m["id"])
-                    merged_models.append(m)
+    # Google models are exclusively dynamically fetched via API key
 
-        # Next add standard catalog models
-        for m_id in prov["models"]:
-            if m_id not in seen_ids:
-                seen_ids.add(m_id)
-                merged_models.append(enrich_model_specs(m_id, provider=p_id))
+    providers_response.append({
+        "provider": "google",
+        "displayName": "Google",
+        "hasPlatformKey": bool(google_key),
+        "supportsBYOK": True,
+        "models": google_models
+    })
 
-        providers_response.append({
-            "provider": p_id,
-            "displayName": p_display,
-            "hasPlatformKey": has_key,
-            "supportsBYOK": True,
-            "models": merged_models
-        })
+    # 2. Groq Provider (Dynamic models loaded via API Key)
+    groq_models = []
+    if groq_key:
+        try:
+            groq_models = fetch_groq_models_dynamic(groq_key)
+        except Exception as e:
+            logger.warning(f"Failed to dynamically fetch Groq models: {e}")
+            groq_models = []
+
+    if "groq" in db_models_by_provider:
+        seen = {m["id"] for m in groq_models}
+        for dbm in db_models_by_provider["groq"]:
+            if dbm["id"] not in seen:
+                groq_models.insert(0, dbm)
+                seen.add(dbm["id"])
+
+    providers_response.append({
+        "provider": "groq",
+        "displayName": "Groq",
+        "hasPlatformKey": bool(groq_key),
+        "supportsBYOK": True,
+        "models": groq_models
+    })
 
     return {
         "providers": providers_response,
@@ -343,6 +143,83 @@ async def get_supported_models(
     }
 
 
+def fetch_google_models_dynamic(api_key: str) -> List[Dict[str, Any]]:
+    """Dynamically loads Gemini models via Google GenAI API using provided API key."""
+    from google import genai
+    client = genai.Client(api_key=api_key)
+    res = list(client.models.list())
+    models_list = []
+    seen = set()
+    for m in res:
+        name = getattr(m, 'name', '') or ''
+        m_id = name.replace('models/', '').strip()
+        if not m_id or m_id in seen:
+            continue
+        lower_id = m_id.lower()
+        if 'embedding' in lower_id or 'aqa' in lower_id or 'imagen' in lower_id:
+            continue
+        if 'gemini' not in lower_id:
+            continue
+
+        supported_actions = getattr(m, 'supported_actions', None) or []
+        if supported_actions and 'generateContent' not in supported_actions:
+            continue
+
+        display_name = getattr(m, 'display_name', None) or m_id
+        description = getattr(m, 'description', None) or f"Google Gemini model {m_id}."
+        input_limit = getattr(m, 'input_token_limit', None) or 1048576
+        output_limit = getattr(m, 'output_token_limit', None) or 8192
+
+        is_rec = ('flash' in lower_id and any(v in lower_id for v in ['1.5', '2.0', '2.5']))
+
+        seen.add(m_id)
+        models_list.append({
+            'id': m_id,
+            'name': display_name,
+            'description': description,
+            'contextWindow': input_limit,
+            'maxTokensLimit': min(output_limit, 32768),
+            'supportsTools': True,
+            'supportsStructuredOutput': True,
+            'isRecommended': is_rec
+        })
+
+    def rank(item):
+        _id = item['id'].lower()
+        if '2.5' in _id and 'flash' in _id: return 0
+        if '2.0' in _id and 'flash' in _id: return 1
+        if '1.5' in _id and 'flash' in _id: return 2
+        if 'flash' in _id: return 3
+        if '2.5' in _id and 'pro' in _id: return 4
+        if '1.5' in _id and 'pro' in _id: return 5
+        if 'pro' in _id: return 6
+        return 10
+
+    models_list.sort(key=lambda x: (rank(x), x['id']))
+    return models_list
+
+
+def fetch_groq_models_dynamic(api_key: str) -> List[Dict[str, Any]]:
+    """Dynamically loads models via Groq API using provided API key."""
+    from groq import Groq
+    client = Groq(api_key=api_key)
+    res = client.models.list()
+    raw_models = []
+    seen = set()
+    for m in res.data:
+        m_id = m.id
+        if not m_id or m_id in seen:
+            continue
+        lower_id = m_id.lower()
+        if 'whisper' in lower_id or 'safeguard' in lower_id or 'guard' in lower_id:
+            continue
+        seen.add(m_id)
+        raw_models.append(enrich_model_specs(m_id, provider='groq'))
+
+    raw_models.sort(key=lambda x: (not x.get('isRecommended', False), x['id']))
+    return raw_models
+
+
 @router.post("/meta/validate-key")
 async def validate_user_api_key(
     payload: ValidateKeyRequest,
@@ -350,82 +227,62 @@ async def validate_user_api_key(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Validates user's API key live with the provider and discovers available models under their account."""
+    """Validates user's API key live with Google or Groq and discovers available models under their account."""
     verify_workspace_access(current_user, db, workspace_id, required_permission="ai.chat")
 
     p = payload.provider.lower().strip()
     key = payload.api_key.strip()
-    base_url = payload.base_url.strip() if payload.base_url else None
 
     if not key:
         raise HTTPException(status_code=400, detail="API key is required.")
 
+    if p not in ["google", "gemini", "groq"]:
+        raise HTTPException(status_code=400, detail="Only Google and Groq providers are supported.")
+
     discovered_models = []
     try:
-        if p == "openai":
-            from openai import OpenAI
-            client = OpenAI(api_key=key, base_url=base_url if base_url else None)
-            res = client.models.list()
-            raw_ids = [m.id for m in res.data if any(prefix in m.id for prefix in ["gpt", "o1", "o3", "chatgpt"])]
-            raw_ids.sort()
-            discovered_models = [enrich_model_specs(m_id, provider="openai") for m_id in raw_ids[:30]]
+        if p in ["google", "gemini"]:
+            discovered_models = fetch_google_models_dynamic(key)
+            if not discovered_models:
+                raise HTTPException(status_code=400, detail="No Gemini models found for this API key.")
 
-        elif p in ["anthropic", "claude"]:
-            from anthropic import Anthropic
-            client = Anthropic(api_key=key, base_url=base_url if base_url else None)
-            res = client.models.list()
-            raw_ids = [m.id for m in res.data]
-            discovered_models = [enrich_model_specs(m_id, provider="anthropic") for m_id in raw_ids]
-
-        elif p in ["google", "gemini"]:
-            from google import genai
-            client = genai.Client(api_key=key)
-            res = list(client.models.list())
-            raw_ids = [m.name.replace("models/", "") for m in res if hasattr(m, "name") and "gemini" in m.name.lower()]
-            discovered_models = [enrich_model_specs(m_id, provider="google") for m_id in raw_ids[:25]]
+            if getattr(payload, "save_key", True):
+                try:
+                    from app.services.platform_settings_service import update_settings
+                    update_settings(db, {"google_api_key": key})
+                except Exception as save_err:
+                    logger.warning(f"Could not persist google_api_key in settings: {save_err}")
 
         elif p == "groq":
-            from groq import Groq
-            client = Groq(api_key=key)
-            res = client.models.list()
-            raw_ids = [m.id for m in res.data if "whisper" not in m.id]
-            discovered_models = [enrich_model_specs(m_id, provider="groq") for m_id in raw_ids[:25]]
+            discovered_models = fetch_groq_models_dynamic(key)
+            if not discovered_models:
+                raise HTTPException(status_code=400, detail="No models found for this Groq API key.")
 
-        elif p in ["meta", "custom"]:
-            from openai import OpenAI
-            client = OpenAI(api_key=key, base_url=base_url or "https://api.openai.com/v1")
-            res = client.models.list()
-            raw_ids = [m.id for m in res.data]
-            discovered_models = [enrich_model_specs(m_id, provider=p) for m_id in raw_ids[:30]]
-
-        else:
-            raise HTTPException(status_code=400, detail=f"Unsupported provider: {p}")
-
-        if not discovered_models:
-            discovered_models = [enrich_model_specs(f"{p}-custom-model", provider=p)]
+            if getattr(payload, "save_key", True):
+                try:
+                    from app.services.platform_settings_service import update_settings
+                    update_settings(db, {"groq_api_key": key})
+                except Exception as save_err:
+                    logger.warning(f"Could not persist groq_api_key in settings: {save_err}")
 
         return {
             "valid": True,
-            "message": f"Successfully verified {p.capitalize()} API Key! Discovered {len(discovered_models)} models.",
+            "message": f"Successfully verified {p.capitalize()} API Key! Loaded {len(discovered_models)} models dynamically.",
             "models": discovered_models
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.warning(f"User API key validation failed for provider {p}: {e}")
         err_str = str(e)
-        if "authentication" in err_str.lower() or "invalid api key" in err_str.lower() or "401" in err_str:
-            msg = f"Invalid API key for {p.capitalize()}. Please verify your credentials."
-        elif "quota" in err_str.lower() or "rate limit" in err_str.lower() or "429" in err_str:
-            msg = f"API key is valid, but has exceeded rate limit or quota on {p.capitalize()}."
+        if "API_KEY_INVALID" in err_str or "API key not valid" in err_str or "400" in err_str:
+            detail = f"Invalid {p.capitalize()} API key. Please verify your key."
+        elif "quota" in err_str.lower() or "429" in err_str:
+            detail = f"{p.capitalize()} API key quota exceeded or rate limited."
         else:
-            msg = f"Failed to connect to {p.capitalize()}: {err_str[:120]}"
-
-        return {
-            "valid": False,
-            "message": msg,
-            "models": []
-        }
-
+            detail = f"Failed to validate key with {p.capitalize()}: {err_str[:120]}"
+        raise HTTPException(status_code=400, detail=detail)
 
 @router.get("/meta/channels")
 async def get_channels_status(
@@ -444,11 +301,13 @@ async def get_channels_status(
     ).all()
     connected_types = {i.integration_type.lower() for i in integrations}
 
-    # Meta whatsapp check
     from app.models.workspace import Workspace
     ws = db.query(Workspace).filter(Workspace.id == to_uuid(ws_id)).first()
-    has_whatsapp = bool(ws and (getattr(ws, 'meta_access_token', None) or getattr(ws, 'meta_phone_number_id', None)))
+    has_whatsapp = "whatsapp" in connected_types or bool(ws and (getattr(ws, 'meta_phone_number_id', None) or (getattr(ws, 'meta_access_token', None) and not getattr(ws, 'meta_ig_id', None))))
+    has_instagram = "instagram" in connected_types or bool(ws and (getattr(ws, 'meta_ig_id', None) or getattr(ws, 'meta_ig_access_token', None)))
+    has_twilio = "twilio" in connected_types or bool(ws and getattr(ws, 'twilio_account_sid', None) and (getattr(ws, 'twilio_auth_token', None) or getattr(ws, 'twilio_phone_number', None)))
 
+    # Only WhatsApp, Instagram, and Twilio messaging channels
     channels = [
         {
             "id": "whatsapp",
@@ -463,32 +322,16 @@ async def get_channels_status(
             "name": "Instagram",
             "description": "Connect your Instagram Business account",
             "icon": "instagram",
-            "connected": "instagram" in connected_types,
-            "badgeText": "Connected" if "instagram" in connected_types else "Not Connected"
+            "connected": has_instagram,
+            "badgeText": "Connected" if has_instagram else "Not Connected"
         },
         {
-            "id": "website",
-            "name": "Website Chat",
-            "description": "Add a chat widget to your website",
-            "icon": "globe",
-            "connected": True,  # Native website widget is always ready
-            "badgeText": "Connected"
-        },
-        {
-            "id": "gmail",
-            "name": "Gmail",
-            "description": "Connect Gmail for email support",
-            "icon": "mail",
-            "connected": "gmail" in connected_types,
-            "badgeText": "Connected" if "gmail" in connected_types else "Not Connected"
-        },
-        {
-            "id": "calendar",
-            "name": "Google Calendar",
-            "description": "Connect to book meetings",
-            "icon": "calendar",
-            "connected": "google_calendar" in connected_types or "calendar" in connected_types,
-            "badgeText": "Connected" if ("google_calendar" in connected_types or "calendar" in connected_types) else "Not Connected"
+            "id": "twilio",
+            "name": "Twilio SMS",
+            "description": "Connect Twilio for SMS & phone messaging",
+            "icon": "phone",
+            "connected": has_twilio,
+            "badgeText": "Connected" if has_twilio else "Not Connected"
         }
     ]
 
@@ -660,11 +503,6 @@ async def create_agent(
             raise HTTPException(
                 status_code=400,
                 detail="Custom System Prompt is required. Please define how your AI agent should interact and operate."
-            )
-        if ai_cfg.get("access_mode") == "byok" and not (ai_cfg.get("custom_api_key") or "").strip():
-            raise HTTPException(
-                status_code=400,
-                detail="Custom API Key is required when 'Use My Own Key (BYOK)' is selected."
             )
 
     # Prevent duplicate active agents with exact same name in the same workspace

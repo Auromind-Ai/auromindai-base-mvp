@@ -49,6 +49,10 @@ CHANNEL_GUIDELINES: Dict[str, str] = {
         "Channel: Instagram Direct Message. Keep responses energetic, friendly, and visually engaging. "
         "Use relevant emojis naturally. Avoid long walls of text; break info into short messages."
     ),
+    "twilio": (
+        "Channel: Twilio SMS / MMS. Keep messages concise, crisp, and under 160-320 characters where possible. "
+        "Do not use markdown links, headers, or lengthy bullet lists. State information directly and provide clear next action."
+    ),
     "messenger": (
         "Channel: Facebook Messenger. Conversational and prompt. Provide clear direct answers with clear next steps."
     ),
@@ -94,12 +98,17 @@ def build_system_prompt(
     website_url = agent_config.get("website_url") or ""
     language = agent_config.get("language") or "English (India)"
 
-    # Tone preference: check ai_config.tone or agent level tone_of_voice
-    tone = ai_conf.get("tone") or agent_config.get("tone_of_voice") or "Friendly & Professional"
-    tone_directive = TONE_PRESETS.get(tone, f"Tone Directive: {tone}.")
-
-    # Channel guideline
+    # Channel guideline & Tone preference (supports channel-specific tone overrides)
     channel_norm = channel.lower() if channel else "whatsapp"
+    channel_settings = agent_config.get("channel_settings") or {}
+    channel_tones = channel_settings.get("channel_tones") or {}
+
+    if channel_settings.get("channel_specific_tone") and channel_norm in channel_tones:
+        tone = channel_tones[channel_norm]
+    else:
+        tone = ai_conf.get("tone") or agent_config.get("tone_of_voice") or "Friendly & Professional"
+
+    tone_directive = TONE_PRESETS.get(tone, f"Tone Directive: {tone}.")
     channel_directive = CHANNEL_GUIDELINES.get(channel_norm, f"Channel: {channel_norm.capitalize()}.")
 
     # Response format constraint
@@ -157,8 +166,10 @@ def build_system_prompt(
         sections.append("")
         sections.append("=== VERIFIED BUSINESS KNOWLEDGE BASE ===")
         sections.append(
-            "Use the knowledge below as your primary source of truth. If the answer is directly contained below, "
-            "provide it accurately. If not present, politely state what you know or offer to connect with a team member."
+            "CRITICAL: Use the verified knowledge base below as your primary source of truth. "
+            "If the user's question relates to any information, FAQs, business hours, services, products, or policies described below, "
+            "you MUST answer accurately, clearly, and directly using these details. Do not make up conflicting facts. "
+            "If the information is not present in the knowledge base, politely state what you know or offer to connect the user with a team member."
         )
         sections.append(knowledge_context)
 
@@ -166,35 +177,43 @@ def build_system_prompt(
 
 
 def resolve_provider_credentials(ai_conf: Dict[str, Any]) -> tuple[str, Optional[str], Optional[str]]:
-    """
-    Returns (provider, api_key, base_url).
-    Supports both BYOK (custom_api_key) and Platform Key (config_service).
-    """
-    provider = (ai_conf.get("provider") or "google").lower()
-    access_mode = ai_conf.get("access_mode", "platform")
-    custom_key = (ai_conf.get("custom_api_key") or "").strip()
+   
+    raw_p = (ai_conf.get("provider") or "").lower().strip()
+    if raw_p in ["google", "gemini"]:
+        provider = "google"
+    elif raw_p == "groq":
+        provider = "groq"
+    else:
+        provider = "groq"
+
     custom_base_url = (ai_conf.get("custom_base_url") or "").strip() or None
+    custom_api_key = (ai_conf.get("custom_api_key") or ai_conf.get("api_key") or "").strip() or None
 
-    if access_mode == "byok" and custom_key:
-        return provider, custom_key, custom_base_url
-
-    # Platform key lookup
     import os
+    if custom_api_key:
+        return provider, custom_api_key, custom_base_url
+
     api_key = None
-    if provider in ["google", "gemini"]:
+    if provider == "google":
         api_key = config_service.get("google_api_key") or config_service.get("gemini_api_key") or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-    elif provider == "openai":
-        api_key = config_service.get("openai_api_key") or os.getenv("OPENAI_API_KEY")
-    elif provider in ["anthropic", "claude"]:
-        api_key = config_service.get("anthropic_api_key") or os.getenv("ANTHROPIC_API_KEY")
     elif provider == "groq":
         api_key = config_service.get("groq_api_key") or os.getenv("GROQ_API_KEY")
-    elif provider == "meta":
-        api_key = config_service.get("groq_api_key") or os.getenv("GROQ_API_KEY") or config_service.get("openai_api_key") or os.getenv("OPENAI_API_KEY")
-    elif provider == "custom":
-        api_key = custom_key
 
-    return provider, api_key, custom_base_url
+    if api_key:
+        return provider, api_key, custom_base_url
+
+    # Fallback between Groq and Google
+    groq_k = config_service.get("groq_api_key") or os.getenv("GROQ_API_KEY")
+    if groq_k:
+        logger.info(f"Provider '{provider}' has no key; falling back to active Groq provider.")
+        return "groq", groq_k, custom_base_url
+
+    google_k = config_service.get("google_api_key") or config_service.get("gemini_api_key") or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+    if google_k:
+        logger.info(f"Provider '{provider}' has no key; falling back to active Google provider.")
+        return "google", google_k, custom_base_url
+
+    return provider, None, custom_base_url
 
 
 async def execute_agent_conversation(
@@ -205,11 +224,7 @@ async def execute_agent_conversation(
     db: Optional[Session] = None,
     workspace_id: Optional[str] = None
 ) -> Dict[str, Any]:
-    """
-    Fully executes an AI agent conversation turn using configured model parameters:
-    temperature, max_tokens, top_p, frequency_penalty, presence_penalty,
-    response_format, max_response_time, system_prompt, and tone.
-    """
+   
     start_time = time.time()
     ai_conf = agent_config.get("ai_config", {})
     knowledge_conf = agent_config.get("knowledge_config", {})
@@ -221,46 +236,78 @@ async def execute_agent_conversation(
     if not agent_collection and agent_config.get("id"):
         agent_collection = f"agent_{agent_config['id']}"
 
-    # Semantic Vector Search filtered strictly by this agent's collection tag
+    # A. Always include verified FAQs if configured for this agent
+    faqs = knowledge_conf.get("faqs", [])
+    if isinstance(faqs, list) and faqs:
+        faq_parts = []
+        for faq in faqs:
+            q = (faq.get("question") or "").strip()
+            a = (faq.get("answer") or "").strip()
+            if q and a:
+                faq_parts.append(f"Q: {q}\nA: {a}")
+                sources_used.append(f"FAQ: {q[:30]}...")
+        if faq_parts:
+            knowledge_context_parts.append("### FREQUENTLY ASKED QUESTIONS (FAQS)\n" + "\n\n".join(faq_parts))
+
+    # B. Semantic Vector Retrieval filtered strictly by this agent's collection tag
+    doc_context_parts: List[str] = []
     if db and workspace_id and agent_collection:
         try:
             from app.services.agentic_rag.rag_service import get_rag_service
             rag = get_rag_service()
-            # Perform targeted vector retrieval ONLY on this agent's collection
-            retrieved_chunks = await rag.retrieval.retrieve_context_async(
+            retrieved_result = await rag.retrieval.retrieve_context_async(
                 db=db,
                 workspace_id=str(workspace_id),
                 query=message,
                 collection=agent_collection
             )
-            if retrieved_chunks:
-                for chunk in retrieved_chunks[:5]:
-                    title = chunk.get("title") or "Knowledge Document"
-                    text = chunk.get("text") or ""
-                    if text:
-                        sources_used.append(f"Doc: {title}")
-                        knowledge_context_parts.append(f"[{title}]:\n{text[:450]}")
+            # retrieve_context_async returns {"context": "...", "docs": [...]}
+            retrieved_docs = []
+            if isinstance(retrieved_result, dict):
+                retrieved_docs = retrieved_result.get("docs", [])
+            elif isinstance(retrieved_result, list):
+                retrieved_docs = retrieved_result
+
+            for chunk in (retrieved_docs or [])[:5]:
+                meta = chunk.get("metadata") or {}
+                title = meta.get("title") or meta.get("file_name") or chunk.get("title") or "Knowledge Document"
+                text = chunk.get("text") or ""
+                if text:
+                    sources_used.append(f"Doc: {title}")
+                    doc_context_parts.append(f"[{title}]:\n{text[:600]}")
         except Exception as rag_err:
             logger.warning(f"Targeted vector search error for collection '{agent_collection}': {rag_err}")
 
-    # Direct FAQs from knowledge_config if vector chunks not yet populated
-    if not knowledge_context_parts:
-        faqs = knowledge_conf.get("faqs", [])
-        if isinstance(faqs, list):
-            for faq in faqs:
-                q = faq.get("question", "").strip()
-                a = faq.get("answer", "").strip()
-                if q and a:
-                    knowledge_context_parts.append(f"Q: {q}\nA: {a}")
-                    sources_used.append(f"FAQ: {q[:30]}...")
+    # C. Direct Document / BrainEntry lookup if vector search returned nothing
+    if not doc_context_parts and db and workspace_id and agent_collection:
+        try:
+            entries = db.query(BrainEntry).filter(
+                BrainEntry.workspace_id == to_uuid(workspace_id),
+                BrainEntry.metadata_json.like(f'%"collection": "{agent_collection}"%')
+            ).order_by(BrainEntry.created_at.desc()).limit(5).all()
 
-        files = knowledge_conf.get("files", [])
-        if isinstance(files, list):
-            for f in files:
-                fname = f.get("name") or "Document"
+            for entry in entries:
+                if entry.content and entry.content != "Processing...":
+                    title = entry.title or "Document"
+                    sources_used.append(f"Doc: {title}")
+                    doc_context_parts.append(f"[{title}]:\n{entry.content[:800]}")
+        except Exception as entry_err:
+            logger.warning(f"BrainEntry direct lookup fallback error for collection '{agent_collection}': {entry_err}")
+
+    # D. In-memory / direct files from knowledge_conf
+    files = knowledge_conf.get("files", [])
+    if isinstance(files, list):
+        for f in files:
+            fname = f.get("name") or "Document"
+            if f.get("content"):
                 sources_used.append(f"File: {fname}")
-                if f.get("content"):
-                    knowledge_context_parts.append(f"Document [{fname}]:\n{f.get('content')[:400]}")
+                doc_context_parts.append(f"Document [{fname}]:\n{f.get('content')[:600]}")
+
+    if doc_context_parts:
+        knowledge_context_parts.append("### VERIFIED KNOWLEDGE DOCUMENTS\n" + "\n\n".join(doc_context_parts))
+
+    # Deduplicate sources_used for clean UI badges
+    sources_used = list(dict.fromkeys(sources_used))
 
     knowledge_context = "\n\n".join(knowledge_context_parts)
 
@@ -335,76 +382,6 @@ async def execute_agent_conversation(
                 )
                 reply_text = getattr(response, "text", "") or ""
 
-            # ----------------- OPENAI / META / CUSTOM -----------------
-            elif provider in ["openai", "meta", "custom"]:
-                from openai import AsyncOpenAI
-
-                client = AsyncOpenAI(
-                    api_key=api_key,
-                    base_url=custom_base_url if custom_base_url else None,
-                    timeout=timeout_seconds
-                )
-
-                messages = [{"role": "system", "content": system_instruction}]
-                if conversation_history:
-                    for item in conversation_history[-6:]:
-                        role = "user" if item.get("sender") in ["user", "customer"] else "assistant"
-                        text = item.get("text") or item.get("content") or ""
-                        if text:
-                            messages.append({"role": role, "content": text})
-                messages.append({"role": "user", "content": message})
-
-                call_kwargs = dict(
-                    model=model_name,
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    top_p=top_p,
-                    frequency_penalty=frequency_penalty,
-                    presence_penalty=presence_penalty,
-                )
-
-                # Newer reasoning models (o1, o3-mini) use max_completion_tokens and do not support temperature
-                if "o1" in model_name or "o3" in model_name:
-                    call_kwargs.pop("temperature", None)
-                    call_kwargs.pop("frequency_penalty", None)
-                    call_kwargs.pop("presence_penalty", None)
-                    call_kwargs["max_completion_tokens"] = max_tokens
-                    call_kwargs.pop("max_tokens", None)
-
-                if response_format == "json":
-                    call_kwargs["response_format"] = {"type": "json_object"}
-
-                res = await client.chat.completions.create(**call_kwargs)
-                if res.choices and len(res.choices) > 0:
-                    reply_text = res.choices[0].message.content or ""
-
-            # ----------------- ANTHROPIC (CLAUDE) -----------------
-            elif provider in ["anthropic", "claude"]:
-                from anthropic import AsyncAnthropic
-
-                client = AsyncAnthropic(api_key=api_key, timeout=timeout_seconds)
-
-                claude_messages = []
-                if conversation_history:
-                    for item in conversation_history[-6:]:
-                        role = "user" if item.get("sender") in ["user", "customer"] else "assistant"
-                        text = item.get("text") or item.get("content") or ""
-                        if text:
-                            claude_messages.append({"role": role, "content": text})
-                claude_messages.append({"role": "user", "content": message})
-
-                res = await client.messages.create(
-                    model=model_name,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    top_p=top_p,
-                    system=system_instruction,
-                    messages=claude_messages,
-                )
-                if res.content and len(res.content) > 0:
-                    reply_text = res.content[0].text or ""
-
             # ----------------- GROQ -----------------
             elif provider == "groq":
                 from groq import AsyncGroq
@@ -420,17 +397,42 @@ async def execute_agent_conversation(
                             groq_messages.append({"role": role, "content": text})
                 groq_messages.append({"role": "user", "content": message})
 
-                res = await client.chat.completions.create(
-                    model=model_name,
-                    messages=groq_messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    top_p=top_p,
-                    frequency_penalty=frequency_penalty,
-                    presence_penalty=presence_penalty,
-                )
-                if res.choices and len(res.choices) > 0:
-                    reply_text = res.choices[0].message.content or ""
+                groq_model = model_name
+                if not groq_model or groq_model.startswith("gemini") or groq_model.startswith("claude") or "gpt-4" in groq_model:
+                    groq_model = "openai/gpt-oss-120b"
+
+                try:
+                    res = await client.chat.completions.create(
+                        model=groq_model,
+                        messages=groq_messages,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        top_p=top_p,
+                        frequency_penalty=frequency_penalty,
+                        presence_penalty=presence_penalty,
+                    )
+                    model_name = groq_model
+                    if res.choices and len(res.choices) > 0:
+                        reply_text = res.choices[0].message.content or ""
+                except Exception as groq_call_err:
+                    err_text = str(groq_call_err).lower()
+                    if ("not found" in err_text or "decommissioned" in err_text or "404" in err_text or "400" in err_text) and groq_model != "openai/gpt-oss-120b":
+                        logger.warning(f"Groq model '{groq_model}' failed ({groq_call_err}); retrying with 'openai/gpt-oss-120b'")
+                        groq_model = "openai/gpt-oss-120b"
+                        res = await client.chat.completions.create(
+                            model=groq_model,
+                            messages=groq_messages,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            top_p=top_p,
+                            frequency_penalty=frequency_penalty,
+                            presence_penalty=presence_penalty,
+                        )
+                        model_name = groq_model
+                        if res.choices and len(res.choices) > 0:
+                            reply_text = res.choices[0].message.content or ""
+                    else:
+                        raise groq_call_err
 
         except asyncio.TimeoutError:
             logger.warning(f"Agent execution timed out after {timeout_seconds}s for {provider}/{model_name}")
@@ -443,25 +445,15 @@ async def execute_agent_conversation(
     if not reply_text:
         business_name = agent_config.get("business_name") or "Orbion Store"
         agent_name = agent_config.get("name") or "AI Assistant"
-        msg_lower = message.lower()
 
-        if "stock" in msg_lower or "product" in msg_lower or "available" in msg_lower:
-            reply_text = f"Hi! 👋 Yes, this item is available at {business_name}. Would you like pricing details or product specifications?"
-        elif "price" in msg_lower or "cost" in msg_lower or "rate" in msg_lower:
-            reply_text = f"Our standard plans start from $49 at {business_name}, with customized tiers for enterprise volume. Shall I send our complete catalog?"
-        elif "order" in msg_lower or "status" in msg_lower or "tracking" in msg_lower:
-            reply_text = "I'd be glad to track your order! Please share your Order ID or registered mobile number to proceed."
-        elif "return" in msg_lower or "refund" in msg_lower:
-            reply_text = f"At {business_name}, we offer a 7-day hassle-free return policy for unopened items. Would you like assistance initiating a return?"
-        elif "meeting" in msg_lower or "book" in msg_lower or "schedule" in msg_lower:
-            reply_text = "I can book a meeting with our product specialist. We have slots available tomorrow morning at 10:00 AM or 3:00 PM. Which works best?"
+        if not api_key:
+            reply_text = f"⚠️ [AI Key Required] Please configure an API key for {provider.capitalize()} or Groq in Admin Settings -> API Keys to enable real-time responses."
+            sources_used.append("Configuration: No API key found")
+        elif error_note:
+            reply_text = f"⚠️ [Agent AI Error] Failed to generate response ({provider}/{model_name}): {error_note}"
+            sources_used.append("Error: Provider call failed")
         else:
             reply_text = f"Hello! I am {agent_name} from {business_name}. How can I assist you today?"
-
-        if error_note and "quota" in error_note.lower():
-            sources_used.append("Note: Provider quota exceeded; using simulated reply")
-        elif not api_key:
-            sources_used.append(f"Note: Connect {provider.capitalize()} API key for real-time model output")
 
     execution_time_ms = int((time.time() - start_time) * 1000)
 

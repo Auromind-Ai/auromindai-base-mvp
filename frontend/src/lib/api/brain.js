@@ -25,11 +25,11 @@ export async function uploadSupportDocument(file, workspace_id) {
   return client.post('/brain/ingest/support_document', formData);
 }
 
-export async function uploadFile(file) {
+export async function uploadFile(file, workspace_id = null) {
   const formData = new FormData();
   formData.append('file', file);
-
-  return client.post('/upload', formData);
+  const query = workspace_id ? `?workspace_id=${encodeURIComponent(workspace_id)}` : '';
+  return client.post(`/upload${query}`, formData);
 }
 
 export async function syncURL(url, workspace_id, collection = null) {

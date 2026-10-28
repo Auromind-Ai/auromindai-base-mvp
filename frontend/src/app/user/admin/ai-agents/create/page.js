@@ -22,7 +22,12 @@ import {
   Loader2,
   CheckCircle2,
   X,
-  Database
+  Database,
+  ChevronDown,
+  Key,
+  Eye,
+  EyeOff,
+  ExternalLink
 
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -34,6 +39,15 @@ const STEPS = [
   { id: 3, label: 'AI Configuration' },
   { id: 4, label: 'Knowledge' },
   { id: 5, label: 'Review' },
+];
+
+const TONE_OPTIONS = [
+  'Friendly & Professional',
+  'Casual & Conversational',
+  'Sales & Persuasive',
+  'Empathetic & Supportive',
+  'Concise & Direct',
+  'Formal & Authoritative',
 ];
 
 const AGENT_TYPES = [
@@ -98,8 +112,8 @@ const AGENT_TYPES = [
 ];
 
 const DEFAULT_AI_CONFIG = {
-  provider: 'google',
-  model: 'gemini-1.5-flash',
+  provider: 'groq',
+  model: 'openai/gpt-oss-120b',
   temperature: 0.7,
   max_tokens: 1024,
   top_p: 1.0,
@@ -139,7 +153,7 @@ function CreateAgentWizardContent() {
   const [errorMessage, setErrorMessage] = useState('');
 
   // Form State
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => ({
     // Step 1: Basic Info
     agent_type: 'sales_assistant',
     name: '',
@@ -150,18 +164,21 @@ function CreateAgentWizardContent() {
     business_name: '',
     website_url: '',
 
-    // Step 2: Channels (only native website chat ready by default; external channels require backend connection)
+    // Step 2: Channels (only WhatsApp, Instagram, and Twilio supported)
     channels_config: {
       whatsapp: { enabled: false },
       instagram: { enabled: false },
-      website: { enabled: true },
-      gmail: { enabled: false },
-      calendar: { enabled: false },
+      twilio: { enabled: false },
     },
     channel_settings: {
       auto_reply: true,
       sync_crm: true,
       channel_specific_tone: true,
+      channel_tones: {
+        whatsapp: 'Friendly & Professional',
+        instagram: 'Casual & Conversational',
+        twilio: 'Concise & Direct',
+      },
     },
 
     // Step 3: AI Configuration
@@ -169,6 +186,7 @@ function CreateAgentWizardContent() {
 
     // Step 4: Knowledge Base
     knowledge_config: {
+      collection: `agent_${Math.random().toString(36).substring(2, 10)}`,
       files: [],
       website_urls: [],
       faqs: [],
@@ -180,7 +198,7 @@ function CreateAgentWizardContent() {
         ocr: true,
       },
     },
-  });
+  }));
 
   // Providers & models metadata from backend
   const [providersData, setProvidersData] = useState([]);
@@ -192,20 +210,6 @@ function CreateAgentWizardContent() {
   const [isKnowledgeBusy, setIsKnowledgeBusy] = useState(false);
   const [knowledgeFeedback, setKnowledgeFeedback] = useState({ message: '', type: '' });
   const fileInputRef = useRef(null);
-
-  // Initialize dedicated collection tag if empty
-  useEffect(() => {
-    if (!formData.knowledge_config?.collection) {
-      const generatedTag = `agent_${Math.random().toString(36).substring(2, 10)}`;
-      setFormData((prev) => ({
-        ...prev,
-        knowledge_config: {
-          ...prev.knowledge_config,
-          collection: prev.knowledge_config?.collection || generatedTag,
-        },
-      }));
-    }
-  }, []);
 
   // If editId is provided, fetch existing agent
   useEffect(() => {
@@ -223,7 +227,17 @@ function CreateAgentWizardContent() {
             business_name: a.business_name || '',
             website_url: a.website_url || '',
             channels_config: a.channels_config || {},
-            channel_settings: a.channel_settings || {},
+            channel_settings: {
+              auto_reply: true,
+              sync_crm: true,
+              channel_specific_tone: true,
+              channel_tones: {
+                whatsapp: 'Friendly & Professional',
+                instagram: 'Casual & Conversational',
+                twilio: 'Concise & Direct',
+              },
+              ...(a.channel_settings || {}),
+            },
             ai_config: { ...DEFAULT_AI_CONFIG, ...(a.ai_config || {}) },
             knowledge_config: {
               collection: a.knowledge_config?.collection || `agent_${Math.random().toString(36).substring(2, 10)}`,
@@ -259,24 +273,34 @@ function CreateAgentWizardContent() {
         if (!isMounted) return;
 
         if (modelsRes.status === 'fulfilled' && modelsRes.value?.providers?.length > 0) {
-          const provs = modelsRes.value.providers;
+          // Keep only Google and Groq providers
+          const provs = modelsRes.value.providers.filter(
+            (p) => p.provider === 'google' || p.provider === 'groq'
+          );
           setProvidersData(provs);
-          // Auto-select first recommended model if current model is default or unselected
           setFormData((prev) => {
-            if (prev.ai_config.model && prev.ai_config.model !== 'gemini-1.5-flash') return prev;
-            const activeP = provs.find((p) => p.models && p.models.length > 0) || provs[0];
-            const recM = activeP?.models?.find((m) => m.isRecommended) || activeP?.models?.[0];
-            if (recM) {
+            const activeP = provs.find((p) => p.hasPlatformKey && p.models?.length > 0)
+              || provs.find((p) => p.provider === prev.ai_config.provider)
+              || provs[0];
+            const currentModelValid = activeP?.models?.some((m) => m.id === prev.ai_config.model);
+            if (currentModelValid) {
               return {
                 ...prev,
                 ai_config: {
                   ...prev.ai_config,
-                  provider: activeP.provider,
-                  model: recM.id,
+                  provider: activeP?.provider || 'groq',
                 },
               };
             }
-            return prev;
+            const recM = activeP?.models?.find((m) => m.isRecommended) || activeP?.models?.[0];
+            return {
+              ...prev,
+              ai_config: {
+                ...prev.ai_config,
+                provider: activeP?.provider || 'groq',
+                model: recM?.id || '',
+              },
+            };
           });
         }
         if (channelsRes.status === 'fulfilled' && channelsRes.value?.channels) {
@@ -288,13 +312,44 @@ function CreateAgentWizardContent() {
             chList.forEach((c) => {
               if (c.connected && updated[c.id] === undefined) {
                 updated[c.id] = { enabled: true };
+              } else if (!c.connected && updated[c.id]?.enabled) {
+                updated[c.id] = { ...updated[c.id], enabled: false };
               }
             });
             return { ...prev, channels_config: updated };
           });
         }
         if (draftRes.status === 'fulfilled' && draftRes.value?.draft && !editId) {
-          setFormData((prev) => ({ ...prev, ...draftRes.value.draft }));
+          const draft = draftRes.value.draft;
+          const chList = channelsRes.status === 'fulfilled' ? channelsRes.value?.channels || [] : [];
+          setFormData((prev) => {
+            const mergedConfig = {
+              whatsapp: { enabled: false },
+              instagram: { enabled: false },
+              twilio: { enabled: false },
+              ...(draft.channels_config || {}),
+            };
+            chList.forEach((c) => {
+              if (!c.connected && mergedConfig[c.id]) {
+                mergedConfig[c.id] = { ...mergedConfig[c.id], enabled: false };
+              }
+            });
+            return {
+              ...prev,
+              ...draft,
+              channels_config: mergedConfig,
+            channel_settings: {
+              auto_reply: true,
+              sync_crm: true,
+              channel_specific_tone: true,
+              channel_tones: {
+                whatsapp: 'Friendly & Professional',
+                instagram: 'Casual & Conversational',
+                twilio: 'Concise & Direct',
+              },
+              ...(draft.channel_settings || {}),
+            },
+          }));
         }
       } catch (err) {
         console.warn("Failed to load metadata:", err);
@@ -335,12 +390,12 @@ function CreateAgentWizardContent() {
       }
     }
     if (step === 3) {
-      if (!formData.ai_config?.system_prompt?.trim()) {
-        setErrorMessage('Custom System Prompt is required. Please define how your AI agent should interact and operate.');
+      if (!formData.ai_config?.model) {
+        setErrorMessage('The selected provider is currently not available. Please select an active provider or contact administrator.');
         return false;
       }
-      if (formData.ai_config?.access_mode === 'byok' && !formData.ai_config?.custom_api_key?.trim()) {
-        setErrorMessage('Custom API Key is required when using your own key (BYOK).');
+      if (!formData.ai_config?.system_prompt?.trim()) {
+        setErrorMessage('Custom System Prompt is required. Please define how your AI agent should interact and operate.');
         return false;
       }
     }
@@ -903,8 +958,16 @@ function CreateAgentWizardContent() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-zinc-300">Profile Image</label>
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-purple-900/30">
-                      <Bot size={28} />
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-purple-900/30 overflow-hidden relative border border-purple-400/30 shrink-0">
+                      {formData.avatar_url ? (
+                        <img
+                          src={formData.avatar_url}
+                          alt="Agent Profile Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Bot size={28} />
+                      )}
                     </div>
                     <div>
                       <input
@@ -912,20 +975,42 @@ function CreateAgentWizardContent() {
                         accept="image/*"
                         className="hidden"
                         id="avatar-upload"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            setFormData({ ...formData, avatar_url: URL.createObjectURL(file) });
+                            const previewUrl = URL.createObjectURL(file);
+                            setFormData((prev) => ({ ...prev, avatar_url: previewUrl }));
+
+                            try {
+                              const res = await api.uploadFile(file, workspaceId);
+                              if (res?.url) {
+                                setFormData((prev) => ({ ...prev, avatar_url: res.url }));
+                              }
+                            } catch (err) {
+                              console.warn("Avatar upload warning, using local preview:", err);
+                            }
                           }
                         }}
                       />
-                      <label
-                        htmlFor="avatar-upload"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-zinc-300 hover:text-white cursor-pointer transition-colors"
-                      >
-                        <Upload size={13} />
-                        <span>Change Image</span>
-                      </label>
+                      <div className="flex items-center gap-2">
+                        <label
+                          htmlFor="avatar-upload"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-zinc-300 hover:text-white cursor-pointer transition-colors"
+                        >
+                          <Upload size={13} />
+                          <span>{formData.avatar_url ? 'Change Image' : 'Upload Image'}</span>
+                        </label>
+                        {formData.avatar_url && (
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, avatar_url: '' }))}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 border border-white/10 text-xs font-medium text-zinc-400 hover:text-red-400 transition-colors cursor-pointer"
+                          >
+                            <Trash2 size={12} />
+                            <span>Remove</span>
+                          </button>
+                        )}
+                      </div>
                       <p className="text-[10px] text-zinc-500 mt-1">
                         Recommended: 256x256 PNG or JPG
                       </p>
@@ -1023,8 +1108,8 @@ function CreateAgentWizardContent() {
                 </p>
               </div>
 
-              {/* Channels 2-column Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Channels 3-column Grid (WhatsApp, Instagram, Twilio) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
                   {
                     id: 'whatsapp',
@@ -1051,45 +1136,35 @@ function CreateAgentWizardContent() {
                     ),
                   },
                   {
-                    id: 'website',
-                    name: 'Website Chat',
-                    description: 'Add a chat widget to your website',
-                    iconBg: 'bg-indigo-600',
-                    icon: <Globe size={18} />,
-                  },
-                  {
-                    id: 'gmail',
-                    name: 'Gmail',
-                    description: 'Connect Gmail for email support',
-                    iconBg: 'bg-red-600',
-                    icon: <Mail size={18} />,
-                  },
-                  {
-                    id: 'calendar',
-                    name: 'Google Calendar',
-                    description: 'Connect to book meetings',
-                    iconBg: 'bg-amber-600',
-                    icon: <Calendar size={18} />,
+                    id: 'twilio',
+                    name: 'Twilio SMS',
+                    description: 'Connect Twilio for SMS & phone messaging',
+                    iconBg: 'bg-red-500',
+                    icon: (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                    ),
                   },
                 ].map((channel) => {
                   const isEnabled = Boolean(formData.channels_config[channel.id]?.enabled);
                   const backendChannel = channelsData.find((c) => c.id === channel.id);
-                  const isConnected = backendChannel ? backendChannel.connected : (channel.id === 'website');
+                  const isConnected = Boolean(backendChannel?.connected);
 
                   return (
                     <div
                       key={channel.id}
-                      className="p-4 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] hover:border-white/15 transition-all flex items-center justify-between gap-4"
+                      className="p-4 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] hover:border-white/15 transition-all flex flex-col justify-between gap-4"
                     >
-                      <div className="flex items-center gap-3.5">
+                      <div className="flex items-start gap-3.5">
                         <div
                           className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white shrink-0 ${channel.iconBg}`}
                         >
                           {channel.icon}
                         </div>
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <h3 className="text-xs font-semibold text-white">{channel.name}</h3>
-                          <p className="text-[11px] text-zinc-400 mt-0.5">{channel.description}</p>
+                          <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-2">{channel.description}</p>
                           <div className="flex items-center gap-2 mt-2">
                             <span
                               className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
@@ -1105,18 +1180,10 @@ function CreateAgentWizardContent() {
                               />
                               <span>{isConnected ? 'Connected' : 'Not Connected'}</span>
                             </span>
-                            {isConnected ? (
+                            {!isConnected && (
                               <button
                                 type="button"
-                                onClick={() => router.push('/user/admin/integrations')}
-                                className="text-[10px] text-zinc-400 hover:text-white underline cursor-pointer"
-                              >
-                                Manage
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => router.push('/user/admin/integrations')}
+                                onClick={() => router.push('/user/admin/channels')}
                                 className="text-[10px] text-purple-400 hover:text-purple-300 underline cursor-pointer"
                               >
                                 Connect →
@@ -1127,35 +1194,38 @@ function CreateAgentWizardContent() {
                       </div>
 
                       {/* Toggle Switch */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!isConnected) {
-                            setErrorMessage(`Please connect ${channel.name} in Settings > Integrations before enabling it.`);
-                            return;
-                          }
-                          setErrorMessage('');
-                          setFormData((prev) => ({
-                            ...prev,
-                            channels_config: {
-                              ...prev.channels_config,
-                              [channel.id]: {
-                                ...prev.channels_config[channel.id],
-                                enabled: !isEnabled,
+                      <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                        <span className="text-[11px] text-zinc-400">Enable on Agent</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!isConnected) {
+                              setErrorMessage(`Please connect ${channel.name} in Growth > Channels before enabling it.`);
+                              return;
+                            }
+                            setErrorMessage('');
+                            setFormData((prev) => ({
+                              ...prev,
+                              channels_config: {
+                                ...prev.channels_config,
+                                [channel.id]: {
+                                  ...prev.channels_config[channel.id],
+                                  enabled: !isEnabled,
+                                },
                               },
-                            },
-                          }));
-                        }}
-                        className={`w-11 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer shrink-0 ${
-                          isEnabled ? 'bg-purple-600' : 'bg-zinc-700'
-                        }`}
-                      >
-                        <motion.div
-                          animate={{ x: isEnabled ? 20 : 0 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                          className="w-5 h-5 rounded-full bg-white shadow-md"
-                        />
-                      </button>
+                            }));
+                          }}
+                          className={`w-11 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer shrink-0 ${
+                            isEnabled ? 'bg-purple-600' : 'bg-zinc-700'
+                          }`}
+                        >
+                          <motion.div
+                            animate={{ x: isEnabled ? 20 : 0 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                            className="w-5 h-5 rounded-full bg-white shadow-md"
+                          />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -1172,20 +1242,20 @@ function CreateAgentWizardContent() {
                     {
                       key: 'auto_reply',
                       title: 'Auto reply on all channels',
-                      description: 'Automatically respond to new messages as soon as they arrive.',
+                      description: 'Automatically respond to new messages as soon as they arrive on WhatsApp, Instagram, and Twilio.',
                     },
                     {
                       key: 'sync_crm',
                       title: 'Sync all conversations to CRM',
-                      description: 'Save customer inquiries and captured leads directly into CRM.',
+                      description: 'Save all customer inquiries, messages, and captured leads directly into CRM.',
                     },
                     {
                       key: 'channel_specific_tone',
                       title: 'Use channel specific tone',
-                      description: 'Adapt the tone based on the channel (e.g. casual for Instagram, formal for Gmail).',
+                      description: 'Customize different tone presets individually for WhatsApp, Instagram, and Twilio.',
                     },
                   ].map((setting) => {
-                    const isChecked = formData.channel_settings[setting.key];
+                    const isChecked = Boolean(formData.channel_settings[setting.key]);
                     return (
                       <div key={setting.key} className="flex items-center justify-between gap-4 py-1">
                         <div>
@@ -1217,6 +1287,131 @@ function CreateAgentWizardContent() {
                     );
                   })}
                 </div>
+
+                {/* Per-Channel Tone Selection Accordion (visible when channel_specific_tone is true) */}
+                <AnimatePresence>
+                  {formData.channel_settings?.channel_specific_tone && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden pt-3 border-t border-white/[0.08]"
+                    >
+                      <div className="p-4 rounded-xl bg-[#101726]/80 border border-purple-500/20 space-y-3.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-purple-300 uppercase tracking-wide">
+                            Channel Tone Customization
+                          </span>
+                          <span className="text-[10px] text-zinc-400">
+                            Customizes the agent&apos;s communication tone per channel
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
+                          {/* WhatsApp Tone */}
+                          <div className="space-y-1.5">
+                            <label className="text-[11px] font-medium text-zinc-300 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                              WhatsApp Tone
+                            </label>
+                            <div className="relative">
+                              <select
+                                value={formData.channel_settings?.channel_tones?.whatsapp || 'Friendly & Professional'}
+                                onChange={(e) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    channel_settings: {
+                                      ...prev.channel_settings,
+                                      channel_tones: {
+                                        ...prev.channel_settings.channel_tones,
+                                        whatsapp: e.target.value,
+                                      },
+                                    },
+                                  }))
+                                }
+                                className="w-full h-9 px-3 pr-8 rounded-lg bg-[#0c1220] border border-white/10 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors appearance-none cursor-pointer"
+                              >
+                                {TONE_OPTIONS.map((t) => (
+                                  <option key={t} value={t} className="bg-[#0c1220] text-white">
+                                    {t}
+                                  </option>
+                                ))}
+                              </select>
+                              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                            </div>
+                          </div>
+
+                          {/* Instagram Tone */}
+                          <div className="space-y-1.5">
+                            <label className="text-[11px] font-medium text-zinc-300 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-pink-500" />
+                              Instagram Tone
+                            </label>
+                            <div className="relative">
+                              <select
+                                value={formData.channel_settings?.channel_tones?.instagram || 'Casual & Conversational'}
+                                onChange={(e) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    channel_settings: {
+                                      ...prev.channel_settings,
+                                      channel_tones: {
+                                        ...prev.channel_settings.channel_tones,
+                                        instagram: e.target.value,
+                                      },
+                                    },
+                                  }))
+                                }
+                                className="w-full h-9 px-3 pr-8 rounded-lg bg-[#0c1220] border border-white/10 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors appearance-none cursor-pointer"
+                              >
+                                {TONE_OPTIONS.map((t) => (
+                                  <option key={t} value={t} className="bg-[#0c1220] text-white">
+                                    {t}
+                                  </option>
+                                ))}
+                              </select>
+                              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                            </div>
+                          </div>
+
+                          {/* Twilio Tone */}
+                          <div className="space-y-1.5">
+                            <label className="text-[11px] font-medium text-zinc-300 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-red-500" />
+                              Twilio SMS Tone
+                            </label>
+                            <div className="relative">
+                              <select
+                                value={formData.channel_settings?.channel_tones?.twilio || 'Concise & Direct'}
+                                onChange={(e) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    channel_settings: {
+                                      ...prev.channel_settings,
+                                      channel_tones: {
+                                        ...prev.channel_settings.channel_tones,
+                                        twilio: e.target.value,
+                                      },
+                                    },
+                                  }))
+                                }
+                                className="w-full h-9 px-3 pr-8 rounded-lg bg-[#0c1220] border border-white/10 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors appearance-none cursor-pointer"
+                              >
+                                {TONE_OPTIONS.map((t) => (
+                                  <option key={t} value={t} className="bg-[#0c1220] text-white">
+                                    {t}
+                                  </option>
+                                ))}
+                              </select>
+                              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           )}
@@ -1253,21 +1448,20 @@ function CreateAgentWizardContent() {
               {/* Model Provider Chips */}
               {(() => {
                 const defaultProvidersList = [
-                  { provider: 'google', displayName: 'Google', hasPlatformKey: true, models: [{ id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', isRecommended: true, description: 'Fast, cost-efficient model' }] },
-                  { provider: 'openai', displayName: 'OpenAI', hasPlatformKey: true, models: [{ id: 'gpt-4o', name: 'GPT-4o', isRecommended: true, description: 'Advanced multimodal flagship' }] },
-                  { provider: 'anthropic', displayName: 'Anthropic', hasPlatformKey: true, models: [{ id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', isRecommended: true, description: 'State-of-the-art intelligence' }] },
-                  { provider: 'groq', displayName: 'Groq', hasPlatformKey: true, models: [{ id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile', isRecommended: true, description: 'Sub-second inference speed' }] },
-                  { provider: 'meta', displayName: 'Meta', hasPlatformKey: true, models: [{ id: 'llama-3.3-70b', name: 'Llama 3.3 70B', isRecommended: true, description: 'Open-weights conversational model' }] },
+                  { provider: 'google', displayName: 'Google', hasPlatformKey: false, models: [] },
+                  { provider: 'groq', displayName: 'Groq', hasPlatformKey: false, models: [] },
                 ];
-                const activeProvidersList = providersData.length > 0
-                  ? providersData.filter((p) => p.provider !== 'custom')
-                  : defaultProvidersList;
+                const activeProvidersList = (providersData.length > 0 ? providersData : defaultProvidersList)
+                  .filter((p) => p.provider === 'google' || p.provider === 'groq');
                 const currentProviderObj = activeProvidersList.find((p) => p.provider === formData.ai_config.provider) || activeProvidersList[0];
                 const availableModels = currentProviderObj?.models || [];
+                const isAvailable = Boolean(currentProviderObj?.hasPlatformKey && availableModels.length > 0);
                 const currentModelObj = availableModels.find((m) => m.id === formData.ai_config.model) || availableModels[0] || {
-                  id: formData.ai_config.model,
-                  name: formData.ai_config.model,
-                  description: 'AI model configured for this agent.',
+                  id: formData.ai_config.model || '',
+                  name: formData.ai_config.model || (isAvailable ? 'No model selected' : 'Not available'),
+                  description: isAvailable
+                    ? 'AI model configured for this agent.'
+                    : 'This provider is currently unavailable. Please contact administrator.',
                   contextWindow: 128000,
                   maxTokensLimit: 4096,
                   supportsTools: true,
@@ -1277,105 +1471,137 @@ function CreateAgentWizardContent() {
 
                 return (
                   <>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-medium text-zinc-300">Model Provider</label>
-                        <span className="text-[11px] text-zinc-500">
-                          {providersData.length > 0 ? `${providersData.length} providers loaded dynamically` : 'Connecting to catalog...'}
+                        <span className="text-[11px] text-zinc-400">
+                          {activeProvidersList.length} providers available
                         </span>
                       </div>
-                      <div className="flex flex-wrap gap-2">
+
+                      {/* Provider Chips */}
+                      <div className="flex flex-wrap gap-2.5">
                         {activeProvidersList.map((p) => {
                           const isSelected = formData.ai_config.provider === p.provider;
+                          const hasLiveModels = Boolean(p.hasPlatformKey && p.models && p.models.length > 0);
                           return (
                             <button
                               key={p.provider}
                               type="button"
                               onClick={() => {
-                                const fallback = p.models?.[0]?.id || 'gpt-4o';
+                                const fallback = p.models?.[0]?.id || '';
                                 setFormData((prev) => ({
                                   ...prev,
                                   ai_config: { ...prev.ai_config, provider: p.provider, model: fallback },
                                 }));
                               }}
-                              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all border cursor-pointer flex items-center gap-1.5 ${
+                              className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all border cursor-pointer flex items-center gap-2 ${
                                 isSelected
                                   ? 'bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-900/30'
                                   : 'bg-[#101726] text-zinc-400 border-white/10 hover:text-white hover:border-white/20'
                               }`}
                             >
                               <span>{p.displayName || p.provider}</span>
-                              {p.hasPlatformKey && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Platform key active" />
+                              {hasLiveModels ? (
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" title="Available on platform" />
+                              ) : (
+                                <span className="w-2 h-2 rounded-full bg-rose-400/80" title="Not available - contact administrator" />
                               )}
                             </button>
                           );
                         })}
                       </div>
+
+                      {/* Status Banner when Provider is NOT configured on platform */}
+                      {!isAvailable && (
+                        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200 flex items-start gap-3">
+                          <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                          <div className="space-y-1">
+                            <div className="font-semibold text-amber-300">
+                              {currentProviderObj?.displayName} is currently not available
+                            </div>
+                            <p className="text-[11px] text-amber-200/80 leading-relaxed">
+                              This provider is currently unavailable. Please contact administrator or select an active provider above.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+
                     </div>
-
-
 
                     {/* Model Selection & Capabilities Box */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
                           <label className="text-xs font-medium text-zinc-300">Model</label>
-                          {currentModelObj.isRecommended && (
+                          {isAvailable && currentModelObj.isRecommended && (
                             <span className="text-[10px] text-emerald-400 font-medium">✓ Recommended</span>
                           )}
                         </div>
-                        <select
-                          value={formData.ai_config.model}
-                          onChange={(e) => {
-                            const selectedId = e.target.value;
-                            const modelObj = availableModels.find((m) => m.id === selectedId);
-                            setFormData({
-                              ...formData,
-                              ai_config: {
-                                ...formData.ai_config,
-                                model: selectedId,
-                                max_tokens: Math.min(formData.ai_config.max_tokens, modelObj?.maxTokensLimit || 4096)
-                              },
-                            });
-                          }}
-                          className="w-full bg-[#121927] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500/50"
-                        >
-                          {availableModels.map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.name || m.id} {m.isRecommended ? '— Recommended' : ''}
-                            </option>
-                          ))}
-                        </select>
 
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/5 text-zinc-300 border border-white/5">
-                            Context: {(currentModelObj.contextWindow || 128000).toLocaleString()} tokens
-                          </span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-md border ${
-                            currentModelObj.supportsTools
-                              ? 'bg-purple-500/10 text-purple-300 border-purple-500/20'
-                              : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
-                          }`}>
-                            {currentModelObj.supportsTools ? '✓ Tools' : 'No Tools'}
-                          </span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-md border ${
-                            currentModelObj.supportsStructuredOutput
-                              ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
-                              : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
-                          }`}>
-                            {currentModelObj.supportsStructuredOutput ? '✓ JSON Schema' : 'Plain text'}
-                          </span>
-                        </div>
+                        {isAvailable ? (
+                          <select
+                            value={formData.ai_config.model}
+                            onChange={(e) => {
+                              const selectedId = e.target.value;
+                              const modelObj = availableModels.find((m) => m.id === selectedId);
+                              setFormData({
+                                ...formData,
+                                ai_config: {
+                                  ...formData.ai_config,
+                                  model: selectedId,
+                                  max_tokens: Math.min(formData.ai_config.max_tokens, modelObj?.maxTokensLimit || 4096)
+                                },
+                              });
+                            }}
+                            className="w-full bg-[#121927] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500/50 cursor-pointer"
+                          >
+                            {availableModels.map((m) => (
+                              <option key={m.id} value={m.id} className="bg-[#121927] text-white">
+                                {m.name || m.id} {m.isRecommended ? '— Recommended' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="p-3 rounded-xl bg-[#121927]/60 border border-dashed border-zinc-700 text-zinc-400 text-xs flex items-center justify-between">
+                            <span className="italic">Not available — Contact administrator</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">Disabled</span>
+                          </div>
+                        )}
+
+                        {isAvailable && (
+                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/5 text-zinc-300 border border-white/5">
+                              Context: {(currentModelObj.contextWindow || 128000).toLocaleString()} tokens
+                            </span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-md border ${
+                              currentModelObj.supportsTools
+                                ? 'bg-purple-500/10 text-purple-300 border-purple-500/20'
+                                : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
+                            }`}>
+                              {currentModelObj.supportsTools ? '✓ Tools' : 'No Tools'}
+                            </span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-md border ${
+                              currentModelObj.supportsStructuredOutput
+                                ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
+                                : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
+                            }`}>
+                              {currentModelObj.supportsStructuredOutput ? '✓ JSON Schema' : 'Plain text'}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="p-4 rounded-xl bg-[#121927] border border-white/10 flex flex-col justify-center">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-[11px] font-semibold text-purple-300">Model Description</span>
-                          <span className="text-[10px] text-zinc-400 capitalize">{currentProviderObj.displayName || formData.ai_config.provider}</span>
+                          <span className="text-[10px] text-zinc-400 capitalize">{currentProviderObj?.displayName || formData.ai_config.provider}</span>
                         </div>
                         <p className="text-xs text-zinc-300 leading-relaxed">
-                          {currentModelObj.description || 'Configured AI model for reasoning, conversation, and knowledge retrieval.'}
+                          {isAvailable
+                            ? (currentModelObj.description || 'Configured AI model for reasoning, conversation, and knowledge retrieval.')
+                            : 'This provider is currently unavailable. Please contact administrator.'}
                         </p>
                       </div>
                     </div>
@@ -1805,7 +2031,7 @@ function CreateAgentWizardContent() {
                         </button>
                       </div>
                       <p className="text-[11px] text-zinc-400">
-                        The agent will index information on this website into this agent's private collection in Vector DB.
+                        The agent will index information on this website into this agent&apos;s private collection in Vector DB.
                       </p>
                     </div>
                   </div>
@@ -1961,6 +2187,16 @@ function CreateAgentWizardContent() {
                     </button>
                   </div>
                   <div className="space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-zinc-400">Profile Image</span>
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-violet-600 to-purple-600 flex items-center justify-center text-white shadow-sm overflow-hidden border border-purple-400/30">
+                        {formData.avatar_url ? (
+                          <img src={formData.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                        ) : (
+                          <Bot size={16} />
+                        )}
+                      </div>
+                    </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-zinc-400">Name</span>
                       <span className="font-semibold text-white">{formData.name}</span>
@@ -2000,11 +2236,11 @@ function CreateAgentWizardContent() {
                   </div>
                 </div>
 
-                {/* 2. Channels */}
+                {/* 2. Channels & Settings */}
                 <div className="p-5 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] space-y-3">
                   <div className="flex items-center justify-between pb-2 border-b border-white/5">
                     <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
-                      Channels
+                      Selected Channels & Settings
                     </h3>
                     <button
                       type="button"
@@ -2017,18 +2253,31 @@ function CreateAgentWizardContent() {
                   <div className="space-y-2">
                     {Object.entries(formData.channels_config)
                       .filter(([, v]) => v.enabled)
-                      .map(([k]) => (
-                        <div
-                          key={k}
-                          className="flex items-center justify-between p-2 rounded-xl bg-[#121927] text-xs"
-                        >
-                          <span className="capitalize font-medium text-white">{k}</span>
-                          <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                            Connected
-                          </span>
-                        </div>
-                      ))}
+                      .map(([k]) => {
+                        const channelLabel = k === 'whatsapp' ? 'WhatsApp Business' : k === 'instagram' ? 'Instagram' : k === 'twilio' ? 'Twilio SMS' : k;
+                        const channelTone = formData.channel_settings?.channel_specific_tone
+                          ? (formData.channel_settings?.channel_tones?.[k] || formData.tone_of_voice)
+                          : formData.tone_of_voice;
+                        return (
+                          <div
+                            key={k}
+                            className="flex items-center justify-between p-2.5 rounded-xl bg-[#121927] text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-white">{channelLabel}</span>
+                              <span className="text-[10px] text-purple-300/80 font-normal">• Tone: {channelTone}</span>
+                            </div>
+                            <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                              Enabled
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                  <div className="pt-2 border-t border-white/5 grid grid-cols-2 gap-2 text-[11px] text-zinc-400">
+                    <div>Auto Reply: <span className="text-white font-medium">{formData.channel_settings?.auto_reply ? 'Enabled' : 'Disabled'}</span></div>
+                    <div>CRM Sync: <span className="text-white font-medium">{formData.channel_settings?.sync_crm ? 'Enabled' : 'Disabled'}</span></div>
                   </div>
                 </div>
 
