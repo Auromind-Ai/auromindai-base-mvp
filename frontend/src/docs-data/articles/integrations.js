@@ -19,7 +19,7 @@ export const INTEGRATIONS_ARTICLES = {
         video: {
           url: "/videos/IMG_3477.mp4",
           fallbackUrl: "/videos/IMG_3477.MOV",
-          poster: "/images/docs/whatsapp-connect/step-1-channels-dashboard.png",
+          poster: "/images/docs/whatsapp-connect/step-1-channels-dashboard.webp",
           title: "Connecting WhatsApp Business via Meta Cloud API",
           duration: "1:03 min walkthrough",
           caption: "End-to-end video tutorial demonstrating the complete Meta Facebook Login for Business onboarding flow."
@@ -45,49 +45,49 @@ export const INTEGRATIONS_ARTICLES = {
             step: 1,
             title: "Channels Console & Initiate Connection",
             instruction: "In your dashboard, navigate to Channels & Integration. Locate the 'WhatsApp Business (Meta Cloud API)' card and click 'Connect >' to launch the Meta onboarding modal.",
-            screenshot: "/images/docs/whatsapp-connect/step-1-channels-dashboard.png",
+            screenshot: "/images/docs/whatsapp-connect/step-1-channels-dashboard.webp",
             uiElements: ["Channels Dashboard", "WhatsApp Business card", "'Connect >' button"]
           },
           {
             step: 2,
             title: "Meta Facebook Login for Business Window",
             instruction: "A popup from Meta (Facebook Login for Business) opens displaying 'Seamlessly connect your account to orbionagents'. Review permissions and click 'Continue'.",
-            screenshot: "/images/docs/whatsapp-connect/step-2-meta-login-continue.png",
+            screenshot: "/images/docs/whatsapp-connect/step-2-meta-login-continue.webp",
             uiElements: ["Facebook Login Modal", "Permissions Overview", "'Continue' button"]
           },
           {
             step: 3,
             title: "Select or Create Meta Business Portfolio",
             instruction: "Choose your existing Meta Business Portfolio or select 'Create a business portfolio', then select or create your WhatsApp Business Account. Click 'Next'.",
-            screenshot: "/images/docs/whatsapp-connect/step-3-select-portfolio.png?v=2",
+            screenshot: "/images/docs/whatsapp-connect/step-3-select-portfolio.webp?v=2",
             uiElements: ["Business portfolio dropdown", "WhatsApp Business account dropdown", "'Next' button"]
           },
           {
             step: 4,
             title: "Enter Business Profile Information",
             instruction: "Fill in your official business details: Business Name, Official Email, Category (e.g. Professional services), Country (e.g. India), Website, and Time Zone (Asia/Kolkata). Click 'Next'.",
-            screenshot: "/images/docs/whatsapp-connect/step-4-business-information.png?v=2",
+            screenshot: "/images/docs/whatsapp-connect/step-4-business-information.webp?v=2",
             uiElements: ["Business Name input", "Category selector", "Country dropdown", "'Next' button"]
           },
           {
             step: 5,
             title: "Add WhatsApp Phone Number & Display Name",
             instruction: "Enter your official WhatsApp Business Display Name, select your Country Code (+91), enter your dedicated Phone Number, choose verification method (Text message or Phone call), and click 'Next'.",
-            screenshot: "/images/docs/whatsapp-connect/step-5-phone-number-entry.png?v=2",
+            screenshot: "/images/docs/whatsapp-connect/step-5-phone-number-entry.webp?v=2",
             uiElements: ["Display Name field", "Country code selector", "Phone number input", "Verification method radio"]
           },
           {
             step: 6,
             title: "Verify Phone Number via 6-Digit Code",
             instruction: "Check your phone for the 6-digit OTP verification code sent by Meta via SMS or phone call. Enter the 6 digits into the verification input fields to confirm number ownership.",
-            screenshot: "/images/docs/whatsapp-connect/step-6-otp-verification.png",
+            screenshot: "/images/docs/whatsapp-connect/step-6-otp-verification.webp",
             uiElements: ["6-Digit OTP inputs", "Resend code link", "Code sent notification"]
           },
           {
             step: 7,
             title: "Finalize Permissions & Compliance Review",
             instruction: "The modal confirms 'Your account is connected to orbionagents'. Meta completes a brief WhatsApp Business Messaging Policy review. Optionally add a payment method and click 'Finish'.",
-            screenshot: "/images/docs/whatsapp-connect/step-7-connection-complete.png",
+            screenshot: "/images/docs/whatsapp-connect/step-7-connection-complete.webp",
             uiElements: ["Success Confirmation", "Policy compliance notice", "'Finish' button"]
           }
         ]
@@ -366,7 +366,7 @@ export const INTEGRATIONS_ARTICLES = {
         title: "Overview",
         type: "text",
         content: "The Google Workspace integration connects your Gmail and Google Calendar directly to Orbion Agents. Your 24/7 AI agents inspect real-time calendar availability during customer chats on WhatsApp and Instagram, book consultations with automatic Google Meet links, and draft intelligent email replies without requiring external booking links.",
-        screenshot: "/images/docs/email-calendar/step_1.png"
+        screenshot: "/images/docs/email-calendar/step_1.webp"
       },
       {
         id: "requirements",
@@ -387,35 +387,35 @@ export const INTEGRATIONS_ARTICLES = {
             step: 1,
             title: "Channels Hub & Initiate Google Connection",
             instruction: "Navigate to Channels & Integration. Locate the Gmail or Google Calendar card and click 'Connect >' to launch Google OAuth.",
-            screenshot: "/images/docs/email-calendar/step_1.png",
+            screenshot: "/images/docs/email-calendar/step_1.webp",
             uiElements: ["Channels Dashboard", "Google Calendar Card", "Connect > Button"]
           },
           {
             step: 2,
             title: "Google Sign In & Select Your Account",
             instruction: "Choose the Google Workspace or personal Google account you want your AI Agent to connect with.",
-            screenshot: "/images/docs/email-calendar/step_2.png",
+            screenshot: "/images/docs/email-calendar/step_2.webp",
             uiElements: ["Google OAuth Screen", "Account Selector", "Workspace Account"]
           },
           {
             step: 3,
             title: "Grant Calendar & Email Permissions",
             instruction: "Confirm access for Google Calendar (checking availability and scheduling events) and Gmail, then click 'Continue'.",
-            screenshot: "/images/docs/email-calendar/step_3.png",
+            screenshot: "/images/docs/email-calendar/step_3.webp",
             uiElements: ["Google Calendar Scope", "Gmail Scope", "Continue Button"]
           },
           {
             step: 4,
             title: "Secure Token Verification & Handshake",
             instruction: "Orbion Agents securely exchanges the OAuth grant with Google, generates encrypted tokens, and verifies calendar read/write access in real time.",
-            screenshot: "/images/docs/email-calendar/step_4.png",
+            screenshot: "/images/docs/email-calendar/step_4.webp",
             uiElements: ["OAuth Verification", "Encrypted Handshake", "Success Notification"]
           },
           {
             step: 5,
             title: "Channels Dashboard Shows Connected Status",
             instruction: "Return to Channels & Integrations. Gmail and Google Calendar now display green '✓ Connected' badges with your connected email handle.",
-            screenshot: "/images/docs/email-calendar/step_5.png",
+            screenshot: "/images/docs/email-calendar/step_5.webp",
             uiElements: ["✓ Connected Badges", "Connected Email Address", "Settings Gear Icon"]
           }
         ]
@@ -426,7 +426,7 @@ export const INTEGRATIONS_ARTICLES = {
         type: "callout",
         calloutTitle: "Autonomous Booking Active:",
         calloutText: "Your Gmail & Google Calendar accounts are active and synchronized. AI Agents can instantly check your real-time availability during customer chats on WhatsApp and Instagram, automatically schedule client meetings with Google Meet links, and draft professional email responses.",
-        screenshot: "/images/docs/email-calendar/verify.png"
+        screenshot: "/images/docs/email-calendar/verify.webp"
       },
       {
         id: "troubleshooting",

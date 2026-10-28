@@ -202,7 +202,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
       ],
       targetIndustries: ['B2B SaaS', 'Commercial Real Estate', 'High-Ticket Consulting'],
       image: {
-        src: '/docs/screenshots/intro-sales-qualification-v3.png',
+        src: '/images/docs/screenshots/intro-sales-qualification-v3.webp',
         alt: 'AI Sales Qualification WhatsApp Assistant',
         caption: 'Instant WhatsApp lead qualification with automated scoring and demo booking',
         annotation: 'Sales Qualification',
@@ -223,7 +223,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
       ],
       targetIndustries: ['E-Commerce & DTC', 'Consumer Tech', 'Subscription Services'],
       image: {
-        src: '/docs/screenshots/intro-customer-support-v4.png',
+        src: '/images/docs/screenshots/intro-customer-support-v4.webp',
         alt: 'Autonomous AI Customer Support Agent and Order Tracking',
         caption: 'Autonomous Tier-1 support with document citations, order tracking, and live agent handoff',
         annotation: 'Customer Support',
@@ -244,7 +244,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
       ],
       targetIndustries: ['Higher Education', 'Legal & Compliance', 'Internal IT Helpdesk'],
       image: {
-        src: '/docs/screenshots/intro-knowledge-copilot-v5.png',
+        src: '/images/docs/screenshots/intro-knowledge-copilot-v5.webp',
         alt: 'Knowledge AI Agent Grounding Architecture and Citations',
         caption: 'Vector-grounded knowledge retrieval across PDFs, documents, spreadsheets & URLs with strict citations',
         annotation: 'Knowledge AI Agent',
@@ -265,7 +265,7 @@ export default function IntroductionDetailView({ article, prevArticle, nextArtic
       ],
       targetIndustries: ['Agencies', 'Healthcare & Clinics', 'Professional Services'],
       image: {
-        src: '/docs/screenshots/intro-lead-management-v2.png',
+        src: '/images/docs/screenshots/intro-lead-management-v2.webp',
         alt: 'AI Lead Intelligence & Automated CRM Record Creation',
         caption: 'Unstructured WhatsApp conversations automatically extracted and synced into structured CRM records',
         annotation: 'CRM Pipeline',

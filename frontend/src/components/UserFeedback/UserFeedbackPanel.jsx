@@ -125,11 +125,11 @@ export default function UserFeedbackPanel({ isOpen, onClose, embedded = false })
             {embedded && (
                 <>
                     <div className="mb-6">
-                        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+                        <h1 className="text-xl md:text-2xl font-normal tracking-tight text-white">
                             Feedback / Report Issue
                         </h1>
                         <p className="mt-1.5 text-sm text-white/65">
-                            Help us improve Auromind
+                            Help us improve OrbionAgents
                         </p>
                     </div>
                     <div className="mb-6 h-px w-full bg-[rgba(124,58,237,0.15)]" />
@@ -142,12 +142,12 @@ export default function UserFeedbackPanel({ isOpen, onClose, embedded = false })
                 {/* Header */}
                 {!embedded && <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
                     <div>
-                        <h2 className="text-lg font-semibold text-white">
+                        <h2 className="text-xl md:text-2xl font-normal tracking-tight text-white">
                             Feedback / Report Issue
                         </h2>
 
                         <p className="text-xs text-[#888] mt-1">
-                            Help us improve Auromind
+                            Help us improve OrbionAgents
                         </p>
                     </div>
 

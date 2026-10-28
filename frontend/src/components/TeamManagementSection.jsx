@@ -735,7 +735,7 @@ export default function TeamManagementSection() {
   return (
     <div className={poppins.className + " @container min-h-[70vh] w-full min-w-0 bg-transparent text-zinc-300"}>
       <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">User settings</h1>
+        <h1 className="text-xl md:text-2xl font-normal tracking-tight text-white">User settings</h1>
         <p className="mt-1.5 text-sm text-white/65">Manage and invite team members to your Workspace.</p>
       </div>
       <div className="mb-8 h-px w-full bg-[#814ac8]/15" />

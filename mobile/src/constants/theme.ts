@@ -1,5 +1,5 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
+ * Below are the colors and fonts that are used in the app. The colors are defined in the light and dark mode.
  */
 
 import '@/global.css';
@@ -27,15 +27,15 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
-    sans: 'Inter-Regular',
+    sans: 'Poppins-Regular',
     serif: 'ui-serif',
-    rounded: 'Inter-Regular',
+    rounded: 'Poppins-Regular',
     mono: 'ui-monospace',
   },
   default: {
-    sans: 'Inter-Regular',
+    sans: 'Poppins-Regular',
     serif: 'serif',
-    rounded: 'Inter-Regular',
+    rounded: 'Poppins-Regular',
     mono: 'monospace',
   },
   web: {
