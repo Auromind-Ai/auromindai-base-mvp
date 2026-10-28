@@ -16,10 +16,13 @@ import {
   Loader2,
   Paperclip,
   Smile,
-  MoreVertical,
   ChevronDown,
   Copy,
-  Check
+  Check,
+  FileText,
+  Download,
+  X,
+  Image as ImageIcon
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '@/context/AuthContext';
@@ -86,8 +89,36 @@ function TestAgentContent() {
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sourcesUsed, setSourcesUsed] = useState([]);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFilePreview, setSelectedFilePreview] = useState(null);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const chatScrollContainerRef = useRef(null);
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const isImage = file.type.startsWith('image/');
+      setSelectedFilePreview({
+        file,
+        url: isImage ? URL.createObjectURL(file) : null,
+        type: isImage ? 'image' : 'document',
+        name: file.name,
+        size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
+      });
+      e.target.value = '';
+    }
+  };
+
+  const handleClearSelectedFile = () => {
+    if (selectedFilePreview?.url) {
+      try { URL.revokeObjectURL(selectedFilePreview.url); } catch (_) {}
+    }
+    setSelectedFile(null);
+    setSelectedFilePreview(null);
+  };
 
   // Load agents
   useEffect(() => {
@@ -98,7 +129,9 @@ function TestAgentContent() {
         setLoadingAgents(true);
         const res = await api.getAgents(workspaceId);
         if (isMounted) {
-          const list = res.agents || [];
+          const list = (res.agents || []).filter(
+            (a) => !a.is_draft && a.status?.toLowerCase() !== 'draft'
+          );
           setAgents(list);
           if (list.length > 0) {
             const target = list.find((a) => a.id === agentIdParam) || list[0];
@@ -140,31 +173,75 @@ function TestAgentContent() {
     }
   }, [messages, isSending]);
 
-  // Send message handler
+  // Send message handler with file upload support
   const handleSendMessage = async (textToSend = null) => {
-    const text = (textToSend || inputText).trim();
-    if (!text || isSending) return;
+    const text = (textToSend !== null ? textToSend : inputText).trim();
+    if ((!text && !selectedFile) || isSending || isUploadingMedia) return;
+
+    let mediaData = null;
+    const fileToUpload = selectedFile;
+    const previewToKeep = selectedFilePreview;
+
+    if (fileToUpload) {
+      setIsUploadingMedia(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', fileToUpload);
+        const wsQuery = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : '';
+        const uploadEndpoint = typeof window !== 'undefined' && window.location.hostname.endsWith('orbionagents.com')
+          ? `https://api.orbionagents.com/upload${wsQuery}`
+          : `/api/upload${wsQuery}`;
+        const uploadRes = await api.post(uploadEndpoint, formData);
+        mediaData = {
+          url: uploadRes.url,
+          type: uploadRes.file_type || (fileToUpload.type.startsWith('image/') ? 'image' : 'document'),
+          name: uploadRes.filename || fileToUpload.name,
+          size: previewToKeep?.size || '',
+          mimeType: uploadRes.mime_type || fileToUpload.type,
+        };
+      } catch (uploadErr) {
+        console.error("Failed to upload file to server, using client preview fallback:", uploadErr);
+        mediaData = {
+          url: previewToKeep?.url,
+          type: previewToKeep?.type || (fileToUpload.type.startsWith('image/') ? 'image' : 'document'),
+          name: fileToUpload.name,
+          size: previewToKeep?.size || '',
+        };
+      } finally {
+        setIsUploadingMedia(false);
+      }
+    }
 
     const userMsg = {
       id: getUniqueId('user'),
       sender: 'user',
       text,
+      mediaUrl: mediaData?.url,
+      mediaType: mediaData?.type,
+      fileName: mediaData?.name,
+      fileSize: mediaData?.size,
       time: getCurrentTimeStr(),
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    if (!textToSend) setInputText('');
+    if (textToSend === null) setInputText('');
+    handleClearSelectedFile();
     setIsSending(true);
 
     try {
       const payload = {
         agent_id: selectedAgent?.id,
         channel: selectedChannel,
-        message: text,
+        message: text || (mediaData ? `[${(mediaData.type || 'FILE').toUpperCase()}]` : ''),
         conversation_history: messages.map((m) => ({
           sender: m.sender,
-          text: m.text,
+          text: m.text || '',
+          media_url: m.mediaUrl || null,
         })),
+        media_url: mediaData?.url || null,
+        media_type: mediaData?.type || null,
+        filename: mediaData?.name || null,
+        file_size: mediaData?.size || null,
       };
 
       const res = await api.testAgentChat(payload, workspaceId);
@@ -224,11 +301,8 @@ function TestAgentContent() {
             <ArrowLeft size={16} />
           </Link>
           <div>
-            <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-              <span>Test Your Agent</span>
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-semibold uppercase tracking-wider">
-                Sandbox Test
-              </span>
+            <h1 className="text-lg font-bold text-white tracking-tight">
+              Test Your Agent
             </h1>
             <p className="text-xs text-zinc-400">
               Try different scenarios to see how your agent responds in real-time.
@@ -301,17 +375,6 @@ function TestAgentContent() {
                   ))}
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
-              </div>
-            )}
-            {selectedAgent && (
-              <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between text-[11px]">
-                <div className="flex items-center gap-1.5 text-zinc-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Real AI Engine:</span>
-                </div>
-                <span className="font-mono text-purple-300 font-medium text-[10px] bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
-                  {selectedAgent?.ai_config?.provider || 'Groq'}: {selectedAgent?.ai_config?.model || 'openai/gpt-oss-120b'}
-                </span>
               </div>
             )}
           </div>
@@ -453,15 +516,9 @@ function TestAgentContent() {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-zinc-400 capitalize px-2 py-0.5 rounded-full bg-white/5 border border-white/5">
+              <span className="text-[10px] text-zinc-400 capitalize px-2.5 py-1 rounded-full bg-white/5 border border-white/5">
                 Channel: {selectedChannel}
               </span>
-              <button
-                type="button"
-                className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5"
-              >
-                <MoreVertical size={16} />
-              </button>
             </div>
           </div>
 
@@ -483,7 +540,41 @@ function TestAgentContent() {
                           : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-tr-sm'
                       }`}
                     >
-                      <div className="whitespace-pre-wrap">{msg.text}</div>
+                      {/* Image Preview */}
+                      {msg.mediaUrl && msg.mediaType === 'image' && (
+                        <div className="mb-2 overflow-hidden rounded-xl bg-black/20">
+                          <img
+                            src={msg.mediaUrl}
+                            alt={msg.fileName || 'Uploaded image'}
+                            className="max-w-full max-h-60 rounded-xl object-contain cursor-pointer hover:opacity-95 transition"
+                            onClick={() => window.open(msg.mediaUrl, '_blank')}
+                          />
+                        </div>
+                      )}
+
+                      {/* Document / File Preview */}
+                      {msg.mediaUrl && msg.mediaType !== 'image' && (
+                        <a
+                          href={msg.mediaUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2.5 p-2.5 rounded-xl bg-black/20 hover:bg-black/30 border border-white/10 mb-2 transition-colors group/doc"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+                            <FileText size={16} className="text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0 text-left">
+                            <p className="text-xs font-medium text-white truncate">{msg.fileName || 'Document'}</p>
+                            {msg.fileSize && <p className="text-[10px] text-white/60">{msg.fileSize}</p>}
+                          </div>
+                          <Download size={13} className="text-white/60 group-hover/doc:text-white shrink-0" />
+                        </a>
+                      )}
+
+                      {msg.text && !/^\[(IMAGE|DOCUMENT|FILE)\]$/i.test(msg.text.trim()) && (
+                        <div className="whitespace-pre-wrap">{msg.text}</div>
+                      )}
+
                       <div className="text-[9px] mt-1.5 text-white/70 text-right">
                         {msg.time}
                       </div>
@@ -504,12 +595,6 @@ function TestAgentContent() {
                           <span className="text-[11px] font-semibold text-white">
                             {selectedAgent?.business_name || selectedAgent?.name || 'AI Assistant'}
                           </span>
-                          {msg.modelUsed && (
-                            <span className="text-[10px] text-purple-300 font-mono px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 flex items-center gap-1">
-                              <Sparkles size={8} />
-                              {msg.modelUsed}
-                            </span>
-                          )}
                         </div>
 
                         <div
@@ -589,6 +674,46 @@ function TestAgentContent() {
 
           {/* Bottom Chat Input */}
           <div className="p-3 bg-[#0e1424] border-t border-white/10 space-y-2 shrink-0">
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            {/* Attachment preview if selected */}
+            {selectedFilePreview && (
+              <div className="p-2 px-3 rounded-xl bg-[#151c2e] border border-white/10 inline-flex items-center gap-3 max-w-full shadow-lg mb-2">
+                {selectedFilePreview.type === 'image' && selectedFilePreview.url ? (
+                  <img
+                    src={selectedFilePreview.url}
+                    alt="attachment"
+                    className="w-10 h-10 object-cover rounded-lg shrink-0 border border-white/10"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
+                    <FileText size={18} />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0 pr-2 text-left">
+                  <p className="text-xs text-white font-medium truncate max-w-[200px]">
+                    {selectedFilePreview.name}
+                  </p>
+                  <p className="text-[10px] text-zinc-400">{selectedFilePreview.size}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearSelectedFile}
+                  className="p-1 text-zinc-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+                  title="Remove attachment"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -598,15 +723,16 @@ function TestAgentContent() {
             >
               <button
                 type="button"
-                className="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-white/5 transition-colors"
-                title="Attach file (simulation)"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+                title="Attach image or document"
               >
                 <Paperclip size={16} />
               </button>
 
               <input
                 type="text"
-                placeholder="Type a message..."
+                placeholder={selectedFilePreview ? "Add a message or press enter to send..." : "Type a message..."}
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 className="flex-1 bg-[#151c2e] border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500/50 transition-colors"
@@ -614,14 +740,18 @@ function TestAgentContent() {
 
               <button
                 type="submit"
-                disabled={!inputText.trim() || isSending}
+                disabled={(!inputText.trim() && !selectedFile) || isSending || isUploadingMedia}
                 className={`w-9 h-9 rounded-xl flex items-center justify-center text-white transition-all cursor-pointer disabled:opacity-40 shrink-0 ${
                   selectedChannel === 'whatsapp'
                     ? 'bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-900/30'
                     : 'bg-purple-600 hover:bg-purple-500 shadow-md shadow-purple-900/30'
                 }`}
               >
-                <Send size={15} />
+                {isUploadingMedia ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Send size={15} />
+                )}
               </button>
             </form>
 

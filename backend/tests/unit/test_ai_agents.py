@@ -188,8 +188,45 @@ def test_validate_api_key(setup_db):
         "provider": "openai",
         "api_key": "invalid-dummy-key"
     })
-    assert res.status_code == 200
-    data = res.json()
-    assert "valid" in data
-    assert data["valid"] is False
-    assert "Invalid API key" in data["message"] or "Failed to connect" in data["message"]
+    assert res.status_code == 400
+    detail = res.json().get("detail", "")
+    assert "Google and Groq" in detail or "unsupported provider" in detail.lower()
+@pytest.mark.asyncio
+async def test_knowledge_base_and_web_search_toggles():
+    from app.services.ai.agent_executor import execute_agent_conversation
+
+    agent_cfg = {
+        "name": "Toggle Test Agent",
+        "agent_type": "sales_assistant",
+        "business_name": "Antigravity Corp",
+        "ai_config": {
+            "provider": "groq",
+            "model": "openai/gpt-oss-120b",
+            "system_prompt": "You are a test agent.",
+            "custom_api_key": "dummy_key"
+        },
+        "knowledge_config": {
+            "collection": "agent_test_toggle",
+            "faqs": [
+                {"question": "What is company secret?", "answer": "The secret is 123456."}
+            ],
+            "settings": {
+                "use_knowledge_base": False,
+                "web_search": False
+            }
+        }
+    }
+
+    # 1. When use_knowledge_base is False
+    res_disabled = await execute_agent_conversation(agent_cfg, message="What is company secret?")
+    assert not any("FAQ:" in s for s in res_disabled["sources_used"])
+
+    # 2. When use_knowledge_base is True
+    agent_cfg["knowledge_config"]["settings"]["use_knowledge_base"] = True
+    res_enabled = await execute_agent_conversation(agent_cfg, message="What is company secret?")
+    assert any("FAQ:" in s for s in res_enabled["sources_used"])
+
+    # 3. When web_search is True
+    agent_cfg["knowledge_config"]["settings"]["web_search"] = True
+    res_web = await execute_agent_conversation(agent_cfg, message="Python FastAPI documentation")
+    assert any("Web:" in s for s in res_web["sources_used"])

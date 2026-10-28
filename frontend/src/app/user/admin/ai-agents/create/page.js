@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -165,11 +165,7 @@ function CreateAgentWizardContent() {
     website_url: '',
 
     // Step 2: Channels (only WhatsApp, Instagram, and Twilio supported)
-    channels_config: {
-      whatsapp: { enabled: false },
-      instagram: { enabled: false },
-      twilio: { enabled: false },
-    },
+    channels_config: {},
     channel_settings: {
       auto_reply: true,
       sync_crm: true,
@@ -194,8 +190,6 @@ function CreateAgentWizardContent() {
       settings: {
         use_knowledge_base: true,
         web_search: false,
-        auto_sync: true,
-        ocr: true,
       },
     },
   }));
@@ -211,12 +205,66 @@ function CreateAgentWizardContent() {
   const [knowledgeFeedback, setKnowledgeFeedback] = useState({ message: '', type: '' });
   const fileInputRef = useRef(null);
 
-  // If editId is provided, fetch existing agent
+  // Load models, channels metadata, and existing agent or draft on mount
   useEffect(() => {
-    if (editId && workspaceId) {
-      api.getAgent(editId, workspaceId).then((res) => {
-        if (res?.agent) {
-          const a = res.agent;
+    let isMounted = true;
+    async function initWizard() {
+      if (!workspaceId) return;
+      try {
+        const [modelsRes, channelsRes, agentOrDraftRes] = await Promise.allSettled([
+          api.getSupportedModels(workspaceId),
+          api.getAgentChannelsStatus(workspaceId),
+          editId ? api.getAgent(editId, workspaceId) : api.getAgentDraft(workspaceId),
+        ]);
+
+        if (!isMounted) return;
+
+        // 1. Process Channels Metadata
+        let chList = [];
+        if (channelsRes.status === 'fulfilled' && channelsRes.value?.channels) {
+          chList = channelsRes.value.channels;
+          setChannelsData(chList);
+        }
+
+        // Helper to resolve channels config:
+        // Rule: If connected, default to ON (enabled: true) unless user_disabled is explicitly true.
+        // If not connected, MUST be OFF (enabled: false).
+        const resolveChannelsConfig = (existingConfig = {}) => {
+          const result = {};
+          chList.forEach((c) => {
+            if (!c.connected) {
+              result[c.id] = { enabled: false };
+            } else {
+              // Channel is connected: default to ON (enabled: true)!
+              const wasExplicitlyDisabled = existingConfig[c.id]?.user_disabled === true;
+              result[c.id] = {
+                ...existingConfig[c.id],
+                enabled: !wasExplicitlyDisabled,
+              };
+            }
+          });
+          return result;
+        };
+
+        // 2. Process Providers & Models Metadata
+        let selectedProvider = 'groq';
+        let selectedModel = '';
+        if (modelsRes.status === 'fulfilled' && modelsRes.value?.providers?.length > 0) {
+          const provs = modelsRes.value.providers.filter(
+            (p) => p.provider === 'google' || p.provider === 'groq'
+          );
+          setProvidersData(provs);
+          const activeP = provs.find((p) => p.hasPlatformKey && p.models?.length > 0) || provs[0];
+          selectedProvider = activeP?.provider || 'groq';
+          const recM = activeP?.models?.find((m) => m.isRecommended) || activeP?.models?.[0];
+          selectedModel = recM?.id || '';
+        }
+
+        // 3. Process Edit Mode (Existing Agent)
+        if (editId && agentOrDraftRes.status === 'fulfilled' && agentOrDraftRes.value?.agent) {
+          const a = agentOrDraftRes.value.agent;
+          const resolvedChannels = resolveChannelsConfig(a.channels_config || {});
+
           setFormData({
             agent_type: a.agent_type || 'sales_assistant',
             name: a.name || '',
@@ -226,7 +274,7 @@ function CreateAgentWizardContent() {
             tone_of_voice: a.tone_of_voice || 'Friendly & Professional',
             business_name: a.business_name || '',
             website_url: a.website_url || '',
-            channels_config: a.channels_config || {},
+            channels_config: resolvedChannels,
             channel_settings: {
               auto_reply: true,
               sync_crm: true,
@@ -248,115 +296,54 @@ function CreateAgentWizardContent() {
               settings: a.knowledge_config?.settings || {
                 use_knowledge_base: true,
                 web_search: false,
-                auto_sync: true,
-                ocr: true,
               },
             },
           });
+          return;
         }
-      }).catch(console.error);
-    }
-  }, [editId, workspaceId]);
 
-  // Load models and channels metadata on mount
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchMetadata() {
-      if (!workspaceId) return;
-      try {
-        const [modelsRes, channelsRes, draftRes] = await Promise.allSettled([
-          api.getSupportedModels(workspaceId),
-          api.getAgentChannelsStatus(workspaceId),
-          editId ? Promise.resolve(null) : api.getAgentDraft(workspaceId),
-        ]);
+        // 4. Process Create Mode (with Draft if exists)
+        if (!editId && agentOrDraftRes.status === 'fulfilled' && agentOrDraftRes.value?.draft) {
+          const draft = agentOrDraftRes.value.draft;
+          const resolvedChannels = resolveChannelsConfig(draft.channels_config || {});
 
-        if (!isMounted) return;
-
-        if (modelsRes.status === 'fulfilled' && modelsRes.value?.providers?.length > 0) {
-          // Keep only Google and Groq providers
-          const provs = modelsRes.value.providers.filter(
-            (p) => p.provider === 'google' || p.provider === 'groq'
-          );
-          setProvidersData(provs);
-          setFormData((prev) => {
-            const activeP = provs.find((p) => p.hasPlatformKey && p.models?.length > 0)
-              || provs.find((p) => p.provider === prev.ai_config.provider)
-              || provs[0];
-            const currentModelValid = activeP?.models?.some((m) => m.id === prev.ai_config.model);
-            if (currentModelValid) {
-              return {
-                ...prev,
-                ai_config: {
-                  ...prev.ai_config,
-                  provider: activeP?.provider || 'groq',
-                },
-              };
-            }
-            const recM = activeP?.models?.find((m) => m.isRecommended) || activeP?.models?.[0];
-            return {
-              ...prev,
-              ai_config: {
-                ...prev.ai_config,
-                provider: activeP?.provider || 'groq',
-                model: recM?.id || '',
+          setFormData((prev) => ({
+            ...prev,
+            ...draft,
+            channels_config: resolvedChannels,
+            channel_settings: {
+              auto_reply: true,
+              sync_crm: true,
+              channel_specific_tone: true,
+              channel_tones: {
+                whatsapp: 'Friendly & Professional',
+                instagram: 'Casual & Conversational',
+                twilio: 'Concise & Direct',
               },
-            };
-          });
+              ...(draft.channel_settings || {}),
+            },
+          }));
+          return;
         }
-        if (channelsRes.status === 'fulfilled' && channelsRes.value?.channels) {
-          const chList = channelsRes.value.channels;
-          setChannelsData(chList);
-          // Set initial channel enable flags based on confirmed backend connection
-          setFormData((prev) => {
-            const updated = { ...prev.channels_config };
-            chList.forEach((c) => {
-              if (c.connected && updated[c.id] === undefined) {
-                updated[c.id] = { enabled: true };
-              } else if (!c.connected && updated[c.id]?.enabled) {
-                updated[c.id] = { ...updated[c.id], enabled: false };
-              }
-            });
-            return { ...prev, channels_config: updated };
-          });
-        }
-        if (draftRes.status === 'fulfilled' && draftRes.value?.draft && !editId) {
-          const draft = draftRes.value.draft;
-          const chList = channelsRes.status === 'fulfilled' ? channelsRes.value?.channels || [] : [];
-          setFormData((prev) => {
-            const mergedConfig = {
-              whatsapp: { enabled: false },
-              instagram: { enabled: false },
-              twilio: { enabled: false },
-              ...(draft.channels_config || {}),
-            };
-            chList.forEach((c) => {
-              if (!c.connected && mergedConfig[c.id]) {
-                mergedConfig[c.id] = { ...mergedConfig[c.id], enabled: false };
-              }
-            });
-            return {
-              ...prev,
-              ...draft,
-              channels_config: mergedConfig,
-              channel_settings: {
-                auto_reply: true,
-                sync_crm: true,
-                channel_specific_tone: true,
-                channel_tones: {
-                  whatsapp: 'Friendly & Professional',
-                  instagram: 'Casual & Conversational',
-                  twilio: 'Concise & Direct',
-                },
-                ...(draft.channel_settings || {}),
-              },
-            };
-          });
+
+        // 5. Fresh Create Mode (No Draft)
+        if (!editId) {
+          const resolvedChannels = resolveChannelsConfig({});
+          setFormData((prev) => ({
+            ...prev,
+            channels_config: resolvedChannels,
+            ai_config: {
+              ...prev.ai_config,
+              provider: selectedProvider || prev.ai_config.provider,
+              model: selectedModel || prev.ai_config.model,
+            },
+          }));
         }
       } catch (err) {
-        console.warn("Failed to load metadata:", err);
+        console.warn("Failed to initialize wizard metadata:", err);
       }
     }
-    fetchMetadata();
+    initWizard();
     return () => { isMounted = false; };
   }, [workspaceId, editId]);
 
@@ -384,7 +371,12 @@ function CreateAgentWizardContent() {
       }
     }
     if (step === 2) {
-      const anyEnabled = Object.values(formData.channels_config).some((c) => c.enabled);
+      const anyEnabled = Object.entries(formData.channels_config).some(
+        ([chId, cfg]) => {
+          const backendChannel = channelsData.find((c) => c.id === chId);
+          return (backendChannel ? backendChannel.connected : true) && cfg?.enabled;
+        }
+      );
       if (!anyEnabled) {
         setErrorMessage('Please select at least one channel for your agent.');
         return false;
@@ -655,6 +647,15 @@ function CreateAgentWizardContent() {
   const handleAddWebsiteUrl = async () => {
     if (!newWebsiteUrl.trim()) return;
     const url = newWebsiteUrl.trim();
+
+    const currentUrls = (formData.knowledge_config.website_urls || []).map((u) =>
+      typeof u === 'string' ? u : u.url
+    );
+    if (currentUrls.includes(url)) {
+      setKnowledgeFeedback({ message: `"${url}" has already been added.`, type: 'error' });
+      return;
+    }
+
     setIsKnowledgeBusy(true);
     setKnowledgeFeedback({ message: '', type: '' });
 
@@ -724,6 +725,74 @@ function CreateAgentWizardContent() {
       setIsKnowledgeBusy(false);
     }
   };
+
+  // Delete Website URL Handler
+  const handleDeleteWebsiteUrl = async (urlToDelete, entryId) => {
+    setFormData((prev) => ({
+      ...prev,
+      knowledge_config: {
+        ...prev.knowledge_config,
+        website_urls: (prev.knowledge_config.website_urls || []).filter((u) => {
+          const uStr = typeof u === 'string' ? u : u.url;
+          return uStr !== urlToDelete;
+        }),
+        files: (prev.knowledge_config.files || []).filter(
+          (f) => f.name !== urlToDelete && f.id !== entryId && f.entry_id !== entryId
+        ),
+      },
+    }));
+
+    if (workspaceId && entryId && !String(entryId).startsWith('web-')) {
+      try {
+        await api.deleteBrainEntry(entryId, workspaceId);
+      } catch (e) {
+        console.warn('Vector entry deletion notice:', e);
+      }
+    }
+    setKnowledgeFeedback({ message: `Removed "${urlToDelete}" from website links.`, type: 'success' });
+  };
+
+  // Synced website URLs list
+  const websiteUrlsList = useMemo(() => {
+    const rawUrls = formData.knowledge_config.website_urls || [];
+    const files = formData.knowledge_config.files || [];
+
+    const list = rawUrls.map((item, idx) => {
+      const urlStr = typeof item === 'string' ? item : item.url || item.name;
+      const matchingFile = files.find(
+        (f) => f.name === urlStr || (f.size === 'Website link' && f.name === urlStr)
+      );
+      return {
+        id: matchingFile?.id || `web-url-${idx}`,
+        entry_id: matchingFile?.entry_id || matchingFile?.id || null,
+        url: urlStr,
+        status: matchingFile?.status || 'Synced',
+        time: matchingFile?.time || 'Indexed in Vector DB',
+      };
+    });
+
+    files.forEach((f) => {
+      if ((f.size === 'Website link' || f.name?.startsWith('http://') || f.name?.startsWith('https://')) &&
+          !list.some((l) => l.url === f.name)) {
+        list.push({
+          id: f.id,
+          entry_id: f.entry_id || f.id,
+          url: f.name,
+          status: f.status || 'Synced',
+          time: f.time || 'Indexed in Vector DB',
+        });
+      }
+    });
+
+    return list;
+  }, [formData.knowledge_config.website_urls, formData.knowledge_config.files]);
+
+  // Uploaded document files (exclude website link entries)
+  const uploadedDocumentFiles = useMemo(() => {
+    return (formData.knowledge_config.files || []).filter(
+      (f) => f.size !== 'Website link' && !f.name?.startsWith('http://') && !f.name?.startsWith('https://')
+    );
+  }, [formData.knowledge_config.files]);
 
   // Reset AI Config
   const handleResetAIConfig = () => {
@@ -1148,9 +1217,13 @@ function CreateAgentWizardContent() {
                     ),
                   },
                 ].map((channel) => {
-                  const isEnabled = Boolean(formData.channels_config[channel.id]?.enabled);
                   const backendChannel = channelsData.find((c) => c.id === channel.id);
                   const isConnected = Boolean(backendChannel?.connected);
+                  const isEnabled = isConnected && (
+                    formData.channels_config[channel.id]?.enabled !== undefined
+                      ? Boolean(formData.channels_config[channel.id]?.enabled)
+                      : true
+                  );
 
                   return (
                     <div
@@ -1205,16 +1278,21 @@ function CreateAgentWizardContent() {
                               return;
                             }
                             setErrorMessage('');
-                            setFormData((prev) => ({
-                              ...prev,
-                              channels_config: {
-                                ...prev.channels_config,
-                                [channel.id]: {
-                                  ...prev.channels_config[channel.id],
-                                  enabled: !isEnabled,
+                            setFormData((prev) => {
+                              const currentEnabled = isEnabled;
+                              const nextEnabled = !currentEnabled;
+                              return {
+                                ...prev,
+                                channels_config: {
+                                  ...prev.channels_config,
+                                  [channel.id]: {
+                                    ...prev.channels_config[channel.id],
+                                    enabled: nextEnabled,
+                                    user_disabled: !nextEnabled,
+                                  },
                                 },
-                              },
-                            }));
+                              };
+                            });
                           }}
                           className={`w-11 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer shrink-0 ${
                             isEnabled ? 'bg-purple-600' : 'bg-zinc-700'
@@ -1571,27 +1649,6 @@ function CreateAgentWizardContent() {
                           </div>
                         )}
 
-                        {isAvailable && (
-                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/5 text-zinc-300 border border-white/5">
-                              Context: {(currentModelObj.contextWindow || 128000).toLocaleString()} tokens
-                            </span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-md border ${
-                              currentModelObj.supportsTools
-                                ? 'bg-purple-500/10 text-purple-300 border-purple-500/20'
-                                : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
-                            }`}>
-                              {currentModelObj.supportsTools ? '✓ Tools' : 'No Tools'}
-                            </span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-md border ${
-                              currentModelObj.supportsStructuredOutput
-                                ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
-                                : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
-                            }`}>
-                              {currentModelObj.supportsStructuredOutput ? '✓ JSON Schema' : 'Plain text'}
-                            </span>
-                          </div>
-                        )}
                       </div>
 
                       <div className="p-4 rounded-xl bg-[#121927] border border-white/10 flex flex-col justify-center">
@@ -1814,177 +1871,275 @@ function CreateAgentWizardContent() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="grid grid-cols-1 lg:grid-cols-12 gap-8"
+              className="space-y-6"
             >
-              {/* Left Column: Knowledge Sources Tabs */}
-              <div className="lg:col-span-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-white">Knowledge Sources</h2>
-                </div>
-                {/* Collection Tag Isolation Badge */}
-                <div className="p-3 rounded-xl bg-purple-950/20 border border-purple-500/20 space-y-1">
-                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-purple-300">
-                    <Database size={13} className="text-purple-400" />
-                    <span>Vector Collection Tag</span>
+              {/* Top Header Card with Global Toggles */}
+              <div className="p-5 md:p-6 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                      <Database size={18} />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-bold text-white tracking-tight">Knowledge Base</h2>
+                      <p className="text-xs text-zinc-400">
+                        Equip your agent with company documents, live website data, and custom answers.
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-[11px] font-mono text-purple-200 bg-black/40 px-2 py-1 rounded border border-purple-500/10 truncate">
-                    {formData.knowledge_config.collection || 'agent_collection'}
-                  </div>
-                  <p className="text-[10px] text-zinc-400 leading-tight">
-                    All chunks are isolated under this tag in Vector DB.
-                  </p>
                 </div>
 
-                <div className="space-y-1.5">
-                  {[
-                    { id: 'upload', label: 'Upload Files', icon: <Upload size={15} /> },
-                    { id: 'website', label: 'Website Links', icon: <Globe size={15} /> },
-                    { id: 'faq', label: 'Text / FAQs', icon: <FileText size={15} /> },
-                    { id: 'drive', label: 'Google Drive', icon: <FileText size={15} /> },
-                    { id: 'sheets', label: 'Google Sheets', icon: <FileText size={15} /> },
-                  ].map((src) => {
-                    const isSelected = knowledgeTab === src.id;
-                    return (
-                      <button
-                        key={src.id}
-                        type="button"
-                        onClick={() => setKnowledgeTab(src.id)}
-                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-left transition-colors cursor-pointer ${
-                          isSelected
-                            ? 'bg-purple-600 text-white shadow-md shadow-purple-900/30'
-                            : 'bg-[#0c1220]/70 text-zinc-400 hover:text-white hover:bg-white/5 border border-white/5'
-                        }`}
-                      >
-                        <span className="shrink-0">{src.icon}</span>
-                        <span>{src.label}</span>
-                      </button>
-                    );
-                  })}
+                {/* Global Knowledge Toggles */}
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Use Knowledge Base Toggle */}
+                  <div className="flex items-center gap-3 px-3.5 py-2 rounded-xl bg-[#121927] border border-white/5">
+                    <span className="text-xs font-medium text-zinc-200">Use knowledge base</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isChecked = formData.knowledge_config.settings.use_knowledge_base;
+                        setFormData((prev) => ({
+                          ...prev,
+                          knowledge_config: {
+                            ...prev.knowledge_config,
+                            settings: {
+                              ...prev.knowledge_config.settings,
+                              use_knowledge_base: !isChecked,
+                            },
+                          },
+                        }));
+                      }}
+                      className={`w-9 h-5 rounded-full transition-colors relative p-0.5 cursor-pointer shrink-0 ${
+                        formData.knowledge_config.settings.use_knowledge_base ? 'bg-purple-600' : 'bg-zinc-700'
+                      }`}
+                    >
+                      <motion.div
+                        animate={{ x: formData.knowledge_config.settings.use_knowledge_base ? 16 : 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        className="w-4 h-4 rounded-full bg-white shadow-sm"
+                      />
+                    </button>
+                  </div>
+
+                  {/* Web Search Toggle */}
+                  <div className="flex items-center gap-3 px-3.5 py-2 rounded-xl bg-[#121927] border border-white/5">
+                    <span className="text-xs font-medium text-zinc-200">Search Web (Live Data)</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isChecked = formData.knowledge_config.settings.web_search;
+                        setFormData((prev) => ({
+                          ...prev,
+                          knowledge_config: {
+                            ...prev.knowledge_config,
+                            settings: {
+                              ...prev.knowledge_config.settings,
+                              web_search: !isChecked,
+                            },
+                          },
+                        }));
+                      }}
+                      className={`w-9 h-5 rounded-full transition-colors relative p-0.5 cursor-pointer shrink-0 ${
+                        formData.knowledge_config.settings.web_search ? 'bg-purple-600' : 'bg-zinc-700'
+                      }`}
+                    >
+                      <motion.div
+                        animate={{ x: formData.knowledge_config.settings.web_search ? 16 : 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        className="w-4 h-4 rounded-full bg-white shadow-sm"
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Right Column: Knowledge Content Area */}
-              <div className="lg:col-span-8 space-y-5">
-                {/* Knowledge Base Activity or Error Banner */}
-                {knowledgeFeedback.message && (
-                  <div
-                    className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
-                      knowledgeFeedback.type === 'error'
-                        ? 'bg-rose-500/10 border-rose-500/20 text-rose-300'
-                        : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                    }`}
+              {/* Disabled Knowledge Warning Banner */}
+              {!formData.knowledge_config.settings.use_knowledge_base && (
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2.5">
+                  <AlertCircle size={16} className="shrink-0 text-amber-400" />
+                  <span>Knowledge Base is currently turned off. Turn on <b>Use knowledge base</b> above to let your agent answer questions using these sources.</span>
+                </div>
+              )}
+
+              {/* Knowledge Base Activity or Error Banner */}
+              {knowledgeFeedback.message && (
+                <div
+                  className={`p-3.5 rounded-xl border flex items-center justify-between text-xs ${
+                    knowledgeFeedback.type === 'error'
+                      ? 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {knowledgeFeedback.type === 'error' ? (
+                      <AlertCircle size={15} className="shrink-0" />
+                    ) : (
+                      <CheckCircle2 size={15} className="shrink-0" />
+                    )}
+                    <span>{knowledgeFeedback.message}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setKnowledgeFeedback({ message: '', type: '' })}
+                    className="text-zinc-400 hover:text-white cursor-pointer ml-2"
                   >
-                    <div className="flex items-center gap-2">
-                      {knowledgeFeedback.type === 'error' ? (
-                        <AlertCircle size={15} className="shrink-0" />
-                      ) : (
-                        <CheckCircle2 size={15} className="shrink-0" />
-                      )}
-                      <span>{knowledgeFeedback.message}</span>
-                    </div>
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+
+              {isKnowledgeBusy && (
+                <div className="p-3.5 rounded-xl bg-purple-900/20 border border-purple-500/30 flex items-center gap-2 text-xs text-purple-200">
+                  <Loader2 size={15} className="animate-spin text-purple-400 shrink-0" />
+                  <span>Vector DB is indexing chunks into collection <b>{formData.knowledge_config.collection}</b>...</span>
+                </div>
+              )}
+
+              {/* Segmented Navigation Tabs */}
+              <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08]">
+                {[
+                  { id: 'upload', label: 'Upload Documents', count: uploadedDocumentFiles.length, icon: <Upload size={14} /> },
+                  { id: 'website', label: 'Website Links', count: websiteUrlsList.length, icon: <Globe size={14} /> },
+                  { id: 'faq', label: 'Custom FAQs', count: formData.knowledge_config.faqs.length, icon: <FileText size={14} /> },
+                ].map((tab) => {
+                  const isActive = knowledgeTab === tab.id;
+                  return (
                     <button
+                      key={tab.id}
                       type="button"
-                      onClick={() => setKnowledgeFeedback({ message: '', type: '' })}
-                      className="text-zinc-400 hover:text-white cursor-pointer ml-2"
+                      onClick={() => setKnowledgeTab(tab.id)}
+                      className={`flex-1 flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-purple-900/30'
+                          : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      }`}
                     >
-                      <X size={14} />
+                      <span className="shrink-0">{tab.icon}</span>
+                      <span>{tab.label}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-white/5 text-zinc-400'
+                      }`}>
+                        {tab.count}
+                      </span>
                     </button>
-                  </div>
-                )}
+                  );
+                })}
+              </div>
 
-                {isKnowledgeBusy && (
-                  <div className="p-3 rounded-xl bg-purple-900/20 border border-purple-500/30 flex items-center gap-2 text-xs text-purple-200">
-                    <Loader2 size={15} className="animate-spin text-purple-400 shrink-0" />
-                    <span>Vector DB is indexing chunks into collection <b>{formData.knowledge_config.collection}</b>...</span>
-                  </div>
-                )}
-
-                {/* Tab: Upload Files */}
-                {knowledgeTab === 'upload' && (
-                  <div className="space-y-5">
-                    {/* Drag and Drop Zone & Supported Content */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="md:col-span-2 p-8 rounded-2xl bg-[#0c1220]/80 border-2 border-dashed border-white/15 hover:border-purple-500/50 flex flex-col items-center justify-center text-center cursor-pointer transition-all group"
-                      >
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          multiple
-                          accept=".pdf,.doc,.docx,.txt,.csv"
-                          onChange={handleFileUpload}
-                          className="hidden"
-                        />
-                        <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-3 group-hover:scale-110 transition-transform">
-                          <Upload size={22} />
-                        </div>
-                        <div className="text-xs font-semibold text-white">
-                          Drag and drop files here, or <span className="text-purple-400 underline">click to browse</span>
-                        </div>
-                        <p className="text-[11px] text-zinc-400 mt-1">
-                          Supports PDF, DOC, DOCX, TXT, CSV (Max 10MB per file)
-                        </p>
+              {/* Tab: Upload Files */}
+              {knowledgeTab === 'upload' && (
+                <div className="space-y-6">
+                  {/* Top Grid: Drop Zone + Guidance */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                    {/* Drag and Drop Zone */}
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="lg:col-span-8 p-8 min-h-[170px] rounded-2xl bg-[#0c1220]/80 border-2 border-dashed border-white/15 hover:border-purple-500/50 flex flex-col items-center justify-center text-center cursor-pointer transition-all group hover:bg-purple-950/10"
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept=".pdf,.doc,.docx,.txt,.csv"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-3 group-hover:scale-110 transition-transform shadow-md">
+                        <Upload size={22} />
                       </div>
+                      <div className="text-xs font-semibold text-white">
+                        Drag and drop files here, or <span className="text-purple-400 underline">click to browse</span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400 mt-1">
+                        Supports PDF, DOC, DOCX, TXT, CSV (Max 10MB per file)
+                      </p>
+                    </div>
 
-                      {/* Supported Content Checklist */}
-                      <div className="p-4 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] flex flex-col justify-center space-y-2">
-                        <span className="text-xs font-semibold text-white">Supported Content</span>
-                        <ul className="space-y-1.5 text-[11px] text-zinc-400">
-                          <li className="flex items-center gap-1.5">
-                            <Check size={12} className="text-emerald-400 shrink-0" />
-                            <span>Product catalogs & pricing</span>
+                    {/* Content Suggestions Guide */}
+                    <div className="lg:col-span-4 p-5 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] flex flex-col justify-between space-y-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-semibold text-white">💡 What to Upload?</span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400 mb-3">
+                          Upload high-quality business material for accurate agent responses:
+                        </p>
+                        <ul className="space-y-2 text-[11px] text-zinc-300">
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
+                            <span>Product catalogs & pricing sheets</span>
                           </li>
-                          <li className="flex items-center gap-1.5">
-                            <Check size={12} className="text-emerald-400 shrink-0" />
-                            <span>Service details</span>
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
+                            <span>Service packages & specifications</span>
                           </li>
-                          <li className="flex items-center gap-1.5">
-                            <Check size={12} className="text-emerald-400 shrink-0" />
-                            <span>FAQs and policies</span>
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
+                            <span>Refund, warranty & legal policies</span>
                           </li>
-                          <li className="flex items-center gap-1.5">
-                            <Check size={12} className="text-emerald-400 shrink-0" />
-                            <span>Brochures & documents</span>
-                          </li>
-                          <li className="flex items-center gap-1.5">
-                            <Check size={12} className="text-emerald-400 shrink-0" />
-                            <span>Images (OCR supported)</span>
+                          <li className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
+                            <span>Brochures, user manuals & guidelines</span>
                           </li>
                         </ul>
                       </div>
+                      <div className="pt-2 border-t border-white/5 text-[10px] text-zinc-500">
+                        Documents are chunked and embedded in Vector DB
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Uploaded Files Section */}
+                  <div className="p-5 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                      <h3 className="text-xs font-semibold text-white flex items-center gap-2">
+                        <span>Uploaded Documents</span>
+                        <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-[10px] font-semibold border border-purple-500/20">
+                          {uploadedDocumentFiles.length}
+                        </span>
+                      </h3>
+                      {uploadedDocumentFiles.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="text-xs text-purple-400 hover:text-purple-300 font-medium cursor-pointer"
+                        >
+                          + Upload More
+                        </button>
+                      )}
                     </div>
 
-                    {/* Uploaded Files List */}
                     <div className="space-y-2">
-                      <h3 className="text-xs font-semibold text-white">
-                        Uploaded Files ({formData.knowledge_config.files.length})
-                      </h3>
-                      <div className="space-y-2">
-                        {formData.knowledge_config.files.length === 0 ? (
-                          <div className="p-6 rounded-xl bg-[#0e1424]/50 border border-dashed border-white/10 text-center text-xs text-zinc-500">
-                            No documents uploaded yet. Upload PDF, DOCX, TXT or CSV files above to give your agent domain knowledge.
+                      {uploadedDocumentFiles.length === 0 ? (
+                        <div className="p-8 rounded-xl bg-[#0e1424]/40 border border-dashed border-white/10 text-center space-y-2">
+                          <div className="w-10 h-10 rounded-xl bg-white/5 mx-auto flex items-center justify-center text-zinc-500">
+                            <FileText size={20} />
                           </div>
-                        ) : (
-                          formData.knowledge_config.files.map((file) => (
+                          <div className="text-xs text-zinc-400 font-medium">No documents uploaded yet</div>
+                          <p className="text-[11px] text-zinc-500 max-w-sm mx-auto">
+                            Upload your documents above to give your agent proprietary domain knowledge.
+                          </p>
+                        </div>
+                      ) : (
+                        uploadedDocumentFiles.map((file) => (
                           <div
                             key={file.id}
-                            className="p-3 rounded-xl bg-[#0e1424] border border-white/10 flex items-center justify-between gap-4"
+                            className="p-3.5 rounded-xl bg-[#0e1424] border border-white/10 flex items-center justify-between gap-4 hover:border-purple-500/30 transition-colors"
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 shrink-0">
-                                <FileText size={16} />
+                              <div className="w-9 h-9 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
+                                <FileText size={17} />
                               </div>
                               <div className="truncate">
                                 <div className="text-xs font-medium text-white truncate">{file.name}</div>
-                                <div className="text-[10px] text-zinc-400">
+                                <div className="text-[10px] text-zinc-400 mt-0.5">
                                   {file.size} • {file.time}
                                 </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-3 shrink-0">
                               <span
-                                className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+                                className={`text-[10px] font-medium px-2.5 py-0.5 rounded-full border ${
                                   file.status === 'Synced'
                                     ? 'bg-teal-500/10 text-teal-400 border-teal-500/20'
                                     : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
@@ -1995,164 +2150,244 @@ function CreateAgentWizardContent() {
                               <button
                                 type="button"
                                 onClick={() => handleDeleteFile(file)}
-                                className="text-zinc-500 hover:text-red-400 transition-colors p-1"
+                                className="text-zinc-500 hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-white/5 cursor-pointer"
                                 title="Remove file"
                               >
-                                <Trash2 size={13} />
+                                <Trash2 size={14} />
                               </button>
                             </div>
                           </div>
-                        )))}
-                      </div>
+                        ))
+                      )}
                     </div>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Tab: Website Links */}
-                {knowledgeTab === 'website' && (
-                  <div className="space-y-4">
-                    <div className="p-5 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] space-y-3">
-                      <h3 className="text-xs font-semibold text-white">Sync Website URL</h3>
-                      <div className="flex gap-2">
-                        <input
-                          type="url"
-                          placeholder="https://yourwebsite.com/faq"
-                          value={newWebsiteUrl}
-                          onChange={(e) => setNewWebsiteUrl(e.target.value)}
-                          className="flex-1 bg-[#121927] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-purple-500/50"
-                        />
-                        <button
-                          type="button"
-                          disabled={isKnowledgeBusy || !newWebsiteUrl.trim()}
-                          onClick={handleAddWebsiteUrl}
-                          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-medium cursor-pointer inline-flex items-center gap-1.5"
-                        >
-                          {isKnowledgeBusy ? <Loader2 size={13} className="animate-spin" /> : null}
-                          <span>+ Add URL</span>
-                        </button>
-                      </div>
-                      <p className="text-[11px] text-zinc-400">
-                        The agent will index information on this website into this agent&apos;s private collection in Vector DB.
-                      </p>
+              {/* Tab: Website Links */}
+              {knowledgeTab === 'website' && (
+                <div className="space-y-6">
+                  <div className="p-5 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] space-y-3">
+                    <h3 className="text-xs font-semibold text-white">Sync Website URL</h3>
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        placeholder="https://yourwebsite.com/faq"
+                        value={newWebsiteUrl}
+                        onChange={(e) => setNewWebsiteUrl(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddWebsiteUrl();
+                          }
+                        }}
+                        className="flex-1 bg-[#121927] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500/50"
+                      />
+                      <button
+                        type="button"
+                        disabled={isKnowledgeBusy || !newWebsiteUrl.trim()}
+                        onClick={handleAddWebsiteUrl}
+                        className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-purple-900/30"
+                      >
+                        {isKnowledgeBusy ? <Loader2 size={13} className="animate-spin" /> : null}
+                        <span>+ Add URL</span>
+                      </button>
                     </div>
+                    <p className="text-[11px] text-zinc-400">
+                      The agent will periodically crawl and index information on this website into this agent&apos;s private collection in Vector DB.
+                    </p>
                   </div>
-                )}
 
-                {/* Tab: FAQs */}
-                {knowledgeTab === 'faq' && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-semibold text-white">
-                        Custom FAQs ({formData.knowledge_config.faqs.length})
+                  {/* Synced Website URLs List */}
+                  <div className="p-5 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                      <h3 className="text-xs font-semibold text-white flex items-center gap-2">
+                        <span>Synced Website URLs</span>
+                        <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-[10px] font-semibold border border-purple-500/20">
+                          {websiteUrlsList.length}
+                        </span>
                       </h3>
+                    </div>
+
+                    <div className="space-y-2">
+                      {websiteUrlsList.length === 0 ? (
+                        <div className="p-8 rounded-xl bg-[#0e1424]/40 border border-dashed border-white/10 text-center space-y-2">
+                          <div className="w-10 h-10 rounded-xl bg-white/5 mx-auto flex items-center justify-center text-zinc-500">
+                            <Globe size={20} />
+                          </div>
+                          <div className="text-xs text-zinc-400 font-medium">No website URLs added yet</div>
+                          <p className="text-[11px] text-zinc-500 max-w-sm mx-auto">
+                            Enter a URL above and click &quot;+ Add URL&quot; to index your website or documentation pages.
+                          </p>
+                        </div>
+                      ) : (
+                        websiteUrlsList.map((urlItem) => (
+                          <div
+                            key={urlItem.id}
+                            className="p-3.5 rounded-xl bg-[#0e1424] border border-white/10 flex items-center justify-between gap-4 hover:border-purple-500/30 transition-colors"
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="w-9 h-9 rounded-lg bg-sky-500/10 flex items-center justify-center text-sky-400 shrink-0 border border-sky-500/20">
+                                <Globe size={16} />
+                              </div>
+                              <div className="truncate flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-medium text-white truncate">{urlItem.url}</span>
+                                  <a
+                                    href={urlItem.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-zinc-400 hover:text-white transition-colors shrink-0"
+                                    title="Open link"
+                                  >
+                                    <ExternalLink size={12} />
+                                  </a>
+                                </div>
+                                <div className="text-[10px] text-zinc-400 mt-0.5">
+                                  {urlItem.time}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0">
+                              <span
+                                className={`text-[10px] font-medium px-2.5 py-0.5 rounded-full border ${
+                                  urlItem.status === 'Synced' || urlItem.status === 'Indexed'
+                                    ? 'bg-teal-500/10 text-teal-400 border-teal-500/20'
+                                    : urlItem.status === 'Syncing' || urlItem.status === 'Indexing'
+                                    ? 'bg-purple-500/10 text-purple-400 border-purple-500/20 animate-pulse'
+                                    : urlItem.status === 'Error'
+                                    ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                                    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                }`}
+                              >
+                                {urlItem.status}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteWebsiteUrl(urlItem.url, urlItem.entry_id || urlItem.id)}
+                                className="text-zinc-500 hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-white/5 cursor-pointer"
+                                title="Remove URL"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab: FAQs */}
+              {knowledgeTab === 'faq' && (
+                <div className="space-y-6">
+                  <div className="p-5 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                      <div>
+                        <h3 className="text-xs font-semibold text-white flex items-center gap-2">
+                          <span>Custom FAQs</span>
+                          <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-[10px] font-semibold border border-purple-500/20">
+                            {formData.knowledge_config.faqs.length}
+                          </span>
+                        </h3>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">
+                          Provide exact questions and answers for direct matching during customer chats.
+                        </p>
+                      </div>
                       <button
                         type="button"
                         onClick={() => setShowAddFaqModal(true)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-md shadow-purple-900/30 cursor-pointer"
                       >
-                        <Plus size={13} />
+                        <Plus size={14} />
                         <span>Add FAQ</span>
                       </button>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       {formData.knowledge_config.faqs.length === 0 ? (
-                        <div className="p-6 rounded-xl bg-[#0e1424]/50 border border-dashed border-white/10 text-center text-xs text-zinc-500">
-                          No custom FAQs added yet. Click &quot;+ Add FAQ&quot; above to provide direct answers for common customer questions.
+                        <div className="p-8 rounded-xl bg-[#0e1424]/40 border border-dashed border-white/10 text-center space-y-2">
+                          <div className="w-10 h-10 rounded-xl bg-white/5 mx-auto flex items-center justify-center text-zinc-500">
+                            <FileText size={20} />
+                          </div>
+                          <div className="text-xs text-zinc-400 font-medium">No custom FAQs added yet</div>
+                          <p className="text-[11px] text-zinc-500 max-w-sm mx-auto">
+                            Click &quot;+ Add FAQ&quot; above to provide direct answers for common customer questions.
+                          </p>
                         </div>
                       ) : (
                         formData.knowledge_config.faqs.map((faq) => (
-                        <div
-                          key={faq.id}
-                          className="p-3.5 rounded-xl bg-[#0e1424] border border-white/10 flex items-start justify-between gap-4"
-                        >
-                          <div>
-                            <div className="text-xs font-semibold text-white">{faq.question}</div>
-                            <div className="text-xs text-zinc-400 mt-1">{faq.answer}</div>
+                          <div
+                            key={faq.id}
+                            className="p-4 rounded-xl bg-[#0e1424] border border-white/10 flex items-start justify-between gap-4 hover:border-purple-500/30 transition-colors"
+                          >
+                            <div className="space-y-1">
+                              <div className="text-xs font-semibold text-white flex items-center gap-2">
+                                <span className="text-purple-400 font-bold">Q:</span>
+                                <span>{faq.question}</span>
+                              </div>
+                              <div className="text-xs text-zinc-400 pl-4">
+                                <span className="text-emerald-400 font-bold mr-1">A:</span>
+                                {faq.answer}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteFaq(faq)}
+                              className="text-zinc-500 hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-white/5 cursor-pointer shrink-0"
+                              title="Delete FAQ"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteFaq(faq)}
-                            className="text-zinc-500 hover:text-red-400 transition-colors p-1"
-                            title="Delete FAQ"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      )))}
+                        ))
+                      )}
                     </div>
-                  </div>
-                )}
-
-                {/* Other Integration Tabs (Google Drive, Google Sheets) */}
-                {['drive', 'sheets'].includes(knowledgeTab) && (
-                  <div className="p-8 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] text-center space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300 mx-auto">
-                      <Globe size={24} />
-                    </div>
-                    <h3 className="text-sm font-semibold text-white capitalize">{knowledgeTab} Integration</h3>
-                    <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-                      Connect your {knowledgeTab} workspace to continuously sync business documents and knowledge.
-                    </p>
-                    <button
-                      type="button"
-                      className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium cursor-pointer"
-                    >
-                      Connect {knowledgeTab.toUpperCase()}
-                    </button>
-                  </div>
-                )}
-
-                {/* Additional Settings Toggles */}
-                <div className="p-5 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] space-y-3">
-                  <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
-                    Additional Settings
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {[
-                      { key: 'use_knowledge_base', label: 'Use knowledge base' },
-                      { key: 'web_search', label: 'Search latest information (Web)' },
-                      { key: 'auto_sync', label: 'Automatically sync website content' },
-                      { key: 'ocr', label: 'OCR for Images' },
-                    ].map((stg) => {
-                      const isChecked = formData.knowledge_config.settings[stg.key];
-                      return (
-                        <div key={stg.key} className="flex items-center justify-between p-2 rounded-xl bg-[#121927] border border-white/5">
-                          <span className="text-xs text-zinc-300">{stg.label}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFormData((prev) => ({
-                                ...prev,
-                                knowledge_config: {
-                                  ...prev.knowledge_config,
-                                  settings: {
-                                    ...prev.knowledge_config.settings,
-                                    [stg.key]: !isChecked,
-                                  },
-                                },
-                              }));
-                            }}
-                            className={`w-9 h-5 rounded-full transition-colors relative p-0.5 cursor-pointer shrink-0 ${
-                              isChecked ? 'bg-purple-600' : 'bg-zinc-700'
-                            }`}
-                          >
-                            <motion.div
-                              animate={{ x: isChecked ? 16 : 0 }}
-                              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                              className="w-4 h-4 rounded-full bg-white shadow-sm"
-                            />
-                          </button>
-                        </div>
-                      );
-                    })}
                   </div>
                 </div>
+              )}
+
+              {/* Footer: Vector DB Isolation Info (Subtle & Professional) */}
+              <div className="p-4 rounded-xl bg-[#080d16] border border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-zinc-400">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-6 h-6 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 shrink-0">
+                    <Database size={13} />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-zinc-300 font-medium">Vector DB Collection:</span>
+                    <span className="text-purple-300 font-mono text-[11px] bg-black/40 px-2 py-0.5 rounded border border-purple-500/20">
+                      {formData.knowledge_config.collection || 'agent_collection'}
+                    </span>
+                    <span className="text-zinc-500 text-[11px] hidden sm:inline">• Chunks are partitioned under this tag</span>
+                  </div>
+                </div>
+                <span className="text-[10px] text-zinc-500">Auto-managed vector isolation</span>
+              </div>
+
+              {/* Bottom Actions Bar */}
+              <div className="flex items-center justify-between pt-4 border-t border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-white/10 text-xs font-medium text-zinc-300 hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  <ArrowLeft size={14} />
+                  <span>Back</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white text-xs font-semibold shadow-lg shadow-purple-900/30 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                >
+                  <span>Continue</span>
+                  <ArrowRight size={14} />
+                </button>
               </div>
             </motion.div>
           )}
 
-          {/* ============================================================ */}
           {/* SCREEN 6 — STEP 5: REVIEW & CREATE */}
           {/* ============================================================ */}
           {currentStep === 5 && (
@@ -2253,7 +2488,7 @@ function CreateAgentWizardContent() {
                   </div>
                   <div className="space-y-2">
                     {Object.entries(formData.channels_config)
-                      .filter(([, v]) => v.enabled)
+                      .filter(([, v]) => v?.enabled)
                       .map(([k]) => {
                         const channelLabel = k === 'whatsapp' ? 'WhatsApp Business' : k === 'instagram' ? 'Instagram' : k === 'twilio' ? 'Twilio SMS' : k;
                         const channelTone = formData.channel_settings?.channel_specific_tone
@@ -2355,11 +2590,13 @@ function CreateAgentWizardContent() {
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-zinc-400">Files Uploaded</span>
-                      <span className="text-white">{formData.knowledge_config.files.length} files</span>
+                      <span className="text-white">{uploadedDocumentFiles.length} files</span>
                     </div>
                     <div className="flex justify-between py-0.5">
-                      <span className="text-zinc-400">Website Sync</span>
-                      <span className="text-purple-300">{formData.website_url || 'Enabled'}</span>
+                      <span className="text-zinc-400">Website URLs Synced</span>
+                      <span className="text-purple-300">
+                        {websiteUrlsList.length > 0 ? `${websiteUrlsList.length} URLs synced` : (formData.website_url || 'None')}
+                      </span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-zinc-400">FAQs Added</span>

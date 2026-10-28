@@ -875,19 +875,64 @@ class WebhookService:
                 OutboundMessage.status.in_(["sent", "dispatched", "delivered"])
             ).update({"status": "read"}, synchronize_session=False)
 
-            #  Step 2: FIX 1 — Auto upsert lead 
-            source = _derive_source(metadata)
-            lead = upsert_lead(
-                workspace_id=workspace_id,
-                conversation_id=conversation.id,
-                phone=phone or external_id,
-                source=source,
-                db=db,
-            )
-            if lead and lead.status in ("closed", "follow_up"):
-                lead.status = "open"
-                if lead.lead_tier == "inactive":
-                    lead.lead_tier = "warm"
+            # Check if active AI agent in workspace has disabled sync_crm
+            should_sync_crm = True
+            try:
+                from app.models.ai_agent import AIAgent
+                active_agent = (
+                    db.query(AIAgent)
+                    .filter(
+                        AIAgent.workspace_id == to_uuid(workspace_id),
+                        AIAgent.status == "active",
+                        AIAgent.is_draft == False,
+                    )
+                    .order_by(AIAgent.updated_at.desc())
+                    .first()
+                )
+                if active_agent:
+                    ch_val = (
+                        normalized_channel.value.lower()
+                        if hasattr(normalized_channel, "value")
+                        else str(normalized_channel).lower()
+                    )
+                    if ch_val in ("meta_whatsapp", "whatsapp_business"):
+                        ch_key = "whatsapp"
+                    elif ch_val in ("ig", "instagram_direct"):
+                        ch_key = "instagram"
+                    elif ch_val in ("sms", "twilio_sms"):
+                        ch_key = "twilio"
+                    else:
+                        ch_key = ch_val
+
+                    channels_config = active_agent.channels_config or {}
+                    ch_enabled = channels_config.get(ch_key, {}).get("enabled", False)
+                    channel_settings = active_agent.channel_settings or {}
+                    if ch_enabled and channel_settings.get("sync_crm") is False:
+                        should_sync_crm = False
+                        logger.info(
+                            "[%s] sync_crm is disabled on active AI Agent '%s'. Skipping CRM lead sync.",
+                            normalized_channel.value,
+                            active_agent.name,
+                        )
+            except Exception as agent_chk_err:
+                logger.debug("Error checking AI agent sync_crm setting: %s", agent_chk_err)
+                should_sync_crm = True
+
+            #  Step 2: Auto upsert lead (if CRM sync is enabled)
+            lead = None
+            if should_sync_crm:
+                source = _derive_source(metadata)
+                lead = upsert_lead(
+                    workspace_id=workspace_id,
+                    conversation_id=conversation.id,
+                    phone=phone or external_id,
+                    source=source,
+                    db=db,
+                )
+                if lead and lead.status in ("closed", "follow_up"):
+                    lead.status = "open"
+                    if lead.lead_tier == "inactive":
+                        lead.lead_tier = "warm"
 
             #  Step 3: Save inbound message 
             message_metadata = {
@@ -912,26 +957,27 @@ class WebhookService:
 
             db.commit()
 
-            # Emit lead.message_received event
-            try:
-                from app.core.event_bus import emit_event
-                ws_id_uuid = to_uuid(workspace_id)
-                emit_event(
-                    event_name="lead.message_received",
-                    payload={
-                        "lead_id": str(lead.id) if lead else None,
-                        "lead_name": (lead.name if lead else None) or contact_name or phone or "Lead",
-                        "lead_phone": phone or (lead.phone if lead else "N/A"),
-                        "message_body": body[:500] if body else "",
-                        "channel": normalized_channel.value,
-                        "workspace_id": str(workspace_id)
-                    },
-                    workspace_id=ws_id_uuid,
-                    idempotency_key=f"lead_msg:{message.id}",
-                    db=db
-                )
-            except Exception as msg_evt_exc:
-                logger.warning(f"Failed to emit lead.message_received event: {msg_evt_exc}")
+            # Emit lead.message_received event (if CRM sync is enabled)
+            if lead and should_sync_crm:
+                try:
+                    from app.core.event_bus import emit_event
+                    ws_id_uuid = to_uuid(workspace_id)
+                    emit_event(
+                        event_name="lead.message_received",
+                        payload={
+                            "lead_id": str(lead.id),
+                            "lead_name": (lead.name if lead else None) or contact_name or phone or "Lead",
+                            "lead_phone": phone or (lead.phone if lead else "N/A"),
+                            "message_body": body[:500] if body else "",
+                            "channel": normalized_channel.value,
+                            "workspace_id": str(workspace_id)
+                        },
+                        workspace_id=ws_id_uuid,
+                        idempotency_key=f"lead_msg:{message.id}",
+                        db=db
+                    )
+                except Exception as msg_evt_exc:
+                    logger.warning(f"Failed to emit lead.message_received event: {msg_evt_exc}")
 
             # Inject message identifiers for downstream idempotency & billing keys
             message_metadata["message_id"] = str(message.id)
@@ -940,7 +986,8 @@ class WebhookService:
 
             #  Step 4 & 5: Process intent and bot reply only for supported messages
             if not message_metadata.get("is_unsupported"):
-                analyze_message_intent.delay(str(conversation.id), body, message_external_id)
+                if should_sync_crm:
+                    analyze_message_intent.delay(str(conversation.id), body, message_external_id)
                 MessageService.enqueue_incoming_processing(
                     str(conversation.id),
                     body,

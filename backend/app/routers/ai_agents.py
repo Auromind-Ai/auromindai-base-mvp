@@ -284,6 +284,27 @@ async def validate_user_api_key(
             detail = f"Failed to validate key with {p.capitalize()}: {err_str[:120]}"
         raise HTTPException(status_code=400, detail=detail)
 
+def _get_workspace_channels_status(ws_id: str, db: Session) -> Dict[str, bool]:
+    from app.models.integration import Integration
+    from app.models.workspace import Workspace
+    integrations = db.query(Integration).filter(
+        Integration.workspace_id == to_uuid(ws_id),
+        Integration.is_active == True
+    ).all()
+    connected_types = {i.integration_type.lower() for i in integrations}
+
+    ws = db.query(Workspace).filter(Workspace.id == to_uuid(ws_id)).first()
+    has_whatsapp = "whatsapp" in connected_types or bool(ws and (getattr(ws, 'meta_phone_number_id', None) or (getattr(ws, 'meta_access_token', None) and not getattr(ws, 'meta_ig_id', None))))
+    has_instagram = "instagram" in connected_types or bool(ws and (getattr(ws, 'meta_ig_id', None) or getattr(ws, 'meta_ig_access_token', None)))
+    has_twilio = "twilio" in connected_types or bool(ws and getattr(ws, 'twilio_account_sid', None) and (getattr(ws, 'twilio_auth_token', None) or getattr(ws, 'twilio_phone_number', None)))
+
+    return {
+        "whatsapp": bool(has_whatsapp),
+        "instagram": bool(has_instagram),
+        "twilio": bool(has_twilio),
+    }
+
+
 @router.get("/meta/channels")
 async def get_channels_status(
     workspace_id: Optional[str] = None,
@@ -292,20 +313,7 @@ async def get_channels_status(
 ):
     """Returns channels with confirmed backend connection status."""
     ws_id = verify_workspace_access(current_user, db, workspace_id, required_permission="ai.chat")
-
-    # Inquire integrations & whatsapp
-    from app.models.integration import Integration
-    integrations = db.query(Integration).filter(
-        Integration.workspace_id == to_uuid(ws_id),
-        Integration.is_active == True
-    ).all()
-    connected_types = {i.integration_type.lower() for i in integrations}
-
-    from app.models.workspace import Workspace
-    ws = db.query(Workspace).filter(Workspace.id == to_uuid(ws_id)).first()
-    has_whatsapp = "whatsapp" in connected_types or bool(ws and (getattr(ws, 'meta_phone_number_id', None) or (getattr(ws, 'meta_access_token', None) and not getattr(ws, 'meta_ig_id', None))))
-    has_instagram = "instagram" in connected_types or bool(ws and (getattr(ws, 'meta_ig_id', None) or getattr(ws, 'meta_ig_access_token', None)))
-    has_twilio = "twilio" in connected_types or bool(ws and getattr(ws, 'twilio_account_sid', None) and (getattr(ws, 'twilio_auth_token', None) or getattr(ws, 'twilio_phone_number', None)))
+    status_map = _get_workspace_channels_status(ws_id, db)
 
     # Only WhatsApp, Instagram, and Twilio messaging channels
     channels = [
@@ -314,24 +322,24 @@ async def get_channels_status(
             "name": "WhatsApp Business",
             "description": "Connect your WhatsApp Business account",
             "icon": "whatsapp",
-            "connected": has_whatsapp,
-            "badgeText": "Connected" if has_whatsapp else "Not Connected"
+            "connected": status_map["whatsapp"],
+            "badgeText": "Connected" if status_map["whatsapp"] else "Not Connected"
         },
         {
             "id": "instagram",
             "name": "Instagram",
             "description": "Connect your Instagram Business account",
             "icon": "instagram",
-            "connected": has_instagram,
-            "badgeText": "Connected" if has_instagram else "Not Connected"
+            "connected": status_map["instagram"],
+            "badgeText": "Connected" if status_map["instagram"] else "Not Connected"
         },
         {
             "id": "twilio",
             "name": "Twilio SMS",
             "description": "Connect Twilio for SMS & phone messaging",
             "icon": "phone",
-            "connected": has_twilio,
-            "badgeText": "Connected" if has_twilio else "Not Connected"
+            "connected": status_map["twilio"],
+            "badgeText": "Connected" if status_map["twilio"] else "Not Connected"
         }
     ]
 
@@ -384,7 +392,11 @@ async def save_agent_draft(
             website_url=draft_data.get("website_url"),
             status="draft",
             is_draft=True,
-            channels_config=draft_data.get("channels_config") or {},
+            channels_config=draft_data.get("channels_config") or {
+                "whatsapp": {"enabled": _get_workspace_channels_status(ws_id, db)["whatsapp"]},
+                "instagram": {"enabled": _get_workspace_channels_status(ws_id, db)["instagram"]},
+                "twilio": {"enabled": _get_workspace_channels_status(ws_id, db)["twilio"]},
+            },
             channel_settings=draft_data.get("channel_settings") or {},
             ai_config=draft_data.get("ai_config") or {},
             knowledge_config=draft_data.get("knowledge_config") or {},
@@ -536,7 +548,11 @@ async def create_agent(
         website_url=request.website_url,
         status="active",
         is_draft=request.is_draft,
-        channels_config=request.channels_config or {},
+        channels_config=request.channels_config or {
+            "whatsapp": {"enabled": _get_workspace_channels_status(ws_id, db)["whatsapp"]},
+            "instagram": {"enabled": _get_workspace_channels_status(ws_id, db)["instagram"]},
+            "twilio": {"enabled": _get_workspace_channels_status(ws_id, db)["twilio"]},
+        },
         channel_settings=request.channel_settings or {},
         ai_config=request.ai_config or {},
         knowledge_config=knowledge_conf,
@@ -714,6 +730,12 @@ async def toggle_agent_status(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found in workspace")
 
+    if agent.is_draft or agent.status == "draft":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot toggle status of draft agent. Please publish the agent first."
+        )
+
     agent.status = status_update.status
     db.commit()
     db.refresh(agent)
@@ -778,11 +800,14 @@ async def test_agent_chat(
 
     result = await execute_agent_conversation(
         agent_config=agent_config,
-        message=request.message,
+        message=request.message or "",
         conversation_history=request.conversation_history,
         channel=request.channel or "whatsapp",
         db=db,
-        workspace_id=str(ws_id)
+        workspace_id=str(ws_id),
+        media_url=request.media_url,
+        media_type=request.media_type,
+        filename=request.filename
     )
 
     return AgentTestChatResponse(
