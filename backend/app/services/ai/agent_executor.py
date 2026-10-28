@@ -591,12 +591,21 @@ def process_agent_calendar_booking(
 
     cleaned_reply = booking_block_regex.sub("", reply_text).strip()
     return cleaned_reply or reply_text, False
+def _perform_web_search(query: str, max_results: int = 3) -> List[Dict[str, Any]]:
+    """Execute live web search using DuckDuckGo (ddgs)."""
+    try:
+        from ddgs import DDGS
+        with DDGS() as ddgs:
+            return list(ddgs.text(query, max_results=max_results))
+    except Exception as e:
+        logger.warning(f"DuckDuckGo search failed for query '{query}': {e}")
+        return []
 
 
 async def execute_agent_conversation(
     agent_config: Dict[str, Any],
     message: str,
-    conversation_history: Optional[List[Dict[str, str]]] = None,
+    conversation_history: Optional[List[Dict[str, Any]]] = None,
     channel: str = "whatsapp",
     db: Optional[Session] = None,
     workspace_id: Optional[str] = None,
@@ -605,6 +614,9 @@ async def execute_agent_conversation(
     client_name: Optional[str] = None,
     client_email: Optional[str] = None,
     client_phone: Optional[str] = None,
+    media_url: Optional[str] = None,
+    media_type: Optional[str] = None,
+    filename: Optional[str] = None
 ) -> Dict[str, Any]:
    
     start_time = time.time()
@@ -656,81 +668,184 @@ async def execute_agent_conversation(
             "execution_time_ms": int((time.time() - start_time) * 1000)
         }
 
-    # 1. Collect Knowledge Base Context using the Agent's specific Collection Tag
+   
+    knowledge_settings = knowledge_conf.get("settings", {})
+    use_knowledge_base = knowledge_settings.get("use_knowledge_base", True)
+    web_search_enabled = knowledge_settings.get("web_search", False)
+
+    # 1. Collect Knowledge Base Context using the Agent's specific Collection Tag (if enabled)
     knowledge_context_parts: List[str] = []
-    agent_collection = knowledge_conf.get("collection")
-    if not agent_collection and agent_config.get("id"):
-        agent_collection = f"agent_{agent_config['id']}"
+    if use_knowledge_base:
+        agent_collection = knowledge_conf.get("collection")
+        if not agent_collection and agent_config.get("id"):
+            agent_collection = f"agent_{agent_config['id']}"
 
-    # A. Always include verified FAQs if configured for this agent
-    faqs = knowledge_conf.get("faqs", [])
-    if isinstance(faqs, list) and faqs:
-        faq_parts = []
-        for faq in faqs:
-            q = (faq.get("question") or "").strip()
-            a = (faq.get("answer") or "").strip()
-            if q and a:
-                faq_parts.append(f"Q: {q}\nA: {a}")
-                sources_used.append(f"FAQ: {q[:30]}...")
-        if faq_parts:
-            knowledge_context_parts.append("### FREQUENTLY ASKED QUESTIONS (FAQS)\n" + "\n\n".join(faq_parts))
+        # A. Always include verified FAQs if configured for this agent
+        faqs = knowledge_conf.get("faqs", [])
+        if isinstance(faqs, list) and faqs:
+            faq_parts = []
+            for faq in faqs:
+                q = (faq.get("question") or "").strip()
+                a = (faq.get("answer") or "").strip()
+                if q and a:
+                    faq_parts.append(f"Q: {q}\nA: {a}")
+                    sources_used.append(f"FAQ: {q[:30]}...")
+            if faq_parts:
+                knowledge_context_parts.append("### FREQUENTLY ASKED QUESTIONS (FAQS)\n" + "\n\n".join(faq_parts))
 
-    # B. Semantic Vector Retrieval filtered strictly by this agent's collection tag
-    doc_context_parts: List[str] = []
-    if db and workspace_id and agent_collection:
+        # B. Semantic Vector Retrieval filtered strictly by this agent's collection tag
+        doc_context_parts: List[str] = []
+        if db and workspace_id and agent_collection:
+            try:
+                from app.services.agentic_rag.rag_service import get_rag_service
+                rag = get_rag_service()
+                retrieved_result = await rag.retrieval.retrieve_context_async(
+                    db=db,
+                    workspace_id=str(workspace_id),
+                    query=message,
+                    collection=agent_collection
+                )
+                # retrieve_context_async returns {"context": "...", "docs": [...]}
+                retrieved_docs = []
+                if isinstance(retrieved_result, dict):
+                    retrieved_docs = retrieved_result.get("docs", [])
+                elif isinstance(retrieved_result, list):
+                    retrieved_docs = retrieved_result
+
+                for chunk in (retrieved_docs or [])[:5]:
+                    meta = chunk.get("metadata") or {}
+                    title = meta.get("title") or meta.get("file_name") or chunk.get("title") or "Knowledge Document"
+                    text = chunk.get("text") or ""
+                    if text:
+                        sources_used.append(f"Doc: {title}")
+                        doc_context_parts.append(f"[{title}]:\n{text[:600]}")
+            except Exception as rag_err:
+                logger.warning(f"Targeted vector search error for collection '{agent_collection}': {rag_err}")
+
+        # C. Direct Document / BrainEntry lookup if vector search returned nothing
+        if not doc_context_parts and db and workspace_id and agent_collection:
+            try:
+                entries = db.query(BrainEntry).filter(
+                    BrainEntry.workspace_id == to_uuid(workspace_id),
+                    BrainEntry.metadata_json.like(f'%"collection": "{agent_collection}"%')
+                ).order_by(BrainEntry.created_at.desc()).limit(5).all()
+
+                for entry in entries:
+                    if entry.content and entry.content != "Processing...":
+                        title = entry.title or "Document"
+                        sources_used.append(f"Doc: {title}")
+                        doc_context_parts.append(f"[{title}]:\n{entry.content[:800]}")
+            except Exception as entry_err:
+                logger.warning(f"BrainEntry direct lookup fallback error for collection '{agent_collection}': {entry_err}")
+
+        # D. In-memory / direct files from knowledge_conf
+        files = knowledge_conf.get("files", [])
+        if isinstance(files, list):
+            for f in files:
+                fname = f.get("name") or "Document"
+                if f.get("content"):
+                    sources_used.append(f"File: {fname}")
+                    doc_context_parts.append(f"Document [{fname}]:\n{f.get('content')[:600]}")
+
+        if doc_context_parts:
+            knowledge_context_parts.append("### VERIFIED KNOWLEDGE DOCUMENTS\n" + "\n\n".join(doc_context_parts))
+
+    # 1.5 Live Real-Time Web Search Context (if enabled)
+    if web_search_enabled and message and message.strip():
         try:
-            from app.services.agentic_rag.rag_service import get_rag_service
-            rag = get_rag_service()
-            retrieved_result = await rag.retrieval.retrieve_context_async(
-                db=db,
-                workspace_id=str(workspace_id),
-                query=message,
-                collection=agent_collection
-            )
-            # retrieve_context_async returns {"context": "...", "docs": [...]}
-            retrieved_docs = []
-            if isinstance(retrieved_result, dict):
-                retrieved_docs = retrieved_result.get("docs", [])
-            elif isinstance(retrieved_result, list):
-                retrieved_docs = retrieved_result
+            web_results = await asyncio.to_thread(_perform_web_search, message.strip(), 3)
+            web_parts = []
+            for item in web_results:
+                title = item.get("title") or "Web Search"
+                body = (item.get("body") or "").strip()
+                href = item.get("href") or ""
+                if body:
+                    web_parts.append(f"[{title}] ({href}):\n{body}")
+                    clean_title = title.replace("\n", " ").strip()
+                    sources_used.append(f"Web: {clean_title[:25]}...")
+            if web_parts:
+                knowledge_context_parts.append(
+                    "### LIVE WEB SEARCH RESULTS (REAL-TIME INFORMATION)\n"
+                    + "\n\n".join(web_parts)
+                )
+        except Exception as search_err:
+            logger.warning(f"Live web search execution failed: {search_err}")
 
-            for chunk in (retrieved_docs or [])[:5]:
-                meta = chunk.get("metadata") or {}
-                title = meta.get("title") or meta.get("file_name") or chunk.get("title") or "Knowledge Document"
-                text = chunk.get("text") or ""
-                if text:
-                    sources_used.append(f"Doc: {title}")
-                    doc_context_parts.append(f"[{title}]:\n{text[:600]}")
-        except Exception as rag_err:
-            logger.warning(f"Targeted vector search error for collection '{agent_collection}': {rag_err}")
-
-    # C. Direct Document / BrainEntry lookup if vector search returned nothing
-    if not doc_context_parts and db and workspace_id and agent_collection:
+    # 1.6 Handle User Attached Document / Media (if provided)
+    attached_media_bytes = None
+    attached_mime_type = None
+    if media_url:
         try:
-            entries = db.query(BrainEntry).filter(
-                BrainEntry.workspace_id == to_uuid(workspace_id),
-                BrainEntry.metadata_json.like(f'%"collection": "{agent_collection}"%')
-            ).order_by(BrainEntry.created_at.desc()).limit(5).all()
+            from app.services.storage.service import get_storage
+            from app.services.document_service import get_document_service
+            from app.models.media import MediaFile
+            from app.core.security import to_uuid
 
-            for entry in entries:
-                if entry.content and entry.content != "Processing...":
-                    title = entry.title or "Document"
-                    sources_used.append(f"Doc: {title}")
-                    doc_context_parts.append(f"[{title}]:\n{entry.content[:800]}")
-        except Exception as entry_err:
-            logger.warning(f"BrainEntry direct lookup fallback error for collection '{agent_collection}': {entry_err}")
+            storage = get_storage()
+            db_media = None
+            doc_name = filename
 
-    # D. In-memory / direct files from knowledge_conf
-    files = knowledge_conf.get("files", [])
-    if isinstance(files, list):
-        for f in files:
-            fname = f.get("name") or "Document"
-            if f.get("content"):
-                sources_used.append(f"File: {fname}")
-                doc_context_parts.append(f"Document [{fname}]:\n{f.get('content')[:600]}")
+            if db and workspace_id:
+                clean_path = media_url.replace("/temp_uploads/", "").replace("/api/inbox/media/", "").strip("/")
+                db_media = db.query(MediaFile).filter(
+                    MediaFile.workspace_id == to_uuid(workspace_id),
+                    (MediaFile.file_path.ilike(f"%{clean_path}%")) |
+                    (MediaFile.original_filename == filename)
+                ).order_by(MediaFile.created_at.desc()).first()
 
-    if doc_context_parts:
-        knowledge_context_parts.append("### VERIFIED KNOWLEDGE DOCUMENTS\n" + "\n\n".join(doc_context_parts))
+                if db_media:
+                    doc_name = doc_name or db_media.original_filename
+                    attached_mime_type = db_media.mime_type
+                    try:
+                        attached_media_bytes = storage.get_file_bytes(db_media.file_path)
+                    except Exception as fe:
+                        logger.warning(f"Failed to fetch bytes for db_media: {fe}")
+
+            if not attached_media_bytes:
+                clean_path = media_url.replace("/temp_uploads/", "").replace("/api/inbox/media/", "").strip("/")
+                try:
+                    attached_media_bytes = storage.get_file_bytes(clean_path)
+                except Exception:
+                    pass
+
+            doc_display = doc_name or "Attachment"
+            doc_lower = doc_display.lower()
+            resolved_type = (media_type or (db_media.file_type if db_media else "")).lower()
+
+            if not attached_mime_type:
+                if doc_lower.endswith(".png"): attached_mime_type = "image/png"
+                elif doc_lower.endswith((".jpg", ".jpeg")): attached_mime_type = "image/jpeg"
+                elif doc_lower.endswith(".webp"): attached_mime_type = "image/webp"
+                elif doc_lower.endswith(".pdf"): attached_mime_type = "application/pdf"
+
+            extracted_doc_text = ""
+            if attached_media_bytes:
+                doc_service = get_document_service()
+                if resolved_type in ["document", "pdf", "docx", "txt", "excel", "csv"] or any(doc_lower.endswith(ext) for ext in [".pdf", ".docx", ".doc", ".txt", ".xlsx", ".xls", ".csv"]):
+                    try:
+                        doc_res = await doc_service.process_file(attached_media_bytes, doc_display, db=db)
+                        extracted_doc_text = doc_res.get("text", "")
+                    except Exception as de:
+                        logger.warning(f"Document extraction notice: {de}")
+                elif resolved_type == "image" or any(doc_lower.endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp"]):
+                    try:
+                        img_res = await doc_service.process_file(attached_media_bytes, doc_display, db=db)
+                        extracted_doc_text = img_res.get("text", "")
+                    except Exception as ie:
+                        logger.warning(f"Image analysis notice: {ie}")
+
+            if extracted_doc_text:
+                knowledge_context_parts.append(
+                    f"### USER ATTACHED FILE CONTENT ({doc_display}):\n{extracted_doc_text[:4000]}"
+                )
+                sources_used.append(f"File: {doc_display[:22]}")
+            else:
+                knowledge_context_parts.append(
+                    f"### USER ATTACHED FILE:\nFilename: {doc_display}\nType: {resolved_type or 'Attachment'}\nNote: The user uploaded this file along with their message."
+                )
+                sources_used.append(f"File: {doc_display[:22]}")
+        except Exception as media_err:
+            logger.warning(f"Media extraction in execute_agent_conversation failed: {media_err}")
 
     # Deduplicate sources_used for clean UI badges
     sources_used = list(dict.fromkeys(sources_used))
@@ -784,7 +899,14 @@ async def execute_agent_conversation(
                         text = item.get("text") or item.get("content") or ""
                         if text:
                             contents.append(genai_types.Content(role=role, parts=[genai_types.Part.from_text(text=text)]))
-                contents.append(genai_types.Content(role="user", parts=[genai_types.Part.from_text(text=message)]))
+                effective_user_message = message.strip() if (message and message.strip()) else (
+                    f"I have uploaded a file: {filename or 'attachment'}. Please review it and assist me." if media_url else "Hello"
+                )
+                gemini_parts = []
+                if attached_media_bytes and attached_mime_type and attached_mime_type.startswith("image/"):
+                    gemini_parts.append(genai_types.Part.from_bytes(data=attached_media_bytes, mime_type=attached_mime_type))
+                gemini_parts.append(genai_types.Part.from_text(text=effective_user_message))
+                contents.append(genai_types.Content(role="user", parts=gemini_parts))
 
                 config_kwargs = dict(
                     system_instruction=system_instruction,
@@ -821,7 +943,10 @@ async def execute_agent_conversation(
                         text = item.get("text") or item.get("content") or ""
                         if text:
                             groq_messages.append({"role": role, "content": text})
-                groq_messages.append({"role": "user", "content": message})
+                groq_user_msg = message.strip() if (message and message.strip()) else (
+                    f"I have uploaded a file: {filename or 'attachment'}. Please review it and assist me." if media_url else "Hello"
+                )
+                groq_messages.append({"role": "user", "content": groq_user_msg})
 
                 groq_model = model_name
                 if not groq_model or groq_model.startswith("gemini") or groq_model.startswith("claude") or "gpt-4" in groq_model:

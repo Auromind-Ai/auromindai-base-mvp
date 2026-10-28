@@ -113,6 +113,7 @@ export default function MyAgentsPage() {
 
   // Toggle active / paused status
   const handleToggleStatus = async (agent) => {
+    if (agent.is_draft || agent.status?.toLowerCase() === 'draft') return;
     const nextStatus = agent.status === 'active' ? 'paused' : 'active';
     try {
       setActionLoadingId(agent.id);
@@ -169,14 +170,6 @@ export default function MyAgentsPage() {
               Create and manage your AI agents to handle conversations and grow your business.
             </p>
           </div>
-
-          <Link
-            href="/ai-agents/create"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white text-xs font-semibold shadow-lg shadow-purple-900/30 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-          >
-            <Plus size={16} />
-            <span>Create AI Agent</span>
-          </Link>
         </div>
 
         {/* Filter Tabs & Search Controls */}
@@ -423,6 +416,7 @@ export default function MyAgentsPage() {
           <div className="flex flex-col gap-3">
             {filteredAgents.map((agent) => {
               const isActionLoading = actionLoadingId === agent.id;
+              const isDraft = Boolean(agent.is_draft || agent.status?.toLowerCase() === 'draft');
               const channels = agent.channels_config || {};
               const enabledChannels = Object.keys(channels).filter((k) => channels[k]?.enabled);
 
@@ -514,31 +508,40 @@ export default function MyAgentsPage() {
 
                   {/* Right: Action Buttons */}
                   <div className="flex items-center gap-2 shrink-0">
-                    <Link
-                      href={`/ai-agents/test?agentId=${agent.id}`}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-xs font-semibold transition-all cursor-pointer"
-                    >
-                      <Sparkles size={13} />
-                      <span>Test Agent</span>
-                    </Link>
+                    {!isDraft ? (
+                      <Link
+                        href={`/ai-agents/test?agentId=${agent.id}`}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-xs font-semibold transition-all cursor-pointer"
+                      >
+                        <Sparkles size={13} />
+                        <span>Test Agent</span>
+                      </Link>
+                    ) : null}
 
                     <Link
                       href={`/ai-agents/create?editId=${agent.id}`}
-                      className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                      className={
+                        isDraft
+                          ? "inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-xs font-semibold transition-all cursor-pointer"
+                          : "p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                      }
                       title="Edit Agent Configuration"
                     >
                       <Edit3 size={14} />
+                      {isDraft && <span>Edit Agent</span>}
                     </Link>
 
-                    <button
-                      type="button"
-                      disabled={isActionLoading}
-                      onClick={() => handleToggleStatus(agent)}
-                      className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer"
-                      title={agent.status === 'active' ? 'Pause Agent' : 'Activate Agent'}
-                    >
-                      {agent.status === 'active' ? <Pause size={14} /> : <Play size={14} />}
-                    </button>
+                    {!isDraft && (
+                      <button
+                        type="button"
+                        disabled={isActionLoading}
+                        onClick={() => handleToggleStatus(agent)}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                        title={agent.status === 'active' ? 'Pause Agent' : 'Activate Agent'}
+                      >
+                        {agent.status === 'active' ? <Pause size={14} /> : <Play size={14} />}
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -559,6 +562,7 @@ export default function MyAgentsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredAgents.map((agent) => {
               const isActionLoading = actionLoadingId === agent.id;
+              const isDraft = Boolean(agent.is_draft || agent.status?.toLowerCase() === 'draft');
               const channels = agent.channels_config || {};
               const enabledChannels = Object.keys(channels).filter((k) => channels[k]?.enabled);
 
@@ -653,34 +657,43 @@ export default function MyAgentsPage() {
 
                   {/* Bottom Action Buttons */}
                   <div className="flex items-center justify-between gap-2 pt-2">
-                    {/* Separate Test Page Link */}
-                    <Link
-                      href={`/ai-agents/test?agentId=${agent.id}`}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-xs font-semibold transition-all cursor-pointer"
-                    >
-                      <Sparkles size={13} />
-                      <span>Test Agent</span>
-                    </Link>
+                    {/* Separate Test Page Link - Only for published agents */}
+                    {!isDraft ? (
+                      <Link
+                        href={`/ai-agents/test?agentId=${agent.id}`}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-xs font-semibold transition-all cursor-pointer"
+                      >
+                        <Sparkles size={13} />
+                        <span>Test Agent</span>
+                      </Link>
+                    ) : null}
 
                     {/* Edit Configuration Button */}
                     <Link
                       href={`/ai-agents/create?editId=${agent.id}`}
-                      className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                      className={
+                        isDraft
+                          ? "flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-xs font-semibold transition-all cursor-pointer"
+                          : "p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                      }
                       title="Edit Agent Configuration"
                     >
                       <Edit3 size={14} />
+                      {isDraft && <span>Edit Agent</span>}
                     </Link>
 
                     {/* Pause / Resume Toggle Button */}
-                    <button
-                      type="button"
-                      disabled={isActionLoading}
-                      onClick={() => handleToggleStatus(agent)}
-                      className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer"
-                      title={agent.status === 'active' ? 'Pause Agent' : 'Activate Agent'}
-                    >
-                      {agent.status === 'active' ? <Pause size={14} /> : <Play size={14} />}
-                    </button>
+                    {!isDraft && (
+                      <button
+                        type="button"
+                        disabled={isActionLoading}
+                        onClick={() => handleToggleStatus(agent)}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                        title={agent.status === 'active' ? 'Pause Agent' : 'Activate Agent'}
+                      >
+                        {agent.status === 'active' ? <Pause size={14} /> : <Play size={14} />}
+                      </button>
+                    )}
 
                     {/* Delete Action with Modal Trigger */}
                     <button

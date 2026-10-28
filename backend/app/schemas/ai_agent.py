@@ -12,6 +12,7 @@ class AgentChannelSettings(BaseModel):
     auto_reply: bool = True
     sync_crm: bool = True
     channel_specific_tone: bool = True
+    channel_tones: Optional[Dict[str, str]] = None
 
 
 class AgentAIConfig(BaseModel):
@@ -62,8 +63,6 @@ class AgentKnowledgeConfig(BaseModel):
     settings: Dict[str, Any] = Field(default_factory=lambda: {
         "use_knowledge_base": True,
         "web_search": False,
-        "auto_sync": True,
-        "ocr": False
     })
 
 
@@ -107,10 +106,14 @@ class AgentStatusUpdateRequest(BaseModel):
 class AgentTestChatRequest(BaseModel):
     agent_id: Optional[str] = None
     channel: str = Field(default="whatsapp")
-    message: str = Field(..., min_length=1, max_length=4000)
-    conversation_history: List[Dict[str, str]] = Field(default_factory=list)
+    message: Optional[str] = Field(default="", max_length=4000)
+    conversation_history: List[Dict[str, Any]] = Field(default_factory=list)
     # Optional override for testing directly in draft mode
     draft_config: Optional[Dict[str, Any]] = None
+    media_url: Optional[str] = None
+    media_type: Optional[str] = None
+    filename: Optional[str] = None
+    file_size: Optional[str] = None
 
 
 class AgentTestChatResponse(BaseModel):

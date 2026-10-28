@@ -27,7 +27,6 @@ const sectionsDefinition = [
     title: "Workspace",
     items: [
       ["Dashboard", LayoutDashboard, "dashboard", "dashboard.overview"],
-      ["AI Agents", Bot, "ai-agents", "ai.chat"],
       ["AI Workspace", Sparkles, "ai", "ai.chat"],
     ],
   },
@@ -37,6 +36,7 @@ const sectionsDefinition = [
       ["Inbox", Inbox, "inbox", "inbox.conversations"],
       ["Leads", Users, "leads", "leads.view"],
       ["CRM", TrendingUp, "crm", "crm.view"],
+      ["AI Agents", Bot, "ai-agents", "ai.chat"],
     ],
   },
   {
