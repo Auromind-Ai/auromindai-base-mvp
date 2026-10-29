@@ -271,6 +271,37 @@ class WhatsAppService:
                     except Exception:
                         pass
 
+    @staticmethod
+    def _compress_image_for_whatsapp(raw_bytes: bytes, mime: str) -> tuple[bytes, str]:
+        if len(raw_bytes) <= 5 * 1024 * 1024:
+            return raw_bytes, mime
+        try:
+            from PIL import Image
+            import io
+            img = Image.open(io.BytesIO(raw_bytes))
+            if img.mode not in ("RGB", "L"):
+                img = img.convert("RGB")
+            
+            max_dim = 2048
+            if max(img.width, img.height) > max_dim:
+                img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+                
+            quality = 85
+            out_buf = io.BytesIO()
+            img.save(out_buf, format="JPEG", quality=quality, optimize=True)
+            
+            while out_buf.tell() > 4.5 * 1024 * 1024 and quality > 30:
+                quality -= 15
+                out_buf = io.BytesIO()
+                img.save(out_buf, format="JPEG", quality=quality, optimize=True)
+                
+            compressed = out_buf.getvalue()
+            logger.info(f"Compressed image for WhatsApp from {len(raw_bytes)} to {len(compressed)} bytes")
+            return compressed, "image/jpeg"
+        except Exception as e:
+            logger.warning(f"Image compression failed: {e}")
+            return raw_bytes, mime
+
     # SEND MEDIA MESSAGE (IMAGE / VIDEO / DOCUMENT / AUDIO)
     def send_media_message(
         self,
@@ -326,6 +357,10 @@ class WhatsAppService:
                 if media_type == "audio":
                     audio_bytes, audio_mime, audio_name = self._convert_audio_for_whatsapp(raw_bytes, raw_mime)
                     media_id = self.upload_media_to_meta(audio_bytes, audio_mime, audio_name)
+                elif media_type == "image":
+                    img_bytes, img_mime = self._compress_image_for_whatsapp(raw_bytes, raw_mime)
+                    if len(img_bytes) != len(raw_bytes) or not (media_url.startswith("https://") and "localhost" not in media_url and "127.0.0.1" not in media_url):
+                        media_id = self.upload_media_to_meta(img_bytes, img_mime, upload_name)
                 elif not (media_url.startswith("https://") and "localhost" not in media_url and "127.0.0.1" not in media_url):
                     media_id = self.upload_media_to_meta(raw_bytes, raw_mime, upload_name)
 

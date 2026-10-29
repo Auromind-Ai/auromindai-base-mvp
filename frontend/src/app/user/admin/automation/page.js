@@ -15,6 +15,7 @@ import {
 import api from '@/lib/api';
 import { getToken, getWorkspaceIdFromToken, getUser } from '@/lib/auth';
 import { useAuth } from '@/context/AuthContext';
+import { validateMediaUpload, compressImageClientSide } from '@/lib/fileValidation';
 
 // Component Imports
 import DashboardView from './dashboard/DashboardView';
@@ -1095,7 +1096,11 @@ export default function AutomationCanvas() {
 
   const handleFileUpload = async (file) => {
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { setUploadError("File size must be less than 10MB"); return; }
+    const validation = validateMediaUpload(file);
+    if (!validation.valid) {
+      setUploadError(validation.error);
+      return;
+    }
     const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'video/mp4', 'application/pdf'];
     const isAllowed =
       file.type.startsWith('image/') ||
@@ -1112,10 +1117,12 @@ export default function AutomationCanvas() {
       setUploading(true);
       setUploadError(null);
       setUploadProgress(0);
-      if (file.type.startsWith('image/')) {
+      let fileToUpload = file;
+      if (file.type.startsWith('image/') || /\.(jpe?g|png|webp)$/i.test(file.name)) {
+        fileToUpload = await compressImageClientSide(file);
         const reader = new FileReader();
         reader.onload = (e) => setPreviewUrl(e.target.result);
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(fileToUpload);
       } else if (file.type.startsWith('video/') || /\.(mp4|mov|webm|ogg|mkv)$/i.test(file.name)) {
         const objectUrl = URL.createObjectURL(file);
         setPreviewUrl(objectUrl);
@@ -1123,11 +1130,11 @@ export default function AutomationCanvas() {
         setPreviewUrl(null);
       }
 
-      const data = await api.uploadFile(file);
+      const data = await api.uploadFile(fileToUpload);
       setUploadProgress(100);
       let detectedType = "document";
-      if (file.type.startsWith("image") || /\.(jpe?g|png|webp|gif)$/i.test(file.name)) detectedType = "image";
-      else if (file.type.startsWith("video") || /\.(mp4|mov|webm|ogg|mkv)$/i.test(file.name)) detectedType = "video";
+      if (fileToUpload.type.startsWith("image") || /\.(jpe?g|png|webp|gif)$/i.test(fileToUpload.name)) detectedType = "image";
+      else if (fileToUpload.type.startsWith("video") || /\.(mp4|mov|webm|ogg|mkv)$/i.test(fileToUpload.name)) detectedType = "video";
       updateNodeConfig(activeNodeId, { media_url: data.url, message_type: detectedType });
     } catch (err) {
       setUploadError(err.message || "Upload failed");

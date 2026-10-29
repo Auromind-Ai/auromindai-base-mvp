@@ -1,4 +1,5 @@
 import uuid
+import logging
 from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
@@ -12,6 +13,29 @@ from app.services.storage.service import get_storage
 from app.core.security import verify_workspace_access
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+def _compress_image_bytes(file_bytes: bytes, mime_type: str) -> tuple[bytes, str]:
+    if len(file_bytes) <= 2 * 1024 * 1024:
+        return file_bytes, mime_type
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(file_bytes))
+        if img.mode not in ("RGB", "L"):
+            img = img.convert("RGB")
+        max_dim = 2048
+        if max(img.width, img.height) > max_dim:
+            img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+        out_buf = io.BytesIO()
+        img.save(out_buf, format="JPEG", quality=85, optimize=True)
+        compressed = out_buf.getvalue()
+        if len(compressed) < len(file_bytes):
+            logger.info(f"Auto-compressed image from {len(file_bytes)} to {len(compressed)} bytes")
+            return compressed, "image/jpeg"
+    except Exception as e:
+        logger.warning(f"Image auto-compression failed in upload: {e}")
+    return file_bytes, mime_type
 
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 ALLOWED_TYPES = {
@@ -173,6 +197,9 @@ async def upload_file(
 
     real_mime = _validate_mime(file_content, file.content_type)
     file_type = get_file_type(real_mime)
+
+    if file_type == "image":
+        file_content, real_mime = _compress_image_bytes(file_content, real_mime)
 
     verified_workspace_id = verify_workspace_access(current_user, db, workspace_id, required_permission=('inbox.conversations', 'brain.manage', 'templates.manage', 'marketing.campaigns', 'ai.chat'))
     ws_uuid = uuid.UUID(verified_workspace_id) if isinstance(verified_workspace_id, str) else verified_workspace_id

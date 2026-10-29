@@ -2051,7 +2051,7 @@ function CreateAgentWizardContent() {
                         Drag and drop files here, or <span className="text-purple-400 underline">click to browse</span>
                       </div>
                       <p className="text-[11px] text-zinc-400 mt-1">
-                        Supports PDF, DOC, DOCX, TXT, CSV (Max 10MB per file)
+                        Supports PDF, DOC, DOCX, TXT, CSV (Max 50MB per file)
                       </p>
                     </div>
 

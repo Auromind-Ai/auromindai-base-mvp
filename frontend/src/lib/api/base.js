@@ -147,7 +147,7 @@ export class APIClient {
   async requestRaw(endpoint, options = {}, isRetryAttempt = false) {
     let url;
     const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
-    const isUploadEndpoint = endpoint.includes('/upload') || endpoint.includes('/media');
+    const isUploadEndpoint = endpoint.includes('/upload') || endpoint.includes('/media') || endpoint.includes('/brain/ingest');
 
     if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
       url = endpoint;
@@ -158,7 +158,7 @@ export class APIClient {
       // In production on Vercel, serverless function rewrites have a hard 4.5MB payload limit.
       // Route file uploads directly to the backend domain to bypass Vercel's FUNCTION_PAYLOAD_TOO_LARGE (413).
       const directBackendUrl = process.env.NEXT_PUBLIC_API_URL || (
-        typeof window !== 'undefined' && window.location.hostname.endsWith('orbionagents.com')
+        typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
           ? 'https://api.orbionagents.com'
           : null
       );
