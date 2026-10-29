@@ -6,6 +6,8 @@ export interface UserProfile {
   id: string;
   email: string;
   full_name?: string | null;
+  phone_number?: string | null;
+  avatar_url?: string | null;
   platform_role?: string;
   deletion_scheduled_at?: string | null;
 }
@@ -167,6 +169,29 @@ class AuthStore {
         );
       } catch {}
     }
+    this.notify();
+  }
+
+  async updateUser(updates: Partial<UserProfile>) {
+    if (!this.state.user) return;
+    this.state.user = { ...this.state.user, ...updates };
+
+    try {
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.USER,
+        JSON.stringify(this.state.user)
+      );
+    } catch {}
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(
+          STORAGE_KEYS.USER,
+          JSON.stringify(this.state.user)
+        );
+      } catch {}
+    }
+
     this.notify();
   }
 

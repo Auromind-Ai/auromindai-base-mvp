@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 import {
   User,
   GitBranch,
@@ -317,7 +318,15 @@ export default function SettingsScreen() {
         {/* User Profile Card */}
         <View style={styles.userProfileRow}>
           <View style={styles.avatarCircle}>
-            <Text style={styles.avatarInitialText}>{userInitial}</Text>
+            {authState.user?.avatar_url ? (
+              <Image
+                source={{ uri: authState.user.avatar_url }}
+                style={styles.avatarImage}
+                contentFit="cover"
+              />
+            ) : (
+              <Text style={styles.avatarInitialText}>{userInitial}</Text>
+            )}
           </View>
           <View style={styles.userInfoCol}>
             <Text style={[styles.userNameText, { color: colors.textPrimary }]}>{userName}</Text>
@@ -339,7 +348,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.menuRow}
             activeOpacity={0.7}
-            onPress={() => {}}
+            onPress={() => router.push('/edit-profile')}
           >
             <User size={20} color={colors.icon} />
             <Text style={[styles.menuRowText, { color: colors.textPrimary }]}>Edit profile</Text>
@@ -352,7 +361,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.menuRow}
             activeOpacity={0.7}
-            onPress={() => {}}
+            onPress={() => router.push('/connected-channels')}
           >
             <GitBranch size={20} color={colors.icon} />
             <Text style={[styles.menuRowText, { color: colors.textPrimary }]}>Connected channels</Text>
@@ -548,6 +557,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarInitialText: {
     color: '#FFFFFF',

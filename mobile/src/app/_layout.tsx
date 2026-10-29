@@ -51,6 +51,8 @@ function NavigationRoot({
         <Stack.Screen name="workspace-selection" options={{ headerShown: false }} />
         <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="customer/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+        <Stack.Screen name="connected-channels" options={{ headerShown: false }} />
       </Stack>
     </>
   );

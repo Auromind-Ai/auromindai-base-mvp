@@ -7,6 +7,7 @@ from app.core.config import settings
 
 
 from app.models.ai_action import *
+from app.models.ai_agent import *
 from app.models.automation import *
 from app.models.billing import *
 from app.models.brain import *

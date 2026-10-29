@@ -304,6 +304,158 @@ class GuardrailsService:
         self.logger.debug("No sensitive query detected")
         return False
 
+    def check_business_scope(
+        self,
+        query: str,
+        business_name: str = "",
+        agent_type: str = "assistant",
+        allow_code: bool = False
+    ) -> dict:
+        """
+        Production Business Scope Guardrail:
+        Ensures customer queries remain strictly focused on the business's domain.
+        Detects and blocks off-topic requests such as:
+          - Software code generation, building apps from scratch, or source code tutorials
+          - Academic homework / math equation solving / general essay writing
+          - General knowledge / trivia / unrelated queries
+          - System prompt extraction attempts
+        """
+        if not query:
+            return {"is_off_topic": False, "reason": None, "refusal_message": None}
+
+        q = query.strip().lower()
+        b_name = business_name.strip() or "our company"
+
+        # 1. Unambiguous Source Code & Software Generation requests
+        if not allow_code:
+            code_gen_patterns = [
+                r"\b(create|write|generate|build|give\s+me|show\s+me|provide)\b.*\b(source\s+code|code\s+for|script\s+for|html\s*(and|\+)?\s*css|node\.?js|express\s+server|react\s+(app|component)|python\s+code|backend\s+code|frontend\s+code)\b",
+                r"\b(write|generate|give\s+me)\s+(a\s+)?(python|javascript|typescript|java|c\+\+|php|sql|bash|html|css)\s+(script|code|program|function|snippet|class)\b",
+                r"\b(create|build)\s+(an?\s+)?(ecommerce|e-commerce|portfolio|blog)\s+(website|web\s*site|app|application)\s+(and|with)\s+(source\s+)?code\b",
+                r"\b(write|create)\s+code\b",
+                r"\bhow\s+to\s+code\b",
+                r"\b(source\s+code\s+(for|of))\b",
+                r"\b(boilerplate|starter\s+kit)\s+for\b",
+            ]
+            for pat in code_gen_patterns:
+                if re.search(pat, q):
+                    self.logger.warning(f"[Scope Guard] Code generation request detected: '{pat}'")
+                    refusal = (
+                        f"I am specialized exclusively as an assistant for {b_name}. "
+                        f"I cannot write programming code, build websites from scratch, or generate source code. "
+                        f"I would be glad to help with any inquiries about {b_name}'s services, products, or booking a demo!"
+                    )
+                    return {
+                        "is_off_topic": True,
+                        "reason": "code_generation",
+                        "refusal_message": refusal
+                    }
+
+        # 2. Academic Homework, Essays, Creative Writing
+        creative_patterns = [
+            r"\b(write|compose)\s+(an?\s+)?(essay|poem|poetry|song|lyrics|rap|fictional\s+story|novel|speech)\b",
+            r"\b(solve|calculate)\s+(this\s+)?(equation|integral|derivative|algebra|calculus)\b",
+            r"\b(do|complete)\s+my\s+(homework|assignment)\b",
+        ]
+        for pat in creative_patterns:
+            if re.search(pat, q):
+                self.logger.warning(f"[Scope Guard] Academic/Creative request detected: '{pat}'")
+                refusal = (
+                    f"I am specialized exclusively as an assistant for {b_name}. "
+                    f"I cannot write essays, poems, or solve academic homework. "
+                    f"Please let me know how I can assist you with our {b_name} products or services!"
+                )
+                return {
+                    "is_off_topic": True,
+                    "reason": "academic_creative",
+                    "refusal_message": refusal
+                }
+
+        # 3. General Trivia & Non-Business Queries
+        trivia_patterns = [
+            r"\b(tell\s+me\s+a\s+(joke|riddle))\b",
+            r"\b(who\s+won\s+the\s+(world\s+cup|super\s+bowl|ipl|championship|election))\b",
+            r"\b(recipe\s+for|how\s+to\s+cook|how\s+to\s+bake)\b",
+            r"\b(who\s+is\s+the\s+president\s+of)\b",
+        ]
+        for pat in trivia_patterns:
+            if re.search(pat, q):
+                self.logger.warning(f"[Scope Guard] General trivia request detected: '{pat}'")
+                refusal = (
+                    f"I am dedicated exclusively to assisting customers with {b_name}. "
+                    f"I cannot answer general trivia or non-business queries. "
+                    f"Feel free to ask about our {b_name} features, pricing, or support!"
+                )
+                return {
+                    "is_off_topic": True,
+                    "reason": "general_trivia",
+                    "refusal_message": refusal
+                }
+
+        # 4. System Prompt Extraction Attempts
+        prompt_leak_patterns = [
+            r"\b(reveal|print|display|show|dump|output|repeat)\b.*\b(system\s*prompt|initial\s*instructions|hidden\s*rules|internal\s*prompt)\b",
+            r"\bwhat\s+(are|is)\s+your\s+(system\s*prompt|exact\s*instructions|hidden\s*prompt)\b",
+        ]
+        for pat in prompt_leak_patterns:
+            if re.search(pat, q):
+                self.logger.warning(f"[Scope Guard] System prompt extraction attempt detected: '{pat}'")
+                refusal = (
+                    f"I am an AI assistant for {b_name}. My internal instructions and system configurations are proprietary. "
+                    f"How can I help you with our {b_name} services today?"
+                )
+                return {
+                    "is_off_topic": True,
+                    "reason": "prompt_leakage",
+                    "refusal_message": refusal
+                }
+
+        return {"is_off_topic": False, "reason": None, "refusal_message": None}
+
+    def filter_off_topic_output(
+        self,
+        response: str,
+        query: str = "",
+        business_name: str = "",
+        allow_code: bool = False
+    ) -> str:
+        """
+        Output Guardrail:
+        Intercepts accidental generation of code blocks or leaked internal markers
+        if the response violates business scope.
+        """
+        if not response:
+            return ""
+
+        b_name = business_name.strip() or "our company"
+
+        # If code generation is not explicitly allowed, check if the response contains markdown code fences
+        if not allow_code:
+            code_fence_pattern = r"```[a-zA-Z0-9_\-]*\n[\s\S]{30,}?```"
+            if re.search(code_fence_pattern, response):
+                self.logger.warning("[Output Guard] Intercepted unauthorized source code in agent output.")
+                return (
+                    f"I am specialized exclusively as an assistant for {b_name}. "
+                    f"I cannot generate programming source code or software implementations. "
+                    f"I would be glad to help with any inquiries regarding our {b_name} services, pricing, or product features!"
+                )
+
+        # Check for leaked system instruction markers
+        leak_markers = [
+            "=== STRICT OPERATIONAL BOUNDARIES",
+            "=== CORE BEHAVIORAL DIRECTIVES",
+            "=== TONE OF VOICE & PERSONALITY",
+            "=== CHANNEL COMMUNICATION RULES",
+            "=== VERIFIED BUSINESS KNOWLEDGE BASE",
+            "CRITICAL: Use the verified knowledge base",
+        ]
+        for marker in leak_markers:
+            if marker in response:
+                self.logger.warning(f"[Output Guard] Redacted leaked system marker: '{marker}'")
+                response = response.replace(marker, "")
+
+        return response.strip()
+
     # OUTPUT GUARD LAYER
     def sanitize_output(self, response: str) -> str:
 

@@ -54,3 +54,4 @@ from .integration import Integration, CalendarEvent, EmailReplyLog, GmailImportL
 from .campaign import Campaign, CampaignRecipient, ContactList, ContactListMember
 from .lead_report_setting import LeadReportSetting
 from .lead_scoring_rule import LeadScoringSetting
+from .ai_agent import AIAgent

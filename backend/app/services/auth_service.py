@@ -612,7 +612,7 @@ class AuthService:
                 
                 saved_otp = mem_data.get("otp")
 
-        if not saved_otp or saved_otp != otp:
+            if not saved_otp or saved_otp != otp:
             if redis_available and r:
                 try:
                     r.incr(attempts_key)

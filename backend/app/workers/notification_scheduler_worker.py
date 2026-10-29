@@ -21,7 +21,8 @@ from app.services.notifications.notification_rule_engine import NotificationRule
 from app.models.token_ledger import TokenLedger
 from app.services.billing.billing_service import BillingService
 from app.services.wcc_service import WCCService
-
+from app.services.email_automation.email_monitor_service import EmailMonitor
+from app.services.crm.lead_email_report_service import LeadEmailReportService
 from app.models.notification_schedule import NotificationSchedule
 from app.services.notifications.schedule_service import NotificationScheduleService
 from app.models.user import User
@@ -663,3 +664,33 @@ def generate_weekly_performance_report(db: Session | None = None):
 
 # Compatibility alias
 check_trial_and_payment_milestones = check_onboarding_and_payment_milestones
+
+
+@celery_app.task(name="app.workers.notification_scheduler_worker.process_lead_email_reports_task")
+def process_lead_email_reports_task():
+    db = SessionLocal()
+    try:
+        processed = LeadEmailReportService.process_due_reports(db)
+        if processed:
+            logger.debug(f"[process_lead_email_reports_task] Processed {processed} scheduled lead report(s)")
+        return {"processed": processed}
+    except Exception as exc:
+        logger.error(f"[process_lead_email_reports_task] Error in lead report task: {exc}", exc_info=True)
+        raise exc
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.workers.notification_scheduler_worker.run_email_monitor_cycle_task")
+def run_email_monitor_cycle_task():
+    db = SessionLocal()
+    try:
+        monitor = EmailMonitor()
+        monitor.run_cycle(db)
+        return {"status": "success"}
+    except Exception as exc:
+        logger.error(f"[run_email_monitor_cycle_task] Error in email monitor cycle: {exc}", exc_info=True)
+        raise exc
+    finally:
+        db.close()
+

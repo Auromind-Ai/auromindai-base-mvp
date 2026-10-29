@@ -927,7 +927,7 @@ def sweep_stuck_messages():
         stuck_msgs = (
             db.query(OutboundMessage)
             .filter(
-                OutboundMessage.status.in_(["dispatched", "in_progress"]),
+                OutboundMessage.status.in_(["dispatched", "in_progress", "sending"]),
                 OutboundMessage.updated_at < now - timedelta(seconds=120)
             )
             .all()

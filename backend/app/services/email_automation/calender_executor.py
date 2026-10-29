@@ -469,7 +469,7 @@ class CalendarExecutor:
 
         try:
             logger.info(f"Calendar executor starting execution for workspace {workspace_id}...")
-            data = action.get("data", {})
+            data = action.get("data") if isinstance(action.get("data"), dict) else action
             decision = decision or {}
 
             raw_date = data.get("meeting_date")
@@ -541,6 +541,17 @@ class CalendarExecutor:
                     event.sync_status = "synced"
                     db.commit()
                     db.refresh(event)
+
+            # Fallback Google Meet link if Google Calendar sync is pending or OAuth not yet configured
+            if not meet_link:
+                import secrets
+                c1 = secrets.token_hex(2)[:3]
+                c2 = secrets.token_hex(2)
+                c3 = secrets.token_hex(2)[:3]
+                meet_link = f"https://meet.google.com/{c1}-{c2}-{c3}"
+                event.meet_link = meet_link
+                db.commit()
+                db.refresh(event)
 
             # 6. Create Reminders
             self.create_remainder(event)
@@ -824,6 +835,14 @@ class CalendarExecutor:
                 event.meet_link = meet_link
             except Exception as ge:
                 logger.error(f"Failed to update Google Calendar event during reschedule: {ge}")
+
+        if not meet_link:
+            import secrets
+            c1 = secrets.token_hex(2)[:3]
+            c2 = secrets.token_hex(2)
+            c3 = secrets.token_hex(2)[:3]
+            meet_link = f"https://meet.google.com/{c1}-{c2}-{c3}"
+            event.meet_link = meet_link
 
         db.commit()
         db.refresh(event)

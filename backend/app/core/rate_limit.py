@@ -36,7 +36,7 @@ DEFAULT_LIMITS = {
     "global": 300,
 }
 
-DEFAULT_MAX_UPLOAD_MB = 25
+DEFAULT_MAX_UPLOAD_MB = 50
 DEFAULT_MAX_CONCURRENT_AI = 15
 
 _in_memory_store = defaultdict(deque)
@@ -65,9 +65,15 @@ def log_security_event(
     logger.warning(f"🔒 [SECURITY_EVENT] {json.dumps(event_payload)}")
 
 
+_rate_limit_redis = None
+
+
 def _get_redis_client():
     if getattr(_get_redis_client, "override", None) is not None:
         return _get_redis_client.override
+    global _rate_limit_redis
+    if _rate_limit_redis is not None:
+        return _rate_limit_redis
     try:
         import redis
         client = redis.from_url(
@@ -75,9 +81,12 @@ def _get_redis_client():
             decode_responses=True,
             socket_connect_timeout=0.5,
             socket_timeout=0.5,
+            health_check_interval=30,
+            retry_on_timeout=True,
         )
         client.ping()
-        return client
+        _rate_limit_redis = client
+        return _rate_limit_redis
     except Exception as e:
         logger.warning(f"RateLimiter Redis connection error: {e}")
         return None
