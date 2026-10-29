@@ -10,7 +10,8 @@ import {
   Menu, ChevronLeft, Layers, Terminal, Cpu, Globe, Maximize,
   Settings, Database, Cloud, AlertCircle, Eye, EyeOff, Monitor,
   ZoomIn, ZoomOut, Upload, Timer, HelpCircle, FileText, Pencil,
-  Brain, LayoutDashboard, BrainCircuit, BarChart2, GitBranch, Inbox
+  Brain, LayoutDashboard, BrainCircuit, BarChart2, GitBranch, Inbox,
+  Info, Check, RotateCcw
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getToken, getWorkspaceIdFromToken, getUser } from '@/lib/auth';
@@ -66,6 +67,7 @@ export default function AutomationCanvas() {
   const [aiInput, setAiInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null); 
   const [error, setError] = useState(null);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [keywordInput, setKeywordInput] = useState('');
@@ -1255,6 +1257,8 @@ export default function AutomationCanvas() {
     const validation = validateFlowGraph(nodes, edges);
     if (!validation.isValid) { setError(validation.errors[0]); return; }
     setIsSaving(true);
+    setSaveStatus('saving');
+    const startTime = Date.now();
     try {
       const sanitizedNodes = nodes.map(node => {
         if (node.type === 'action') {
@@ -1310,8 +1314,26 @@ export default function AutomationCanvas() {
       setSelectedItem(sanitizedSaved);
       setNodes(sanitizedSaved.nodes || sanitizedNodes);
       setEdges(sanitizedSaved.edges || edges);
-      showToast("Wire synced and saved! 🚀", "success");
-    } catch (e) { console.error(e); setError('Save failed: ' + e.message); }
+
+      // Ensure "Saving flow..." stays visible for at least 1 second
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 1000) {
+        await new Promise(r => setTimeout(r, 1000 - elapsed));
+      }
+
+      setSaveStatus('saved');
+      setTimeout(() => {
+        setSaveStatus(prev => (prev === 'saved' ? null : prev));
+      }, 1000);
+    } catch (e) {
+      console.error(e);
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 1000) {
+        await new Promise(r => setTimeout(r, 1000 - elapsed));
+      }
+      setSaveStatus('failed');
+      setError('Save failed: ' + e.message);
+    }
     finally { setIsSaving(false); }
   };
 
@@ -1867,9 +1889,19 @@ export default function AutomationCanvas() {
               <button
                 onClick={handleSave}
                 disabled={isSaving || !selectedItem || !flowValidation.isValid}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 border border-white/20 hover:from-[#814AC8]/60 hover:to-[#221253]/60 disabled:opacity-40 transition text-xs font-medium text-white"
+                className="flex items-center gap-2 px-5 py-2 rounded-full bg-[#814AC8] hover:bg-violet-500 shadow-lg shadow-violet-600/30 transition text-xs font-semibold text-white disabled:opacity-40 cursor-pointer"
               >
-                <Save size={13} /> {isSaving ? 'Syncing...' : 'Sync Wire'}
+                {isSaving ? (
+                  <>
+                    <RotateCw size={13} className="animate-spin text-white" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={13} />
+                    <span>Save</span>
+                  </>
+                )}
               </button>
 
               <button
@@ -1936,9 +1968,19 @@ export default function AutomationCanvas() {
             <button
               onClick={handleSave}
               disabled={isSaving || !selectedItem || !flowValidation.isValid}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 border border-white/20 hover:from-[#814AC8]/60 hover:to-[#221253]/60 disabled:opacity-40 transition text-xs font-medium text-white whitespace-nowrap cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#814AC8] hover:bg-violet-500 shadow-md transition text-xs font-semibold text-white disabled:opacity-40 whitespace-nowrap cursor-pointer"
             >
-              <Save size={13} /> {isSaving ? 'Syncing...' : 'Sync Wire'}
+              {isSaving ? (
+                <>
+                  <RotateCw size={12} className="animate-spin text-white" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save size={13} />
+                  <span>Save</span>
+                </>
+              )}
             </button>
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -1985,8 +2027,17 @@ export default function AutomationCanvas() {
                       disabled={isSaving || !selectedItem || !flowValidation.isValid}
                       className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 rounded-lg text-left disabled:opacity-40 transition cursor-pointer"
                     >
-                      <Save size={14} className="text-emerald-400" />
-                      <span>{isSaving ? 'Syncing...' : 'Sync Wire'}</span>
+                      {isSaving ? (
+                        <>
+                          <RotateCw size={14} className="animate-spin text-violet-400" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save size={14} className="text-emerald-400" />
+                          <span>Save</span>
+                        </>
+                      )}
                     </button>
                     <button
                       onClick={() => {
@@ -2093,12 +2144,55 @@ export default function AutomationCanvas() {
               <span className="text-[12px] text-white/80">
                 Execution preview reaches {flowValidation.reachableNodeIds.size} of {nodes.length} node{nodes.length === 1 ? '' : 's'}.
               </span>
-              <div className="ml-auto flex items-center gap-2 text-xs font-medium select-none">
-                <span className={`w-2 h-2 rounded-full ${flowValidation.isValid ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                <span className={flowValidation.isValid ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
-                  {flowValidation.isValid ? 'Ready to save' : 'Validation required'}
-                </span>
-              </div>
+              {saveStatus === 'saving' ? (
+                <div className="ml-auto mr-8 lg:mr-[165px] flex items-center gap-3 px-4 py-2 rounded-2xl bg-[#16102a]/95 border border-purple-500/40 shadow-xl shadow-purple-950/40 backdrop-blur-md animate-in fade-in duration-200">
+                  <div className="w-6 h-6 rounded-full border border-purple-400/80 flex items-center justify-center text-purple-400 shrink-0">
+                    <Info size={13} strokeWidth={2.5} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-semibold text-white tracking-wide">Saving flow...</span>
+                    <span className="text-[11px] text-purple-200/70">Please wait, your changes are being saved.</span>
+                  </div>
+                </div>
+              ) : saveStatus === 'saved' ? (
+                <div className="ml-auto mr-8 lg:mr-[165px] flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-500/40 shadow-lg shadow-emerald-950/40 animate-in fade-in duration-200">
+                  <div className="w-4.5 h-4.5 rounded-full bg-emerald-500 flex items-center justify-center text-[#0E0F15] shrink-0">
+                    <Check size={11} strokeWidth={3} className="text-[#0E0F15]" />
+                  </div>
+                  <span className="text-xs font-bold text-emerald-400">Saved</span>
+                  <span className="text-[11px] text-zinc-400 ml-1">Just now</span>
+                </div>
+              ) : saveStatus === 'failed' ? (
+                <div className="ml-auto mr-8 lg:mr-[165px] flex items-center gap-3 px-4 py-2 rounded-2xl bg-[#240e13]/95 border border-red-500/40 shadow-xl shadow-red-950/40 backdrop-blur-md animate-in fade-in duration-200">
+                  <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center text-white shrink-0">
+                    <span className="text-xs font-bold text-white leading-none">!</span>
+                  </div>
+                  <div className="flex flex-col mr-2">
+                    <span className="text-xs font-semibold text-white">Save failed</span>
+                    <span className="text-[11px] text-zinc-400">Please try again.</span>
+                  </div>
+                  <button
+                    onClick={handleSave}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 text-xs text-white font-medium transition cursor-pointer"
+                  >
+                    <RotateCcw size={12} />
+                    <span>Retry</span>
+                  </button>
+                  <button
+                    onClick={() => setSaveStatus(null)}
+                    className="text-zinc-400 hover:text-white transition ml-1 p-0.5 cursor-pointer"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+              ) : (
+                <div className="ml-auto flex items-center gap-2 text-xs font-medium select-none">
+                  <span className={`w-2 h-2 rounded-full ${flowValidation.isValid ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                  <span className={flowValidation.isValid ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
+                    {flowValidation.isValid ? 'Ready to save' : 'Validation required'}
+                  </span>
+                </div>
+              )}
             </div>
             {flowValidation.errors.filter(item => !item.includes('has no message text')).length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
@@ -2133,6 +2227,34 @@ export default function AutomationCanvas() {
           <p className="text-[11px] text-white/70">
             Execution preview reaches {flowValidation.reachableNodeIds.size} of {nodes.length} node{nodes.length === 1 ? '' : 's'}.
           </p>
+          {saveStatus === 'saving' && (
+            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-[#16102a]/95 border border-purple-500/40 my-2">
+              <Info size={13} className="text-purple-400 shrink-0" />
+              <div className="flex flex-col">
+                <span className="text-[11px] font-semibold text-white">Saving flow...</span>
+                <span className="text-[10px] text-purple-200/70">Please wait, your changes are being saved.</span>
+              </div>
+            </div>
+          )}
+          {saveStatus === 'saved' && (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 my-2 w-fit">
+              <Check size={11} strokeWidth={3} className="text-emerald-400" />
+              <span className="text-[11px] font-bold text-emerald-400">Saved</span>
+              <span className="text-[10px] text-zinc-400 ml-1">Just now</span>
+            </div>
+          )}
+          {saveStatus === 'failed' && (
+            <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-[#240e13]/95 border border-red-500/40 my-2">
+              <div className="flex items-center gap-2">
+                <span className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center text-white text-[10px] font-bold">!</span>
+                <span className="text-[11px] font-semibold text-white">Save failed</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button onClick={handleSave} className="px-2.5 py-0.5 rounded-full border border-white/20 bg-white/5 text-[10px] text-white">Retry</button>
+                <button onClick={() => setSaveStatus(null)} className="text-zinc-400 p-0.5"><X size={13} /></button>
+              </div>
+            </div>
+          )}
           {flowValidation.errors.filter(item => !item.includes('has no message text')).length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {flowValidation.errors.filter(item => !item.includes('has no message text')).map((item, index) => (
@@ -2354,8 +2476,17 @@ export default function AutomationCanvas() {
                 disabled={isSaving || !selectedItem || !flowValidation.isValid}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-white hover:bg-white/10 transition disabled:opacity-40"
               >
-                <Save size={16} className="text-emerald-400" />
-                <span>{isSaving ? 'Syncing...' : 'Sync Wire'}</span>
+                {isSaving ? (
+                  <>
+                    <RotateCw size={16} className="animate-spin text-violet-400" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} className="text-emerald-400" />
+                    <span>Save</span>
+                  </>
+                )}
               </button>
 
               <button

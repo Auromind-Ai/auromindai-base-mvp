@@ -243,7 +243,9 @@ class ConversationService:
                 query = query.filter(Conversation.status == st)
 
         conversations = (
-            query.order_by(Conversation.updated_at.desc())
+            query.order_by(
+                func.coalesce(Conversation.last_message_at, Conversation.updated_at, Conversation.created_at).desc()
+            )
             .offset(skip)
             .limit(limit)
             .all()
@@ -437,7 +439,9 @@ class ConversationService:
         return (
             db.query(Conversation)
             .filter(Conversation.workspace_id == ws_uuid)
-            .order_by(Conversation.updated_at.desc())
+            .order_by(
+                func.coalesce(Conversation.last_message_at, Conversation.updated_at, Conversation.created_at).desc()
+            )
             .first()
         )
 
