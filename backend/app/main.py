@@ -119,7 +119,9 @@ fallback_origins = [
     "http://www.orbionagents.com",
     "https://app.orbionagents.com",
     "http://app.orbionagents.com",
-   
+    "https://api.orbionagents.com",
+    "http://api.orbionagents.com",
+    
     # Local development
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -138,6 +140,7 @@ for origin in fallback_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=r"https://([a-zA-Z0-9-]+\.)*(orbionagents\.com|vercel\.app)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

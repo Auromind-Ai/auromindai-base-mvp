@@ -188,9 +188,7 @@ function TestAgentContent() {
         const formData = new FormData();
         formData.append('file', fileToUpload);
         const wsQuery = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : '';
-        const uploadEndpoint = typeof window !== 'undefined' && window.location.hostname.endsWith('orbionagents.com')
-          ? `https://api.orbionagents.com/upload${wsQuery}`
-          : `/api/upload${wsQuery}`;
+        const uploadEndpoint = `/upload${wsQuery}`;
         const uploadRes = await api.post(uploadEndpoint, formData);
         mediaData = {
           url: uploadRes.url,

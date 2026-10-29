@@ -3255,10 +3255,7 @@ function InboxContent() {
             if (selectedFile) {
                 const formData = new FormData();
                 formData.append('file', selectedFile);
-                const uploadEndpoint = typeof window !== 'undefined' && window.location.hostname.endsWith('orbionagents.com')
-                    ? 'https://api.orbionagents.com/upload'
-                    : '/api/upload';
-                const uploadRes = await api.post(uploadEndpoint, formData);
+                const uploadRes = await api.post('/upload', formData);
                 uploadedMediaUrl = uploadRes.url;
                 detectedMessageType = uploadRes.file_type || (
                     selectedFile.type.startsWith('video/') ? 'video' :
@@ -3356,10 +3353,7 @@ function InboxContent() {
         try {
             const formData = new FormData();
             formData.append('file', audioFile);
-            const uploadEndpoint = typeof window !== 'undefined' && window.location.hostname.endsWith('orbionagents.com')
-                ? 'https://api.orbionagents.com/upload'
-                : '/api/upload';
-            const uploadRes = await api.post(uploadEndpoint, formData);
+            const uploadRes = await api.post('/upload', formData);
             const uploadedUrl = uploadRes.url;
             const localBlobUrl = URL.createObjectURL(audioFile);
             const payload = {

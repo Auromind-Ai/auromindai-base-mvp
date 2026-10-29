@@ -85,6 +85,17 @@ export function sanitizeErrorMessage(msg, status = 500) {
     'password', 'secret', 'api_key', 'apikey', 'private_key', 'bearer '
   ];
 
+  // Handle 413 Payload / Entity Too Large
+  if (
+    status === 413 ||
+    lower.includes('413') ||
+    lower.includes('payload too large') ||
+    lower.includes('entity too large') ||
+    lower.includes('request entity too large')
+  ) {
+    return 'The uploaded file exceeds the allowed size limit (maximum 50 MB). Please select a smaller file or compress it.';
+  }
+
   // For 4xx client errors without sensitive technical/database leaks, preserve clear user-facing messages
   if (status < 500 && !criticalTechnicalPatterns.some(pat => lower.includes(pat))) {
     return msg;
@@ -122,11 +133,16 @@ export function sanitizeErrorMessage(msg, status = 500) {
 
 export class APIClient {
   constructor(baseURL = '/api') {
+    const isLocal = typeof window !== 'undefined' && (
+      window.location.hostname.includes('localhost') ||
+      window.location.hostname.includes('127.0.0.1')
+    );
     const isProd = typeof window !== 'undefined' 
-      && !window.location.hostname.includes('localhost') 
-      && !window.location.hostname.includes('127.0.0.1')
+      && !isLocal
       && !window.location.hostname.includes('devtunnels.ms');
-    this.baseURL = isProd ? `${window.location.protocol}//${window.location.host}/api` : (process.env.NEXT_PUBLIC_API_URL || baseURL);
+    this.baseURL = isProd
+      ? `${window.location.protocol}//${window.location.host}/api`
+      : (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('ngrok') ? process.env.NEXT_PUBLIC_API_URL : baseURL);
     this.requestHooks = [];
     this.responseHooks = [];
     this.csrfTokenGetter = () => null;
@@ -155,13 +171,28 @@ export class APIClient {
       const cleanEndpoint = endpoint.startsWith('/api/') ? endpoint.substring(4) : (endpoint.startsWith('/backend/') ? endpoint.substring(8) : endpoint);
       const formattedEndpoint = cleanEndpoint.startsWith('/') ? cleanEndpoint : `/${cleanEndpoint}`;
       
-      // In production on Vercel, serverless function rewrites have a hard 4.5MB payload limit.
-      // Route file uploads directly to the backend domain to bypass Vercel's FUNCTION_PAYLOAD_TOO_LARGE (413).
-      const directBackendUrl = process.env.NEXT_PUBLIC_API_URL || (
-        typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
-          ? 'https://api.orbionagents.com'
-          : null
+    
+      const isLocal = typeof window !== 'undefined' && (
+        window.location.hostname.includes('localhost') ||
+        window.location.hostname.includes('127.0.0.1')
       );
+
+      let directBackendUrl = null;
+      if (isLocal) {
+        directBackendUrl = 'http://localhost:8000';
+      } else {
+        const envApiUrl = process.env.NEXT_PUBLIC_API_URL;
+        if (
+          envApiUrl &&
+          (envApiUrl.startsWith('http://') || envApiUrl.startsWith('https://')) &&
+          !envApiUrl.includes('ngrok') &&
+          !envApiUrl.includes('localhost')
+        ) {
+          directBackendUrl = envApiUrl.replace(/\/+$/, '');
+        } else {
+          directBackendUrl = 'https://api.orbionagents.com';
+        }
+      }
 
       if ((isFormData || isUploadEndpoint) && directBackendUrl) {
         url = `${directBackendUrl}${formattedEndpoint}`;
@@ -295,6 +326,8 @@ export class APIClient {
           }
         } else if (data && (data.message || data.error?.message)) {
           errorMessage = data.message || data.error.message;
+        } else if (response.status === 413) {
+          errorMessage = 'The uploaded file exceeds the allowed size limit (maximum 50 MB). Please select a smaller file or compress it.';
         } else {
           errorMessage = `HTTP error ${response.status}`;
         }

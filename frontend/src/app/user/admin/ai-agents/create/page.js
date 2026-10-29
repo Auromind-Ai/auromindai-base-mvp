@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
+import { validateBrainDocumentUpload } from '@/lib/fileValidation';
 
 const STEPS = [
   { id: 1, label: 'Basic Info' },
@@ -485,6 +486,11 @@ function CreateAgentWizardContent() {
     const collectionTag = formData.knowledge_config.collection || `agent_${Math.random().toString(36).substring(2, 10)}`;
 
     for (const f of fileList) {
+      const validation = validateBrainDocumentUpload(f);
+      if (!validation.valid) {
+        setKnowledgeFeedback({ message: `"${f.name}": ${validation.error}`, type: 'error' });
+        continue;
+      }
       const tempId = `file-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const newFileObj = {
         id: tempId,
