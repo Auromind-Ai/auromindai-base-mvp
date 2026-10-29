@@ -491,22 +491,29 @@ function ConversationSidebar({
         return Array.from(map.values());
     }, [conversations]);
 
+    const getConvTime = (item) => {
+        const val = item?.last_message_at || item?.updated_at || item?.created_at;
+        if (!val) return 0;
+        const t = new Date(val).getTime();
+        return isNaN(t) ? 0 : t;
+    };
+
     let filtered = uniqueConversations.filter(l => {
         const name = getDisplayName(l, ch.id).toLowerCase();
         const phone = (l.phone || '').toLowerCase();
         return name.includes(searchQuery.toLowerCase()) || phone.includes(searchQuery.toLowerCase());
     });
 
-    if (searchQuery.trim() !== '') {
-        const query = searchQuery.toLowerCase();
-        filtered = [...filtered].sort((a, b) => {
+    filtered = [...filtered].sort((a, b) => {
+        if (searchQuery.trim() !== '') {
+            const query = searchQuery.toLowerCase();
             const aPhone = (a.phone || '').toLowerCase().includes(query);
             const bPhone = (b.phone || '').toLowerCase().includes(query);
             if (aPhone && !bPhone) return -1;
             if (!aPhone && bPhone) return 1;
-            return 0;
-        });
-    }
+        }
+        return getConvTime(b) - getConvTime(a);
+    });
 
     const [isChannelDropdownOpen, setIsChannelDropdownOpen] = useState(false);
     const [subFilter, setSubFilter] = useState('all');
@@ -2966,6 +2973,15 @@ function InboxContent() {
                 new Map(data.map(item => [item.id, item])).values()
             );
 
+            // Sort newest message first 
+            const getConvTime = (item) => {
+                const val = item?.last_message_at || item?.updated_at || item?.created_at;
+                if (!val) return 0;
+                const t = new Date(val).getTime();
+                return isNaN(t) ? 0 : t;
+            };
+            uniqueData.sort((a, b) => getConvTime(b) - getConvTime(a));
+
             setConversations(uniqueData);
 
             if (counts && typeof counts === 'object') {
@@ -3180,6 +3196,24 @@ function InboxContent() {
                         setLastMessageMap(prev => ({ ...prev, [eventConversationId]: msgContent }));
                     }
 
+                    if (eventConversationId) {
+                        const nowIso = new Date().toISOString();
+                        setConversations(prev => {
+                            const found = (prev || []).find(c => c.id === eventConversationId);
+                            if (found) {
+                                const updated = {
+                                    ...found,
+                                    last_message: msgContent || found.last_message,
+                                    last_message_text: msgContent || found.last_message_text,
+                                    last_message_at: nowIso,
+                                    updated_at: nowIso
+                                };
+                                return [updated, ...prev.filter(c => c.id !== eventConversationId)];
+                            }
+                            return prev;
+                        });
+                    }
+
                     // Genuine NEW incoming message from customer
                     const isExplicitOutbound = msgSender.includes('agent') || msgSender.includes('ai') || msgSender.includes('system') || msgData.direction === 'outbound';
                     const isExplicitInbound = msgSender.includes('user') || msgSender.includes('customer') || msgSender.includes('lead') || msgSender.includes('contact') || msgData.direction === 'inbound';
@@ -3320,6 +3354,16 @@ function InboxContent() {
             };
             setMessages(prev => [...prev, optimisticMsg]);
             setLastMessageMap(prev => ({ ...prev, [lead.id]: outgoingText }));
+
+            const nowIso = new Date().toISOString();
+            setConversations(prev => {
+                const currentConv = (prev || []).find(c => c.id === lead.id);
+                const updatedConv = currentConv
+                    ? { ...currentConv, last_message: outgoingText, last_message_text: outgoingText, last_message_at: nowIso, updated_at: nowIso }
+                    : { ...lead, last_message: outgoingText, last_message_text: outgoingText, last_message_at: nowIso, updated_at: nowIso };
+                const others = (prev || []).filter(c => c.id !== lead.id);
+                return [updatedConv, ...others];
+            });
             setMsg('');
             setSelectedFile(null);
             setSelectedFilePreview(null);
@@ -3387,6 +3431,16 @@ function InboxContent() {
             };
             setMessages(prev => [...prev, optimisticMsg]);
             setLastMessageMap(prev => ({ ...prev, [lead.id]: '🎤 Voice message' }));
+
+            const nowIsoVoice = new Date().toISOString();
+            setConversations(prev => {
+                const currentConv = (prev || []).find(c => c.id === lead.id);
+                const updatedConv = currentConv
+                    ? { ...currentConv, last_message: '🎤 Voice message', last_message_text: '🎤 Voice message', last_message_at: nowIsoVoice, updated_at: nowIsoVoice }
+                    : { ...lead, last_message: '🎤 Voice message', last_message_text: '🎤 Voice message', last_message_at: nowIsoVoice, updated_at: nowIsoVoice };
+                const others = (prev || []).filter(c => c.id !== lead.id);
+                return [updatedConv, ...others];
+            });
             setSelectedFile(null);
             setSelectedFilePreview(null);
             await api.post('/api/send-reply', payload);
@@ -3596,6 +3650,19 @@ function InboxContent() {
             fetchMessages(leadRef.current.id);
         }
         fetchConversations({ selectFirst: false });
+        const targetId = realConvId || leadRef.current?.id;
+        if (targetId) {
+            const nowIso = new Date().toISOString();
+            setConversations(prev => {
+                const currentConv = (prev || []).find(c => c.id === targetId);
+                const updatedConv = currentConv
+                    ? { ...currentConv, last_message: formattedContent, last_message_text: formattedContent, last_message_at: nowIso, updated_at: nowIso }
+                    : (leadRef.current ? { ...leadRef.current, id: targetId, last_message: formattedContent, last_message_text: formattedContent, last_message_at: nowIso, updated_at: nowIso } : null);
+                if (!updatedConv) return prev;
+                const others = (prev || []).filter(c => c.id !== targetId);
+                return [updatedConv, ...others];
+            });
+        }
         setMessages(prev => [...prev, {
             id: 'temp-' + Date.now(),
             sender_type: 'agent',
