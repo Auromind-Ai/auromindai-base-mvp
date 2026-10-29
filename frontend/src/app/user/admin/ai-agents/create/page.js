@@ -115,7 +115,7 @@ const AGENT_TYPES = [
 const DEFAULT_AI_CONFIG = {
   provider: 'groq',
   model: 'openai/gpt-oss-120b',
-  temperature: 0.7,
+  temperature: 0.3,
   max_tokens: 1024,
   top_p: 1.0,
   frequency_penalty: 0.0,
@@ -1675,15 +1675,25 @@ function CreateAgentWizardContent() {
 
               {/* Generation Parameters */}
               <div className="rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] p-5 space-y-5">
-                <h3 className="text-xs font-semibold text-white tracking-wide uppercase">
-                  Generation Parameters
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold text-white tracking-wide uppercase">
+                    Generation Parameters
+                  </h3>
+                  <span className="text-[10px] text-zinc-400 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.06]">
+                    Fine-tune AI responses
+                  </span>
+                </div>
 
                 <div className="space-y-4">
                   {/* Temperature */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs font-medium">
-                      <span className="text-zinc-300">Temperature</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-zinc-300">Temperature</span>
+                        <span className="text-[10px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-normal">
+                          Recommended: 0.3
+                        </span>
+                      </div>
                       <span className="text-purple-300 font-mono">{formData.ai_config.temperature}</span>
                     </div>
                     <input
@@ -1700,16 +1710,21 @@ function CreateAgentWizardContent() {
                       }
                       className="w-full accent-purple-500 cursor-pointer"
                     />
-                    <div className="flex items-center justify-between text-[10px] text-zinc-500">
-                      <span>0.0 (Focused & Deterministic)</span>
-                      <span>1.0 (Creative & Varied)</span>
+                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                      <span>↓ Decrease (0.0): Strict, factual & deterministic</span>
+                      <span>↑ Increase (1.0): Creative & varied (higher hallucination risk)</span>
                     </div>
                   </div>
 
                   {/* Max Tokens */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs font-medium">
-                      <span className="text-zinc-300">Max Tokens</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-zinc-300">Max Tokens</span>
+                        <span className="text-[10px] bg-white/[0.06] text-zinc-400 border border-white/[0.08] px-1.5 py-0.5 rounded font-normal">
+                          Default: 1024
+                        </span>
+                      </div>
                       <span className="text-purple-300 font-mono">{formData.ai_config.max_tokens}</span>
                     </div>
                     <input
@@ -1727,15 +1742,21 @@ function CreateAgentWizardContent() {
                       className="w-full accent-purple-500 cursor-pointer"
                     />
                     <div className="flex items-center justify-between text-[10px] text-zinc-500">
-                      <span>Maximum length of the response (128 - 4,096)</span>
+                      <span>Maximum length of the response (128 - 4,096 tokens)</span>
                     </div>
                   </div>
 
                   {/* Top P, Frequency & Presence Penalty */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                    <div className="space-y-1">
+                    {/* Top P */}
+                    <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-zinc-300">Top P</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-zinc-300">Top P</span>
+                          <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1 py-0.5 rounded font-normal">
+                            Rec: 1.0
+                          </span>
+                        </div>
                         <span className="text-purple-300 font-mono">{formData.ai_config.top_p}</span>
                       </div>
                       <input
@@ -1752,11 +1773,21 @@ function CreateAgentWizardContent() {
                         }
                         className="w-full bg-[#121927] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white"
                       />
+                      <p className="text-[10px] text-zinc-400 leading-tight">
+                        <span className="text-zinc-300">↓ Decrease:</span> Focused vocabulary<br/>
+                        <span className="text-zinc-300">↑ Increase:</span> Broader word pool
+                      </p>
                     </div>
 
-                    <div className="space-y-1">
+                    {/* Frequency Penalty */}
+                    <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-zinc-300">Frequency Penalty</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-zinc-300">Frequency Penalty</span>
+                          <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1 py-0.5 rounded font-normal">
+                            Rec: 0.0
+                          </span>
+                        </div>
                         <span className="text-purple-300 font-mono">{formData.ai_config.frequency_penalty}</span>
                       </div>
                       <input
@@ -1773,11 +1804,21 @@ function CreateAgentWizardContent() {
                         }
                         className="w-full bg-[#121927] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white"
                       />
+                      <p className="text-[10px] text-zinc-400 leading-tight">
+                        <span className="text-zinc-300">↑ Increase:</span> Reduces word repetition<br/>
+                        <span className="text-zinc-300">↓ Decrease:</span> Allows repetition
+                      </p>
                     </div>
 
-                    <div className="space-y-1">
+                    {/* Presence Penalty */}
+                    <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-zinc-300">Presence Penalty</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-zinc-300">Presence Penalty</span>
+                          <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1 py-0.5 rounded font-normal">
+                            Rec: 0.0
+                          </span>
+                        </div>
                         <span className="text-purple-300 font-mono">{formData.ai_config.presence_penalty}</span>
                       </div>
                       <input
@@ -1794,6 +1835,10 @@ function CreateAgentWizardContent() {
                         }
                         className="w-full bg-[#121927] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white"
                       />
+                      <p className="text-[10px] text-zinc-400 leading-tight">
+                        <span className="text-zinc-300">↑ Increase:</span> Introduces new topics<br/>
+                        <span className="text-zinc-300">↓ Decrease:</span> Stays on current topic
+                      </p>
                     </div>
                   </div>
                 </div>
