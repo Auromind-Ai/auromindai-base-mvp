@@ -19,19 +19,25 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 function NavigationRoot({
   fontsLoaded,
   fontsError,
+  timedOut,
 }: {
   fontsLoaded: boolean;
   fontsError: any;
+  timedOut: boolean;
 }) {
   const { colors, statusBarStyle, isLoaded: themeLoaded } = useAppTheme();
 
   useEffect(() => {
-    if ((fontsLoaded || fontsError) && themeLoaded) {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if ((fontsLoaded || fontsError || timedOut) && (themeLoaded || timedOut)) {
       SplashScreen.hideAsync().catch(() => {});
     }
-  }, [fontsLoaded, fontsError, themeLoaded]);
+  }, [fontsLoaded, fontsError, themeLoaded, timedOut]);
 
-  if (!themeLoaded || (!fontsLoaded && !fontsError)) {
+  if ((!themeLoaded && !timedOut) || (!fontsLoaded && !fontsError && !timedOut)) {
     return null;
   }
 
@@ -72,10 +78,20 @@ export default function RootLayout() {
     'Inter-Bold': Poppins_700Bold,
   });
 
+  const [timedOut, setTimedOut] = React.useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setTimedOut(true);
+      SplashScreen.hideAsync().catch(() => {});
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <NavigationRoot fontsLoaded={loaded} fontsError={error} />
+        <NavigationRoot fontsLoaded={loaded} fontsError={error} timedOut={timedOut} />
       </ThemeProvider>
     </SafeAreaProvider>
   );
