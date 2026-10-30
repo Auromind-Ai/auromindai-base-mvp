@@ -17,6 +17,8 @@ export function getApiBaseUrl(): string {
   }
 
   // When running on physical device or Expo Go, extract host IP dynamically from Metro bundler
+  // - On WiFi: host is PC's current LAN IP (e.g. 192.168.0.5)
+  // - On USB (adb reverse): host is localhost / 127.0.0.1
   const hostUri =
     Constants.expoConfig?.hostUri ||
     (Constants as any).expoGoConfig?.debuggerHost ||
@@ -24,19 +26,13 @@ export function getApiBaseUrl(): string {
 
   if (hostUri) {
     const host = hostUri.split(':')[0];
-    if (host && host !== 'localhost' && host !== '127.0.0.1') {
+    if (host) {
       return `http://${host}:8000`;
     }
   }
 
   if (process.env.EXPO_PUBLIC_API_URL) {
-    const configuredUrl = process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
-    // If running on a physical mobile device and the URL is localhost or 127.0.0.1,
-    // localhost points to the phone itself and will fail! Fall back to LAN IP.
-    if (Device.isDevice && (configuredUrl.includes('localhost') || configuredUrl.includes('127.0.0.1'))) {
-      return 'http://192.168.0.7:8000';
-    }
-    return configuredUrl;
+    return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
   }
 
   // When running on Android emulator (not physical device), 10.0.2.2 points to host machine
@@ -44,12 +40,7 @@ export function getApiBaseUrl(): string {
     return 'http://10.0.2.2:8000';
   }
 
-  // Physical device fallback if hostUri was somehow not provided
-  if (Device.isDevice) {
-    return 'http://192.168.0.7:8000';
-  }
-
-  // iOS simulator / local fallback
+  // Fallback for physical device via USB adb reverse, iOS simulator, or local
   return 'http://localhost:8000';
 }
 

@@ -14,6 +14,7 @@ interface OrbionLogoProps {
   width?: number;
   height?: number;
   textColor?: string;
+  layout?: 'vertical' | 'horizontal';
 }
 
 export function OrbionLogo({
@@ -24,13 +25,14 @@ export function OrbionLogo({
   width,
   height,
   textColor,
+  layout = 'vertical',
 }: OrbionLogoProps) {
   const { colors, isDark } = useAppTheme();
   const effectiveTextColor = textColor || (isDark ? '#FFFFFF' : '#111827');
 
   // Dimensions calibrated to exact 2.065:1 aspect ratio of the clean emblem
   const dimensions = {
-    sm: { width: 66, height: 32, textSpacing: 8, textSize: 19 },
+    sm: { width: layout === 'horizontal' ? 48 : 66, height: layout === 'horizontal' ? 24 : 32, textSpacing: 8, textSize: layout === 'horizontal' ? 17 : 19 },
     md: { width: 112, height: 54, textSpacing: 12, textSize: 24 },
     lg: { width: 206, height: 100, textSpacing: 20, textSize: 34 },
     xl: { width: 230, height: 111, textSpacing: 24, textSize: 38 },
@@ -41,7 +43,7 @@ export function OrbionLogo({
   const textSpacing = dimensions.textSpacing;
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, layout === 'horizontal' && styles.containerHorizontal, style]}>
       {/* Pure emblem logo image without any background circle, glow or shadow */}
       <View
         style={[
@@ -49,7 +51,8 @@ export function OrbionLogo({
           {
             width: iconWidth,
             height: iconHeight,
-            marginBottom: showText ? textSpacing : 0,
+            marginBottom: layout === 'horizontal' ? 0 : (showText ? textSpacing : 0),
+            marginRight: layout === 'horizontal' && showText ? textSpacing : 0,
           },
         ]}
       >
@@ -102,6 +105,11 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  containerHorizontal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
   },
   emblemContainer: {
     alignItems: 'center',
