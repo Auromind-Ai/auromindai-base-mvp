@@ -190,9 +190,7 @@ export function resolveSubdomainAction({
     }
 
     // Authenticated workspace routes: internally rewrite from /:path* to /user/admin/:path*
-    const targetSubPath = (pathname === '/ai-agents' || pathname === '/ai-agents/')
-      ? '/ai'
-      : pathname;
+    const targetSubPath = pathname;
     return {
       type: 'rewrite',
       url: `/user/admin${targetSubPath}${search}`,
@@ -254,9 +252,7 @@ export function resolveSubdomainAction({
         clearCookie: true,
       };
     }
-    const targetSubPath = (pathname === '/ai-agents' || pathname === '/ai-agents/')
-      ? '/ai'
-      : pathname;
+    const targetSubPath = pathname;
     return {
       type: 'rewrite',
       url: `/user/admin${targetSubPath}${search}`,

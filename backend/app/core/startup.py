@@ -1,18 +1,11 @@
-from sched import scheduler
-
-from sqlalchemy.orm import Session
-from app.database import SessionLocal, engine
 from app.core.logger import logger
-from app.services.background_scheduler import EmailSchedulerService
-from app.services.cleanup_service import ReservationCleanupSchedulerService
-from app.services.agentic_rag.cache_loader import load_learning_cache
 from app.services.agentic_rag.rag_service import get_rag_service
 from app.core.chat_provider import get_llm_router
 from app.core.redis_pubsub import RedisPubSubService
 import app.core.redis_pubsub as _pubsub_module
 from app.core.websockets import manager
 from app.core.metrics import init_metrics_redis, close_metrics_redis
-from app.core.deletion_scheduler import register_deletion_job
+
 
 def init_rag(app):
     import os
@@ -22,49 +15,6 @@ def init_rag(app):
     app.state.orchestrator = orchestrator
     logger.info("[PID %d] RAG service ready.", pid)
 
-def init_notification_defaults():
-    logger.info("Notification templates, rules, and dynamic schedules are managed via Alembic migrations.")
-
-
-def init_learning_cache():
-    db: Session = SessionLocal()
-    try:
-        load_learning_cache(db)
-        logger.warning(
-            "Learning cache initialization skipped pending tenant-scoped redesign"
-        )
-    except Exception as e:
-        logger.error(f"Learning cache disablement failed: {e}")
-    finally:
-        db.close()
-
-
-def init_schedulers(app):
-    # Multi-worker safe check
-    from app.services.config_service import config_service
-    if not config_service.get("scheduler_enabled", True):
-        logger.warning("Schedulers disabled (multi-worker mode)")
-        return
-
-    email_scheduler = EmailSchedulerService(engine)
-    email_scheduler.start()
-    app.state.email_scheduler = email_scheduler
-    logger.debug("Email Scheduler started")
-
-    register_deletion_job()
-
-    cleanup_scheduler = ReservationCleanupSchedulerService(engine)
-    cleanup_scheduler.start()
-    app.state.reservation_cleanup_scheduler = cleanup_scheduler
-    logger.debug("Cleanup Scheduler started")
-
-
-def shutdown_schedulers(app):
-    if hasattr(app.state, "email_scheduler") and app.state.email_scheduler:
-        app.state.email_scheduler.stop()
-
-    if hasattr(app.state, "reservation_cleanup_scheduler") and app.state.reservation_cleanup_scheduler:
-        app.state.reservation_cleanup_scheduler.stop()
 
 async def init_llm_router(app):
     router = await get_llm_router()

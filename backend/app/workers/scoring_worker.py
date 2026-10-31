@@ -3,7 +3,7 @@ from typing import Any
 from datetime import datetime, timezone
 import json
 from celery import shared_task
-import redis
+from app.core.redis_lock import get_redis_client
 from app.core.celery_app import celery_app
 from app.database import SessionLocal
 from app.models.ai_action import Lead
@@ -16,8 +16,6 @@ from app.utils.scoring_config import get_scoring_config
 
 logger = logging.getLogger(__name__)
 
-# Initialize synchronous Redis client for the worker
-redis_client = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
 
 @celery_app.task(
     bind=True,
@@ -28,6 +26,8 @@ def analyze_message_intent(self, conversation_id: str, message_text: str, messag
     cfg = get_scoring_config()
     if not message_text or len(message_text.strip()) < 2:
         return
+
+    redis_client = get_redis_client()
         
     # Idempotency Check (Fast Dedupe via Redis)
     if message_external_id:

@@ -39,12 +39,17 @@ export const Fonts = Platform.select({
     mono: 'monospace',
   },
   web: {
-    sans: 'var(--font-display)',
+    sans: 'Inter, system-ui, sans-serif',
     serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
+    rounded: 'Inter, system-ui, sans-serif',
     mono: 'var(--font-mono)',
   },
-});
+}) as {
+  sans: string;
+  serif: string;
+  rounded: string;
+  mono: string;
+};
 
 export const Spacing = {
   half: 2,

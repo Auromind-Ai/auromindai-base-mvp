@@ -24,6 +24,7 @@ class LeadReportSetting(Base):
     send_times = Column(JSON, nullable=True)  # null falls back to the legacy single time
     recipient_emails = Column(JSON, default=list, nullable=False)
     attach_csv = Column(Boolean, default=True, nullable=False)
+    only_new_leads = Column(Boolean, default=True, nullable=False, server_default="true")
 
     report_filters = Column(JSON, default=dict, nullable=True)
     csv_columns = Column(JSON, nullable=True)

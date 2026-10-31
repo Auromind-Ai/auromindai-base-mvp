@@ -6,6 +6,8 @@ export interface UserProfile {
   id: string;
   email: string;
   full_name?: string | null;
+  phone_number?: string | null;
+  avatar_url?: string | null;
   platform_role?: string;
   deletion_scheduled_at?: string | null;
 }
@@ -170,6 +172,29 @@ class AuthStore {
     this.notify();
   }
 
+  async updateUser(updates: Partial<UserProfile>) {
+    if (!this.state.user) return;
+    this.state.user = { ...this.state.user, ...updates };
+
+    try {
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.USER,
+        JSON.stringify(this.state.user)
+      );
+    } catch {}
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(
+          STORAGE_KEYS.USER,
+          JSON.stringify(this.state.user)
+        );
+      } catch {}
+    }
+
+    this.notify();
+  }
+
   async clearAuth() {
     this.state = {
       token: null,
@@ -216,6 +241,47 @@ class AuthStore {
     } finally {
       // Clear local storage regardless of backend response
       await this.clearAuth();
+    }
+  }
+
+  async refreshUser(): Promise<void> {
+    if (!this.state.token) return;
+    try {
+      const data: any = await apiClient.get('/auth/me');
+      if (data && data.id) {
+        const updatedUser: UserProfile = {
+          id: data.id,
+          email: data.email,
+          full_name: data.full_name || null,
+          phone_number: data.phone_number || null,
+          avatar_url: data.avatar_url || null,
+          platform_role: data.platform_role || 'user',
+          deletion_scheduled_at: data.deletion_scheduled_at || null,
+        };
+        this.state.user = updatedUser;
+        await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
+        this.notify();
+      }
+    } catch {
+      // Offline fallback
+    }
+  }
+
+  async refreshWorkspaces(): Promise<void> {
+    if (!this.state.token) return;
+    try {
+      const data: any = await apiClient.get('/auth/workspaces');
+      if (Array.isArray(data)) {
+        this.state.workspaces = data;
+        await AsyncStorage.setItem(STORAGE_KEYS.WORKSPACES, JSON.stringify(data));
+        if (!this.state.selectedWorkspace && data.length > 0) {
+          this.state.selectedWorkspace = data[0];
+          await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_WORKSPACE, JSON.stringify(data[0]));
+        }
+        this.notify();
+      }
+    } catch {
+      // Offline fallback
     }
   }
 

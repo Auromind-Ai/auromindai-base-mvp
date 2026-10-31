@@ -265,6 +265,7 @@ class MessageService:
         message: str,
         metadata: Optional[dict[str, Any]] = None,
         template_name: Optional[str] = None,
+        is_ai_reply: bool = False,
     ) -> dict[str, Any]:
         conversation = ConversationService.get_conversation_or_404(
             db,
@@ -331,7 +332,7 @@ class MessageService:
             sender_type=SenderType.AGENT,
             status=MessageStatus.SENT,
             metadata=enriched_metadata,
-            source="template_reply" if template_name else "manual_reply",
+            source="ai_agent_reply" if is_ai_reply else ("template_reply" if template_name else "manual_reply"),
         )
         try:
             external_id = ChannelService.send_message(conversation, message, enriched_metadata)
@@ -379,7 +380,8 @@ class MessageService:
                 )
             except Exception as debit_err:
                 logger.error(f"[WCC Debit] Error debiting template in send_reply: {debit_err}")
-        MessageService._trigger_human_takeover(db, conversation)
+        if not is_ai_reply:
+            MessageService._trigger_human_takeover(db, conversation)
 
         # Trigger score update on Agent reply (Task 6)
         from app.models.ai_action import Lead
@@ -388,7 +390,7 @@ class MessageService:
         lead = db.query(Lead).filter(Lead.conversation_id == conversation.id).first()
         if lead:
             lead.last_activity_at = datetime.utcnow()
-            recalculate_lead_score(lead, db, reason="agent_reply", commit=False)
+            recalculate_lead_score(lead, db, reason="ai_agent_reply" if is_ai_reply else "agent_reply", commit=False)
 
         db.commit()
         db.refresh(stored_message)

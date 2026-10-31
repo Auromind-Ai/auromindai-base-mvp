@@ -20,7 +20,7 @@ def test_upload_content_length_exceeded(client):
         "/upload",
         headers={
             "X-Forwarded-For": "198.51.100.6",
-            "Content-Length": "52428800" # 50 MB
+            "Content-Length": "62914560" # 60 MB (> 50 MB)
         }
     )
     assert res.status_code == 413

@@ -121,7 +121,7 @@ export default function MessageRenderer({
     
         {/* Body content */}
         {content && !/^\[(IMAGE|AUDIO|VOICE|VIDEO|DOCUMENT)\]$/i.test(content.trim()) && (
-            <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap break-words">
+            <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap break-words select-text">
                 {content}
             </p>
         )}
@@ -210,7 +210,7 @@ export default function MessageRenderer({
           </div>
         )}
         {hasCaption && (
-          <div className="pt-2 px-1 pb-0.5 text-[13.5px] text-[#e9edef] leading-relaxed break-words">
+          <div className="pt-2 px-1 pb-0.5 text-[13.5px] text-[#e9edef] leading-relaxed break-words select-text">
             <p className="whitespace-pre-wrap">{content}</p>
             <div className="mt-1 flex justify-end">
               {timeNode}
@@ -269,7 +269,7 @@ export default function MessageRenderer({
           </div>
         )}
         {hasCaption && (
-          <div className="pt-2 px-1 pb-0.5 text-[13.5px] text-[#e9edef] leading-relaxed break-words">
+          <div className="pt-2 px-1 pb-0.5 text-[13.5px] text-[#e9edef] leading-relaxed break-words select-text">
             <p className="whitespace-pre-wrap">{content}</p>
             <div className="mt-1 flex justify-end">
               {timeNode}
@@ -530,7 +530,7 @@ export default function MessageRenderer({
   };
 
   return (
-    <div className="text-[14.2px] text-inherit leading-[1.42] whitespace-pre-wrap break-words font-normal">
+    <div className="text-[14.2px] text-inherit leading-[1.42] whitespace-pre-wrap break-words font-normal select-text">
       {renderFormattedText(content)}
       {timeNode}
     </div>

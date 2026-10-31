@@ -21,7 +21,7 @@ export function resolveWorkspace(workspaces, currentId, savedId, defaultId, hidd
 
 const routePermissions = {
   dashboard: 'dashboard.overview', inbox: 'inbox.conversations', leads: 'leads.view',
-  crm: 'crm.view', ai: 'ai.chat', 'ai-control': 'ai.chat', automation: 'automation.manage',
+  crm: 'crm.view', ai: 'ai.chat', 'ai-agents': 'ai.chat', 'ai-control': 'ai.chat', automation: 'automation.manage',
   flows: 'automation.manage', templates: 'templates.manage', marketing: 'marketing.campaigns',
   channels: 'channels.manage', brain: 'brain.manage', credits: 'credits.view', billing: 'billing.manage',
   team: 'team.members', settings: 'settings.general', calendar: 'crm.view',

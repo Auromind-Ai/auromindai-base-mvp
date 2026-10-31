@@ -10,7 +10,7 @@ import {
     PenLine, CheckSquare, UserCheck, XCircle, ChevronDown, ChevronUp, Check,
     Inbox, X, Play, Pause, Mic, CheckCheck, Smile, Loader2, MessageCircle,
     RefreshCw, MessageSquarePlus, MessageSquare, Plus, Video, Trash2,
-    Activity, Bell
+    Activity, Bell, Copy
 } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -1407,6 +1407,29 @@ function EmptyConversationView({ ch, onNewChat }) {
     );
 }
 
+function getMessageTextToCopy(msg, parsedMeta, displayTxt, mediaLink) {
+    if (displayTxt && typeof displayTxt === 'string' && displayTxt.trim()) {
+        return displayTxt.trim();
+    }
+    if (parsedMeta && typeof parsedMeta === 'object') {
+        const parts = [];
+        if (parsedMeta.template_header) parts.push(parsedMeta.template_header);
+        if (msg.content && !/^(IMAGE|AUDIO|VOICE|VIDEO|DOCUMENT)$/i.test(String(msg.content).trim().replace(/^\[|\]$/g, ''))) {
+            parts.push(String(msg.content).trim());
+        }
+        if (parsedMeta.template_footer) parts.push(parsedMeta.template_footer);
+        if (Array.isArray(parsedMeta.buttons) && parsedMeta.buttons.length > 0) {
+            const btnTexts = parsedMeta.buttons.map(b => typeof b === 'string' ? b : (b.label || b.title || b.text)).filter(Boolean);
+            if (btnTexts.length > 0) parts.push(btnTexts.join('\n'));
+        }
+        if (parts.length > 0) return parts.join('\n\n');
+    }
+    if (mediaLink) {
+        return parsedMeta?.file_name || parsedMeta?.filename || mediaLink;
+    }
+    return (msg.content || '').trim();
+}
+
 function ChatArea({
     ch, lead, messages = [], msg, setMsg, aiSuggestion, sendMessage,
     generateSuggestion, useSuggestion, onInfoClick, onBackToList,
@@ -1443,6 +1466,62 @@ function ChatArea({
     const isInstagram = activeChannel === 'instagram';
     const isWhatsApp = activeChannel === 'whatsapp';
     const [unreadScrolledCount, setUnreadScrolledCount] = useState(0);
+    const [copiedMessageId, setCopiedMessageId] = useState(null);
+    const [contextMenu, setContextMenu] = useState(null);
+
+    const handleCopyMessage = async (textToCopy, messageId) => {
+        if (!textToCopy) return;
+        try {
+            if (typeof navigator !== 'undefined' && navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(textToCopy);
+            } else {
+                const textArea = document.createElement('textarea');
+                textArea.value = textToCopy;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand('copy');
+                textArea.remove();
+            }
+            setCopiedMessageId(messageId);
+            showToast('✓ Message copied to clipboard');
+            setTimeout(() => {
+                setCopiedMessageId(prev => (prev === messageId ? null : prev));
+            }, 2000);
+        } catch (err) {
+            console.error('Failed to copy message:', err);
+            showToast('Failed to copy message');
+        }
+    };
+
+    const handleContextMenu = (e, textToCopy, messageId) => {
+        if (!textToCopy) return;
+        e.preventDefault();
+        setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            text: textToCopy,
+            messageId: messageId,
+        });
+    };
+
+    useEffect(() => {
+        const handleGlobalClick = () => setContextMenu(null);
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') setContextMenu(null);
+        };
+        if (contextMenu) {
+            document.addEventListener('click', handleGlobalClick);
+            document.addEventListener('keydown', handleKeyDown);
+            return () => {
+                document.removeEventListener('click', handleGlobalClick);
+                document.removeEventListener('keydown', handleKeyDown);
+            };
+        }
+    }, [contextMenu]);
     const prevMessagesLenRef = useRef(messages.length);
     const prevOldestIdRef = useRef(messages[0]?.id);
     const prevLatestIdRef = useRef(messages[messages.length - 1]?.id);
@@ -1731,9 +1810,9 @@ function ChatArea({
     }
 
     return (
-        <div className={`flex flex-col h-full overflow-hidden ${isInstagram ? 'bg-black' : 'bg-[#0c0d14]'} relative select-none`}>
+        <div className={`flex flex-col h-full overflow-hidden ${isInstagram ? 'bg-black' : 'bg-[#0c0d14]'} relative`}>
             {/* Header */}
-            <div className={`flex items-center justify-between px-5 py-2.5 border-b shrink-0 relative z-30 ${
+            <div className={`flex items-center justify-between px-5 py-2.5 border-b shrink-0 relative z-30 select-none ${
                 isInstagram ? 'bg-black border-white/[0.08]' : 'bg-[#10111A] border-white/[0.07]'
             }`}>
                 {/* Left: Contact Info */}
@@ -1920,7 +1999,7 @@ function ChatArea({
                 <div
                     ref={messagesContainerRef}
                     onScroll={handleScroll}
-                    className="absolute inset-0 overflow-y-auto px-4 sm:px-8 md:px-12 lg:px-20 py-6 custom-scrollbar z-10"
+                    className="absolute inset-0 overflow-y-auto px-4 sm:px-8 md:px-12 lg:px-20 py-6 custom-scrollbar z-10 select-text"
                 >
                     <div className="w-full max-w-[960px] mx-auto relative z-10">
                         {isLoadingOlder && (
@@ -2051,12 +2130,16 @@ function ChatArea({
                             </span>
                         );
 
+                        const textToCopy = getMessageTextToCopy(m, parsedMetadata, displayContent, mediaUrl);
+                        const isCopied = copiedMessageId === m.id;
+
                         return (
                             <motion.div
                                 key={m.id}
                                 initial={{ opacity: 0, y: 3 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className={`flex items-end gap-2 ${isUser ? 'justify-start' : 'justify-end'} ${spacingClass}`}
+                                className={`flex items-end gap-2 ${isUser ? 'justify-start' : 'justify-end'} ${spacingClass} group/msg relative`}
+                                onContextMenu={(e) => handleContextMenu(e, textToCopy, m.id)}
                             >
                                 {isInstagram && isUser && (
                                     <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 mb-0.5 shadow-sm">
@@ -2069,7 +2152,38 @@ function ChatArea({
                                         )}
                                     </div>
                                 )}
-                                <div className={`w-fit max-w-[85%] sm:max-w-[75%] md:max-w-[65%] lg:max-w-[560px] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] ${bubbleClass} relative group`}>
+
+                                {/* Copy Button for Outgoing messages (!isUser): Left side of bubble */}
+                                {!isUser && Boolean(textToCopy) && (
+                                    <div className={`flex items-center self-center transition-all duration-150 shrink-0 ${
+                                        isCopied
+                                            ? 'opacity-100 scale-100'
+                                            : 'opacity-0 scale-95 group-hover/msg:opacity-100 group-hover/msg:scale-100 focus-within:opacity-100'
+                                    }`}>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleCopyMessage(textToCopy, m.id);
+                                            }}
+                                            title={isCopied ? "Copied!" : "Copy message"}
+                                            aria-label="Copy message"
+                                            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer shadow-md border ${
+                                                isCopied
+                                                    ? 'bg-[#00a884]/25 border-[#00a884]/50 text-[#25D366] scale-105'
+                                                    : 'bg-[#202c33]/90 hover:bg-[#2a3942] active:scale-95 text-[#8696a0] hover:text-[#e9edef] border-white/10'
+                                            }`}
+                                        >
+                                            {isCopied ? (
+                                                <Check size={13} className="stroke-[2.5]" />
+                                            ) : (
+                                                <Copy size={13} className="stroke-[2]" />
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
+
+                                <div className={`w-fit max-w-[85%] sm:max-w-[75%] md:max-w-[65%] lg:max-w-[560px] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] ${bubbleClass} relative select-text`}>
                                     <MessageRenderer
                                         content={displayContent}
                                         metadata={parsedMetadata}
@@ -2089,6 +2203,36 @@ function ChatArea({
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Copy Button for Incoming messages (isUser): Right side of bubble */}
+                                {isUser && Boolean(textToCopy) && (
+                                    <div className={`flex items-center self-center transition-all duration-150 shrink-0 ${
+                                        isCopied
+                                            ? 'opacity-100 scale-100'
+                                            : 'opacity-0 scale-95 group-hover/msg:opacity-100 group-hover/msg:scale-100 focus-within:opacity-100'
+                                    }`}>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleCopyMessage(textToCopy, m.id);
+                                            }}
+                                            title={isCopied ? "Copied!" : "Copy message"}
+                                            aria-label="Copy message"
+                                            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer shadow-md border ${
+                                                isCopied
+                                                    ? 'bg-[#00a884]/25 border-[#00a884]/50 text-[#25D366] scale-105'
+                                                    : 'bg-[#202c33]/90 hover:bg-[#2a3942] active:scale-95 text-[#8696a0] hover:text-[#e9edef] border-white/10'
+                                            }`}
+                                        >
+                                            {isCopied ? (
+                                                <Check size={13} className="stroke-[2.5]" />
+                                            ) : (
+                                                <Copy size={13} className="stroke-[2]" />
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
                             </motion.div>
                         );
                     })}
@@ -2102,6 +2246,30 @@ function ChatArea({
                         ) : (
                             <video src={previewMedia.url} controls autoPlay onClick={(e) => e.stopPropagation()} className="max-h-[90vh] max-w-[90vw] rounded-2xl shadow-2xl" />
                         )}
+                    </div>
+                )}
+
+                {/* Custom Right-Click Context Menu */}
+                {contextMenu && (
+                    <div
+                        className="fixed z-50 py-1 px-1 rounded-xl bg-[#233138] border border-white/10 shadow-2xl min-w-[160px]"
+                        style={{
+                            top: `${Math.min(contextMenu.y, (typeof window !== 'undefined' ? window.innerHeight : 800) - 80)}px`,
+                            left: `${Math.min(contextMenu.x, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 180)}px`,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => {
+                                handleCopyMessage(contextMenu.text, contextMenu.messageId);
+                                setContextMenu(null);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
+                        >
+                            <Copy size={14} className="text-[#8696a0]" />
+                            <span>Copy message</span>
+                        </button>
                     </div>
                 )}
 
@@ -3087,7 +3255,10 @@ function InboxContent() {
             if (selectedFile) {
                 const formData = new FormData();
                 formData.append('file', selectedFile);
-                const uploadRes = await api.post('/api/upload', formData);
+                const uploadEndpoint = typeof window !== 'undefined' && window.location.hostname.endsWith('orbionagents.com')
+                    ? 'https://api.orbionagents.com/upload'
+                    : '/api/upload';
+                const uploadRes = await api.post(uploadEndpoint, formData);
                 uploadedMediaUrl = uploadRes.url;
                 detectedMessageType = uploadRes.file_type || (
                     selectedFile.type.startsWith('video/') ? 'video' :
@@ -3185,7 +3356,10 @@ function InboxContent() {
         try {
             const formData = new FormData();
             formData.append('file', audioFile);
-            const uploadRes = await api.post('/api/upload', formData);
+            const uploadEndpoint = typeof window !== 'undefined' && window.location.hostname.endsWith('orbionagents.com')
+                ? 'https://api.orbionagents.com/upload'
+                : '/api/upload';
+            const uploadRes = await api.post(uploadEndpoint, formData);
             const uploadedUrl = uploadRes.url;
             const localBlobUrl = URL.createObjectURL(audioFile);
             const payload = {

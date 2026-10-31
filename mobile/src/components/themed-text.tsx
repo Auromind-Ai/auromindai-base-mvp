@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Medium',
     lineHeight: 30,
     fontSize: 14,
-    color: '#3c87f7',
+    color: '#9C75FF',
   },
   code: {
     fontFamily: Fonts.mono,

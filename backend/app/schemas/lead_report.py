@@ -14,6 +14,7 @@ class LeadReportSettingsUpdate(BaseModel):
     send_times: list[str] = Field(default_factory=lambda: ["09:00"], min_length=1, max_length=24)
     recipient_emails: list[EmailStr] = Field(default_factory=list, max_length=100)
     attach_csv: bool = True
+    only_new_leads: bool = True
     report_filters: dict = Field(default_factory=dict)
     csv_columns: list[str] | None = None
     subject_template: str | None = Field(None, max_length=255)

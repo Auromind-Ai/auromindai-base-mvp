@@ -228,6 +228,11 @@ class Lead(Base):
         onupdate=func.now(),
         nullable=True
     )
+    last_reported_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True
+    )
 
 
 # SALES PIPELINE

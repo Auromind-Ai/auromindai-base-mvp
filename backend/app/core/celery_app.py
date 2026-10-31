@@ -20,7 +20,7 @@ celery_app.conf.update(
 
     # Timezone
     timezone="Asia/Kolkata",
-    enable_utc=True,
+    enable_utc=False,
 
     # Task discovery
     imports=[
@@ -59,6 +59,8 @@ celery_app.conf.update(
         "app.workers.flow_execution.poll_scheduled_resumes": {"queue": "beat"},
         "app.workers.notification_scheduler_worker.process_scheduled_email_outbox": {"queue": "beat"},
         "app.workers.notification_scheduler_worker.evaluate_dynamic_notification_schedules": {"queue": "beat"},
+        "app.workers.notification_scheduler_worker.process_lead_email_reports_task": {"queue": "beat"},
+        "app.workers.notification_scheduler_worker.run_email_monitor_cycle_task": {"queue": "beat"},
 
         # 3. Critical System Workers (Zero-delay processing)
         "app.workers.billing_worker.*": {"queue": "critical_queue"},
@@ -127,6 +129,23 @@ celery_app.conf.beat_schedule = {
     "check-scheduled-campaigns": {
         "task": "app.workers.campaign_worker.check_scheduled_campaigns",
         "schedule": 30.0,
+    },
+    # 6. Periodic Maintenance & Reporting 
+    "cleanup-stale-billing-reservations": {
+        "task": "app.workers.billing_worker.cleanup_stale_reservations_task",
+        "schedule": 60.0, 
+    },
+    "process-due-lead-email-reports": {
+        "task": "app.workers.notification_scheduler_worker.process_lead_email_reports_task",
+        "schedule": 60.0, 
+    },
+    "daily-account-permanent-deletion": {
+        "task": "app.workers.billing_worker.account_permanent_deletion_task",
+        "schedule": crontab(hour=2, minute=0), 
+    },
+    "email-monitor-cycle": {
+        "task": "app.workers.notification_scheduler_worker.run_email_monitor_cycle_task",
+        "schedule": 6000.0,  
     },
 }
 

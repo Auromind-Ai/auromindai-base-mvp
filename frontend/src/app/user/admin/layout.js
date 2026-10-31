@@ -8,7 +8,7 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import { getToken, isTokenExpired } from '@/lib/auth';
 import { isWorkspacePageAllowed } from '@/lib/workspaceAccess.mjs';
-import { LogOut, Shield, Menu, PanelLeftClose, PanelLeftOpen, Building2, ChevronDown, Check, Users, Sparkles, Inbox, Wallet } from 'lucide-react';
+import { LogOut, Shield, Menu, PanelLeftClose, PanelLeftOpen, Building2, ChevronDown, Check, Users, Inbox, Wallet } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from '@/context/AuthContext';
 import dynamic from 'next/dynamic';
@@ -273,6 +273,8 @@ function AdminLayoutContent({ children }) {
     const isFullScreenPage = Boolean(cleanPath && (
         cleanPath === '/ai' ||
         cleanPath.startsWith('/ai/') ||
+        cleanPath === '/ai-agents' ||
+        cleanPath.startsWith('/ai-agents/') ||
         cleanPath === '/inbox' ||
         cleanPath.startsWith('/inbox/') ||
         cleanPath === '/leads' ||
@@ -291,6 +293,8 @@ function AdminLayoutContent({ children }) {
         cleanPath.startsWith('/marketing') ||
         pathname === '/user/admin/ai' ||
         pathname.startsWith('/user/admin/ai/') ||
+        pathname === '/user/admin/ai-agents' ||
+        pathname.startsWith('/user/admin/ai-agents/') ||
         pathname === '/user/admin/inbox' ||
         pathname.startsWith('/user/admin/inbox/') ||
         pathname === '/user/admin/leads' ||
