@@ -11,9 +11,11 @@ import {
   Modal,
   Image,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import {
   ChevronLeft,
   Circle,
@@ -53,6 +55,7 @@ interface Message {
 
 export default function ChatDetailScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { isDark, statusBarStyle } = useAppTheme();
   const params = useLocalSearchParams<{ id?: string; channel?: string; name?: string }>();
 
@@ -183,274 +186,371 @@ export default function ChatDetailScreen() {
     } as any);
   };
 
-  // Exact theme colors matching the uploaded design
-  const screenBg = isDark ? '#151A31' : '#F4F6FB';
-  const headerBg = isDark ? '#181D39' : '#FFFFFF';
-  const headerBorder = isDark ? 'rgba(255, 255, 255, 0.06)' : '#EEF2F6';
-  const customerBubbleBg = isDark ? '#363B53' : '#FFFFFF';
-  const customerBubbleBorder = isDark ? 'rgba(255, 255, 255, 0.05)' : '#EDF0F5';
-  const customerTextColor = isDark ? '#FFFFFF' : '#111827';
-  const customerTimeColor = isDark ? '#8C96A8' : '#9CA3AF';
-  const inputCapsuleBg = isDark ? '#1B213A' : '#EDEDFC';
-  const inputCapsuleBorder = isDark ? '#2E3654' : '#FFFFFF';
+  // Theme colors matching the audit and reference image
+  const customerBubbleBg = isDark ? '#202941' : '#FAFAFA';
+  const customerBubbleBorder = isDark ? 'rgba(164, 170, 255, 0.08)' : 'rgba(235, 238, 245, 0.9)';
+  const customerTextColor = isDark ? '#F5F4FF' : '#1F1A3C';
+  const inputCapsuleBg = isDark ? '#161D36' : '#FFFFFF';
+  const inputCapsuleBorder = isDark ? 'rgba(164, 170, 255, 0.14)' : 'rgba(226, 232, 240, 0.9)';
   const placeholderColor = isDark ? '#7E8BA0' : '#9CA3AF';
-  const inputTextColor = isDark ? '#FFFFFF' : '#111827';
+  const inputTextColor = isDark ? '#F5F4FF' : '#1F1A3C';
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: screenBg }]} edges={['top', 'left', 'right']}>
-      <StatusBar style={statusBarStyle} />
+    <View style={[styles.container, { backgroundColor: isDark ? '#0A1023' : '#EEEEF5' }]}>
+      <StatusBar style="light" />
 
-      {/* Top Header Bar - Exact match to uploaded images */}
-      <View style={[styles.header, { backgroundColor: headerBg, borderBottomColor: headerBorder }]}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <ChevronLeft size={26} color={isDark ? '#FFFFFF' : '#111827'} strokeWidth={2.4} />
-          </TouchableOpacity>
+      {/* TOP HEADER SECTION */}
+      <View
+        style={[
+          styles.headerWrapper,
+          {
+            paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 36 : 14),
+          },
+        ]}
+      >
+        {/* Background Linear Gradient with angle ~135deg */}
+        <LinearGradient
+          colors={
+            isDark
+              ? ['#111A3A', '#292D66', '#514BC0', '#342D75', '#171D40']
+              : ['#30385F', '#6669B6', '#9388D7', '#68658F']
+          }
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
 
-          {/* Customer Avatar & Name (Tappable -> Customer Profile) */}
-          <TouchableOpacity
-            style={styles.userInfoButton}
-            activeOpacity={0.8}
-            onPress={navigateToProfile}
-          >
-            <View style={styles.avatarWrapper}>
-              <View
-                style={[
-                  styles.avatar,
-                  { backgroundColor: isInstagram ? '#E1306C' : isTwilio ? '#F22F46' : '#8B5CF6' },
-                ]}
+        {/* Center Radial Glow effect */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Svg width="100%" height="100%">
+            <Defs>
+              <RadialGradient
+                id={isDark ? 'hdrDarkGlow' : 'hdrLightGlow'}
+                cx="52%"
+                cy="46%"
+                rx="56%"
+                ry="52%"
+                fx="52%"
+                fy="46%"
               >
-                <Text style={styles.avatarText}>
-                  {customerName.substring(0, 2).toUpperCase()}
-                </Text>
-              </View>
-              <View style={[styles.onlineDot, { borderColor: headerBg }]} />
-            </View>
-
-            <View style={styles.headerTitles}>
-              <Text style={[styles.customerName, { color: isDark ? '#FFFFFF' : '#111827' }]} numberOfLines={1}>
-                {customerName}
-              </Text>
-              <Text style={[styles.statusText, { color: isDark ? '#8A95A5' : '#6B7280' }]}>
-                {isInstagram ? 'Active now' : isTwilio ? 'Twilio SMS • Active' : 'Online'}
-              </Text>
-            </View>
-          </TouchableOpacity>
+                <Stop
+                  offset="0%"
+                  stopColor={isDark ? '#6F5BFF' : '#AB99FF'}
+                  stopOpacity={isDark ? 0.38 : 0.48}
+                />
+                <Stop
+                  offset="65%"
+                  stopColor={isDark ? '#6F5BFF' : '#AB99FF'}
+                  stopOpacity={0}
+                />
+              </RadialGradient>
+            </Defs>
+            <Rect
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+              fill={`url(#${isDark ? 'hdrDarkGlow' : 'hdrLightGlow'})`}
+            />
+          </Svg>
         </View>
 
-        {/* Top Right Section Icons - Exact match to uploaded images */}
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={[
-              styles.circleIconButton,
-              { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#EFF3F8' },
-            ]}
-            activeOpacity={0.7}
-          >
-            <Circle size={20} strokeWidth={2.4} color={isDark ? '#E2E8F0' : '#71717A'} />
-          </TouchableOpacity>
+        <View style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            {/* Back button without surrounding bg & border */}
+            <TouchableOpacity
+              style={styles.headerIconButton}
+              onPress={handleBack}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <ChevronLeft size={28} color="#FFFFFF" strokeWidth={2.4} />
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.moreButton}
-            activeOpacity={0.7}
-            onPress={navigateToProfile}
-            hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-          >
-            <MoreVertical size={22} color={isDark ? '#E2E8F0' : '#111827'} />
-          </TouchableOpacity>
+            {/* Customer Avatar & Name (Tappable -> Customer Profile) */}
+            <TouchableOpacity
+              style={styles.userInfoButton}
+              activeOpacity={0.8}
+              onPress={navigateToProfile}
+            >
+              <View style={styles.avatarWrapper}>
+                <View
+                  style={[
+                    styles.avatar,
+                    { backgroundColor: isInstagram ? '#E1306C' : isTwilio ? '#F22F46' : '#8576D0' },
+                  ]}
+                >
+                  <Text style={styles.avatarText}>
+                    {customerName.substring(0, 2).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={[styles.onlineDot, { borderColor: isDark ? '#292D66' : '#6669B6' }]} />
+              </View>
+
+              <View style={styles.headerTitles}>
+                <Text style={styles.customerName} numberOfLines={1}>
+                  {customerName}
+                </Text>
+                <Text style={styles.statusText}>
+                  {isInstagram ? 'Active now' : isTwilio ? 'Twilio SMS • Active' : 'Online'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Top Right Section Icons without surrounding bg & border */}
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.headerIconButton}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
+            >
+              <Circle size={22} strokeWidth={2.2} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.headerIconButton}
+              activeOpacity={0.7}
+              onPress={navigateToProfile}
+              hitSlop={{ top: 12, bottom: 12, left: 10, right: 12 }}
+            >
+              <MoreVertical size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
-      {/* Alert toast for internal notes / quick actions */}
-      {internalNoteAlert && (
-        <View style={styles.toastBanner}>
-          <Sparkles size={14} color="#FBBF24" />
-          <Text style={styles.toastText}>{internalNoteAlert}</Text>
-        </View>
-      )}
+      {/* MAIN CONVERSATION AREA SHEET */}
+      <View style={styles.mainContentSheet}>
+        {/* Background gradient for conversation area */}
+        <LinearGradient
+          colors={
+            isDark
+              ? ['#0C1125', '#10162D', '#0A1023']
+              : ['#F2F2F8', '#F6F6FA', '#EEEEF5']
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
 
-      {/* Chat Messages Body */}
-      <KeyboardAvoidingView
-        style={styles.chatArea}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
-      >
-        <ScrollView
-          contentContainerStyle={styles.messagesScroll}
-          showsVerticalScrollIndicator={false}
+        {/* Alert toast for internal notes / quick actions */}
+        {internalNoteAlert && (
+          <View style={[styles.toastBanner, { backgroundColor: isDark ? '#1F1B2C' : 'rgba(251, 191, 36, 0.15)' }]}>
+            <Sparkles size={14} color="#FBBF24" />
+            <Text style={[styles.toastText, { color: isDark ? '#FBBF24' : '#B45309' }]}>{internalNoteAlert}</Text>
+          </View>
+        )}
+
+        {/* Chat Messages Body */}
+        <KeyboardAvoidingView
+          style={styles.chatArea}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
         >
-          {/* Instagram Story Reply Banner (Screen 8) */}
-          {isInstagram && (
-            <View style={styles.storyReplyCard}>
-              <Image
-                source={{
-                  uri: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=150&q=80',
-                }}
-                style={styles.storyThumbnail}
-              />
-              <View style={styles.storyTextWrapper}>
-                <Text style={styles.storyTitle}>Replied to your story</Text>
-                <Text style={styles.storySubtitle}>Summer Collection Preview</Text>
-              </View>
-              <Text style={styles.storyTime}>11:18 AM</Text>
-            </View>
-          )}
-
-          {/* Messages Flow */}
-          {messages.map((msg) => {
-            const isCustomer = msg.sender === 'customer';
-            return (
+          <ScrollView
+            contentContainerStyle={styles.messagesScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Instagram Story Reply Banner (Screen 8) */}
+            {isInstagram && (
               <View
-                key={msg.id}
                 style={[
-                  styles.messageRow,
-                  isCustomer ? styles.customerRow : styles.agentRow,
+                  styles.storyReplyCard,
+                  {
+                    backgroundColor: isDark ? '#1E2540' : '#FFFFFF',
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.8)',
+                  },
                 ]}
               >
+                <Image
+                  source={{
+                    uri: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=150&q=80',
+                  }}
+                  style={styles.storyThumbnail}
+                />
+                <View style={styles.storyTextWrapper}>
+                  <Text style={styles.storyTitle}>Replied to your story</Text>
+                  <Text style={[styles.storySubtitle, { color: isDark ? '#A2ADD8' : '#6B7280' }]}>
+                    Summer Collection Preview
+                  </Text>
+                </View>
+                <Text style={[styles.storyTime, { color: isDark ? '#7E8BA0' : '#9CA3AF' }]}>11:18 AM</Text>
+              </View>
+            )}
+
+            {/* Messages Flow */}
+            {messages.map((msg) => {
+              const isCustomer = msg.sender === 'customer';
+              return (
                 <View
+                  key={msg.id}
                   style={[
-                    styles.messageBubble,
-                    isCustomer
-                      ? [
-                          styles.customerBubble,
-                          {
-                            backgroundColor: customerBubbleBg,
-                            borderColor: customerBubbleBorder,
-                          },
-                        ]
-                      : styles.agentBubble,
+                    styles.messageRow,
+                    isCustomer ? styles.customerRow : styles.agentRow,
                   ]}
                 >
-                  <Text
+                  <View
                     style={[
-                      styles.messageText,
-                      isCustomer && { color: customerTextColor },
+                      styles.messageBubble,
+                      isCustomer
+                        ? [
+                            styles.customerBubble,
+                            {
+                              backgroundColor: customerBubbleBg,
+                              borderColor: customerBubbleBorder,
+                            },
+                          ]
+                        : styles.agentBubble,
                     ]}
                   >
-                    {msg.text}
-                  </Text>
-
-                  {/* Attachment Card (Screen 7 Saree Catalogue) */}
-                  {msg.attachment && (
-                    <View style={styles.catalogueCard}>
-                      <View style={styles.thumbnailRow}>
-                        {msg.attachment.thumbnails.map((uri, index) => (
-                          <Image
-                            key={index}
-                            source={{ uri }}
-                            style={styles.catalogueThumb}
-                          />
-                        ))}
-                      </View>
-                      <View style={styles.catalogueMeta}>
-                        <View style={styles.pdfIconBadge}>
-                          <FileText size={16} color="#F43F5E" />
-                        </View>
-                        <View style={styles.catalogueDetails}>
-                          <Text style={styles.catalogueTitle}>
-                            {msg.attachment.title}
-                          </Text>
-                          <Text style={styles.catalogueSubtitle}>
-                            {msg.attachment.subtitle}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  )}
-
-                  <View style={styles.timeRow}>
                     <Text
                       style={[
-                        styles.timeText,
-                        isCustomer ? { color: customerTimeColor } : { color: '#E0D4FC' },
+                        styles.messageText,
+                        isCustomer
+                          ? { color: customerTextColor }
+                          : { color: '#FFFFFF' },
                       ]}
                     >
+                      {msg.text}
+                    </Text>
+
+                    {/* Attachment Card (Screen 7 Saree Catalogue) */}
+                    {msg.attachment && (
+                      <View
+                        style={[
+                          styles.catalogueCard,
+                          {
+                            backgroundColor: isDark ? '#161B32' : '#FFFFFF',
+                            borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.25)',
+                          },
+                        ]}
+                      >
+                        <View style={styles.thumbnailRow}>
+                          {msg.attachment.thumbnails.map((uri, index) => (
+                            <Image
+                              key={index}
+                              source={{ uri }}
+                              style={styles.catalogueThumb}
+                            />
+                          ))}
+                        </View>
+                        <View style={styles.catalogueMeta}>
+                          <View style={styles.pdfIconBadge}>
+                            <FileText size={16} color="#F43F5E" />
+                          </View>
+                          <View style={styles.catalogueDetails}>
+                            <Text
+                              style={[
+                                styles.catalogueTitle,
+                                { color: isDark ? '#FFFFFF' : '#1F1A3C' },
+                              ]}
+                            >
+                              {msg.attachment.title}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.catalogueSubtitle,
+                                { color: isDark ? '#9CA3AF' : '#7883A0' },
+                              ]}
+                            >
+                              {msg.attachment.subtitle}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Timestamp & Read tick placed underneath the bubble */}
+                  <View
+                    style={[
+                      styles.timeRow,
+                      isCustomer ? styles.timeRowCustomer : styles.timeRowAgent,
+                    ]}
+                  >
+                    <Text style={styles.timeText}>
                       {msg.time}
                     </Text>
                     {!isCustomer && (
-                      <CheckCheck size={14} color="#C4B5FD" style={styles.tickIcon} />
+                      <CheckCheck size={14} color="#7883A0" style={styles.tickIcon} />
                     )}
                   </View>
                 </View>
-              </View>
-            );
-          })}
-        </ScrollView>
+              );
+            })}
+          </ScrollView>
 
-        {/* Bottom Message Input Bar - Exact match to uploaded images */}
-        <View style={[styles.bottomBarContainer, { backgroundColor: screenBg }]}>
-          <View
-            style={[
-              styles.capsuleInputBar,
-              {
-                backgroundColor: inputCapsuleBg,
-                borderColor: inputCapsuleBorder,
-              },
-              isDark ? styles.capsuleShadowDark : styles.capsuleShadowLight,
-            ]}
-          >
-            {/* Attachment Button (Paperclip) */}
-            <TouchableOpacity
-              style={isDark ? styles.attachButtonDark : styles.attachButtonLight}
-              activeOpacity={0.7}
-              onPress={() => setShowQuickActions(true)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Paperclip
-                size={isDark ? 20 : 22}
-                color={isDark ? '#CBD5E1' : '#4B5563'}
-                strokeWidth={2}
-              />
-            </TouchableOpacity>
-
-            {/* Seamless Text Input */}
-            <TextInput
+          {/* Bottom Message Input Bar - Exact match to uploaded images */}
+          <View style={styles.bottomBarContainer}>
+            <View
               style={[
-                styles.seamlessTextInput,
+                styles.capsuleInputBar,
                 {
-                  color: inputTextColor,
+                  backgroundColor: inputCapsuleBg,
+                  borderColor: inputCapsuleBorder,
                 },
+                isDark ? styles.capsuleShadowDark : styles.capsuleShadowLight,
               ]}
-              placeholder="Type a message..."
-              placeholderTextColor={placeholderColor}
-              value={inputMessage}
-              onChangeText={setInputMessage}
-              multiline={true}
-            />
+            >
+              {/* Attachment Button (Paperclip) */}
+              <TouchableOpacity
+                style={isDark ? styles.attachButtonDark : styles.attachButtonLight}
+                activeOpacity={0.7}
+                onPress={() => setShowQuickActions(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Paperclip
+                  size={isDark ? 20 : 22}
+                  color={isDark ? '#A2ADD8' : '#7583A5'}
+                  strokeWidth={2}
+                />
+              </TouchableOpacity>
 
-            {/* Mic / Send Circular Purple Action Button */}
-            {inputMessage.trim().length > 0 ? (
-              <TouchableOpacity
+              {/* Seamless Text Input */}
+              <TextInput
                 style={[
-                  styles.actionCircleButton,
-                  { backgroundColor: isDark ? '#8C64FD' : '#9467F5' },
-                  styles.actionButtonShadow,
+                  styles.seamlessTextInput,
+                  {
+                    color: inputTextColor,
+                  },
                 ]}
-                onPress={handleSendMessage}
-                activeOpacity={0.8}
-              >
-                <Send size={19} color="#FFFFFF" strokeWidth={2.2} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[
-                  styles.actionCircleButton,
-                  { backgroundColor: isDark ? '#8C64FD' : '#9467F5' },
-                  styles.actionButtonShadow,
-                ]}
-                activeOpacity={0.8}
-              >
-                <Mic size={21} color="#FFFFFF" strokeWidth={2.2} />
-              </TouchableOpacity>
-            )}
+                placeholder="Type a message..."
+                placeholderTextColor={placeholderColor}
+                value={inputMessage}
+                onChangeText={setInputMessage}
+                multiline={true}
+              />
+
+              {/* Mic / Send Circular Purple Action Button */}
+              {inputMessage.trim().length > 0 ? (
+                <TouchableOpacity
+                  style={[
+                    styles.actionCircleButton,
+                    { backgroundColor: '#8576D0' },
+                    styles.actionButtonShadow,
+                  ]}
+                  onPress={handleSendMessage}
+                  activeOpacity={0.8}
+                >
+                  <Send size={19} color="#FFFFFF" strokeWidth={2.2} />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.actionCircleButton,
+                    { backgroundColor: '#8576D0' },
+                    styles.actionButtonShadow,
+                  ]}
+                  activeOpacity={0.8}
+                >
+                  <Mic size={21} color="#FFFFFF" strokeWidth={2.2} />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </View>
 
       {/* Screen 10: Quick Actions Bottom Sheet Modal */}
       <Modal
@@ -633,7 +733,7 @@ export default function ChatDetailScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -641,29 +741,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  headerWrapper: {
+    position: 'relative',
+    overflow: 'hidden',
+    paddingBottom: 22,
+  },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingTop: 8,
+    paddingBottom: 10,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  backButton: {
-    paddingVertical: 4,
-    paddingRight: 6,
-    paddingLeft: 0,
-    marginRight: 6,
+  headerIconButton: {
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   userInfoButton: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    marginLeft: 6,
   },
   avatarWrapper: {
     position: 'relative',
@@ -675,6 +780,8 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   avatarText: {
     color: '#FFFFFF',
@@ -698,36 +805,33 @@ const styles = StyleSheet.create({
   },
   customerName: {
     fontSize: 17,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.semiBold,
+    fontWeight: '600',
+    color: '#FFFFFF',
     letterSpacing: -0.2,
   },
   statusText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontFamily: Fonts.regular,
+    color: '#E0DDFE',
     marginTop: 2,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
-  circleIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moreButton: {
-    padding: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
+  mainContentSheet: {
+    flex: 1,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
+    marginTop: -16,
+    overflow: 'hidden',
+    paddingTop: 8,
   },
   toastBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1F1B2C',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
@@ -735,7 +839,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   toastText: {
-    color: '#FBBF24',
     fontSize: 12,
     fontFamily: Fonts.medium,
     fontWeight: '500',
@@ -746,18 +849,16 @@ const styles = StyleSheet.create({
   messagesScroll: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 20,
+    paddingBottom: 16,
     flexGrow: 1,
   },
   storyReplyCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#13111E',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   storyThumbnail: {
     width: 44,
@@ -775,63 +876,64 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   storySubtitle: {
-    color: '#9CA3AF',
     fontSize: 13,
     fontFamily: Fonts.regular,
     marginTop: 2,
   },
   storyTime: {
-    color: '#71717A',
     fontSize: 11,
     fontFamily: Fonts.regular,
   },
   messageRow: {
-    flexDirection: 'row',
     marginBottom: 14,
   },
   customerRow: {
-    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
   },
   agentRow: {
-    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
   },
   messageBubble: {
-    maxWidth: '84%',
-    borderRadius: 20,
+    maxWidth: '82%',
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   customerBubble: {
-    borderTopLeftRadius: 4,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    borderBottomRightRadius: 14,
+    borderBottomLeftRadius: 0,
     borderWidth: 1,
-    shadowColor: '#000000',
+    shadowColor: '#2F2B5A',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
     elevation: 1,
   },
   agentBubble: {
-    backgroundColor: '#6E44EB',
-    borderTopRightRadius: 4,
-    shadowColor: '#6E44EB',
+    backgroundColor: '#8576D0',
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 0,
+    shadowColor: '#8576D0',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 2,
   },
   messageText: {
-    color: '#FFFFFF',
     fontSize: 15,
     fontFamily: Fonts.regular,
     lineHeight: 21,
   },
   catalogueCard: {
-    backgroundColor: '#100E20',
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     padding: 10,
-    marginTop: 12,
+    marginTop: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   thumbnailRow: {
     flexDirection: 'row',
@@ -861,13 +963,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   catalogueTitle: {
-    color: '#FFFFFF',
     fontSize: 13.5,
     fontFamily: Fonts.semiBold,
     fontWeight: '600',
   },
   catalogueSubtitle: {
-    color: '#9CA3AF',
     fontSize: 11,
     fontFamily: Fonts.regular,
     marginTop: 2,
@@ -875,12 +975,19 @@ const styles = StyleSheet.create({
   timeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: 6,
+    marginTop: 4,
+    paddingHorizontal: 4,
+  },
+  timeRowCustomer: {
+    alignSelf: 'flex-start',
+  },
+  timeRowAgent: {
+    alignSelf: 'flex-end',
   },
   timeText: {
     fontSize: 11,
     fontFamily: Fonts.regular,
+    color: '#7883A0',
   },
   tickIcon: {
     marginLeft: 4,
@@ -943,15 +1050,16 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
+    backgroundColor: '#8576D0',
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionButtonShadow: {
-    shadowColor: '#8B5CF6',
+    shadowColor: '#8576D0',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.28,
     shadowRadius: 6,
-    elevation: 4,
+    elevation: 3,
   },
 
   /* Quick Actions Modal */

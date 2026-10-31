@@ -10,6 +10,7 @@ import {
   Modal,
   Image,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -197,6 +198,8 @@ function TwilioIcon({ size = 18 }: { size?: number }) {
 export default function OmniInboxScreen() {
   const router = useRouter();
   const { isDark } = useAppTheme();
+  const { width: screenWidth } = useWindowDimensions();
+  const isSmallDevice = screenWidth < 400;
 
   // State
   const [selectedChannel, setSelectedChannel] = useState<ChannelType>('all');
@@ -244,11 +247,18 @@ export default function OmniInboxScreen() {
   // Mini badge overlapping the bottom-right corner of avatar
   const renderAvatarChannelBadge = (channel: 'whatsapp' | 'instagram' | 'twilio') => {
     const badgeBorderColor = isDark ? '#202941' : '#FFFFFF';
+    const iconSize = isSmallDevice ? 15 : 20;
     return (
-      <View style={[styles.avatarMiniBadge, { borderColor: badgeBorderColor }]}>
-        {channel === 'whatsapp' && <WhatsAppIcon size={20} />}
-        {channel === 'instagram' && <InstagramIcon size={20} />}
-        {channel === 'twilio' && <TwilioIcon size={20} />}
+      <View
+        style={[
+          styles.avatarMiniBadge,
+          { borderColor: badgeBorderColor },
+          isSmallDevice && styles.avatarMiniBadgeSmall,
+        ]}
+      >
+        {channel === 'whatsapp' && <WhatsAppIcon size={iconSize} />}
+        {channel === 'instagram' && <InstagramIcon size={iconSize} />}
+        {channel === 'twilio' && <TwilioIcon size={iconSize} />}
       </View>
     );
   };
@@ -435,16 +445,6 @@ export default function OmniInboxScreen() {
                     <Text style={[styles.channelPillLabel, styles.channelPillLabelInactive]}>
                       All
                     </Text>
-                    <View
-                      style={[
-                        styles.channelCountBadge,
-                        isDark
-                          ? styles.channelBadgeUnselectedDark
-                          : styles.channelBadgeUnselectedLight,
-                      ]}
-                    >
-                      <Text style={styles.channelCountBadgeText}>{channelCounts.all}</Text>
-                    </View>
                   </View>
                 )}
               </TouchableOpacity>
@@ -503,21 +503,8 @@ export default function OmniInboxScreen() {
                     </View>
                   </LinearGradient>
                 ) : (
-                  <View style={styles.channelPillBase}>
-                    <WhatsAppIcon size={17} />
-                    <Text style={[styles.channelPillLabel, styles.channelPillLabelInactive]}>
-                      WhatsApp
-                    </Text>
-                    <View
-                      style={[
-                        styles.channelCountBadge,
-                        isDark
-                          ? styles.channelBadgeUnselectedDark
-                          : styles.channelBadgeUnselectedLight,
-                      ]}
-                    >
-                      <Text style={styles.channelCountBadgeText}>{channelCounts.whatsapp}</Text>
-                    </View>
+                  <View style={styles.channelPillIconOnly}>
+                    <WhatsAppIcon size={18} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -576,21 +563,8 @@ export default function OmniInboxScreen() {
                     </View>
                   </LinearGradient>
                 ) : (
-                  <View style={styles.channelPillBase}>
-                    <InstagramIcon size={17} />
-                    <Text style={[styles.channelPillLabel, styles.channelPillLabelInactive]}>
-                      Instagram
-                    </Text>
-                    <View
-                      style={[
-                        styles.channelCountBadge,
-                        isDark
-                          ? styles.channelBadgeUnselectedDark
-                          : styles.channelBadgeUnselectedLight,
-                      ]}
-                    >
-                      <Text style={styles.channelCountBadgeText}>{channelCounts.instagram}</Text>
-                    </View>
+                  <View style={styles.channelPillIconOnly}>
+                    <InstagramIcon size={18} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -649,21 +623,8 @@ export default function OmniInboxScreen() {
                     </View>
                   </LinearGradient>
                 ) : (
-                  <View style={styles.channelPillBase}>
-                    <TwilioIcon size={17} />
-                    <Text style={[styles.channelPillLabel, styles.channelPillLabelInactive]}>
-                      Twilio
-                    </Text>
-                    <View
-                      style={[
-                        styles.channelCountBadge,
-                        isDark
-                          ? styles.channelBadgeUnselectedDark
-                          : styles.channelBadgeUnselectedLight,
-                      ]}
-                    >
-                      <Text style={styles.channelCountBadgeText}>{channelCounts.twilio}</Text>
-                    </View>
+                  <View style={styles.channelPillIconOnly}>
+                    <TwilioIcon size={18} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -687,7 +648,7 @@ export default function OmniInboxScreen() {
         />
 
         {/* INBOX STATUS FILTERS ROW */}
-        <View style={styles.statusFiltersRow}>
+        <View style={[styles.statusFiltersRow, isSmallDevice && styles.statusFiltersRowSmall]}>
           {/* All (24) */}
           <TouchableOpacity
             onPress={() => setSelectedStatus('all')}
@@ -699,19 +660,26 @@ export default function OmniInboxScreen() {
                 colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#8060E8', '#6749DE']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.statusPillActiveGradient}
+                style={[
+                  styles.statusPillActiveGradient,
+                  isSmallDevice && styles.statusPillSmall,
+                ]}
               >
-                <Text style={styles.statusTextActive}>All</Text>
+                <Text style={[styles.statusTextActive, isSmallDevice && styles.statusTextSmall]}>
+                  All
+                </Text>
                 <View
                   style={[
                     styles.statusBadge,
                     isDark ? styles.statusBadgeActiveDark : styles.statusBadgeActiveLight,
+                    isSmallDevice && styles.statusBadgeSmall,
                   ]}
                 >
                   <Text
                     style={[
                       styles.statusBadgeText,
                       isDark ? styles.statusBadgeTextActiveDark : styles.statusBadgeTextActiveLight,
+                      isSmallDevice && styles.statusBadgeTextSmall,
                     ]}
                   >
                     24
@@ -723,12 +691,14 @@ export default function OmniInboxScreen() {
                 style={[
                   styles.statusPillInactiveBase,
                   isDark ? styles.statusPillInactiveDark : styles.statusPillInactiveLight,
+                  isSmallDevice && styles.statusPillSmall,
                 ]}
               >
                 <Text
                   style={[
                     styles.statusPillText,
                     isDark ? styles.statusTextInactiveDark : styles.statusTextInactiveLight,
+                    isSmallDevice && styles.statusTextSmall,
                   ]}
                 >
                   All
@@ -737,12 +707,14 @@ export default function OmniInboxScreen() {
                   style={[
                     styles.statusBadge,
                     isDark ? styles.statusBadgeInactiveDark : styles.statusBadgeInactiveLight,
+                    isSmallDevice && styles.statusBadgeSmall,
                   ]}
                 >
                   <Text
                     style={[
                       styles.statusBadgeText,
                       isDark ? styles.statusBadgeTextInactiveDark : styles.statusBadgeTextInactiveLight,
+                      isSmallDevice && styles.statusBadgeTextSmall,
                     ]}
                   >
                     24
@@ -763,19 +735,26 @@ export default function OmniInboxScreen() {
                 colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#8060E8', '#6749DE']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.statusPillActiveGradient}
+                style={[
+                  styles.statusPillActiveGradient,
+                  isSmallDevice && styles.statusPillSmall,
+                ]}
               >
-                <Text style={styles.statusTextActive}>Unread</Text>
+                <Text style={[styles.statusTextActive, isSmallDevice && styles.statusTextSmall]}>
+                  Unread
+                </Text>
                 <View
                   style={[
                     styles.statusBadge,
                     isDark ? styles.statusBadgeActiveDark : styles.statusBadgeActiveLight,
+                    isSmallDevice && styles.statusBadgeSmall,
                   ]}
                 >
                   <Text
                     style={[
                       styles.statusBadgeText,
                       isDark ? styles.statusBadgeTextActiveDark : styles.statusBadgeTextActiveLight,
+                      isSmallDevice && styles.statusBadgeTextSmall,
                     ]}
                   >
                     12
@@ -787,12 +766,14 @@ export default function OmniInboxScreen() {
                 style={[
                   styles.statusPillInactiveBase,
                   isDark ? styles.statusPillInactiveDark : styles.statusPillInactiveLight,
+                  isSmallDevice && styles.statusPillSmall,
                 ]}
               >
                 <Text
                   style={[
                     styles.statusPillText,
                     isDark ? styles.statusTextInactiveDark : styles.statusTextInactiveLight,
+                    isSmallDevice && styles.statusTextSmall,
                   ]}
                 >
                   Unread
@@ -801,12 +782,14 @@ export default function OmniInboxScreen() {
                   style={[
                     styles.statusBadge,
                     isDark ? styles.statusBadgeInactiveDark : styles.statusBadgeInactiveLight,
+                    isSmallDevice && styles.statusBadgeSmall,
                   ]}
                 >
                   <Text
                     style={[
                       styles.statusBadgeText,
                       isDark ? styles.statusBadgeTextInactiveDark : styles.statusBadgeTextInactiveLight,
+                      isSmallDevice && styles.statusBadgeTextSmall,
                     ]}
                   >
                     12
@@ -827,19 +810,26 @@ export default function OmniInboxScreen() {
                 colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#8060E8', '#6749DE']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.statusPillActiveGradient}
+                style={[
+                  styles.statusPillActiveGradient,
+                  isSmallDevice && styles.statusPillSmall,
+                ]}
               >
-                <Text style={styles.statusTextActive}>Open</Text>
+                <Text style={[styles.statusTextActive, isSmallDevice && styles.statusTextSmall]}>
+                  Open
+                </Text>
                 <View
                   style={[
                     styles.statusBadge,
                     isDark ? styles.statusBadgeActiveDark : styles.statusBadgeActiveLight,
+                    isSmallDevice && styles.statusBadgeSmall,
                   ]}
                 >
                   <Text
                     style={[
                       styles.statusBadgeText,
                       isDark ? styles.statusBadgeTextActiveDark : styles.statusBadgeTextActiveLight,
+                      isSmallDevice && styles.statusBadgeTextSmall,
                     ]}
                   >
                     12
@@ -851,12 +841,14 @@ export default function OmniInboxScreen() {
                 style={[
                   styles.statusPillInactiveBase,
                   isDark ? styles.statusPillInactiveDark : styles.statusPillInactiveLight,
+                  isSmallDevice && styles.statusPillSmall,
                 ]}
               >
                 <Text
                   style={[
                     styles.statusPillText,
                     isDark ? styles.statusTextInactiveDark : styles.statusTextInactiveLight,
+                    isSmallDevice && styles.statusTextSmall,
                   ]}
                 >
                   Open
@@ -865,12 +857,14 @@ export default function OmniInboxScreen() {
                   style={[
                     styles.statusBadge,
                     isDark ? styles.statusBadgeInactiveDark : styles.statusBadgeInactiveLight,
+                    isSmallDevice && styles.statusBadgeSmall,
                   ]}
                 >
                   <Text
                     style={[
                       styles.statusBadgeText,
                       isDark ? styles.statusBadgeTextInactiveDark : styles.statusBadgeTextInactiveLight,
+                      isSmallDevice && styles.statusBadgeTextSmall,
                     ]}
                   >
                     12
@@ -886,20 +880,22 @@ export default function OmniInboxScreen() {
               styles.statusPillInactiveBase,
               styles.filterButtonPill,
               isDark ? styles.statusPillInactiveDark : styles.statusPillInactiveLight,
+              isSmallDevice && styles.statusPillSmall,
             ]}
             onPress={() => setShowFilterModal(true)}
             activeOpacity={0.8}
           >
-            <Filter size={15} color={isDark ? '#A2ADD8' : '#7583A5'} />
+            <Filter size={isSmallDevice ? 13 : 15} color={isDark ? '#A2ADD8' : '#7583A5'} />
             <Text
               style={[
                 styles.statusPillText,
                 isDark ? styles.statusTextInactiveDark : styles.statusTextInactiveLight,
+                isSmallDevice && styles.statusTextSmall,
               ]}
             >
               Filter
             </Text>
-            <ChevronDown size={14} color={isDark ? '#A2ADD8' : '#7583A5'} />
+            <ChevronDown size={isSmallDevice ? 12 : 14} color={isDark ? '#A2ADD8' : '#7583A5'} />
           </TouchableOpacity>
         </View>
 
@@ -907,7 +903,10 @@ export default function OmniInboxScreen() {
         <FlatList
           data={filteredConversations}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.cardsListContent}
+          contentContainerStyle={[
+            styles.cardsListContent,
+            isSmallDevice && styles.cardsListContentSmall,
+          ]}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => {
             const hasValidImage = Boolean(item.avatarUrl) && !imageErrors[item.id];
@@ -917,6 +916,7 @@ export default function OmniInboxScreen() {
                 style={[
                   styles.conversationCard,
                   isDark ? styles.cardDark : styles.cardLight,
+                  isSmallDevice && styles.conversationCardSmall,
                 ]}
                 activeOpacity={0.88}
                 onPress={() => {
@@ -931,11 +931,11 @@ export default function OmniInboxScreen() {
                 }}
               >
                 {/* Avatar with overlapping channel logo */}
-                <View style={styles.avatarContainer}>
+                <View style={[styles.avatarContainer, isSmallDevice && styles.avatarContainerSmall]}>
                   {hasValidImage ? (
                     <Image
                       source={{ uri: item.avatarUrl }}
-                      style={styles.avatarImage}
+                      style={[styles.avatarImage, isSmallDevice && styles.avatarImageSmall]}
                       onError={() =>
                         setImageErrors((prev) => ({ ...prev, [item.id]: true }))
                       }
@@ -945,9 +945,15 @@ export default function OmniInboxScreen() {
                       style={[
                         styles.avatarFallback,
                         { backgroundColor: item.avatarBg },
+                        isSmallDevice && styles.avatarFallbackSmall,
                       ]}
                     >
-                      <Text style={styles.avatarFallbackText}>
+                      <Text
+                        style={[
+                          styles.avatarFallbackText,
+                          isSmallDevice && styles.avatarFallbackTextSmall,
+                        ]}
+                      >
                         {item.avatarInitials}
                       </Text>
                     </View>
@@ -960,11 +966,12 @@ export default function OmniInboxScreen() {
                 {/* Content: Name, Last Message, Timestamp, Unread indicator */}
                 <View style={styles.cardDetailsColumn}>
                   {/* Top row: Name & Timestamp */}
-                  <View style={styles.cardHeaderRow}>
+                  <View style={[styles.cardHeaderRow, isSmallDevice && styles.cardHeaderRowSmall]}>
                     <Text
                       style={[
                         styles.contactNameText,
                         { color: isDark ? '#F5F4FF' : '#211D3D' },
+                        isSmallDevice && styles.contactNameTextSmall,
                       ]}
                       numberOfLines={1}
                     >
@@ -974,6 +981,7 @@ export default function OmniInboxScreen() {
                       style={[
                         styles.timestampText,
                         { color: isDark ? '#A8B4D9' : '#7C8AA9' },
+                        isSmallDevice && styles.timestampTextSmall,
                       ]}
                     >
                       {item.time}
@@ -986,6 +994,7 @@ export default function OmniInboxScreen() {
                       style={[
                         styles.messagePreviewText,
                         { color: isDark ? '#A2ADD8' : '#7887A9' },
+                        isSmallDevice && styles.messagePreviewTextSmall,
                       ]}
                       numberOfLines={1}
                     >
@@ -997,6 +1006,7 @@ export default function OmniInboxScreen() {
                         style={[
                           styles.unreadPurpleDot,
                           { backgroundColor: isDark ? '#8060E8' : '#8060E8' },
+                          isSmallDevice && styles.unreadPurpleDotSmall,
                         ]}
                       />
                     )}
@@ -1266,8 +1276,9 @@ const styles = StyleSheet.create({
   channelScrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    flexGrow: 1,
     paddingHorizontal: 4,
-    paddingRight: 8,
   },
   channelItemTouchable: {
     borderRadius: 999,
@@ -1275,10 +1286,18 @@ const styles = StyleSheet.create({
   channelPillBase: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
     paddingVertical: 5.5,
     borderRadius: 999,
-    gap: 5,
+  },
+  channelPillIconOnly: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 5.5,
+    borderRadius: 999,
   },
   channelPillActiveGradient: {
     flexDirection: 'row',
@@ -1570,6 +1589,82 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+
+  /* RESPONSIVE STYLES FOR SMALLER DEVICES */
+  statusFiltersRowSmall: {
+    paddingHorizontal: 12,
+    gap: 6,
+    marginBottom: 10,
+  },
+  statusPillSmall: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    gap: 4,
+  },
+  statusTextSmall: {
+    fontSize: 11.5,
+  },
+  statusBadgeSmall: {
+    paddingHorizontal: 4.5,
+    paddingVertical: 0.5,
+    minWidth: 16,
+  },
+  statusBadgeTextSmall: {
+    fontSize: 10,
+  },
+
+  cardsListContentSmall: {
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  conversationCardSmall: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 18,
+  },
+  avatarContainerSmall: {
+    marginRight: 10,
+  },
+  avatarImageSmall: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+  },
+  avatarFallbackSmall: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+  },
+  avatarFallbackTextSmall: {
+    fontSize: 15,
+  },
+  avatarMiniBadgeSmall: {
+    width: 19,
+    height: 19,
+    borderRadius: 9.5,
+    borderWidth: 1.5,
+    bottom: -1,
+    right: -1,
+  },
+  cardHeaderRowSmall: {
+    marginBottom: 2,
+  },
+  contactNameTextSmall: {
+    fontSize: 15,
+    marginRight: 8,
+  },
+  timestampTextSmall: {
+    fontSize: 12,
+  },
+  messagePreviewTextSmall: {
+    fontSize: 13,
+    marginRight: 8,
+  },
+  unreadPurpleDotSmall: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 
   /* FILTER MODAL */
