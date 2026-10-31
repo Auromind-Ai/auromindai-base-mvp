@@ -10,15 +10,24 @@ import * as Device from 'expo-device';
  * - iOS Simulator / Web / Local: http://localhost:8000
  */
 export function getApiBaseUrl(): string {
-  // Web platform check: if opened in web browser (localhost or local IP)
+  // 1. Web platform check: if opened in web browser
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
     const hostname = window.location.hostname;
-    return `http://${hostname}:8000`;
+    return 'http://' + hostname + ':8000';
   }
 
-  // When running on physical device or Expo Go, extract host IP dynamically from Metro bundler
-  // - On WiFi: host is PC's current LAN IP (e.g. 192.168.0.5)
-  // - On USB (adb reverse): host is localhost / 127.0.0.1
+  // 2. Explicit environment variable override
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
+  }
+
+  // 3. Android emulator ALWAYS connects to host machine via 10.0.2.2 or localhost
+  // (WSL/Hyper-V virtual switch IPs like 172.x.x.x fail to route from emulator)
+  if (Platform.OS === 'android' && !Device.isDevice) {
+    return 'http://10.0.2.2:8000';
+  }
+
+  // 4. Physical device via Metro bundler host IP (e.g. LAN 192.168.x.x)
   const hostUri =
     Constants.expoConfig?.hostUri ||
     (Constants as any).expoGoConfig?.debuggerHost ||
@@ -26,21 +35,12 @@ export function getApiBaseUrl(): string {
 
   if (hostUri) {
     const host = hostUri.split(':')[0];
-    if (host) {
-      return `http://${host}:8000`;
+    if (host && !host.startsWith('172.')) {
+      return 'http://' + host + ':8000';
     }
   }
 
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
-  }
-
-  // When running on Android emulator (not physical device), 10.0.2.2 points to host machine
-  if (Platform.OS === 'android' && !Device.isDevice) {
-    return 'http://10.0.2.2:8000';
-  }
-
-  // Fallback for physical device via USB adb reverse, iOS simulator, or local
+  // 5. Fallback for physical device via USB adb reverse, iOS simulator, or local
   return 'http://localhost:8000';
 }
 
@@ -89,6 +89,33 @@ class MobileApiClient {
 
     if (this.token) {
       defaultHeaders['Authorization'] = `Bearer ${this.token}`;
+      try {
+        const parts = this.token.split('.');
+        if (parts.length === 3) {
+          const base64Url = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+          const base64 = base64Url.padEnd(base64Url.length + (4 - (base64Url.length % 4)) % 4, '=');
+          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+          let str = base64.replace(/=+$/, '');
+          let output = '';
+          for (
+            let bc = 0, bs = 0, buffer = 0, idx = 0;
+            idx < str.length;
+            idx++
+          ) {
+            buffer = chars.indexOf(str.charAt(idx));
+            if (~buffer) {
+              bs = bc % 4 ? bs * 64 + buffer : buffer;
+              if (bc++ % 4) {
+                output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6)));
+              }
+            }
+          }
+          const parsed = JSON.parse(output);
+          if (parsed && typeof parsed.csrf_token === 'string') {
+            defaultHeaders['x-csrf-token'] = parsed.csrf_token;
+          }
+        }
+      } catch {}
     }
 
     let response: Response;

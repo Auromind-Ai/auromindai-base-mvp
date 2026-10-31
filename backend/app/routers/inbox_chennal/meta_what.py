@@ -156,7 +156,8 @@ async def get_channels_status(
             },
             "twilio": {
                 "connected": bool(workspace.twilio_account_sid and workspace.twilio_phone_number),
-                "phone": workspace.twilio_phone_number
+                "phone": workspace.twilio_phone_number,
+                "account_sid": (workspace.twilio_account_sid[:6] + "••••••••••••••••••••••••••••" if workspace.twilio_account_sid else None)
             }
         }
     except Exception as exc:

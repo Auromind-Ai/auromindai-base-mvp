@@ -66,10 +66,10 @@ def parse_user_agent(ua: str) -> str:
     os_name = "Unknown OS"
     if "windows" in ua_lower:
         os_name = "Windows"
+    elif "iphone" in ua_lower or "ipad" in ua_lower or "ipod" in ua_lower:
+        os_name = "iOS"
     elif "macintosh" in ua_lower or "mac os x" in ua_lower:
         os_name = "macOS"
-    elif "iphone" in ua_lower or "ipad" in ua_lower:
-        os_name = "iOS"
     elif "android" in ua_lower:
         os_name = "Android"
     elif "linux" in ua_lower:

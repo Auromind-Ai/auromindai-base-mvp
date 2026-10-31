@@ -44,6 +44,12 @@ async def csrf_protection_middleware(request: Request, call_next):
         )
         
         if not is_public:
+            # If the request provides an explicit Authorization: Bearer token header,
+            # it is an authenticated API client (e.g. mobile app) which is immune to browser CSRF.
+            auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+            if auth_header and auth_header.strip().lower().startswith("bearer "):
+                return await call_next(request)
+
             token = request.cookies.get("auth_token")
             # If the auth_token cookie is not present in the request, skip CSRF validation.
             # (No cookie to protect against CSRF hijack, request will be verified by auth headers or fail at endpoint dependencies)
