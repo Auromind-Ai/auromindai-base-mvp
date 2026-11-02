@@ -1,12 +1,36 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 export default function NeatCTAButton({ href, className, children, onClick, ...props }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  // Handle browser back/forward cache (bfcache) restoration and popstate navigation
+  useEffect(() => {
+    const resetLoading = () => {
+      setLoading(false);
+    };
+
+    window.addEventListener("pageshow", resetLoading);
+    window.addEventListener("popstate", resetLoading);
+
+    return () => {
+      window.removeEventListener("pageshow", resetLoading);
+      window.removeEventListener("popstate", resetLoading);
+    };
+  }, []);
+
+  // Safety fallback: if navigation doesn't happen or is cancelled, don't leave button stuck
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   const handleClick = (e) => {
     if (onClick) {

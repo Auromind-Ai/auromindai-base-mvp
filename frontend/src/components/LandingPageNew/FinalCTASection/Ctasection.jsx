@@ -68,7 +68,7 @@ export default function CTASection() {
             {/* Get Started Button */}
             <NeatCTAButton
               href="/signup"
-              className="group relative overflow-hidden h-[44px] w-[180px] rounded-[12px] bg-[#814AC8] text-[16px] font-semibold text-white shadow-[0_0_25px_rgba(129,74,200,0.4)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(129,74,200,0.65)]"
+              className="group relative overflow-hidden h-[44px] w-[180px] rounded-[12px] bg-[#814AC8] text-[16px] font-semibold text-white shadow-[0_0_25px_rgba(129,74,200,0.4)] transition-all duration-300 hover:scale-[1.03] active:scale-95 hover:shadow-[0_0_40px_rgba(129,74,200,0.65)]"
             >
               <span className="flex items-center justify-center gap-2 w-full h-full">
 
