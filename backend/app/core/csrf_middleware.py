@@ -41,6 +41,10 @@ async def csrf_protection_middleware(request: Request, call_next):
             or path.startswith("/api/contact/")
             or path.startswith("/admin/inquiries")
             or path == "/admin/inquiries"
+            or path.startswith("/status/")
+            or path.startswith("/api/status/")
+            or path == "/status"
+            or path == "/api/status"
         )
         
         if not is_public:

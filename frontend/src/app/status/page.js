@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Wrench,
   Check,
+  Calendar,
 } from "lucide-react";
 import { jakarta } from "@/lib/fonts";
 
@@ -26,7 +27,7 @@ export default function PublicStatusPage() {
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTooltip, setActiveTooltip] = useState(null); // { serviceKey, dayIndex, clientX, clientY, dayData }
+  const [activeTooltip, setActiveTooltip] = useState(null); // { serviceKey, serviceName, dayData, x, y }
   const [email, setEmail] = useState("");
   const [subscribeStatus, setSubscribeStatus] = useState({ state: "idle", message: "" });
 
@@ -73,6 +74,21 @@ export default function PublicStatusPage() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  // Dismiss tooltip when clicking or tapping outside on mobile/desktop
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest?.(".status-tick-bar")) {
+        setActiveTooltip(null);
+      }
+    };
+    window.addEventListener("click", handleOutsideClick);
+    window.addEventListener("touchstart", handleOutsideClick);
+    return () => {
+      window.removeEventListener("click", handleOutsideClick);
+      window.removeEventListener("touchstart", handleOutsideClick);
+    };
+  }, []);
+
   const handleSubscribe = async (e) => {
     e.preventDefault();
     if (!email || !email.includes("@")) {
@@ -91,19 +107,26 @@ export default function PublicStatusPage() {
         setSubscribeStatus({ state: "success", message: data.message || "Subscribed successfully!" });
         setEmail("");
       } else {
-        setSubscribeStatus({ state: "error", message: data.detail || "Subscription failed." });
+        setSubscribeStatus({ state: "error", message: data.detail || data.message || "Subscription failed." });
       }
     } catch (err) {
       setSubscribeStatus({ state: "error", message: "Network error. Please try again." });
     }
   };
 
-  // Reorder services strictly according to specification
+  // Reorder services strictly according to specification (exactly 4 services)
   const orderedServices = useMemo(() => {
     if (!summary || !summary.services) return [];
     const map = new Map(summary.services.map((s) => [s.key, s]));
     return SERVICE_ORDER.map((key) => map.get(key)).filter(Boolean);
   }, [summary]);
+
+  // Extract any scheduled maintenance notices
+  const upcomingMaintenance = useMemo(() => {
+    return notices.filter(
+      (n) => (n.is_maintenance || n.severity === "maintenance") && n.status !== "resolved"
+    );
+  }, [notices]);
 
   const getStatusIcon = (status, size = "w-5 h-5") => {
     switch (status) {
@@ -135,6 +158,35 @@ export default function PublicStatusPage() {
       case "operational":
       default:
         return "bg-gradient-to-r from-emerald-950/40 via-emerald-900/20 to-black border-emerald-500/30 text-emerald-400";
+    }
+  };
+
+  const getSeverityBadgeStyle = (severity) => {
+    switch (severity?.toLowerCase()) {
+      case "critical":
+        return "bg-rose-500/15 text-rose-400 border-rose-500/30";
+      case "major":
+        return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+      case "minor":
+        return "bg-yellow-500/15 text-yellow-300 border-yellow-500/30";
+      case "maintenance":
+        return "bg-sky-500/15 text-sky-400 border-sky-500/30";
+      default:
+        return "bg-zinc-800 text-zinc-300 border-zinc-700";
+    }
+  };
+
+  const getStatusBadgeStyle = (status) => {
+    switch (status?.toLowerCase()) {
+      case "resolved":
+        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+      case "monitoring":
+        return "bg-sky-500/10 text-sky-400 border-sky-500/30";
+      case "identified":
+        return "bg-indigo-500/10 text-indigo-400 border-indigo-500/30";
+      case "investigating":
+      default:
+        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
     }
   };
 
@@ -205,6 +257,48 @@ export default function PublicStatusPage() {
             </div>
           </div>
         </div>
+
+        {/* 1.1 Upcoming Scheduled Maintenance Banner (if active) */}
+        {upcomingMaintenance.length > 0 && (
+          <div className="rounded-2xl p-6 sm:p-7 border border-sky-500/30 bg-gradient-to-r from-sky-950/40 via-sky-900/20 to-black space-y-4 shadow-xl">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-400">
+              <Wrench className="w-4 h-4" />
+              <span>Upcoming Scheduled Maintenance</span>
+            </div>
+            {upcomingMaintenance.map((maint) => (
+              <div key={maint.id} className="space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                    {maint.title}
+                  </h3>
+                  <div className="text-xs text-sky-300/90 flex items-center gap-1.5 font-medium bg-sky-500/10 px-3 py-1 rounded-full border border-sky-500/20 self-start sm:self-auto">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>
+                      {maint.scheduled_start
+                        ? `Window: ${new Date(maint.scheduled_start).toLocaleString(undefined, {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })} ${
+                            maint.scheduled_end
+                              ? `- ${new Date(maint.scheduled_end).toLocaleString(undefined, {
+                                  timeStyle: "short",
+                                })}`
+                              : ""
+                          }`
+                        : `Started: ${new Date(maint.start_time).toLocaleString(undefined, {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}`}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-sm text-zinc-300 leading-relaxed font-normal whitespace-pre-line">
+                  {maint.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* 2. Four Services Monitoring Section */}
         <section className="space-y-6">
@@ -278,21 +372,39 @@ export default function PublicStatusPage() {
                             barColor = "bg-rose-500 hover:bg-rose-400";
                           }
 
+                          const triggerTooltip = (e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const x = rect.left + rect.width / 2;
+                            const clampedX = typeof window !== "undefined"
+                              ? Math.max(140, Math.min(window.innerWidth - 140, x))
+                              : x;
+                            setActiveTooltip({
+                              serviceKey: sKey,
+                              serviceName: service.name,
+                              dayData: day,
+                              x: clampedX,
+                              y: rect.top,
+                            });
+                          };
+
                           return (
                             <div
                               key={day.date || idx}
-                              onMouseEnter={(e) => {
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                setActiveTooltip({
-                                  serviceKey: sKey,
-                                  serviceName: service.name,
-                                  dayData: day,
-                                  x: rect.left + rect.width / 2,
-                                  y: rect.top,
-                                });
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveTooltip((prev) =>
+                                  prev && prev.serviceKey === sKey && prev.dayData?.date === day.date
+                                    ? null
+                                    : triggerTooltip(e)
+                                );
                               }}
-                              onMouseLeave={() => setActiveTooltip(null)}
-                              className={`flex-1 h-full rounded-[2px] transition-colors cursor-pointer ${barColor}`}
+                              onMouseEnter={(e) => triggerTooltip(e)}
+                              onMouseLeave={() => {
+                                if (typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches) {
+                                  setActiveTooltip(null);
+                                }
+                              }}
+                              className={`status-tick-bar flex-1 h-full rounded-[2px] transition-colors cursor-pointer ${barColor}`}
                             />
                           );
                         })}
@@ -312,7 +424,7 @@ export default function PublicStatusPage() {
         </section>
 
         {/* Floating Tooltip for 90-Day Ticks */}
-        {activeTooltip && (
+        {activeTooltip && activeTooltip.dayData && (
           <div
             style={{
               position: "fixed",
@@ -320,7 +432,7 @@ export default function PublicStatusPage() {
               top: `${activeTooltip.y - 10}px`,
               transform: "translate(-50%, -100%)",
             }}
-            className="z-50 pointer-events-none bg-zinc-900 border border-white/15 text-white text-xs rounded-lg px-3 py-2 shadow-2xl whitespace-nowrap space-y-0.5 backdrop-blur-md"
+            className="z-50 pointer-events-none bg-zinc-900 border border-white/15 text-white text-xs rounded-lg px-3 py-2 shadow-2xl whitespace-nowrap space-y-0.5 backdrop-blur-md max-w-[90vw]"
           >
             <div className="font-semibold text-zinc-200">
               {activeTooltip.dayData.display_date}
@@ -374,43 +486,78 @@ export default function PublicStatusPage() {
               </span>
             </div>
           ) : (
-            /* Incident Notices Cards with Timeline Updates */
+            /* Incident Notices Cards with Timeline Updates, Severity, and Resolution Times */
             <div className="space-y-4">
               {notices.map((notice) => (
                 <div
                   key={notice.id}
                   className="bg-[#050505] border border-white/[0.08] rounded-2xl p-6 sm:p-7 space-y-4 shadow-xl"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/[0.06]">
-                    <div className="flex items-center gap-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-white/[0.06]">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Status Badge */}
                       <span
-                        className={`text-[11px] uppercase tracking-wider font-semibold px-2.5 py-0.5 rounded-full border ${
-                          notice.status === "resolved"
-                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                            : notice.status === "monitoring"
-                            ? "bg-sky-500/10 text-sky-400 border-sky-500/30"
-                            : "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                        }`}
+                        className={`text-[11px] uppercase tracking-wider font-semibold px-2.5 py-0.5 rounded-full border ${getStatusBadgeStyle(
+                          notice.status
+                        )}`}
                       >
                         {notice.status}
                       </span>
-                      <span className="text-xs text-zinc-400 font-medium">
+
+                      {/* Severity Badge (Requirement 4) */}
+                      <span
+                        className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded border ${getSeverityBadgeStyle(
+                          notice.severity
+                        )}`}
+                      >
+                        {notice.severity || "Minor"}
+                      </span>
+
+                      {/* Service Name */}
+                      <span className="text-xs text-zinc-300 font-medium">
                         {notice.service_name}
                       </span>
                     </div>
 
-                    <div className="text-xs text-zinc-500 flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>
-                        {notice.start_time
-                          ? new Date(notice.start_time).toLocaleString(undefined, {
+                    {/* Timestamp, Resolution Time, and Duration (Requirement 4) */}
+                    <div className="text-xs text-zinc-400 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <div className="flex items-center gap-1 text-zinc-400">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>
+                          {notice.start_time
+                            ? new Date(notice.start_time).toLocaleString(undefined, {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })
+                            : ""}
+                        </span>
+                      </div>
+
+                      {notice.resolved_time ? (
+                        <>
+                          <span className="text-zinc-600">&bull;</span>
+                          <span className="text-emerald-400 font-medium">
+                            Resolved:{" "}
+                            {new Date(notice.resolved_time).toLocaleString(undefined, {
                               dateStyle: "medium",
                               timeStyle: "short",
-                            })
-                          : ""}
-                      </span>
+                            })}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-zinc-600">&bull;</span>
+                          <span className="text-amber-400 font-medium">Ongoing</span>
+                        </>
+                      )}
+
                       {notice.duration_minutes && (
-                        <span>&bull; Resolved in {notice.duration_minutes} min</span>
+                        <>
+                          <span className="text-zinc-600">&bull;</span>
+                          <span className="text-zinc-300">
+                            Duration: {notice.duration_minutes} min
+                          </span>
+                        </>
                       )}
                     </div>
                   </div>

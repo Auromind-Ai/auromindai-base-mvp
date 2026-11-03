@@ -66,6 +66,10 @@ celery_app.conf.update(
         # 3. Critical System Workers (Zero-delay processing)
         "app.workers.billing_worker.*": {"queue": "critical_queue"},
         "app.workers.ingestion_worker.*": {"queue": "default"},
+
+        # 4. System Status & Incident Alerts
+        "app.workers.status_worker.run_system_status_health_checks": {"queue": "beat"},
+        "app.workers.status_worker.dispatch_incident_notification_task": {"queue": "default"},
     },
 
 

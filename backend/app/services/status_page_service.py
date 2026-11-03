@@ -324,8 +324,24 @@ class StatusPageService:
 
  
     @classmethod
-    async def run_all_health_checks(cls, db: Session) -> Dict[str, Any]:
-        
+    async def run_all_health_checks(cls, db: Session, force: bool = False) -> Dict[str, Any]:
+        # Throttle protection: If a health check was completed within the last 40 seconds, skip duplicate concurrent run
+        if not force:
+            latest_recent = (
+                db.query(ServiceHealthCheck)
+                .order_by(desc(ServiceHealthCheck.checked_at))
+                .first()
+            )
+            if latest_recent and latest_recent.checked_at:
+                now_utc = datetime.now(timezone.utc)
+                chk_time = latest_recent.checked_at
+                if chk_time.tzinfo is None:
+                    chk_time = chk_time.replace(tzinfo=timezone.utc)
+                elapsed = (now_utc - chk_time).total_seconds()
+                if elapsed < 40:
+                    logger.debug(f"[STATUS MONITOR] Skipping check: last check was {elapsed:.1f}s ago (<40s throttle)")
+                    return {}
+
         config = cls.get_or_create_config(db)
         today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
@@ -501,6 +517,7 @@ class StatusPageService:
                 daily.has_incident = True
                 daily.incident_count += 1
                 logger.warning(f"[STATUS MONITOR] Auto-created incident for {service_name}: {title}")
+                cls.trigger_notification_dispatch(str(new_inc.id), "opened")
 
         else:
             # Current check is healthy.
@@ -518,7 +535,10 @@ class StatusPageService:
                     active_incident.status = "resolved"
                     active_incident.resolved_time = now
                     if active_incident.start_time:
-                        duration = int((now - active_incident.start_time).total_seconds() / 60)
+                        start_dt = active_incident.start_time
+                        if start_dt.tzinfo is None:
+                            start_dt = start_dt.replace(tzinfo=timezone.utc)
+                        duration = int((now - start_dt).total_seconds() / 60)
                         active_incident.duration_minutes = max(1, duration)
 
                     recovery_update = IncidentUpdate(
@@ -532,7 +552,9 @@ class StatusPageService:
                         created_at=now,
                     )
                     db.add(recovery_update)
+                    db.flush()
                     logger.info(f"[STATUS MONITOR] Auto-resolved incident for {service_name}: {active_incident.title}")
+                    cls.trigger_notification_dispatch(str(active_incident.id), "resolved")
 
  
     @classmethod
@@ -896,3 +918,175 @@ class StatusPageService:
         db.add(new_sub)
         db.commit()
         return {"status": "success", "message": "Successfully subscribed to OrbionAgents incident notifications."}
+
+    @staticmethod
+    def _build_status_email_html(incident: Incident, action: str, latest_message: str) -> str:
+        status_label = incident.status.upper()
+        severity_label = incident.severity.upper()
+        service_name = incident.service_name
+        title = incident.title
+        status_url = "https://orbionagents.com/status"
+
+        badge_bg = "#10b981" if incident.status == "resolved" else ("#0284c7" if incident.is_maintenance else "#f59e0b")
+
+        return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OrbionAgents Status Alert</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #000000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #ffffff;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #000000; padding: 36px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #050505; border: 1px solid #262626; border-radius: 16px; padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+          <tr>
+            <td style="padding-bottom: 20px; border-bottom: 1px solid #1f1f1f;">
+              <span style="font-size: 18px; font-weight: 800; letter-spacing: 0.12em; color: #ffffff;">
+                ORBION <span style="color: #34d399;">AGENTS</span>
+              </span>
+              <span style="font-size: 13px; color: #737373; margin-left: 8px;">/ System Status Alert</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top: 24px;">
+              <span style="display: inline-block; background-color: {badge_bg}25; color: {badge_bg}; border: 1px solid {badge_bg}50; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 4px 12px; border-radius: 20px; margin-right: 8px;">
+                {status_label}
+              </span>
+              <span style="display: inline-block; background-color: #262626; color: #d4d4d4; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 10px; border-radius: 6px;">
+                {severity_label}
+              </span>
+              <div style="font-size: 13px; color: #a3a3a3; margin-top: 12px;">
+                Impacted Service: <strong style="color: #ffffff;">{service_name}</strong>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top: 16px;">
+              <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #ffffff; line-height: 1.35;">
+                {title}
+              </h2>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top: 16px;">
+              <div style="background-color: #121212; border: 1px solid #262626; border-radius: 12px; padding: 18px; font-size: 14px; line-height: 1.6; color: #e5e5e5; white-space: pre-line;">
+                {latest_message}
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding-top: 28px; padding-bottom: 20px;">
+              <a href="{status_url}" target="_blank" style="display: inline-block; background-color: #34d399; color: #000000; font-size: 13px; font-weight: 700; text-decoration: none; padding: 12px 28px; border-radius: 10px;">
+                View Live System Status
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top: 20px; border-top: 1px solid #1f1f1f; font-size: 11px; color: #737373; line-height: 1.5; text-align: center;">
+              You received this message because you subscribed to OrbionAgents incident alerts.<br>
+              &copy; {datetime.now().year} OrbionAgents. All rights reserved.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    @classmethod
+    def dispatch_subscriber_notifications(cls, db: Session, incident_id: str, action: str = "opened") -> int:
+        """
+        Dispatches incident notification emails to active status subscribers.
+        """
+        import uuid as _uuid
+        try:
+            inc_uuid = _uuid.UUID(incident_id)
+        except Exception:
+            logger.error(f"[STATUS NOTIFICATION] Invalid incident UUID: {incident_id}")
+            return 0
+
+        incident = db.query(Incident).filter(Incident.id == inc_uuid).first()
+        if not incident:
+            logger.warning(f"[STATUS NOTIFICATION] Incident {incident_id} not found for dispatch.")
+            return 0
+
+        active_subs = (
+            db.query(StatusSubscriber)
+            .filter(StatusSubscriber.is_active == True)
+            .all()
+        )
+        if not active_subs:
+            logger.info("[STATUS NOTIFICATION] No active subscribers found. Dispatch skipped.")
+            return 0
+
+        if action == "resolved" or incident.status == "resolved":
+            subject = f"[RESOLVED] {incident.service_name} - {incident.title}"
+        elif incident.is_maintenance or incident.severity == "maintenance":
+            subject = f"[MAINTENANCE] {incident.service_name} - {incident.title}"
+        elif action == "opened":
+            subject = f"[{incident.severity.upper()}] Service Notice: {incident.service_name}"
+        else:
+            subject = f"[UPDATE] {incident.service_name} - {incident.title}"
+
+        latest_update = (
+            incident.updates[0].message
+            if incident.updates
+            else incident.description
+        )
+
+        body_html = cls._build_status_email_html(incident, action, latest_update)
+
+        from app.services.email_service import EmailService
+        recipient_emails = [s.email for s in active_subs if s.email and "@" in s.email]
+        if not recipient_emails:
+            return 0
+
+        logger.info(f"[STATUS NOTIFICATION] Dispatching alert to {len(recipient_emails)} subscribers: {subject}")
+        batch_size = 50
+        sent_count = 0
+        for i in range(0, len(recipient_emails), batch_size):
+            batch = recipient_emails[i : i + batch_size]
+            try:
+                EmailService.send_email(
+                    to_email=batch,
+                    subject=subject,
+                    body=body_html,
+                    metadata={"incident_id": str(incident.id), "action": action},
+                )
+                sent_count += len(batch)
+            except Exception as batch_err:
+                logger.error(f"[STATUS NOTIFICATION] Error sending batch {i}: {batch_err}")
+
+        logger.info(f"[STATUS NOTIFICATION] Successfully dispatched to {sent_count} subscribers.")
+        return sent_count
+
+    @classmethod
+    def trigger_notification_dispatch(cls, incident_id: str, action: str = "opened") -> None:
+        """
+        Asynchronously triggers subscriber email notification via Celery or sync fallback.
+        """
+        import os
+        if os.getenv("ENVIRONMENT") == "testing" or os.getenv("TESTING") == "true":
+            logger.info(f"[STATUS NOTIFICATION] Testing mode: skipped dispatch for {incident_id} ({action})")
+            return
+
+        try:
+            from app.workers.status_worker import dispatch_incident_notification_task
+            dispatch_incident_notification_task.delay(str(incident_id), action)
+            logger.info(f"[STATUS NOTIFICATION] Enqueued Celery notification task for incident {incident_id} ({action})")
+        except Exception as celery_err:
+            logger.warning(f"[STATUS NOTIFICATION] Celery delay failed ({celery_err}), falling back to direct background thread.")
+            import threading
+            def _fallback():
+                db = SessionLocal()
+                try:
+                    cls.dispatch_subscriber_notifications(db, str(incident_id), action)
+                except Exception as sync_err:
+                    logger.error(f"[STATUS NOTIFICATION] Sync dispatch fallback failed: {sync_err}")
+                finally:
+                    db.close()
+            t = threading.Thread(target=_fallback, daemon=True)
+            t.start()

@@ -43,6 +43,9 @@ class UpdateIncidentRequest(BaseModel):
     status: Optional[str] = None
     description: Optional[str] = None
     update_message: Optional[str] = None
+    is_maintenance: Optional[bool] = None
+    scheduled_start: Optional[datetime] = None
+    scheduled_end: Optional[datetime] = None
 
 
 class AddTimelineUpdateRequest(BaseModel):
@@ -116,7 +119,7 @@ async def trigger_manual_health_check(db: Session = Depends(get_db)) -> Dict[str
     Manually triggers an immediate health check across all four services.
     """
     try:
-        results = await StatusPageService.run_all_health_checks(db)
+        results = await StatusPageService.run_all_health_checks(db, force=True)
         return {
             "status": "success",
             "message": "Health checks executed successfully for all four services.",
@@ -205,6 +208,8 @@ async def create_incident(
     db.commit()
     db.refresh(new_inc)
 
+    StatusPageService.trigger_notification_dispatch(str(new_inc.id), "opened")
+
     return {
         "status": "success",
         "message": "Incident created successfully.",
@@ -236,13 +241,20 @@ async def update_incident(
         inc.severity = body.severity
     if body.description is not None:
         inc.description = body.description
+    if body.is_maintenance is not None:
+        inc.is_maintenance = body.is_maintenance
+    if body.scheduled_start is not None:
+        inc.scheduled_start = body.scheduled_start
+    if body.scheduled_end is not None:
+        inc.scheduled_end = body.scheduled_end
 
     if body.status is not None and body.status != inc.status:
         inc.status = body.status
         if body.status == "resolved" and not inc.resolved_time:
             inc.resolved_time = now
             if inc.start_time:
-                inc.duration_minutes = max(1, int((now - inc.start_time).total_seconds() / 60))
+                st = inc.start_time if inc.start_time.tzinfo else inc.start_time.replace(tzinfo=timezone.utc)
+                inc.duration_minutes = max(1, int((now - st).total_seconds() / 60))
 
     # Add timeline update if message or status change occurred
     if body.update_message or (body.status and body.status != prev_status):
@@ -257,6 +269,8 @@ async def update_incident(
 
     db.commit()
     db.refresh(inc)
+
+    StatusPageService.trigger_notification_dispatch(str(inc.id), "resolved" if inc.status == "resolved" else "updated")
 
     return {
         "status": "success",
@@ -285,7 +299,8 @@ async def resolve_incident(
     inc.status = "resolved"
     inc.resolved_time = now
     if inc.start_time:
-        inc.duration_minutes = max(1, int((now - inc.start_time).total_seconds() / 60))
+        st = inc.start_time if inc.start_time.tzinfo else inc.start_time.replace(tzinfo=timezone.utc)
+        inc.duration_minutes = max(1, int((now - st).total_seconds() / 60))
 
     msg = resolution_note or "This incident has been resolved and all services are operating normally."
     update_entry = IncidentUpdate(
@@ -297,6 +312,8 @@ async def resolve_incident(
     db.add(update_entry)
     db.commit()
     db.refresh(inc)
+
+    StatusPageService.trigger_notification_dispatch(str(inc.id), "resolved")
 
     return {
         "status": "success",
@@ -326,7 +343,8 @@ async def add_incident_timeline_update(
     if body.status == "resolved" and not inc.resolved_time:
         inc.resolved_time = now
         if inc.start_time:
-            inc.duration_minutes = max(1, int((now - inc.start_time).total_seconds() / 60))
+            st = inc.start_time if inc.start_time.tzinfo else inc.start_time.replace(tzinfo=timezone.utc)
+            inc.duration_minutes = max(1, int((now - st).total_seconds() / 60))
 
     update_entry = IncidentUpdate(
         incident_id=inc.id,
@@ -337,6 +355,8 @@ async def add_incident_timeline_update(
     db.add(update_entry)
     db.commit()
     db.refresh(inc)
+
+    StatusPageService.trigger_notification_dispatch(str(inc.id), "resolved" if inc.status == "resolved" else "updated")
 
     return {
         "status": "success",

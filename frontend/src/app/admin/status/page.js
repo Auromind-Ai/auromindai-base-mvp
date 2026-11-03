@@ -49,6 +49,8 @@ export default function AdminStatusManagementPage() {
     status: "investigating",
     description: "",
     is_maintenance: false,
+    scheduled_start: "",
+    scheduled_end: "",
     initial_message: "",
   });
 
@@ -59,6 +61,9 @@ export default function AdminStatusManagementPage() {
     status: "investigating",
     description: "",
     update_message: "",
+    is_maintenance: false,
+    scheduled_start: "",
+    scheduled_end: "",
   });
 
   // Config Form
@@ -118,7 +123,12 @@ export default function AdminStatusManagementPage() {
     e.preventDefault();
     setFormSubmitting(true);
     try {
-      await api.post("/admin/status/incidents", createForm);
+      const payload = {
+        ...createForm,
+        scheduled_start: createForm.scheduled_start ? new Date(createForm.scheduled_start).toISOString() : null,
+        scheduled_end: createForm.scheduled_end ? new Date(createForm.scheduled_end).toISOString() : null,
+      };
+      await api.post("/admin/status/incidents", payload);
       setIsCreateModalOpen(false);
       setCreateForm({
         service_key: "dashboard",
@@ -127,6 +137,8 @@ export default function AdminStatusManagementPage() {
         status: "investigating",
         description: "",
         is_maintenance: false,
+        scheduled_start: "",
+        scheduled_end: "",
         initial_message: "",
       });
       await loadAllData();
@@ -139,12 +151,25 @@ export default function AdminStatusManagementPage() {
 
   const openUpdateModal = (inc) => {
     setSelectedIncident(inc);
+    const formatForInput = (isoStr) => {
+      if (!isoStr) return "";
+      try {
+        const d = new Date(isoStr);
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } catch {
+        return "";
+      }
+    };
     setUpdateForm({
       title: inc.title,
       severity: inc.severity,
       status: inc.status,
       description: inc.description,
       update_message: "",
+      is_maintenance: inc.is_maintenance || false,
+      scheduled_start: formatForInput(inc.scheduled_start),
+      scheduled_end: formatForInput(inc.scheduled_end),
     });
     setIsUpdateModalOpen(true);
   };
@@ -154,7 +179,12 @@ export default function AdminStatusManagementPage() {
     if (!selectedIncident) return;
     setFormSubmitting(true);
     try {
-      await api.put(`/admin/status/incidents/${selectedIncident.id}`, updateForm);
+      const payload = {
+        ...updateForm,
+        scheduled_start: updateForm.scheduled_start ? new Date(updateForm.scheduled_start).toISOString() : null,
+        scheduled_end: updateForm.scheduled_end ? new Date(updateForm.scheduled_end).toISOString() : null,
+      };
+      await api.put(`/admin/status/incidents/${selectedIncident.id}`, payload);
       setIsUpdateModalOpen(false);
       setSelectedIncident(null);
       await loadAllData();
@@ -731,13 +761,47 @@ export default function AdminStatusManagementPage() {
                   type="checkbox"
                   id="is_maint"
                   checked={createForm.is_maintenance}
-                  onChange={(e) => setCreateForm({ ...createForm, is_maintenance: e.target.checked })}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setCreateForm({
+                      ...createForm,
+                      is_maintenance: checked,
+                      severity: checked ? "maintenance" : createForm.severity === "maintenance" ? "major" : createForm.severity,
+                    });
+                  }}
                   className="rounded border-zinc-700 bg-black text-emerald-400 focus:ring-0"
                 />
                 <label htmlFor="is_maint" className="text-zinc-300 font-medium">
                   Mark as Scheduled Maintenance Announcement
                 </label>
               </div>
+
+              {createForm.is_maintenance && (
+                <div className="grid grid-cols-2 gap-3 p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                  <div>
+                    <label className="block text-zinc-300 font-semibold mb-1">
+                      Maintenance Start
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={createForm.scheduled_start}
+                      onChange={(e) => setCreateForm({ ...createForm, scheduled_start: e.target.value })}
+                      className="w-full bg-black border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-zinc-300 font-semibold mb-1">
+                      Maintenance End
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={createForm.scheduled_end}
+                      onChange={(e) => setCreateForm({ ...createForm, scheduled_end: e.target.value })}
+                      className="w-full bg-black border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-white/10">
                 <button
@@ -825,6 +889,53 @@ export default function AdminStatusManagementPage() {
                   className="w-full bg-black border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-400"
                 />
               </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="update_is_maint"
+                  checked={updateForm.is_maintenance}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setUpdateForm({
+                      ...updateForm,
+                      is_maintenance: checked,
+                      severity: checked ? "maintenance" : updateForm.severity === "maintenance" ? "major" : updateForm.severity,
+                    });
+                  }}
+                  className="rounded border-zinc-700 bg-black text-emerald-400 focus:ring-0"
+                />
+                <label htmlFor="update_is_maint" className="text-zinc-300 font-medium">
+                  Mark as Scheduled Maintenance Announcement
+                </label>
+              </div>
+
+              {updateForm.is_maintenance && (
+                <div className="grid grid-cols-2 gap-3 p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                  <div>
+                    <label className="block text-zinc-300 font-semibold mb-1">
+                      Maintenance Start
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={updateForm.scheduled_start}
+                      onChange={(e) => setUpdateForm({ ...updateForm, scheduled_start: e.target.value })}
+                      className="w-full bg-black border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-zinc-300 font-semibold mb-1">
+                      Maintenance End
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={updateForm.scheduled_end}
+                      onChange={(e) => setUpdateForm({ ...updateForm, scheduled_end: e.target.value })}
+                      className="w-full bg-black border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="p-3 bg-white/[0.03] rounded-xl border border-white/5 space-y-1.5">
                 <label className="block text-emerald-400 font-semibold">

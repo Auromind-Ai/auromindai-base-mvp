@@ -55,6 +55,35 @@ export default function StatusHistoryPage() {
     fetchHistory();
   }, [fetchHistory]);
 
+  const getSeverityBadgeStyle = (severity) => {
+    switch (severity?.toLowerCase()) {
+      case "critical":
+        return "bg-rose-500/15 text-rose-400 border-rose-500/30";
+      case "major":
+        return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+      case "minor":
+        return "bg-yellow-500/15 text-yellow-300 border-yellow-500/30";
+      case "maintenance":
+        return "bg-sky-500/15 text-sky-400 border-sky-500/30";
+      default:
+        return "bg-zinc-800 text-zinc-300 border-zinc-700";
+    }
+  };
+
+  const getStatusBadgeStyle = (status) => {
+    switch (status?.toLowerCase()) {
+      case "resolved":
+        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+      case "monitoring":
+        return "bg-sky-500/10 text-sky-400 border-sky-500/30";
+      case "identified":
+        return "bg-indigo-500/10 text-indigo-400 border-indigo-500/30";
+      case "investigating":
+      default:
+        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+    }
+  };
+
   return (
     <div className={`min-h-screen bg-[#000000] text-zinc-100 ${jakarta.className} antialiased relative`}>
       {/* Background radial accent */}
@@ -148,39 +177,77 @@ export default function StatusHistoryPage() {
                 key={inc.id}
                 className="bg-[#050505] border border-white/[0.08] rounded-2xl p-6 sm:p-7 space-y-4 shadow-xl"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/[0.06]">
-                  <div className="flex items-center gap-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-white/[0.06]">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Status Badge */}
                     <span
-                      className={`text-[11px] uppercase tracking-wider font-semibold px-2.5 py-0.5 rounded-full border ${
-                        inc.status === "resolved"
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                          : "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                      }`}
+                      className={`text-[11px] uppercase tracking-wider font-semibold px-2.5 py-0.5 rounded-full border ${getStatusBadgeStyle(
+                        inc.status
+                      )}`}
                     >
                       {inc.status}
                     </span>
-                    <span className="text-xs text-zinc-400 font-medium">
+
+                    {/* Severity Badge (Requirement 4) */}
+                    <span
+                      className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded border ${getSeverityBadgeStyle(
+                        inc.severity
+                      )}`}
+                    >
+                      {inc.severity || "Minor"}
+                    </span>
+
+                    {/* Service Name */}
+                    <span className="text-xs text-zinc-300 font-medium">
                       {inc.service_name}
                     </span>
+
                     {inc.is_maintenance && (
                       <span className="text-[10px] uppercase font-semibold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
-                        Maintenance
+                        Maintenance Window
                       </span>
                     )}
                   </div>
 
-                  <div className="text-xs text-zinc-500 flex items-center gap-2">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>
-                      {inc.start_time
-                        ? new Date(inc.start_time).toLocaleString(undefined, {
+                  {/* Timestamp, Resolution Time, and Duration (Requirement 4) */}
+                  <div className="text-xs text-zinc-400 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <div className="flex items-center gap-1 text-zinc-400">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>
+                        {inc.start_time
+                          ? new Date(inc.start_time).toLocaleString(undefined, {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })
+                          : ""}
+                      </span>
+                    </div>
+
+                    {inc.resolved_time ? (
+                      <>
+                        <span className="text-zinc-600">&bull;</span>
+                        <span className="text-emerald-400 font-medium">
+                          Resolved:{" "}
+                          {new Date(inc.resolved_time).toLocaleString(undefined, {
                             dateStyle: "medium",
                             timeStyle: "short",
-                          })
-                        : ""}
-                    </span>
+                          })}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-zinc-600">&bull;</span>
+                        <span className="text-amber-400 font-medium">Ongoing</span>
+                      </>
+                    )}
+
                     {inc.duration_minutes && (
-                      <span>&bull; Duration: {inc.duration_minutes} min</span>
+                      <>
+                        <span className="text-zinc-600">&bull;</span>
+                        <span className="text-zinc-300">
+                          Duration: {inc.duration_minutes} min
+                        </span>
+                      </>
                     )}
                   </div>
                 </div>
