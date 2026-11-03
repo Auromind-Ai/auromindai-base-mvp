@@ -6,35 +6,35 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import {
-  ArrowLeft,
-  MoreVertical,
-  Phone,
-  Camera,
-  Mail,
-  MapPin,
-  ChevronDown,
-  User,
+  ChevronLeft,
+  Snowflake,
+  Crown,
+  Flame,
+  Zap,
+  Calendar,
   Check,
 } from 'lucide-react-native';
-import { BrandColors, Fonts } from '../../theme/tokens';
+import { Fonts } from '../../theme/tokens';
 import { useAppTheme } from '../../context/theme-context';
-
-type ProfileTab = 'Profile' | 'Notes' | 'Orders' | 'Activity';
-type CustomerStatus = 'Open' | 'Follow Up' | 'Converted' | 'Closed';
 
 export default function CustomerProfileScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string }>();
-  const { colors, isDark, statusBarStyle } = useAppTheme();
+  const params = useLocalSearchParams<{ id?: string; name?: string; phone?: string }>();
+  const { isDark } = useAppTheme();
 
-  const [activeTab, setActiveTab] = useState<ProfileTab>('Profile');
-  const [status, setStatus] = useState<CustomerStatus>('Open');
-  const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const [isConverted, setIsConverted] = useState(false);
+
+  const customerName = params.name || 'Rahul';
+  const customerPhone = params.phone || '9345660070';
+  const customerInitial = customerName.charAt(0).toUpperCase() || 'R';
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -44,466 +44,641 @@ export default function CustomerProfileScreen() {
     }
   };
 
-  const customer = {
-    name: 'Priya Sharma',
-    initials: 'PS',
-    avatarColor: '#8B5CF6',
-    isOnline: true,
-    phone: '+91 98765 43210',
-    instagram: '@priyasharma',
-    email: 'priya@email.com',
-    location: 'Chennai, Tamil Nadu, India',
-    assignedTo: 'Arun Kumar',
-    tags: [
-      { label: 'Hot Lead', color: '#EF4444', bg: '#EF444420' },
-      { label: 'Saree Collection', color: '#3B82F6', bg: '#3B82F620' },
-      { label: 'Interested', color: '#10B981', bg: '#10B98120' },
-    ],
+  const handleConvertConversation = () => {
+    setIsConverted((prev) => !prev);
+    if (!isConverted) {
+      if (Platform.OS === 'web') {
+        alert('Conversation converted successfully!');
+      } else {
+        Alert.alert('Success', 'Conversation converted successfully!');
+      }
+    }
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar style={statusBarStyle} />
+    <View style={[styles.screenContainer, { backgroundColor: isDark ? '#0A1023' : '#EEEEF5' }]}>
+      <StatusBar style="light" />
 
-      {/* Header Bar matching Screen 9 */}
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBack}
-          activeOpacity={0.7}
-        >
-          <ArrowLeft size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
+      {/* TOP HEADER SECTION WITH INBOX GRADIENT PATTERN */}
+      <View style={styles.headerWrapper}>
+        <LinearGradient
+          colors={
+            isDark
+              ? ['#111A3A', '#292D66', '#514BC0', '#342D75', '#171D40']
+              : ['#30385F', '#6669B6', '#9388D7', '#68658F']
+          }
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
 
-        <View style={styles.headerUser}>
-          <View style={styles.avatarWrapper}>
-            <View style={[styles.avatar, { backgroundColor: customer.avatarColor }]}>
-              <Text style={styles.avatarText}>{customer.initials}</Text>
-            </View>
-            <View style={styles.onlineDot} />
-          </View>
-          <View>
-            <Text style={[styles.headerName, { color: colors.textPrimary }]}>{customer.name}</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>Lead • Online</Text>
-          </View>
+        {/* Center Radial Glow overlay */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Svg width="100%" height="100%">
+            <Defs>
+              <RadialGradient
+                id={isDark ? 'customerDarkGlow' : 'customerLightGlow'}
+                cx="52%"
+                cy="46%"
+                rx="56%"
+                ry="52%"
+                fx="52%"
+                fy="46%"
+              >
+                <Stop
+                  offset="0%"
+                  stopColor={isDark ? '#6F5BFF' : '#AB99FF'}
+                  stopOpacity={isDark ? 0.38 : 0.48}
+                />
+                <Stop
+                  offset="65%"
+                  stopColor={isDark ? '#6F5BFF' : '#AB99FF'}
+                  stopOpacity={0}
+                />
+              </RadialGradient>
+            </Defs>
+            <Rect
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+              fill={`url(#${isDark ? 'customerDarkGlow' : 'customerLightGlow'})`}
+            />
+          </Svg>
         </View>
 
-        <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
-          <MoreVertical size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
+        <SafeAreaView edges={['top', 'left', 'right']}>
+          {/* iOS Style Top Row: plain "<" back button and "Contact Details" in one row */}
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={handleBack}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <ChevronLeft size={26} color="#FFFFFF" strokeWidth={2.4} />
+            </TouchableOpacity>
+
+            <Text style={styles.headerTitle}>Contact Details</Text>
+          </View>
+        </SafeAreaView>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Profile Tabs: Profile, Notes, Orders, Activity */}
-        <View style={[styles.tabBar, { backgroundColor: isDark ? '#120F20' : colors.cardElevated }]}>
-          {(['Profile', 'Notes', 'Orders', 'Activity'] as ProfileTab[]).map((tab) => {
-            const isActive = activeTab === tab;
-            return (
-              <TouchableOpacity
-                key={tab}
+      {/* MAIN CONTENT SHEET WITH INBOX GRADIENT BACKGROUND */}
+      <View style={styles.mainContentSheet}>
+        <LinearGradient
+          colors={
+            isDark
+              ? ['#0C1125', '#10162D', '#0A1023']
+              : ['#F2F2F8', '#F6F6FA', '#EEEEF5']
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* 1. Customer Avatar, Name & Phone (iOS Enhanced Avatar) */}
+          <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight, styles.profileRow]}>
+            <LinearGradient
+              colors={
+                isDark
+                  ? ['#1C3D2F', '#0E241B']
+                  : ['#D1FAE5', '#A7F3D0']
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[
+                styles.avatarCircle,
+                {
+                  borderColor: isDark ? 'rgba(52, 211, 153, 0.35)' : 'rgba(16, 185, 129, 0.45)',
+                },
+              ]}
+            >
+              <View
                 style={[
-                  styles.tabItem,
-                  isActive && [styles.tabItemActive, { backgroundColor: colors.primary }],
+                  styles.avatarInnerGlow,
+                  {
+                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 255, 255, 0.5)',
+                  },
                 ]}
-                onPress={() => setActiveTab(tab)}
-                activeOpacity={0.75}
               >
+                <Text style={[styles.avatarText, { color: isDark ? '#34D399' : '#065F46' }]}>
+                  {customerInitial}
+                </Text>
+              </View>
+            </LinearGradient>
+
+            <View style={styles.profileTextCol}>
+              <Text style={[styles.customerName, { color: isDark ? '#FFFFFF' : '#1F1A3C' }]}>
+                {customerName}
+              </Text>
+              <Text style={[styles.customerPhone, { color: isDark ? '#9DA8C3' : '#7583A5' }]}>
+                {customerPhone}
+              </Text>
+            </View>
+          </View>
+
+          {/* 2. System Tier & Unified Agent Labels Card */}
+          <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
+            <Text style={[styles.sectionMetaTitle, { color: isDark ? '#8E99B7' : '#7583A5' }]}>
+              SYSTEM TIER
+            </Text>
+
+            {/* Enhanced iOS Cold Badge with frosted gradient & glow */}
+            <View style={styles.systemTierRow}>
+              <LinearGradient
+                colors={
+                  isDark
+                    ? ['rgba(56, 189, 248, 0.20)', 'rgba(14, 165, 233, 0.08)']
+                    : ['#E0F2FE', '#BAE6FD']
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[
+                  styles.tierBadge,
+                  {
+                    borderColor: isDark ? 'rgba(56, 189, 248, 0.32)' : 'rgba(2, 132, 199, 0.25)',
+                  },
+                ]}
+              >
+                <Snowflake size={13} color={isDark ? '#38BDF8' : '#0284C7'} strokeWidth={2.4} />
+                <Text style={[styles.tierBadgeText, { color: isDark ? '#7DD3FC' : '#0284C7' }]}>
+                  Cold
+                </Text>
+              </LinearGradient>
+              <Text style={[styles.calculatedText, { color: isDark ? '#7E8BA0' : '#8E99B7' }]}>
+                Calculated automatically (0)
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: isDark ? 'rgba(164, 170, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' },
+              ]}
+            />
+
+            <Text style={[styles.sectionMetaTitle, { color: isDark ? '#8E99B7' : '#7583A5', marginTop: 4 }]}>
+              AGENT LABELS
+            </Text>
+
+            {/* Harmonized, iOS-consistent label badges with unified container styling */}
+            <View style={styles.agentLabelsWrap}>
+              {/* Premium Lead */}
+              <View
+                style={[
+                  styles.labelPillUnified,
+                  isDark ? styles.labelPillUnifiedDark : styles.labelPillUnifiedLight,
+                ]}
+              >
+                <Crown size={14} color="#F59E0B" />
                 <Text
                   style={[
-                    styles.tabItemText,
-                    { color: colors.textSecondary },
-                    isActive && styles.tabItemTextActive,
+                    styles.labelPillText,
+                    { color: isDark ? '#E2E8F0' : '#334155' },
                   ]}
                 >
-                  {tab}
+                  Premium Lead
                 </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {activeTab === 'Profile' && (
-          <View style={styles.tabContent}>
-            {/* Contact Information Card */}
-            <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>Contact Information</Text>
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-              <View style={styles.infoRow}>
-                <View style={[styles.infoIcon, { backgroundColor: '#25D36620' }]}>
-                  <Phone size={16} color="#25D366" />
-                </View>
-                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{customer.phone}</Text>
               </View>
 
-              <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-              <View style={styles.infoRow}>
-                <View style={[styles.infoIcon, { backgroundColor: '#E1306C20' }]}>
-                  <Camera size={16} color="#E1306C" />
-                </View>
-                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{customer.instagram}</Text>
-              </View>
-
-              <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-              <View style={styles.infoRow}>
-                <View style={[styles.infoIcon, { backgroundColor: '#3B82F620' }]}>
-                  <Mail size={16} color="#3B82F6" />
-                </View>
-                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{customer.email}</Text>
-              </View>
-
-              <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-              <View style={styles.infoRow}>
-                <View style={[styles.infoIcon, { backgroundColor: '#F59E0B20' }]}>
-                  <MapPin size={16} color="#F59E0B" />
-                </View>
-                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{customer.location}</Text>
-              </View>
-            </View>
-
-            {/* Tags Section */}
-            <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>Tags</Text>
-            <View style={styles.tagsRow}>
-              {customer.tags.map((tag, idx) => (
-                <View
-                  key={idx}
-                  style={[styles.tagPill, { backgroundColor: tag.bg }]}
-                >
-                  <Text style={[styles.tagText, { color: tag.color }]}>
-                    {tag.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Assigned To Card */}
-            <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>Assigned To</Text>
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-              <View style={styles.assignedRow}>
-                <View style={styles.assignedUser}>
-                  <View style={styles.assignedAvatar}>
-                    <User size={16} color="#FFFFFF" />
-                  </View>
-                  <Text style={[styles.assignedName, { color: colors.textPrimary }]}>{customer.assignedTo}</Text>
-                </View>
-
-                <TouchableOpacity activeOpacity={0.7}>
-                  <Text style={[styles.changeActionText, { color: colors.primary }]}>Change</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Status Dropdown Card */}
-            <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>Status</Text>
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-              <TouchableOpacity
-                style={styles.statusRow}
-                onPress={() => setShowStatusPicker(!showStatusPicker)}
-                activeOpacity={0.8}
+              {/* High Priority */}
+              <View
+                style={[
+                  styles.labelPillUnified,
+                  isDark ? styles.labelPillUnifiedDark : styles.labelPillUnifiedLight,
+                ]}
               >
-                <Text style={[styles.statusLabelText, { color: colors.textPrimary }]}>{status}</Text>
-                <ChevronDown size={18} color={colors.icon} />
-              </TouchableOpacity>
+                <Flame size={14} color="#EF4444" />
+                <Text
+                  style={[
+                    styles.labelPillText,
+                    { color: isDark ? '#E2E8F0' : '#334155' },
+                  ]}
+                >
+                  High Priority
+                </Text>
+              </View>
 
-              {showStatusPicker && (
-                <View style={styles.statusOptions}>
-                  {(['Open', 'Follow Up', 'Converted', 'Closed'] as CustomerStatus[]).map(
-                    (st) => (
-                      <TouchableOpacity
-                        key={st}
-                        style={styles.statusOptionItem}
-                        onPress={() => {
-                          setStatus(st);
-                          setShowStatusPicker(false);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.statusOptionText,
-                            status === st && styles.statusOptionTextActive,
-                          ]}
-                        >
-                          {st}
-                        </Text>
-                        {status === st && <Check size={16} color={BrandColors.primaryLight} />}
-                      </TouchableOpacity>
-                    )
-                  )}
-                </View>
-              )}
+              {/* Interested */}
+              <View
+                style={[
+                  styles.labelPillUnified,
+                  isDark ? styles.labelPillUnifiedDark : styles.labelPillUnifiedLight,
+                ]}
+              >
+                <Zap size={14} color="#10B981" />
+                <Text
+                  style={[
+                    styles.labelPillText,
+                    { color: isDark ? '#E2E8F0' : '#334155' },
+                  ]}
+                >
+                  Interested
+                </Text>
+              </View>
+
+              {/* Follow Up */}
+              <View
+                style={[
+                  styles.labelPillUnified,
+                  isDark ? styles.labelPillUnifiedDark : styles.labelPillUnifiedLight,
+                ]}
+              >
+                <Calendar size={14} color="#3B82F6" />
+                <Text
+                  style={[
+                    styles.labelPillText,
+                    { color: isDark ? '#E2E8F0' : '#334155' },
+                  ]}
+                >
+                  Follow Up
+                </Text>
+              </View>
             </View>
           </View>
-        )}
 
-        {/* Other Tabs Placeholder */}
-        {activeTab === 'Notes' && (
-          <View style={styles.emptyTabWrapper}>
-            <Text style={styles.emptyTabText}>2 Internal Notes recorded.</Text>
-            <Text style={styles.emptyTabSubtext}>Customer inquired about bridal silk discounts.</Text>
+          {/* 3. Conversation Info */}
+          <Text style={[styles.sectionTitle, { color: isDark ? '#FFFFFF' : '#1F1A3C' }]}>
+            Conversation Info
+          </Text>
+
+          <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, { color: isDark ? '#9DA8C3' : '#7583A5' }]}>
+                First Contact
+              </Text>
+              <Text style={[styles.infoValue, { color: isDark ? '#F8F8FF' : '#1F1A3C' }]}>
+                Aug 3, 2026
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: isDark ? 'rgba(164, 170, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' },
+              ]}
+            />
+
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, { color: isDark ? '#9DA8C3' : '#7583A5' }]}>
+                Last Contact
+              </Text>
+              <Text style={[styles.infoValue, { color: isDark ? '#F8F8FF' : '#1F1A3C' }]}>
+                Aug 19, 2026 03:54 PM
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: isDark ? 'rgba(164, 170, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' },
+              ]}
+            />
+
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, { color: isDark ? '#9DA8C3' : '#7583A5' }]}>
+                Total Messages
+              </Text>
+              <Text style={[styles.infoValue, { color: isDark ? '#F8F8FF' : '#1F1A3C' }]}>
+                2
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: isDark ? 'rgba(164, 170, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' },
+              ]}
+            />
+
+            {/* Enhanced iOS Status Badge with glowing indicator dot */}
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, { color: isDark ? '#9DA8C3' : '#7583A5' }]}>
+                Status
+              </Text>
+              <LinearGradient
+                colors={
+                  isDark
+                    ? ['rgba(16, 185, 129, 0.20)', 'rgba(5, 150, 105, 0.08)']
+                    : ['rgba(16, 185, 129, 0.16)', 'rgba(5, 150, 105, 0.06)']
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[
+                  styles.statusBadge,
+                  {
+                    borderColor: isDark ? 'rgba(16, 185, 129, 0.35)' : 'rgba(16, 185, 129, 0.30)',
+                  },
+                ]}
+              >
+                <View style={styles.statusIndicatorDot} />
+                <Text style={styles.statusBadgeText}>Closed</Text>
+              </LinearGradient>
+            </View>
           </View>
-        )}
-        {activeTab === 'Orders' && (
-          <View style={styles.emptyTabWrapper}>
-            <Text style={styles.emptyTabText}>Order #ORB-8821 in progress.</Text>
-            <Text style={styles.emptyTabSubtext}>Estimated delivery: 28 Oct 2026</Text>
-          </View>
-        )}
-        {activeTab === 'Activity' && (
-          <View style={styles.emptyTabWrapper}>
-            <Text style={styles.emptyTabText}>Active 5 minutes ago via WhatsApp.</Text>
-            <Text style={styles.emptyTabSubtext}>Assigned to Arun Kumar by Orbion Bot.</Text>
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+
+          {/* 4. Quick Actions (iOS Premium Action Button) */}
+          <Text style={[styles.sectionTitle, { color: isDark ? '#FFFFFF' : '#1F1A3C' }]}>
+            Quick Actions
+          </Text>
+
+          <TouchableOpacity
+            style={styles.convertButtonTouchable}
+            activeOpacity={0.85}
+            onPress={handleConvertConversation}
+          >
+            <LinearGradient
+              colors={
+                isConverted
+                  ? ['#059669', '#047857']
+                  : ['#10B981', '#059669']
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.convertButtonGradient}
+            >
+              <View style={styles.convertIconCircle}>
+                <Check size={16} color="#10B981" strokeWidth={2.8} />
+              </View>
+              <Text style={styles.convertButtonText}>
+                {isConverted ? 'Conversation Converted' : 'Convert Conversation'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screenContainer: {
     flex: 1,
-    backgroundColor: '#05010B',
   },
-  header: {
+  headerWrapper: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 22,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: '#08080C',
+    gap: 10,
+    paddingVertical: 4,
   },
   backButton: {
-    padding: 6,
-    marginRight: 6,
+    padding: 4,
+    marginLeft: -4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  headerUser: {
+  headerTitle: {
+    fontSize: 23,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  mainContentSheet: {
+    flex: 1,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    marginTop: -12,
+    overflow: 'hidden',
+  },
+  scrollContent: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 48,
+    gap: 15,
+  },
+  card: {
+    padding: 18,
+    borderRadius: 20,
+  },
+  cardLight: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: '#2F2B5A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  cardDark: {
+    backgroundColor: '#202941',
+    borderWidth: 1,
+    borderColor: 'rgba(164, 170, 255, 0.08)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    gap: 16,
   },
-  avatarWrapper: {
-    position: 'relative',
-    marginRight: 10,
+  avatarCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  avatarInnerGlow: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
-  },
-  onlineDot: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#10B981',
-    borderWidth: 2,
-    borderColor: '#08080C',
-  },
-  headerName: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontFamily: Fonts.semiBold,
+    fontSize: 22,
+    fontFamily: Fonts.medium,
     fontWeight: '600',
+    letterSpacing: -0.5,
   },
-  headerSubtitle: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    fontFamily: Fonts.regular,
-    marginTop: 1,
-  },
-  iconButton: {
-    padding: 8,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#120F20',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 20,
-  },
-  tabItem: {
+  profileTextCol: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
+  },
+  customerName: {
+    fontSize: 20,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+  },
+  customerPhone: {
+    fontSize: 14.5,
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
+    marginTop: 3,
+  },
+  sectionMetaTitle: {
+    fontSize: 12,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 10,
+  },
+  systemTierRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  tabItemActive: {
-    backgroundColor: BrandColors.primaryLight,
+  tierBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5.5,
+    borderRadius: 999,
+    borderWidth: 1,
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  tabItemText: {
-    color: '#9CA3AF',
+  tierBadgeText: {
     fontSize: 13,
     fontFamily: Fonts.medium,
     fontWeight: '500',
+    letterSpacing: 0.1,
   },
-  tabItemTextActive: {
-    color: '#FFFFFF',
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+  calculatedText: {
+    fontSize: 13.5,
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
+    marginLeft: 10,
+    flex: 1,
   },
-  tabContent: {
-    gap: 16,
+  divider: {
+    height: 1,
+    marginVertical: 13,
+  },
+  agentLabelsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  labelPillUnified: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6.5,
+    paddingHorizontal: 12,
+    paddingVertical: 6.5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  labelPillUnifiedDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(164, 170, 255, 0.12)',
+  },
+  labelPillUnifiedLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.035)',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  labelPillText: {
+    fontSize: 13.5,
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
   sectionTitle: {
-    color: '#9CA3AF',
-    fontSize: 13,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  card: {
-    backgroundColor: '#0F0C1B',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    fontSize: 16.5,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+    marginTop: 5,
+    marginBottom: -4,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
   },
-  infoIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
+  infoLabel: {
+    fontSize: 14.5,
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
   infoValue: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 14.5,
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4.5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  statusIndicatorDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginRight: 6,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 4,
+  },
+  statusBadgeText: {
+    fontSize: 13,
     fontFamily: Fonts.medium,
     fontWeight: '500',
+    color: '#10B981',
+    letterSpacing: 0.1,
   },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    marginVertical: 12,
-  },
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 4,
-  },
-  tagPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  tagText: {
-    fontSize: 12,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
-  },
-  assignedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  assignedUser: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  assignedAvatar: {
-    width: 32,
-    height: 32,
+  convertButtonTouchable: {
     borderRadius: 16,
-    backgroundColor: '#6D28D9',
+    overflow: 'hidden',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  convertButtonGradient: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-  },
-  assignedName: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
-  },
-  changeActionText: {
-    color: BrandColors.primaryLight,
-    fontSize: 13,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  statusLabelText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
-  },
-  statusOptions: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
-    gap: 8,
-  },
-  statusOptionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-  },
-  statusOptionText: {
-    color: '#9CA3AF',
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-  },
-  statusOptionTextActive: {
-    color: '#FFFFFF',
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
-  },
-  emptyTabWrapper: {
-    backgroundColor: '#0F0C1B',
+    gap: 9,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
     borderRadius: 16,
-    padding: 24,
+  },
+  convertIconCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
   },
-  emptyTabText: {
+  convertButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  emptyTabSubtext: {
-    color: '#9CA3AF',
-    fontSize: 13,
-    fontFamily: Fonts.regular,
-    textAlign: 'center',
+    fontSize: 16,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+    letterSpacing: -0.1,
   },
 });

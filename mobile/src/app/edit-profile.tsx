@@ -184,7 +184,7 @@ export default function EditProfileScreen() {
         type: 'success',
         title: 'Success',
         message: 'Profile updated successfully!',
-        onConfirm: () => router.back(),
+        onConfirm: () => (router.canGoBack() ? router.back() : router.replace('/(tabs)/settings')),
       });
     } catch (err: any) {
       console.error('[EditProfile] Save error:', err);
@@ -195,6 +195,14 @@ export default function EditProfileScreen() {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/settings');
     }
   };
 
@@ -213,7 +221,7 @@ export default function EditProfileScreen() {
             { backgroundColor: isDark ? 'rgba(128, 140, 190, 0.12)' : 'rgba(255, 255, 255, 0.85)' },
           ]}
           activeOpacity={0.7}
-          onPress={() => router.back()}
+          onPress={handleBack}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <ChevronLeft size={24} color={theme.textPrimary} />
@@ -665,8 +673,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     textAlign: 'center',
   },
   headerRightSpacer: {
@@ -703,8 +711,8 @@ const styles = StyleSheet.create({
   },
   avatarInitial: {
     fontSize: 42,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     color: '#FFFFFF',
   },
   cameraBadge: {
@@ -730,8 +738,8 @@ const styles = StyleSheet.create({
   },
   changePhotoText: {
     fontSize: 14,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
   formContainer: {
     gap: 14,
@@ -749,16 +757,16 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 11,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     letterSpacing: 0.7,
     marginBottom: 6,
     textTransform: 'uppercase',
   },
   fieldInput: {
     fontSize: 15,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
     padding: 0,
     margin: 0,
   },
@@ -770,8 +778,8 @@ const styles = StyleSheet.create({
   },
   readOnlyText: {
     fontSize: 15,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
     flex: 1,
     paddingRight: 8,
   },
@@ -801,13 +809,13 @@ const styles = StyleSheet.create({
   },
   roleBadgeText: {
     fontSize: 12,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   workspaceNameText: {
     fontSize: 13,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
   bottomActionContainer: {
     marginTop: 18,
@@ -825,8 +833,8 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   modalOverlay: {
     flex: 1,
@@ -858,14 +866,15 @@ const styles = StyleSheet.create({
   },
   statusModalTitle: {
     fontSize: 18,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     textAlign: 'center',
     marginBottom: 8,
   },
   statusModalMessage: {
     fontSize: 14,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     lineHeight: 20,
     textAlign: 'center',
     marginBottom: 24,
@@ -880,8 +889,8 @@ const styles = StyleSheet.create({
   statusModalConfirmText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   photoPickerCard: {
     width: '100%',
@@ -902,12 +911,13 @@ const styles = StyleSheet.create({
   },
   photoPickerTitle: {
     fontSize: 18,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   photoPickerSubtitle: {
     fontSize: 13,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     marginTop: 2,
   },
   photoPickerCloseBtn: {
@@ -940,12 +950,13 @@ const styles = StyleSheet.create({
   },
   optionTitle: {
     fontSize: 15,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     marginBottom: 2,
   },
   optionSubtitle: {
     fontSize: 12,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
 });

@@ -352,6 +352,14 @@ export default function LoggedInDevicesScreen() {
     }
   };
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/settings');
+    }
+  };
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.screenBg }]}
@@ -371,7 +379,7 @@ export default function LoggedInDevicesScreen() {
             },
           ]}
           activeOpacity={0.7}
-          onPress={() => router.back()}
+          onPress={handleBack}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <ChevronLeft size={24} color={theme.textPrimary} />
@@ -788,8 +796,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     textAlign: 'center',
   },
   headerRightSpacer: {
@@ -803,6 +811,7 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: 13,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     lineHeight: 18,
     textAlign: 'center',
     paddingHorizontal: 8,
@@ -816,12 +825,13 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    fontFamily: Fonts.medium,
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
   sectionHeader: {
     fontSize: 11.5,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     letterSpacing: 0.8,
     marginBottom: 10,
     marginTop: 6,
@@ -836,8 +846,8 @@ const styles = StyleSheet.create({
   },
   signOutAllText: {
     fontSize: 12.5,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     paddingHorizontal: 4,
   },
   devicesList: {
@@ -875,8 +885,8 @@ const styles = StyleSheet.create({
   },
   deviceName: {
     fontSize: 15.5,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     flex: 1,
     paddingRight: 8,
   },
@@ -897,12 +907,13 @@ const styles = StyleSheet.create({
   },
   currentBadgeText: {
     fontSize: 11,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   deviceBrowserText: {
     fontSize: 13,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     marginBottom: 8,
   },
   infoPillsRow: {
@@ -917,7 +928,8 @@ const styles = StyleSheet.create({
   },
   infoPillText: {
     fontSize: 11.5,
-    fontFamily: Fonts.medium,
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
   cardActionRow: {
     marginTop: 14,
@@ -938,8 +950,8 @@ const styles = StyleSheet.create({
   },
   revokeBtnText: {
     fontSize: 12.5,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
   emptyCard: {
     borderRadius: 18,
@@ -954,14 +966,15 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 16,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     marginTop: 12,
     marginBottom: 4,
   },
   emptySubtitle: {
     fontSize: 13,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     textAlign: 'center',
   },
   tipBanner: {
@@ -979,6 +992,7 @@ const styles = StyleSheet.create({
   tipText: {
     fontSize: 12.5,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     lineHeight: 18,
     flex: 1,
   },
@@ -1023,8 +1037,8 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 16.5,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     letterSpacing: -0.2,
   },
   modalCloseBtn: {
@@ -1041,6 +1055,7 @@ const styles = StyleSheet.create({
   modalDesc: {
     fontSize: 13.5,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     lineHeight: 20,
   },
   modalActions: {
@@ -1061,8 +1076,8 @@ const styles = StyleSheet.create({
   },
   modalCancelText: {
     fontSize: 13.5,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   modalConfirmBtn: {
     flex: 1,
@@ -1073,8 +1088,8 @@ const styles = StyleSheet.create({
   },
   modalConfirmText: {
     fontSize: 13.5,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     color: '#FFFFFF',
   },
 });
