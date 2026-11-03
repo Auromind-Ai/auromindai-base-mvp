@@ -55,3 +55,11 @@ from .campaign import Campaign, CampaignRecipient, ContactList, ContactListMembe
 from .lead_report_setting import LeadReportSetting
 from .lead_scoring_rule import LeadScoringSetting
 from .ai_agent import AIAgent
+from .status_page import (
+    ServiceHealthCheck,
+    ServiceDailyUptime,
+    Incident,
+    IncidentUpdate,
+    StatusSubscriber,
+    StatusPageConfig,
+)

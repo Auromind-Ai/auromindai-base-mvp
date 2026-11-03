@@ -25,6 +25,7 @@ export const TOP_LEVEL_BYPASS_ROUTES = [
   '/terms',
   '/privacy',
   '/docs',
+  '/status',
 ];
 
 export const PROTECTED_WORKSPACE_ROOTS = [

@@ -30,6 +30,7 @@ celery_app.conf.update(
         "app.workers.ingestion_worker",
         "app.workers.notification_scheduler_worker",
         "app.workers.campaign_worker",
+        "app.workers.status_worker",
     ],
 
     # Reliability
@@ -146,6 +147,10 @@ celery_app.conf.beat_schedule = {
     "email-monitor-cycle": {
         "task": "app.workers.notification_scheduler_worker.run_email_monitor_cycle_task",
         "schedule": 6000.0,  
+    },
+    "system-status-health-checks": {
+        "task": "app.workers.status_worker.run_system_status_health_checks",
+        "schedule": 60.0,
     },
 }
 
