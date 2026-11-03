@@ -372,19 +372,20 @@ export default function PublicStatusPage() {
                             barColor = "bg-rose-500 hover:bg-rose-400";
                           }
 
-                          const triggerTooltip = (e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
+                          const getTooltipData = (targetEl) => {
+                            if (!targetEl || typeof targetEl.getBoundingClientRect !== "function") return null;
+                            const rect = targetEl.getBoundingClientRect();
                             const x = rect.left + rect.width / 2;
                             const clampedX = typeof window !== "undefined"
                               ? Math.max(140, Math.min(window.innerWidth - 140, x))
                               : x;
-                            setActiveTooltip({
+                            return {
                               serviceKey: sKey,
                               serviceName: service.name,
                               dayData: day,
                               x: clampedX,
                               y: rect.top,
-                            });
+                            };
                           };
 
                           return (
@@ -392,13 +393,17 @@ export default function PublicStatusPage() {
                               key={day.date || idx}
                               onClick={(e) => {
                                 e.stopPropagation();
+                                const tooltipData = getTooltipData(e.currentTarget);
                                 setActiveTooltip((prev) =>
                                   prev && prev.serviceKey === sKey && prev.dayData?.date === day.date
                                     ? null
-                                    : triggerTooltip(e)
+                                    : tooltipData
                                 );
                               }}
-                              onMouseEnter={(e) => triggerTooltip(e)}
+                              onMouseEnter={(e) => {
+                                const tooltipData = getTooltipData(e.currentTarget);
+                                if (tooltipData) setActiveTooltip(tooltipData);
+                              }}
                               onMouseLeave={() => {
                                 if (typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches) {
                                   setActiveTooltip(null);
