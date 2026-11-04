@@ -132,6 +132,22 @@ export default function PublicStatusPage() {
     });
   }, [notices]);
 
+  // Extract only active / ongoing notices (resolved ones are archived to history)
+  const activeNotices = useMemo(() => {
+    const now = new Date();
+    return notices.filter((n) => {
+      if (n.status === "resolved") return false;
+      if (
+        (n.is_maintenance || n.severity === "maintenance") &&
+        n.scheduled_end &&
+        new Date(n.scheduled_end) <= now
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [notices]);
+
   const getStatusIcon = (status, size = "w-5 h-5") => {
     switch (status) {
       case "operational":
@@ -469,35 +485,56 @@ export default function PublicStatusPage() {
           </div>
         )}
 
-        {/* 3. Recent Notices Section */}
+        {/* 3. Active Notices & Ongoing Disruptions Section */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs uppercase tracking-widest font-semibold text-zinc-400">
-              Recent Notices
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs uppercase tracking-widest font-semibold text-zinc-400">
+                Active Notices
+              </h2>
+              {activeNotices.length > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  {activeNotices.length} Active
+                </span>
+              )}
+            </div>
             <Link
               href="/status/history"
               className="text-xs text-zinc-400 hover:text-white font-medium flex items-center gap-1 transition"
             >
-              SHOW HISTORY
+              <span>NOTICE HISTORY</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
-          {notices.length === 0 ? (
-            /* Reference Design Empty State: "No notices reported for the past 7 days" */
-            <div className="bg-[#050505] border border-white/[0.08] rounded-2xl p-6 sm:p-7 flex items-center gap-4 shadow-xl">
-              <div className="p-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
-                <CheckCircle2 className="w-5 h-5" />
+          {activeNotices.length === 0 ? (
+            /* Reference Design Empty State: No active disruptions or ongoing notices */
+            <div className="bg-[#050505] border border-white/[0.08] rounded-2xl p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+              <div className="flex items-center gap-3.5">
+                <div className="p-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-sm sm:text-base text-white font-semibold">
+                    No active notices or disruptions
+                  </div>
+                  <div className="text-xs text-zinc-400 mt-0.5">
+                    All OrbionAgents services are running normally. Resolved incidents and past notices are archived in Notice History.
+                  </div>
+                </div>
               </div>
-              <span className="text-sm sm:text-base text-zinc-300 font-medium">
-                No notices reported for the past 7 days
-              </span>
+              <Link
+                href="/status/history"
+                className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 transition flex items-center gap-1.5 self-start sm:self-auto shrink-0"
+              >
+                <span>View Notice History</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
           ) : (
-            /* Incident Notices Cards with Timeline Updates, Severity, and Resolution Times */
+            /* Active Incident Notices Cards with Timeline Updates, Severity, and Timestamps */
             <div className="space-y-4">
-              {notices.map((notice) => (
+              {activeNotices.map((notice) => (
                 <div
                   key={notice.id}
                   className="bg-[#050505] border border-white/[0.08] rounded-2xl p-6 sm:p-7 space-y-4 shadow-xl"
