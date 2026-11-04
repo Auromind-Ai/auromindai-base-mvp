@@ -343,6 +343,7 @@ class StatusPageService:
                     return {}
 
         config = cls.get_or_create_config(db)
+        cls.check_and_auto_complete_scheduled_maintenance(db)
         today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
         # Run probes concurrently
@@ -558,6 +559,83 @@ class StatusPageService:
 
  
     @classmethod
+    def check_and_auto_complete_scheduled_maintenance(cls, db: Session) -> int:
+        """
+        Scans for scheduled maintenance items:
+        1. Automatically resolves any ongoing/scheduled maintenance whose scheduled_end has passed.
+        2. Heals any resolved incident/maintenance that lacks resolved_time or duration_minutes.
+        """
+        now = datetime.now(timezone.utc)
+        changed = 0
+
+        # 1. Any maintenance whose scheduled_end has passed and is not yet marked resolved
+        all_maintenance = (
+            db.query(Incident)
+            .filter(
+                (Incident.is_maintenance == True) | (Incident.severity == "maintenance")
+            )
+            .all()
+        )
+
+        for inc in all_maintenance:
+            end_t = inc.scheduled_end
+            if end_t:
+                end_t_utc = end_t if end_t.tzinfo else end_t.replace(tzinfo=timezone.utc)
+                if now >= end_t_utc:
+                    if inc.status != "resolved":
+                        inc.status = "resolved"
+                        inc.resolved_time = end_t_utc
+                        st = inc.scheduled_start or inc.start_time or end_t_utc
+                        st_utc = st if st.tzinfo else st.replace(tzinfo=timezone.utc)
+                        inc.duration_minutes = max(1, int((end_t_utc - st_utc).total_seconds() / 60))
+
+                        completion_update = IncidentUpdate(
+                            incident_id=inc.id,
+                            status="resolved",
+                            message="Scheduled maintenance window has ended and systems are operating normally.",
+                            created_at=end_t_utc,
+                        )
+                        db.add(completion_update)
+                        changed += 1
+                        logger.info(f"[STATUS MAINTENANCE] Auto-resolved expired maintenance {inc.id}: {inc.title}")
+
+        # 2. Heal any incident marked 'resolved' that has no resolved_time or no duration_minutes
+        unhealed_resolved = (
+            db.query(Incident)
+            .filter(Incident.status == "resolved")
+            .all()
+        )
+
+        for inc in unhealed_resolved:
+            rec_updated = False
+            if not inc.resolved_time:
+                latest_update = (
+                    db.query(IncidentUpdate)
+                    .filter(IncidentUpdate.incident_id == inc.id)
+                    .order_by(desc(IncidentUpdate.created_at))
+                    .first()
+                )
+                res_t = inc.scheduled_end or (latest_update.created_at if latest_update else None) or inc.start_time or now
+                res_t_utc = res_t if res_t.tzinfo else res_t.replace(tzinfo=timezone.utc)
+                inc.resolved_time = res_t_utc
+                rec_updated = True
+
+            if not inc.duration_minutes and inc.resolved_time:
+                res_t_utc = inc.resolved_time if inc.resolved_time.tzinfo else inc.resolved_time.replace(tzinfo=timezone.utc)
+                st = inc.scheduled_start or inc.start_time or res_t_utc
+                st_utc = st if st.tzinfo else st.replace(tzinfo=timezone.utc)
+                inc.duration_minutes = max(1, int((res_t_utc - st_utc).total_seconds() / 60))
+                rec_updated = True
+
+            if rec_updated:
+                changed += 1
+
+        if changed > 0:
+            db.commit()
+
+        return changed
+
+    @classmethod
     def ensure_baseline_data_seeded(cls, db: Session):
         """
         Ensures status monitoring configuration is initialized.
@@ -584,6 +662,7 @@ class StatusPageService:
 
     @classmethod
     def get_status_summary(cls, db: Session) -> Dict[str, Any]:
+        cls.check_and_auto_complete_scheduled_maintenance(db)
         cls.ensure_baseline_data_seeded(db)
 
         # 1. Fetch active incidents
@@ -594,11 +673,30 @@ class StatusPageService:
             .all()
         )
 
+        now = datetime.now(timezone.utc)
+
         # Determine overall system status
         has_critical = any(inc.severity == "critical" for inc in active_incidents)
         has_major = any(inc.severity == "major" for inc in active_incidents)
         has_minor = any(inc.severity == "minor" for inc in active_incidents)
-        has_maint = any(inc.is_maintenance or inc.severity == "maintenance" for inc in active_incidents)
+
+        # Maintenance only impacts overall status banner if it is currently active (start <= now <= end)
+        has_maint = False
+        for inc in active_incidents:
+            if inc.is_maintenance or inc.severity == "maintenance":
+                st = inc.scheduled_start or inc.start_time
+                et = inc.scheduled_end
+                if st and st.tzinfo is None:
+                    st = st.replace(tzinfo=timezone.utc)
+                if et and et.tzinfo is None:
+                    et = et.replace(tzinfo=timezone.utc)
+
+                if et and now >= et:
+                    continue  # already ended
+                if st and now < st:
+                    continue  # scheduled for future
+                has_maint = True
+                break
 
         if has_critical:
             overall_status = "major_outage"
@@ -817,9 +915,10 @@ class StatusPageService:
         """
         Returns recent notices / incidents from the last N days (or active unresolved ones).
         """
+        cls.check_and_auto_complete_scheduled_maintenance(db)
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
-        # Unresolved incidents OR incidents starting within cutoff
+        # Unresolved incidents OR incidents starting/scheduled within cutoff
         from sqlalchemy import or_
         incidents = (
             db.query(Incident)
@@ -827,6 +926,8 @@ class StatusPageService:
                 or_(
                     Incident.status != "resolved",
                     Incident.start_time >= cutoff,
+                    Incident.scheduled_start >= cutoff,
+                    Incident.scheduled_end >= cutoff,
                 )
             )
             .order_by(desc(Incident.start_time))
@@ -847,13 +948,21 @@ class StatusPageService:
         """
         Returns paginated historical incidents with updates timeline.
         """
+        cls.check_and_auto_complete_scheduled_maintenance(db)
+        from sqlalchemy import or_
+
         query = db.query(Incident)
         if service_key and service_key != "all":
             query = query.filter(Incident.service_key == service_key)
         if year:
             start_year = datetime(year, 1, 1, tzinfo=timezone.utc)
             end_year = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
-            query = query.filter(Incident.start_time >= start_year, Incident.start_time < end_year)
+            query = query.filter(
+                or_(
+                    (Incident.start_time >= start_year) & (Incident.start_time < end_year),
+                    (Incident.scheduled_start >= start_year) & (Incident.scheduled_start < end_year),
+                )
+            )
 
         total = query.count()
         incidents = (
@@ -882,17 +991,50 @@ class StatusPageService:
                     "created_at": u.created_at.isoformat() if u.created_at else None,
                 })
 
+        now = datetime.now(timezone.utc)
+        effective_status = inc.status
+
+        # If maintenance scheduled_end has passed, treat effective status as resolved
+        end_utc = None
+        if inc.scheduled_end:
+            end_utc = inc.scheduled_end if inc.scheduled_end.tzinfo else inc.scheduled_end.replace(tzinfo=timezone.utc)
+            if (inc.is_maintenance or inc.severity == "maintenance") and now >= end_utc:
+                effective_status = "resolved"
+
+        # Determine resolved_time
+        resolved_time_str = None
+        if effective_status == "resolved":
+            res_val = inc.resolved_time or end_utc or (updates[0]["created_at"] if updates and updates[0].get("created_at") else None) or inc.start_time
+            if res_val:
+                resolved_time_str = res_val if isinstance(res_val, str) else res_val.isoformat()
+
+        # Determine duration in minutes
+        duration = inc.duration_minutes
+        if effective_status == "resolved" and not duration:
+            st = inc.scheduled_start or inc.start_time
+            if st and resolved_time_str:
+                try:
+                    st_utc = st if isinstance(st, datetime) else datetime.fromisoformat(st)
+                    if st_utc.tzinfo is None:
+                        st_utc = st_utc.replace(tzinfo=timezone.utc)
+                    res_utc = datetime.fromisoformat(resolved_time_str)
+                    if res_utc.tzinfo is None:
+                        res_utc = res_utc.replace(tzinfo=timezone.utc)
+                    duration = max(1, int((res_utc - st_utc).total_seconds() / 60))
+                except Exception:
+                    duration = None
+
         return {
             "id": str(inc.id),
             "service_key": inc.service_key,
             "service_name": inc.service_name,
             "title": inc.title,
             "severity": inc.severity,
-            "status": inc.status,
+            "status": effective_status,
             "description": inc.description,
             "start_time": inc.start_time.isoformat() if inc.start_time else None,
-            "resolved_time": inc.resolved_time.isoformat() if inc.resolved_time else None,
-            "duration_minutes": inc.duration_minutes,
+            "resolved_time": resolved_time_str,
+            "duration_minutes": duration,
             "is_auto_detected": inc.is_auto_detected,
             "is_maintenance": inc.is_maintenance,
             "scheduled_start": inc.scheduled_start.isoformat() if inc.scheduled_start else None,

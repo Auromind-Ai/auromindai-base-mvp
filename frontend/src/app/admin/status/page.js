@@ -504,7 +504,15 @@ export default function AdminStatusManagementPage() {
                           {inc.start_time ? new Date(inc.start_time).toLocaleString() : "—"}
                         </td>
                         <td className="py-3.5 px-4 text-zinc-300 font-medium">
-                          {inc.duration_minutes ? `${inc.duration_minutes} min` : "Ongoing"}
+                          {inc.duration_minutes
+                            ? `${inc.duration_minutes} min`
+                            : inc.status === "resolved"
+                            ? `${Math.max(1, Math.round(((inc.resolved_time ? new Date(inc.resolved_time) : inc.scheduled_end ? new Date(inc.scheduled_end) : new Date()) - new Date(inc.scheduled_start || inc.start_time || Date.now())) / 60000))} min`
+                            : (inc.is_maintenance || inc.severity === "maintenance") && inc.scheduled_end && new Date(inc.scheduled_end) <= new Date()
+                            ? "Completed"
+                            : (inc.is_maintenance || inc.severity === "maintenance") && inc.scheduled_start && new Date(inc.scheduled_start) > new Date()
+                            ? "Scheduled"
+                            : "Ongoing"}
                         </td>
                         <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
                           <button

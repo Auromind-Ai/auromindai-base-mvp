@@ -61,6 +61,7 @@ class UpdateConfigRequest(BaseModel):
 
 @router.get("/overview")
 async def get_admin_status_overview(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    StatusPageService.check_and_auto_complete_scheduled_maintenance(db)
     StatusPageService.ensure_baseline_data_seeded(db)
     config = StatusPageService.get_or_create_config(db)
     summary = StatusPageService.get_status_summary(db)
@@ -144,6 +145,7 @@ async def list_admin_incidents(
     """
     List all incidents with filter options.
     """
+    StatusPageService.check_and_auto_complete_scheduled_maintenance(db)
     query = db.query(Incident)
     if status_filter == "active":
         query = query.filter(Incident.status != "resolved")
@@ -180,6 +182,7 @@ async def create_incident(
     if body.service_key != "all" and body.service_key in SERVICE_KEY_MAP:
         srv_name = SERVICE_KEY_MAP[body.service_key]["name"]
 
+    start_ts = body.scheduled_start or now
     new_inc = Incident(
         service_key=body.service_key,
         service_name=srv_name,
@@ -190,9 +193,19 @@ async def create_incident(
         is_maintenance=body.is_maintenance,
         scheduled_start=body.scheduled_start,
         scheduled_end=body.scheduled_end,
-        start_time=now,
+        start_time=start_ts,
         is_auto_detected=False,
     )
+
+    # If created as resolved or if scheduled maintenance end has already passed
+    if body.status == "resolved" or (body.scheduled_end and body.scheduled_end <= now):
+        new_inc.status = "resolved"
+        res_ts = body.scheduled_end or now
+        new_inc.resolved_time = res_ts
+        st_utc = start_ts if start_ts.tzinfo else start_ts.replace(tzinfo=timezone.utc)
+        res_utc = res_ts if res_ts.tzinfo else res_ts.replace(tzinfo=timezone.utc)
+        new_inc.duration_minutes = max(1, int((res_utc - st_utc).total_seconds() / 60))
+
     db.add(new_inc)
     db.flush()
 
@@ -248,13 +261,26 @@ async def update_incident(
     if body.scheduled_end is not None:
         inc.scheduled_end = body.scheduled_end
 
-    if body.status is not None and body.status != inc.status:
+    # Check if maintenance scheduled_end is in the past
+    end_passed = bool(
+        inc.scheduled_end
+        and (inc.scheduled_end if inc.scheduled_end.tzinfo else inc.scheduled_end.replace(tzinfo=timezone.utc)) <= now
+        and (inc.is_maintenance or inc.severity == "maintenance")
+    )
+
+    if body.status is not None:
         inc.status = body.status
-        if body.status == "resolved" and not inc.resolved_time:
-            inc.resolved_time = now
-            if inc.start_time:
-                st = inc.start_time if inc.start_time.tzinfo else inc.start_time.replace(tzinfo=timezone.utc)
-                inc.duration_minutes = max(1, int((now - st).total_seconds() / 60))
+    elif end_passed and inc.status != "resolved":
+        inc.status = "resolved"
+
+    if inc.status == "resolved":
+        if not inc.resolved_time:
+            inc.resolved_time = inc.scheduled_end or now
+        if not inc.duration_minutes:
+            st = inc.scheduled_start or inc.start_time or inc.resolved_time
+            st_utc = st if st.tzinfo else st.replace(tzinfo=timezone.utc)
+            res_utc = inc.resolved_time if inc.resolved_time.tzinfo else inc.resolved_time.replace(tzinfo=timezone.utc)
+            inc.duration_minutes = max(1, int((res_utc - st_utc).total_seconds() / 60))
 
     # Add timeline update if message or status change occurred
     if body.update_message or (body.status and body.status != prev_status):

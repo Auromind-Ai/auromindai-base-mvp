@@ -121,11 +121,15 @@ export default function PublicStatusPage() {
     return SERVICE_ORDER.map((key) => map.get(key)).filter(Boolean);
   }, [summary]);
 
-  // Extract any scheduled maintenance notices
+  // Extract any scheduled maintenance notices (only future or actively running, never expired)
   const upcomingMaintenance = useMemo(() => {
-    return notices.filter(
-      (n) => (n.is_maintenance || n.severity === "maintenance") && n.status !== "resolved"
-    );
+    const now = new Date();
+    return notices.filter((n) => {
+      const isMaint = n.is_maintenance || n.severity === "maintenance";
+      if (!isMaint || n.status === "resolved") return false;
+      if (n.scheduled_end && new Date(n.scheduled_end) <= now) return false;
+      return true;
+    });
   }, [notices]);
 
   const getStatusIcon = (status, size = "w-5 h-5") => {
@@ -538,16 +542,26 @@ export default function PublicStatusPage() {
                         </span>
                       </div>
 
-                      {notice.resolved_time ? (
+                      {notice.status === "resolved" || notice.resolved_time || ((notice.is_maintenance || notice.severity === "maintenance") && notice.scheduled_end && new Date(notice.scheduled_end) <= new Date()) ? (
                         <>
                           <span className="text-zinc-600">&bull;</span>
                           <span className="text-emerald-400 font-medium">
                             Resolved:{" "}
-                            {new Date(notice.resolved_time).toLocaleString(undefined, {
+                            {new Date(
+                              notice.resolved_time ||
+                              notice.scheduled_end ||
+                              notice.updates?.[0]?.created_at ||
+                              notice.start_time
+                            ).toLocaleString(undefined, {
                               dateStyle: "medium",
                               timeStyle: "short",
                             })}
                           </span>
+                        </>
+                      ) : (notice.is_maintenance || notice.severity === "maintenance") && notice.scheduled_start && new Date(notice.scheduled_start) > new Date() ? (
+                        <>
+                          <span className="text-zinc-600">&bull;</span>
+                          <span className="text-sky-400 font-medium">Scheduled</span>
                         </>
                       ) : (
                         <>
@@ -556,11 +570,11 @@ export default function PublicStatusPage() {
                         </>
                       )}
 
-                      {notice.duration_minutes && (
+                      {(notice.duration_minutes || (notice.start_time && (notice.resolved_time || notice.scheduled_end || notice.status === "resolved"))) && (
                         <>
                           <span className="text-zinc-600">&bull;</span>
                           <span className="text-zinc-300">
-                            Duration: {notice.duration_minutes} min
+                            Duration: {notice.duration_minutes || Math.max(1, Math.round((new Date(notice.resolved_time || notice.scheduled_end || Date.now()) - new Date(notice.scheduled_start || notice.start_time)) / 60000))} min
                           </span>
                         </>
                       )}

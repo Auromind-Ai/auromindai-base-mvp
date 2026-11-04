@@ -315,3 +315,66 @@ def test_build_status_email_html():
     assert "Test Meta Disruption" in html
     assert "Engineers are looking into it." in html
     assert "orbionagents.com/status" in html
+
+
+# ============================================================================
+# 7. Scheduled Maintenance Auto-Completion & Healing
+# ============================================================================
+def test_scheduled_maintenance_auto_complete_and_healing(test_db):
+    now = datetime.now(timezone.utc)
+    t_start = now - timedelta(hours=3)
+    t_end = now - timedelta(hours=1)
+
+    # 1. Maintenance whose end time has passed but status was still active
+    expired_maint = Incident(
+        service_key="all",
+        service_name="All Services",
+        title="Scheduled Core System Upgrade",
+        severity="maintenance",
+        status="investigating",
+        description="Routine maintenance",
+        is_maintenance=True,
+        scheduled_start=t_start,
+        scheduled_end=t_end,
+        start_time=t_start,
+    )
+    test_db.add(expired_maint)
+
+    # 2. Maintenance marked 'resolved' by user but missing resolved_time and duration
+    unhealed_maint = Incident(
+        service_key="backend",
+        service_name="API Backend Services",
+        title="Backend DB Maintenance",
+        severity="maintenance",
+        status="resolved",
+        description="DB index maintenance",
+        is_maintenance=True,
+        scheduled_start=t_start,
+        scheduled_end=t_end,
+        start_time=t_start,
+        resolved_time=None,
+        duration_minutes=None,
+    )
+    test_db.add(unhealed_maint)
+    test_db.commit()
+
+    # Trigger auto-complete and healing
+    healed_count = StatusPageService.check_and_auto_complete_scheduled_maintenance(test_db)
+    assert healed_count >= 2
+
+    test_db.refresh(expired_maint)
+    test_db.refresh(unhealed_maint)
+
+    assert expired_maint.status == "resolved"
+    assert expired_maint.resolved_time is not None
+    assert expired_maint.duration_minutes == 120  # 3 hrs ago to 1 hr ago = 120 min
+
+    assert unhealed_maint.status == "resolved"
+    assert unhealed_maint.resolved_time is not None
+    assert unhealed_maint.duration_minutes == 120
+
+    # Verify serialization
+    serialized = StatusPageService._serialize_incident(expired_maint)
+    assert serialized["status"] == "resolved"
+    assert serialized["resolved_time"] is not None
+    assert serialized["duration_minutes"] == 120

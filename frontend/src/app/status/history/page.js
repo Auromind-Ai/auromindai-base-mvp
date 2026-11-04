@@ -223,16 +223,26 @@ export default function StatusHistoryPage() {
                       </span>
                     </div>
 
-                    {inc.resolved_time ? (
+                    {inc.status === "resolved" || inc.resolved_time || ((inc.is_maintenance || inc.severity === "maintenance") && inc.scheduled_end && new Date(inc.scheduled_end) <= new Date()) ? (
                       <>
                         <span className="text-zinc-600">&bull;</span>
                         <span className="text-emerald-400 font-medium">
                           Resolved:{" "}
-                          {new Date(inc.resolved_time).toLocaleString(undefined, {
+                          {new Date(
+                            inc.resolved_time ||
+                            inc.scheduled_end ||
+                            inc.updates?.[0]?.created_at ||
+                            inc.start_time
+                          ).toLocaleString(undefined, {
                             dateStyle: "medium",
                             timeStyle: "short",
                           })}
                         </span>
+                      </>
+                    ) : (inc.is_maintenance || inc.severity === "maintenance") && inc.scheduled_start && new Date(inc.scheduled_start) > new Date() ? (
+                      <>
+                        <span className="text-zinc-600">&bull;</span>
+                        <span className="text-sky-400 font-medium">Scheduled</span>
                       </>
                     ) : (
                       <>
@@ -241,11 +251,11 @@ export default function StatusHistoryPage() {
                       </>
                     )}
 
-                    {inc.duration_minutes && (
+                    {(inc.duration_minutes || (inc.start_time && (inc.resolved_time || inc.scheduled_end || inc.status === "resolved"))) && (
                       <>
                         <span className="text-zinc-600">&bull;</span>
                         <span className="text-zinc-300">
-                          Duration: {inc.duration_minutes} min
+                          Duration: {inc.duration_minutes || Math.max(1, Math.round((new Date(inc.resolved_time || inc.scheduled_end || Date.now()) - new Date(inc.scheduled_start || inc.start_time)) / 60000))} min
                         </span>
                       </>
                     )}
