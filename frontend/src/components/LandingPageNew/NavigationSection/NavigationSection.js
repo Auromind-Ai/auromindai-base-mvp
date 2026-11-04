@@ -71,7 +71,7 @@ const NavigationSection = () => {
             alt={appName} 
             className="h-10 w-auto object-contain" 
           />
-          <span className={`${jakarta.className} text-[16px] sm:text-[18px] font-bold tracking-[0.1em] text-white flex items-center`}>
+          <span suppressHydrationWarning className="font-jakarta text-[16px] sm:text-[18px] font-bold tracking-[0.1em] text-white flex items-center">
             ORBION
             <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-1.5 font-bold tracking-[0.13em]">
               AGENTS

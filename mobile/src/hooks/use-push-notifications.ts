@@ -196,7 +196,7 @@ export function usePushNotifications() {
 
     (async () => {
       try {
-        const savedPref = await AsyncStorage.getItem(STORAGE_KEY_ENABLED);
+        const savedPref = await AsyncStorage.getItem(STORAGE_KEY_ENABLED).catch(() => null);
         const shouldEnable = savedPref !== 'false'; // Default to true if not set
         if (isMounted) setIsEnabled(shouldEnable);
 

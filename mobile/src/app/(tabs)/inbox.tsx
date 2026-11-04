@@ -11,8 +11,6 @@ import {
   Image,
   Platform,
   useWindowDimensions,
-  LayoutAnimation,
-  UIManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -37,10 +35,6 @@ import {
 } from 'lucide-react-native';
 import { Fonts } from '@/theme/tokens';
 import { useAppTheme } from '@/context/theme-context';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 export type ChannelType = 'all' | 'whatsapp' | 'instagram' | 'twilio';
 export type StatusType = 'all' | 'unread' | 'open';
@@ -214,31 +208,6 @@ export default function OmniInboxScreen() {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
-
-  const handleSelectChannel = (channel: ChannelType) => {
-    if (Platform.OS !== 'web') {
-      LayoutAnimation.configureNext({
-        duration: 320,
-        create: {
-          type: LayoutAnimation.Types.easeInEaseOut,
-          property: LayoutAnimation.Properties.opacity,
-        },
-        update: {
-          type: LayoutAnimation.Types.spring,
-          springDamping: 0.78,
-        },
-        delete: {
-          type: LayoutAnimation.Types.easeInEaseOut,
-          property: LayoutAnimation.Properties.opacity,
-        },
-      });
-    }
-    if (channel === 'all') {
-      setSelectedChannel('all');
-    } else {
-      setSelectedChannel((prev) => (prev === channel ? 'all' : channel));
-    }
-  };
 
   // Dynamic Channel counts
   const channelCounts = useMemo(() => {
@@ -430,52 +399,29 @@ export default function OmniInboxScreen() {
               {/* 1. All (24) */}
               <TouchableOpacity
                 style={styles.channelItemTouchable}
-                onPress={() => handleSelectChannel('all')}
+                onPress={() => setSelectedChannel('all')}
                 activeOpacity={0.8}
               >
-                <View
-                  style={[
-                    styles.channelPillUnified,
-                    { paddingHorizontal: selectedChannel === 'all' ? 9 : 10 },
-                    selectedChannel === 'all'
-                      ? (isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight)
-                      : styles.channelPillBorderInactive,
-                    styles.channelTransition,
-                  ]}
-                >
+                {selectedChannel === 'all' ? (
                   <LinearGradient
                     colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#FDFCFF', '#E5DFFF']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={[
-                      StyleSheet.absoluteFill,
-                      styles.channelGradientBackground,
-                      { opacity: selectedChannel === 'all' ? 1 : 0 },
-                      styles.channelTransition,
-                    ]}
-                    pointerEvents="none"
-                  />
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.channelPillLabel,
-                      selectedChannel === 'all'
-                        ? (isDark ? styles.channelPillLabelActiveDark : styles.channelPillLabelActiveLight)
-                        : styles.channelPillLabelInactive,
-                      styles.channelTransition,
+                      styles.channelPillActiveGradient,
+                      isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight,
                     ]}
                   >
-                    All
-                  </Text>
-                  <View
-                    style={[
-                      styles.channelExpandingContainer,
-                      selectedChannel === 'all'
-                        ? styles.channelExpandingActive
-                        : styles.channelExpandingInactive,
-                      styles.channelTransition,
-                    ]}
-                  >
+                    <Text
+                      style={[
+                        styles.channelPillLabel,
+                        isDark
+                          ? styles.channelPillLabelActiveDark
+                          : styles.channelPillLabelActiveLight,
+                      ]}
+                    >
+                      All
+                    </Text>
                     <View
                       style={[
                         styles.channelCountBadge,
@@ -485,7 +431,6 @@ export default function OmniInboxScreen() {
                       ]}
                     >
                       <Text
-                        numberOfLines={1}
                         style={[
                           styles.channelCountBadgeText,
                           !isDark && { color: '#6F51D1' },
@@ -494,8 +439,14 @@ export default function OmniInboxScreen() {
                         {channelCounts.all}
                       </Text>
                     </View>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.channelPillBase}>
+                    <Text style={[styles.channelPillLabel, styles.channelPillLabelInactive]}>
+                      All
+                    </Text>
                   </View>
-                </View>
+                )}
               </TouchableOpacity>
 
               {/* Divider */}
@@ -509,50 +460,26 @@ export default function OmniInboxScreen() {
               {/* 2. WhatsApp (12) */}
               <TouchableOpacity
                 style={styles.channelItemTouchable}
-                onPress={() => handleSelectChannel('whatsapp')}
+                onPress={() => setSelectedChannel(selectedChannel === 'whatsapp' ? 'all' : 'whatsapp')}
                 activeOpacity={0.8}
               >
-                <View
-                  style={[
-                    styles.channelPillUnified,
-                    selectedChannel === 'whatsapp'
-                      ? (isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight)
-                      : styles.channelPillBorderInactive,
-                    styles.channelTransition,
-                  ]}
-                >
+                {selectedChannel === 'whatsapp' ? (
                   <LinearGradient
                     colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#FDFCFF', '#E5DFFF']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={[
-                      StyleSheet.absoluteFill,
-                      styles.channelGradientBackground,
-                      { opacity: selectedChannel === 'whatsapp' ? 1 : 0 },
-                      styles.channelTransition,
-                    ]}
-                    pointerEvents="none"
-                  />
-                  <View style={styles.channelIconContainer}>
-                    <WhatsAppIcon size={17.5} />
-                  </View>
-                  <View
-                    style={[
-                      styles.channelExpandingContainer,
-                      selectedChannel === 'whatsapp'
-                        ? styles.channelExpandingActive
-                        : styles.channelExpandingInactive,
-                      styles.channelTransition,
+                      styles.channelPillActiveGradient,
+                      isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight,
                     ]}
                   >
+                    <WhatsAppIcon size={17} />
                     <Text
-                      numberOfLines={1}
                       style={[
                         styles.channelPillLabel,
-                        selectedChannel === 'whatsapp'
-                          ? (isDark ? styles.channelPillLabelActiveDark : styles.channelPillLabelActiveLight)
-                          : styles.channelPillLabelInactive,
-                        styles.channelTransition,
+                        isDark
+                          ? styles.channelPillLabelActiveDark
+                          : styles.channelPillLabelActiveLight,
                       ]}
                     >
                       WhatsApp
@@ -566,7 +493,6 @@ export default function OmniInboxScreen() {
                       ]}
                     >
                       <Text
-                        numberOfLines={1}
                         style={[
                           styles.channelCountBadgeText,
                           !isDark && { color: '#6F51D1' },
@@ -575,8 +501,12 @@ export default function OmniInboxScreen() {
                         {channelCounts.whatsapp}
                       </Text>
                     </View>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.channelPillIconOnly}>
+                    <WhatsAppIcon size={18} />
                   </View>
-                </View>
+                )}
               </TouchableOpacity>
 
               {/* Divider */}
@@ -590,50 +520,26 @@ export default function OmniInboxScreen() {
               {/* 3. Instagram (8) */}
               <TouchableOpacity
                 style={styles.channelItemTouchable}
-                onPress={() => handleSelectChannel('instagram')}
+                onPress={() => setSelectedChannel(selectedChannel === 'instagram' ? 'all' : 'instagram')}
                 activeOpacity={0.8}
               >
-                <View
-                  style={[
-                    styles.channelPillUnified,
-                    selectedChannel === 'instagram'
-                      ? (isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight)
-                      : styles.channelPillBorderInactive,
-                    styles.channelTransition,
-                  ]}
-                >
+                {selectedChannel === 'instagram' ? (
                   <LinearGradient
                     colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#FDFCFF', '#E5DFFF']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={[
-                      StyleSheet.absoluteFill,
-                      styles.channelGradientBackground,
-                      { opacity: selectedChannel === 'instagram' ? 1 : 0 },
-                      styles.channelTransition,
-                    ]}
-                    pointerEvents="none"
-                  />
-                  <View style={styles.channelIconContainer}>
-                    <InstagramIcon size={17.5} />
-                  </View>
-                  <View
-                    style={[
-                      styles.channelExpandingContainer,
-                      selectedChannel === 'instagram'
-                        ? styles.channelExpandingActive
-                        : styles.channelExpandingInactive,
-                      styles.channelTransition,
+                      styles.channelPillActiveGradient,
+                      isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight,
                     ]}
                   >
+                    <InstagramIcon size={17} />
                     <Text
-                      numberOfLines={1}
                       style={[
                         styles.channelPillLabel,
-                        selectedChannel === 'instagram'
-                          ? (isDark ? styles.channelPillLabelActiveDark : styles.channelPillLabelActiveLight)
-                          : styles.channelPillLabelInactive,
-                        styles.channelTransition,
+                        isDark
+                          ? styles.channelPillLabelActiveDark
+                          : styles.channelPillLabelActiveLight,
                       ]}
                     >
                       Instagram
@@ -647,7 +553,6 @@ export default function OmniInboxScreen() {
                       ]}
                     >
                       <Text
-                        numberOfLines={1}
                         style={[
                           styles.channelCountBadgeText,
                           !isDark && { color: '#6F51D1' },
@@ -656,8 +561,12 @@ export default function OmniInboxScreen() {
                         {channelCounts.instagram}
                       </Text>
                     </View>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.channelPillIconOnly}>
+                    <InstagramIcon size={18} />
                   </View>
-                </View>
+                )}
               </TouchableOpacity>
 
               {/* Divider */}
@@ -671,50 +580,26 @@ export default function OmniInboxScreen() {
               {/* 4. Twilio (4) */}
               <TouchableOpacity
                 style={styles.channelItemTouchable}
-                onPress={() => handleSelectChannel('twilio')}
+                onPress={() => setSelectedChannel(selectedChannel === 'twilio' ? 'all' : 'twilio')}
                 activeOpacity={0.8}
               >
-                <View
-                  style={[
-                    styles.channelPillUnified,
-                    selectedChannel === 'twilio'
-                      ? (isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight)
-                      : styles.channelPillBorderInactive,
-                    styles.channelTransition,
-                  ]}
-                >
+                {selectedChannel === 'twilio' ? (
                   <LinearGradient
                     colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#FDFCFF', '#E5DFFF']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={[
-                      StyleSheet.absoluteFill,
-                      styles.channelGradientBackground,
-                      { opacity: selectedChannel === 'twilio' ? 1 : 0 },
-                      styles.channelTransition,
-                    ]}
-                    pointerEvents="none"
-                  />
-                  <View style={styles.channelIconContainer}>
-                    <TwilioIcon size={17.5} />
-                  </View>
-                  <View
-                    style={[
-                      styles.channelExpandingContainer,
-                      selectedChannel === 'twilio'
-                        ? styles.channelExpandingActive
-                        : styles.channelExpandingInactive,
-                      styles.channelTransition,
+                      styles.channelPillActiveGradient,
+                      isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight,
                     ]}
                   >
+                    <TwilioIcon size={17} />
                     <Text
-                      numberOfLines={1}
                       style={[
                         styles.channelPillLabel,
-                        selectedChannel === 'twilio'
-                          ? (isDark ? styles.channelPillLabelActiveDark : styles.channelPillLabelActiveLight)
-                          : styles.channelPillLabelInactive,
-                        styles.channelTransition,
+                        isDark
+                          ? styles.channelPillLabelActiveDark
+                          : styles.channelPillLabelActiveLight,
                       ]}
                     >
                       Twilio
@@ -728,7 +613,6 @@ export default function OmniInboxScreen() {
                       ]}
                     >
                       <Text
-                        numberOfLines={1}
                         style={[
                           styles.channelCountBadgeText,
                           !isDark && { color: '#6F51D1' },
@@ -737,8 +621,12 @@ export default function OmniInboxScreen() {
                         {channelCounts.twilio}
                       </Text>
                     </View>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.channelPillIconOnly}>
+                    <TwilioIcon size={18} />
                   </View>
-                </View>
+                )}
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -1395,69 +1283,6 @@ const styles = StyleSheet.create({
   channelItemTouchable: {
     borderRadius: 999,
   },
-  channelPillUnified: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 9,
-    paddingVertical: 5.5,
-    borderRadius: 999,
-    position: 'relative',
-  },
-  channelIconContainer: {
-    zIndex: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    ...(Platform.OS === 'web' ? { position: 'relative' } : {}),
-  },
-  channelTransition: {
-    ...(Platform.OS === 'web'
-      ? {
-          transitionProperty: 'all',
-          transitionDuration: '320ms',
-          transitionTimingFunction: 'cubic-bezier(0.25, 1, 0.5, 1)',
-        }
-      : {}),
-  },
-  channelGradientBackground: {
-    borderRadius: 999,
-    zIndex: 0,
-  },
-  channelExpandingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-    gap: 5,
-    zIndex: 2,
-    ...(Platform.OS === 'web'
-      ? {
-          position: 'relative',
-          transitionProperty: 'all',
-          transitionDuration: '320ms',
-          transitionTimingFunction: 'cubic-bezier(0.25, 1, 0.5, 1)',
-        }
-      : {}),
-  },
-  channelExpandingActive: {
-    maxWidth: 160,
-    opacity: 1,
-    marginLeft: 5,
-  },
-  channelExpandingInactive: {
-    maxWidth: 0,
-    opacity: 0,
-    marginLeft: 0,
-  },
-  channelPillBorderInactive: {
-    borderWidth: 1,
-    borderColor: 'transparent',
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
   channelPillBase: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1504,8 +1329,6 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontFamily: Fonts.regular,
     fontWeight: '400',
-    zIndex: 2,
-    ...(Platform.OS === 'web' ? { whiteSpace: 'nowrap' } : {}),
   },
   channelPillLabelActiveLight: {
     color: '#7555D9',
@@ -1547,7 +1370,6 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontFamily: Fonts.medium,
     fontWeight: '500',
-    ...(Platform.OS === 'web' ? { whiteSpace: 'nowrap' } : {}),
   },
   channelDivider: {
     width: 1,
