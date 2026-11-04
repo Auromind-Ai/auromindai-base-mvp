@@ -10,9 +10,7 @@ import {
   Clock,
   ChevronRight,
   Mail,
-  RefreshCw,
   ExternalLink,
-  ShieldCheck,
   Wrench,
   Check,
   Calendar,
@@ -26,7 +24,6 @@ export default function PublicStatusPage() {
   const [history90d, setHistory90d] = useState(null);
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState(null); // { serviceKey, serviceName, dayData, x, y }
   const [email, setEmail] = useState("");
   const [subscribeStatus, setSubscribeStatus] = useState({ state: "idle", message: "" });
@@ -55,14 +52,8 @@ export default function PublicStatusPage() {
       console.error("Failed to load status data:", err);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
-
-  const handleManualRefresh = () => {
-    setRefreshing(true);
-    fetchData();
-  };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -215,48 +206,8 @@ export default function PublicStatusPage() {
       {/* Background radial gradient accent */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[350px] bg-emerald-500/[0.04] blur-[140px] pointer-events-none" />
 
-      {/* Navigation Header */}
-      <header className="border-b border-white/[0.06] bg-black/60 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center p-0.5 shadow-lg shadow-emerald-500/10 group-hover:scale-105 transition-transform">
-              <ShieldCheck className="w-5 h-5 text-black stroke-[2.2]" />
-            </div>
-            <div className="flex items-center tracking-[0.12em] font-extrabold text-sm sm:text-base text-white">
-              ORBION
-              <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent ml-1.5 font-semibold tracking-[0.16em]">
-                AGENTS
-              </span>
-            </div>
-            <span className="text-zinc-600 font-light mx-1">/</span>
-            <span className="text-xs uppercase tracking-widest text-emerald-400/90 font-medium">
-              Status
-            </span>
-          </Link>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleManualRefresh}
-              disabled={refreshing}
-              title="Refresh status"
-              className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white px-2.5 py-1.5 rounded-md hover:bg-white/5 transition"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-emerald-400" : ""}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </button>
-            <Link
-              href="/status/history"
-              className="text-xs text-zinc-400 hover:text-white font-medium flex items-center gap-1 px-2.5 py-1.5 rounded-md hover:bg-white/5 transition"
-            >
-              Notice History
-              <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
-            </Link>
-          </div>
-        </div>
-      </header>
-
       {/* Main Container */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-10 pb-20 space-y-10">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-10 sm:pt-14 pb-20 space-y-10">
         {/* 1. Overall Status Banner */}
         <div
           className={`rounded-2xl p-6 sm:p-7 border transition-all duration-300 shadow-2xl ${getOverallBannerStyle(
@@ -328,7 +279,7 @@ export default function PublicStatusPage() {
             </h2>
             <span className="text-xs text-zinc-500 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Live Automated Monitoring (1m checks)
+              Live Automated Monitoring
             </span>
           </div>
 

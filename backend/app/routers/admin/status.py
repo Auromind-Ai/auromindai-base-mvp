@@ -62,7 +62,6 @@ class UpdateConfigRequest(BaseModel):
 @router.get("/overview")
 async def get_admin_status_overview(db: Session = Depends(get_db)) -> Dict[str, Any]:
     StatusPageService.check_and_auto_complete_scheduled_maintenance(db)
-    StatusPageService.ensure_baseline_data_seeded(db)
     config = StatusPageService.get_or_create_config(db)
     summary = StatusPageService.get_status_summary(db)
 

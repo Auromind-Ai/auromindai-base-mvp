@@ -28,7 +28,7 @@ def test_db():
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = TestingSessionLocal()
     try:
-        StatusPageService.ensure_baseline_data_seeded(db)
+        StatusPageService.get_or_create_config(db)
         yield db
     finally:
         db.close()

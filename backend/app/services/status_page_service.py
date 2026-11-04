@@ -636,34 +636,8 @@ class StatusPageService:
         return changed
 
     @classmethod
-    def ensure_baseline_data_seeded(cls, db: Session):
-        """
-        Ensures status monitoring configuration is initialized.
-        Production environment: Guarantees 100% genuine monitoring data with zero fake mock incidents or random synthetic numbers.
-        """
-        cls.get_or_create_config(db)
-
-        # Purge legacy demo/mock incidents if present from earlier prototypes
-        mock_titles = [
-            "Meta Graph API Intermittent Elevated Latency",
-            "Scheduled Database Index Maintenance",
-            "Upstream AI Model Gateway Rate Throttling",
-        ]
-        try:
-            demo_incs = db.query(Incident).filter(Incident.title.in_(mock_titles)).all()
-            if demo_incs:
-                for d_inc in demo_incs:
-                    db.delete(d_inc)
-                db.commit()
-                logger.info("[STATUS MONITOR] Cleaned up legacy mock incidents for clean production environment.")
-        except Exception as e:
-            logger.warning(f"[STATUS MONITOR] Notice during mock incidents cleanup: {e}")
-
-
-    @classmethod
     def get_status_summary(cls, db: Session) -> Dict[str, Any]:
         cls.check_and_auto_complete_scheduled_maintenance(db)
-        cls.ensure_baseline_data_seeded(db)
 
         # 1. Fetch active incidents
         active_incidents = (
@@ -796,9 +770,6 @@ class StatusPageService:
 
     @classmethod
     def get_90_day_history(cls, db: Session) -> Dict[str, Any]:
-       
-        cls.ensure_baseline_data_seeded(db)
-
         today = datetime.now(timezone.utc).date()
         ninety_days_ago = today - timedelta(days=89)
         ninety_days_str = ninety_days_ago.strftime("%Y-%m-%d")

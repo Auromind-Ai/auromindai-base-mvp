@@ -100,14 +100,6 @@ async def lifespan(app: FastAPI):
         from app.database import SessionLocal
         from app.services.status_page_service import StatusPageService
         await asyncio.sleep(5)
-        try:
-            db = SessionLocal()
-            try:
-                StatusPageService.ensure_baseline_data_seeded(db)
-            finally:
-                db.close()
-        except Exception as seed_err:
-            logger.error(f"[STATUS SEED] Baseline status seed error: {seed_err}")
 
         while True:
             try:
