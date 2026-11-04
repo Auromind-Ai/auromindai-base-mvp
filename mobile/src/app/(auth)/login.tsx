@@ -357,10 +357,10 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: '#F8F8FF',
-    fontFamily: Fonts.bold,
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: -0.4,
+    fontFamily: Fonts.semiBold,
+    fontSize: 23,
+    fontWeight: '600',
+    letterSpacing: -0.3,
     marginBottom: 6,
     textAlign: 'center',
   },
@@ -442,9 +442,9 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     color: '#8E99B7',
-    fontFamily: Fonts.semiBold,
+    fontFamily: Fonts.medium,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
     letterSpacing: 0.8,
     marginBottom: 7,
   },
@@ -508,10 +508,10 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     color: '#FFFFFF',
-    fontFamily: Fonts.bold,
+    fontFamily: Fonts.medium,
     fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontWeight: '500',
+    letterSpacing: 0.1,
   },
   securityRow: {
     flexDirection: 'row',
@@ -542,8 +542,8 @@ const styles = StyleSheet.create({
   },
   signUpVioletText: {
     color: '#A69BFF',
-    fontFamily: Fonts.bold,
+    fontFamily: Fonts.medium,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '500',
   },
 });

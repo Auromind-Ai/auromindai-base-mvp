@@ -166,15 +166,17 @@ export default function LoggedInDevicesScreen() {
     textSecondary: isDark ? '#A2ADD8' : '#7583A5',
     textMuted: isDark ? '#A2ADD8' : '#7583A5',
     primary: isDark ? '#7655F0' : '#8060E8',
-    iconCircleBg: isDark ? 'rgba(118, 85, 240, 0.16)' : 'rgba(128, 96, 232, 0.12)',
-    iconColor: isDark ? '#A69BFF' : '#7655F0',
-    currentBadgeBg: isDark ? '#1E3A2F' : '#DCFCE7',
-    currentBadgeBorder: isDark ? '#1E3A2F' : '#A7F3D0',
-    currentBadgeText: isDark ? '#34D399' : '#059669',
-    currentActiveDot: isDark ? '#34D399' : '#10B981',
-    revokeBtnBg: isDark ? '#11131C' : '#FFF0F2',
-    revokeBtnBorder: '#FF1744',
-    revokeBtnText: '#FF1744',
+    iconCircleBg: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
+    iconCircleBorder: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)',
+    iconColor: isDark ? '#FFFFFF' : '#1A2138',
+    currentBadgeBg: '#10B981',
+    currentBadgeBorder: '#10B981',
+    currentBadgeText: '#FFFFFF',
+    currentActiveDot: '#FFFFFF',
+    revokeBtnBg: '#FF6452',
+    revokeBtnBorder: '#FF6452',
+    revokeBtnText: '#FFFFFF',
+    signOutAllText: '#FF6452',
     tipBannerBg: isDark ? '#151D36' : 'rgba(255, 255, 255, 0.75)',
     tipBannerBorder: isDark ? 'rgba(164, 170, 255, 0.08)' : 'rgba(215, 222, 238, 0.85)',
   };
@@ -435,12 +437,15 @@ export default function LoggedInDevicesScreen() {
                     <View
                       style={[
                         styles.iconCircle,
-                        { backgroundColor: theme.iconCircleBg },
+                        {
+                          backgroundColor: theme.iconCircleBg,
+                          borderColor: theme.iconCircleBorder,
+                        },
                       ]}
                     >
                       <DeviceIconView
                         type={currentDevice.deviceType}
-                        size={22}
+                        size={21}
                         color={theme.iconColor}
                       />
                     </View>
@@ -474,7 +479,7 @@ export default function LoggedInDevicesScreen() {
                               { color: theme.currentBadgeText },
                             ]}
                           >
-                            Active now
+                            Active Now
                           </Text>
                         </View>
                       </View>
@@ -511,7 +516,7 @@ export default function LoggedInDevicesScreen() {
                   onPress={handleRevokeOthers}
                   disabled={actionLoading === 'all_others'}
                 >
-                  <Text style={[styles.signOutAllText, { color: theme.primary }]}>
+                  <Text style={[styles.signOutAllText, { color: theme.signOutAllText }]}>
                     {actionLoading === 'all_others'
                       ? 'Signing out...'
                       : 'Sign out all others'}
@@ -559,12 +564,15 @@ export default function LoggedInDevicesScreen() {
                         <View
                           style={[
                             styles.iconCircle,
-                            { backgroundColor: theme.iconCircleBg },
+                            {
+                              backgroundColor: theme.iconCircleBg,
+                              borderColor: theme.iconCircleBorder,
+                            },
                           ]}
                         >
                           <DeviceIconView
                             type={dev.deviceType}
-                            size={22}
+                            size={21}
                             color={theme.iconColor}
                           />
                         </View>
@@ -760,7 +768,7 @@ export default function LoggedInDevicesScreen() {
                 style={[
                   styles.modalConfirmBtn,
                   {
-                    backgroundColor: '#FF1744',
+                    backgroundColor: theme.revokeBtnBg,
                   },
                 ]}
                 activeOpacity={0.8}
@@ -869,7 +877,8 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 44,
     height: 44,
-    borderRadius: 14,
+    borderRadius: 22,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -900,10 +909,9 @@ const styles = StyleSheet.create({
     gap: 5.5,
   },
   activeDot: {
-    width: 6.5,
-    height: 6.5,
-    borderRadius: 3.5,
-    backgroundColor: '#34D399',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   currentBadgeText: {
     fontSize: 11,
@@ -942,16 +950,22 @@ const styles = StyleSheet.create({
   revokeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderRadius: 999,
-    paddingVertical: 8,
+    paddingVertical: 7,
     paddingHorizontal: 14,
     gap: 6,
+    shadowColor: '#FF6452',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
   },
   revokeBtnText: {
     fontSize: 12.5,
-    fontFamily: Fonts.regular,
-    fontWeight: '400',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+    letterSpacing: -0.1,
   },
   emptyCard: {
     borderRadius: 18,

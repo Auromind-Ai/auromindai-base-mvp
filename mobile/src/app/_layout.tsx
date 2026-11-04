@@ -13,6 +13,7 @@ import {
   Poppins_800ExtraBold,
 } from '@expo-google-fonts/poppins';
 import { ThemeProvider, useAppTheme } from '../context/theme-context';
+import { usePushNotifications } from '../hooks/use-push-notifications';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -26,6 +27,7 @@ function NavigationRoot({
   timedOut: boolean;
 }) {
   const { colors, statusBarStyle, isLoaded: themeLoaded } = useAppTheme();
+  usePushNotifications();
 
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => {});
@@ -59,6 +61,7 @@ function NavigationRoot({
         <Stack.Screen name="customer/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
         <Stack.Screen name="connected-channels" options={{ headerShown: false }} />
+        <Stack.Screen name="delete-account" options={{ headerShown: false }} />
       </Stack>
     </>
   );

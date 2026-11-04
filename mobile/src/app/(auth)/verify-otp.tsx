@@ -398,10 +398,10 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: '#F8F8FF',
-    fontFamily: Fonts.bold,
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: -0.4,
+    fontFamily: Fonts.semiBold,
+    fontSize: 23,
+    fontWeight: '600',
+    letterSpacing: -0.3,
     marginBottom: 6,
     textAlign: 'center',
   },
@@ -426,16 +426,16 @@ const styles = StyleSheet.create({
   },
   contactText: {
     color: '#F8F8FF',
-    fontFamily: Fonts.semiBold,
+    fontFamily: Fonts.medium,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     marginRight: 8,
   },
   editLink: {
     color: '#A69BFF',
-    fontFamily: Fonts.bold,
+    fontFamily: Fonts.medium,
     fontSize: 12.5,
-    fontWeight: '700',
+    fontWeight: '500',
   },
   errorBanner: {
     flexDirection: 'row',
@@ -518,8 +518,8 @@ const styles = StyleSheet.create({
   otpDigit: {
     color: '#FFFFFF',
     fontSize: 20,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.semiBold,
+    fontWeight: '600',
   },
   resendRow: {
     flexDirection: 'row',
@@ -541,9 +541,9 @@ const styles = StyleSheet.create({
   },
   resendActiveText: {
     color: '#A69BFF',
-    fontFamily: Fonts.bold,
+    fontFamily: Fonts.medium,
     fontSize: 12.5,
-    fontWeight: '700',
+    fontWeight: '500',
   },
   verifyButtonWrapper: {
     borderRadius: 16,
@@ -574,10 +574,10 @@ const styles = StyleSheet.create({
   },
   verifyButtonText: {
     color: '#FFFFFF',
-    fontFamily: Fonts.bold,
+    fontFamily: Fonts.medium,
     fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontWeight: '500',
+    letterSpacing: 0.1,
   },
   securityRow: {
     flexDirection: 'row',

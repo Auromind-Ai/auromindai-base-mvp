@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -28,7 +28,10 @@ import {
   Image as ImageIcon,
   Trash2,
   X,
+  Pencil,
+  Check,
 } from 'lucide-react-native';
+import Svg, { Rect, Path, Circle, Line, G } from 'react-native-svg';
 import { authStore, useAuth } from '@/store/auth';
 import { apiClient } from '@/api/client';
 import { Fonts } from '@/theme/tokens';
@@ -65,6 +68,9 @@ export default function EditProfileScreen() {
   const [fullName, setFullName] = useState(user?.full_name || (user?.email ? user.email.split('@')[0] : ''));
   const [avatarUri, setAvatarUri] = useState<string | null>(user?.avatar_url || null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isSavingName, setIsSavingName] = useState(false);
+  const nameInputRef = useRef<React.ElementRef<typeof TextInput>>(null);
 
   // Custom app modals state (eliminating all native Alerts)
   const [statusModal, setStatusModal] = useState<{
@@ -153,6 +159,58 @@ export default function EditProfileScreen() {
     setShowPhotoPicker(true);
   };
 
+  const handleStartEditName = () => {
+    setIsEditingName(true);
+    setTimeout(() => {
+      nameInputRef.current?.focus();
+    }, 50);
+  };
+
+  const handleSaveName = async () => {
+    if (!fullName.trim()) {
+      setStatusModal({
+        type: 'error',
+        title: 'Required',
+        message: 'Please enter your full name.',
+      });
+      return;
+    }
+
+    try {
+      setIsSavingName(true);
+
+      // 1. Update backend DB
+      const result = await apiClient.patch('/auth/me', { full_name: fullName.trim() });
+
+      // 2. Update local state & storage
+      await authStore.updateUser({
+        full_name: (result && result.full_name) ? result.full_name : fullName.trim(),
+        avatar_url: avatarUri,
+      });
+
+      // 3. Sync & refresh from DB across all screens
+      await authStore.refreshUser();
+      await authStore.refreshWorkspaces();
+
+      setIsEditingName(false);
+
+      setStatusModal({
+        type: 'success',
+        title: 'Congrats',
+        message: 'Your name successfully changed. You can use your account now.',
+      });
+    } catch (err: any) {
+      console.error('[EditProfile] Save name error:', err);
+      setStatusModal({
+        type: 'error',
+        title: 'Update Failed',
+        message: err?.message || 'Failed to update name. Please try again.',
+      });
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
   // Save changes handler
   const handleSave = async () => {
     if (!fullName.trim()) {
@@ -182,8 +240,8 @@ export default function EditProfileScreen() {
 
       setStatusModal({
         type: 'success',
-        title: 'Success',
-        message: 'Profile updated successfully!',
+        title: 'Congrats',
+        message: 'Your name successfully changed. You can use your account now.',
         onConfirm: () => (router.canGoBack() ? router.back() : router.replace('/(tabs)/settings')),
       });
     } catch (err: any) {
@@ -315,18 +373,83 @@ export default function EditProfileScreen() {
                 },
               ]}
             >
-              <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>
-                FULL NAME
-              </Text>
-              <TextInput
-                style={[styles.fieldInput, { color: theme.textPrimary }]}
-                value={fullName}
-                onChangeText={setFullName}
-                placeholder="Enter your name"
-                placeholderTextColor={theme.placeholder}
-                autoCapitalize="words"
-                selectionColor={theme.primary}
-              />
+              <View style={styles.nameRow}>
+                <View style={styles.nameTextCol}>
+                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>
+                    FULL NAME
+                  </Text>
+                  {isEditingName ? (
+                    <TextInput
+                      ref={nameInputRef}
+                      style={[styles.fieldInput, { color: theme.textPrimary }]}
+                      value={fullName}
+                      onChangeText={setFullName}
+                      placeholder="Enter your name"
+                      placeholderTextColor={theme.placeholder}
+                      autoCapitalize="words"
+                      selectionColor={theme.primary}
+                      autoFocus={true}
+                      onSubmitEditing={handleSaveName}
+                      returnKeyType="done"
+                    />
+                  ) : (
+                    <Text
+                      style={[styles.fieldInputText, { color: theme.textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {fullName || 'No name set'}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Edit / Save Button on Right Side */}
+                <TouchableOpacity
+                  style={[
+                    styles.nameActionBtn,
+                    {
+                      backgroundColor: isEditingName
+                        ? theme.primary
+                        : isDark
+                        ? 'rgba(118, 85, 240, 0.16)'
+                        : 'rgba(128, 96, 232, 0.12)',
+                      borderColor: isEditingName
+                        ? theme.primary
+                        : isDark
+                        ? 'rgba(166, 155, 255, 0.25)'
+                        : 'rgba(128, 96, 232, 0.25)',
+                    },
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={isEditingName ? handleSaveName : handleStartEditName}
+                  disabled={isSavingName}
+                >
+                  {isSavingName ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : isEditingName ? (
+                    <View style={styles.btnContentRow}>
+                      <Check size={14} color="#FFFFFF" strokeWidth={2.5} style={{ marginRight: 4 }} />
+                      <Text style={[styles.nameActionBtnText, { color: '#FFFFFF' }]}>Save</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.btnContentRow}>
+                      <Pencil
+                        size={13}
+                        color={isDark ? '#C4B5FD' : theme.primary}
+                        strokeWidth={2}
+                        style={{ marginRight: 4 }}
+                      />
+                      <Text
+                        style={[
+                          styles.nameActionBtnText,
+                          { color: isDark ? '#C4B5FD' : theme.primary },
+                        ]}
+                      >
+                        Edit
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* EMAIL ADDRESS CARD (Read-only + Lock indicator) */}
@@ -418,7 +541,7 @@ export default function EditProfileScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Custom Status Modal (Success / Error / Info) */}
+      {/* Custom Status Bottom Sheet Modal (Success "Congrats" / Error / Info) */}
       <Modal
         visible={!!statusModal}
         transparent={true}
@@ -429,7 +552,7 @@ export default function EditProfileScreen() {
           if (onConfirm) onConfirm();
         }}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.statusSheetOverlay}>
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={() => {
@@ -440,60 +563,207 @@ export default function EditProfileScreen() {
           />
           <View
             style={[
-              styles.statusModalCard,
+              styles.statusSheetCard,
               {
-                backgroundColor: theme.cardBg,
-                borderColor: theme.cardBorder,
-                shadowColor: theme.cardShadow,
+                backgroundColor: isDark ? '#181C2E' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
               },
             ]}
           >
-            {/* Modal Icon Badge */}
-            <View
-              style={[
-                styles.statusIconBox,
-                {
-                  backgroundColor:
-                    statusModal?.type === 'success'
-                      ? isDark
-                        ? 'rgba(52, 211, 153, 0.16)'
-                        : 'rgba(52, 211, 153, 0.12)'
-                      : statusModal?.type === 'error'
-                      ? isDark
-                        ? 'rgba(239, 68, 68, 0.16)'
-                        : 'rgba(239, 68, 68, 0.12)'
-                      : isDark
-                      ? 'rgba(118, 85, 240, 0.16)'
-                      : 'rgba(118, 85, 240, 0.12)',
-                  borderColor:
-                    statusModal?.type === 'success'
-                      ? 'rgba(52, 211, 153, 0.3)'
-                      : statusModal?.type === 'error'
-                      ? 'rgba(239, 68, 68, 0.3)'
-                      : 'rgba(118, 85, 240, 0.3)',
-                },
-              ]}
-            >
+            {/* Header: Title ("Edit Profile") + Circular Close Button (X) */}
+            <View style={styles.statusSheetHeader}>
+              <Text style={[styles.statusSheetHeaderTitle, { color: theme.textPrimary }]}>
+                Edit Profile
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.statusSheetCloseBtn,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(255, 255, 255, 0.08)'
+                      : 'rgba(0, 0, 0, 0.05)',
+                  },
+                ]}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => {
+                  const onConfirm = statusModal?.onConfirm;
+                  setStatusModal(null);
+                  if (onConfirm) onConfirm();
+                }}
+              >
+                <X size={16} color={isDark ? '#FFFFFF' : '#475569'} strokeWidth={2.4} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Illustration Section */}
+            <View style={styles.statusSheetIllustration}>
               {statusModal?.type === 'success' ? (
-                <CheckCircle2 size={28} color="#34D399" />
-              ) : statusModal?.type === 'error' ? (
-                <AlertTriangle size={28} color="#EF4444" />
+                <Svg width={220} height={150} viewBox="0 0 220 150" fill="none">
+                  {/* Subtle circular halo background */}
+                  <Circle
+                    cx="110"
+                    cy="75"
+                    r="60"
+                    fill={isDark ? '#222B48' : '#EDE9FE'}
+                    opacity={isDark ? 0.7 : 0.8}
+                  />
+
+                  {/* Sparkle / decorative dots */}
+                  <Circle cx="168" cy="34" r="2.5" fill="#7655F0" opacity={0.8} />
+                  <Circle cx="52" cy="118" r="3" fill="#7655F0" opacity={0.65} />
+
+                  {/* Floating window / profile card */}
+                  <Rect
+                    x="35"
+                    y="40"
+                    width="150"
+                    height="85"
+                    rx="12"
+                    fill={isDark ? '#161B2E' : '#FFFFFF'}
+                    stroke={isDark ? '#2C3555' : '#E2E8F0'}
+                    strokeWidth="1.5"
+                  />
+
+                  {/* Window title bar 3 dots */}
+                  <Circle cx="48" cy="51" r="2.2" fill="#7655F0" />
+                  <Circle cx="55" cy="51" r="2.2" fill="#9E8CFC" />
+                  <Circle cx="62" cy="51" r="2.2" fill="#C4B5FD" />
+
+                  {/* Window title bar divider */}
+                  <Line
+                    x1="35"
+                    y1="59"
+                    x2="185"
+                    y2="59"
+                    stroke={isDark ? '#232C48' : '#F1F5F9'}
+                    strokeWidth="1"
+                  />
+
+                  {/* Glowing Shield with Checkmark on left */}
+                  <G transform="translate(68, 88)">
+                    {/* Outer shield glow */}
+                    <Path
+                      d="M 0,-18 L 16,-12 C 16,3 10,12 0,18 C -10,12 -16,3 -16,-12 Z"
+                      fill={isDark ? 'rgba(118, 85, 240, 0.25)' : 'rgba(118, 85, 240, 0.15)'}
+                    />
+                    {/* Inner shield */}
+                    <Path
+                      d="M 0,-15 L 13,-10 C 13,2 8,10 0,15 C -8,10 -13,2 -13,-10 Z"
+                      fill={isDark ? '#2C2658' : '#EDE9FE'}
+                      stroke="#7655F0"
+                      strokeWidth="2"
+                      strokeLinejoin="round"
+                    />
+                    {/* Checkmark inside shield */}
+                    <Path
+                      d="M -5,0 L -1,4 L 6,-4"
+                      stroke={isDark ? '#FFFFFF' : '#7655F0'}
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </G>
+
+                  {/* Profile data preview lines on right */}
+                  <Rect
+                    x="96"
+                    y="69"
+                    width="74"
+                    height="6"
+                    rx="3"
+                    fill={isDark ? '#3D4A74' : '#CBD5E1'}
+                  />
+                  <Rect
+                    x="96"
+                    y="79"
+                    width="56"
+                    height="5"
+                    rx="2.5"
+                    fill={isDark ? '#283252' : '#E2E8F0'}
+                  />
+                  <Rect
+                    x="96"
+                    y="88"
+                    width="66"
+                    height="5"
+                    rx="2.5"
+                    fill={isDark ? '#283252' : '#E2E8F0'}
+                  />
+                  <Rect
+                    x="96"
+                    y="97"
+                    width="44"
+                    height="5"
+                    rx="2.5"
+                    fill={isDark ? '#283252' : '#E2E8F0'}
+                  />
+
+                  {/* 5-Star pill badge overlapping bottom right */}
+                  <Rect
+                    x="94"
+                    y="112"
+                    width="88"
+                    height="24"
+                    rx="6"
+                    fill={isDark ? '#111524' : '#F8FAFC'}
+                    stroke={isDark ? '#2C3656' : '#E2E8F0'}
+                    strokeWidth="1.2"
+                  />
+                  {/* 5 purple stars */}
+                  {[103, 116, 129, 142, 155].map((starX, idx) => (
+                    <G key={idx} transform={`translate(${starX}, 124)`}>
+                      <Path
+                        d="M 0.0,-4.2 L 1.08,-1.5 L 3.99,-1.3 L 1.75,0.57 L 2.47,3.4 L 0.0,1.85 L -2.47,3.4 L -1.75,0.57 L -3.99,-1.3 L -1.08,-1.5 Z"
+                        fill="#7655F0"
+                      />
+                    </G>
+                  ))}
+                </Svg>
               ) : (
-                <Info size={28} color={theme.primary} />
+                <View
+                  style={[
+                    styles.statusErrorIconBox,
+                    {
+                      backgroundColor:
+                        statusModal?.type === 'error'
+                          ? isDark
+                            ? 'rgba(239, 68, 68, 0.16)'
+                            : 'rgba(239, 68, 68, 0.12)'
+                          : isDark
+                          ? 'rgba(118, 85, 240, 0.16)'
+                          : 'rgba(118, 85, 240, 0.12)',
+                      borderColor:
+                        statusModal?.type === 'error'
+                          ? 'rgba(239, 68, 68, 0.3)'
+                          : 'rgba(118, 85, 240, 0.3)',
+                    },
+                  ]}
+                >
+                  {statusModal?.type === 'error' ? (
+                    <AlertTriangle size={32} color="#EF4444" />
+                  ) : (
+                    <Info size={32} color={theme.primary} />
+                  )}
+                </View>
               )}
             </View>
 
-            {/* Title & Message */}
-            <Text style={[styles.statusModalTitle, { color: theme.textPrimary }]}>
-              {statusModal?.title}
-            </Text>
-            <Text style={[styles.statusModalMessage, { color: theme.textSecondary }]}>
-              {statusModal?.message}
+            {/* Title: Congrats */}
+            <Text style={[styles.statusSheetCongratsTitle, { color: theme.textPrimary }]}>
+              {statusModal?.type === 'success' ? 'Congrats' : (statusModal?.title || 'Alert')}
             </Text>
 
-            {/* OK / Done Action Button */}
+            {/* Subtitle / Description */}
+            <Text style={[styles.statusSheetDescription, { color: theme.textSecondary }]}>
+              {statusModal?.type === 'success'
+                ? 'Your name successfully changed. You can use your account now.'
+                : statusModal?.message}
+            </Text>
+
+            {/* Done Action Button */}
             <TouchableOpacity
-              style={[styles.statusModalConfirmBtn, { backgroundColor: theme.primary }]}
+              style={[styles.statusSheetDoneBtn, { backgroundColor: theme.primary }]}
               activeOpacity={0.85}
               onPress={() => {
                 const onConfirm = statusModal?.onConfirm;
@@ -501,9 +771,7 @@ export default function EditProfileScreen() {
                 if (onConfirm) onConfirm();
               }}
             >
-              <Text style={styles.statusModalConfirmText}>
-                {statusModal?.type === 'success' ? 'Done' : 'OK'}
-              </Text>
+              <Text style={styles.statusSheetDoneText}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -770,6 +1038,39 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  nameTextCol: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  fieldInputText: {
+    fontSize: 15,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+    paddingVertical: 1,
+  },
+  nameActionBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nameActionBtnText: {
+    fontSize: 12.5,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+  },
   readOnlyRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -843,54 +1144,90 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  statusModalCard: {
+  statusSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    justifyContent: 'flex-end',
+  },
+  statusSheetCard: {
     width: '100%',
-    maxWidth: 340,
-    borderRadius: 22,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     borderWidth: 1,
-    padding: 24,
+    borderBottomWidth: 0,
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
     alignItems: 'center',
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.35,
     shadowRadius: 20,
-    elevation: 8,
+    elevation: 16,
   },
-  statusIconBox: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  statusSheetHeader: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  statusSheetHeaderTitle: {
+    fontSize: 16,
+    fontFamily: Fonts.light,
+    fontWeight: '300',
+    letterSpacing: -0.1,
+  },
+  statusSheetCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusSheetIllustration: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
+  },
+  statusErrorIconBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginVertical: 12,
   },
-  statusModalTitle: {
+  statusSheetCongratsTitle: {
     fontSize: 18,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontFamily: Fonts.light,
+    fontWeight: '300',
     textAlign: 'center',
     marginBottom: 8,
+    letterSpacing: -0.2,
   },
-  statusModalMessage: {
-    fontSize: 14,
+  statusSheetDescription: {
+    fontSize: 12.5,
     fontFamily: Fonts.regular,
     fontWeight: '400',
-    lineHeight: 20,
+    lineHeight: 18.5,
     textAlign: 'center',
+    paddingHorizontal: 16,
     marginBottom: 24,
   },
-  statusModalConfirmBtn: {
+  statusSheetDoneBtn: {
     width: '100%',
-    height: 48,
-    borderRadius: 24,
+    height: 50,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statusModalConfirmText: {
+  statusSheetDoneText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontFamily: Fonts.light,
+    fontWeight: '300',
+    letterSpacing: -0.1,
   },
   photoPickerCard: {
     width: '100%',

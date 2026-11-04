@@ -33,25 +33,34 @@ import {
   Trash2,
   AlertTriangle,
   X,
+  CheckCircle2,
 } from 'lucide-react-native';
 import { authStore, useAuth } from '@/store/auth';
+import { cancelAccountDeletion } from '@/api/auth';
 import { Fonts } from '@/theme/tokens';
 import { useAppTheme } from '@/context/theme-context';
+import { usePushNotifications } from '@/hooks';
 import { AppearanceMode } from '@/types/theme';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const authState = useAuth();
   const { themeMode, setThemeMode, isDark } = useAppTheme();
+  const {
+    isEnabled: pushNotifications,
+    togglePushNotifications,
+    isLoading: isPushLoading,
+  } = usePushNotifications();
 
   // Settings State
   const [biometricLock, setBiometricLock] = useState(false);
-  const [pushNotifications, setPushNotifications] = useState(true);
   const [showPreview, setShowPreview] = useState(true);
   const [mutePushes, setMutePushes] = useState<'Off' | '1h' | '8h' | '24h'>('Off');
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isCancellingDeletion, setIsCancellingDeletion] = useState(false);
+  const [restoreSuccessMsg, setRestoreSuccessMsg] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<{
-    type: 'sign_out' | 'delete_account';
+    type: 'sign_out';
     title: string;
     message: string;
     confirmText: string;
@@ -79,8 +88,10 @@ export default function SettingsScreen() {
     textSecondary: isDark ? '#A2ADD8' : '#7583A5',
     textMuted: isDark ? '#A2ADD8' : '#7583A5',
     divider: isDark ? 'rgba(162, 173, 216, 0.10)' : 'rgba(117, 131, 165, 0.12)',
-    icon: isDark ? '#A2ADD8' : '#6F51D1',
-    iconMuted: isDark ? 'rgba(162, 173, 216, 0.50)' : 'rgba(117, 131, 165, 0.50)',
+    icon: isDark ? '#FFFFFF' : '#1A2138',
+    iconMuted: isDark ? 'rgba(255, 255, 255, 0.40)' : 'rgba(26, 33, 56, 0.40)',
+    iconCircleBg: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
+    iconCircleBorder: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)',
     primary: isDark ? '#7655F0' : '#8060E8',
     primaryGradient: (isDark
       ? ['#A69BFF', '#7655F0', '#6241DD']
@@ -121,34 +132,28 @@ export default function SettingsScreen() {
 
   const handleDeleteAccount = () => {
     if (isSigningOut) return;
-    setConfirmModal({
-      type: 'delete_account',
-      title: 'Delete account',
-      message:
-        'Are you sure you want to delete your account? All your workspace conversations, settings, and personal data will be permanently removed. This action cannot be undone.',
-      confirmText: 'Delete account',
-      isDestructive: true,
-    });
+    router.push('/delete-account');
+  };
+
+  const handleCancelDeletion = async () => {
+    if (isCancellingDeletion) return;
+    try {
+      setIsCancellingDeletion(true);
+      await cancelAccountDeletion();
+      await authStore.refreshUser();
+      setRestoreSuccessMsg('Account deletion cancelled. Your account has been fully restored!');
+      setTimeout(() => setRestoreSuccessMsg(null), 4000);
+    } catch (err: any) {
+      // Offline or error
+    } finally {
+      setIsCancellingDeletion(false);
+    }
   };
 
   const handleConfirmAction = async () => {
     if (!confirmModal) return;
-    const actionType = confirmModal.type;
     setConfirmModal(null);
-    if (actionType === 'sign_out') {
-      performSignOut();
-    } else if (actionType === 'delete_account') {
-      setIsSigningOut(true);
-      try {
-        await authStore.signOut();
-        router.replace('/(auth)/login');
-      } catch {
-        await authStore.clearAuth();
-        router.replace('/(auth)/login');
-      } finally {
-        setIsSigningOut(false);
-      }
-    }
+    performSignOut();
   };
 
   return (
@@ -218,6 +223,69 @@ export default function SettingsScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {/* Restore Success Banner */}
+          {restoreSuccessMsg && (
+            <View
+              style={[
+                styles.restoreSuccessBanner,
+                {
+                  backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#DCFCE7',
+                  borderColor: isDark ? 'rgba(34, 197, 94, 0.35)' : '#86EFAC',
+                },
+              ]}
+            >
+              <CheckCircle2 size={18} color="#22C55E" style={{ marginTop: 1, marginRight: 8 }} />
+              <Text style={[styles.restoreSuccessText, { color: isDark ? '#86EFAC' : '#15803D' }]}>
+                {restoreSuccessMsg}
+              </Text>
+            </View>
+          )}
+
+          {/* Account Scheduled for Deletion Banner (30-day recovery grace period) */}
+          {authState.user?.deletion_scheduled_at && (
+            <View
+              style={[
+                styles.deletionBanner,
+                {
+                  backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2',
+                  borderColor: isDark ? 'rgba(239, 68, 68, 0.32)' : '#FCA5A5',
+                },
+              ]}
+            >
+              <View style={styles.deletionBannerTop}>
+                <AlertTriangle size={18} color="#EF4444" style={{ marginTop: 2, marginRight: 10, flexShrink: 0 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.deletionBannerTitle, { color: isDark ? '#FCA5A5' : '#991B1B' }]}>
+                    Account scheduled for deletion
+                  </Text>
+                  <Text style={[styles.deletionBannerDesc, { color: isDark ? '#D1D5DB' : '#6B7280' }]}>
+                    Your account will be permanently deleted on{' '}
+                    <Text style={{ fontWeight: '600', color: isDark ? '#FFFFFF' : '#111827' }}>
+                      {new Date(authState.user.deletion_scheduled_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </Text>
+                    . You can cancel before this date to restore your account.
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.cancelDeletionBtn}
+                activeOpacity={0.8}
+                disabled={isCancellingDeletion}
+                onPress={handleCancelDeletion}
+              >
+                {isCancellingDeletion ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.cancelDeletionBtnText}>Cancel Deletion & Restore</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* ============================================================== */}
           {/* 1. ACCOUNT SECTION (All inside our app card)                   */}
           {/* ============================================================== */}
@@ -290,10 +358,13 @@ export default function SettingsScreen() {
               <View
                 style={[
                   styles.iconCircle,
-                  { backgroundColor: isDark ? 'rgba(118, 85, 240, 0.16)' : 'rgba(128, 96, 232, 0.12)' },
+                  {
+                    backgroundColor: theme.iconCircleBg,
+                    borderColor: theme.iconCircleBorder,
+                  },
                 ]}
               >
-                <Briefcase size={20} color={theme.primary} />
+                <Briefcase size={20} color={theme.icon} />
               </View>
               <View style={styles.workspaceTextCol}>
                 <Text style={[styles.workspaceNameTitle, { color: theme.textPrimary }]}>
@@ -334,10 +405,13 @@ export default function SettingsScreen() {
               <View
                 style={[
                   styles.iconCircle,
-                  { backgroundColor: isDark ? 'rgba(118, 85, 240, 0.16)' : 'rgba(128, 96, 232, 0.12)' },
+                  {
+                    backgroundColor: theme.iconCircleBg,
+                    borderColor: theme.iconCircleBorder,
+                  },
                 ]}
               >
-                <Palette size={20} color={theme.primary} />
+                <Palette size={20} color={theme.icon} />
               </View>
               <View style={styles.appearanceTextCol}>
                 <Text style={[styles.rowTitle, { color: theme.textPrimary }]}>Theme mode</Text>
@@ -421,7 +495,10 @@ export default function SettingsScreen() {
               </View>
               <Switch
                 value={pushNotifications}
-                onValueChange={setPushNotifications}
+                disabled={isPushLoading}
+                onValueChange={(val) => {
+                  togglePushNotifications(val);
+                }}
                 trackColor={{
                   false: isDark ? 'rgba(128, 140, 190, 0.25)' : '#D7DEEE',
                   true: theme.primary,
@@ -646,22 +723,13 @@ export default function SettingsScreen() {
                   style={[
                     styles.modalIconBox,
                     {
-                      backgroundColor:
-                        confirmModal?.type === 'delete_account'
-                          ? isDark
-                            ? 'rgba(244, 63, 94, 0.16)'
-                            : 'rgba(244, 63, 94, 0.12)'
-                          : isDark
-                          ? 'rgba(255, 23, 68, 0.14)'
-                          : 'rgba(255, 23, 68, 0.1)',
+                      backgroundColor: isDark
+                        ? 'rgba(255, 23, 68, 0.14)'
+                        : 'rgba(255, 23, 68, 0.1)',
                     },
                   ]}
                 >
-                  {confirmModal?.type === 'delete_account' ? (
-                    <Trash2 size={22} color="#F43F5E" />
-                  ) : (
-                    <LogOut size={22} color="#FF1744" />
-                  )}
+                  <LogOut size={22} color="#FF1744" />
                 </View>
                 <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
                   {confirmModal?.title}
@@ -689,23 +757,6 @@ export default function SettingsScreen() {
               <Text style={[styles.modalDesc, { color: theme.textSecondary }]}>
                 {confirmModal?.message}
               </Text>
-
-              {confirmModal?.isDestructive && (
-                <View
-                  style={[
-                    styles.warningBox,
-                    {
-                      backgroundColor: isDark ? 'rgba(244, 63, 94, 0.08)' : 'rgba(244, 63, 94, 0.06)',
-                      borderColor: isDark ? 'rgba(244, 63, 94, 0.25)' : 'rgba(244, 63, 94, 0.2)',
-                    },
-                  ]}
-                >
-                  <AlertTriangle size={15} color="#F43F5E" style={{ marginTop: 2, flexShrink: 0 }} />
-                  <Text style={[styles.warningText, { color: isDark ? '#FDA4AF' : '#E11D48' }]}>
-                    Permanent Action: This cannot be reversed.
-                  </Text>
-                </View>
-              )}
             </View>
 
             {/* Modal Actions */}
@@ -733,8 +784,7 @@ export default function SettingsScreen() {
                 style={[
                   styles.modalConfirmBtn,
                   {
-                    backgroundColor:
-                      confirmModal?.type === 'delete_account' ? '#E11D48' : '#FF1744',
+                    backgroundColor: '#FF1744',
                   },
                 ]}
                 activeOpacity={0.8}
@@ -861,7 +911,8 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 20,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -1028,19 +1079,25 @@ const styles = StyleSheet.create({
   },
   deleteAccountBtn: {
     height: 48,
-    borderRadius: 14,
-    backgroundColor: 'transparent',
+    borderRadius: 999,
+    backgroundColor: '#FF6452',
+    borderWidth: 1,
+    borderColor: '#FF6452',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 12,
-    borderWidth: 1.5,
-    borderColor: '#EF4444',
+    shadowColor: '#FF6452',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
   },
   deleteAccountBtnText: {
-    color: '#EF4444',
-    fontSize: 15,
+    color: '#FFFFFF',
+    fontSize: 14.5,
     fontFamily: Fonts.medium,
     fontWeight: '500',
+    letterSpacing: -0.1,
   },
   versionFooterText: {
     fontSize: 12,
@@ -1159,5 +1216,56 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.medium,
     fontWeight: '500',
     color: '#FFFFFF',
+  },
+  deletionBanner: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 16,
+    gap: 12,
+  },
+  deletionBannerTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  deletionBannerTitle: {
+    fontSize: 14,
+    fontFamily: Fonts.semiBold,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  deletionBannerDesc: {
+    fontSize: 12.5,
+    fontFamily: Fonts.regular,
+    lineHeight: 18,
+  },
+  cancelDeletionBtn: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+  },
+  cancelDeletionBtnText: {
+    fontSize: 12.5,
+    fontFamily: Fonts.semiBold,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  restoreSuccessBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  restoreSuccessText: {
+    fontSize: 13,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+    flex: 1,
   },
 });
