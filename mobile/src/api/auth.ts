@@ -116,3 +116,24 @@ export async function logout(): Promise<{ status: string; message: string }> {
   }
 }
 
+/**
+ * Requests account deletion with 30-day grace period.
+ */
+export async function requestAccountDeletion(): Promise<{
+  deletion_scheduled_at: string;
+  message: string;
+}> {
+  return apiClient.post<{ deletion_scheduled_at: string; message: string }>(
+    '/account/request-deletion',
+    {}
+  );
+}
+
+/**
+ * Cancels a pending account deletion and restores the account.
+ */
+export async function cancelAccountDeletion(): Promise<{ message: string }> {
+  return apiClient.post<{ message: string }>('/account/cancel-deletion', {});
+}
+
+

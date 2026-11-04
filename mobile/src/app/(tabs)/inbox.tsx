@@ -1205,8 +1205,8 @@ const styles = StyleSheet.create({
   },
   headerTitleText: {
     fontSize: 28,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     letterSpacing: -0.4,
   },
   headerActionsGroup: {

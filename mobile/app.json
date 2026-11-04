@@ -33,6 +33,13 @@
           "image": "./assets/images/logo.png",
           "imageWidth": 120
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#6F5BFF"
+        }
       ]
     ],
     "experiments": {
