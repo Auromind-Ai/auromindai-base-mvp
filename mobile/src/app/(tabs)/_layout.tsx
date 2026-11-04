@@ -123,16 +123,16 @@ function GlassmorphicTabBar() {
             style={StyleSheet.absoluteFill}
           />
           {/* iOS Water Gloss Top Reflection highlight */}
-          <View
-            style={[
-              styles.glassGlossHighlight,
-              {
-                backgroundColor: isDark
-                  ? 'rgba(255, 255, 255, 0.35)'
-                  : 'rgba(255, 255, 255, 0.85)',
-              },
-            ]}
-          />
+          {!isDark && (
+            <View
+              style={[
+                styles.glassGlossHighlight,
+                {
+                  backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                },
+              ]}
+            />
+          )}
         </Animated.View>
 
         {/* Inbox Tab Button */}

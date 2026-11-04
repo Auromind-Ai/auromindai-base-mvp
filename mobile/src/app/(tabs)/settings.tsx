@@ -770,8 +770,8 @@ const styles = StyleSheet.create({
   },
   headerTitleText: {
     fontSize: 28,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     letterSpacing: -0.4,
   },
   mainContentSheet: {
@@ -788,8 +788,8 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     fontSize: 12,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     letterSpacing: 0.8,
     marginTop: 20,
     marginBottom: 8,
@@ -835,20 +835,21 @@ const styles = StyleSheet.create({
   avatarInitialText: {
     color: '#FFFFFF',
     fontSize: 19,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   userInfoCol: {
     flex: 1,
   },
   userNameText: {
     fontSize: 16,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   userEmailText: {
     fontSize: 13,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     marginTop: 2,
   },
 
@@ -870,12 +871,13 @@ const styles = StyleSheet.create({
   },
   workspaceNameTitle: {
     fontSize: 15.5,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   workspaceSubtext: {
     fontSize: 12.5,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     marginTop: 2,
   },
   roleBadge: {
@@ -885,8 +887,8 @@ const styles = StyleSheet.create({
   },
   roleBadgeText: {
     fontSize: 11.5,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
 
   // 3. Appearance Card Styles
@@ -926,13 +928,13 @@ const styles = StyleSheet.create({
   },
   segmentedTabText: {
     fontSize: 13.5,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
   segmentedTabTextActive: {
     color: '#FFFFFF',
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
 
   // 4. Notifications & Switches
@@ -947,12 +949,13 @@ const styles = StyleSheet.create({
   },
   rowTitle: {
     fontSize: 15,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   rowSubtitle: {
     fontSize: 12.5,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     marginTop: 3,
     lineHeight: 17,
   },
@@ -986,13 +989,13 @@ const styles = StyleSheet.create({
   },
   muteBtnText: {
     fontSize: 13,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
   muteBtnTextActive: {
     color: '#FFFFFF',
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
 
   // Menu Rows
@@ -1004,8 +1007,8 @@ const styles = StyleSheet.create({
   menuRowText: {
     flex: 1,
     fontSize: 14.5,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
     marginLeft: 14,
   },
 
@@ -1020,8 +1023,8 @@ const styles = StyleSheet.create({
   },
   signOutBtnText: {
     fontSize: 15,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   deleteAccountBtn: {
     height: 48,
@@ -1036,12 +1039,13 @@ const styles = StyleSheet.create({
   deleteAccountBtnText: {
     color: '#EF4444',
     fontSize: 15,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   versionFooterText: {
     fontSize: 12,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     textAlign: 'center',
     marginTop: 24,
     marginBottom: 20,
@@ -1087,8 +1091,8 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 17,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     letterSpacing: -0.2,
   },
   modalCloseBtn: {
@@ -1105,6 +1109,7 @@ const styles = StyleSheet.create({
   modalDesc: {
     fontSize: 13.5,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     lineHeight: 20,
   },
   warningBox: {
@@ -1117,8 +1122,8 @@ const styles = StyleSheet.create({
   },
   warningText: {
     fontSize: 12,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     flex: 1,
   },
   modalActions: {
@@ -1139,8 +1144,8 @@ const styles = StyleSheet.create({
   },
   modalCancelText: {
     fontSize: 13.5,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   modalConfirmBtn: {
     flex: 1,
@@ -1151,8 +1156,8 @@ const styles = StyleSheet.create({
   },
   modalConfirmText: {
     fontSize: 13.5,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     color: '#FFFFFF',
   },
 });

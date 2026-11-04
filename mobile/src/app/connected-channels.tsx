@@ -191,6 +191,14 @@ export default function ConnectedChannelsScreen() {
     }
   };
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/settings');
+    }
+  };
+
   const openWebPrompt = (id: 'whatsapp' | 'instagram' | 'twilio', name: string, description: string) => {
     setWebConnectModalChannel({ id, name, description });
   };
@@ -223,7 +231,7 @@ export default function ConnectedChannelsScreen() {
             { backgroundColor: isDark ? 'rgba(128, 140, 190, 0.12)' : 'rgba(255, 255, 255, 0.85)' },
           ]}
           activeOpacity={0.7}
-          onPress={() => router.back()}
+          onPress={handleBack}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <ChevronLeft size={24} color={theme.textPrimary} />
@@ -1109,8 +1117,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     textAlign: 'center',
   },
   headerRightSpacer: {
@@ -1146,17 +1154,18 @@ const styles = StyleSheet.create({
   },
   roleBadgeText: {
     fontSize: 12,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   workspaceNameText: {
     fontSize: 13,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
   subtitleNote: {
     fontSize: 13,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     lineHeight: 18,
     textAlign: 'center',
     paddingHorizontal: 8,
@@ -1170,7 +1179,8 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    fontFamily: Fonts.medium,
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
   channelsList: {
     gap: 14,
@@ -1198,13 +1208,14 @@ const styles = StyleSheet.create({
   },
   channelTitle: {
     fontSize: 15,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     marginBottom: 3,
   },
   channelSubtitle: {
     fontSize: 12.5,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
   channelStatusCol: {
     marginLeft: 10,
@@ -1240,8 +1251,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   connectedBadgeText: {
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     color: '#FFFFFF',
     letterSpacing: 0.2,
   },
@@ -1260,8 +1271,8 @@ const styles = StyleSheet.create({
   },
   connectBtnText: {
     fontSize: 12.5,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   infoBanner: {
     flexDirection: 'row',
@@ -1278,6 +1289,7 @@ const styles = StyleSheet.create({
   infoBannerText: {
     fontSize: 12.5,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     lineHeight: 18,
     flex: 1,
   },
@@ -1327,13 +1339,14 @@ const styles = StyleSheet.create({
   },
   modalChannelName: {
     fontSize: 17,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     letterSpacing: -0.2,
   },
   modalSubtitle: {
     fontSize: 12,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     marginTop: 2,
   },
   modalHeaderRight: {
@@ -1360,8 +1373,8 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 10.5,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     letterSpacing: 0.8,
   },
   fieldBox: {
@@ -1375,8 +1388,8 @@ const styles = StyleSheet.create({
   },
   fieldValue: {
     fontSize: 13.5,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
     flex: 1,
   },
   fieldValueMasked: {
@@ -1417,8 +1430,8 @@ const styles = StyleSheet.create({
   },
   doneBtnFullText: {
     fontSize: 14,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     color: '#FFFFFF',
   },
 
@@ -1453,13 +1466,14 @@ const styles = StyleSheet.create({
   },
   webPromptTitle: {
     fontSize: 16,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     letterSpacing: -0.2,
   },
   webPromptSubtitle: {
     fontSize: 12,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     marginTop: 2,
   },
   targetChannelBadge: {
@@ -1473,8 +1487,8 @@ const styles = StyleSheet.create({
   },
   targetChannelBadgeText: {
     fontSize: 13,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   notConnectedDot: {
     width: 5,
@@ -1485,7 +1499,8 @@ const styles = StyleSheet.create({
   },
   notConnectedText: {
     fontSize: 11.5,
-    fontFamily: Fonts.medium,
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
   webPromptMessageContainer: {
     borderRadius: 14,
@@ -1495,13 +1510,14 @@ const styles = StyleSheet.create({
   },
   webPromptNoticeTitle: {
     fontSize: 13.5,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     lineHeight: 19,
   },
   webPromptNoticeDesc: {
     fontSize: 12.5,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     lineHeight: 18,
   },
   webPromptInfoBox: {
@@ -1519,6 +1535,7 @@ const styles = StyleSheet.create({
   webPromptInfoText: {
     fontSize: 11.5,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
     lineHeight: 17,
     flex: 1,
   },
@@ -1533,7 +1550,8 @@ const styles = StyleSheet.create({
   },
   webUrlText: {
     fontSize: 12,
-    fontFamily: Fonts.medium,
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
     flex: 1,
   },
   webPromptActions: {
@@ -1552,8 +1570,8 @@ const styles = StyleSheet.create({
   },
   secondaryActionText: {
     fontSize: 13,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
   primaryGotItBtn: {
     flex: 1,
@@ -1564,8 +1582,8 @@ const styles = StyleSheet.create({
   },
   primaryGotItBtnText: {
     fontSize: 13.5,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     color: '#FFFFFF',
   },
 });
