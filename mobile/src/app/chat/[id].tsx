@@ -16,10 +16,11 @@ import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
+import * as ImagePicker from 'expo-image-picker';
 import {
   ChevronLeft,
   Circle,
-  MoreVertical,
+  Info,
   Paperclip,
   Mic,
   Send,
@@ -65,7 +66,11 @@ export default function ChatDetailScreen() {
   const customerName = params.name || (isInstagram ? 'TrendyWear Boutique' : isTwilio ? 'Sneha Fashions' : 'Priya Sharma');
 
   const [inputMessage, setInputMessage] = useState('');
-  const [showQuickActions, setShowQuickActions] = useState(false);
+  const [selectedAttachment, setSelectedAttachment] = useState<{
+    uri: string;
+    name?: string;
+    type?: string;
+  } | null>(null);
   const [internalNoteAlert, setInternalNoteAlert] = useState<string | null>(null);
 
   // WhatsApp static conversation matching the exact uploaded UI design
@@ -156,8 +161,34 @@ export default function ChatDetailScreen() {
     }
   };
 
+  const handleAttachFile = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images', 'videos'],
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setSelectedAttachment({
+          uri: asset.uri,
+          name: asset.fileName || 'Attached Media',
+          type: asset.type || 'image',
+        });
+      }
+    } catch (err) {
+      console.warn('Error launching image picker:', err);
+    }
+  };
+
   const handleSendMessage = () => {
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() && !selectedAttachment) return;
     const newMsg: Message = {
       id: Date.now().toString(),
       sender: 'ai',
@@ -166,18 +197,9 @@ export default function ChatDetailScreen() {
     };
     setMessages((prev) => [...prev, newMsg]);
     setInputMessage('');
+    setSelectedAttachment(null);
   };
 
-  const handleActionClick = (actionName: string) => {
-    setShowQuickActions(false);
-    if (actionName === 'Internal Note') {
-      setInternalNoteAlert('Internal Note mode enabled. Notes are only visible to your team.');
-      setTimeout(() => setInternalNoteAlert(null), 3500);
-    } else {
-      setInternalNoteAlert(`Action triggered: ${actionName}`);
-      setTimeout(() => setInternalNoteAlert(null), 2500);
-    }
-  };
 
   const navigateToProfile = () => {
     router.push({
@@ -314,7 +336,7 @@ export default function ChatDetailScreen() {
               onPress={navigateToProfile}
               hitSlop={{ top: 12, bottom: 12, left: 10, right: 12 }}
             >
-              <MoreVertical size={22} color="#FFFFFF" />
+              <Info size={22} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </View>
@@ -483,6 +505,42 @@ export default function ChatDetailScreen() {
 
           {/* Bottom Message Input Bar - Exact match to uploaded images */}
           <View style={styles.bottomBarContainer}>
+            {/* Attachment preview if selected */}
+            {selectedAttachment && (
+              <View
+                style={[
+                  styles.attachmentPreviewBar,
+                  {
+                    backgroundColor: isDark ? '#161F33' : '#F1F3F9',
+                    borderColor: isDark ? 'rgba(164, 170, 255, 0.15)' : '#E2E8F0',
+                  },
+                ]}
+              >
+                {selectedAttachment.type === 'video' ? (
+                  <View style={styles.attachmentThumbBox}>
+                    <Video size={16} color="#FFFFFF" />
+                  </View>
+                ) : (
+                  <Image source={{ uri: selectedAttachment.uri }} style={styles.attachmentThumbImage} />
+                )}
+                <Text
+                  style={[
+                    styles.attachmentNameText,
+                    { color: isDark ? '#F8F8FF' : '#111827' },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {selectedAttachment.name}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setSelectedAttachment(null)}
+                  style={styles.attachmentRemoveBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <X size={15} color={isDark ? '#A2ADD8' : '#64748B'} />
+                </TouchableOpacity>
+              </View>
+            )}
             <View
               style={[
                 styles.capsuleInputBar,
@@ -497,7 +555,7 @@ export default function ChatDetailScreen() {
               <TouchableOpacity
                 style={isDark ? styles.attachButtonDark : styles.attachButtonLight}
                 activeOpacity={0.7}
-                onPress={() => setShowQuickActions(true)}
+                onPress={handleAttachFile}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Paperclip
@@ -523,7 +581,7 @@ export default function ChatDetailScreen() {
               />
 
               {/* Mic / Send Circular Purple Action Button */}
-              {inputMessage.trim().length > 0 ? (
+              {(inputMessage.trim().length > 0 || selectedAttachment) ? (
                 <TouchableOpacity
                   style={[
                     styles.actionCircleButton,
@@ -552,187 +610,7 @@ export default function ChatDetailScreen() {
         </KeyboardAvoidingView>
       </View>
 
-      {/* Screen 10: Quick Actions Bottom Sheet Modal */}
-      <Modal
-        visible={showQuickActions}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowQuickActions(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowQuickActions(false)}
-        >
-          <View
-            style={[
-              styles.bottomSheetCard,
-              {
-                backgroundColor: isDark ? '#161B30' : '#FFFFFF',
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#E5E7EB',
-              },
-            ]}
-          >
-            <View style={styles.sheetHeader}>
-              <Text
-                style={[
-                  styles.sheetTitle,
-                  { color: isDark ? '#FFFFFF' : '#111827' },
-                ]}
-              >
-                More Options
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowQuickActions(false)}
-                style={styles.sheetCloseBtn}
-              >
-                <X size={18} color={isDark ? '#FFFFFF' : '#111827'} />
-              </TouchableOpacity>
-            </View>
 
-            <View style={styles.optionsList}>
-              <TouchableOpacity
-                style={[
-                  styles.actionItem,
-                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F9FAFB' },
-                ]}
-                onPress={() => handleActionClick('Send Image')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: '#3B82F620' }]}>
-                  <ImageIcon size={18} color="#3B82F6" />
-                </View>
-                <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                  Send Image
-                </Text>
-                <ChevronRight size={16} color="#9CA3AF" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.actionItem,
-                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F9FAFB' },
-                ]}
-                onPress={() => handleActionClick('Send Document')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: '#10B98120' }]}>
-                  <File size={18} color="#10B981" />
-                </View>
-                <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                  Send Document
-                </Text>
-                <ChevronRight size={16} color="#9CA3AF" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.actionItem,
-                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F9FAFB' },
-                ]}
-                onPress={() => handleActionClick('Send Video')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: '#EC489920' }]}>
-                  <Video size={18} color="#EC4899" />
-                </View>
-                <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                  Send Video
-                </Text>
-                <ChevronRight size={16} color="#9CA3AF" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.actionItem,
-                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F9FAFB' },
-                ]}
-                onPress={() => handleActionClick('Send Voice Note')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: '#F59E0B20' }]}>
-                  <VoiceIcon size={18} color="#F59E0B" />
-                </View>
-                <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                  Send Voice Note
-                </Text>
-                <ChevronRight size={16} color="#9CA3AF" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.actionItem,
-                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F9FAFB' },
-                ]}
-                onPress={() => handleActionClick('Quick Replies')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: '#8B5CF620' }]}>
-                  <MessageSquareQuote size={18} color="#8B5CF6" />
-                </View>
-                <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                  Quick Replies
-                </Text>
-                <ChevronRight size={16} color="#9CA3AF" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.actionItem,
-                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F9FAFB' },
-                ]}
-                onPress={() => handleActionClick('Message Templates')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: '#06B6D420' }]}>
-                  <LayoutTemplate size={18} color="#06B6D4" />
-                </View>
-                <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                  Message Templates
-                </Text>
-                <ChevronRight size={16} color="#9CA3AF" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.actionItem,
-                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F9FAFB' },
-                ]}
-                onPress={() => handleActionClick('Internal Note')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: '#EAB30820' }]}>
-                  <StickyNote size={18} color="#EAB308" />
-                </View>
-                <View style={styles.actionDetailsWrap}>
-                  <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                    Internal Note
-                  </Text>
-                  <Text style={styles.actionSubtext}>Only visible to team</Text>
-                </View>
-                <ChevronRight size={16} color="#9CA3AF" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.actionItem,
-                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F9FAFB' },
-                ]}
-                onPress={() => handleActionClick('Assign Conversation')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: '#A855F720' }]}>
-                  <UserCheck size={18} color="#A855F7" />
-                </View>
-                <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                  Assign Conversation
-                </Text>
-                <ChevronRight size={16} color="#9CA3AF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </View>
   );
 }
@@ -1062,65 +940,36 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 
-  /* Quick Actions Modal */
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'flex-end',
-  },
-  bottomSheetCard: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+  /* Attachment Preview Bar (Matching Web App) */
+  attachmentPreviewBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
     borderWidth: 1,
+    marginBottom: 8,
+    gap: 10,
   },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  sheetTitle: {
-    fontSize: 18,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
-  },
-  sheetCloseBtn: {
-    padding: 6,
-  },
-  optionsList: {
-    gap: 8,
-  },
-  actionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-  },
-  actionIconBox: {
+  attachmentThumbImage: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: 8,
+  },
+  attachmentThumbBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#8576D0',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
-  actionText: {
+  attachmentNameText: {
     flex: 1,
-    fontSize: 14.5,
+    fontSize: 13,
     fontFamily: Fonts.medium,
-    fontWeight: '500',
   },
-  actionDetailsWrap: {
-    flex: 1,
-  },
-  actionSubtext: {
-    color: '#9CA3AF',
-    fontSize: 11,
-    fontFamily: Fonts.regular,
-    marginTop: 1,
+  attachmentRemoveBtn: {
+    padding: 4,
   },
 });
