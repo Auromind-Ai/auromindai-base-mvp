@@ -22,14 +22,13 @@ import {
   AlertCircle,
   Mail,
   ArrowRight,
-  ShieldCheck,
   X,
-  Globe,
 } from 'lucide-react-native';
 import { OrbionLogo } from '../../components/common/OrbionLogo';
 import { GoogleIcon } from '../../components/common/GoogleIcon';
 import { sendOTP, googleLogin } from '../../api/auth';
 import { Fonts } from '../../theme/tokens';
+import { useAppTheme } from '../../context/theme-context';
 
 const WEB_SIGNUP_URL =
   process.env.EXPO_PUBLIC_WEB_URL
@@ -38,6 +37,7 @@ const WEB_SIGNUP_URL =
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { isDark, statusBarStyle } = useAppTheme();
   const inputRef = useRef<React.ElementRef<typeof TextInput>>(null);
 
   const [email, setEmail] = useState('');
@@ -106,19 +106,16 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.screenContainer}>
-      <StatusBar style="light" />
+    <View style={[styles.screenContainer, { backgroundColor: isDark ? '#0A1023' : '#F8F9FA' }]}>
+      <StatusBar style={statusBarStyle} />
 
       {/* 1. SEAMLESS FULL-SCREEN CONTINUOUS BACKGROUND GRADIENT */}
       <LinearGradient
-        colors={[
-          '#151C3E',
-          '#21255C',
-          '#322F74',
-          '#1E214E',
-          '#111633',
-          '#0A1023',
-        ]}
+        colors={
+          isDark
+            ? ['#151C3E', '#21255C', '#322F74', '#1E214E', '#111633', '#0A1023']
+            : ['#F3E8FF', '#EDE9FE', '#F5F3FF', '#EDE9FE', '#FAF5FF', '#F8F9FA']
+        }
         locations={[0, 0.18, 0.38, 0.58, 0.80, 1]}
         start={{ x: 0.15, y: 0 }}
         end={{ x: 0.85, y: 1 }}
@@ -139,10 +136,10 @@ export default function LoginScreen() {
               fx="50%"
               fy="14%"
             >
-              <Stop offset="0%" stopColor="#6F5BFF" stopOpacity={0.48} />
-              <Stop offset="45%" stopColor="#514BC0" stopOpacity={0.22} />
-              <Stop offset="75%" stopColor="#292D66" stopOpacity={0.08} />
-              <Stop offset="100%" stopColor="#0A1023" stopOpacity={0} />
+              <Stop offset="0%" stopColor={isDark ? "#6F5BFF" : "#7C3AED"} stopOpacity={isDark ? 0.48 : 0.16} />
+              <Stop offset="45%" stopColor={isDark ? "#514BC0" : "#8B5CF6"} stopOpacity={isDark ? 0.22 : 0.08} />
+              <Stop offset="75%" stopColor={isDark ? "#292D66" : "#DDD6FE"} stopOpacity={isDark ? 0.08 : 0.03} />
+              <Stop offset="100%" stopColor={isDark ? "#0A1023" : "#F8F9FA"} stopOpacity={0} />
             </RadialGradient>
           </Defs>
           <Rect x="0" y="0" width="100%" height="100%" fill="url(#seamlessAtmosphere)" />
@@ -163,15 +160,25 @@ export default function LoginScreen() {
           >
             {/* Header Branding (Omnichannel badge removed as requested) */}
             <View style={styles.brandingBox}>
-              <OrbionLogo size="sm" showText={true} textColor="#FFFFFF" />
+              <OrbionLogo size="sm" showText={true} />
             </View>
 
             {/* Inbox Card (#202941) */}
-            <View style={styles.inboxCard}>
+            <View
+              style={[
+                styles.inboxCard,
+                {
+                  backgroundColor: isDark ? '#202941' : '#FFFFFF',
+                  borderColor: isDark ? 'rgba(164, 170, 255, 0.09)' : '#E5E7EB',
+                  shadowColor: isDark ? '#000000' : '#7C3AED',
+                  shadowOpacity: isDark ? 0.45 : 0.08,
+                },
+              ]}
+            >
               {/* Title & Subtitle */}
               <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Welcome Back</Text>
-                <Text style={styles.cardSubtitle}>
+                <Text style={[styles.cardTitle, { color: isDark ? '#F8F8FF' : '#111827' }]}>Welcome Back</Text>
+                <Text style={[styles.cardSubtitle, { color: isDark ? '#8E99B7' : '#4B5563' }]}>
                   Sign in to manage your AI agents and omnichannel inbox
                 </Text>
               </View>
@@ -186,7 +193,14 @@ export default function LoginScreen() {
 
               {/* Google OAuth Button */}
               <TouchableOpacity
-                style={styles.googleButton}
+                style={[
+                  styles.googleButton,
+                  {
+                    backgroundColor: isDark ? '#161F33' : '#FFFFFF',
+                    borderColor: isDark ? 'rgba(164, 170, 255, 0.12)' : '#D1D5DB',
+                    shadowOpacity: isDark ? 0.2 : 0.05,
+                  },
+                ]}
                 activeOpacity={0.85}
                 onPress={handleGoogleLoginPress}
                 disabled={googleLoading}
@@ -198,38 +212,47 @@ export default function LoginScreen() {
                 ) : (
                   <>
                     <GoogleIcon size={19} />
-                    <Text style={styles.googleButtonText}>Continue with Google</Text>
+                    <Text style={[styles.googleButtonText, { color: isDark ? '#F8F8FF' : '#1F2937' }]}>Continue with Google</Text>
                   </>
                 )}
               </TouchableOpacity>
 
               {/* Divider */}
               <View style={styles.dividerRow}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>or continue with email</Text>
-                <View style={styles.dividerLine} />
+                <View style={[styles.dividerLine, { backgroundColor: isDark ? 'rgba(164, 170, 255, 0.08)' : '#E5E7EB' }]} />
+                <Text style={[styles.dividerText, { color: isDark ? '#6B7A9E' : '#9CA3AF' }]}>or continue with email</Text>
+                <View style={[styles.dividerLine, { backgroundColor: isDark ? 'rgba(164, 170, 255, 0.08)' : '#E5E7EB' }]} />
               </View>
 
               {/* Email Input Field (Enhanced Touch Response) */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>WORK EMAIL</Text>
+                <Text style={[styles.inputLabel, { color: isDark ? '#8E99B7' : '#6B7280' }]}>WORK EMAIL</Text>
                 <TouchableWithoutFeedback onPress={() => inputRef.current?.focus()}>
                   <View
                     style={[
                       styles.inputContainer,
-                      isFocused && styles.inputContainerFocused,
+                      {
+                        backgroundColor: isDark ? '#141C30' : '#F9FAFB',
+                        borderColor: isDark ? 'rgba(164, 170, 255, 0.12)' : '#D1D5DB',
+                      },
+                      isFocused && {
+                        borderColor: isDark ? '#7655F0' : '#7C3AED',
+                        backgroundColor: isDark ? '#162038' : '#FFFFFF',
+                        shadowColor: '#7655F0',
+                        shadowOpacity: isDark ? 0.35 : 0.12,
+                      },
                     ]}
                   >
                     <Mail
                       size={18}
-                      color={isFocused ? '#A69BFF' : '#7E8BA8'}
+                      color={isFocused ? (isDark ? '#A69BFF' : '#7C3AED') : (isDark ? '#7E8BA8' : '#9CA3AF')}
                       style={styles.inputLeftIcon}
                     />
                     <TextInput
                       ref={inputRef}
-                      style={styles.emailInput}
+                      style={[styles.emailInput, { color: isDark ? '#FFFFFF' : '#111827' }]}
                       placeholder="your@gmail.com"
-                      placeholderTextColor="#647294"
+                      placeholderTextColor={isDark ? "#647294" : "#9CA3AF"}
                       keyboardType="email-address"
                       autoCapitalize="none"
                       autoCorrect={false}
@@ -250,7 +273,7 @@ export default function LoginScreen() {
                         onPress={() => setEmail('')}
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                       >
-                        <X size={15} color="#8E99B7" />
+                        <X size={15} color={isDark ? "#8E99B7" : "#9CA3AF"} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -265,6 +288,7 @@ export default function LoginScreen() {
                 style={[
                   styles.submitButtonWrapper,
                   (!isValidEmail || loading) && styles.submitButtonDisabled,
+                  !isDark && isValidEmail && !loading && { borderColor: "rgba(124, 58, 237, 0.3)" },
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel="Log In Free"
@@ -272,8 +296,8 @@ export default function LoginScreen() {
                 <LinearGradient
                   colors={
                     !isValidEmail || loading
-                      ? ['#353A5A', '#272B45']
-                      : ['#A69BFF', '#7655F0', '#6241DD']
+                      ? (isDark ? ['#353A5A', '#272B45'] : ['#E5E7EB', '#D1D5DB'])
+                      : ['#8A3FFC', '#6E2FE4']
                   }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -283,8 +307,8 @@ export default function LoginScreen() {
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <View style={styles.submitContent}>
-                      <Text style={styles.submitButtonText}>Log In Free</Text>
-                      <ArrowRight size={17} color="#FFFFFF" style={{ marginLeft: 6 }} />
+                      <Text style={[styles.submitButtonText, !isDark && (!isValidEmail || loading) && { color: '#6B7280' }]}>Log In Free</Text>
+                      <ArrowRight size={17} color={!isDark && (!isValidEmail || loading) ? "#6B7280" : "#FFFFFF"} style={{ marginLeft: 6 }} />
                     </View>
                   )}
                 </LinearGradient>
@@ -292,7 +316,7 @@ export default function LoginScreen() {
 
               {/* Web Registration Action */}
               <View style={styles.webNoticeRow}>
-                <Text style={styles.webNoticeText}>Don't have an account? </Text>
+                <Text style={[styles.webNoticeText, { color: isDark ? '#8E99B7' : '#6B7280' }]}>{"Don't have an account? "}</Text>
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={handleOpenWebSignup}
@@ -300,9 +324,9 @@ export default function LoginScreen() {
                   accessibilityRole="link"
                   accessibilityLabel="Sign Up on the web"
                 >
-                  <Text style={styles.signUpVioletText}>Sign Up</Text>
+                  <Text style={[styles.signUpVioletText, { color: isDark ? '#A69BFF' : '#7C3AED' }]}>Sign Up</Text>
                 </TouchableOpacity>
-                <Text style={styles.webNoticeText}> on the web</Text>
+                <Text style={[styles.webNoticeText, { color: isDark ? '#8E99B7' : '#6B7280' }]}> on the web</Text>
               </View>
             </View>
           </ScrollView>

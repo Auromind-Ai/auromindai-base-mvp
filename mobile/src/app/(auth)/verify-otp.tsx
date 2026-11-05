@@ -22,18 +22,19 @@ import {
   ArrowRight,
   AlertCircle,
   CheckCircle2,
-  ShieldCheck,
   Mail,
 } from 'lucide-react-native';
 import { OrbionLogo } from '../../components/common/OrbionLogo';
 import { verifyOTP, sendOTP } from '../../api/auth';
 import { authStore } from '../../store/auth';
 import { Fonts } from '../../theme/tokens';
+import { useAppTheme } from '../../context/theme-context';
 
 const OTP_LENGTH = 6;
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
+  const { isDark, statusBarStyle } = useAppTheme();
   const params = useLocalSearchParams<{
     contact?: string;
     method?: string;
@@ -124,19 +125,16 @@ export default function VerifyOtpScreen() {
   };
 
   return (
-    <View style={styles.screenContainer}>
-      <StatusBar style="light" />
+    <View style={[styles.screenContainer, { backgroundColor: isDark ? '#0A1023' : '#F8F9FA' }]}>
+      <StatusBar style={statusBarStyle} />
 
       {/* 1. SEAMLESS FULL-SCREEN CONTINUOUS BACKGROUND GRADIENT */}
       <LinearGradient
-        colors={[
-          '#151C3E',
-          '#21255C',
-          '#322F74',
-          '#1E214E',
-          '#111633',
-          '#0A1023',
-        ]}
+        colors={
+          isDark
+            ? ['#151C3E', '#21255C', '#322F74', '#1E214E', '#111633', '#0A1023']
+            : ['#F3E8FF', '#EDE9FE', '#F5F3FF', '#EDE9FE', '#FAF5FF', '#F8F9FA']
+        }
         locations={[0, 0.18, 0.38, 0.58, 0.80, 1]}
         start={{ x: 0.15, y: 0 }}
         end={{ x: 0.85, y: 1 }}
@@ -157,10 +155,10 @@ export default function VerifyOtpScreen() {
               fx="50%"
               fy="14%"
             >
-              <Stop offset="0%" stopColor="#6F5BFF" stopOpacity={0.48} />
-              <Stop offset="45%" stopColor="#514BC0" stopOpacity={0.22} />
-              <Stop offset="75%" stopColor="#292D66" stopOpacity={0.08} />
-              <Stop offset="100%" stopColor="#0A1023" stopOpacity={0} />
+              <Stop offset="0%" stopColor={isDark ? "#6F5BFF" : "#7C3AED"} stopOpacity={isDark ? 0.48 : 0.16} />
+              <Stop offset="45%" stopColor={isDark ? "#514BC0" : "#8B5CF6"} stopOpacity={isDark ? 0.22 : 0.08} />
+              <Stop offset="75%" stopColor={isDark ? "#292D66" : "#DDD6FE"} stopOpacity={isDark ? 0.08 : 0.03} />
+              <Stop offset="100%" stopColor={isDark ? "#0A1023" : "#F8F9FA"} stopOpacity={0} />
             </RadialGradient>
           </Defs>
           <Rect x="0" y="0" width="100%" height="100%" fill="url(#seamlessAtmosphereOtp)" />
@@ -173,12 +171,19 @@ export default function VerifyOtpScreen() {
         <View style={styles.topBar}>
           <TouchableOpacity
             onPress={() => router.back()}
-            style={styles.backButton}
+            style={[
+              styles.backButton,
+              {
+                backgroundColor: isDark ? '#161F33' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(164, 170, 255, 0.12)' : '#E5E7EB',
+                shadowOpacity: isDark ? 0.25 : 0.06,
+              },
+            ]}
             activeOpacity={0.75}
             accessibilityRole="button"
             accessibilityLabel="Back to login"
           >
-            <ArrowLeft size={20} color="#F8F8FF" />
+            <ArrowLeft size={20} color={isDark ? "#F8F8FF" : "#111827"} />
           </TouchableOpacity>
         </View>
 
@@ -194,25 +199,43 @@ export default function VerifyOtpScreen() {
               bounces={false}
             >
               {/* Inbox Card (#202941) with Integrated Brand Hero */}
-              <View style={styles.inboxCard}>
+              <View
+                style={[
+                  styles.inboxCard,
+                  {
+                    backgroundColor: isDark ? '#202941' : '#FFFFFF',
+                    borderColor: isDark ? 'rgba(164, 170, 255, 0.09)' : '#E5E7EB',
+                    shadowColor: isDark ? '#000000' : '#7C3AED',
+                    shadowOpacity: isDark ? 0.45 : 0.08,
+                  },
+                ]}
+              >
                 {/* Title & Subtitle with Integrated Logo */}
                 <View style={styles.cardHeader}>
                   <View style={styles.cardLogoWrapper}>
-                    <OrbionLogo size="sm" showText={true} textColor="#FFFFFF" />
+                    <OrbionLogo size="sm" showText={true} />
                   </View>
-                  <Text style={styles.cardTitle}>Verify Your Email</Text>
-                  <Text style={styles.cardSubtitle}>
+                  <Text style={[styles.cardTitle, { color: isDark ? '#F8F8FF' : '#111827' }]}>Verify Your Email</Text>
+                  <Text style={[styles.cardSubtitle, { color: isDark ? '#8E99B7' : '#4B5563' }]}>
                     We have sent a 6-digit verification code to
                   </Text>
-                  <View style={styles.contactRow}>
-                    <Mail size={14} color="#A69BFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.contactText}>{displayContact}</Text>
+                  <View
+                    style={[
+                      styles.contactRow,
+                      {
+                        backgroundColor: isDark ? '#141C30' : '#F3F4F6',
+                        borderColor: isDark ? 'rgba(164, 170, 255, 0.10)' : '#E5E7EB',
+                      },
+                    ]}
+                  >
+                    <Mail size={14} color={isDark ? '#A69BFF' : '#7C3AED'} style={{ marginRight: 6 }} />
+                    <Text style={[styles.contactText, { color: isDark ? '#F8F8FF' : '#111827' }]}>{displayContact}</Text>
                     <TouchableOpacity
                       onPress={() => router.back()}
                       activeOpacity={0.7}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Text style={styles.editLink}>Edit</Text>
+                      <Text style={[styles.editLink, { color: isDark ? '#A69BFF' : '#7C3AED' }]}>Edit</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -267,11 +290,23 @@ export default function VerifyOtpScreen() {
                         key={index}
                         style={[
                           styles.otpBox,
-                          isFilled && styles.otpBoxFilled,
-                          isCellFocused && styles.otpBoxFocused,
+                          {
+                            backgroundColor: isDark ? '#141C30' : '#F9FAFB',
+                            borderColor: isDark ? 'rgba(164, 170, 255, 0.12)' : '#D1D5DB',
+                          },
+                          isFilled && {
+                            borderColor: isDark ? '#8A3FFC' : '#7C3AED',
+                            backgroundColor: isDark ? '#192038' : '#FAF5FF',
+                          },
+                          isCellFocused && {
+                            borderColor: isDark ? '#A69BFF' : '#7C3AED',
+                            borderWidth: 1.5,
+                            shadowColor: '#7C3AED',
+                            shadowOpacity: isDark ? 0.35 : 0.12,
+                          },
                         ]}
                       >
-                        <Text style={styles.otpDigit}>{digit}</Text>
+                        <Text style={[styles.otpDigit, { color: isDark ? '#FFFFFF' : '#111827' }]}>{digit}</Text>
                       </View>
                     );
                   })}
@@ -279,16 +314,16 @@ export default function VerifyOtpScreen() {
 
                 {/* Resend Code Row */}
                 <View style={styles.resendRow}>
-                  <Text style={styles.resendPrefix}>Didn't receive code? </Text>
+                  <Text style={[styles.resendPrefix, { color: isDark ? '#8E99B7' : '#6B7280' }]}>{"Didn't receive code? "}</Text>
                   {resendLoading ? (
-                    <ActivityIndicator size="small" color="#A69BFF" />
+                    <ActivityIndicator size="small" color={isDark ? "#A69BFF" : "#7C3AED"} />
                   ) : timer > 0 ? (
-                    <Text style={styles.timerText}>
+                    <Text style={[styles.timerText, { color: isDark ? '#8E99B7' : '#6B7280' }]}>
                       Resend in {formatTimer(timer)}
                     </Text>
                   ) : (
                     <TouchableOpacity onPress={handleResend} activeOpacity={0.7}>
-                      <Text style={styles.resendActiveText}>Resend OTP</Text>
+                      <Text style={[styles.resendActiveText, { color: isDark ? '#A69BFF' : '#7C3AED' }]}>Resend OTP</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -301,6 +336,7 @@ export default function VerifyOtpScreen() {
                   style={[
                     styles.verifyButtonWrapper,
                     (otp.length < OTP_LENGTH || loading) && styles.verifyButtonDisabled,
+                    !isDark && otp.length >= OTP_LENGTH && !loading && { borderColor: "rgba(124, 58, 237, 0.3)" },
                   ]}
                   accessibilityRole="button"
                   accessibilityLabel="Verify and Continue"
@@ -308,8 +344,8 @@ export default function VerifyOtpScreen() {
                   <LinearGradient
                     colors={
                       otp.length < OTP_LENGTH || loading
-                        ? ['#353A5A', '#272B45']
-                        : ['#A69BFF', '#7655F0', '#6241DD']
+                        ? (isDark ? ['#353A5A', '#272B45'] : ['#E5E7EB', '#D1D5DB'])
+                        : ['#8A3FFC', '#6E2FE4']
                     }
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
@@ -319,8 +355,8 @@ export default function VerifyOtpScreen() {
                       <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
                       <View style={styles.verifyContent}>
-                        <Text style={styles.verifyButtonText}>Verify & Continue</Text>
-                        <ArrowRight size={17} color="#FFFFFF" style={{ marginLeft: 6 }} />
+                        <Text style={[styles.verifyButtonText, !isDark && (otp.length < OTP_LENGTH || loading) && { color: '#6B7280' }]}>Verify & Continue</Text>
+                        <ArrowRight size={17} color={!isDark && (otp.length < OTP_LENGTH || loading) ? "#6B7280" : "#FFFFFF"} style={{ marginLeft: 6 }} />
                       </View>
                     )}
                   </LinearGradient>

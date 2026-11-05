@@ -27,12 +27,13 @@ import Svg, {
 } from 'react-native-svg';
 import {
   Search,
-  Bell,
+  Plus,
   Filter,
   ChevronDown,
   X,
   Check,
 } from 'lucide-react-native';
+import { AddLeadModal } from '../../components/leads/AddLeadModal';
 import { Fonts } from '@/theme/tokens';
 import { useAppTheme } from '@/context/theme-context';
 
@@ -207,6 +208,8 @@ export default function OmniInboxScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  const [leadSuccessToast, setLeadSuccessToast] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
   // Dynamic Channel counts
@@ -337,16 +340,18 @@ export default function OmniInboxScreen() {
                 <Search size={20} color="#FFFFFF" strokeWidth={2.2} />
               </TouchableOpacity>
 
-              {/* Notification Glass Button */}
+              {/* Add New Lead Glass Button */}
               <TouchableOpacity
                 style={[
                   styles.glassActionButton,
                   isDark ? styles.glassActionDark : styles.glassActionLight,
                 ]}
                 activeOpacity={0.75}
-                onPress={() => setShowFilterModal(true)}
+                onPress={() => setShowAddLeadModal(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Add New Lead"
               >
-                <Bell size={20} color="#FFFFFF" strokeWidth={2.2} />
+                <Plus size={20} color="#FFFFFF" strokeWidth={2.4} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1179,6 +1184,46 @@ export default function OmniInboxScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* ADD NEW LEAD MODAL */}
+      <AddLeadModal
+        isOpen={showAddLeadModal}
+        onClose={() => setShowAddLeadModal(false)}
+        onSuccess={(newLead) => {
+          setLeadSuccessToast(`Lead added: ${newLead?.name || 'Customer'}`);
+          setTimeout(() => setLeadSuccessToast(null), 4000);
+        }}
+      />
+
+      {/* SUCCESS TOAST BANNER */}
+      {leadSuccessToast && (
+        <View
+          style={[
+            styles.toastContainer,
+            {
+              backgroundColor: isDark ? '#1C1930' : '#FFFFFF',
+              borderColor: isDark ? 'rgba(139, 92, 246, 0.45)' : '#DDD6FE',
+              shadowColor: '#8A3FFC',
+            },
+          ]}
+        >
+          <View style={styles.toastSuccessDot} />
+          <Text
+            style={[
+              styles.toastText,
+              { color: isDark ? '#F5F3FF' : '#111827' },
+            ]}
+          >
+            {leadSuccessToast}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setLeadSuccessToast(null)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <X size={14} color={isDark ? '#9CA3AF' : '#6B7280'} />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -1783,6 +1828,36 @@ const styles = StyleSheet.create({
   modalApplyButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+  },
+  toastContainer: {
+    position: 'absolute',
+    top: 56,
+    left: 18,
+    right: 18,
+    zIndex: 9999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+    gap: 10,
+  },
+  toastSuccessDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  toastText: {
+    flex: 1,
+    fontSize: 13.5,
     fontFamily: Fonts.medium,
     fontWeight: '500',
   },

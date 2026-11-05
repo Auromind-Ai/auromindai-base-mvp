@@ -24,32 +24,29 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const rnColorScheme = useRNColorScheme();
-  const [systemScheme, setSystemScheme] = useState<'light' | 'dark'>(
-    rnColorScheme === 'light' ? 'light' : 'dark'
-  );
-  const [themeMode, setThemeModeState] = useState<AppearanceMode>('Dark');
+  const [nativeScheme, setNativeScheme] = useState<'light' | 'dark'>(() => {
+    const current = Appearance.getColorScheme();
+    if (current === 'light' || current === 'dark') return current;
+    return rnColorScheme === 'dark' ? 'dark' : 'light';
+  });
+  const [themeMode, setThemeModeState] = useState<AppearanceMode>('System');
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Sync with native Appearance changes
+  // Sync with native Appearance listener
   useEffect(() => {
-    const current = Appearance.getColorScheme();
-    if (current) {
-      setSystemScheme(current === 'light' ? 'light' : 'dark');
-    }
-
     const subscription = Appearance.addChangeListener(({ colorScheme }) => {
-      setSystemScheme(colorScheme === 'light' ? 'light' : 'dark');
+      if (colorScheme === 'light' || colorScheme === 'dark') {
+        setNativeScheme(colorScheme);
+      }
     });
 
     return () => subscription.remove();
   }, []);
 
-  // Also react to RN useColorScheme hook changes
-  useEffect(() => {
-    if (rnColorScheme) {
-      setSystemScheme(rnColorScheme === 'light' ? 'light' : 'dark');
-    }
-  }, [rnColorScheme]);
+  const systemScheme =
+    rnColorScheme === 'light' || rnColorScheme === 'dark'
+      ? rnColorScheme
+      : nativeScheme;
 
   // Load saved theme mode from storage
   useEffect(() => {
@@ -146,15 +143,17 @@ export function useAppTheme(): ThemeContextValue {
   const context = useContext(ThemeContext);
   if (!context) {
     // Graceful fallback for components rendered outside provider
-    const colors = ColorTokens.dark;
+    const nativeScheme = Appearance.getColorScheme();
+    const fallbackResolved: ResolvedTheme = nativeScheme === 'light' ? 'light' : 'dark';
+    const colors = ColorTokens[fallbackResolved];
     return {
-      themeMode: 'Dark',
+      themeMode: 'System',
       setThemeMode: async () => {},
-      resolvedTheme: 'dark',
-      isDark: true,
+      resolvedTheme: fallbackResolved,
+      isDark: fallbackResolved === 'dark',
       isLoaded: true,
       colors,
-      statusBarStyle: 'light',
+      statusBarStyle: fallbackResolved === 'dark' ? 'light' : 'dark',
     };
   }
   return context;
