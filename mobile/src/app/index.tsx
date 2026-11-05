@@ -21,6 +21,7 @@ import Svg, {
 } from 'react-native-svg';
 import { OrbionLogo } from '../components/common/OrbionLogo';
 import { Fonts } from '../theme/tokens';
+import { scaleFont, scaleContainer, scaleHeight } from '../theme/responsive';
 import { useAppTheme } from '../context/theme-context';
 import { useAuth } from '../store/auth';
 
@@ -338,7 +339,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
+    paddingHorizontal: scaleContainer(24),
   },
   contentContainer: {
     flex: 1,
@@ -347,24 +348,24 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   logoWrapper: {
-    marginBottom: 48,
+    marginBottom: scaleContainer(48),
   },
   headline: {
-    fontSize: 30,
+    fontSize: scaleFont(30),
     fontFamily: Fonts.bold,
     fontWeight: '700',
     textAlign: 'center',
-    lineHeight: 38,
+    lineHeight: scaleFont(38),
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: scaleFont(16),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     textAlign: 'center',
-    lineHeight: 24,
-    marginTop: 18,
-    maxWidth: 320,
+    lineHeight: scaleFont(24),
+    marginTop: scaleContainer(18),
+    maxWidth: scaleContainer(320),
   },
   bottomContainer: {
     paddingBottom: Platform.OS === 'ios' ? 20 : 28,
@@ -380,16 +381,16 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   ctaGradient: {
-    height: 56,
+    height: scaleHeight(56),
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: scaleContainer(24),
   },
   ctaButtonText: {
     color: '#FFFFFF',
-    fontSize: 17,
+    fontSize: scaleFont(17),
     fontFamily: Fonts.semiBold,
     fontWeight: '600',
     letterSpacing: 0.2,

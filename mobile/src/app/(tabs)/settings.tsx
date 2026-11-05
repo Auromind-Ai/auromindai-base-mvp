@@ -11,7 +11,7 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -38,12 +38,14 @@ import {
 import { authStore, useAuth } from '@/store/auth';
 import { cancelAccountDeletion } from '@/api/auth';
 import { Fonts } from '@/theme/tokens';
+import { scaleFont, scaleContainer, scaleHeight } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
 import { usePushNotifications } from '@/hooks';
 import { AppearanceMode } from '@/types/theme';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const authState = useAuth();
   const { themeMode, setThemeMode, isDark } = useAppTheme();
   const {
@@ -103,15 +105,23 @@ export default function SettingsScreen() {
     btnSecondaryText: isDark ? '#FFFFFF' : '#1A2138',
     roleBg: isDark ? 'rgba(118, 85, 240, 0.22)' : 'rgba(128, 96, 232, 0.15)',
     roleText: isDark ? '#C4B5FD' : '#6F51D1',
+    modalBg: isDark ? '#1A223D' : '#FFFFFF',
+    modalBorder: isDark ? 'rgba(164, 170, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
+    modalOverlay: 'rgba(0, 0, 0, 0.65)',
+    modalCloseCircleBg: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F2F4F7',
+    modalCancelBtnBg: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F2F4F7',
+    modalIconBg: isDark ? 'rgba(240, 68, 56, 0.15)' : '#FEE4E2',
   };
 
   const performSignOut = async () => {
     try {
       setIsSigningOut(true);
       await authStore.signOut();
+      setConfirmModal(null);
       router.replace('/(auth)/login');
     } catch {
       await authStore.clearAuth();
+      setConfirmModal(null);
       router.replace('/(auth)/login');
     } finally {
       setIsSigningOut(false);
@@ -124,7 +134,7 @@ export default function SettingsScreen() {
       type: 'sign_out',
       title: 'Sign out',
       message:
-        'Are you sure you want to sign out? You will need to log in again to access your workspace conversations.',
+        'You will need to log in again to access your workspace conversations.',
       confirmText: 'Sign out',
       isDestructive: false,
     });
@@ -151,8 +161,7 @@ export default function SettingsScreen() {
   };
 
   const handleConfirmAction = async () => {
-    if (!confirmModal) return;
-    setConfirmModal(null);
+    if (!confirmModal || isSigningOut) return;
     performSignOut();
   };
 
@@ -694,103 +703,111 @@ export default function SettingsScreen() {
           </Text>
         </ScrollView>
       </View>
-      {/* Custom Confirmation Modal (No native Alert) */}
+      {/* Sign Out Confirmation Modal (Matching Delete Account bottom-sheet card UI) */}
       <Modal
         visible={!!confirmModal}
         transparent={true}
-        animationType="fade"
-        onRequestClose={() => setConfirmModal(null)}
+        animationType="slide"
+        statusBarTranslucent={true}
+        onRequestClose={() => {
+          if (!isSigningOut) setConfirmModal(null);
+        }}
       >
         <View style={styles.modalOverlay}>
           <Pressable
             style={StyleSheet.absoluteFill}
-            onPress={() => setConfirmModal(null)}
+            onPress={() => {
+              if (!isSigningOut) setConfirmModal(null);
+            }}
           />
           <View
             style={[
-              styles.modalCard,
+              styles.modalSheet,
               {
-                backgroundColor: theme.cardBg,
-                borderColor: theme.cardBorder,
-                shadowColor: theme.cardShadow,
+                backgroundColor: theme.modalBg,
+                borderColor: theme.modalBorder,
+                paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 32),
               },
             ]}
           >
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderLeft}>
-                <View
-                  style={[
-                    styles.modalIconBox,
-                    {
-                      backgroundColor: isDark
-                        ? 'rgba(255, 23, 68, 0.14)'
-                        : 'rgba(255, 23, 68, 0.1)',
-                    },
-                  ]}
-                >
-                  <LogOut size={22} color="#FF1744" />
-                </View>
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                  {confirmModal?.title}
-                </Text>
-              </View>
+            {/* Modal Header Row: Title & Close Button */}
+            <View style={styles.modalHeaderRow}>
+              <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>
+                {confirmModal?.title || 'Sign out'}
+              </Text>
 
               <TouchableOpacity
                 style={[
-                  styles.modalCloseBtn,
-                  {
-                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.05)',
-                    borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
-                  },
+                  styles.modalCloseCircle,
+                  { backgroundColor: theme.modalCloseCircleBg },
                 ]}
                 activeOpacity={0.7}
-                onPress={() => setConfirmModal(null)}
+                onPress={() => {
+                  if (!isSigningOut) setConfirmModal(null);
+                }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <X size={15} color={theme.textMuted} />
+                <X size={15} color={isDark ? '#FFFFFF' : '#1D2939'} />
               </TouchableOpacity>
             </View>
 
-            {/* Modal Body */}
-            <View style={styles.modalBody}>
-              <Text style={[styles.modalDesc, { color: theme.textSecondary }]}>
-                {confirmModal?.message}
-              </Text>
+            {/* Illustration Badge: Soft Coral Circle with Red LogOut Icon */}
+            <View style={styles.illustrationWrapper}>
+              <View
+                style={[
+                  styles.iconCircleBadge,
+                  { backgroundColor: theme.modalIconBg },
+                ]}
+              >
+                <LogOut size={36} color="#F04438" strokeWidth={2.2} />
+              </View>
             </View>
 
-            {/* Modal Actions */}
-            <View
-              style={[
-                styles.modalActions,
-                { borderTopColor: isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.06)' },
-              ]}
-            >
+            {/* Confirmation Headline */}
+            <Text style={[styles.confirmationTitle, { color: theme.textPrimary }]}>
+              Are you sure you want to sign out?
+            </Text>
+
+            {/* Confirmation Subtitle */}
+            <Text style={[styles.confirmationSubtitle, { color: theme.textSecondary }]}>
+              {confirmModal?.message ||
+                'You will need to log in again to access your workspace conversations.'}
+            </Text>
+
+            {/* Actions Row: Cancel & Sign Out Buttons */}
+            <View style={styles.modalActionsRow}>
               <TouchableOpacity
                 style={[
                   styles.modalCancelBtn,
-                  {
-                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)',
-                    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)',
-                  },
+                  { backgroundColor: theme.modalCancelBtnBg },
                 ]}
                 activeOpacity={0.7}
-                onPress={() => setConfirmModal(null)}
+                onPress={() => {
+                  if (!isSigningOut) setConfirmModal(null);
+                }}
+                disabled={isSigningOut}
               >
-                <Text style={[styles.modalCancelText, { color: theme.textPrimary }]}>Cancel</Text>
+                <Text style={[styles.modalCancelText, { color: isDark ? '#FFFFFF' : '#344054' }]}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
                   styles.modalConfirmBtn,
-                  {
-                    backgroundColor: '#FF1744',
-                  },
+                  { backgroundColor: '#F04438' },
                 ]}
                 activeOpacity={0.8}
                 onPress={handleConfirmAction}
+                disabled={isSigningOut}
               >
-                <Text style={styles.modalConfirmText}>{confirmModal?.confirmText}</Text>
+                {isSigningOut ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>
+                    {confirmModal?.confirmText || 'Sign out'}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -807,7 +824,7 @@ const styles = StyleSheet.create({
   headerWrapper: {
     paddingHorizontal: 16,
     paddingTop: 6,
-    paddingBottom: 22,
+    paddingBottom: scaleContainer(22),
     position: 'relative',
     overflow: 'hidden',
   },
@@ -819,15 +836,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   headerTitleText: {
-    fontSize: 28,
+    fontSize: scaleFont(28),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     letterSpacing: -0.4,
   },
   mainContentSheet: {
     flex: 1,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderTopLeftRadius: scaleContainer(32),
+    borderTopRightRadius: scaleContainer(32),
     marginTop: -10,
     overflow: 'hidden',
   },
@@ -837,7 +854,7 @@ const styles = StyleSheet.create({
     paddingBottom: 110,
   },
   sectionHeader: {
-    fontSize: 12,
+    fontSize: scaleFont(12),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     letterSpacing: 0.8,
@@ -848,7 +865,7 @@ const styles = StyleSheet.create({
 
   // Consistent App Card used for ALL sections
   card: {
-    borderRadius: 20,
+    borderRadius: scaleContainer(20),
     padding: 16,
     borderWidth: 1,
     shadowOffset: { width: 0, height: 4 },
@@ -865,8 +882,8 @@ const styles = StyleSheet.create({
   },
   avatarCircle: {
     width: 48,
-    height: 48,
-    borderRadius: 24,
+    height: scaleHeight(48),
+    borderRadius: scaleContainer(24),
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -892,12 +909,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   userNameText: {
-    fontSize: 16,
+    fontSize: scaleFont(16),
     fontFamily: Fonts.medium,
     fontWeight: '500',
   },
   userEmailText: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     marginTop: 2,
@@ -911,7 +928,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: scaleContainer(20),
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -921,12 +938,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   workspaceNameTitle: {
-    fontSize: 15.5,
+    fontSize: scaleFont(15.5),
     fontFamily: Fonts.medium,
     fontWeight: '500',
   },
   workspaceSubtext: {
-    fontSize: 12.5,
+    fontSize: scaleFont(12.5),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     marginTop: 2,
@@ -937,7 +954,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   roleBadgeText: {
-    fontSize: 11.5,
+    fontSize: scaleFont(11.5),
     fontFamily: Fonts.medium,
     fontWeight: '500',
   },
@@ -978,7 +995,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   segmentedTabText: {
-    fontSize: 13.5,
+    fontSize: scaleFont(13.5),
     fontFamily: Fonts.regular,
     fontWeight: '400',
   },
@@ -999,12 +1016,12 @@ const styles = StyleSheet.create({
     paddingRight: 16,
   },
   rowTitle: {
-    fontSize: 15,
+    fontSize: scaleFont(15),
     fontFamily: Fonts.medium,
     fontWeight: '500',
   },
   rowSubtitle: {
-    fontSize: 12.5,
+    fontSize: scaleFont(12.5),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     marginTop: 3,
@@ -1039,7 +1056,7 @@ const styles = StyleSheet.create({
     borderRadius: 9,
   },
   muteBtnText: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.regular,
     fontWeight: '400',
   },
@@ -1057,7 +1074,7 @@ const styles = StyleSheet.create({
   },
   menuRowText: {
     flex: 1,
-    fontSize: 14.5,
+    fontSize: scaleFont(14.5),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     marginLeft: 14,
@@ -1065,7 +1082,7 @@ const styles = StyleSheet.create({
 
   // Action Buttons
   signOutBtn: {
-    height: 48,
+    height: scaleHeight(48),
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1073,12 +1090,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   signOutBtnText: {
-    fontSize: 15,
+    fontSize: scaleFont(15),
     fontFamily: Fonts.medium,
     fontWeight: '500',
   },
   deleteAccountBtn: {
-    height: 48,
+    height: scaleHeight(48),
     borderRadius: 999,
     backgroundColor: '#FF6452',
     borderWidth: 1,
@@ -1094,13 +1111,13 @@ const styles = StyleSheet.create({
   },
   deleteAccountBtnText: {
     color: '#FFFFFF',
-    fontSize: 14.5,
+    fontSize: scaleFont(14.5),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     letterSpacing: -0.1,
   },
   versionFooterText: {
-    fontSize: 12,
+    fontSize: scaleFont(12),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     textAlign: 'center',
@@ -1108,113 +1125,103 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  // Custom Confirmation Modal Styles
+  // Confirmation Bottom Sheet Modal Styles (Matching Delete Account confirmation)
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.72)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'flex-end',
+    margin: 0,
+    padding: 0,
   },
-  modalCard: {
+  modalSheet: {
     width: '100%',
-    maxWidth: 390,
-    borderRadius: 22,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     borderWidth: 1,
-    padding: 20,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    elevation: 12,
-    gap: 14,
+    borderBottomWidth: 0,
+    paddingHorizontal: 22,
+    paddingTop: 18,
+    margin: 0,
   },
-  modalHeader: {
+  modalHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  modalHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  modalIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalTitle: {
-    fontSize: 17,
+  modalHeaderTitle: {
+    fontSize: scaleFont(16),
     fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontWeight: '600',
     letterSpacing: -0.2,
   },
-  modalCloseBtn: {
+  modalCloseCircle: {
     width: 30,
     height: 30,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modalBody: {
-    gap: 12,
+  illustrationWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
   },
-  modalDesc: {
-    fontSize: 13.5,
+  iconCircleBadge: {
+    width: scaleHeight(82),
+    height: scaleHeight(82),
+    borderRadius: 41,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmationTitle: {
+    fontSize: scaleFont(17.5),
+    fontFamily: Fonts.semiBold,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 6,
+    letterSpacing: -0.2,
+    lineHeight: 24,
+  },
+  confirmationSubtitle: {
+    fontSize: scaleFont(13),
     fontFamily: Fonts.regular,
     fontWeight: '400',
-    lineHeight: 20,
+    textAlign: 'center',
+    lineHeight: 18.5,
+    paddingHorizontal: 12,
+    marginBottom: 22,
   },
-  warningBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  warningText: {
-    fontSize: 12,
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
-    flex: 1,
-  },
-  modalActions: {
+  modalActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 4,
-    paddingTop: 14,
-    borderTopWidth: 1,
+    gap: 12,
   },
   modalCancelBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    height: scaleHeight(48),
+    borderRadius: scaleContainer(24),
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalCancelText: {
-    fontSize: 13.5,
+    fontSize: scaleFont(14),
     fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   modalConfirmBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
+    height: scaleHeight(48),
+    borderRadius: scaleContainer(24),
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalConfirmText: {
-    fontSize: 13.5,
+    fontSize: scaleFont(14),
     fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#FFFFFF',
   },
   deletionBanner: {
@@ -1229,13 +1236,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   deletionBannerTitle: {
-    fontSize: 14,
+    fontSize: scaleFont(14),
     fontFamily: Fonts.semiBold,
     fontWeight: '600',
     marginBottom: 2,
   },
   deletionBannerDesc: {
-    fontSize: 12.5,
+    fontSize: scaleFont(12.5),
     fontFamily: Fonts.regular,
     lineHeight: 18,
   },
@@ -1249,7 +1256,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   cancelDeletionBtnText: {
-    fontSize: 12.5,
+    fontSize: scaleFont(12.5),
     fontFamily: Fonts.semiBold,
     fontWeight: '600',
     color: '#FFFFFF',
@@ -1263,7 +1270,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   restoreSuccessText: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     flex: 1,

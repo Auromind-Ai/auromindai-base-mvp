@@ -28,6 +28,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth, authStore } from '@/store/auth';
 import { Fonts } from '@/theme/tokens';
+import { scaleFont, scaleContainer, scaleHeight } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
 import {
   fetchUserSessions,
@@ -800,10 +801,10 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
+    borderRadius: scaleContainer(20),
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: scaleFont(18),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     textAlign: 'center',
@@ -812,12 +813,12 @@ const styles = StyleSheet.create({
     width: 40,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 40,
+    paddingHorizontal: scaleContainer(20),
+    paddingTop: scaleContainer(12),
+    paddingBottom: scaleContainer(40),
   },
   sectionSubtitle: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     lineHeight: 18,
@@ -832,12 +833,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: scaleFont(14),
     fontFamily: Fonts.regular,
     fontWeight: '400',
   },
   sectionHeader: {
-    fontSize: 11.5,
+    fontSize: scaleFont(11.5),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     letterSpacing: 0.8,
@@ -853,7 +854,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   signOutAllText: {
-    fontSize: 12.5,
+    fontSize: scaleFont(12.5),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     paddingHorizontal: 4,
@@ -919,7 +920,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   deviceBrowserText: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     marginBottom: 8,
@@ -935,13 +936,13 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   infoPillText: {
-    fontSize: 11.5,
+    fontSize: scaleFont(11.5),
     fontFamily: Fonts.regular,
     fontWeight: '400',
   },
   cardActionRow: {
     marginTop: 14,
-    paddingTop: 12,
+    paddingTop: scaleContainer(12),
     borderTopWidth: 1,
     borderTopColor: 'rgba(162, 173, 216, 0.08)',
     flexDirection: 'row',
@@ -962,7 +963,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   revokeBtnText: {
-    fontSize: 12.5,
+    fontSize: scaleFont(12.5),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     letterSpacing: -0.1,
@@ -986,7 +987,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   emptySubtitle: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     textAlign: 'center',
@@ -1004,7 +1005,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   tipText: {
-    fontSize: 12.5,
+    fontSize: scaleFont(12.5),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     lineHeight: 18,
@@ -1017,7 +1018,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.72)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: scaleContainer(20),
   },
   modalCard: {
     width: '100%',
@@ -1067,7 +1068,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   modalDesc: {
-    fontSize: 13.5,
+    fontSize: scaleFont(13.5),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     lineHeight: 20,
@@ -1089,7 +1090,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalCancelText: {
-    fontSize: 13.5,
+    fontSize: scaleFont(13.5),
     fontFamily: Fonts.medium,
     fontWeight: '500',
   },
@@ -1101,7 +1102,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalConfirmText: {
-    fontSize: 13.5,
+    fontSize: scaleFont(13.5),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     color: '#FFFFFF',

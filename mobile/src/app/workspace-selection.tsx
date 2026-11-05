@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { Check, Plus } from 'lucide-react-native';
 import { OrbionLogo } from '../components/common/OrbionLogo';
 import { BrandColors, Fonts } from '../theme/tokens';
+import { scaleFont, scaleContainer, scaleHeight } from '../theme/responsive';
 import { authStore } from '../store/auth';
 import { useAppTheme } from '../context/theme-context';
 
@@ -162,9 +163,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#05010B',
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 32,
+    paddingHorizontal: scaleContainer(24),
+    paddingTop: scaleContainer(40),
+    paddingBottom: scaleContainer(32),
     flexGrow: 1,
   },
   logoWrapper: {
@@ -173,7 +174,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: scaleFont(24),
     fontFamily: Fonts?.bold || 'System',
     fontWeight: '700',
     textAlign: 'center',
@@ -181,7 +182,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: '#9CA3AF',
-    fontSize: 14,
+    fontSize: scaleFont(14),
     fontFamily: Fonts?.regular || 'System',
     textAlign: 'center',
     marginBottom: 32,
@@ -193,7 +194,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#0F0C1B',
-    borderRadius: 16,
+    borderRadius: scaleContainer(16),
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -203,16 +204,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#161129',
   },
   avatarBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: scaleHeight(44),
+    height: scaleHeight(44),
+    borderRadius: scaleContainer(12),
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
   },
   avatarInitial: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: scaleFont(18),
     fontFamily: Fonts.bold,
     fontWeight: '700',
   },
@@ -221,14 +222,14 @@ const styles = StyleSheet.create({
   },
   workspaceName: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: scaleFont(16),
     fontFamily: Fonts.semiBold,
     fontWeight: '600',
     marginBottom: 2,
   },
   workspaceSubtitle: {
     color: '#9CA3AF',
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.regular,
   },
   radioCircle: {
@@ -248,7 +249,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'transparent',
-    borderRadius: 16,
+    borderRadius: scaleContainer(16),
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -266,7 +267,7 @@ const styles = StyleSheet.create({
   },
   addWorkspaceText: {
     color: '#A1A1AA',
-    fontSize: 14,
+    fontSize: scaleFont(14),
     fontFamily: Fonts.medium,
     fontWeight: '500',
   },
@@ -277,7 +278,7 @@ const styles = StyleSheet.create({
   continueButton: {
     backgroundColor: BrandColors.primaryLight,
     borderRadius: 14,
-    height: 52,
+    height: scaleHeight(52),
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: BrandColors.primaryLight,
@@ -288,7 +289,7 @@ const styles = StyleSheet.create({
   },
   continueText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: scaleFont(16),
     fontFamily: Fonts.semiBold,
     fontWeight: '600',
   },

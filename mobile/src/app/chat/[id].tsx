@@ -39,6 +39,7 @@ import {
   Sparkles,
 } from 'lucide-react-native';
 import { Fonts } from '@/theme/tokens';
+import { scaleFont, scaleContainer, scaleHeight } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
 
 interface Message {
@@ -622,7 +623,7 @@ const styles = StyleSheet.create({
   headerWrapper: {
     position: 'relative',
     overflow: 'hidden',
-    paddingBottom: 22,
+    paddingBottom: scaleContainer(22),
   },
   headerRow: {
     flexDirection: 'row',
@@ -653,9 +654,9 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: scaleHeight(44),
+    height: scaleHeight(44),
+    borderRadius: scaleHeight(22),
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
@@ -682,14 +683,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   customerName: {
-    fontSize: 17,
+    fontSize: scaleFont(17),
     fontFamily: Fonts.semiBold,
     fontWeight: '600',
     color: '#FFFFFF',
     letterSpacing: -0.2,
   },
   statusText: {
-    fontSize: 12.5,
+    fontSize: scaleFont(12.5),
     fontFamily: Fonts.regular,
     color: '#E0DDFE',
     marginTop: 2,
@@ -701,8 +702,8 @@ const styles = StyleSheet.create({
   },
   mainContentSheet: {
     flex: 1,
-    borderTopLeftRadius: 36,
-    borderTopRightRadius: 36,
+    borderTopLeftRadius: scaleContainer(36),
+    borderTopRightRadius: scaleContainer(36),
     marginTop: -16,
     overflow: 'hidden',
     paddingTop: 8,
@@ -717,7 +718,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   toastText: {
-    fontSize: 12,
+    fontSize: scaleFont(12),
     fontFamily: Fonts.medium,
     fontWeight: '500',
   },
@@ -749,17 +750,17 @@ const styles = StyleSheet.create({
   },
   storyTitle: {
     color: '#E1306C',
-    fontSize: 12,
+    fontSize: scaleFont(12),
     fontFamily: Fonts.semiBold,
     fontWeight: '600',
   },
   storySubtitle: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.regular,
     marginTop: 2,
   },
   storyTime: {
-    fontSize: 11,
+    fontSize: scaleFont(11),
     fontFamily: Fonts.regular,
   },
   messageRow: {
@@ -801,9 +802,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   messageText: {
-    fontSize: 15,
+    fontSize: scaleFont(15),
     fontFamily: Fonts.regular,
-    lineHeight: 21,
+    lineHeight: scaleFont(21),
   },
   catalogueCard: {
     backgroundColor: '#FFFFFF',
@@ -841,12 +842,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   catalogueTitle: {
-    fontSize: 13.5,
+    fontSize: scaleFont(13.5),
     fontFamily: Fonts.semiBold,
     fontWeight: '600',
   },
   catalogueSubtitle: {
-    fontSize: 11,
+    fontSize: scaleFont(11),
     fontFamily: Fonts.regular,
     marginTop: 2,
   },
@@ -863,7 +864,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
   timeText: {
-    fontSize: 11,
+    fontSize: scaleFont(11),
     fontFamily: Fonts.regular,
     color: '#7883A0',
   },
@@ -885,7 +886,7 @@ const styles = StyleSheet.create({
     paddingLeft: 8,
     paddingRight: 6,
     paddingVertical: 5,
-    minHeight: 58,
+    minHeight: scaleHeight(58),
   },
   capsuleShadowLight: {
     shadowColor: '#6C42EC',
@@ -902,9 +903,9 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   attachButtonLight: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: scaleHeight(44),
+    height: scaleHeight(44),
+    borderRadius: scaleHeight(22),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -919,15 +920,15 @@ const styles = StyleSheet.create({
   seamlessTextInput: {
     flex: 1,
     fontFamily: Fonts.regular,
-    fontSize: 15,
+    fontSize: scaleFont(15),
     paddingHorizontal: 12,
     paddingVertical: Platform.OS === 'ios' ? 10 : 8,
     maxHeight: 110,
   },
   actionCircleButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: scaleHeight(46),
+    height: scaleHeight(46),
+    borderRadius: scaleHeight(23),
     backgroundColor: '#8576D0',
     alignItems: 'center',
     justifyContent: 'center',
@@ -966,7 +967,7 @@ const styles = StyleSheet.create({
   },
   attachmentNameText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.medium,
   },
   attachmentRemoveBtn: {

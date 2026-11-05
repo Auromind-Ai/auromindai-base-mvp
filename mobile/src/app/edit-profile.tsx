@@ -35,6 +35,7 @@ import Svg, { Rect, Path, Circle, Line, G } from 'react-native-svg';
 import { authStore, useAuth } from '@/store/auth';
 import { apiClient } from '@/api/client';
 import { Fonts } from '@/theme/tokens';
+import { scaleFont, scaleContainer, scaleHeight } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
 
 export default function EditProfileScreen() {
@@ -940,7 +941,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: scaleFont(18),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     textAlign: 'center',
@@ -949,9 +950,9 @@ const styles = StyleSheet.create({
     width: 40,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 40,
+    paddingHorizontal: scaleContainer(20),
+    paddingTop: scaleContainer(16),
+    paddingBottom: scaleContainer(40),
   },
   avatarSection: {
     alignItems: 'center',
@@ -961,14 +962,14 @@ const styles = StyleSheet.create({
   },
   avatarWrapper: {
     position: 'relative',
-    width: 104,
-    height: 104,
-    borderRadius: 52,
+    width: scaleHeight(104),
+    height: scaleHeight(104),
+    borderRadius: scaleHeight(52),
   },
   avatarCircle: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
+    width: scaleHeight(104),
+    height: scaleHeight(104),
+    borderRadius: scaleHeight(52),
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -978,7 +979,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   avatarInitial: {
-    fontSize: 42,
+    fontSize: scaleFont(42),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     color: '#FFFFFF',
@@ -989,7 +990,7 @@ const styles = StyleSheet.create({
     right: 2,
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: scaleContainer(16),
     borderWidth: 2.5,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1005,7 +1006,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   changePhotoText: {
-    fontSize: 14,
+    fontSize: scaleFont(14),
     fontFamily: Fonts.regular,
     fontWeight: '400',
   },
@@ -1032,7 +1033,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   fieldInput: {
-    fontSize: 15,
+    fontSize: scaleFont(15),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     padding: 0,
@@ -1048,7 +1049,7 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   fieldInputText: {
-    fontSize: 15,
+    fontSize: scaleFont(15),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     paddingVertical: 1,
@@ -1078,7 +1079,7 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
   },
   readOnlyText: {
-    fontSize: 15,
+    fontSize: scaleFont(15),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     flex: 1,
@@ -1114,7 +1115,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   workspaceNameText: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.regular,
     fontWeight: '400',
   },
@@ -1122,7 +1123,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   saveButton: {
-    height: 52,
+    height: scaleHeight(52),
     borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1142,7 +1143,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.72)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: scaleContainer(20),
   },
   statusSheetOverlay: {
     flex: 1,
@@ -1180,7 +1181,7 @@ const styles = StyleSheet.create({
   statusSheetCloseBtn: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: scaleContainer(16),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1199,7 +1200,7 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   statusSheetCongratsTitle: {
-    fontSize: 18,
+    fontSize: scaleFont(18),
     fontFamily: Fonts.light,
     fontWeight: '300',
     textAlign: 'center',
@@ -1217,14 +1218,14 @@ const styles = StyleSheet.create({
   },
   statusSheetDoneBtn: {
     width: '100%',
-    height: 50,
+    height: scaleHeight(50),
     borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
   },
   statusSheetDoneText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: scaleFont(15),
     fontFamily: Fonts.light,
     fontWeight: '300',
     letterSpacing: -0.1,
@@ -1247,12 +1248,12 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   photoPickerTitle: {
-    fontSize: 18,
+    fontSize: scaleFont(18),
     fontFamily: Fonts.medium,
     fontWeight: '500',
   },
   photoPickerSubtitle: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     marginTop: 2,
@@ -1260,7 +1261,7 @@ const styles = StyleSheet.create({
   photoPickerCloseBtn: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: scaleContainer(16),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1271,7 +1272,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 14,
-    borderRadius: 16,
+    borderRadius: scaleContainer(16),
     borderWidth: 1,
     gap: 14,
   },
@@ -1286,7 +1287,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   optionTitle: {
-    fontSize: 15,
+    fontSize: scaleFont(15),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     marginBottom: 2,
