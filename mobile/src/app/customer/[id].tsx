@@ -23,6 +23,7 @@ import {
   Check,
 } from 'lucide-react-native';
 import { Fonts } from '../../theme/tokens';
+import { scaleFont, scaleContainer, scaleHeight } from '../../theme/responsive';
 import { useAppTheme } from '../../context/theme-context';
 
 export default function CustomerProfileScreen() {
@@ -440,7 +441,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 23,
+    fontSize: scaleFont(23),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     color: '#FFFFFF',
@@ -448,8 +449,8 @@ const styles = StyleSheet.create({
   },
   mainContentSheet: {
     flex: 1,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderTopLeftRadius: scaleContainer(32),
+    borderTopRightRadius: scaleContainer(32),
     marginTop: -12,
     overflow: 'hidden',
   },
@@ -460,8 +461,8 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   card: {
-    padding: 18,
-    borderRadius: 20,
+    padding: scaleContainer(18),
+    borderRadius: scaleContainer(20),
   },
   cardLight: {
     backgroundColor: '#FFFFFF',
@@ -489,9 +490,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   avatarCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: scaleHeight(54),
+    height: scaleHeight(54),
+    borderRadius: scaleHeight(27),
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
@@ -530,7 +531,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   sectionMetaTitle: {
-    fontSize: 12,
+    fontSize: scaleFont(12),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     textTransform: 'uppercase',
@@ -556,13 +557,13 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   tierBadgeText: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     letterSpacing: 0.1,
   },
   calculatedText: {
-    fontSize: 13.5,
+    fontSize: scaleFont(13.5),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     marginLeft: 10,
@@ -595,7 +596,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.08)',
   },
   labelPillText: {
-    fontSize: 13.5,
+    fontSize: scaleFont(13.5),
     fontFamily: Fonts.regular,
     fontWeight: '400',
   },
@@ -642,7 +643,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   statusBadgeText: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     color: '#10B981',

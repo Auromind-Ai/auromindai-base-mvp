@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Image, StyleProp, ViewStyle, ImageStyle } from 'react-native';
 import { Fonts } from '../../theme/tokens';
 import { useAppTheme } from '../../context/theme-context';
+import { scaleFont, scaleContainer, isSmallDevice } from '../../theme/responsive';
 
 // High-resolution clean logo mark
 const LOGO_SOURCE = require('../../../assets/images/logo.png');
@@ -30,13 +31,22 @@ export function OrbionLogo({
   const { colors, isDark } = useAppTheme();
   const effectiveTextColor = textColor || (isDark ? '#FFFFFF' : '#111827');
 
+  const scaleRatio = isSmallDevice ? 0.88 : 1;
+
   // Dimensions calibrated to exact 2.065:1 aspect ratio of the clean emblem
-  const dimensions = {
+  const rawDim = {
     sm: { width: layout === 'horizontal' ? 48 : 66, height: layout === 'horizontal' ? 24 : 32, textSpacing: 8, textSize: layout === 'horizontal' ? 17 : 19 },
     md: { width: 112, height: 54, textSpacing: 12, textSize: 24 },
     lg: { width: 206, height: 100, textSpacing: 20, textSize: 34 },
     xl: { width: 230, height: 111, textSpacing: 24, textSize: 38 },
   }[size] || { width: 112, height: 54, textSpacing: 12, textSize: 24 };
+
+  const dimensions = {
+    width: Math.round(rawDim.width * scaleRatio),
+    height: Math.round(rawDim.height * scaleRatio),
+    textSpacing: scaleContainer(rawDim.textSpacing),
+    textSize: scaleFont(rawDim.textSize),
+  };
 
   const iconWidth = width ?? dimensions.width;
   const iconHeight = height ?? dimensions.height;
@@ -124,40 +134,40 @@ const styles = StyleSheet.create({
   },
   textOrbion: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: scaleFont(24),
     fontFamily: Fonts.bold,
     fontWeight: '700',
     letterSpacing: -0.4,
   },
   textOrbionLg: {
-    fontSize: 34,
+    fontSize: scaleFont(34),
     fontFamily: Fonts.bold,
     fontWeight: '700',
     letterSpacing: -0.6,
   },
   textOrbionSm: {
-    fontSize: 19,
+    fontSize: scaleFont(19),
     fontFamily: Fonts.bold,
     fontWeight: '700',
     letterSpacing: -0.3,
   },
   textAgents: {
     color: '#A855F7',
-    fontSize: 24,
+    fontSize: scaleFont(24),
     fontFamily: Fonts.bold,
     fontWeight: '700',
     letterSpacing: -0.4,
   },
   textAgentsLg: {
     color: '#A855F7',
-    fontSize: 34,
+    fontSize: scaleFont(34),
     fontFamily: Fonts.bold,
     fontWeight: '700',
     letterSpacing: -0.6,
   },
   textAgentsSm: {
     color: '#A855F7',
-    fontSize: 19,
+    fontSize: scaleFont(19),
     fontFamily: Fonts.bold,
     fontWeight: '700',
     letterSpacing: -0.3,

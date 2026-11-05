@@ -119,17 +119,26 @@ class MobileApiClient {
     }
 
     let response: Response;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
       response = await fetch(url, {
         ...restOptions,
+        signal: controller.signal,
         headers: {
           ...defaultHeaders,
           ...(headers as Record<string, string>),
         },
       });
     } catch (fetchErr: any) {
+      if (fetchErr?.name === 'AbortError') {
+        throw new Error('Connection timed out. Please check if backend is running.');
+      }
       console.warn(`[MobileApiClient] Network request failed for ${url}:`, fetchErr?.message || fetchErr);
       throw fetchErr;
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     const text = await response.text();

@@ -13,6 +13,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MessageCircle, Settings } from 'lucide-react-native';
 import { Fonts } from '@/theme/tokens';
+import { scaleFont, scaleContainer, scaleHeight, isSmallDevice } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
 
 const INITIAL_CONTAINER_WIDTH = Dimensions.get('window').width - 32;
@@ -216,9 +217,9 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   dockWrapper: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 24 : 16,
-    left: 16,
-    right: 16,
+    bottom: Platform.OS === 'ios' ? (isSmallDevice ? 12 : 24) : 16,
+    left: scaleContainer(16),
+    right: scaleContainer(16),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -226,8 +227,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    padding: 6,
-    borderRadius: 36,
+    padding: scaleContainer(6),
+    borderRadius: scaleContainer(36),
     position: 'relative',
   },
   dockDark: {
@@ -252,10 +253,10 @@ const styles = StyleSheet.create({
   },
   animatedPill: {
     position: 'absolute',
-    left: 6,
-    top: 6,
-    bottom: 6,
-    borderRadius: 28,
+    left: scaleContainer(6),
+    top: scaleContainer(6),
+    bottom: scaleContainer(6),
+    borderRadius: scaleContainer(28),
     overflow: 'hidden',
     zIndex: 1,
   },
@@ -293,17 +294,17 @@ const styles = StyleSheet.create({
   },
   tabButton: {
     flex: 1,
-    height: 52,
-    borderRadius: 28,
+    height: scaleHeight(52),
+    borderRadius: scaleContainer(28),
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    paddingVertical: 6,
+    paddingVertical: scaleContainer(6),
     backgroundColor: 'transparent',
     zIndex: 2,
   },
   tabLabel: {
-    fontSize: 12,
+    fontSize: scaleFont(12),
     fontFamily: Fonts.medium,
     marginTop: 2,
   },

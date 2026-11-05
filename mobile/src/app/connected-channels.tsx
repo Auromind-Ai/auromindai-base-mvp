@@ -28,20 +28,21 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '@/store/auth';
 import { Fonts } from '@/theme/tokens';
+import { scaleFont, scaleContainer, scaleHeight } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
 import { fetchChannelsStatus, WorkspaceChannelsStatus } from '@/api/channels';
 
 // Channel SVGs
-function WhatsAppIcon({ size = 32 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Circle cx="12" cy="12" r="11" fill="#25D366" />
-      <Path
-        d="M17.2 13.8c-.28-.14-1.63-.8-1.88-.9-.25-.1-.43-.14-.62.14-.19.28-.72.9-.88 1.09-.16.19-.31.21-.59.07-.28-.14-1.18-.43-2.25-1.39-.83-.75-1.4-1.67-1.56-1.95-.16-.28-.02-.43.12-.57.13-.13.28-.33.42-.5.14-.17.19-.28.28-.47.1-.19 0-.38-.05-.52-.05-.14-.62-1.5-.85-2.05-.22-.55-.45-.48-.62-.48h-.53c-.19 0-.5.07-.76.35-.26.29-1 1-1 2.45s1.02 2.85 1.16 3.05c.14.19 2.01 3.2 4.95 4.38.7.28 1.25.45 1.68.58.7.21 1.34.18 1.85.1.57-.09 1.75-.72 2-1.42.25-.7.25-1.3.17-1.42-.08-.12-.27-.19-.55-.32z"
-        fill="#FFFFFF"
-      />
-    </Svg>
-  );
+function WhatsAppIcon({ size = 32 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 48 48">
+      <Circle cx="24" cy="24" r="24" fill="#25D366" />
+      <Path
+        d="M34.5 13.4C32.1 11 28.9 9.6 25.5 9.6c-7 0-12.7 5.7-12.7 12.7 0 2.2.6 4.4 1.7 6.3L12.6 35l6.6-1.7c1.8 1 3.8 1.5 5.9 1.5 7 0 12.7-5.7 12.7-12.7-.1-3.4-1.5-6.5-3.3-8.7zm-9 19.5c-1.9 0-3.7-.5-5.3-1.4l-.4-.2-3.9 1 1-3.8-.2-.4c-1-1.6-1.6-3.5-1.6-5.4 0-5.6 4.6-10.2 10.2-10.2 2.7 0 5.3 1.1 7.2 2.9 1.9 1.9 3 4.4 3 7.1.2 5.8-4.4 10.4-10 10.4zm5.6-7.6c-.3-.2-1.8-.9-2.1-1s-.5-.2-.7.2-.8 1-1 1.2-.4.2-.7.1c-.3-.2-1.2-.4-2.3-1.4-.8-.7-1.4-1.6-1.6-1.9s0-.5.2-.6l.5-.6c.1-.2.2-.4.3-.6 0-.2 0-.4-.1-.6s-.7-1.7-1-2.3c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4s-1 1-1 2.5 1 2.9 1.2 3.1c.2.2 2 3 4.9 4.2.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.2-.2-.2-.5-.4z"
+        fill="#FFFFFF"
+      />
+    </Svg>
+  );
 }
 
 function InstagramIcon({ size = 32 }: { size?: number }) {
@@ -1113,10 +1114,10 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
+    borderRadius: scaleContainer(20),
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: scaleFont(18),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     textAlign: 'center',
@@ -1125,9 +1126,9 @@ const styles = StyleSheet.create({
     width: 40,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 40,
+    paddingHorizontal: scaleContainer(20),
+    paddingTop: scaleContainer(12),
+    paddingBottom: scaleContainer(40),
   },
   workspacePillContainer: {
     alignItems: 'center',
@@ -1136,7 +1137,7 @@ const styles = StyleSheet.create({
   workspacePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 24,
+    borderRadius: scaleContainer(24),
     paddingVertical: 5,
     paddingLeft: 6,
     paddingRight: 14,
@@ -1153,17 +1154,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   roleBadgeText: {
-    fontSize: 12,
+    fontSize: scaleFont(12),
     fontFamily: Fonts.medium,
     fontWeight: '500',
   },
   workspaceNameText: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.regular,
     fontWeight: '400',
   },
   subtitleNote: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     lineHeight: 18,
@@ -1178,7 +1179,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: scaleFont(14),
     fontFamily: Fonts.regular,
     fontWeight: '400',
   },
@@ -1207,13 +1208,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   channelTitle: {
-    fontSize: 15,
+    fontSize: scaleFont(15),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     marginBottom: 3,
   },
   channelSubtitle: {
-    fontSize: 12.5,
+    fontSize: scaleFont(12.5),
     fontFamily: Fonts.regular,
     fontWeight: '400',
   },
@@ -1257,7 +1258,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   connectedBadgeTextStandard: {
-    fontSize: 12.5,
+    fontSize: scaleFont(12.5),
   },
   connectedBadgeTextCompact: {
     fontSize: 11,
@@ -1270,7 +1271,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   connectBtnText: {
-    fontSize: 12.5,
+    fontSize: scaleFont(12.5),
     fontFamily: Fonts.medium,
     fontWeight: '500',
   },
@@ -1287,7 +1288,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   infoBannerText: {
-    fontSize: 12.5,
+    fontSize: scaleFont(12.5),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     lineHeight: 18,
@@ -1300,7 +1301,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.72)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: scaleContainer(20),
   },
   modalCard: {
     width: '100%',
@@ -1317,7 +1318,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: scaleContainer(20),
     paddingTop: 18,
     paddingBottom: 14,
     borderBottomWidth: 1,
@@ -1344,7 +1345,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   modalSubtitle: {
-    fontSize: 12,
+    fontSize: scaleFont(12),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     marginTop: 2,
@@ -1363,7 +1364,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalBody: {
-    paddingHorizontal: 20,
+    paddingHorizontal: scaleContainer(20),
     paddingTop: 16,
     paddingBottom: 14,
     gap: 13,
@@ -1387,13 +1388,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   fieldValue: {
-    fontSize: 13.5,
+    fontSize: scaleFont(13.5),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     flex: 1,
   },
   fieldValueMasked: {
-    fontSize: 14,
+    fontSize: scaleFont(14),
     fontFamily: Fonts.regular,
     letterSpacing: 2,
     flex: 1,
@@ -1416,7 +1417,7 @@ const styles = StyleSheet.create({
 
   // Modal Footer Single "Done" button (User asked to remove disconnect button on mobile)
   modalFooterSingle: {
-    paddingHorizontal: 20,
+    paddingHorizontal: scaleContainer(20),
     paddingVertical: 14,
     borderTopWidth: 1,
   },
@@ -1429,7 +1430,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   doneBtnFullText: {
-    fontSize: 14,
+    fontSize: scaleFont(14),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     color: '#FFFFFF',
@@ -1465,13 +1466,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   webPromptTitle: {
-    fontSize: 16,
+    fontSize: scaleFont(16),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     letterSpacing: -0.2,
   },
   webPromptSubtitle: {
-    fontSize: 12,
+    fontSize: scaleFont(12),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     marginTop: 2,
@@ -1486,7 +1487,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   targetChannelBadgeText: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.medium,
     fontWeight: '500',
   },
@@ -1509,13 +1510,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   webPromptNoticeTitle: {
-    fontSize: 13.5,
+    fontSize: scaleFont(13.5),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     lineHeight: 19,
   },
   webPromptNoticeDesc: {
-    fontSize: 12.5,
+    fontSize: scaleFont(12.5),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     lineHeight: 18,
@@ -1549,7 +1550,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   webUrlText: {
-    fontSize: 12,
+    fontSize: scaleFont(12),
     fontFamily: Fonts.regular,
     fontWeight: '400',
     flex: 1,
@@ -1569,7 +1570,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryActionText: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.medium,
     fontWeight: '500',
   },
@@ -1581,7 +1582,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryGotItBtnText: {
-    fontSize: 13.5,
+    fontSize: scaleFont(13.5),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     color: '#FFFFFF',

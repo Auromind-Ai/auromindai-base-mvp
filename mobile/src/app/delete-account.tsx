@@ -30,6 +30,7 @@ import {
 import { authStore, useAuth } from '@/store/auth';
 import { requestAccountDeletion, cancelAccountDeletion } from '@/api/auth';
 import { Fonts } from '@/theme/tokens';
+import { scaleFont, scaleContainer, scaleHeight } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
 
 export default function DeleteAccountScreen() {
@@ -461,7 +462,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitleText: {
-    fontSize: 17,
+    fontSize: scaleFont(17),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     color: '#FFFFFF',
@@ -473,34 +474,34 @@ const styles = StyleSheet.create({
   mainSheetCard: {
     flex: 1,
     marginTop: -16,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderTopLeftRadius: scaleContainer(32),
+    borderTopRightRadius: scaleContainer(32),
     borderWidth: 1,
     borderBottomWidth: 0,
     overflow: 'hidden',
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 20,
+    paddingHorizontal: scaleContainer(24),
+    paddingTop: scaleContainer(28),
+    paddingBottom: scaleContainer(20),
   },
   mainHeading: {
-    fontSize: 18,
+    fontSize: scaleFont(18),
     fontFamily: Fonts.medium,
     fontWeight: '300',
     letterSpacing: -0.2,
-    lineHeight: 25,
+    lineHeight: scaleFont(25),
     marginBottom: 12,
   },
   mainDescription: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontFamily: Fonts.regular,
     fontWeight: '400',
-    lineHeight: 20,
+    lineHeight: scaleFont(20),
     marginBottom: 20,
   },
   bulletSectionTitle: {
-    fontSize: 15,
+    fontSize: scaleFont(15),
     fontFamily: Fonts.medium,
     fontWeight: '300',
     marginBottom: 12,
@@ -516,7 +517,7 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   bulletDot: {
-    fontSize: 13,
+    fontSize: scaleFont(13),
     lineHeight: 18,
     marginRight: 8,
     opacity: 0.7,
@@ -604,7 +605,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   bottomBarContainer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: scaleContainer(24),
     paddingTop: 12,
     paddingBottom: Platform.OS === 'android' ? 20 : 12,
   },
@@ -615,7 +616,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   deleteButtonText: {
-    fontSize: 15,
+    fontSize: scaleFont(15),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     color: '#FFFFFF',
@@ -628,11 +629,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderTopLeftRadius: scaleContainer(32),
+    borderTopRightRadius: scaleContainer(32),
     borderWidth: 1,
     borderBottomWidth: 0,
-    paddingHorizontal: 24,
+    paddingHorizontal: scaleContainer(24),
     paddingTop: 20,
     paddingBottom: Platform.OS === 'android' ? 28 : 36,
   },
@@ -651,7 +652,7 @@ const styles = StyleSheet.create({
   modalCloseCircle: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: scaleContainer(16),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -691,7 +692,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   doneButtonText: {
-    fontSize: 15,
+    fontSize: scaleFont(15),
     fontFamily: Fonts.medium,
     fontWeight: '500',
     color: '#FFFFFF',

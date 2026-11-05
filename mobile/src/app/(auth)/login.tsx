@@ -30,6 +30,7 @@ import { OrbionLogo } from '../../components/common/OrbionLogo';
 import { GoogleIcon } from '../../components/common/GoogleIcon';
 import { sendOTP, googleLogin } from '../../api/auth';
 import { Fonts } from '../../theme/tokens';
+import { scaleFont, scaleContainer, scaleHeight } from '../../theme/responsive';
 
 const WEB_SIGNUP_URL =
   process.env.EXPO_PUBLIC_WEB_URL
@@ -324,9 +325,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 28,
+    paddingHorizontal: scaleContainer(16),
+    paddingTop: scaleContainer(24),
+    paddingBottom: scaleContainer(28),
     flexGrow: 1,
     justifyContent: 'center',
   },
@@ -334,7 +335,7 @@ const styles = StyleSheet.create({
   /* BRANDING */
   brandingBox: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: scaleContainer(24),
   },
 
   /* INBOX CARD (#202941) */
@@ -342,9 +343,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#202941',
     borderWidth: 1,
     borderColor: 'rgba(164, 170, 255, 0.09)',
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 24,
+    borderRadius: scaleContainer(24),
+    paddingHorizontal: scaleContainer(20),
+    paddingVertical: scaleContainer(24),
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.45,
@@ -353,24 +354,24 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: scaleContainer(20),
   },
   cardTitle: {
     color: '#F8F8FF',
     fontFamily: Fonts.semiBold,
-    fontSize: 23,
+    fontSize: scaleFont(23),
     fontWeight: '600',
     letterSpacing: -0.3,
-    marginBottom: 6,
+    marginBottom: scaleContainer(6),
     textAlign: 'center',
   },
   cardSubtitle: {
     color: '#8E99B7',
     fontFamily: Fonts.regular,
-    fontSize: 13,
+    fontSize: scaleFont(13),
     textAlign: 'center',
-    lineHeight: 18.5,
-    paddingHorizontal: 8,
+    lineHeight: scaleFont(18.5),
+    paddingHorizontal: scaleContainer(8),
   },
   errorBanner: {
     flexDirection: 'row',
@@ -378,11 +379,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.12)',
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.35)',
-    borderRadius: 14,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    marginBottom: 16,
-    gap: 8,
+    borderRadius: scaleContainer(14),
+    paddingVertical: scaleContainer(9),
+    paddingHorizontal: scaleContainer(12),
+    marginBottom: scaleContainer(16),
+    gap: scaleContainer(8),
   },
   errorIcon: {
     marginRight: 2,
@@ -390,21 +391,21 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#FCA5A5',
     fontFamily: Fonts.regular,
-    fontSize: 12.5,
+    fontSize: scaleFont(12.5),
     flex: 1,
-    lineHeight: 17,
+    lineHeight: scaleFont(17),
   },
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#161F33',
-    height: 48,
-    borderRadius: 16,
+    height: scaleHeight(48),
+    borderRadius: scaleContainer(16),
     borderWidth: 1,
     borderColor: 'rgba(164, 170, 255, 0.12)',
-    paddingHorizontal: 16,
-    gap: 10,
+    paddingHorizontal: scaleContainer(16),
+    gap: scaleContainer(10),
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -414,15 +415,15 @@ const styles = StyleSheet.create({
   googleButtonText: {
     color: '#F8F8FF',
     fontFamily: Fonts.medium,
-    fontSize: 14.5,
+    fontSize: scaleFont(14.5),
     fontWeight: '500',
     letterSpacing: -0.1,
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 18,
-    gap: 10,
+    marginVertical: scaleContainer(18),
+    gap: scaleContainer(10),
   },
   dividerLine: {
     flex: 1,
@@ -432,21 +433,21 @@ const styles = StyleSheet.create({
   dividerText: {
     color: '#6B7A9E',
     fontFamily: Fonts.medium,
-    fontSize: 11,
+    fontSize: scaleFont(11),
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   inputGroup: {
-    marginBottom: 18,
+    marginBottom: scaleContainer(18),
   },
   inputLabel: {
     color: '#8E99B7',
     fontFamily: Fonts.medium,
-    fontSize: 11,
+    fontSize: scaleFont(11),
     fontWeight: '500',
     letterSpacing: 0.8,
-    marginBottom: 7,
+    marginBottom: scaleContainer(7),
   },
   inputContainer: {
     flexDirection: 'row',
@@ -454,9 +455,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#141C30',
     borderWidth: 1,
     borderColor: 'rgba(164, 170, 255, 0.12)',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    height: 50,
+    borderRadius: scaleContainer(16),
+    paddingHorizontal: scaleContainer(14),
+    height: scaleHeight(50),
   },
   inputContainerFocused: {
     borderColor: '#7655F0',
@@ -468,18 +469,18 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   inputLeftIcon: {
-    marginRight: 10,
+    marginRight: scaleContainer(10),
   },
   emailInput: {
     flex: 1,
     height: '100%',
     color: '#FFFFFF',
     fontFamily: Fonts.regular,
-    fontSize: 15,
+    fontSize: scaleFont(15),
     paddingVertical: 0,
   },
   submitButtonWrapper: {
-    borderRadius: 16,
+    borderRadius: scaleContainer(16),
     overflow: 'hidden',
     marginTop: 2,
     borderWidth: 1,
@@ -496,10 +497,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
   },
   submitGradient: {
-    height: 48,
+    height: scaleHeight(48),
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: scaleContainer(16),
   },
   submitContent: {
     flexDirection: 'row',
@@ -509,7 +510,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     color: '#FFFFFF',
     fontFamily: Fonts.medium,
-    fontSize: 15,
+    fontSize: scaleFont(15),
     fontWeight: '500',
     letterSpacing: 0.1,
   },
@@ -517,33 +518,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 18,
-    paddingTop: 12,
+    marginTop: scaleContainer(18),
+    paddingTop: scaleContainer(12),
     borderTopWidth: 1,
     borderTopColor: 'rgba(164, 170, 255, 0.06)',
   },
   securityText: {
     color: '#717FA0',
     fontFamily: Fonts.regular,
-    fontSize: 11,
+    fontSize: scaleFont(11),
     letterSpacing: 0.2,
   },
   webNoticeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
+    marginTop: scaleContainer(16),
     flexWrap: 'wrap',
   },
   webNoticeText: {
     color: '#8E99B7',
     fontFamily: Fonts.regular,
-    fontSize: 13,
+    fontSize: scaleFont(13),
   },
   signUpVioletText: {
     color: '#A69BFF',
     fontFamily: Fonts.medium,
-    fontSize: 13,
+    fontSize: scaleFont(13),
     fontWeight: '500',
   },
 });
