@@ -572,7 +572,9 @@ class WebhookService:
                             pricing = status_update.get("pricing")
                             conversation = status_update.get("conversation")
 
-                            if not recipient and pricing and conversation:
+                            is_live_chat_agent = bool(msg and (getattr(msg, "source", None) == "manual_reply" or getattr(msg, "sender_type", None) == SenderType.AGENT))
+
+                            if not recipient and not is_live_chat_agent and pricing and conversation:
                                 try:
                                     meta_session_id = conversation.get("id")
 

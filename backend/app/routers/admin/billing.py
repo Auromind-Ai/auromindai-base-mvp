@@ -67,6 +67,7 @@ class WorkspaceSearchRequest(BaseModel):
 class AdjustCreditsRequest(BaseModel):
     credits: float = Field(..., description="Credits to adjust (positive or negative float)")
     reason: str = Field(..., min_length=1, max_length=500, description="Reason for adjustment")
+    target: Optional[str] = Field("purchased", description="Target pool: 'purchased' or 'included'")
 
     @field_validator("reason")
     @classmethod
@@ -80,6 +81,7 @@ class AdjustCreditsRequest(BaseModel):
 class AdjustWalletRequest(BaseModel):
     amount: Decimal = Field(..., description="Amount to adjust in WCC wallet")
     reason: str = Field(..., min_length=1, max_length=500, description="Reason for adjustment")
+    target: Optional[str] = Field("purchased", description="Target pool: 'purchased' or 'included'")
 
     @field_validator("reason")
     @classmethod
@@ -632,11 +634,17 @@ async def get_workspace_billing_detail(
             plan_name = plan.name
         billing_cycle = sub.billing_cycle
         
-    credit_service = BillingService().token_service
-    balance = credit_service.get_token_balance(db, str(ws.id))
+    billing_service = BillingService()
+    credit_summary = billing_service.get_credit_summary(db, ws.id)
     
     wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
-    wallet_balance = float(wallet.balance) if wallet else 0.0
+    wallet_data = {
+        "balance": float(wallet.balance) if wallet else 0.0,
+        "included_balance": float(wallet.included_balance) if wallet else 0.0,
+        "purchased_balance": float(wallet.purchased_balance) if wallet else 0.0,
+        "currency": wallet.currency if wallet else "INR"
+    }
+    wallet_balance = wallet_data["balance"]
     
     recharges = (
         db.query(WCCRechargeLog)
@@ -686,12 +694,18 @@ async def get_workspace_billing_detail(
         "subscription_status": sub.status.value.upper() if sub else "FREE",
         "billing_cycle": billing_cycle,
         "credits": {
-            "balance": float(balance.balance),
-            "added": float(balance.tokens_added),
-            "used": float(balance.tokens_used),
-            "reserved": float(balance.tokens_reserved)
+            "balance": credit_summary["credits_balance"],
+            "included_remaining": credit_summary["included_remaining"],
+            "purchased_remaining": credit_summary["purchased_remaining"],
+            "cycle_used": credit_summary["cycle_used"],
+            "quota_limit": credit_summary["quota_limit"],
+            "included_credits": credit_summary.get("included_credits", 0.0),
+            "purchased_credits": credit_summary.get("purchased_credits", 0.0),
+            "days_remaining": credit_summary.get("days_remaining"),
+            "cycle_reset_date": credit_summary.get("cycle_reset_date")
         },
         "wallet_balance": wallet_balance,
+        "wallet": wallet_data,
         "recharges": [
             {
                 "id": str(r.id),
@@ -803,8 +817,13 @@ async def adjust_credits(
     ws_uuid = verify_admin_workspace(db, workspace_id)
     ws_id = str(ws_uuid)
         
-    credit_service = BillingService().token_service
-    old_bal = float(credit_service.get_token_balance(db, ws_id).balance)
+    target = getattr(payload, "target", "purchased") or "purchased"
+    target = target.strip().lower()
+    balance_source = "INCLUDED" if target == "included" else "PURCHASED"
+    
+    billing_service = BillingService()
+    old_summary = billing_service.get_credit_summary(db, ws_id)
+    old_bal = old_summary.get("credits_balance", 0.0)
     
     tokens_delta = 0
     entry_type = "token_grant" if payload.credits >= 0 else "deduction"
@@ -815,26 +834,32 @@ async def adjust_credits(
         status="posted",
         tokens_delta=tokens_delta,
         credits_delta=payload.credits,
-        reference_key=f"admin_adjust:{uuid.uuid4()}",
-        description=f"Admin Adjustment ({admin_user}): {payload.reason}"
+        balance_source=balance_source,
+        reference_key=f"admin_adjust:{balance_source.lower()}:{uuid.uuid4()}",
+        description=f"Admin {balance_source} Adjustment ({admin_user}): {payload.reason}"
     )
     db.add(ledger_entry)
     db.commit()
     
-    new_bal = float(credit_service.get_token_balance(db, ws_id).balance)
+    new_summary = billing_service.get_credit_summary(db, ws_id)
+    new_bal = new_summary.get("credits_balance", 0.0)
     
     log_audit(
         db=db,
         admin_user=admin_user,
-        action="CREDITS_GRANTED" if payload.credits >= 0 else "CREDITS_DEDUCTED",
+        action=f"CREDITS_{balance_source}_" + ("GRANTED" if payload.credits >= 0 else "DEDUCTED"),
         workspace_id=ws_uuid,
-        old_value={"balance": old_bal},
-        new_value={"balance": new_bal, "adjustment": payload.credits},
+        old_value={"balance": old_bal, "target": balance_source},
+        new_value={"balance": new_bal, "adjustment": payload.credits, "target": balance_source},
         reason=payload.reason,
         request=request
     )
     
-    return {"message": "Credits adjusted successfully", "new_balance": new_bal}
+    return {
+        "message": f"{balance_source.title()} credits adjusted successfully",
+        "new_balance": new_bal,
+        "credits": new_summary
+    }
 
 
 @router.post("/billing/workspaces/{workspace_id}/adjust-wallet")
@@ -848,15 +873,29 @@ async def adjust_wallet(
     ws_uuid = verify_admin_workspace(db, workspace_id)
     ws_id = str(ws_uuid)
         
+    target = getattr(payload, "target", "purchased") or "purchased"
+    target = target.strip().lower()
+    
     wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws_uuid).first()
     if not wallet:
-        wallet = WCCWallet(workspace_id=ws_uuid, balance=Decimal("0.00"))
+        wallet = WCCWallet(
+            workspace_id=ws_uuid,
+            balance=Decimal("0.00"),
+            included_balance=Decimal("0.00"),
+            purchased_balance=Decimal("0.00"),
+            currency="INR"
+        )
         db.add(wallet)
         db.flush()
         
     old_bal = float(wallet.balance)
     adjustment_decimal = Decimal(str(payload.amount))
-    wallet.purchased_balance = (wallet.purchased_balance or Decimal("0.00")) + adjustment_decimal
+    
+    if target == "included":
+        wallet.included_balance = max(Decimal("0.00"), (wallet.included_balance or Decimal("0.00")) + adjustment_decimal)
+    else:
+        wallet.purchased_balance = max(Decimal("0.00"), (wallet.purchased_balance or Decimal("0.00")) + adjustment_decimal)
+        
     wallet.balance = (wallet.included_balance or Decimal("0.00")) + (wallet.purchased_balance or Decimal("0.00"))
     db.commit()
     
@@ -867,17 +906,19 @@ async def adjust_wallet(
             workspace_id=ws_uuid,
             amount=adjustment_decimal,
             currency="INR",
-            gateway_order_id=f"admin_adjust_{uuid.uuid4()}",
-            gateway_payment_id=f"admin_adjust_{uuid.uuid4()}",
+            gateway_order_id=f"admin_adjust_{target}_{uuid.uuid4()}",
+            gateway_payment_id=f"promo_grant:admin_adjust_{uuid.uuid4()}" if target == "included" else f"admin_adjust_{uuid.uuid4()}",
+            balance_after=wallet.balance,
             status="success"
         )
         db.add(log_entry)
     else:
         log_entry = WCCTransaction(
             workspace_id=ws_uuid,
-            meta_session_id=f"admin_adjust_{uuid.uuid4()}",
+            meta_session_id=f"admin_adjust_{target}_{uuid.uuid4()}",
             category="service",
-            status="success",
+            transaction_type="debit",
+            status="settled",
             message_count=1,
             debit_amount=abs(adjustment_decimal),
             rate_applied=Decimal("0.00")
@@ -889,15 +930,30 @@ async def adjust_wallet(
     log_audit(
         db=db,
         admin_user=admin_user,
-        action="WALLET_ADJUSTED",
+        action=f"WALLET_{target.upper()}_ADJUSTED",
         workspace_id=ws_uuid,
-        old_value={"balance": old_bal},
-        new_value={"balance": new_bal, "adjustment": float(payload.amount)},
+        old_value={"balance": old_bal, "target": target},
+        new_value={
+            "balance": new_bal,
+            "adjustment": float(payload.amount),
+            "included_balance": float(wallet.included_balance),
+            "purchased_balance": float(wallet.purchased_balance),
+            "target": target
+        },
         reason=payload.reason,
         request=request
     )
     
-    return {"message": "Wallet adjusted successfully", "new_balance": new_bal}
+    return {
+        "message": f"{target.title()} wallet balance adjusted successfully",
+        "new_balance": new_bal,
+        "wallet": {
+            "balance": float(wallet.balance),
+            "included_balance": float(wallet.included_balance),
+            "purchased_balance": float(wallet.purchased_balance),
+            "currency": wallet.currency or "INR"
+        }
+    }
 
 
 @router.post("/billing/workspaces/{workspace_id}/override-subscription")
@@ -1070,45 +1126,76 @@ async def override_subscription(
 @router.post("/billing/workspaces/{workspace_id}/reset-credits")
 async def reset_credits(
     workspace_id: uuid.UUID,
+    target: str = Query("all", description="Target pool to reset: 'all', 'purchased', or 'included'"),
     db: Session = Depends(get_db),
     admin_user: str = Depends(get_admin_identity),
     request: Request = None
 ):
     ws_uuid = verify_admin_workspace(db, workspace_id)
     ws_id = str(ws_uuid)
-        
-    credit_service = BillingService().token_service
-    old_bal = float(credit_service.get_token_balance(db, ws_id).balance)
+    billing_service = BillingService()
+    summary = billing_service.get_credit_summary(db, ws_id)
+    old_bal = summary.get("credits_balance", 0.0)
     
-    ledger_entry = TokenLedger(
-        workspace_id=ws_uuid,
-        entry_type="deduction",
-        status="posted",
-        tokens_delta=0,
-        credits_delta=-old_bal,
-        reference_key=f"admin_reset:{uuid.uuid4()}",
-        description=f"Admin Credit Reset ({admin_user})"
-    )
-    db.add(ledger_entry)
+    reset_target = (target or "all").strip().lower()
+    
+    if reset_target in {"all", "included"}:
+        inc_rem = summary.get("included_remaining", 0.0)
+        if inc_rem > 0:
+            ledger_inc = TokenLedger(
+                workspace_id=ws_uuid,
+                entry_type="token_expiration",
+                status="posted",
+                tokens_delta=0,
+                credits_delta=-inc_rem,
+                balance_source="INCLUDED",
+                reference_key=f"admin_reset:inc:{uuid.uuid4()}",
+                description=f"Admin Reset Included Credits ({admin_user})"
+            )
+            db.add(ledger_inc)
+            
+    if reset_target in {"all", "purchased"}:
+        pur_rem = summary.get("purchased_remaining", 0.0)
+        if pur_rem > 0:
+            ledger_pur = TokenLedger(
+                workspace_id=ws_uuid,
+                entry_type="deduction",
+                status="posted",
+                tokens_delta=0,
+                credits_delta=-pur_rem,
+                balance_source="PURCHASED",
+                reference_key=f"admin_reset:pur:{uuid.uuid4()}",
+                description=f"Admin Reset Purchased Credits ({admin_user})"
+            )
+            db.add(ledger_pur)
+            
     db.commit()
+    
+    new_summary = billing_service.get_credit_summary(db, ws_id)
+    new_bal = new_summary.get("credits_balance", 0.0)
     
     log_audit(
         db=db,
         admin_user=admin_user,
-        action="CREDITS_RESET",
+        action=f"CREDITS_RESET_{reset_target.upper()}",
         workspace_id=ws_uuid,
         old_value={"balance": old_bal},
-        new_value={"balance": 0.0},
-        reason="Admin Reset Limits",
+        new_value={"balance": new_bal, "target": reset_target},
+        reason=f"Admin Reset {reset_target.title()} Credits",
         request=request
     )
     
-    return {"message": "Credits reset successfully"}
+    return {
+        "message": f"{reset_target.title()} credits reset successfully",
+        "new_balance": new_bal,
+        "credits": new_summary
+    }
 
 
 @router.post("/billing/workspaces/{workspace_id}/reset-wallet")
 async def reset_wallet(
     workspace_id: uuid.UUID,
+    target: str = Query("all", description="Target wallet pool: 'all', 'purchased', or 'included'"),
     db: Session = Depends(get_db),
     admin_user: str = Depends(get_admin_identity),
     request: Request = None
@@ -1119,26 +1206,69 @@ async def reset_wallet(
     wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws_uuid).first()
     old_bal = float(wallet.balance) if wallet else 0.0
     
+    reset_target = (target or "all").strip().lower()
+    
+    amount_reset = Decimal("0.00")
     if wallet:
-        wallet.balance = Decimal("0.00")
+        if reset_target in {"all", "included"}:
+            amount_reset += (wallet.included_balance or Decimal("0.00"))
+            wallet.included_balance = Decimal("0.00")
+        if reset_target in {"all", "purchased"}:
+            amount_reset += (wallet.purchased_balance or Decimal("0.00"))
+            wallet.purchased_balance = Decimal("0.00")
+        wallet.balance = (wallet.included_balance or Decimal("0.00")) + (wallet.purchased_balance or Decimal("0.00"))
+        
+        if amount_reset > Decimal("0.00"):
+            log_entry = WCCTransaction(
+                workspace_id=ws_uuid,
+                meta_session_id=f"admin_reset_{reset_target}_{uuid.uuid4()}",
+                category="service",
+                transaction_type="debit",
+                status="settled",
+                message_count=1,
+                debit_amount=amount_reset,
+                rate_applied=Decimal("0.00")
+            )
+            db.add(log_entry)
     else:
-        wallet = WCCWallet(workspace_id=ws_uuid, balance=Decimal("0.00"))
+        wallet = WCCWallet(
+            workspace_id=ws_uuid,
+            balance=Decimal("0.00"),
+            included_balance=Decimal("0.00"),
+            purchased_balance=Decimal("0.00"),
+            currency="INR"
+        )
         db.add(wallet)
         
     db.commit()
+    new_bal = float(wallet.balance)
     
     log_audit(
         db=db,
         admin_user=admin_user,
-        action="WALLET_RESET",
+        action=f"WALLET_RESET_{reset_target.upper()}",
         workspace_id=ws_uuid,
         old_value={"balance": old_bal},
-        new_value={"balance": 0.0},
-        reason="Admin Reset Wallet",
+        new_value={
+            "balance": new_bal,
+            "target": reset_target,
+            "included_balance": float(wallet.included_balance),
+            "purchased_balance": float(wallet.purchased_balance)
+        },
+        reason=f"Admin Reset {reset_target.title()} Wallet",
         request=request
     )
     
-    return {"message": "Wallet reset successfully"}
+    return {
+        "message": f"{reset_target.title()} wallet reset successfully",
+        "new_balance": new_bal,
+        "wallet": {
+            "balance": float(wallet.balance),
+            "included_balance": float(wallet.included_balance),
+            "purchased_balance": float(wallet.purchased_balance),
+            "currency": wallet.currency or "INR"
+        }
+    }
 
 
 @router.get("/billing/audit-logs")
@@ -1572,17 +1702,34 @@ async def recalculate_wallet_op(
         
     old_bal = float(wallet.balance)
     
-    recharges_raw = db.query(func.sum(WCCRechargeLog.amount)).filter(
+    promo_recharges = db.query(func.coalesce(func.sum(WCCRechargeLog.amount), 0)).filter(
         WCCRechargeLog.workspace_id == ws_uuid,
-        WCCRechargeLog.status == "success"
-    ).scalar()
+        WCCRechargeLog.status == "success",
+        WCCRechargeLog.gateway_payment_id.like("promo_grant:%")
+    ).scalar() or Decimal("0.00")
     
-    debits_raw = db.query(func.sum(WCCTransaction.debit_amount)).filter(
+    purchased_recharges = db.query(func.coalesce(func.sum(WCCRechargeLog.amount), 0)).filter(
+        WCCRechargeLog.workspace_id == ws_uuid,
+        WCCRechargeLog.status == "success",
+        ~WCCRechargeLog.gateway_payment_id.like("promo_grant:%")
+    ).scalar() or Decimal("0.00")
+    
+    total_debits = db.query(func.coalesce(func.sum(WCCTransaction.debit_amount), 0)).filter(
         WCCTransaction.workspace_id == ws_uuid,
-        WCCTransaction.status == "success"
-    ).scalar()
+        WCCTransaction.status.in_(["success", "settled", "free_session"])
+    ).scalar() or Decimal("0.00")
     
-    wallet.balance = Decimal(str(recharges_raw or "0.00")) - Decimal(str(debits_raw or "0.00"))
+    promo_recharges = Decimal(str(promo_recharges))
+    purchased_recharges = Decimal(str(purchased_recharges))
+    total_debits = Decimal(str(total_debits))
+    
+    promo_remaining = max(Decimal("0.00"), promo_recharges - total_debits)
+    debits_after_promo = max(Decimal("0.00"), total_debits - promo_recharges)
+    purchased_remaining = max(Decimal("0.00"), purchased_recharges - debits_after_promo)
+    
+    wallet.included_balance = promo_remaining
+    wallet.purchased_balance = purchased_remaining
+    wallet.balance = wallet.included_balance + wallet.purchased_balance
     db.commit()
     new_bal = float(wallet.balance)
     
@@ -1592,11 +1739,24 @@ async def recalculate_wallet_op(
         action="WALLET_RECALCULATED",
         workspace_id=ws_uuid,
         old_value={"balance": old_bal},
-        new_value={"balance": new_bal},
+        new_value={
+            "balance": new_bal,
+            "included_balance": float(wallet.included_balance),
+            "purchased_balance": float(wallet.purchased_balance)
+        },
         reason="Manual Recalculate Wallet Balance",
         request=request
     )
-    return {"message": "Wallet balance recalculated successfully", "new_balance": new_bal}
+    return {
+        "message": "Wallet balance recalculated successfully",
+        "new_balance": new_bal,
+        "wallet": {
+            "balance": float(wallet.balance),
+            "included_balance": float(wallet.included_balance),
+            "purchased_balance": float(wallet.purchased_balance),
+            "currency": wallet.currency or "INR"
+        }
+    }
 
 
 @router.post("/billing/operations/verify-payment-manually")

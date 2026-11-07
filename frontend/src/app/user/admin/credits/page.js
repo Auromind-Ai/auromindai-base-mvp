@@ -35,6 +35,8 @@ export default function CreditsPage() {
 
     // WCC Balance State
     const [wccBalance, setWccBalance] = useState(null);
+    const [wccIncludedBalance, setWccIncludedBalance] = useState(0);
+    const [wccPurchasedBalance, setWccPurchasedBalance] = useState(0);
     const [wccBalanceLoading, setWccBalanceLoading] = useState(true);
     const [wccFuelData, setWccFuelData] = useState({
         fillPercentage: 100,
@@ -125,6 +127,8 @@ export default function CreditsPage() {
             }
 
             setWccBalance(bal);
+            setWccIncludedBalance(parseFloat(data.included_balance ?? 0));
+            setWccPurchasedBalance(parseFloat(data.purchased_balance ?? 0));
             setWccOverageBalance(parseFloat(data.overage_balance ?? 0));
             setWccOverageEnabled(data.overage_enabled ?? false);
             setWccFuelData({
@@ -756,12 +760,7 @@ export default function CreditsPage() {
 
     const cycleIncluded = Number(creditSummary?.included_credits ?? creditSummary?.monthly_grant ?? 0);
     const cyclePurchased = Number(creditSummary?.purchased_credits ?? 0);
-    const cycleTotal = Math.max(
-        Number(creditSummary?.quota_limit ?? 0),
-        Number(creditSummary?.credits_added ?? 0),
-        cycleIncluded + cyclePurchased,
-        cycleIncluded
-    );
+    const cycleTotal = Number(creditSummary?.quota_limit ?? (cycleIncluded + cyclePurchased));
     const cycleUsed = Number(creditSummary?.cycle_used ?? 0);
     const usedPct = creditSummary?.usage_percent !== undefined && creditSummary?.usage_percent !== null
         ? Number(creditSummary.usage_percent)
@@ -1367,6 +1366,22 @@ export default function CreditsPage() {
                                                 ? 'Your wallet is active. Recharge anytime to keep Marketing, Utility, Authentication and Service window conversations running.'
                                                 : 'Your wallet is empty. Recharge anytime to keep Marketing, Utility, Authentication and Service window conversations running.'}
                                         </p>
+                                    </div>
+
+                                    {/* Dual-Bucket Breakdown: Included Promo WCC vs Purchased WCC */}
+                                    <div className="grid grid-cols-2 gap-3 max-w-xl my-4 pt-3 border-t border-white/[0.08]">
+                                        <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3">
+                                            <span className="text-zinc-400 text-[11px] font-normal block">Included Promo WCC</span>
+                                            <span className="text-white text-base sm:text-lg font-bold">
+                                                {wccBalanceLoading ? '...' : `₹${(wccIncludedBalance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                            </span>
+                                        </div>
+                                        <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3">
+                                            <span className="text-zinc-400 text-[11px] font-normal block">Purchased WCC</span>
+                                            <span className="text-emerald-400 text-base sm:text-lg font-bold">
+                                                {wccBalanceLoading ? '...' : `₹${(wccPurchasedBalance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                            </span>
+                                        </div>
                                     </div>
 
                                     {/* Overage Debt Banner — shown only when outstanding debt exists */}
