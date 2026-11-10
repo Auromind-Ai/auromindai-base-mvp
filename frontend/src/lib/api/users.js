@@ -49,6 +49,14 @@ export async function markAllNotificationsRead() {
   return client.post('/api/notifications/read-all', {});
 }
 
+export async function clearAllNotifications() {
+  return client.delete('/api/notifications/clear-all');
+}
+
+export async function deleteNotification(id) {
+  return client.delete(`/api/notifications/${id}`);
+}
+
 export async function getPublicAnnouncement() {
   return client.get('/public/announcement');
 }

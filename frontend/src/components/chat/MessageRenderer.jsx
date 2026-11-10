@@ -543,6 +543,44 @@ function isUrl(str) {
   return /^https?:\/\//i.test(str);
 }
 
+// Global coordinator to ensure only one voice note plays at any time (WhatsApp behavior)
+let activeVoiceAudio = null;
+
+function pauseOtherVoiceNotes(currentAudio) {
+  if (activeVoiceAudio && activeVoiceAudio !== currentAudio) {
+    try {
+      activeVoiceAudio.pause();
+    } catch (_) {}
+  }
+  if (typeof window !== 'undefined') {
+    if (window.__ACTIVE_VOICE_AUDIO__ && window.__ACTIVE_VOICE_AUDIO__ !== currentAudio) {
+      try {
+        window.__ACTIVE_VOICE_AUDIO__.pause();
+      } catch (_) {}
+    }
+  }
+}
+
+function registerActiveVoiceAudio(audio) {
+  pauseOtherVoiceNotes(audio);
+  activeVoiceAudio = audio;
+  if (typeof window !== 'undefined') {
+    window.__ACTIVE_VOICE_AUDIO__ = audio;
+    try {
+      window.dispatchEvent(new CustomEvent('auromind:voice-play', { detail: { audio } }));
+    } catch (_) {}
+  }
+}
+
+function unregisterActiveVoiceAudio(audio) {
+  if (activeVoiceAudio === audio) {
+    activeVoiceAudio = null;
+  }
+  if (typeof window !== 'undefined' && window.__ACTIVE_VOICE_AUDIO__ === audio) {
+    window.__ACTIVE_VOICE_AUDIO__ = null;
+  }
+}
+
 function WhatsAppAudioMessage({ url, isMe, timeNode }) {
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [duration, setDuration] = React.useState(0);
@@ -564,19 +602,65 @@ function WhatsAppAudioMessage({ url, isMe, timeNode }) {
       setCurrentTime(audio.currentTime || 0);
     };
 
+    const handlePlay = () => {
+      pauseOtherVoiceNotes(audio);
+      activeVoiceAudio = audio;
+      if (typeof window !== 'undefined') {
+        window.__ACTIVE_VOICE_AUDIO__ = audio;
+      }
+      setIsPlaying(true);
+    };
+
+    const handlePause = () => {
+      setIsPlaying(false);
+      unregisterActiveVoiceAudio(audio);
+    };
+
     const handleEnded = () => {
       setIsPlaying(false);
       setCurrentTime(0);
+      unregisterActiveVoiceAudio(audio);
+    };
+
+    const handleExternalPlay = (e) => {
+      if (e.detail?.audio && e.detail.audio !== audio) {
+        if (!audio.paused) {
+          try {
+            audio.pause();
+          } catch (_) {}
+        }
+      }
     };
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('durationchange', handleLoadedMetadata);
     audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
     audio.addEventListener('ended', handleEnded);
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('auromind:voice-play', handleExternalPlay);
+    }
 
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('durationchange', handleLoadedMetadata);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('ended', handleEnded);
+
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('auromind:voice-play', handleExternalPlay);
+      }
+
+      if (activeVoiceAudio === audio) {
+        try {
+          audio.pause();
+        } catch (_) {}
+        unregisterActiveVoiceAudio(audio);
+      }
     };
   }, [url]);
 
@@ -586,6 +670,8 @@ function WhatsAppAudioMessage({ url, isMe, timeNode }) {
 
     try {
       if (audio.paused) {
+        registerActiveVoiceAudio(audio);
+
         if (Number.isFinite(audio.duration) && audio.currentTime >= audio.duration) {
           audio.currentTime = 0;
         }
@@ -594,10 +680,14 @@ function WhatsAppAudioMessage({ url, isMe, timeNode }) {
       } else {
         audio.pause();
         setIsPlaying(false);
+        unregisterActiveVoiceAudio(audio);
       }
     } catch (error) {
-      console.error('Audio playback failed:', error);
+      if (error?.name !== 'AbortError') {
+        console.error('Audio playback failed:', error);
+      }
       setIsPlaying(false);
+      unregisterActiveVoiceAudio(audio);
     }
   };
 

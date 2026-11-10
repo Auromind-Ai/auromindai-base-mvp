@@ -115,6 +115,44 @@ export default function AutomationCanvas() {
   const [createWireName, setCreateWireName] = useState('');
   const [previewFlowModal, setPreviewFlowModal] = useState({ open: false, flow: null, loading: false });
 
+  // ─ CALENDAR INTEGRATION STATE ─
+  const [calendarStatus, setCalendarStatus] = useState({ connected: false, loading: true, email: null });
+
+  const checkCalendar = useCallback(async () => {
+    try {
+      const activeWs = workspaceId || getWorkspaceIdFromToken();
+      if (!activeWs) {
+        setCalendarStatus({ connected: false, loading: false, email: null });
+        return;
+      }
+      let connected = false;
+      let email = null;
+      try {
+        const res = await api.getCalendarStatus(activeWs);
+        const data = res?.data || res;
+        connected = Boolean(data?.connected);
+        email = data?.email || null;
+      } catch (calErr) {
+        const res = await api.getIntegrationStatus(activeWs);
+        const data = res?.data || res;
+        connected = Boolean(data?.calendar?.connected);
+        email = data?.calendar?.email || null;
+      }
+      setCalendarStatus({ connected, loading: false, email });
+    } catch (err) {
+      setCalendarStatus({ connected: false, loading: false, email: null });
+    }
+  }, [workspaceId]);
+
+  useEffect(() => {
+    checkCalendar();
+    const handleFocus = () => {
+      checkCalendar();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [checkCalendar]);
+
   const showToast = useCallback((message, type = 'success') => {
     const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, message, type }]);
@@ -1254,7 +1292,10 @@ export default function AutomationCanvas() {
 
   const handleSave = async () => {
     if (!selectedItem) return;
-    const validation = validateFlowGraph(nodes, edges);
+    const validation = validateFlowGraph(nodes, edges, {
+      isCalendarConnected: calendarStatus.connected,
+      isCalendarLoading: calendarStatus.loading,
+    });
     if (!validation.isValid) { setError(validation.errors[0]); return; }
     setIsSaving(true);
     setSaveStatus('saving');
@@ -1729,8 +1770,11 @@ export default function AutomationCanvas() {
   }, [nodes]);
 
   const flowValidation = useMemo(() => {
-    return validateFlowGraph(nodes, edges);
-  }, [nodeStructureKey, edges, nodes]);
+    return validateFlowGraph(nodes, edges, {
+      isCalendarConnected: calendarStatus.connected,
+      isCalendarLoading: calendarStatus.loading,
+    });
+  }, [nodeStructureKey, edges, nodes, calendarStatus.connected, calendarStatus.loading]);
 
   if (!isMounted) return null;
 
@@ -2298,6 +2342,10 @@ export default function AutomationCanvas() {
         activeNode={activeNode}
         activeNodeId={activeNodeId}
         setActiveNodeId={setActiveNodeId}
+        workspaceId={workspaceId}
+        showToast={showToast}
+        calendarStatus={calendarStatus}
+        onRefreshCalendar={checkCalendar}
         nodes={nodes}
         setNodes={setNodes}
         edges={edges}
@@ -2407,6 +2455,7 @@ export default function AutomationCanvas() {
         setNodes={setNodes}
         setEdges={setEdges}
         setActiveNodeId={setActiveNodeId}
+        workspaceId={workspaceId}
         showToast={showToast}
         automations={automations}
         setAutomations={setAutomations}
