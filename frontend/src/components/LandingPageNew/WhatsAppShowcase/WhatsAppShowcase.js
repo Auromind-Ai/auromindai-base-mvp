@@ -124,7 +124,7 @@ export default function WhatsAppShowcase() {
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-white/[0.03] border border-white/[0.08] text-xs font-semibold text-zinc-300">
                     <span>Forms Engine</span>
                   </div>
-                  <h3 className={`${jakarta.className} text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight`}>
+                  <h3 suppressHydrationWarning className="font-jakarta text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
                     Build Interactive <span className="bg-gradient-to-r from-[#C084FC] to-[#818CF8] bg-clip-text text-transparent">WhatsApp Forms</span>
                   </h3>
                   <p className="text-base sm:text-lg text-zinc-400 leading-relaxed">
@@ -165,7 +165,7 @@ export default function WhatsAppShowcase() {
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-white/[0.03] border border-white/[0.08] text-xs font-semibold text-zinc-300">
                     <span>Instant Payments</span>
                   </div>
-                  <h3 className={`${jakarta.className} text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight`}>
+                  <h3 suppressHydrationWarning className="font-jakarta text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
                     Grow Faster with <span className="bg-gradient-to-r from-[#C084FC] to-[#818CF8] bg-clip-text text-transparent">WhatsApp Payments</span>
                   </h3>
                   <p className="text-base sm:text-lg text-zinc-400 leading-relaxed">

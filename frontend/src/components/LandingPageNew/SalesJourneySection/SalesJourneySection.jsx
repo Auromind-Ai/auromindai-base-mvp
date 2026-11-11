@@ -612,7 +612,7 @@ export default function SalesJourneySection() {
           </div>
 
           {/* Heading */}
-          <h2 className={`${jakarta.className} text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white leading-tight sm:leading-tight md:leading-tight`}>
+          <h2 suppressHydrationWarning className="font-jakarta text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white leading-tight sm:leading-tight md:leading-tight">
             How Conversations Become Customers
           </h2>
 

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
@@ -275,7 +275,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   <span className="text-[10px] text-blue-400 font-semibold">Google Workspace</span>
                 </div>
                 <DocumentationScreenshot
-                  src={config.heroScreenshot || '/images/docs/email-calendar/step_1.png'}
+                  src={config.heroScreenshot || '/images/docs/email-calendar/step_1.webp'}
                   alt={`${config.title} Channels Dashboard`}
                   caption="Channels Console — Connect Gmail and Google Calendar to Orbion Agents"
                   annotation="Live Interface"
@@ -307,7 +307,7 @@ export default function FeatureDetailView({ config: baseConfig, prevArticle, nex
                   <span className="text-[10px] text-zinc-500">Console View</span>
                 </div>
                 <DocumentationScreenshot
-                  src={config.heroScreenshot || '/images/docs/workspace/workspace_hero.png'}
+                  src={config.heroScreenshot || '/images/docs/workspace/workspace_hero.webp'}
                   alt={`${config.title} Product Interface`}
                   caption={config.heroCaption || `Interactive console view for ${config.title}`}
                   annotation="Live Interface"

@@ -50,7 +50,7 @@ export default function Footer() {
                   alt={appName} 
                   className="h-[54px] w-auto object-contain" 
                 />
-                <span className={`${jakarta.className} text-[20px] font-extrabold tracking-[0.1em] text-white flex items-center`}>
+                <span suppressHydrationWarning className="font-jakarta text-[20px] font-extrabold tracking-[0.1em] text-white flex items-center">
                   ORBION
                   <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-2 font-semibold tracking-[0.15em]">
                     AGENTS

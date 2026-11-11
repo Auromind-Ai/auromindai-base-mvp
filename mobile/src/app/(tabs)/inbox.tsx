@@ -8,1231 +8,1908 @@ import {
   StyleSheet,
   ScrollView,
   Modal,
+  Image,
+  Platform,
+  useWindowDimensions,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, {
+  Circle,
+  Path,
+  Rect,
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Stop,
+  RadialGradient,
+} from 'react-native-svg';
 import {
   Search,
   Plus,
-  SlidersHorizontal,
-  Camera,
-  Mic,
-  Bot,
+  Filter,
+  ChevronDown,
   X,
-  MessageSquare,
-  Globe,
-  Phone,
+  Check,
 } from 'lucide-react-native';
-import { OrbionLogo } from '@/components/common/OrbionLogo';
-import { BrandColors, Fonts } from '@/theme/tokens';
+import { AddLeadModal } from '../../components/leads/AddLeadModal';
+import { Fonts } from '@/theme/tokens';
+import { useAppTheme } from '@/context/theme-context';
+import { fetchConversations, fetchConversationCounts, BackendConversation } from '@/api';
+import { useAuth, authStore } from '@/store/auth';
+import { useWorkspaceRealtime } from '@/hooks/use-workspace-realtime';
+import { getInitials, getAvatarColor, formatShortTime } from '@/utils/formatters';
 
-// Channels matched with Web App (CHANNELS in admin/inbox/page.js)
-export type ChannelType = 'all' | 'whatsapp' | 'instagram' | 'twilio' | 'website';
-
-export type StatusType = 'all' | 'open' | 'follow_up' | 'converted' | 'closed';
-
-export type SystemTier = 'hot' | 'warm' | 'cold';
+export type ChannelType = 'all' | 'whatsapp' | 'instagram' | 'twilio';
+export type StatusType = 'all' | 'unread' | 'open';
 
 export interface ConversationItem {
   id: string;
   name: string;
-  phoneOrHandle: string;
-  channel: 'whatsapp' | 'instagram' | 'twilio' | 'website';
+  phone?: string;
+  channel: 'whatsapp' | 'instagram' | 'twilio';
+  avatarUrl: string;
   avatarInitials: string;
-  avatarColor: string;
-  isOnline: boolean;
-  status: 'open' | 'follow_up' | 'converted' | 'closed';
-  systemTier: SystemTier;
+  avatarBg: string;
   lastMessage: string;
-  lastMessageType: 'text' | 'image' | 'audio' | 'ai';
   time: string;
-  unreadCount: number;
+  unread: boolean;
+  status: 'open' | 'unread' | 'closed';
 }
 
-// Authentic Mock Data matching the Auromind AI / Orbion Web App inbox
-const MOCK_CONVERSATIONS: ConversationItem[] = [
-  {
-    id: '1',
-    name: 'Priya Sharma',
-    phoneOrHandle: '+91 98765 43210',
-    channel: 'whatsapp',
-    avatarInitials: 'PS',
-    avatarColor: '#814AC8',
-    isOnline: true,
-    status: 'open',
-    systemTier: 'hot',
-    lastMessage: 'Can you share the price for this saree catalogue?',
-    lastMessageType: 'text',
-    time: '2m',
-    unreadCount: 2,
-  },
-  {
-    id: '2',
-    name: 'TrendyWear Boutique',
-    phoneOrHandle: '@trendywear_in',
-    channel: 'instagram',
-    avatarInitials: 'TW',
-    avatarColor: '#E1306C',
-    isOnline: true,
-    status: 'follow_up',
-    systemTier: 'hot',
-    lastMessage: 'Replied to your story',
-    lastMessageType: 'image',
-    time: '12m',
-    unreadCount: 1,
-  },
-  {
-    id: '3',
-    name: 'Arun Kumar',
-    phoneOrHandle: '+91 94432 10987',
-    channel: 'whatsapp',
-    avatarInitials: 'AK',
-    avatarColor: '#0EA5E9',
-    isOnline: false,
-    status: 'open',
-    systemTier: 'warm',
-    lastMessage: 'Where is my order #ORB-8821 delivery status?',
-    lastMessageType: 'text',
-    time: '25m',
-    unreadCount: 1,
-  },
-  {
-    id: '4',
-    name: 'Sneha Fashions',
-    phoneOrHandle: '+91 91234 56789',
-    channel: 'whatsapp',
-    avatarInitials: 'SF',
-    avatarColor: '#10B981',
-    isOnline: true,
-    status: 'converted',
-    systemTier: 'warm',
-    lastMessage: 'Payment verified! Booking confirmed for bridal demo.',
-    lastMessageType: 'ai',
-    time: '1h',
-    unreadCount: 0,
-  },
-  {
-    id: '5',
-    name: 'Rohit Mehta',
-    phoneOrHandle: '+91 98840 12345',
-    channel: 'twilio',
-    avatarInitials: 'RM',
-    avatarColor: '#F59E0B',
-    isOnline: false,
-    status: 'follow_up',
-    systemTier: 'cold',
-    lastMessage: 'Voice inquiry recorded: 42s',
-    lastMessageType: 'audio',
-    time: '2h',
-    unreadCount: 0,
-  },
-  {
-    id: '6',
-    name: 'Anjali Creations',
-    phoneOrHandle: '@anjali_creations',
-    channel: 'instagram',
-    avatarInitials: 'AC',
-    avatarColor: '#EC4899',
-    isOnline: false,
-    status: 'closed',
-    systemTier: 'warm',
-    lastMessage: 'Thank you! Received the invoice copy.',
-    lastMessageType: 'text',
-    time: '3h',
-    unreadCount: 0,
-  },
-  {
-    id: '7',
-    name: 'Zixv Tech Store',
-    phoneOrHandle: 'Visitor #3942',
-    channel: 'website',
-    avatarInitials: 'ZT',
-    avatarColor: '#6366F1',
-    isOnline: true,
-    status: 'open',
-    systemTier: 'hot',
-    lastMessage: 'Looking for enterprise pricing plan details.',
-    lastMessageType: 'text',
-    time: '4h',
-    unreadCount: 3,
-  },
-];
+// WhatsApp Icon
+function WhatsAppIcon({ size = 18 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Rect width="24" height="24" rx="12" fill="#25D366" />
+      <Path
+        d="M17.2 13.8c-.28-.14-1.63-.8-1.88-.9-.25-.1-.43-.14-.62.14-.19.28-.72.9-.88 1.09-.16.19-.31.21-.59.07-.28-.14-1.18-.43-2.25-1.39-.83-.75-1.4-1.67-1.56-1.95-.16-.28-.02-.43.12-.57.13-.13.28-.33.42-.5.14-.17.19-.28.28-.47.1-.19 0-.38-.05-.52-.05-.14-.62-1.5-.85-2.05-.22-.55-.45-.48-.62-.48h-.53c-.19 0-.5.07-.76.35-.26.29-1 1-1 2.45s1.02 2.85 1.16 3.05c.14.19 2.01 3.2 4.95 4.38.7.28 1.25.45 1.68.58.7.21 1.34.18 1.85.1.57-.09 1.75-.72 2-1.42.25-.7.25-1.3.17-1.42-.08-.12-.27-.19-.55-.32z"
+        fill="#FFFFFF"
+      />
+    </Svg>
+  );
+}
+
+// Instagram Icon
+function InstagramIcon({ size = 18 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Defs>
+        <SvgLinearGradient id="igIconGradient" x1="0" y1="1" x2="1" y2="0">
+          <Stop offset="0%" stopColor="#FA7E1E" />
+          <Stop offset="40%" stopColor="#D62976" />
+          <Stop offset="70%" stopColor="#962FBF" />
+          <Stop offset="100%" stopColor="#4F5BD5" />
+        </SvgLinearGradient>
+      </Defs>
+      <Rect width="24" height="24" rx="6.5" fill="url(#igIconGradient)" />
+      <Rect
+        x="5.2"
+        y="5.2"
+        width="13.6"
+        height="13.6"
+        rx="4"
+        fill="none"
+        stroke="#FFFFFF"
+        strokeWidth="1.6"
+      />
+      <Circle cx="12" cy="12" r="3.2" fill="none" stroke="#FFFFFF" strokeWidth="1.6" />
+      <Circle cx="15.8" cy="8.2" r="0.9" fill="#FFFFFF" />
+    </Svg>
+  );
+}
+
+// Twilio Icon
+function TwilioIcon({ size = 18 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx="12" cy="12" r="12" fill="#E11D48" />
+      <Circle cx="8.5" cy="8.5" r="1.85" fill="#FFFFFF" />
+      <Circle cx="15.5" cy="8.5" r="1.85" fill="#FFFFFF" />
+      <Circle cx="8.5" cy="15.5" r="1.85" fill="#FFFFFF" />
+      <Circle cx="15.5" cy="15.5" r="1.85" fill="#FFFFFF" />
+    </Svg>
+  );
+}
 
 export default function OmniInboxScreen() {
   const router = useRouter();
+  const { isDark } = useAppTheme();
+  const { width: screenWidth } = useWindowDimensions();
+  const isSmallDevice = screenWidth < 400;
+
+  // State
+  const authState = useAuth();
   const [selectedChannel, setSelectedChannel] = useState<ChannelType>('all');
   const [selectedStatus, setSelectedStatus] = useState<StatusType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
-  const [showNewChatModal, setShowNewChatModal] = useState(false);
-  const [newContactName, setNewContactName] = useState('');
-  const [newContactPhone, setNewContactPhone] = useState('');
-  const [newContactChannel, setNewContactChannel] = useState<'whatsapp' | 'instagram' | 'twilio' | 'website'>('whatsapp');
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  const [leadSuccessToast, setLeadSuccessToast] = useState<string | null>(null);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
-  // Filter conversations
+  const [serverConversations, setServerConversations] = useState<ConversationItem[]>([]);
+  const [counts, setCounts] = useState<{ all: number; whatsapp: number; instagram: number; twilio: number; open: number; unread: number }>({
+    all: 0,
+    whatsapp: 0,
+    instagram: 0,
+    twilio: 0,
+    open: 0,
+    unread: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const workspaceId = (authState.selectedWorkspace?.id && !authState.selectedWorkspace.id.startsWith('ws-'))
+    ? authState.selectedWorkspace.id
+    : (authState.workspaces.find((w) => !w.id.startsWith('ws-'))?.id || '');
+
+  React.useEffect(() => {
+    if (authState.token && (!workspaceId || authState.workspaces.length === 0)) {
+      authStore.refreshWorkspaces().catch(() => {});
+    }
+  }, [authState.token, workspaceId, authState.workspaces.length]);
+
+  const loadInboxData = React.useCallback(async () => {
+    if (!workspaceId) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+    try {
+      const statusParam =
+        selectedStatus === 'unread' ? 'UNREAD' : selectedStatus === 'open' ? 'OPEN' : 'ALL';
+
+      const [activeCounts, allCounts, waCounts, igCounts, twCounts, convs] = await Promise.all([
+        selectedChannel !== 'all'
+          ? fetchConversationCounts({ workspaceId, channel: selectedChannel }).catch(() => null)
+          : Promise.resolve(null),
+        fetchConversationCounts({ workspaceId }).catch(() => null),
+        fetchConversationCounts({ workspaceId, channel: 'whatsapp' }).catch(() => null),
+        fetchConversationCounts({ workspaceId, channel: 'instagram' }).catch(() => null),
+        fetchConversationCounts({ workspaceId, channel: 'twilio' }).catch(() => null),
+        fetchConversations({
+          workspaceId,
+          channel: selectedChannel !== 'all' ? selectedChannel : undefined,
+          status: statusParam,
+        }),
+      ]);
+
+      const statusSource = activeCounts || allCounts;
+      if (allCounts || statusSource) {
+        setCounts({
+          all: statusSource?.all ?? 0,
+          open: statusSource?.open ?? 0,
+          unread: statusSource?.unread ?? 0,
+          whatsapp: waCounts?.all ?? 0,
+          instagram: igCounts?.all ?? 0,
+          twilio: twCounts?.all ?? 0,
+        });
+      }
+
+      if (Array.isArray(convs)) {
+        const mapped: ConversationItem[] = convs.map((c: BackendConversation, idx: number) => {
+          let ch: 'whatsapp' | 'instagram' | 'twilio' = 'whatsapp';
+          const rawCh = (c.channel || '').toLowerCase();
+          if (rawCh.includes('instagram')) ch = 'instagram';
+          else if (rawCh.includes('twilio')) ch = 'twilio';
+
+          const name = c.contact_name || c.phone || 'Customer';
+          const isUnread = (c.unread_count || 0) > 0;
+          const st: ConversationItem['status'] =
+            (c.status || '').toLowerCase() === 'closed' ? 'closed' : isUnread ? 'unread' : 'open';
+
+          return {
+            id: String(c.id),
+            name,
+            phone: c.phone || '',
+            channel: ch,
+            avatarUrl: c.profile_pic || '',
+            avatarInitials: getInitials(name, 'CU'),
+            avatarBg: getAvatarColor(idx),
+            lastMessage: c.last_message || 'No messages yet',
+            time: formatShortTime(c.last_message_at || c.created_at, 'Recently'),
+            unread: isUnread,
+            status: st,
+          };
+        });
+        setServerConversations(mapped);
+        setLoadError(null);
+      }
+    } catch (err: any) {
+      setLoadError(err?.message || 'Unable to load conversations.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [workspaceId, selectedChannel, selectedStatus]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const sync = async () => {
+      if (!cancelled) await loadInboxData();
+    };
+    sync();
+    const pollInterval = setInterval(sync, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(pollInterval);
+    };
+  }, [loadInboxData]);
+
+  useWorkspaceRealtime((evt) => {
+    const evType = evt.event_type || evt.event || evt.type || '';
+    if (evType === 'new_message' || evType === 'conversation_updated' || evType === 'message_status_updated') {
+      loadInboxData();
+    }
+  });
+
+  const channelCounts = counts;
+
   const filteredConversations = useMemo(() => {
-    return MOCK_CONVERSATIONS.filter((item) => {
-      // Channel match
-      if (selectedChannel !== 'all' && item.channel !== selectedChannel) {
-        return false;
-      }
-      // Status match
-      if (selectedStatus !== 'all' && item.status !== selectedStatus) {
-        return false;
-      }
-      // Search query
+    return serverConversations.filter((item) => {
+      if (selectedChannel !== 'all' && item.channel !== selectedChannel) return false;
+      if (selectedStatus === 'unread' && !item.unread) return false;
+      if (selectedStatus === 'open' && item.status === 'closed') return false;
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
-        const matchesName = item.name.toLowerCase().includes(query);
-        const matchesHandle = item.phoneOrHandle.toLowerCase().includes(query);
-        const matchesMessage = item.lastMessage.toLowerCase().includes(query);
-        if (!matchesName && !matchesHandle && !matchesMessage) return false;
+        if (!item.name.toLowerCase().includes(query) && !item.lastMessage.toLowerCase().includes(query)) {
+          return false;
+        }
       }
       return true;
     });
-  }, [selectedChannel, selectedStatus, searchQuery]);
+  }, [serverConversations, selectedChannel, selectedStatus, searchQuery]);
 
-  // Channel badge counts
-  const channelCounts = useMemo(() => {
-    return {
-      all: MOCK_CONVERSATIONS.length,
-      whatsapp: MOCK_CONVERSATIONS.filter((c) => c.channel === 'whatsapp').length,
-      instagram: MOCK_CONVERSATIONS.filter((c) => c.channel === 'instagram').length,
-      twilio: MOCK_CONVERSATIONS.filter((c) => c.channel === 'twilio').length,
-      website: MOCK_CONVERSATIONS.filter((c) => c.channel === 'website').length,
-    };
-  }, []);
-
-  // Helper for Status Pill matching Web App colors
-  const renderStatusPill = (status: ConversationItem['status']) => {
-    switch (status) {
-      case 'open':
-        return (
-          <View style={[styles.statusPill, styles.statusOpen]}>
-            <View style={[styles.statusDot, styles.dotOpen]} />
-            <Text style={[styles.statusPillText, styles.textOpen]}>Open</Text>
-          </View>
-        );
-      case 'follow_up':
-        return (
-          <View style={[styles.statusPill, styles.statusFollowUp]}>
-            <View style={[styles.statusDot, styles.dotFollowUp]} />
-            <Text style={[styles.statusPillText, styles.textFollowUp]}>Follow Up</Text>
-          </View>
-        );
-      case 'converted':
-        return (
-          <View style={[styles.statusPill, styles.statusConverted]}>
-            <View style={[styles.statusDot, styles.dotConverted]} />
-            <Text style={[styles.statusPillText, styles.textConverted]}>Converted</Text>
-          </View>
-        );
-      case 'closed':
-        return (
-          <View style={[styles.statusPill, styles.statusClosed]}>
-            <View style={[styles.statusDot, styles.dotClosed]} />
-            <Text style={[styles.statusPillText, styles.textClosed]}>Closed</Text>
-          </View>
-        );
-    }
-  };
-
-  // Helper for Channel mini icon
-  const renderChannelMiniBadge = (channel: ConversationItem['channel']) => {
-    switch (channel) {
-      case 'whatsapp':
-        return (
-          <View style={[styles.miniChannelBadge, { backgroundColor: '#25D366' }]}>
-            <Phone size={9} color="#FFFFFF" />
-          </View>
-        );
-      case 'instagram':
-        return (
-          <View style={[styles.miniChannelBadge, { backgroundColor: '#E1306C' }]}>
-            <Camera size={9} color="#FFFFFF" />
-          </View>
-        );
-      case 'twilio':
-        return (
-          <View style={[styles.miniChannelBadge, { backgroundColor: '#F22F46' }]}>
-            <MessageSquare size={9} color="#FFFFFF" />
-          </View>
-        );
-      case 'website':
-        return (
-          <View style={[styles.miniChannelBadge, { backgroundColor: '#0EA5E9' }]}>
-            <Globe size={9} color="#FFFFFF" />
-          </View>
-        );
-    }
-  };
-
-  // Helper for Lead Scoring / System Tier Chip (Hot / Warm / Cold)
-  const renderTierBadge = (tier: SystemTier) => {
-    switch (tier) {
-      case 'hot':
-        return (
-          <View style={[styles.tierBadge, styles.tierHot]}>
-            <Text style={styles.tierTextHot}>🔥 Hot</Text>
-          </View>
-        );
-      case 'warm':
-        return (
-          <View style={[styles.tierBadge, styles.tierWarm]}>
-            <Text style={styles.tierTextWarm}>⚡ Warm</Text>
-          </View>
-        );
-      case 'cold':
-        return (
-          <View style={[styles.tierBadge, styles.tierCold]}>
-            <Text style={styles.tierTextCold}>❄️ Cold</Text>
-          </View>
-        );
-    }
+  // Mini badge overlapping the bottom-right corner of avatar
+  const renderAvatarChannelBadge = (channel: 'whatsapp' | 'instagram' | 'twilio') => {
+    const badgeBorderColor = isDark ? '#202941' : '#FFFFFF';
+    const iconSize = isSmallDevice ? 15 : 20;
+    return (
+      <View
+        style={[
+          styles.avatarMiniBadge,
+          { borderColor: badgeBorderColor },
+          isSmallDevice && styles.avatarMiniBadgeSmall,
+        ]}
+      >
+        {channel === 'whatsapp' && <WhatsAppIcon size={iconSize} />}
+        {channel === 'instagram' && <InstagramIcon size={iconSize} />}
+        {channel === 'twilio' && <TwilioIcon size={iconSize} />}
+      </View>
+    );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.screenContainer, { backgroundColor: isDark ? '#0A1023' : '#EEEEF5' }]}>
       <StatusBar style="light" />
 
-      {/* Top App Bar Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <OrbionLogo size="sm" showText={true} />
-        </View>
+      {/* TOP HEADER SECTION */}
+      <View style={styles.headerWrapper}>
+        {/* Background Linear Gradient with angle ~135deg */}
+        <LinearGradient
+          colors={
+            isDark
+              ? ['#111A3A', '#292D66', '#514BC0', '#342D75', '#171D40']
+              : ['#30385F', '#6669B6', '#9388D7', '#68658F']
+          }
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
 
-        <View style={styles.headerActions}>
-          {/* Toggle Search */}
-          <TouchableOpacity
-            style={[styles.iconButton, isSearchActive && styles.iconButtonActive]}
-            activeOpacity={0.7}
-            onPress={() => setIsSearchActive(!isSearchActive)}
-          >
-            <Search size={18} color={isSearchActive ? '#FFFFFF' : '#A1A1AA'} />
-          </TouchableOpacity>
-
-          {/* New Chat Primary Button */}
-          <TouchableOpacity
-            style={styles.newChatButton}
-            activeOpacity={0.85}
-            onPress={() => setShowNewChatModal(true)}
-          >
-            <Plus size={18} color="#FFFFFF" strokeWidth={2.5} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Expandable Search Input with Inter font */}
-      {isSearchActive && (
-        <View style={styles.searchBarContainer}>
-          <Search size={16} color="#71717A" style={styles.searchBarIcon} />
-          <TextInput
-            style={styles.searchBarInput}
-            placeholder="Search conversations, names or numbers..."
-            placeholderTextColor="#71717A"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoFocus={true}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <X size={16} color="#71717A" />
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {/* Channel Filter Chips Ribbon */}
-      <View style={styles.channelScrollWrapper}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.channelScrollContent}
-        >
-          {/* All Channels */}
-          <TouchableOpacity
-            style={[
-              styles.channelChip,
-              selectedChannel === 'all' && styles.channelChipActive,
-            ]}
-            onPress={() => setSelectedChannel('all')}
-            activeOpacity={0.75}
-          >
-            <Text
-              style={[
-                styles.channelChipText,
-                selectedChannel === 'all' && styles.channelChipTextActive,
-              ]}
-            >
-              All Channels ({channelCounts.all})
-            </Text>
-          </TouchableOpacity>
-
-          {/* WhatsApp */}
-          <TouchableOpacity
-            style={[
-              styles.channelChip,
-              selectedChannel === 'whatsapp' && styles.channelChipActive,
-            ]}
-            onPress={() => setSelectedChannel('whatsapp')}
-            activeOpacity={0.75}
-          >
-            <View style={[styles.channelDot, { backgroundColor: '#25D366' }]} />
-            <Text
-              style={[
-                styles.channelChipText,
-                selectedChannel === 'whatsapp' && styles.channelChipTextActive,
-              ]}
-            >
-              WhatsApp ({channelCounts.whatsapp})
-            </Text>
-          </TouchableOpacity>
-
-          {/* Instagram */}
-          <TouchableOpacity
-            style={[
-              styles.channelChip,
-              selectedChannel === 'instagram' && styles.channelChipActive,
-            ]}
-            onPress={() => setSelectedChannel('instagram')}
-            activeOpacity={0.75}
-          >
-            <View style={[styles.channelDot, { backgroundColor: '#E1306C' }]} />
-            <Text
-              style={[
-                styles.channelChipText,
-                selectedChannel === 'instagram' && styles.channelChipTextActive,
-              ]}
-            >
-              Instagram ({channelCounts.instagram})
-            </Text>
-          </TouchableOpacity>
-
-          {/* Twilio */}
-          <TouchableOpacity
-            style={[
-              styles.channelChip,
-              selectedChannel === 'twilio' && styles.channelChipActive,
-            ]}
-            onPress={() => setSelectedChannel('twilio')}
-            activeOpacity={0.75}
-          >
-            <View style={[styles.channelDot, { backgroundColor: '#F22F46' }]} />
-            <Text
-              style={[
-                styles.channelChipText,
-                selectedChannel === 'twilio' && styles.channelChipTextActive,
-              ]}
-            >
-              Twilio ({channelCounts.twilio})
-            </Text>
-          </TouchableOpacity>
-
-          {/* Website Chat */}
-          <TouchableOpacity
-            style={[
-              styles.channelChip,
-              selectedChannel === 'website' && styles.channelChipActive,
-            ]}
-            onPress={() => setSelectedChannel('website')}
-            activeOpacity={0.75}
-          >
-            <View style={[styles.channelDot, { backgroundColor: '#0EA5E9' }]} />
-            <Text
-              style={[
-                styles.channelChipText,
-                selectedChannel === 'website' && styles.channelChipTextActive,
-              ]}
-            >
-              Web Chat ({channelCounts.website})
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-
-      {/* Sub-Filter Tabs: All | Open | Follow Up | Converted */}
-      <View style={styles.subFilterRow}>
-        {(['all', 'open', 'follow_up', 'converted'] as StatusType[]).map((st) => {
-          const isActive = selectedStatus === st;
-          const label =
-            st === 'all'
-              ? 'All Status'
-              : st === 'open'
-              ? 'Open'
-              : st === 'follow_up'
-              ? 'Follow Up'
-              : 'Converted';
-          return (
-            <TouchableOpacity
-              key={st}
-              style={[styles.subFilterTab, isActive && styles.subFilterTabActive]}
-              onPress={() => setSelectedStatus(st)}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.subFilterTabText,
-                  isActive && styles.subFilterTabTextActive,
-                ]}
+        {/* Center Radial Glow effect */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Svg width="100%" height="100%">
+            <Defs>
+              <RadialGradient
+                id={isDark ? 'hdrDarkGlow' : 'hdrLightGlow'}
+                cx="52%"
+                cy="46%"
+                rx="56%"
+                ry="52%"
+                fx="52%"
+                fy="46%"
               >
-                {label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+                <Stop
+                  offset="0%"
+                  stopColor={isDark ? '#6F5BFF' : '#AB99FF'}
+                  stopOpacity={isDark ? 0.38 : 0.48}
+                />
+                <Stop
+                  offset="65%"
+                  stopColor={isDark ? '#6F5BFF' : '#AB99FF'}
+                  stopOpacity={0}
+                />
+              </RadialGradient>
+            </Defs>
+            <Rect
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+              fill={`url(#${isDark ? 'hdrDarkGlow' : 'hdrLightGlow'})`}
+            />
+          </Svg>
+        </View>
 
-      {/* Conversation List */}
-      <FlatList
-        data={filteredConversations}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.convCard}
-            activeOpacity={0.8}
-            onPress={() => {
-              router.push({
-                pathname: '/chat/[id]',
-                params: {
-                  id: item.id,
-                  name: item.name,
-                  phoneOrHandle: item.phoneOrHandle,
-                  channel: item.channel,
-                  status: item.status,
-                  systemTier: item.systemTier,
-                  avatarInitials: item.avatarInitials,
-                  avatarColor: item.avatarColor,
-                  isOnline: item.isOnline ? '1' : '0',
-                },
-              });
-            }}
-          >
-            {/* Avatar with Channel Badge and Online Indicator */}
-            <View style={styles.avatarWrapper}>
-              <View
+        <SafeAreaView edges={['top', 'left', 'right']}>
+          {/* Header Top Row: Messages Title & Glass Action Buttons */}
+          <View style={styles.headerTitleRow}>
+            <Text style={[styles.headerTitleText, { color: isDark ? '#F8F8FF' : '#FFFFFF' }]}>
+              Messages
+            </Text>
+
+            <View style={styles.headerActionsGroup}>
+              {/* Search Glass Button */}
+              <TouchableOpacity
                 style={[
-                  styles.avatar,
-                  { backgroundColor: item.avatarColor },
+                  styles.glassActionButton,
+                  isDark ? styles.glassActionDark : styles.glassActionLight,
+                  isSearchActive && styles.glassActionActive,
                 ]}
+                activeOpacity={0.75}
+                onPress={() => setIsSearchActive(!isSearchActive)}
               >
-                <Text style={styles.avatarInitials}>{item.avatarInitials}</Text>
-              </View>
+                <Search size={20} color="#FFFFFF" strokeWidth={2.2} />
+              </TouchableOpacity>
 
-              {/* Online Dot */}
-              {item.isOnline && <View style={styles.onlineDot} />}
-
-              {/* Mini Channel Badge on bottom-right corner */}
-              {renderChannelMiniBadge(item.channel)}
+              {/* Add New Lead Glass Button */}
+              <TouchableOpacity
+                style={[
+                  styles.glassActionButton,
+                  isDark ? styles.glassActionDark : styles.glassActionLight,
+                ]}
+                activeOpacity={0.75}
+                onPress={() => setShowAddLeadModal(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Add New Lead"
+              >
+                <Plus size={20} color="#FFFFFF" strokeWidth={2.4} />
+              </TouchableOpacity>
             </View>
+          </View>
 
-            {/* Conversation Details */}
-            <View style={styles.convInfo}>
-              {/* Row 1: Name + System Tier + Timestamp */}
-              <View style={styles.convHeader}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.contactName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  {renderTierBadge(item.systemTier)}
-                </View>
-                <Text style={styles.timestamp}>{item.time}</Text>
-              </View>
+          {/* Expandable Search Input (if active) */}
+          {isSearchActive && (
+            <View
+              style={[
+                styles.searchBarWrapper,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(255, 255, 255, 0.10)'
+                    : 'rgba(255, 255, 255, 0.18)',
+                  borderColor: isDark
+                    ? 'rgba(255, 255, 255, 0.15)'
+                    : 'rgba(255, 255, 255, 0.35)',
+                },
+              ]}
+            >
+              <Search size={16} color="#FFFFFF" style={styles.searchBarIcon} />
+              <TextInput
+                style={styles.searchBarInput}
+                placeholder="Search messages or contacts..."
+                placeholderTextColor={isDark ? '#C4C9E6' : '#E8EDFF'}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus={true}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <X size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
-              {/* Row 2: Status Pill */}
-              <View style={styles.statusPillRow}>
-                {renderStatusPill(item.status)}
-              </View>
-
-              {/* Row 3: Last Message Preview + Unread Count Badge */}
-              <View style={styles.convFooter}>
-                <View style={styles.previewContainer}>
-                  {item.lastMessageType === 'image' && (
-                    <Camera size={14} color="#A1A1AA" style={styles.previewIcon} />
-                  )}
-                  {item.lastMessageType === 'audio' && (
-                    <Mic size={14} color="#A1A1AA" style={styles.previewIcon} />
-                  )}
-                  {item.lastMessageType === 'ai' && (
-                    <View style={styles.aiBadge}>
-                      <Bot size={11} color="#A855F7" />
-                      <Text style={styles.aiBadgeText}>AI</Text>
-                    </View>
-                  )}
-                  <Text
+          {/* CHANNEL FILTER BAR CONTAINER */}
+          <View
+            style={[
+              styles.channelBarContainer,
+              isDark ? styles.channelBarDark : styles.channelBarLight,
+            ]}
+          >
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.channelScrollContent}
+              bounces={false}
+            >
+              {/* 1. All (24) */}
+              <TouchableOpacity
+                style={styles.channelItemTouchable}
+                onPress={() => setSelectedChannel('all')}
+                activeOpacity={0.8}
+              >
+                {selectedChannel === 'all' ? (
+                  <LinearGradient
+                    colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#FDFCFF', '#E5DFFF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
                     style={[
-                      styles.lastMessageText,
-                      item.unreadCount > 0 && styles.lastMessageUnread,
+                      styles.channelPillActiveGradient,
+                      isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight,
                     ]}
-                    numberOfLines={1}
                   >
-                    {item.lastMessage}
-                  </Text>
-                </View>
-
-                {item.unreadCount > 0 && (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadCountText}>{item.unreadCount}</Text>
+                    <Text
+                      style={[
+                        styles.channelPillLabel,
+                        isDark
+                          ? styles.channelPillLabelActiveDark
+                          : styles.channelPillLabelActiveLight,
+                      ]}
+                    >
+                      All
+                    </Text>
+                    <View
+                      style={[
+                        styles.channelCountBadge,
+                        isDark
+                          ? styles.channelBadgeSelectedDark
+                          : styles.channelBadgeSelectedLight,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.channelCountBadgeText,
+                          !isDark && { color: '#6F51D1' },
+                        ]}
+                      >
+                        {channelCounts.all}
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.channelPillBase}>
+                    <Text style={[styles.channelPillLabel, styles.channelPillLabelInactive]}>
+                      All
+                    </Text>
                   </View>
                 )}
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MessageSquare size={36} color="#3F3F46" />
-            <Text style={styles.emptyTitle}>No conversations found</Text>
-            <Text style={styles.emptySubtitle}>
-              Try clearing filters or search queries to see more.
-            </Text>
-            <TouchableOpacity
-              style={styles.emptyResetBtn}
-              onPress={() => {
-                setSelectedChannel('all');
-                setSelectedStatus('all');
-                setSearchQuery('');
-              }}
-            >
-              <Text style={styles.emptyResetText}>Reset Filters</Text>
-            </TouchableOpacity>
-          </View>
-        }
-      />
+              </TouchableOpacity>
 
-      {/* New Chat Modal */}
+              {/* Divider */}
+              <View
+                style={[
+                  styles.channelDivider,
+                  { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.22)' },
+                ]}
+              />
+
+              {/* 2. WhatsApp (12) */}
+              <TouchableOpacity
+                style={styles.channelItemTouchable}
+                onPress={() => setSelectedChannel(selectedChannel === 'whatsapp' ? 'all' : 'whatsapp')}
+                activeOpacity={0.8}
+              >
+                {selectedChannel === 'whatsapp' ? (
+                  <LinearGradient
+                    colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#FDFCFF', '#E5DFFF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[
+                      styles.channelPillActiveGradient,
+                      isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight,
+                    ]}
+                  >
+                    <WhatsAppIcon size={17} />
+                    <Text
+                      style={[
+                        styles.channelPillLabel,
+                        isDark
+                          ? styles.channelPillLabelActiveDark
+                          : styles.channelPillLabelActiveLight,
+                      ]}
+                    >
+                      WhatsApp
+                    </Text>
+                    <View
+                      style={[
+                        styles.channelCountBadge,
+                        isDark
+                          ? styles.channelBadgeSelectedDark
+                          : styles.channelBadgeSelectedLight,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.channelCountBadgeText,
+                          !isDark && { color: '#6F51D1' },
+                        ]}
+                      >
+                        {channelCounts.whatsapp}
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.channelPillIconOnly}>
+                    <WhatsAppIcon size={18} />
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Divider */}
+              <View
+                style={[
+                  styles.channelDivider,
+                  { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.22)' },
+                ]}
+              />
+
+              {/* 3. Instagram (8) */}
+              <TouchableOpacity
+                style={styles.channelItemTouchable}
+                onPress={() => setSelectedChannel(selectedChannel === 'instagram' ? 'all' : 'instagram')}
+                activeOpacity={0.8}
+              >
+                {selectedChannel === 'instagram' ? (
+                  <LinearGradient
+                    colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#FDFCFF', '#E5DFFF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[
+                      styles.channelPillActiveGradient,
+                      isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight,
+                    ]}
+                  >
+                    <InstagramIcon size={17} />
+                    <Text
+                      style={[
+                        styles.channelPillLabel,
+                        isDark
+                          ? styles.channelPillLabelActiveDark
+                          : styles.channelPillLabelActiveLight,
+                      ]}
+                    >
+                      Instagram
+                    </Text>
+                    <View
+                      style={[
+                        styles.channelCountBadge,
+                        isDark
+                          ? styles.channelBadgeSelectedDark
+                          : styles.channelBadgeSelectedLight,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.channelCountBadgeText,
+                          !isDark && { color: '#6F51D1' },
+                        ]}
+                      >
+                        {channelCounts.instagram}
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.channelPillIconOnly}>
+                    <InstagramIcon size={18} />
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Divider */}
+              <View
+                style={[
+                  styles.channelDivider,
+                  { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.22)' },
+                ]}
+              />
+
+              {/* 4. Twilio (4) */}
+              <TouchableOpacity
+                style={styles.channelItemTouchable}
+                onPress={() => setSelectedChannel(selectedChannel === 'twilio' ? 'all' : 'twilio')}
+                activeOpacity={0.8}
+              >
+                {selectedChannel === 'twilio' ? (
+                  <LinearGradient
+                    colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#FDFCFF', '#E5DFFF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[
+                      styles.channelPillActiveGradient,
+                      isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight,
+                    ]}
+                  >
+                    <TwilioIcon size={17} />
+                    <Text
+                      style={[
+                        styles.channelPillLabel,
+                        isDark
+                          ? styles.channelPillLabelActiveDark
+                          : styles.channelPillLabelActiveLight,
+                      ]}
+                    >
+                      Twilio
+                    </Text>
+                    <View
+                      style={[
+                        styles.channelCountBadge,
+                        isDark
+                          ? styles.channelBadgeSelectedDark
+                          : styles.channelBadgeSelectedLight,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.channelCountBadgeText,
+                          !isDark && { color: '#6F51D1' },
+                        ]}
+                      >
+                        {channelCounts.twilio}
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.channelPillIconOnly}>
+                    <TwilioIcon size={18} />
+                  </View>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </View>
+
+      {/* MAIN CONVERSATION AREA SHEET */}
+      <View style={styles.mainContentSheet}>
+        {/* Background gradient for conversation area */}
+        <LinearGradient
+          colors={
+            isDark
+              ? ['#0C1125', '#10162D', '#0A1023']
+              : ['#F2F2F8', '#F6F6FA', '#EEEEF5']
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        {/* INBOX STATUS FILTERS ROW */}
+        <View style={[styles.statusFiltersRow, isSmallDevice && styles.statusFiltersRowSmall]}>
+          {/* All (24) */}
+          <TouchableOpacity
+            onPress={() => setSelectedStatus('all')}
+            activeOpacity={0.8}
+            style={styles.statusPillWrapper}
+          >
+            {selectedStatus === 'all' ? (
+              <LinearGradient
+                colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#8060E8', '#6749DE']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[
+                  styles.statusPillActiveGradient,
+                  isSmallDevice && styles.statusPillSmall,
+                ]}
+              >
+                <Text style={[styles.statusTextActive, isSmallDevice && styles.statusTextSmall]}>
+                  All
+                </Text>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    isDark ? styles.statusBadgeActiveDark : styles.statusBadgeActiveLight,
+                    isSmallDevice && styles.statusBadgeSmall,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusBadgeText,
+                      isDark ? styles.statusBadgeTextActiveDark : styles.statusBadgeTextActiveLight,
+                      isSmallDevice && styles.statusBadgeTextSmall,
+                    ]}
+                  >
+                    {counts.all}
+                  </Text>
+                </View>
+              </LinearGradient>
+            ) : (
+              <View
+                style={[
+                  styles.statusPillInactiveBase,
+                  isDark ? styles.statusPillInactiveDark : styles.statusPillInactiveLight,
+                  isSmallDevice && styles.statusPillSmall,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusPillText,
+                    isDark ? styles.statusTextInactiveDark : styles.statusTextInactiveLight,
+                    isSmallDevice && styles.statusTextSmall,
+                  ]}
+                >
+                  All
+                </Text>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    isDark ? styles.statusBadgeInactiveDark : styles.statusBadgeInactiveLight,
+                    isSmallDevice && styles.statusBadgeSmall,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusBadgeText,
+                      isDark ? styles.statusBadgeTextInactiveDark : styles.statusBadgeTextInactiveLight,
+                      isSmallDevice && styles.statusBadgeTextSmall,
+                    ]}
+                  >
+                    {counts.all}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Unread (12) */}
+          <TouchableOpacity
+            onPress={() => setSelectedStatus(selectedStatus === 'unread' ? 'all' : 'unread')}
+            activeOpacity={0.8}
+            style={styles.statusPillWrapper}
+          >
+            {selectedStatus === 'unread' ? (
+              <LinearGradient
+                colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#8060E8', '#6749DE']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[
+                  styles.statusPillActiveGradient,
+                  isSmallDevice && styles.statusPillSmall,
+                ]}
+              >
+                <Text style={[styles.statusTextActive, isSmallDevice && styles.statusTextSmall]}>
+                  Unread
+                </Text>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    isDark ? styles.statusBadgeActiveDark : styles.statusBadgeActiveLight,
+                    isSmallDevice && styles.statusBadgeSmall,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusBadgeText,
+                      isDark ? styles.statusBadgeTextActiveDark : styles.statusBadgeTextActiveLight,
+                      isSmallDevice && styles.statusBadgeTextSmall,
+                    ]}
+                  >
+                    {counts.unread}
+                  </Text>
+                </View>
+              </LinearGradient>
+            ) : (
+              <View
+                style={[
+                  styles.statusPillInactiveBase,
+                  isDark ? styles.statusPillInactiveDark : styles.statusPillInactiveLight,
+                  isSmallDevice && styles.statusPillSmall,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusPillText,
+                    isDark ? styles.statusTextInactiveDark : styles.statusTextInactiveLight,
+                    isSmallDevice && styles.statusTextSmall,
+                  ]}
+                >
+                  Unread
+                </Text>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    isDark ? styles.statusBadgeInactiveDark : styles.statusBadgeInactiveLight,
+                    isSmallDevice && styles.statusBadgeSmall,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusBadgeText,
+                      isDark ? styles.statusBadgeTextInactiveDark : styles.statusBadgeTextInactiveLight,
+                      isSmallDevice && styles.statusBadgeTextSmall,
+                    ]}
+                  >
+                    {counts.unread}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Open (12) */}
+          <TouchableOpacity
+            onPress={() => setSelectedStatus(selectedStatus === 'open' ? 'all' : 'open')}
+            activeOpacity={0.8}
+            style={styles.statusPillWrapper}
+          >
+            {selectedStatus === 'open' ? (
+              <LinearGradient
+                colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#8060E8', '#6749DE']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[
+                  styles.statusPillActiveGradient,
+                  isSmallDevice && styles.statusPillSmall,
+                ]}
+              >
+                <Text style={[styles.statusTextActive, isSmallDevice && styles.statusTextSmall]}>
+                  Open
+                </Text>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    isDark ? styles.statusBadgeActiveDark : styles.statusBadgeActiveLight,
+                    isSmallDevice && styles.statusBadgeSmall,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusBadgeText,
+                      isDark ? styles.statusBadgeTextActiveDark : styles.statusBadgeTextActiveLight,
+                      isSmallDevice && styles.statusBadgeTextSmall,
+                    ]}
+                  >
+                    {counts.open}
+                  </Text>
+                </View>
+              </LinearGradient>
+            ) : (
+              <View
+                style={[
+                  styles.statusPillInactiveBase,
+                  isDark ? styles.statusPillInactiveDark : styles.statusPillInactiveLight,
+                  isSmallDevice && styles.statusPillSmall,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusPillText,
+                    isDark ? styles.statusTextInactiveDark : styles.statusTextInactiveLight,
+                    isSmallDevice && styles.statusTextSmall,
+                  ]}
+                >
+                  Open
+                </Text>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    isDark ? styles.statusBadgeInactiveDark : styles.statusBadgeInactiveLight,
+                    isSmallDevice && styles.statusBadgeSmall,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusBadgeText,
+                      isDark ? styles.statusBadgeTextInactiveDark : styles.statusBadgeTextInactiveLight,
+                      isSmallDevice && styles.statusBadgeTextSmall,
+                    ]}
+                  >
+                    {counts.open}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Filter (Funnel + Chevron) */}
+          <TouchableOpacity
+            style={[
+              styles.statusPillInactiveBase,
+              styles.filterButtonPill,
+              isDark ? styles.statusPillInactiveDark : styles.statusPillInactiveLight,
+              isSmallDevice && styles.statusPillSmall,
+            ]}
+            onPress={() => setShowFilterModal(true)}
+            activeOpacity={0.8}
+          >
+            <Filter size={isSmallDevice ? 13 : 15} color={isDark ? '#A2ADD8' : '#7583A5'} />
+            <Text
+              style={[
+                styles.statusPillText,
+                isDark ? styles.statusTextInactiveDark : styles.statusTextInactiveLight,
+                isSmallDevice && styles.statusTextSmall,
+              ]}
+            >
+              Filter
+            </Text>
+            <ChevronDown size={isSmallDevice ? 12 : 14} color={isDark ? '#A2ADD8' : '#7583A5'} />
+          </TouchableOpacity>
+        </View>
+
+        {/* CONVERSATION CARDS LIST */}
+        <FlatList
+          data={filteredConversations}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[
+            styles.cardsListContent,
+            isSmallDevice && styles.cardsListContentSmall,
+          ]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                loadInboxData();
+              }}
+              tintColor="#8060E8"
+            />
+          }
+          ListEmptyComponent={
+            loading ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#8060E8" />
+              </View>
+            ) : loadError ? (
+              <TouchableOpacity
+                onPress={loadInboxData}
+                style={{ margin: 20, padding: 16, borderRadius: 16, backgroundColor: 'rgba(239,68,68,0.12)', alignItems: 'center' }}
+              >
+                <Text style={{ color: '#EF4444', fontWeight: '600', marginBottom: 4 }}>{loadError}</Text>
+                <Text style={{ color: isDark ? '#A2ADD8' : '#6B7280', fontSize: 12 }}>Tap to retry</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+                <Text style={{ color: isDark ? '#A2ADD8' : '#7887A9', fontSize: 14 }}>
+                  No conversations found
+                </Text>
+              </View>
+            )
+          }
+          renderItem={({ item }) => {
+            const hasValidImage = Boolean(item.avatarUrl) && !imageErrors[item.id];
+
+            return (
+              <TouchableOpacity
+                style={[
+                  styles.conversationCard,
+                  isDark ? styles.cardDark : styles.cardLight,
+                  isSmallDevice && styles.conversationCardSmall,
+                ]}
+                activeOpacity={0.88}
+                onPress={() => {
+                  router.push({
+                    pathname: '/chat/[id]',
+                    params: {
+                      id: item.id,
+                      channel: item.channel,
+                      name: item.name,
+                      phone: item.phone || '',
+                    },
+                  });
+                }}
+              >
+                {/* Avatar with overlapping channel logo */}
+                <View style={[styles.avatarContainer, isSmallDevice && styles.avatarContainerSmall]}>
+                  {hasValidImage ? (
+                    <Image
+                      source={{ uri: item.avatarUrl }}
+                      style={[styles.avatarImage, isSmallDevice && styles.avatarImageSmall]}
+                      onError={() =>
+                        setImageErrors((prev) => ({ ...prev, [item.id]: true }))
+                      }
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.avatarFallback,
+                        { backgroundColor: item.avatarBg },
+                        isSmallDevice && styles.avatarFallbackSmall,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.avatarFallbackText,
+                          isSmallDevice && styles.avatarFallbackTextSmall,
+                        ]}
+                      >
+                        {item.avatarInitials}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Overlapping channel logo at bottom right */}
+                  {renderAvatarChannelBadge(item.channel)}
+                </View>
+
+                {/* Content: Name, Last Message, Timestamp, Unread indicator */}
+                <View style={styles.cardDetailsColumn}>
+                  {/* Top row: Name & Timestamp */}
+                  <View style={[styles.cardHeaderRow, isSmallDevice && styles.cardHeaderRowSmall]}>
+                    <Text
+                      style={[
+                        styles.contactNameText,
+                        { color: isDark ? '#F5F4FF' : '#211D3D' },
+                        isSmallDevice && styles.contactNameTextSmall,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.timestampText,
+                        { color: isDark ? '#A8B4D9' : '#7C8AA9' },
+                        isSmallDevice && styles.timestampTextSmall,
+                      ]}
+                    >
+                      {item.time}
+                    </Text>
+                  </View>
+
+                  {/* Bottom row: Message preview & Purple unread dot */}
+                  <View style={styles.cardFooterRow}>
+                    <Text
+                      style={[
+                        styles.messagePreviewText,
+                        { color: isDark ? '#A2ADD8' : '#7887A9' },
+                        isSmallDevice && styles.messagePreviewTextSmall,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.lastMessage}
+                    </Text>
+
+                    {item.unread && (
+                      <View
+                        style={[
+                          styles.unreadPurpleDot,
+                          { backgroundColor: isDark ? '#8060E8' : '#8060E8' },
+                          isSmallDevice && styles.unreadPurpleDotSmall,
+                        ]}
+                      />
+                    )}
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </View>
+
+      {/* FILTER SHEET MODAL */}
       <Modal
-        visible={showNewChatModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowNewChatModal(false)}
+        visible={showFilterModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowFilterModal(false)}
       >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => setShowNewChatModal(false)}
+          onPress={() => setShowFilterModal(false)}
         >
-          <View style={styles.newChatModalContent} onStartShouldSetResponder={() => true}>
-            <View style={styles.modalHandle} />
-
-            <View style={styles.newChatHeader}>
-              <View>
-                <Text style={styles.newChatTitle}>Start New Conversation</Text>
-                <Text style={styles.newChatSubtitle}>Reach a lead across connected channels</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.modalCloseBtn}
-                onPress={() => setShowNewChatModal(false)}
+          <View
+            style={[
+              styles.modalSheetCard,
+              {
+                backgroundColor: isDark ? '#161D36' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(164,170,255,0.15)' : 'rgba(113,124,164,0.18)',
+              },
+            ]}
+            onStartShouldSetResponder={() => true}
+          >
+            {/* Modal Header */}
+            <View style={styles.modalHeaderRow}>
+              <Text
+                style={[
+                  styles.modalTitleText,
+                  { color: isDark ? '#F5F4FF' : '#211D3D' },
+                ]}
               >
-                <X size={18} color="#A1A1AA" />
+                Filter Channels
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowFilterModal(false)}
+                style={styles.modalCloseButton}
+              >
+                <X size={20} color={isDark ? '#A2ADD8' : '#7887A9'} />
               </TouchableOpacity>
             </View>
 
-            {/* Channel Selector */}
-            <Text style={styles.inputSectionLabel}>SELECT CHANNEL</Text>
-            <View style={styles.newChatChannelsRow}>
+            {/* Channels Checklist */}
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalChannelsList}>
               {[
-                { key: 'whatsapp', label: 'WhatsApp', color: '#25D366' },
-                { key: 'instagram', label: 'Instagram', color: '#E1306C' },
-                { key: 'twilio', label: 'Twilio SMS', color: '#F22F46' },
-                { key: 'website', label: 'Web Chat', color: '#0EA5E9' },
-              ].map((ch) => (
-                <TouchableOpacity
-                  key={ch.key}
-                  style={[
-                    styles.channelSelectPill,
-                    newContactChannel === ch.key && styles.channelSelectPillActive,
-                  ]}
-                  onPress={() => setNewContactChannel(ch.key as any)}
-                >
-                  <View style={[styles.channelDot, { backgroundColor: ch.color }]} />
-                  <Text
+                { id: 'all', label: 'All Channels', count: counts.all, icon: null },
+                { id: 'whatsapp', label: 'WhatsApp', count: counts.whatsapp, icon: <WhatsAppIcon size={22} /> },
+                { id: 'instagram', label: 'Instagram', count: counts.instagram, icon: <InstagramIcon size={22} /> },
+                { id: 'twilio', label: 'Twilio', count: counts.twilio, icon: <TwilioIcon size={22} /> },
+              ].map((ch) => {
+                const isSelected = selectedChannel === ch.id;
+                return (
+                  <TouchableOpacity
+                    key={ch.id}
                     style={[
-                      styles.channelSelectText,
-                      newContactChannel === ch.key && styles.channelSelectTextActive,
+                      styles.modalOptionRow,
+                      {
+                        borderBottomColor: isDark
+                          ? 'rgba(255, 255, 255, 0.05)'
+                          : 'rgba(0, 0, 0, 0.05)',
+                      },
                     ]}
+                    onPress={() => {
+                      setSelectedChannel(ch.id as ChannelType);
+                    }}
+                    activeOpacity={0.7}
                   >
-                    {ch.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                    <View style={styles.modalOptionLeft}>
+                      {ch.icon ? (
+                        <View style={styles.modalChannelIconBox}>{ch.icon}</View>
+                      ) : (
+                        <View
+                          style={[
+                            styles.modalAllIconBox,
+                            { backgroundColor: isDark ? '#263154' : '#E8EDFF' },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.modalAllIconText,
+                              { color: isDark ? '#FFFFFF' : '#7555D9' },
+                            ]}
+                          >
+                            All
+                          </Text>
+                        </View>
+                      )}
+                      <Text
+                        style={[
+                          styles.modalOptionLabel,
+                          { color: isDark ? '#F5F4FF' : '#211D3D' },
+                        ]}
+                      >
+                        {ch.label}
+                      </Text>
+                    </View>
 
-            {/* Contact Name Input */}
-            <Text style={styles.inputSectionLabel}>CONTACT NAME</Text>
-            <TextInput
-              style={styles.newChatInput}
-              placeholder="e.g. Rahul Verma"
-              placeholderTextColor="#71717A"
-              value={newContactName}
-              onChangeText={setNewContactName}
-            />
+                    <View style={styles.modalOptionRight}>
+                      <Text
+                        style={[
+                          styles.modalOptionCount,
+                          { color: isDark ? '#A2ADD8' : '#7887A9' },
+                        ]}
+                      >
+                        {ch.count}
+                      </Text>
+                      <View
+                        style={[
+                          styles.modalCheckbox,
+                          isSelected && styles.modalCheckboxChecked,
+                          {
+                            borderColor: isSelected
+                              ? '#8060E8'
+                              : isDark
+                              ? 'rgba(164,170,255,0.3)'
+                              : '#CBD5E1',
+                          },
+                        ]}
+                      >
+                        {isSelected && <Check size={13} color="#FFFFFF" strokeWidth={3} />}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
 
-            {/* Contact Phone / Handle Input */}
-            <Text style={styles.inputSectionLabel}>PHONE / USERNAME</Text>
-            <TextInput
-              style={styles.newChatInput}
-              placeholder="e.g. +91 98765 12345 or @handle"
-              placeholderTextColor="#71717A"
-              value={newContactPhone}
-              onChangeText={setNewContactPhone}
-            />
-
-            {/* Submit / Launch Button */}
-            <TouchableOpacity
-              style={styles.startChatBtn}
-              activeOpacity={0.8}
-              onPress={() => {
-                const name = newContactName.trim() || 'New Lead';
-                const phone = newContactPhone.trim() || '+91 90000 00000';
-                const initials = name
-                  .split(' ')
-                  .map((w) => w[0])
-                  .join('')
-                  .toUpperCase()
-                  .slice(0, 2) || 'NL';
-
-                setShowNewChatModal(false);
-                setNewContactName('');
-                setNewContactPhone('');
-
-                router.push({
-                  pathname: '/chat/[id]',
-                  params: {
-                    id: `new-${Date.now()}`,
-                    name,
-                    phoneOrHandle: phone,
-                    channel: newContactChannel,
-                    status: 'open',
-                    systemTier: 'hot',
-                    avatarInitials: initials,
-                    avatarColor: BrandColors.primary,
-                    isOnline: '1',
+            {/* Modal Actions */}
+            <View style={styles.modalFooterActions}>
+              <TouchableOpacity
+                style={[
+                  styles.modalResetButton,
+                  {
+                    backgroundColor: isDark ? '#202941' : '#F1F3F9',
+                    borderColor: isDark ? 'rgba(164,170,255,0.1)' : 'rgba(113,124,164,0.15)',
                   },
-                });
-              }}
-            >
-              <Text style={styles.startChatBtnText}>Start Conversation</Text>
-            </TouchableOpacity>
+                ]}
+                onPress={() => {
+                  setSelectedChannel('all');
+                  setSelectedStatus('all');
+                  setShowFilterModal(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.modalResetButtonText,
+                    { color: isDark ? '#F5F4FF' : '#211D3D' },
+                  ]}
+                >
+                  Reset
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalApplyButton}
+                onPress={() => setShowFilterModal(false)}
+              >
+                <Text style={styles.modalApplyButtonText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>
-    </SafeAreaView>
+
+      {/* ADD NEW LEAD MODAL */}
+      <AddLeadModal
+        isOpen={showAddLeadModal}
+        onClose={() => setShowAddLeadModal(false)}
+        onSuccess={(newLead) => {
+          setLeadSuccessToast(`Lead added: ${newLead?.name || 'Customer'}`);
+          setTimeout(() => setLeadSuccessToast(null), 4000);
+        }}
+      />
+
+      {/* SUCCESS TOAST BANNER */}
+      {leadSuccessToast && (
+        <View
+          style={[
+            styles.toastContainer,
+            {
+              backgroundColor: isDark ? '#1C1930' : '#FFFFFF',
+              borderColor: isDark ? 'rgba(139, 92, 246, 0.45)' : '#DDD6FE',
+              shadowColor: '#8A3FFC',
+            },
+          ]}
+        >
+          <View style={styles.toastSuccessDot} />
+          <Text
+            style={[
+              styles.toastText,
+              { color: isDark ? '#F5F3FF' : '#111827' },
+            ]}
+          >
+            {leadSuccessToast}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setLeadSuccessToast(null)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <X size={14} color={isDark ? '#9CA3AF' : '#6B7280'} />
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screenContainer: {
     flex: 1,
-    backgroundColor: '#08080C',
   },
-  header: {
+
+  /* HEADER */
+  headerWrapper: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 22,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    paddingVertical: 8,
+    marginTop: 2,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  headerTitleText: {
+    fontSize: 28,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+    letterSpacing: -0.4,
   },
-  headerActions: {
+  headerActionsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#15161C',
+  glassActionButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  glassActionLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  glassActionDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.09)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  iconButtonActive: {
-    backgroundColor: BrandColors.primaryDark,
-    borderColor: BrandColors.primaryLight,
+  glassActionActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
-  newChatButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: BrandColors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: BrandColors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  searchBarContainer: {
+
+  /* EXPANDABLE SEARCH */
+  searchBarWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#15161C',
-    marginHorizontal: 16,
     marginTop: 10,
     marginBottom: 4,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 42,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   searchBarIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   searchBarInput: {
     flex: 1,
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: Fonts.regular,
   },
-  channelScrollWrapper: {
-    marginTop: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-    paddingBottom: 8,
+
+  /* CHANNEL FILTER BAR */
+  channelBarContainer: {
+    borderRadius: 999,
+    paddingVertical: 4,
+    marginTop: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  channelBarLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: 'rgba(255, 255, 255, 0.40)',
+  },
+  channelBarDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: 'rgba(171, 166, 255, 0.18)',
   },
   channelScrollContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexGrow: 1,
+    paddingHorizontal: 4,
+  },
+  channelItemTouchable: {
+    borderRadius: 999,
+  },
+  channelPillBase: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5.5,
+    borderRadius: 999,
+  },
+  channelPillIconOnly: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 5.5,
+    borderRadius: 999,
+  },
+  channelPillActiveGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 5.5,
+    borderRadius: 999,
+    gap: 5,
+  },
+  channelPillBorderLight: {
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: '#814AC8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  channelPillBorderDark: {
+    borderWidth: 1,
+    borderColor: 'rgba(211, 204, 255, 0.45)',
+    shadowColor: '#7757FF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  channelPillLabel: {
+    fontSize: 12.5,
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
+  },
+  channelPillLabelActiveLight: {
+    color: '#7555D9',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+  },
+  channelPillLabelActiveDark: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+  },
+  channelPillLabelInactive: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
+  },
+  channelCountBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 5.5,
+    paddingVertical: 1,
+    minWidth: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  channelBadgeSelectedLight: {
+    backgroundColor: '#E5DFFF',
+  },
+  channelBadgeSelectedDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+  },
+  channelBadgeUnselectedLight: {
+    backgroundColor: '#8060E8',
+  },
+  channelBadgeUnselectedDark: {
+    backgroundColor: '#7860E8',
+  },
+  channelCountBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10.5,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+  },
+  channelDivider: {
+    width: 1,
+    height: 16,
+    marginHorizontal: 3,
+    borderRadius: 0.5,
+  },
+
+  /* MAIN CONVERSATION CONTENT SHEET */
+  mainContentSheet: {
+    flex: 1,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
+    marginTop: -12,
+    overflow: 'hidden',
+    paddingTop: 16,
+  },
+
+  /* STATUS FILTERS */
+  statusFiltersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     gap: 8,
+    marginBottom: 14,
   },
-  channelChip: {
+  statusPillWrapper: {
+    borderRadius: 999,
+  },
+  statusPillActiveGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#121217',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 999,
     gap: 6,
   },
-  channelChipActive: {
-    backgroundColor: BrandColors.primary,
-    borderColor: BrandColors.primaryLight,
-    shadowColor: BrandColors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
+  statusPillInactiveBase: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    gap: 6,
   },
-  channelChipText: {
-    color: '#9CA3AF',
-    fontSize: 12,
+  filterButtonPill: {
+    marginLeft: 'auto',
+  },
+  statusPillInactiveLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.70)',
+    borderWidth: 1,
+    borderColor: 'rgba(215, 222, 238, 0.85)',
+  },
+  statusPillInactiveDark: {
+    backgroundColor: 'rgba(128, 140, 190, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 176, 225, 0.08)',
+  },
+  statusPillText: {
+    fontSize: 13,
     fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
-  channelChipTextActive: {
+  statusTextActive: {
     color: '#FFFFFF',
-    fontFamily: Fonts.bold,
-  },
-  channelDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  subFilterRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  subFilterTab: {
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: 'transparent',
-  },
-  subFilterTabActive: {
-    backgroundColor: 'rgba(129, 74, 200, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(129, 74, 200, 0.4)',
-  },
-  subFilterTabText: {
-    color: '#71717A',
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
-  subFilterTabTextActive: {
-    color: BrandColors.primaryLight,
-    fontFamily: Fonts.semiBold,
+  statusTextInactiveLight: {
+    color: '#7583A5',
   },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 24,
-    gap: 10,
+  statusTextInactiveDark: {
+    color: '#A2ADD8',
   },
-  convCard: {
-    flexDirection: 'row',
-    backgroundColor: '#15161C',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-    padding: 12,
-    gap: 12,
-  },
-  avatarWrapper: {
-    position: 'relative',
-    alignSelf: 'flex-start',
-  },
-  avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+  statusBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    minWidth: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarInitials: {
+  statusBadgeActiveLight: {
+    backgroundColor: '#E5DFFF',
+  },
+  statusBadgeActiveDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  statusBadgeInactiveLight: {
+    backgroundColor: '#E5DFFF',
+  },
+  statusBadgeInactiveDark: {
+    backgroundColor: 'rgba(162, 173, 216, 0.18)',
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+  },
+  statusBadgeTextActiveLight: {
+    color: '#6F51D1',
+  },
+  statusBadgeTextActiveDark: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontFamily: Fonts.bold,
   },
-  onlineDot: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#10B981',
-    borderWidth: 2,
-    borderColor: '#15161C',
+  statusBadgeTextInactiveLight: {
+    color: '#7583A5',
   },
-  miniChannelBadge: {
+  statusBadgeTextInactiveDark: {
+    color: '#A2ADD8',
+  },
+
+  /* CONVERSATION CARDS */
+  cardsListContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 110,
+    gap: 12,
+  },
+  conversationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderRadius: 24,
+  },
+  cardLight: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: '#2F2B5A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  cardDark: {
+    backgroundColor: '#202941',
+    borderWidth: 1,
+    borderColor: 'rgba(164, 170, 255, 0.07)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: 14,
+  },
+  avatarImage: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#8E8AA0',
+  },
+  avatarFallback: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarFallbackText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontFamily: Fonts.semiBold,
+    fontWeight: '600',
+  },
+  avatarMiniBadge: {
     position: 'absolute',
     bottom: -2,
     right: -2,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#15161C',
+    backgroundColor: '#FFFFFF',
   },
-  convInfo: {
+  cardDetailsColumn: {
     flex: 1,
     justifyContent: 'center',
   },
-  convHeader: {
+  cardHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 4,
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  contactNameText: {
+    fontSize: 17,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
     flex: 1,
-    marginRight: 8,
+    marginRight: 10,
   },
-  contactName: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: Fonts.semiBold,
-  },
-  timestamp: {
-    color: '#71717A',
-    fontSize: 11,
+  timestampText: {
+    fontSize: 13.5,
     fontFamily: Fonts.regular,
+    fontWeight: '400',
   },
-  statusPillRow: {
-    marginBottom: 6,
-  },
-  statusPill: {
+  cardFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
+    justifyContent: 'space-between',
+  },
+  messagePreviewText: {
+    fontSize: 14.5,
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
+    flex: 1,
+    marginRight: 12,
+  },
+  unreadPurpleDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+
+  /* RESPONSIVE STYLES FOR SMALLER DEVICES */
+  statusFiltersRowSmall: {
+    paddingHorizontal: 12,
+    gap: 6,
+    marginBottom: 10,
+  },
+  statusPillSmall: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     gap: 4,
   },
-  statusDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+  statusTextSmall: {
+    fontSize: 11.5,
   },
-  statusPillText: {
+  statusBadgeSmall: {
+    paddingHorizontal: 4.5,
+    paddingVertical: 0.5,
+    minWidth: 16,
+  },
+  statusBadgeTextSmall: {
     fontSize: 10,
-    fontFamily: Fonts.semiBold,
   },
-  statusOpen: {
-    backgroundColor: '#09221A',
-    borderColor: '#14533E',
+
+  cardsListContentSmall: {
+    paddingHorizontal: 12,
+    gap: 8,
   },
-  dotOpen: {
-    backgroundColor: '#25D366',
+  conversationCardSmall: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 18,
   },
-  textOpen: {
-    color: '#25D366',
+  avatarContainerSmall: {
+    marginRight: 10,
   },
-  statusFollowUp: {
-    backgroundColor: 'rgba(251, 191, 36, 0.12)',
-    borderColor: 'rgba(251, 191, 36, 0.3)',
+  avatarImageSmall: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
   },
-  dotFollowUp: {
-    backgroundColor: '#FBBF24',
+  avatarFallbackSmall: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
   },
-  textFollowUp: {
-    color: '#FBBF24',
+  avatarFallbackTextSmall: {
+    fontSize: 15,
   },
-  statusConverted: {
-    backgroundColor: 'rgba(168, 85, 247, 0.12)',
-    borderColor: 'rgba(168, 85, 247, 0.3)',
+  avatarMiniBadgeSmall: {
+    width: 19,
+    height: 19,
+    borderRadius: 9.5,
+    borderWidth: 1.5,
+    bottom: -1,
+    right: -1,
   },
-  dotConverted: {
-    backgroundColor: '#A855F7',
+  cardHeaderRowSmall: {
+    marginBottom: 2,
   },
-  textConverted: {
-    color: '#A855F7',
-  },
-  statusClosed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  dotClosed: {
-    backgroundColor: '#9CA3AF',
-  },
-  textClosed: {
-    color: '#9CA3AF',
-  },
-  tierBadge: {
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  tierHot: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-  },
-  tierTextHot: {
-    color: '#EF4444',
-    fontSize: 10,
-    fontFamily: Fonts.bold,
-  },
-  tierWarm: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-  },
-  tierTextWarm: {
-    color: '#F59E0B',
-    fontSize: 10,
-    fontFamily: Fonts.bold,
-  },
-  tierCold: {
-    backgroundColor: 'rgba(59, 130, 246, 0.12)',
-  },
-  tierTextCold: {
-    color: '#3B82F6',
-    fontSize: 10,
-    fontFamily: Fonts.bold,
-  },
-  convFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  previewContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+  contactNameTextSmall: {
+    fontSize: 15,
     marginRight: 8,
   },
-  previewIcon: {
-    marginRight: 4,
-  },
-  aiBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(168, 85, 247, 0.15)',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
-    marginRight: 6,
-    gap: 2,
-  },
-  aiBadgeText: {
-    color: '#A855F7',
-    fontSize: 9,
-    fontFamily: Fonts.bold,
-  },
-  lastMessageText: {
-    color: '#9CA3AF',
+  timestampTextSmall: {
     fontSize: 12,
-    fontFamily: Fonts.regular,
-    flex: 1,
   },
-  lastMessageUnread: {
-    color: '#FFFFFF',
-    fontFamily: Fonts.medium,
-  },
-  unreadBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: BrandColors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 5,
-  },
-  unreadCountText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontFamily: Fonts.bold,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 60,
-    gap: 8,
-  },
-  emptyTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontFamily: Fonts.semiBold,
-    marginTop: 8,
-  },
-  emptySubtitle: {
-    color: '#71717A',
+  messagePreviewTextSmall: {
     fontSize: 13,
-    fontFamily: Fonts.regular,
-    textAlign: 'center',
-    maxWidth: 240,
+    marginRight: 8,
   },
-  emptyResetBtn: {
-    marginTop: 12,
-    backgroundColor: '#1E1E28',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+  unreadPurpleDotSmall: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  emptyResetText: {
-    color: BrandColors.primaryLight,
-    fontSize: 12,
-    fontFamily: Fonts.semiBold,
-  },
+
+  /* FILTER MODAL */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'flex-end',
   },
-  newChatModalContent: {
-    backgroundColor: '#12131A',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  modalSheetCard: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    maxHeight: '75%',
   },
-  modalHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  newChatHeader: {
+  modalHeaderRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 18,
+    paddingBottom: 14,
   },
-  newChatTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontFamily: Fonts.bold,
+  modalTitleText: {
+    fontSize: 18,
+    fontFamily: Fonts.semiBold,
+    fontWeight: '600',
   },
-  newChatSubtitle: {
-    color: '#71717A',
-    fontSize: 12,
-    fontFamily: Fonts.regular,
-    marginTop: 2,
+  modalCloseButton: {
+    padding: 4,
   },
-  modalCloseBtn: {
+  modalChannelsList: {
+    marginVertical: 6,
+  },
+  modalOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  modalOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  modalChannelIconBox: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: '#1C1D26',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  inputSectionLabel: {
-    color: '#71717A',
-    fontSize: 10,
-    fontFamily: Fonts.bold,
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    marginTop: 10,
-  },
-  newChatChannelsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 8,
-  },
-  channelSelectPill: {
-    flexDirection: 'row',
+  modalAllIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     alignItems: 'center',
-    backgroundColor: '#181922',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 16,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
   },
-  channelSelectPillActive: {
-    backgroundColor: 'rgba(129, 74, 200, 0.2)',
-    borderColor: BrandColors.primaryLight,
-  },
-  channelSelectText: {
-    color: '#A1A1AA',
+  modalAllIconText: {
     fontSize: 12,
+    fontFamily: Fonts.semiBold,
+    fontWeight: '600',
+  },
+  modalOptionLabel: {
+    fontSize: 15,
     fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
-  channelSelectTextActive: {
-    color: '#FFFFFF',
-    fontFamily: Fonts.bold,
-  },
-  newChatInput: {
-    backgroundColor: '#181922',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    marginBottom: 6,
-  },
-  startChatBtn: {
-    backgroundColor: BrandColors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
+  modalOptionRight: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
-    shadowColor: BrandColors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
+    gap: 12,
   },
-  startChatBtnText: {
+  modalOptionCount: {
+    fontSize: 13,
+    fontFamily: Fonts.regular,
+  },
+  modalCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCheckboxChecked: {
+    backgroundColor: '#8060E8',
+  },
+  modalFooterActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  modalResetButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  modalResetButtonText: {
+    fontSize: 15,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+  },
+  modalApplyButton: {
+    flex: 1.4,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#8060E8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalApplyButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: Fonts.bold,
+    fontSize: 15,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+  },
+  toastContainer: {
+    position: 'absolute',
+    top: 56,
+    left: 18,
+    right: 18,
+    zIndex: 9999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+    gap: 10,
+  },
+  toastSuccessDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  toastText: {
+    flex: 1,
+    fontSize: 13.5,
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
   },
 });

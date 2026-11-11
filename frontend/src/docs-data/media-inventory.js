@@ -84,8 +84,8 @@ export const MEDIA_INVENTORY = {
     screenshotAvailable: true,
     screenshotVersion: "v2.4.0",
     screenshotUrls: [
-      "/images/docs/screenshots/flow-verification-active.png",
-      "/images/docs/screenshots/orchestrator-canvas.png"
+      "/images/docs/screenshots/flow-verification-active.webp",
+      "/images/docs/screenshots/orchestrator-canvas.webp"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
@@ -149,14 +149,14 @@ export const MEDIA_INVENTORY = {
     screenshotAvailable: true,
     screenshotVersion: "v2.4.0",
     screenshotUrls: [
-      "/images/docs/whatsapp-connect/step-1-channels-dashboard.png",
-      "/images/docs/whatsapp-connect/step-2-meta-login-continue.png",
-      "/images/docs/whatsapp-connect/step-3-select-portfolio.png",
-      "/images/docs/whatsapp-connect/step-4-business-information.png",
-      "/images/docs/whatsapp-connect/step-5-phone-number-entry.png",
-      "/images/docs/whatsapp-connect/step-6-otp-verification.png",
-      "/images/docs/whatsapp-connect/step-7-connection-complete.png",
-      "/images/docs/whatsapp-connect/step-8-connected-status.png"
+      "/images/docs/whatsapp-connect/step-1-channels-dashboard.webp",
+      "/images/docs/whatsapp-connect/step-2-meta-login-continue.webp",
+      "/images/docs/whatsapp-connect/step-3-select-portfolio.webp",
+      "/images/docs/whatsapp-connect/step-4-business-information.webp",
+      "/images/docs/whatsapp-connect/step-5-phone-number-entry.webp",
+      "/images/docs/whatsapp-connect/step-6-otp-verification.webp",
+      "/images/docs/whatsapp-connect/step-7-connection-complete.webp",
+      "/images/docs/whatsapp-connect/step-8-connected-status.webp"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",
@@ -172,8 +172,8 @@ export const MEDIA_INVENTORY = {
     screenshotAvailable: true,
     screenshotVersion: "v2.4.0",
     screenshotUrls: [
-      "/images/docs/screenshots/gst-billing-profile-card.png",
-      "/images/docs/screenshots/gst-edit-billing-profile-modal.png"
+      "/images/docs/screenshots/gst-billing-profile-card.webp",
+      "/images/docs/screenshots/gst-edit-billing-profile-modal.webp"
     ],
     documentationStatus: "Complete",
     currentProductVersion: "v2.4.0",

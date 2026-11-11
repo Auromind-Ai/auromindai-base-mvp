@@ -40,6 +40,19 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+def jwt_blacklist_key(token: str) -> str:
+    """Return canonical Redis key for a revoked JWT."""
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    return f"revoked_jwt:{token_hash}"
+
+
+def is_jwt_revoked_in_redis(redis_client, token: str) -> bool:
+    """Return True if token has been blacklisted via logout in Redis."""
+    if not redis_client or not token:
+        return False
+    return bool(redis_client.get(jwt_blacklist_key(token)))
+
+
 def decode_access_token(token: str):
    
     try:
@@ -66,16 +79,22 @@ def parse_user_agent(ua: str) -> str:
     os_name = "Unknown OS"
     if "windows" in ua_lower:
         os_name = "Windows"
+    elif (
+        "iphone" in ua_lower
+        or "ipad" in ua_lower
+        or "ipod" in ua_lower
+        or "cfnetwork" in ua_lower
+        or "darwin" in ua_lower
+    ):
+        os_name = "iOS"
     elif "macintosh" in ua_lower or "mac os x" in ua_lower:
         os_name = "macOS"
-    elif "iphone" in ua_lower or "ipad" in ua_lower:
-        os_name = "iOS"
-    elif "android" in ua_lower:
+    elif "android" in ua_lower or "okhttp" in ua_lower or "dalvik" in ua_lower:
         os_name = "Android"
     elif "linux" in ua_lower:
         os_name = "Linux"
 
-    # Browser detection
+    # Browser / client detection
     browser_name = "Unknown Browser"
     if "chrome" in ua_lower and "edg" not in ua_lower and "opr" not in ua_lower:
         browser_name = "Chrome"
@@ -87,5 +106,15 @@ def parse_user_agent(ua: str) -> str:
         browser_name = "Edge"
     elif "opr" in ua_lower or "opera" in ua_lower:
         browser_name = "Opera"
+    elif "expo" in ua_lower:
+        browser_name = "Expo App"
+    elif "okhttp" in ua_lower or "dalvik" in ua_lower:
+        browser_name = "Orbion Mobile"
+        if os_name == "Unknown OS":
+            os_name = "Android"
+    elif "cfnetwork" in ua_lower or "darwin" in ua_lower:
+        browser_name = "Orbion Mobile"
+        if os_name == "Unknown OS":
+            os_name = "iOS"
 
     return f"{browser_name} on {os_name}"

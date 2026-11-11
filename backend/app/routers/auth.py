@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.schemas.auth import UserResponse, WorkspaceResponse
 from app.database import get_db
 from app.services.auth_service import AuthService
-from app.utils.auth import decode_access_token, get_client_ip, parse_user_agent
+from app.utils.auth import decode_access_token, get_client_ip, parse_user_agent, jwt_blacklist_key, is_jwt_revoked_in_redis
 import uuid
 from datetime import datetime, timezone
 from app.core.config import settings
@@ -173,6 +173,18 @@ async def get_current_user(
     if user_id is None:
         logger.debug("❌ Token missing sub")
         raise credentials_exception
+
+    # Check explicit JWT blacklist (covers tokens with or without session_id after logout)
+    r_rev = _get_redis_client()
+    if r_rev:
+        try:
+            if is_jwt_revoked_in_redis(r_rev, token):
+                logger.debug("Token has been revoked via logout")
+                raise credentials_exception
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"Redis token revocation check failed: {e}")
 
     # Fast Validation for impersonated tokens before DB user lookup
     if impersonated and impersonation_id:
@@ -602,6 +614,7 @@ async def get_current_user_info(current_user: CurrentUser = Depends(get_current_
         "id": str(current_user.id),
         "email": current_user.email,
         "full_name": current_user.full_name,
+        "avatar_url": (current_user.user.preferences or {}).get("avatar_url"),
         "platform_role": role_val,
         "workspace_id": current_user.workspace_id,
         "impersonated": current_user.impersonated,
@@ -611,7 +624,8 @@ async def get_current_user_info(current_user: CurrentUser = Depends(get_current_
     }
 
 class UserUpdate(BaseModel):
-    full_name: str
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 @router.patch("/me", response_model=UserResponse)
 async def update_current_user_info(
@@ -625,8 +639,15 @@ async def update_current_user_info(
     if not user_db:
         raise HTTPException(status_code=404, detail="User not found")
     old_name = user_db.full_name
-    user_db.full_name = request.full_name
-    if current_user.workspace_id:
+    if request.full_name is not None:
+        user_db.full_name = request.full_name
+    if request.avatar_url is not None:
+        from sqlalchemy.orm.attributes import flag_modified
+        p = dict(user_db.preferences or {})
+        p['avatar_url'] = request.avatar_url
+        user_db.preferences = p
+        flag_modified(user_db, 'preferences')
+    if request.full_name and current_user.workspace_id:
         try:
             ws = db.query(Workspace).filter(Workspace.id == current_user.workspace_id).first()
             if ws and (ws.name.endswith("'s Workspace") or ws.name.endswith("’s Workspace") or (old_name and ws.name == f"{old_name}'s Workspace")):
@@ -640,6 +661,7 @@ async def update_current_user_info(
         "id": str(user_db.id),
         "email": user_db.email,
         "full_name": user_db.full_name,
+        "avatar_url": (user_db.preferences or {}).get("avatar_url"),
         "platform_role": role_val,
         "workspace_id": current_user.workspace_id,
         "impersonated": current_user.impersonated,
@@ -809,24 +831,36 @@ async def stop_impersonation(request: Request, response: Response, db: Session =
 
 @router.post("/logout")
 async def logout(request: Request, response: Response, db: Session = Depends(get_db)):
-    token = request.cookies.get("auth_token")
-    if not token:
-        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.split(" ", 1)[1]
-    if token:
-        try:
-            payload = decode_access_token(token)
-            session_id = payload.get("session_id")
-            if session_id:
-                from app.models import UserSession
-                from datetime import datetime, timezone
-                session_entry = db.query(UserSession).filter(UserSession.id == session_id).first()
-                if session_entry and session_entry.revoked_at is None:
-                    session_entry.revoked_at = datetime.now(timezone.utc)
-                    db.commit()
-        except Exception:
-            pass
+    tokens_to_revoke = []
+    cookie_token = request.cookies.get("auth_token")
+    if cookie_token:
+        tokens_to_revoke.append(cookie_token)
+    auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        bearer_token = auth_header.split(" ", 1)[1].strip()
+        if bearer_token and bearer_token not in tokens_to_revoke:
+            tokens_to_revoke.append(bearer_token)
+    if tokens_to_revoke:
+        from app.models import UserSession
+        r_rev = _get_redis_client()
+        now_dt = datetime.now(timezone.utc)
+        ttl_seconds = max(int(settings.ACCESS_TOKEN_EXPIRE_MINUTES) * 60, 3600)
+        for tok in tokens_to_revoke:
+            if r_rev:
+                try:
+                    r_rev.setex(jwt_blacklist_key(tok), ttl_seconds, "1")
+                except Exception as r_exc:
+                    logger.warning(f"Failed to blacklist JWT in Redis on logout: {r_exc}")
+            try:
+                payload = decode_access_token(tok)
+                session_id = payload.get("session_id")
+                if session_id:
+                    session_entry = db.query(UserSession).filter(UserSession.id == session_id).first()
+                    if session_entry and session_entry.revoked_at is None:
+                        session_entry.revoked_at = now_dt
+                        db.commit()
+            except Exception:
+                pass
     delete_auth_cookie(response=response, request=request, key="auth_token", path="/")
     delete_auth_cookie(response=response, request=request, key="admin_session", path="/")
     delete_auth_cookie(response=response, request=request, key="admin_backup_token", path="/")
