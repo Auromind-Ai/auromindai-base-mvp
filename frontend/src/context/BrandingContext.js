@@ -55,7 +55,7 @@ export const BrandingProvider = ({ children }) => {
     }
   }, []);
 
-  // Fetch once on first mount; subsequent page navigations skip the call
+  // Fetch once on first mount; defer to idle time so it doesn't block critical page load
   useEffect(() => {
     // Load cache after mount (client-safe) to avoid hydration mismatch
     const cachedData = readCache();
@@ -63,7 +63,18 @@ export const BrandingProvider = ({ children }) => {
       if (cachedData.appName) setAppName(cachedData.appName);
       if (cachedData.appLogoUrl) setAppLogoUrl(cachedData.appLogoUrl);
     }
-    refreshBranding();
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const handle = window.requestIdleCallback(() => {
+        refreshBranding();
+      }, { timeout: 3000 });
+      return () => window.cancelIdleCallback(handle);
+    } else {
+      const timer = setTimeout(() => {
+        refreshBranding();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
   }, [refreshBranding]);
 
   // Update browser favicon whenever the logo URL or pathname changes
