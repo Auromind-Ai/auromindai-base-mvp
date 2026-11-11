@@ -6,6 +6,7 @@ import hashlib
 import base64
 import time
 import re
+import uuid
 from typing import Optional
 
 
@@ -248,6 +249,76 @@ def get_conversation_by_id(
         "channel": conv.channel.value.lower() if conv.channel else None,
         "status": conv.status.value.upper() if conv.status else None,
         "workspace_id": str(conv.workspace_id),
+    }
+
+@router.get("/conversations/{conversation_id}/customer-profile")
+def get_customer_profile(
+    conversation_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    workspace_id = verify_conversation_access(db, current_user, conversation_id)
+    conv = ConversationService.get_conversation_or_404(
+        db,
+        workspace_id=workspace_id,
+        conversation_id=conversation_id,
+    )
+    from app.models.ai_action import Lead
+    from app.models.message import Message
+
+    lead = db.query(Lead).filter(
+        Lead.conversation_id == conv.id
+    ).first()
+    if not lead and conv.phone:
+        lead = db.query(Lead).filter(
+            Lead.workspace_id == conv.workspace_id,
+            Lead.phone == conv.phone
+        ).first()
+
+    total_msgs = db.query(Message).filter(Message.conversation_id == conv.id).count()
+
+    system_tier = "Cold"
+    score = 0
+    labels = []
+    if lead:
+        score = getattr(lead, "score", 0) or 0
+        if score >= 70:
+            system_tier = "Hot"
+        elif score >= 40:
+            system_tier = "Warm"
+        else:
+            system_tier = "Cold"
+
+        if getattr(lead, "lead_tier", None):
+            system_tier = lead.lead_tier.capitalize()
+
+        if getattr(lead, "is_high_priority", False):
+            labels.append("High Priority")
+        if score >= 60:
+            labels.append("Premium Lead")
+        if getattr(lead, "status", None) in ["interested", "contacted", "new"]:
+            labels.append("Interested")
+        labels.append("Follow Up")
+    else:
+        labels = ["Interested", "Follow Up"]
+
+    is_conv = (conv.status.value.upper() == "CONVERTED") if conv.status else False
+    if lead and getattr(lead, "is_converted", False):
+        is_conv = True
+
+    return {
+        "id": str(conv.id),
+        "name": (lead.name if lead and lead.name else (conv.contact_name or "Customer")),
+        "phone": conv.phone or (lead.phone if lead else "") or "",
+        "channel": conv.channel.value.lower() if conv.channel else "whatsapp",
+        "system_tier": system_tier,
+        "score": score,
+        "labels": labels,
+        "first_contact": conv.created_at.strftime("%b %d, %Y") if conv.created_at else "Recently",
+        "last_contact": conv.last_message_at.strftime("%b %d, %Y %I:%M %p") if conv.last_message_at else "Recently",
+        "total_messages": total_msgs,
+        "status": conv.status.value.lower() if conv.status else "open",
+        "is_converted": is_conv,
     }
 
 
@@ -638,6 +709,7 @@ from app.services.inbox.meta_media_service import MetaMediaService, FAILED_META_
 
 @router.get("/media/meta/{media_id}")
 @router.get("/inbox/media/meta/{media_id}")
+@router.get("/api/inbox/media/meta/{media_id}")
 def get_meta_media(
     media_id: str,
     request: Request,
@@ -749,11 +821,33 @@ def get_meta_media(
             db=db,
         )
 
+        # Fallback: direct MediaFile record lookup for UUID media uploaded via /upload
+        mf_direct = None
+        if not cached_bytes:
+            try:
+                media_uuid = uuid.UUID(media_id)
+            except ValueError:
+                media_uuid = None
+            if media_uuid:
+                from app.models.media import MediaFile
+                from app.services.storage.service import get_storage
+                mf_direct = db.query(MediaFile).filter(
+                    MediaFile.id == media_uuid,
+                    MediaFile.workspace_id == workspace.id,
+                ).first()
+                if mf_direct and mf_direct.file_path:
+                    try:
+                        cached_bytes = get_storage().get_file_bytes(mf_direct.file_path)
+                        cached_mime = mf_direct.mime_type or cached_mime or metadata.get("mime_type")
+                    except Exception as storage_exc:
+                        logger.warning("Direct MediaFile storage read failed for %s: %s", media_id, storage_exc)
+
         # Resolve clean display filename
         filename = (
             metadata.get("filename")
             or metadata.get("file_name")
             or metadata.get("original_filename")
+            or (mf_direct.original_filename if mf_direct else None)
         )
         if not filename:
             from app.models.media import MediaFile

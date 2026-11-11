@@ -58,6 +58,7 @@ async def update_preferences(
     # Belt-and-suspenders: explicitly mark column dirty
     flag_modified(user, "preferences")
 
-    db.flush()
+    db.commit()
+    db.refresh(user)
 
     return merged

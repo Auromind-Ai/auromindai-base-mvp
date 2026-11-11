@@ -31,6 +31,10 @@ export default function WorkspaceTab({
   const [wccRecharges, setWccRecharges] = useState([])
   const [wccTransactions, setWccTransactions] = useState([])
 
+  // Target Pool States
+  const [creditTarget, setCreditTarget] = useState("purchased")
+  const [walletTarget, setWalletTarget] = useState("purchased")
+
   // Operation Inputs
   const [creditAmount, setCreditAmount] = useState("")
   const [creditReason, setCreditReason] = useState("")
@@ -127,36 +131,40 @@ export default function WorkspaceTab({
       
       const payload = {
         credits: parseFloat(creditAmount),
-        reason: creditReason
+        reason: creditReason,
+        target: creditTarget
       }
       
       const res = await api.adjustCredits(selectedWorkspace.id, payload)
-      setSuccess(res.message || "Credits adjusted successfully")
+      setSuccess(res.message || `${creditTarget === "included" ? "Included" : "Purchased"} credits adjusted successfully`)
+      showToast(res.message || "Credits adjusted successfully", "success")
       setCreditAmount("")
       setCreditReason("")
       await loadWorkspaceDetails(selectedWorkspace.id)
     } catch (err) {
       setError(err.message || "Failed to adjust credits")
+      showToast(err.message || "Failed to adjust credits", "error")
     } finally {
       setActionLoading(false)
     }
   }
 
-  const handleResetCredits = async () => {
+  const handleResetCredits = async (target = creditTarget) => {
     if (!selectedWorkspace) return
+    const targetLabel = target === "all" ? "All (Included + Purchased)" : (target === "included" ? "Included" : "Purchased")
     showConfirm({
-      title: "Reset Credits",
-      message: "Are you sure you want to reset credits to 0?",
-      confirmText: "Reset to 0",
+      title: `Reset ${targetLabel} Credits`,
+      message: `Are you sure you want to reset ${targetLabel.toLowerCase()} credits to 0?`,
+      confirmText: `Reset ${targetLabel}`,
       type: "danger",
       onConfirm: async () => {
         try {
           setActionLoading(true)
           setError(null)
           setSuccess(null)
-          await api.resetCredits(selectedWorkspace.id)
-          setSuccess("Credits reset successfully")
-          showToast("Credits reset successfully", "success")
+          const res = await api.resetCredits(selectedWorkspace.id, target)
+          setSuccess(res.message || `${targetLabel} credits reset successfully`)
+          showToast(res.message || `${targetLabel} credits reset successfully`, "success")
           await loadWorkspaceDetails(selectedWorkspace.id)
         } catch (err) {
           setError(err.message || "Failed to reset credits")
@@ -236,36 +244,40 @@ export default function WorkspaceTab({
       
       const payload = {
         amount: parseFloat(walletAmount),
-        reason: walletReason
+        reason: walletReason,
+        target: walletTarget
       }
       
       const res = await api.adjustWallet(selectedWorkspace.id, payload)
-      setSuccess(res.message || "Wallet balance adjusted successfully")
+      setSuccess(res.message || `${walletTarget === "included" ? "Included" : "Purchased"} wallet adjusted successfully`)
+      showToast(res.message || "Wallet adjusted successfully", "success")
       setWalletAmount("")
       setWalletReason("")
       await loadWorkspaceDetails(selectedWorkspace.id)
     } catch (err) {
       setError(err.message || "Failed to adjust wallet")
+      showToast(err.message || "Failed to adjust wallet", "error")
     } finally {
       setActionLoading(false)
     }
   }
 
-  const handleResetWallet = async () => {
+  const handleResetWallet = async (target = walletTarget) => {
     if (!selectedWorkspace) return
+    const targetLabel = target === "all" ? "All (Included + Purchased)" : (target === "included" ? "Included Promo" : "Purchased")
     showConfirm({
-      title: "Reset Wallet Balance",
-      message: "Are you sure you want to reset WCC wallet balance to 0?",
-      confirmText: "Reset Balance",
+      title: `Reset ${targetLabel} Wallet`,
+      message: `Are you sure you want to reset ${targetLabel.toLowerCase()} balance to ₹0.00?`,
+      confirmText: `Reset ${targetLabel}`,
       type: "danger",
       onConfirm: async () => {
         try {
           setActionLoading(true)
           setError(null)
           setSuccess(null)
-          await api.resetWallet(selectedWorkspace.id)
-          setSuccess("Wallet reset successfully")
-          showToast("Wallet reset successfully", "success")
+          const res = await api.resetWallet(selectedWorkspace.id, target)
+          setSuccess(res.message || `${targetLabel} wallet reset successfully`)
+          showToast(res.message || `${targetLabel} wallet reset successfully`, "success")
           await loadWorkspaceDetails(selectedWorkspace.id)
         } catch (err) {
           setError(err.message || "Failed to reset wallet")
@@ -428,24 +440,62 @@ export default function WorkspaceTab({
                 </div>
               </div>
 
-              <div className="p-4 bg-indigo-600/5 border border-indigo-500/15 rounded-2xl flex items-center justify-between text-xs">
-                <div>
-                  <div className="text-gray-400 text-[10px] uppercase font-bold mb-0.5 tracking-wider">AI Credit Balance</div>
-                  <div className="text-xl font-bold text-indigo-400">
-                    {Number(selectedWorkspaceDetails.credits.balance ?? 0).toLocaleString()} credits
+              {/* AI Credits Overview */}
+              <div className="p-4 bg-indigo-600/5 border border-indigo-500/15 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <div>
+                    <div className="text-gray-400 text-[10px] uppercase font-bold mb-0.5 tracking-wider">Total AI Credits Available</div>
+                    <div className="text-xl font-bold text-indigo-400">
+                      {Number(selectedWorkspaceDetails.credits?.balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} credits
+                    </div>
+                  </div>
+                  <Coins className="text-indigo-400 opacity-30 w-7 h-7" />
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-indigo-500/10 text-[11px]">
+                  <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                    <span className="text-gray-400 block text-[10px]">Included Remaining</span>
+                    <span className="font-semibold text-white">
+                      {Number(selectedWorkspaceDetails.credits?.included_remaining ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                    <span className="text-gray-400 block text-[10px]">Purchased Remaining</span>
+                    <span className="font-semibold text-emerald-400">
+                      {Number(selectedWorkspaceDetails.credits?.purchased_remaining ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
                   </div>
                 </div>
-                <Coins className="text-indigo-400 opacity-30 w-7 h-7" />
+                <div className="text-[10px] text-gray-400 flex justify-between px-1">
+                  <span>Used this cycle: <span className="text-white font-medium">{Number(selectedWorkspaceDetails.credits?.cycle_used ?? 0).toFixed(2)}</span></span>
+                  <span>Total quota: <span className="text-white font-medium">{Number(selectedWorkspaceDetails.credits?.quota_limit ?? 0).toLocaleString()}</span></span>
+                </div>
               </div>
 
-              <div className="p-4 bg-purple-600/5 border border-purple-500/15 rounded-2xl flex items-center justify-between text-xs">
-                <div>
-                  <div className="text-gray-400 text-[10px] uppercase font-bold mb-0.5 tracking-wider">WCC Wallet Balance</div>
-                  <div className="text-xl font-bold text-purple-400">
-                    ₹{Number(selectedWorkspaceDetails.wallet_balance ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              {/* WCC Wallet Overview */}
+              <div className="p-4 bg-purple-600/5 border border-purple-500/15 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <div>
+                    <div className="text-gray-400 text-[10px] uppercase font-bold mb-0.5 tracking-wider">WCC Wallet Total Balance</div>
+                    <div className="text-xl font-bold text-purple-400">
+                      ₹{Number(selectedWorkspaceDetails.wallet_balance ?? selectedWorkspaceDetails.wallet?.balance ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                  <Wallet className="text-purple-400 opacity-30 w-7 h-7" />
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-purple-500/10 text-[11px]">
+                  <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                    <span className="text-gray-400 block text-[10px]">Included Promo WCC</span>
+                    <span className="font-semibold text-white">
+                      ₹{Number(selectedWorkspaceDetails.wallet?.included_balance ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                    <span className="text-gray-400 block text-[10px]">Purchased WCC</span>
+                    <span className="font-semibold text-emerald-400">
+                      ₹{Number(selectedWorkspaceDetails.wallet?.purchased_balance ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
                   </div>
                 </div>
-                <Wallet className="text-purple-400 opacity-30 w-7 h-7" />
               </div>
 
               <div className="text-xs space-y-2.5 p-3.5 bg-white/[0.01] border border-white/5 rounded-2xl text-gray-400">
@@ -528,9 +578,51 @@ export default function WorkspaceTab({
               
               {/* Credits Adjuster */}
               <div className="p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl backdrop-blur-xl space-y-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
-                  <Coins size={14} /> AI Credit adjustment
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+                    <Coins size={14} /> AI Credit Management
+                  </h4>
+                  {/* Pool Selector Tabs */}
+                  <div className="flex p-0.5 bg-black/50 border border-white/10 rounded-lg text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setCreditTarget("purchased")}
+                      className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                        creditTarget === "purchased"
+                          ? "bg-indigo-600 text-white shadow"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      Purchased
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCreditTarget("included")}
+                      className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                        creditTarget === "included"
+                          ? "bg-indigo-600 text-white shadow"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      Included
+                    </button>
+                  </div>
+                </div>
+
+                {/* Pool Context Banner */}
+                <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-[11px] flex items-center justify-between">
+                  <span className="text-gray-300">
+                    Target: <span className="font-bold text-white capitalize">{creditTarget} Credits</span>
+                  </span>
+                  <span className="font-mono text-indigo-300 font-bold">
+                    Current: {Number(
+                      creditTarget === "included"
+                        ? (selectedWorkspaceDetails?.credits?.included_remaining ?? 0)
+                        : (selectedWorkspaceDetails?.credits?.purchased_remaining ?? 0)
+                    ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+
                 <form onSubmit={handleAdjustCredits} className="space-y-3">
                   <div>
                     <input
@@ -539,7 +631,7 @@ export default function WorkspaceTab({
                       required
                       value={creditAmount}
                       onChange={(e) => setCreditAmount(e.target.value)}
-                      placeholder="Amount (e.g. 50 or -20)"
+                      placeholder={`Amount to ${creditTarget} (e.g. 50 or -20)`}
                       className="w-full p-2.5 bg-black/45 border border-white/[0.08] rounded-xl text-xs text-white"
                     />
                   </div>
@@ -558,45 +650,95 @@ export default function WorkspaceTab({
                       type="submit"
                       className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all"
                     >
-                      Adjust Balance
+                      Adjust {creditTarget === "included" ? "Included" : "Purchased"}
                     </button>
                     <button
                       type="button"
-                      onClick={handleResetCredits}
-                      className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/10 rounded-xl text-xs font-bold transition-all"
+                      onClick={() => handleResetCredits(creditTarget)}
+                      className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/10 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
+                      title={`Reset only ${creditTarget} credits to 0`}
                     >
-                      Reset
+                      Reset {creditTarget === "included" ? "Included" : "Purchased"}
                     </button>
                   </div>
                 </form>
                 
-                <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-white/5 text-[10px]">
+                <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-white/5 text-[10px]">
+                  <button
+                    onClick={() => handleResetCredits("all")}
+                    className="py-1 bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 rounded-lg transition-all font-semibold"
+                    title="Reset all AI credits (Both Included and Purchased)"
+                  >
+                    Reset All
+                  </button>
                   <button
                     onClick={handleRenewCredits}
                     className="py-1 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all"
                   >
-                    Trigger Renewal
+                    Renew Plan
                   </button>
                   <button
                     onClick={handleExpireCredits}
                     className="py-1 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all"
                   >
-                    Expire Credits
+                    Expire Inc
                   </button>
                   <button
                     onClick={handleRecalculateCredits}
                     className="py-1 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all"
                   >
-                    Recalculate Bal
+                    Recalculate
                   </button>
                 </div>
               </div>
 
               {/* Wallet Adjuster */}
               <div className="p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl backdrop-blur-xl space-y-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-2">
-                  <Wallet size={14} /> WCC Wallet adjustment
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-2">
+                    <Wallet size={14} /> WCC Wallet Management
+                  </h4>
+                  {/* Pool Selector Tabs */}
+                  <div className="flex p-0.5 bg-black/50 border border-white/10 rounded-lg text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setWalletTarget("purchased")}
+                      className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                        walletTarget === "purchased"
+                          ? "bg-purple-600 text-white shadow"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      Purchased
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWalletTarget("included")}
+                      className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                        walletTarget === "included"
+                          ? "bg-purple-600 text-white shadow"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      Included (Promo)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Pool Context Banner */}
+                <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-[11px] flex items-center justify-between">
+                  <span className="text-gray-300">
+                    Target: <span className="font-bold text-white capitalize">{walletTarget === "included" ? "Included Promo WCC" : "Purchased WCC"}</span>
+                  </span>
+                  <span className="font-mono text-purple-300 font-bold">
+                    Current: ₹{Number(
+                      walletTarget === "included"
+                        ? (selectedWorkspaceDetails?.wallet?.included_balance ?? 0)
+                        : (selectedWorkspaceDetails?.wallet?.purchased_balance ?? 0)
+                    ).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
                 <form onSubmit={handleAdjustWallet} className="space-y-3">
                   <div>
                     <input
@@ -605,7 +747,7 @@ export default function WorkspaceTab({
                       required
                       value={walletAmount}
                       onChange={(e) => setWalletAmount(e.target.value)}
-                      placeholder="Amount in INR (e.g. 500 or -100)"
+                      placeholder={`Amount in INR to ${walletTarget === "included" ? "included promo" : "purchased"} (e.g. 500 or -100)`}
                       className="w-full p-2.5 bg-black/45 border border-white/[0.08] rounded-xl text-xs text-white"
                     />
                   </div>
@@ -624,24 +766,32 @@ export default function WorkspaceTab({
                       type="submit"
                       className="flex-1 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all"
                     >
-                      Adjust Balance
+                      Adjust {walletTarget === "included" ? "Included" : "Purchased"}
                     </button>
                     <button
                       type="button"
-                      onClick={handleResetWallet}
-                      className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/10 rounded-xl text-xs font-bold transition-all"
+                      onClick={() => handleResetWallet(walletTarget)}
+                      className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/10 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
+                      title={`Reset only ${walletTarget} balance to ₹0.00`}
                     >
-                      Reset
+                      Reset {walletTarget === "included" ? "Included" : "Purchased"}
                     </button>
                   </div>
                 </form>
 
-                <div className="pt-2 border-t border-white/5 text-[10px]">
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 text-[10px]">
+                  <button
+                    onClick={() => handleResetWallet("all")}
+                    className="py-1 bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 rounded-lg transition-all font-semibold"
+                    title="Reset all WCC balance (Both Included and Purchased)"
+                  >
+                    Reset All WCC
+                  </button>
                   <button
                     onClick={handleRecalculateWallet}
-                    className="w-full py-1 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all"
+                    className="py-1 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all"
                   >
-                    Recalculate Wallet Balance
+                    Recalculate WCC
                   </button>
                 </div>
               </div>

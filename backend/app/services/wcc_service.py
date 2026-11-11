@@ -167,56 +167,18 @@ class WCCService:
         if not wallet or not wallet.workspace_id:
             return
 
-        promo_logs = (
-            db.query(WCCRechargeLog)
-            .filter(
-                WCCRechargeLog.workspace_id == wallet.workspace_id,
-                WCCRechargeLog.status == "success",
-                WCCRechargeLog.gateway_payment_id.like("promo_grant:%")
-            )
-            .all()
-        )
-        if not promo_logs:
-            return
-
-        total_promo_granted = sum((Decimal(str(r.taxable_amount or r.amount or "0.00")) for r in promo_logs), Decimal("0.00"))
-
-        total_debits = (
-            db.query(func.coalesce(func.sum(WCCTransaction.customer_price_applied), func.sum(WCCTransaction.debit_amount), Decimal("0.00")))
-            .filter(
-                WCCTransaction.workspace_id == wallet.workspace_id,
-                WCCTransaction.transaction_type == "debit",
-                WCCTransaction.status.in_(["success", "free_session"])
-            )
-            .scalar() or Decimal("0.00")
-        )
-        total_debits = Decimal(str(total_debits))
-
-        current_included = wallet.included_balance or Decimal("0.00")
-        expected_included = max(Decimal("0.00"), total_promo_granted - total_debits)
-
-        if expected_included > current_included:
-            missing_promo = expected_included - current_included
-            wallet.included_balance = expected_included
+        # Ensure balance fields are properly initialized without overriding intentional resets or adjustments
+        changed = False
+        if wallet.included_balance is None:
+            wallet.included_balance = Decimal("0.00")
+            changed = True
+        if wallet.purchased_balance is None:
+            wallet.purchased_balance = Decimal("0.00")
+            changed = True
+        if wallet.balance is None:
             wallet.balance = (wallet.included_balance or Decimal("0.00")) + (wallet.purchased_balance or Decimal("0.00"))
-            
-            # Update stale balance_after snapshots on previous recharge logs
-            existing_recharge_logs = (
-                db.query(WCCRechargeLog)
-                .filter(
-                    WCCRechargeLog.workspace_id == wallet.workspace_id,
-                    WCCRechargeLog.balance_after != None
-                )
-                .all()
-            )
-            for rlog in existing_recharge_logs:
-                rlog.balance_after = Decimal(str(rlog.balance_after)) + missing_promo
-
-            logger.info(
-                f"Self-healing WCC wallet for workspace {wallet.workspace_id}: "
-                f"restored missing promo balance of {missing_promo} INR. "
-                f"New included_balance: {wallet.included_balance}, new total balance: {wallet.balance}"
-            )
+            changed = True
+        if changed:
             db.flush()
 
     @classmethod
@@ -324,6 +286,8 @@ class WCCService:
         return {
             "balance": current_balance,
             "current_balance": current_balance,
+            "included_balance": wallet.included_balance or Decimal("0.00"),
+            "purchased_balance": wallet.purchased_balance or Decimal("0.00"),
             "currency": wallet.currency or "INR",
             "reference_full_amount": reference_full_amount,
             "fill_percentage": fill_percentage,

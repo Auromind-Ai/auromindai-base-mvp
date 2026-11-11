@@ -1,8 +1,8 @@
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
-import { Fonts as ThemeFonts, ThemeColor } from '@/constants/theme';
-import { Fonts } from '@/theme/tokens';
-import { useTheme } from '@/hooks/use-theme';
+import { Fonts, ThemeColor } from '../constants/theme';
+import { useTheme } from '../hooks/use-theme';
+import { scaleFont } from '../theme/responsive';
 
 export type ThemedTextProps = TextProps & {
   type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
@@ -17,44 +17,49 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 
 const styles = StyleSheet.create({
   small: {
-    fontFamily: Fonts.medium,
-    fontSize: 14,
-    lineHeight: 20,
+    fontFamily: 'Poppins-Regular',
+    fontSize: scaleFont(14),
+    lineHeight: scaleFont(20),
+    fontWeight: '400',
   },
   smallBold: {
-    fontFamily: Fonts.bold,
-    fontSize: 14,
-    lineHeight: 20,
+    fontFamily: 'Poppins-Bold',
+    fontSize: scaleFont(14),
+    lineHeight: scaleFont(20),
+    fontWeight: '700',
   },
   default: {
-    fontFamily: Fonts.regular,
-    fontSize: 16,
-    lineHeight: 24,
+    fontFamily: 'Poppins-Regular',
+    fontSize: scaleFont(16),
+    lineHeight: scaleFont(24),
+    fontWeight: '400',
   },
   title: {
-    fontFamily: Fonts.bold,
-    fontSize: 36,
-    lineHeight: 42,
+    fontFamily: 'Poppins-Bold',
+    fontSize: scaleFont(48),
+    fontWeight: '700',
+    lineHeight: scaleFont(52),
   },
   subtitle: {
-    fontFamily: Fonts.semiBold,
-    fontSize: 24,
-    lineHeight: 32,
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: scaleFont(32),
+    lineHeight: scaleFont(44),
+    fontWeight: '600',
   },
   link: {
-    fontFamily: Fonts.medium,
-    lineHeight: 24,
-    fontSize: 14,
+    fontFamily: 'Poppins-Medium',
+    lineHeight: scaleFont(30),
+    fontSize: scaleFont(14),
   },
   linkPrimary: {
-    fontFamily: Fonts.semiBold,
-    lineHeight: 24,
-    fontSize: 14,
+    fontFamily: 'Poppins-Medium',
+    lineHeight: scaleFont(30),
+    fontSize: scaleFont(14),
     color: '#9C75FF',
   },
   code: {
-    fontFamily: ThemeFonts.mono,
+    fontFamily: Fonts.mono,
     fontWeight: Platform.select({ android: '700' }) ?? '500',
-    fontSize: 12,
+    fontSize: scaleFont(12),
   },
 });

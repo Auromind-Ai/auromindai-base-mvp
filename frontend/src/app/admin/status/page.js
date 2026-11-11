@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Activity,
   CheckCircle2,
@@ -17,6 +17,9 @@ import {
   Wrench,
   Search,
   ExternalLink,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -40,6 +43,12 @@ export default function AdminStatusManagementPage() {
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
+  // Detailed Inspection Modal State (Admin Only)
+  const [isInspectionModalOpen, setIsInspectionModalOpen] = useState(false);
+  const [selectedInspectionService, setSelectedInspectionService] = useState(null);
+  const [inspectionDate, setInspectionDate] = useState('');
+  const [diagnosticDetail, setDiagnosticDetail] = useState(null);
+  const [loadingDiagnostics, setLoadingDiagnostics] = useState(false);
 
   // Create Incident Form
   const [createForm, setCreateForm] = useState({
@@ -117,6 +126,86 @@ export default function AdminStatusManagementPage() {
     } finally {
       setRunningCheck(false);
     }
+  };
+
+  const handleOpenInspection = async (serviceKey, date = null) => {
+    setSelectedInspectionService(serviceKey);
+    setIsInspectionModalOpen(true);
+    setLoadingDiagnostics(true);
+
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    setInspectionDate(targetDate);
+
+    // 1. Immediately seed from overview stats so modal is never blank or showing 0
+    const initialDiag = overview?.service_diagnostics?.[serviceKey];
+    if (initialDiag) {
+      setDiagnosticDetail({
+        ...initialDiag,
+        date: targetDate,
+        failures: initialDiag.recent_failures || [],
+      });
+    }
+
+    try {
+      const res = await api.get('/admin/status/service/' + serviceKey + '/diagnostics?date=' + targetDate);
+      const data = (res && typeof res === 'object' && res.service_key) ? res : (res?.data || res || null);
+      if (data && data.service_key) {
+        setDiagnosticDetail(data);
+      }
+    } catch (err) {
+      console.error('Failed to load diagnostic details:', err);
+    } finally {
+      setLoadingDiagnostics(false);
+    }
+  };
+
+  const handleInspectionDateChange = (newDate) => {
+    if (selectedInspectionService) {
+      handleOpenInspection(selectedInspectionService, newDate);
+    }
+  };
+
+  // Dynamic 90-day history dates for one-click selection
+  const recentDaysList = useMemo(() => {
+    const list = [];
+    const today = new Date();
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    for (let i = 0; i < 90; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const iso = d.toISOString().split("T")[0];
+      const monthStr = months[d.getMonth()];
+      const dayNum = String(d.getDate()).padStart(2, "0");
+      const fullLabel = `${monthStr} ${dayNum}, ${d.getFullYear()}`;
+      let label = fullLabel;
+      let short = `${monthStr} ${d.getDate()}`;
+      if (i === 0) {
+        label = `Today (${fullLabel})`;
+        short = "Today";
+      } else if (i === 1) {
+        label = `Yesterday (${fullLabel})`;
+        short = "Yesterday";
+      }
+      list.push({ date: iso, label, short });
+    }
+    // If inspectionDate is beyond 90 days or custom, dynamically include it so dropdown never blanks out
+    if (inspectionDate && !list.some((item) => item.date === inspectionDate)) {
+      list.push({
+        date: inspectionDate,
+        label: `${inspectionDate}`,
+        short: inspectionDate,
+      });
+    }
+    return list;
+  }, [inspectionDate]);
+
+  const stepInspectionDay = (offset) => {
+    const baseDate = inspectionDate ? new Date(inspectionDate + "T12:00:00") : new Date();
+    baseDate.setDate(baseDate.getDate() + offset);
+    const today = new Date();
+    if (baseDate > today) return; // cannot inspect future dates
+    const iso = baseDate.toISOString().split("T")[0];
+    handleInspectionDateChange(iso);
   };
 
   const handleCreateIncident = async (e) => {
@@ -320,55 +409,78 @@ export default function AdminStatusManagementPage() {
 
           {/* Four Services Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {(overview?.summary?.services || []).map((srv) => (
-              <div
-                key={srv.key}
-                className="bg-[#050505] border border-white/[0.08] rounded-2xl p-5 space-y-4 shadow-xl relative overflow-hidden"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400">
-                      Service
-                    </span>
-                    <h3 className="text-base font-bold text-white tracking-tight leading-snug">
-                      {srv.name}
-                    </h3>
+            {(overview?.summary?.services || []).map((srv) => {
+              const diag = overview?.service_diagnostics?.[srv.key];
+              const totalChecks = diag?.total_checks ?? 0;
+              const successChecks = diag?.successful_checks ?? 0;
+              const failedChecks = diag?.failed_checks ?? 0;
+
+              return (
+                <div
+                  key={srv.key}
+                  className="bg-[#050505] border border-white/[0.08] hover:border-white/[0.16] transition-all rounded-2xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between space-y-4"
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400">
+                          Service
+                        </span>
+                        <h3 className="text-base font-bold text-white tracking-tight leading-snug">
+                          {srv.name}
+                        </h3>
+                      </div>
+                      <span
+                        className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full border ${srv.status === "operational" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-amber-500/10 text-amber-400 border-amber-500/30"}`}
+                      >
+                        {srv.status}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-zinc-400 line-clamp-1">{srv.subtitle}</p>
+
+                    {/* Quick Daily Check Counts */}
+                    <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-2.5 grid grid-cols-3 gap-1.5 text-center">
+                      <div>
+                        <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Total</span>
+                        <span className="text-xs font-bold text-zinc-200">{totalChecks}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase tracking-wider text-emerald-500/90 font-bold block">Success</span>
+                        <span className="text-xs font-bold text-emerald-400">{successChecks}</span>
+                      </div>
+                      <div>
+                        <span className={`text-[9px] uppercase tracking-wider font-bold block ${failedChecks > 0 ? "text-rose-400" : "text-zinc-500"}`}>Failed</span>
+                        <span className={`text-xs font-bold ${failedChecks > 0 ? "text-rose-400" : "text-zinc-400"}`}>{failedChecks}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs">
+                      <div>
+                        <span className="text-zinc-500 block text-[10px] uppercase font-medium">Response Time</span>
+                        <span className="font-semibold text-zinc-200">
+                          {srv.response_time_ms ? `~${Math.round(srv.response_time_ms)} ms` : "N/A"}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-zinc-500 block text-[10px] uppercase font-medium">90d Uptime</span>
+                        <span className="font-semibold text-emerald-400">{srv.uptime_percentage}</span>
+                      </div>
+                    </div>
                   </div>
-                  <span
-                    className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full border ${
-                      srv.status === "operational"
-                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                        : "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                    }`}
+
+                  {/* View Inspection Logs Button */}
+                  <button
+                    onClick={() => handleOpenInspection(srv.key)}
+                    className="w-full mt-2 py-2 px-3 rounded-xl bg-white/[0.04] hover:bg-emerald-500/10 hover:text-emerald-300 border border-white/[0.08] hover:border-emerald-500/30 text-xs font-medium text-zinc-300 flex items-center justify-center gap-1.5 transition"
                   >
-                    {srv.status}
-                  </span>
+                    <Search className="w-3.5 h-3.5" />
+                    <span>View Check History & Logs</span>
+                  </button>
                 </div>
-
-                <p className="text-xs text-zinc-400 line-clamp-1">{srv.subtitle}</p>
-
-                <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs">
-                  <div>
-                    <span className="text-zinc-500 block text-[10px] uppercase font-medium">
-                      Response Time
-                    </span>
-                    <span className="font-semibold text-zinc-200">
-                      {srv.response_time_ms ? `~${Math.round(srv.response_time_ms)} ms` : "N/A"}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-zinc-500 block text-[10px] uppercase font-medium">
-                      90d Uptime
-                    </span>
-                    <span className="font-semibold text-emerald-400">
-                      {srv.uptime_percentage}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-
           {/* Recent Raw Checks Log */}
           <div className="bg-[#050505] border border-white/[0.08] rounded-2xl p-6 space-y-4 shadow-xl">
             <h3 className="text-sm font-bold text-white tracking-tight uppercase tracking-wider">
@@ -507,7 +619,7 @@ export default function AdminStatusManagementPage() {
                           {inc.duration_minutes
                             ? `${inc.duration_minutes} min`
                             : inc.status === "resolved"
-                            ? `${Math.max(1, Math.round(((inc.resolved_time ? new Date(inc.resolved_time) : inc.scheduled_end ? new Date(inc.scheduled_end) : new Date()) - new Date(inc.scheduled_start || inc.start_time || Date.now())) / 60000))} min`
+                            ? `${Math.max(1, Math.round(((inc.resolved_time ? new Date(inc.resolved_time) : inc.scheduled_end ? new Date(inc.scheduled_end) : new Date()) - new Date(inc.scheduled_start || inc.start_time || 0)) / 60000))} min`
                             : (inc.is_maintenance || inc.severity === "maintenance") && inc.scheduled_end && new Date(inc.scheduled_end) <= new Date()
                             ? "Completed"
                             : (inc.is_maintenance || inc.severity === "maintenance") && inc.scheduled_start && new Date(inc.scheduled_start) > new Date()
@@ -978,6 +1090,217 @@ export default function AdminStatusManagementPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DETAILED CHECK HISTORY & FAILURE DIAGNOSTICS MODAL (ADMIN ONLY) */}
+      {isInspectionModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#09090b] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-4 border-b border-white/10">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <h3 className="text-lg font-bold text-white tracking-tight">
+                    {diagnosticDetail?.service_name || "Service Diagnostics"}
+                  </h3>
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    {diagnosticDetail?.uptime_percentage}% Uptime
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-400">
+                  Detailed Health Check Breakdown, Failure Diagnostics & Recovery Timestamps.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
+                {/* Dynamic Date Stepper & Select Box */}
+                <div className="flex items-center bg-black/70 border border-white/10 rounded-xl p-0.5 shadow-inner">
+                  <button
+                    type="button"
+                    onClick={() => stepInspectionDay(-1)}
+                    title="Previous Day"
+                    className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded-lg transition"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  <div className="relative flex items-center px-1">
+                    <select
+                      value={inspectionDate}
+                      onChange={(e) => handleInspectionDateChange(e.target.value)}
+                      className="bg-transparent text-xs font-semibold text-zinc-200 border-none rounded-lg focus:outline-none cursor-pointer py-1 pr-1"
+                    >
+                      {recentDaysList.map((item) => (
+                        <option key={item.date} value={item.date} className="bg-zinc-950 text-zinc-200">
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => stepInspectionDay(1)}
+                    disabled={inspectionDate === new Date().toISOString().split("T")[0]}
+                    title="Next Day"
+                    className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed rounded-lg transition"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setIsInspectionModalOpen(false)}
+                  className="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition leading-none"
+                  title="Close Diagnostics"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {loadingDiagnostics ? (
+              <div className="py-12 flex flex-col items-center justify-center gap-2 text-zinc-400 text-xs">
+                <RefreshCw className="w-5 h-5 animate-spin text-emerald-400" />
+                <span>Loading diagnostic records...</span>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* 6 Core Diagnostic Metrics */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {/* 1. Total Checks */}
+                  <div className="bg-black/60 border border-white/[0.08] rounded-xl p-3.5 space-y-1">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-zinc-400 block">
+                      1. Total Checks
+                    </span>
+                    <span className="text-xl font-bold text-white">
+                      {diagnosticDetail?.total_checks ?? 0}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">Scheduled 1m checks</span>
+                  </div>
+
+                  {/* 2. Successful Checks */}
+                  <div className="bg-black/60 border border-white/[0.08] rounded-xl p-3.5 space-y-1">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-400/90 block">
+                      2. Successful Checks
+                    </span>
+                    <span className="text-xl font-bold text-emerald-400">
+                      {diagnosticDetail?.successful_checks ?? 0}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">Healthy responses</span>
+                  </div>
+
+                  {/* 3. Failed Checks */}
+                  <div className="bg-black/60 border border-white/[0.08] rounded-xl p-3.5 space-y-1">
+                    <span className={`text-[10px] uppercase tracking-wider font-semibold block ${((diagnosticDetail?.failed_checks ?? 0) > 0) ? "text-rose-400" : "text-zinc-400"}`}>
+                      3. Failed Checks
+                    </span>
+                    <span className={`text-xl font-bold ${((diagnosticDetail?.failed_checks ?? 0) > 0) ? "text-rose-400" : "text-zinc-200"}`}>
+                      {diagnosticDetail?.failed_checks ?? 0}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">
+                      {((diagnosticDetail?.failed_checks ?? 0) > 0) ? "Intermittent drops" : "Zero errors"}
+                    </span>
+                  </div>
+
+                  {/* 4. Failure Timestamp */}
+                  <div className="bg-black/60 border border-white/[0.08] rounded-xl p-3.5 space-y-1 sm:col-span-1">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-zinc-400 block">
+                      4. Failure Timestamp
+                    </span>
+                    <span className="text-xs font-semibold text-zinc-200 block truncate" title={diagnosticDetail?.latest_failure_time || "None"}>
+                      {diagnosticDetail?.latest_failure_time ? new Date(diagnosticDetail.latest_failure_time).toLocaleString() : "No failures logged"}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">Most recent failure event</span>
+                  </div>
+
+                  {/* 5. Failure Reason */}
+                  <div className="bg-black/60 border border-white/[0.08] rounded-xl p-3.5 space-y-1 sm:col-span-2">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-amber-400/90 block">
+                      5. Failure Reason
+                    </span>
+                    <span className="text-xs font-medium text-amber-300/90 block line-clamp-2" title={diagnosticDetail?.latest_failure_reason || "None"}>
+                      {diagnosticDetail?.latest_failure_reason || "All health probes returned healthy responses (200 OK)"}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 block">Root diagnostic cause</span>
+                  </div>
+
+                  {/* 6. Recovery Time & Duration */}
+                  <div className="bg-black/60 border border-white/[0.08] rounded-xl p-3.5 space-y-1 sm:col-span-3">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-400/90 block">
+                      6. Recovery Time & Downtime
+                    </span>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-xs font-semibold text-zinc-200">
+                        {diagnosticDetail?.latest_recovery_time ? new Date(diagnosticDetail.latest_recovery_time).toLocaleString() : "Service Operational / Self-Healed"}
+                      </span>
+                      {diagnosticDetail?.latest_downtime_minutes != null && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          Downtime: {diagnosticDetail.latest_downtime_minutes} mins
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-zinc-500 block">Timestamp when probe confirmed full recovery</span>
+                  </div>
+                </div>
+
+                {/* Failure Logs Table for this date */}
+                <div className="space-y-3 pt-2">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                    Diagnostic Failure Logs for {diagnosticDetail?.date}
+                  </h4>
+                  {(!diagnosticDetail?.failures || diagnosticDetail.failures.length === 0) ? (
+                    <div className="p-4 rounded-xl bg-black/40 border border-white/[0.04] text-center text-xs text-zinc-400">
+                      No failed checks recorded on this date. Everything operated at 100% health!
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-60 rounded-xl border border-white/[0.08]">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-black/80 text-zinc-400 sticky top-0">
+                          <tr className="border-b border-white/[0.08]">
+                            <th className="py-2.5 px-3 font-medium">Time</th>
+                            <th className="py-2.5 px-3 font-medium">HTTP Code</th>
+                            <th className="py-2.5 px-3 font-medium">Latency</th>
+                            <th className="py-2.5 px-3 font-medium">Error Reason</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/[0.04]">
+                          {diagnosticDetail.failures.map((f) => (
+                            <tr key={f.id} className="hover:bg-white/[0.02]">
+                              <td className="py-2 px-3 text-zinc-300 font-mono text-[11px]">
+                                {new Date(f.checked_at).toLocaleTimeString()}
+                              </td>
+                              <td className="py-2 px-3">
+                                <span className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold text-[10px]">
+                                  {f.status_code || "FAIL"}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3 text-zinc-400 text-[11px]">
+                                {f.response_time_ms ? `${f.response_time_ms} ms` : "0 ms"}
+                              </td>
+                              <td className="py-2 px-3 text-rose-300 text-[11px] truncate max-w-xs">
+                                {f.error_message}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="pt-4 border-t border-white/10 flex justify-end">
+              <button
+                onClick={() => setIsInspectionModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition"
+              >
+                Close Diagnostics
+              </button>
+            </div>
           </div>
         </div>
       )}

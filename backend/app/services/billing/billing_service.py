@@ -1347,9 +1347,12 @@ class BillingService:
 
         # 6. Current Plan Included Entitlement & Remaining
         if is_active_paid and ws_ent:
-            included_credits = float(getattr(ws_ent, "included_ai_credits", 0) or 0)
+            base_included_credits = float(getattr(ws_ent, "included_ai_credits", 0) or 0)
         else:
-            included_credits = 0.0
+            base_included_credits = 0.0
+
+        cycle_inc_adjustments = self.token_service.get_cycle_included_adjustments(db, ws_id, cycle_start)
+        included_credits = max(0.0, base_included_credits + cycle_inc_adjustments)
 
         included_pool = max(0.0, float(Decimal(str(included_credits)) - Decimal(str(cycle_inc_used))))
 
@@ -1360,36 +1363,49 @@ class BillingService:
         included_remaining = round(max(0.0, float(Decimal(str(included_pool)) - Decimal(str(reserved_on_inc)))), 4)
         purchased_remaining = round(max(0.0, float(Decimal(str(purchased_raw_remaining)) - Decimal(str(reserved_on_pur)))), 4)
 
+       
+        active_purchased_quota = purchased_remaining
+
+       
+        if included_remaining <= 0 and cycle_inc_used >= included_credits:
+            active_included_quota = max(0.0, float(cycle_used))
+        elif included_remaining < included_credits and (cycle_inc_used - float(cycle_used)) > 0:
+            # An expiration or reset deduction occurred
+            active_included_quota = round(included_remaining + float(cycle_used), 4)
+        else:
+            active_included_quota = included_credits
+
         # 7. Usable Balance, Quota Limit & Locking
         if is_active_paid:
-            if allow_purchased_ai_usage or purchased_grants == 0:
+            if allow_purchased_ai_usage or active_purchased_quota == 0:
                 purchased_credits_locked = False
                 credits_balance = round(included_remaining + purchased_remaining, 4)
-                quota_limit = round(included_credits + purchased_grants, 4)
+                quota_limit = round(active_included_quota + active_purchased_quota, 4)
                 spending_allowed = (credits_balance > 0)
                 status_message = None
             else:
-                purchased_credits_locked = (purchased_grants > 0)
+                purchased_credits_locked = (active_purchased_quota > 0)
                 credits_balance = round(included_remaining, 4)
-                quota_limit = round(included_credits, 4)
+                quota_limit = round(active_included_quota, 4)
                 spending_allowed = (credits_balance > 0)
-                status_message = "🔒 Purchased AI credits locked — Upgrade to Pro to use purchased credits" if (purchased_grants > 0) else None
+                status_message = "🔒 Purchased AI credits locked — Upgrade to Pro to use purchased credits" if (active_purchased_quota > 0) else None
         else:
             # Free or Expired workspace
             included_credits = 0.0
             included_remaining = 0.0
+            active_included_quota = 0.0
             if allow_purchased_ai_usage:
                 purchased_credits_locked = False
                 credits_balance = round(purchased_remaining, 4)
-                quota_limit = round(purchased_grants, 4)
+                quota_limit = round(active_purchased_quota, 4)
                 spending_allowed = (purchased_remaining > 0)
                 status_message = None
             else:
-                purchased_credits_locked = (purchased_grants > 0)
+                purchased_credits_locked = (active_purchased_quota > 0)
                 credits_balance = 0.0
                 quota_limit = 0.0
                 spending_allowed = False
-                status_message = "🔒 AI credits locked — Upgrade to Pro to use purchased credits" if (purchased_grants > 0) else None
+                status_message = "🔒 AI credits locked — Upgrade to Pro to use purchased credits" if (active_purchased_quota > 0) else None
 
         burn_rate = self.token_service.get_burn_rate(db, ws_id)
         days_remaining = round(float(credits_balance / burn_rate), 2) if burn_rate > 0 else -1.0
@@ -1411,9 +1427,9 @@ class BillingService:
 
         return {
             "plan": plan_name,
-            "included_credits": included_credits,
+            "included_credits": active_included_quota,
             "included_remaining": included_remaining,
-            "purchased_credits": purchased_grants,
+            "purchased_credits": active_purchased_quota,
             "purchased_remaining": purchased_remaining,
             "credits_balance": credits_balance,
             "cycle_used": cycle_used,

@@ -351,7 +351,7 @@ function PreferencesSection() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-xl md:text-2xl font-normal tracking-tight text-white">
+        <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-white">
           My Account
         </h1>
         <p className="mt-1.5 text-sm text-white/65">
@@ -569,7 +569,7 @@ function NotificationsSection() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+        <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-white">
           Notifications
         </h1>
         <p className="mt-1.5 text-sm text-white/65">
@@ -1071,7 +1071,7 @@ function SecuritySection() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">Security</h1>
+          <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-white">Security</h1>
           <p className="mt-1.5 text-[14px] text-white/65">
             Manage account access, monitor connected devices, and keep your account protected.
           </p>
@@ -1503,7 +1503,7 @@ function AboutSection() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">About</h1>
+        <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-white">About</h1>
         <p className="mt-1.5 text-[14px] text-white/65">
           Customize your dashboard experience and application settings.
         </p>
@@ -1591,7 +1591,7 @@ function MyAccountSection({
 
       {/* Page header - Reduced size on mobile */}
       <div className="mb-4 sm:mb-8">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight text-white">
+        <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-white">
           My Account
         </h1>
         <p className="mt-1 text-xs sm:text-sm text-zinc-400">

@@ -7,7 +7,7 @@ export const emailCalendarDetail = {
   tagline: 'Automate email replies and synchronize real-time demo bookings with Google Calendar.',
   description: 'The Google Workspace integration connects your Gmail and Google Calendar directly to Orbion Agents. Your 24/7 AI agents inspect real-time calendar availability during customer chats on WhatsApp and Instagram, book consultations with automatic Google Meet links, and draft intelligent email replies without requiring external booking links.',
   visualKey: 'email-calendar',
-  heroScreenshot: '/images/docs/email-calendar/step_1.png',
+  heroScreenshot: '/images/docs/email-calendar/step_1.webp',
   rulesTitle: 'Google Workspace Connect Rules & Requirements',
   rulesPolicyBadge: 'Google OAuth 2.0 Security',
   rulesBadge: '3 Core Requirements',
@@ -69,7 +69,7 @@ export const emailCalendarDetail = {
       step: 1,
       title: 'Channels Hub & Initiate Google Connection',
       description: 'In your Orbion Agents dashboard, navigate to Channels & Integration. Locate the "Gmail" or "Google Calendar" card and click the red "Connect >" button to launch the Google OAuth authorization flow.',
-      screenshot: '/images/docs/email-calendar/step_1.png',
+      screenshot: '/images/docs/email-calendar/step_1.webp',
       caption: 'Channels Dashboard — Click "Connect >" on the Gmail or Google Calendar card.',
       highlight: '1-Click Launch',
       uiElements: ['Channels Dashboard', 'Google Calendar Card', 'Connect > Button']
@@ -78,7 +78,7 @@ export const emailCalendarDetail = {
       step: 2,
       title: 'Google Sign In & Select Your Account',
       description: 'The secure Google OAuth account selection screen opens. Select the Google Workspace or personal Google account you want your AI Agent to connect with.',
-      screenshot: '/images/docs/email-calendar/step_2.png',
+      screenshot: '/images/docs/email-calendar/step_2.webp',
       caption: 'Google OAuth — Choose the Google account you wish to connect with Orbion Agents.',
       highlight: 'Google Sign-In',
       uiElements: ['Google OAuth Screen', 'Account Selector', 'Workspace Account']
@@ -87,7 +87,7 @@ export const emailCalendarDetail = {
       step: 3,
       title: 'Grant Calendar & Email Permissions',
       description: 'Google displays the requested permissions for Orbion Agents. Confirm access for Google Calendar (checking availability and scheduling events) and Gmail (sending confirmation emails), then click "Continue".',
-      screenshot: '/images/docs/email-calendar/step_3.png',
+      screenshot: '/images/docs/email-calendar/step_3.webp',
       caption: 'Permissions Consent — Allow Google Calendar and Gmail permissions and click "Continue".',
       highlight: 'Grant Permissions',
       uiElements: ['Google Calendar Scope', 'Gmail Scope', 'Continue Button']
@@ -96,7 +96,7 @@ export const emailCalendarDetail = {
       step: 4,
       title: 'Secure Token Verification & Handshake',
       description: 'Orbion Agents securely exchanges the OAuth grant with Google, generates encrypted access tokens, and verifies calendar read/write access in real time.',
-      screenshot: '/images/docs/email-calendar/step_4.png',
+      screenshot: '/images/docs/email-calendar/step_4.webp',
       caption: 'Token Handshake — Orbion Agents verifies credentials and establishes an encrypted real-time sync.',
       highlight: 'Secure Handshake',
       uiElements: ['OAuth Verification', 'Encrypted Handshake', 'Success Notification']
@@ -105,13 +105,13 @@ export const emailCalendarDetail = {
       step: 5,
       title: 'Channels Dashboard Shows Connected Status',
       description: 'Return to your Channels & Integrations dashboard. Both Gmail and Google Calendar now display a green "✓ Connected" status badge with your connected email handle, ready for automated scheduling.',
-      screenshot: '/images/docs/email-calendar/step_5.png',
+      screenshot: '/images/docs/email-calendar/step_5.webp',
       caption: 'Active Channels — Gmail and Google Calendar display green "✓ Connected" badges.',
       highlight: 'Active & Verified',
       uiElements: ['✓ Connected Badges', 'Connected Email Address', 'Settings Gear Icon']
     }
   ],
-  activeConsoleScreenshot: '/images/docs/email-calendar/verify.png',
+  activeConsoleScreenshot: '/images/docs/email-calendar/verify.webp',
   expectedOutcome: 'Your Gmail & Google Calendar accounts are active and synchronized. AI Agents can instantly check your real-time availability during customer chats on WhatsApp and Instagram, automatically schedule client meetings with Google Meet links, and draft professional email responses.',
   verificationChecklist: [
     'Channels dashboard displays green "✓ Connected" status badges for Gmail and Google Calendar.',

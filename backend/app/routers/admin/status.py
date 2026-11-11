@@ -98,6 +98,70 @@ async def get_admin_status_overview(db: Session = Depends(get_db)) -> Dict[str, 
     # Subscriber count
     sub_count = db.query(StatusSubscriber).filter(StatusSubscriber.is_active == True).count()
 
+    # Detailed Service Diagnostics (Total, Success, Failed, Latest Failure, Reason, Recovery Time)
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    service_diagnostics = {}
+    for s in MONITORED_SERVICES:
+        key = s["key"]
+        daily = (
+            db.query(ServiceDailyUptime)
+            .filter(ServiceDailyUptime.service_key == key, ServiceDailyUptime.date == today_str)
+            .first()
+        )
+        tot = daily.total_checks if daily else 0
+        suc = daily.successful_checks if daily else 0
+        fail_cnt = max(0, tot - suc)
+        uptime_pct = daily.uptime_percentage if daily else 100.0
+
+        # Failures specifically for today
+        from sqlalchemy import cast, Date
+        today_failures = (
+            db.query(ServiceHealthCheck)
+            .filter(
+                ServiceHealthCheck.service_key == key,
+                ServiceHealthCheck.is_healthy == False,
+                cast(ServiceHealthCheck.checked_at, Date) == today_str
+            )
+            .order_by(desc(ServiceHealthCheck.checked_at))
+            .all()
+        )
+
+        latest_fail = today_failures[0] if today_failures else None
+
+        # Latest incident (for recovery timestamp and duration)
+        latest_incident = (
+            db.query(Incident)
+            .filter(Incident.service_key == key)
+            .order_by(desc(Incident.created_at))
+            .first()
+        )
+
+        service_diagnostics[key] = {
+            "service_key": key,
+            "service_name": s["name"],
+            "total_checks": tot,
+            "successful_checks": suc,
+            "failed_checks": fail_cnt,
+            "uptime_percentage": uptime_pct,
+            "latest_failure_time": latest_fail.checked_at.isoformat() if latest_fail and latest_fail.checked_at else None,
+            "latest_failure_reason": latest_fail.error_message if latest_fail else None,
+            "latest_failure_status_code": latest_fail.status_code if latest_fail else None,
+            "latest_recovery_time": latest_incident.resolved_time.isoformat() if latest_incident and latest_incident.resolved_time else None,
+            "latest_downtime_minutes": latest_incident.duration_minutes if latest_incident else None,
+            "incident_status": latest_incident.status if latest_incident else None,
+            "incident_title": latest_incident.title if latest_incident else None,
+            "recent_failures": [
+                {
+                    "id": str(fc.id),
+                    "checked_at": fc.checked_at.isoformat() if fc.checked_at else None,
+                    "status_code": fc.status_code,
+                    "response_time_ms": fc.response_time_ms,
+                    "error_message": fc.error_message or "Unknown failure",
+                }
+                for fc in today_failures
+            ],
+        }
+
     return {
         "summary": summary,
         "config": {
@@ -109,7 +173,90 @@ async def get_admin_status_overview(db: Session = Depends(get_db)) -> Dict[str, 
         "active_incidents_count": len(active_incidents),
         "active_incidents": [StatusPageService._serialize_incident(inc) for inc in active_incidents],
         "recent_checks": checks_serialized,
+        "service_diagnostics": service_diagnostics,
         "subscribers_count": sub_count,
+    }
+
+
+@router.get("/service/{service_key}/diagnostics")
+async def get_service_diagnostics(
+    service_key: str,
+    target_date: Optional[str] = Query(None, alias="date", description="YYYY-MM-DD"),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    
+    if service_key not in SERVICE_KEY_MAP:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Unknown service '{service_key}'"
+        )
+
+    meta = SERVICE_KEY_MAP[service_key]
+    check_date = target_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    daily = (
+        db.query(ServiceDailyUptime)
+        .filter(ServiceDailyUptime.service_key == service_key, ServiceDailyUptime.date == check_date)
+        .first()
+    )
+
+    tot = daily.total_checks if daily else 0
+    suc = daily.successful_checks if daily else 0
+    fail_cnt = max(0, tot - suc)
+    uptime_pct = daily.uptime_percentage if daily else 100.0
+
+    failures_query = db.query(ServiceHealthCheck).filter(
+        ServiceHealthCheck.service_key == service_key,
+        ServiceHealthCheck.is_healthy == False
+    )
+
+    try:
+        from sqlalchemy import cast, Date
+        date_failures = (
+            failures_query.filter(cast(ServiceHealthCheck.checked_at, Date) == check_date)
+            .order_by(desc(ServiceHealthCheck.checked_at))
+            .all()
+        )
+    except Exception:
+        date_failures = []
+
+    # Strictly only failures that occurred on check_date
+    latest_fail = date_failures[0] if date_failures else None
+
+    latest_incident = (
+        db.query(Incident)
+        .filter(Incident.service_key == service_key)
+        .order_by(desc(Incident.created_at))
+        .first()
+    )
+
+    displayed_failures = date_failures
+
+    return {
+        "service_key": service_key,
+        "service_name": meta["name"],
+        "date": check_date,
+        "total_checks": tot,
+        "successful_checks": suc,
+        "failed_checks": fail_cnt,
+        "uptime_percentage": uptime_pct,
+        "latest_failure_time": latest_fail.checked_at.isoformat() if latest_fail and latest_fail.checked_at else None,
+        "latest_failure_reason": latest_fail.error_message if latest_fail else None,
+        "latest_failure_status_code": latest_fail.status_code if latest_fail else None,
+        "latest_recovery_time": latest_incident.resolved_time.isoformat() if latest_incident and latest_incident.resolved_time else None,
+        "latest_downtime_minutes": latest_incident.duration_minutes if latest_incident else None,
+        "incident_status": latest_incident.status if latest_incident else None,
+        "incident_title": latest_incident.title if latest_incident else None,
+        "failures": [
+            {
+                "id": str(fc.id),
+                "checked_at": fc.checked_at.isoformat() if fc.checked_at else None,
+                "status_code": fc.status_code,
+                "response_time_ms": fc.response_time_ms,
+                "error_message": fc.error_message or "Unknown failure",
+            }
+            for fc in (displayed_failures or [])
+        ],
     }
 
 
