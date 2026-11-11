@@ -30,6 +30,7 @@ celery_app.conf.update(
         "app.workers.ingestion_worker",
         "app.workers.notification_scheduler_worker",
         "app.workers.campaign_worker",
+        "app.workers.status_worker",
     ],
 
     # Reliability
@@ -65,6 +66,10 @@ celery_app.conf.update(
         # 3. Critical System Workers (Zero-delay processing)
         "app.workers.billing_worker.*": {"queue": "critical_queue"},
         "app.workers.ingestion_worker.*": {"queue": "default"},
+
+        # 4. System Status & Incident Alerts
+        "app.workers.status_worker.run_system_status_health_checks": {"queue": "beat"},
+        "app.workers.status_worker.dispatch_incident_notification_task": {"queue": "default"},
     },
 
 
@@ -146,6 +151,10 @@ celery_app.conf.beat_schedule = {
     "email-monitor-cycle": {
         "task": "app.workers.notification_scheduler_worker.run_email_monitor_cycle_task",
         "schedule": 6000.0,  
+    },
+    "system-status-health-checks": {
+        "task": "app.workers.status_worker.run_system_status_health_checks",
+        "schedule": 60.0,
     },
 }
 

@@ -34,7 +34,7 @@ export default function SplashScreen() {
     if (auth.isInitialized && auth.token) {
       router.replace('/(tabs)/inbox');
     }
-  }, [auth.isInitialized, auth.token]);
+  }, [auth.isInitialized, auth.token, router]);
 
   const handleGetStarted = () => {
     router.push('/(auth)/login');

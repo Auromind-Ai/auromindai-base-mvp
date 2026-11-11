@@ -4,29 +4,26 @@ import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 
 export interface VerifyOTPResponse {
-  access_token: string;
-  token_type: string;
+  access_token?: string;
+  token_type?: string;
   csrf_token?: string;
   requiresTwoFactor?: boolean;
   pending_token?: string;
-  user: {
+  user?: {
     id: string;
     email: string;
     full_name?: string | null;
     platform_role?: string;
     deletion_scheduled_at?: string | null;
   };
-  workspaces: Array<{
+  workspaces?: {
     id: string;
     name: string;
     role: string;
     plan_type?: string;
-  }>;
+  }[];
 }
 
-/**
- * Sends a 6-digit OTP code to the specified email address using the backend /auth/send-otp endpoint.
- */
 export async function sendOTP(
   email: string,
   authType: 'login' | 'signup' = 'login',
@@ -39,9 +36,6 @@ export async function sendOTP(
   });
 }
 
-/**
- * Verifies the 6-digit OTP code using the backend /auth/verify-otp endpoint.
- */
 export async function verifyOTP(
   email: string,
   otp: string,
@@ -69,9 +63,22 @@ export async function verifyOTP(
   return result;
 }
 
-/**
- * Initiates the Google OAuth login/signup flow using the backend /auth/google/login endpoint.
- */
+export async function verifyTwoFactorLogin(
+  pendingToken: string,
+  code: string
+): Promise<VerifyOTPResponse> {
+  const result = await apiClient.post<VerifyOTPResponse>('/2fa/verify-login', {
+    pending_token: pendingToken,
+    code: code.trim(),
+  });
+
+  if (result.access_token) {
+    apiClient.setToken(result.access_token);
+  }
+
+  return result;
+}
+
 export async function googleLogin(type: 'login' | 'signup' = 'login'): Promise<void> {
   const loginUrl = `${apiClient.baseURL}/auth/google/login?type=${type}`;
 
@@ -84,7 +91,6 @@ export async function googleLogin(type: 'login' | 'signup' = 'login'): Promise<v
       const redirectUrl = Linking.createURL('oauth-callback');
       const result = await WebBrowser.openAuthSessionAsync(loginUrl, redirectUrl);
       if (result.type === 'success' && result.url) {
-        // Deep link returned with token parameter
         const parsed = Linking.parse(result.url);
         const token = parsed.queryParams?.token;
         if (typeof token === 'string') {
@@ -92,22 +98,15 @@ export async function googleLogin(type: 'login' | 'signup' = 'login'): Promise<v
         }
       }
     } catch {
-      // Fallback to opening external system browser
       await Linking.openURL(loginUrl);
     }
   }
 }
 
-/**
- * Retrieves the currently authenticated user's profile and active workspace.
- */
 export async function getCurrentUser() {
   return apiClient.get('/auth/me');
 }
 
-/**
- * Logs out the user by revoking the session on the backend.
- */
 export async function logout(): Promise<{ status: string; message: string }> {
   try {
     return await apiClient.post<{ status: string; message: string }>('/auth/logout', {});
@@ -116,9 +115,6 @@ export async function logout(): Promise<{ status: string; message: string }> {
   }
 }
 
-/**
- * Requests account deletion with 30-day grace period.
- */
 export async function requestAccountDeletion(): Promise<{
   deletion_scheduled_at: string;
   message: string;
@@ -129,11 +125,6 @@ export async function requestAccountDeletion(): Promise<{
   );
 }
 
-/**
- * Cancels a pending account deletion and restores the account.
- */
 export async function cancelAccountDeletion(): Promise<{ message: string }> {
   return apiClient.post<{ message: string }>('/account/cancel-deletion', {});
 }
-
-

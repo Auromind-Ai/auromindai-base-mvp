@@ -13,7 +13,8 @@ from app.core.redis_pubsub import (
 )
 from app.database import SessionLocal
 from app.models.conversation import Conversation
-from app.utils.auth import decode_access_token
+from app.utils.auth import decode_access_token, is_jwt_revoked_in_redis
+from app.services.auth_service import _get_redis_client
 from app.core.realtime_access import realtime_allowed
 
 logger = logging.getLogger(__name__)
@@ -64,11 +65,27 @@ async def websocket_endpoint(
         await websocket.close(code=4001, reason="Unauthorized")
         return
 
-    # Find user's workspace(s)
+    try:
+        if is_jwt_revoked_in_redis(_get_redis_client(), actual_token):
+            logger.warning(f"WebSocket auth rejected: revoked token for user {user_id}")
+            await websocket.close(code=4001, reason="Token revoked")
+            return
+    except Exception as rev_exc:
+        logger.warning(f"WebSocket Redis blacklist check failed: {rev_exc}")
+
+    # Find user's workspace(s) and check session revocation
     resolved_workspace_id: str | None = workspace_id or payload.get("workspace_id")
     user_workspaces: list[str] = []
+    session_revoked = False
     db = SessionLocal()
     try:
+        session_id = payload.get("session_id")
+        if session_id:
+            from app.models.user_session import UserSession
+            sess = db.query(UserSession).filter(UserSession.id == session_id).first()
+            if not sess or sess.revoked_at is not None:
+                session_revoked = True
+
         from app.models.workspace import WorkspaceMember
         memberships = (
             db.query(WorkspaceMember.workspace_id)
@@ -82,6 +99,10 @@ async def websocket_endpoint(
         logger.warning(f"WebSocket workspace lookup error: {ws_err}")
     finally:
         db.close()
+
+    if session_revoked:
+        await websocket.close(code=4001, reason="Session revoked")
+        return
 
     if not resolved_workspace_id or resolved_workspace_id not in user_workspaces:
         logger.error(f"WebSocket auth error: Workspace context missing for user {user_id}")

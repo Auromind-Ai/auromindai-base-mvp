@@ -47,6 +47,7 @@ export default function AdminSidebar() {
     { name: "Integrations", href: "/admin/integrations", icon: Plug },
     { name: "RAG Brain", href: "/admin/rag", icon: Brain },
     { name: "System Health", href: "/admin/system", icon: Heart },
+    { name: "Status & Incidents", href: "/admin/status", icon: Activity },
     { name: "Model Config", href: "/admin/model-config", icon: Key },
     { name: "Templates", href: "/admin/templates", icon: LayoutTemplate },
     { name: "Notifications & Schedules", href: "/admin/notification-templates", icon: Bell },

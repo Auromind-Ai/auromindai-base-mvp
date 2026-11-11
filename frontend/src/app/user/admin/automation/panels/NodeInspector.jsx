@@ -1082,9 +1082,9 @@ export default function NodeInspector({
                                   {isDragOver ? 'Drop file here' : `Drag & drop ${messageType} file or browse`}
                                 </p>
                                 <p className="text-[10px] text-white/60">
-                                  {messageType === 'image' && 'Supports JPG, PNG (max 10MB)'}
-                                  {messageType === 'video' && 'Supports MP4 (max 16MB)'}
-                                  {messageType === 'document' && 'Supports PDF, DOCX (max 10MB)'}
+                                  {messageType === 'image' && 'Supports JPG, PNG, WebP (max 20MB)'}
+                                  {messageType === 'video' && 'Supports MP4, MOV (max 50MB)'}
+                                  {messageType === 'document' && 'Supports PDF, DOCX (max 50MB)'}
                                 </p>
                                 <input
                                   type="file"

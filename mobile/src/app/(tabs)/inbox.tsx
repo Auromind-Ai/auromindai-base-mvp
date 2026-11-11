@@ -11,6 +11,8 @@ import {
   Image,
   Platform,
   useWindowDimensions,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -36,6 +38,10 @@ import {
 import { AddLeadModal } from '../../components/leads/AddLeadModal';
 import { Fonts } from '@/theme/tokens';
 import { useAppTheme } from '@/context/theme-context';
+import { fetchConversations, fetchConversationCounts, BackendConversation } from '@/api';
+import { useAuth, authStore } from '@/store/auth';
+import { useWorkspaceRealtime } from '@/hooks/use-workspace-realtime';
+import { getInitials, getAvatarColor, formatShortTime } from '@/utils/formatters';
 
 export type ChannelType = 'all' | 'whatsapp' | 'instagram' | 'twilio';
 export type StatusType = 'all' | 'unread' | 'open';
@@ -43,6 +49,7 @@ export type StatusType = 'all' | 'unread' | 'open';
 export interface ConversationItem {
   id: string;
   name: string;
+  phone?: string;
   channel: 'whatsapp' | 'instagram' | 'twilio';
   avatarUrl: string;
   avatarInitials: string;
@@ -52,94 +59,6 @@ export interface ConversationItem {
   unread: boolean;
   status: 'open' | 'unread' | 'closed';
 }
-
-// Authentic conversation data matching the reference images exactly
-const CONVERSATIONS_DATA: ConversationItem[] = [
-  {
-    id: '1',
-    name: 'Wade Warren',
-    channel: 'whatsapp',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
-    avatarInitials: 'WW',
-    avatarBg: '#5B4EB5',
-    lastMessage: 'How are you?',
-    time: '3:32 Pm',
-    unread: true,
-    status: 'open',
-  },
-  {
-    id: '2',
-    name: 'Brooklyn Simmons',
-    channel: 'instagram',
-    avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80',
-    avatarInitials: 'BS',
-    avatarBg: '#C026D3',
-    lastMessage: 'Are you available tomorrow?',
-    time: '2:24 Pm',
-    unread: true,
-    status: 'open',
-  },
-  {
-    id: '3',
-    name: 'Jenny Wilson',
-    channel: 'whatsapp',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-    avatarInitials: 'JW',
-    avatarBg: '#059669',
-    lastMessage: 'Have a nice day.',
-    time: '1:28 Pm',
-    unread: false,
-    status: 'open',
-  },
-  {
-    id: '4',
-    name: 'Guy Hawkins',
-    channel: 'twilio',
-    avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&auto=format&fit=crop&q=80',
-    avatarInitials: 'GH',
-    avatarBg: '#D97706',
-    lastMessage: "What's the progress on that...",
-    time: '8:25 Am',
-    unread: false,
-    status: 'open',
-  },
-  {
-    id: '5',
-    name: 'Guy Hawkins',
-    channel: 'instagram',
-    avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&auto=format&fit=crop&q=80',
-    avatarInitials: 'GH',
-    avatarBg: '#7C3AED',
-    lastMessage: 'I want to book the life coach.',
-    time: '8:35 Am',
-    unread: false,
-    status: 'open',
-  },
-  {
-    id: '6',
-    name: 'Dianne Russell',
-    channel: 'whatsapp',
-    avatarUrl: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200&auto=format&fit=crop&q=80',
-    avatarInitials: 'DR',
-    avatarBg: '#0D9488',
-    lastMessage: 'My friend want to see coach list',
-    time: '8:40 Am',
-    unread: false,
-    status: 'open',
-  },
-  {
-    id: '7',
-    name: 'Theresa Webb',
-    channel: 'twilio',
-    avatarUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=200&auto=format&fit=crop&q=80',
-    avatarInitials: 'TW',
-    avatarBg: '#DC2626',
-    lastMessage: 'See you tomorrow then.',
-    time: '8:45 Am',
-    unread: false,
-    status: 'open',
-  },
-];
 
 // WhatsApp Icon
 function WhatsAppIcon({ size = 18 }: { size?: number }) {
@@ -203,6 +122,7 @@ export default function OmniInboxScreen() {
   const isSmallDevice = screenWidth < 400;
 
   // State
+  const authState = useAuth();
   const [selectedChannel, setSelectedChannel] = useState<ChannelType>('all');
   const [selectedStatus, setSelectedStatus] = useState<StatusType>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -212,40 +132,139 @@ export default function OmniInboxScreen() {
   const [leadSuccessToast, setLeadSuccessToast] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
-  // Dynamic Channel counts
-  const channelCounts = useMemo(() => {
-    return {
-      all: 24,
-      whatsapp: 12,
-      instagram: 8,
-      twilio: 4,
-    };
-  }, []);
+  const [serverConversations, setServerConversations] = useState<ConversationItem[]>([]);
+  const [counts, setCounts] = useState<{ all: number; whatsapp: number; instagram: number; twilio: number; open: number; unread: number }>({
+    all: 0,
+    whatsapp: 0,
+    instagram: 0,
+    twilio: 0,
+    open: 0,
+    unread: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Filtered conversation items
+  const workspaceId = (authState.selectedWorkspace?.id && !authState.selectedWorkspace.id.startsWith('ws-'))
+    ? authState.selectedWorkspace.id
+    : (authState.workspaces.find((w) => !w.id.startsWith('ws-'))?.id || '');
+
+  React.useEffect(() => {
+    if (authState.token && (!workspaceId || authState.workspaces.length === 0)) {
+      authStore.refreshWorkspaces().catch(() => {});
+    }
+  }, [authState.token, workspaceId, authState.workspaces.length]);
+
+  const loadInboxData = React.useCallback(async () => {
+    if (!workspaceId) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+    try {
+      const statusParam =
+        selectedStatus === 'unread' ? 'UNREAD' : selectedStatus === 'open' ? 'OPEN' : 'ALL';
+
+      const [activeCounts, allCounts, waCounts, igCounts, twCounts, convs] = await Promise.all([
+        selectedChannel !== 'all'
+          ? fetchConversationCounts({ workspaceId, channel: selectedChannel }).catch(() => null)
+          : Promise.resolve(null),
+        fetchConversationCounts({ workspaceId }).catch(() => null),
+        fetchConversationCounts({ workspaceId, channel: 'whatsapp' }).catch(() => null),
+        fetchConversationCounts({ workspaceId, channel: 'instagram' }).catch(() => null),
+        fetchConversationCounts({ workspaceId, channel: 'twilio' }).catch(() => null),
+        fetchConversations({
+          workspaceId,
+          channel: selectedChannel !== 'all' ? selectedChannel : undefined,
+          status: statusParam,
+        }),
+      ]);
+
+      const statusSource = activeCounts || allCounts;
+      if (allCounts || statusSource) {
+        setCounts({
+          all: statusSource?.all ?? 0,
+          open: statusSource?.open ?? 0,
+          unread: statusSource?.unread ?? 0,
+          whatsapp: waCounts?.all ?? 0,
+          instagram: igCounts?.all ?? 0,
+          twilio: twCounts?.all ?? 0,
+        });
+      }
+
+      if (Array.isArray(convs)) {
+        const mapped: ConversationItem[] = convs.map((c: BackendConversation, idx: number) => {
+          let ch: 'whatsapp' | 'instagram' | 'twilio' = 'whatsapp';
+          const rawCh = (c.channel || '').toLowerCase();
+          if (rawCh.includes('instagram')) ch = 'instagram';
+          else if (rawCh.includes('twilio')) ch = 'twilio';
+
+          const name = c.contact_name || c.phone || 'Customer';
+          const isUnread = (c.unread_count || 0) > 0;
+          const st: ConversationItem['status'] =
+            (c.status || '').toLowerCase() === 'closed' ? 'closed' : isUnread ? 'unread' : 'open';
+
+          return {
+            id: String(c.id),
+            name,
+            phone: c.phone || '',
+            channel: ch,
+            avatarUrl: c.profile_pic || '',
+            avatarInitials: getInitials(name, 'CU'),
+            avatarBg: getAvatarColor(idx),
+            lastMessage: c.last_message || 'No messages yet',
+            time: formatShortTime(c.last_message_at || c.created_at, 'Recently'),
+            unread: isUnread,
+            status: st,
+          };
+        });
+        setServerConversations(mapped);
+        setLoadError(null);
+      }
+    } catch (err: any) {
+      setLoadError(err?.message || 'Unable to load conversations.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [workspaceId, selectedChannel, selectedStatus]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const sync = async () => {
+      if (!cancelled) await loadInboxData();
+    };
+    sync();
+    const pollInterval = setInterval(sync, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(pollInterval);
+    };
+  }, [loadInboxData]);
+
+  useWorkspaceRealtime((evt) => {
+    const evType = evt.event_type || evt.event || evt.type || '';
+    if (evType === 'new_message' || evType === 'conversation_updated' || evType === 'message_status_updated') {
+      loadInboxData();
+    }
+  });
+
+  const channelCounts = counts;
+
   const filteredConversations = useMemo(() => {
-    return CONVERSATIONS_DATA.filter((item) => {
-      // Channel filtering
-      if (selectedChannel !== 'all' && item.channel !== selectedChannel) {
-        return false;
-      }
-      // Status filtering
-      if (selectedStatus === 'unread' && !item.unread) {
-        return false;
-      }
-      if (selectedStatus === 'open' && item.status !== 'open') {
-        return false;
-      }
-      // Search query filtering
+    return serverConversations.filter((item) => {
+      if (selectedChannel !== 'all' && item.channel !== selectedChannel) return false;
+      if (selectedStatus === 'unread' && !item.unread) return false;
+      if (selectedStatus === 'open' && item.status === 'closed') return false;
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
-        const matchesName = item.name.toLowerCase().includes(query);
-        const matchesMessage = item.lastMessage.toLowerCase().includes(query);
-        if (!matchesName && !matchesMessage) return false;
+        if (!item.name.toLowerCase().includes(query) && !item.lastMessage.toLowerCase().includes(query)) {
+          return false;
+        }
       }
       return true;
     });
-  }, [selectedChannel, selectedStatus, searchQuery]);
+  }, [serverConversations, selectedChannel, selectedStatus, searchQuery]);
 
   // Mini badge overlapping the bottom-right corner of avatar
   const renderAvatarChannelBadge = (channel: 'whatsapp' | 'instagram' | 'twilio') => {
@@ -687,7 +706,7 @@ export default function OmniInboxScreen() {
                       isSmallDevice && styles.statusBadgeTextSmall,
                     ]}
                   >
-                    24
+                    {counts.all}
                   </Text>
                 </View>
               </LinearGradient>
@@ -722,7 +741,7 @@ export default function OmniInboxScreen() {
                       isSmallDevice && styles.statusBadgeTextSmall,
                     ]}
                   >
-                    24
+                    {counts.all}
                   </Text>
                 </View>
               </View>
@@ -762,7 +781,7 @@ export default function OmniInboxScreen() {
                       isSmallDevice && styles.statusBadgeTextSmall,
                     ]}
                   >
-                    12
+                    {counts.unread}
                   </Text>
                 </View>
               </LinearGradient>
@@ -797,7 +816,7 @@ export default function OmniInboxScreen() {
                       isSmallDevice && styles.statusBadgeTextSmall,
                     ]}
                   >
-                    12
+                    {counts.unread}
                   </Text>
                 </View>
               </View>
@@ -837,7 +856,7 @@ export default function OmniInboxScreen() {
                       isSmallDevice && styles.statusBadgeTextSmall,
                     ]}
                   >
-                    12
+                    {counts.open}
                   </Text>
                 </View>
               </LinearGradient>
@@ -872,7 +891,7 @@ export default function OmniInboxScreen() {
                       isSmallDevice && styles.statusBadgeTextSmall,
                     ]}
                   >
-                    12
+                    {counts.open}
                   </Text>
                 </View>
               </View>
@@ -913,6 +932,37 @@ export default function OmniInboxScreen() {
             isSmallDevice && styles.cardsListContentSmall,
           ]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                loadInboxData();
+              }}
+              tintColor="#8060E8"
+            />
+          }
+          ListEmptyComponent={
+            loading ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#8060E8" />
+              </View>
+            ) : loadError ? (
+              <TouchableOpacity
+                onPress={loadInboxData}
+                style={{ margin: 20, padding: 16, borderRadius: 16, backgroundColor: 'rgba(239,68,68,0.12)', alignItems: 'center' }}
+              >
+                <Text style={{ color: '#EF4444', fontWeight: '600', marginBottom: 4 }}>{loadError}</Text>
+                <Text style={{ color: isDark ? '#A2ADD8' : '#6B7280', fontSize: 12 }}>Tap to retry</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+                <Text style={{ color: isDark ? '#A2ADD8' : '#7887A9', fontSize: 14 }}>
+                  No conversations found
+                </Text>
+              </View>
+            )
+          }
           renderItem={({ item }) => {
             const hasValidImage = Boolean(item.avatarUrl) && !imageErrors[item.id];
 
@@ -931,6 +981,7 @@ export default function OmniInboxScreen() {
                       id: item.id,
                       channel: item.channel,
                       name: item.name,
+                      phone: item.phone || '',
                     },
                   });
                 }}
@@ -1066,10 +1117,10 @@ export default function OmniInboxScreen() {
             {/* Channels Checklist */}
             <ScrollView showsVerticalScrollIndicator={false} style={styles.modalChannelsList}>
               {[
-                { id: 'all', label: 'All Channels', count: 24, icon: null },
-                { id: 'whatsapp', label: 'WhatsApp', count: 12, icon: <WhatsAppIcon size={22} /> },
-                { id: 'instagram', label: 'Instagram', count: 8, icon: <InstagramIcon size={22} /> },
-                { id: 'twilio', label: 'Twilio', count: 4, icon: <TwilioIcon size={22} /> },
+                { id: 'all', label: 'All Channels', count: counts.all, icon: null },
+                { id: 'whatsapp', label: 'WhatsApp', count: counts.whatsapp, icon: <WhatsAppIcon size={22} /> },
+                { id: 'instagram', label: 'Instagram', count: counts.instagram, icon: <InstagramIcon size={22} /> },
+                { id: 'twilio', label: 'Twilio', count: counts.twilio, icon: <TwilioIcon size={22} /> },
               ].map((ch) => {
                 const isSelected = selectedChannel === ch.id;
                 return (

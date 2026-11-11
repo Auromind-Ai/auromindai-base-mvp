@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class DocumentService:
     
     SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".md", ".xlsx", ".xls", ".csv", ".png", ".jpg", ".jpeg", ".webp"}
-    MAX_FILE_SIZE_MB = 10
+    MAX_FILE_SIZE_MB = 50
     
     def extract_text_from_pdf(self, file_content: bytes) -> str:
         

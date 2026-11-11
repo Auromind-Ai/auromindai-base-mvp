@@ -232,7 +232,7 @@ export default function HeroShowcaseSection() {
                     {/* Get Started Free Button */}
                     <NeatCTAButton
                       href="/signup"
-                      className="group relative overflow-hidden h-[36px] w-[145px] rounded-[8px] bg-[#814AC8] text-[14px] font-medium text-white shadow-[0_0_32px_rgba(109,40,255,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(109,40,255,0.65)] md:h-[42px] md:w-[165px] cursor-pointer"
+                      className="group relative overflow-hidden h-[36px] w-[145px] rounded-[8px] bg-[#814AC8] text-[14px] font-medium text-white shadow-[0_0_32px_rgba(109,40,255,0.45)] transition-all duration-300 hover:scale-[1.03] active:scale-95 hover:shadow-[0_0_45px_rgba(109,40,255,0.65)] md:h-[42px] md:w-[165px] cursor-pointer"
                     >
                       <span className="flex items-center justify-center gap-2 w-full h-full">
                         

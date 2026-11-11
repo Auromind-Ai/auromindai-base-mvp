@@ -28,12 +28,15 @@ const routePermissions = {
   email: 'channels.manage', followups: 'crm.view', promises: 'crm.view',
 };
 
-export function isWorkspacePageAllowed(pathname, hasPermission) {
+export function isWorkspacePageAllowed(pathname, hasPermission, isPlatformAdmin = false) {
   if (!pathname) return true;
   const cleanPath = pathname.replace(/^\/user\/admin/, '');
   const routeSection = cleanPath.split('/')[1];
   if (!routeSection) {
     return true;
+  }
+  if (routeSection === 'ai-agents') {
+    return isPlatformAdmin;
   }
   if (routeSection === 'settings') {
     return hasPermission('settings.general') || hasPermission('settings.notifications');

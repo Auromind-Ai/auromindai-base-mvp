@@ -17,7 +17,7 @@ import { User, Mail, AlertCircle } from 'lucide-react-native';
 import { OrbionLogo } from '../../components/common/OrbionLogo';
 import { GoogleIcon } from '../../components/common/GoogleIcon';
 import { sendOTP, googleLogin } from '../../api/auth';
-import { BrandColors, Fonts } from '../../theme/tokens';
+import { Fonts } from '../../theme/tokens';
 import { scaleFont, scaleContainer, scaleHeight } from '../../theme/responsive';
 import { useAppTheme } from '../../context/theme-context';
 

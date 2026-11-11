@@ -40,10 +40,11 @@ function AdminLayoutContent({ children }) {
     const cleanPath = pathname ? pathname.replace(/^\/user\/admin/, '') || '/' : '/';
     const { user, workspaces, workspaceId, setWorkspaceId, loading, logout, refreshUser, hasPermission, permissionsLoading } = useAuth();
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel, initialSection, openSettings } = useSettings();
+    const isPlatformAdmin = user?.platform_role === 'platform_admin';
 
     const pageAllowed = Boolean(workspaceId) && !permissionsLoading
-        && isWorkspacePageAllowed(cleanPath, hasPermission);
-    const firstAccessiblePath = getFirstAccessibleWorkspacePath(hasPermission)
+        && isWorkspacePageAllowed(cleanPath, hasPermission, isPlatformAdmin);
+    const firstAccessiblePath = getFirstAccessibleWorkspacePath(hasPermission, isPlatformAdmin)
         || (user?.platform_role === 'platform_admin' ? '/admin' : null);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [isWsDropdownOpen, setIsWsDropdownOpen] = useState(false);

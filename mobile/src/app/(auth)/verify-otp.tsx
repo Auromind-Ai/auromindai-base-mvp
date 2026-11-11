@@ -25,7 +25,7 @@ import {
   Mail,
 } from 'lucide-react-native';
 import { OrbionLogo } from '../../components/common/OrbionLogo';
-import { verifyOTP, sendOTP } from '../../api/auth';
+import { verifyOTP, sendOTP, verifyTwoFactorLogin } from '../../api/auth';
 import { authStore } from '../../store/auth';
 import { Fonts } from '../../theme/tokens';
 import { useAppTheme } from '../../context/theme-context';
@@ -53,6 +53,7 @@ export default function VerifyOtpScreen() {
   const [resendLoading, setResendLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [pending2FAToken, setPending2FAToken] = useState<string | null>(null);
   const inputRef = useRef<React.ElementRef<typeof TextInput>>(null);
 
   // Countdown timer for Resend
@@ -90,18 +91,41 @@ export default function VerifyOtpScreen() {
     setLoading(true);
 
     try {
-      const data = await verifyOTP(displayContact, otp, authType, fullName);
-
-      // Save token and user details into auth store
-      if (data?.access_token) {
-        authStore.setAuth({
-          token: data.access_token,
-          user: data.user,
-          workspaces: data.workspaces,
+      if (pending2FAToken) {
+        const twoFaRes = await verifyTwoFactorLogin(pending2FAToken, otp);
+        if (!twoFaRes?.access_token || !twoFaRes?.user) {
+          setError('Two-factor verification did not return a valid session.');
+          return;
+        }
+        await authStore.setAuth({
+          token: twoFaRes.access_token,
+          user: twoFaRes.user,
+          workspaces: twoFaRes.workspaces,
         });
+        router.replace('/(tabs)/inbox');
+        return;
       }
 
-      // Navigate directly to Inbox Screen
+      const data = await verifyOTP(displayContact, otp, authType, fullName);
+
+      if (data?.requiresTwoFactor && data?.pending_token) {
+        setPending2FAToken(data.pending_token);
+        setOtp('');
+        setSuccessMessage('Enter the 6-digit code from your authenticator app.');
+        return;
+      }
+
+      if (!data?.access_token || !data?.user) {
+        setError('Verification did not return an active session. Please try again.');
+        return;
+      }
+
+      await authStore.setAuth({
+        token: data.access_token,
+        user: data.user,
+        workspaces: data.workspaces,
+      });
+
       router.replace('/(tabs)/inbox');
     } catch (err: any) {
       const msg: string = err?.message || '';
@@ -216,9 +240,9 @@ export default function VerifyOtpScreen() {
                   <View style={styles.cardLogoWrapper}>
                     <OrbionLogo size="sm" showText={true} />
                   </View>
-                  <Text style={[styles.cardTitle, { color: isDark ? '#F8F8FF' : '#111827' }]}>Verify Your Email</Text>
+                  <Text style={[styles.cardTitle, { color: isDark ? '#F8F8FF' : '#111827' }]}>{pending2FAToken ? 'Two-Factor Authentication' : 'Verify Your Email'}</Text>
                   <Text style={[styles.cardSubtitle, { color: isDark ? '#8E99B7' : '#4B5563' }]}>
-                    We have sent a 6-digit verification code to
+                    {pending2FAToken ? 'Enter the 6-digit authenticator code for' : 'We have sent a 6-digit verification code to'}
                   </Text>
                   <View
                     style={[

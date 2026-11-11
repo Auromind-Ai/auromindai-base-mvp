@@ -140,3 +140,5 @@ Thumbs.db
 *.sln
 *.swp
 
+# Mobile Application
+mobile/

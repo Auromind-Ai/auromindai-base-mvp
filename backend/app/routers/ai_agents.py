@@ -134,7 +134,7 @@ async def get_supported_models(
     return {
         "providers": providers_response,
         "parameter_ranges": {
-            "temperature": {"min": 0.0, "max": 2.0, "default": 0.7, "step": 0.05},
+            "temperature": {"min": 0.0, "max": 2.0, "default": 0.3, "step": 0.05},
             "max_tokens": {"min": 1, "max": 32768, "default": 1024, "step": 64},
             "top_p": {"min": 0.1, "max": 1.0, "default": 1.0, "step": 0.05},
             "frequency_penalty": {"min": -2.0, "max": 2.0, "default": 0.0, "step": 0.1},

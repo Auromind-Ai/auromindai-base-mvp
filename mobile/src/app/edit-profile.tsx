@@ -22,7 +22,6 @@ import {
   ChevronLeft,
   Camera,
   Lock,
-  CheckCircle2,
   AlertTriangle,
   Info,
   Image as ImageIcon,
@@ -83,20 +82,27 @@ export default function EditProfileScreen() {
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
 
   React.useEffect(() => {
-    if (user?.full_name) {
-      setFullName(user.full_name);
-    }
-    authStore.refreshUser();
-  }, [user?.full_name]);
+    let cancelled = false;
+    authStore
+      .refreshUser()
+      .then(() => {
+        if (cancelled) return;
+        const fresh = authStore.getState().user;
+        if (fresh?.full_name) setFullName(fresh.full_name);
+        if (fresh?.avatar_url !== undefined) setAvatarUri(fresh.avatar_url || null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const userEmail = user?.email || '';
   const userInitial = ((fullName || userEmail || 'U').trim()[0] || 'U').toUpperCase();
 
-  // Image picking handlers
   const pickFromGallery = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
       if (!permissionResult.granted) {
         setStatusModal({
           type: 'info',
@@ -105,30 +111,23 @@ export default function EditProfileScreen() {
         });
         return;
       }
-
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
-        aspect: [1, 1], // Perfect square crop for 1:1 circular display
+        aspect: [1, 1],
         quality: 0.85,
       });
-
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setAvatarUri(result.assets[0].uri);
       }
     } catch {
-      setStatusModal({
-        type: 'error',
-        title: 'Error',
-        message: 'Failed to pick image from gallery.',
-      });
+      setStatusModal({ type: 'error', title: 'Error', message: 'Failed to pick image from gallery.' });
     }
   };
 
   const takePhoto = async () => {
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-
       if (!permissionResult.granted) {
         setStatusModal({
           type: 'info',
@@ -137,22 +136,16 @@ export default function EditProfileScreen() {
         });
         return;
       }
-
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.85,
       });
-
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setAvatarUri(result.assets[0].uri);
       }
     } catch {
-      setStatusModal({
-        type: 'error',
-        title: 'Error',
-        message: 'Failed to capture photo with camera.',
-      });
+      setStatusModal({ type: 'error', title: 'Error', message: 'Failed to capture photo with camera.' });
     }
   };
 
@@ -167,83 +160,50 @@ export default function EditProfileScreen() {
     }, 50);
   };
 
-  const handleSaveName = async () => {
-    if (!fullName.trim()) {
-      setStatusModal({
-        type: 'error',
-        title: 'Required',
-        message: 'Please enter your full name.',
-      });
+  const persistProfileChanges = async (options?: { exitOnSuccess?: boolean }) => {
+    const trimmedName = fullName.trim();
+    if (!trimmedName) {
+      setStatusModal({ type: 'error', title: 'Required', message: 'Please enter your full name.' });
       return;
     }
-
+    const setBusy = options?.exitOnSuccess ? setIsSaving : setIsSavingName;
     try {
-      setIsSavingName(true);
-
-      // 1. Update backend DB
-      const result = await apiClient.patch('/auth/me', { full_name: fullName.trim() });
-
-      // 2. Update local state & storage
-      await authStore.updateUser({
-        full_name: (result && result.full_name) ? result.full_name : fullName.trim(),
-        avatar_url: avatarUri,
+      setBusy(true);
+      let resolvedAvatarUrl: string | null = avatarUri;
+      if (
+        resolvedAvatarUrl &&
+        (resolvedAvatarUrl.startsWith('file://') ||
+          resolvedAvatarUrl.startsWith('content://') ||
+          resolvedAvatarUrl.startsWith('ph://') ||
+          resolvedAvatarUrl.startsWith('blob:') ||
+          resolvedAvatarUrl.startsWith('data:'))
+      ) {
+        const workspaceId = authState.selectedWorkspace?.id || authState.workspaces[0]?.id;
+        const uploaded = await apiClient.uploadFile(
+          { uri: resolvedAvatarUrl, name: 'profile-avatar.jpg', mimeType: 'image/jpeg' },
+          workspaceId
+        );
+        resolvedAvatarUrl = uploaded.url;
+        setAvatarUri(resolvedAvatarUrl);
+      }
+      const result = await apiClient.patch('/auth/me', {
+        full_name: trimmedName,
+        avatar_url: resolvedAvatarUrl,
       });
-
-      // 3. Sync & refresh from DB across all screens
+      await authStore.updateUser({
+        full_name: result?.full_name || trimmedName,
+        avatar_url: result?.avatar_url ?? resolvedAvatarUrl,
+      });
       await authStore.refreshUser();
       await authStore.refreshWorkspaces();
-
-      setIsEditingName(false);
-
+      if (!options?.exitOnSuccess) setIsEditingName(false);
       setStatusModal({
         type: 'success',
-        title: 'Congrats',
-        message: 'Your name successfully changed. You can use your account now.',
-      });
-    } catch (err: any) {
-      console.error('[EditProfile] Save name error:', err);
-      setStatusModal({
-        type: 'error',
-        title: 'Update Failed',
-        message: err?.message || 'Failed to update name. Please try again.',
-      });
-    } finally {
-      setIsSavingName(false);
-    }
-  };
-
-  // Save changes handler
-  const handleSave = async () => {
-    if (!fullName.trim()) {
-      setStatusModal({
-        type: 'error',
-        title: 'Required',
-        message: 'Please enter your full name.',
-      });
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-
-      // 1. Update backend DB
-      const result = await apiClient.patch('/auth/me', { full_name: fullName.trim() });
-
-      // 2. Update local state & storage
-      await authStore.updateUser({
-        full_name: (result && result.full_name) ? result.full_name : fullName.trim(),
-        avatar_url: avatarUri,
-      });
-
-      // 3. Sync & refresh from DB across all screens
-      await authStore.refreshUser();
-      await authStore.refreshWorkspaces();
-
-      setStatusModal({
-        type: 'success',
-        title: 'Congrats',
-        message: 'Your name successfully changed. You can use your account now.',
-        onConfirm: () => (router.canGoBack() ? router.back() : router.replace('/(tabs)/settings')),
+        title: 'Profile Updated',
+        message: 'Your profile changes have been saved successfully.',
+        onConfirm: options?.exitOnSuccess
+          ? () => (router.canGoBack() ? router.back() : router.replace('/(tabs)/settings'))
+          : undefined,
       });
     } catch (err: any) {
       console.error('[EditProfile] Save error:', err);
@@ -253,9 +213,12 @@ export default function EditProfileScreen() {
         message: err?.message || 'Failed to update profile in database. Please try again.',
       });
     } finally {
-      setIsSaving(false);
+      setBusy(false);
     }
   };
+
+  const handleSaveName = () => persistProfileChanges({ exitOnSuccess: false });
+  const handleSave = () => persistProfileChanges({ exitOnSuccess: true });
 
   const handleBack = () => {
     if (router.canGoBack()) {

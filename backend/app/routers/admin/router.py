@@ -37,6 +37,7 @@ from . import (
     user_feedback,
     email_logs,
     admin_inquiries,
+    status as admin_status,
 )
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -242,3 +243,4 @@ router.include_router(email_logs.router, dependencies=admin_deps)
 router.include_router(plans.router, dependencies=admin_deps)
 router.include_router(user_feedback.router, dependencies=admin_deps)
 router.include_router(admin_inquiries.router, dependencies=admin_deps)
+router.include_router(admin_status.router, dependencies=admin_deps)

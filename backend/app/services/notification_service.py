@@ -241,6 +241,15 @@ class NotificationService:
                 db.rollback()
                 logger.error(f"Failed to record security audit log: {audit_exc}")
 
+       
+        NotificationService._dispatch_expo_push(
+            user=user,
+            title=final_title,
+            message=final_message,
+            notif_type=type,
+            notification_id=str(notification.id) if notification else None,
+        )
+
         # Trigger email if should_send_email is True
         if should_send_email and user.email:
             try:
@@ -252,6 +261,54 @@ class NotificationService:
                 logger.error(f"Failed to dispatch notification email to {user.email}: {email_exc}")
         
         return notification
+
+    @staticmethod
+    def _dispatch_expo_push(
+        user: User,
+        title: str,
+        message: str,
+        notif_type: str,
+        notification_id: Optional[str] = None,
+    ) -> None:
+        """Send an Expo push notification if enabled and not muted in user.preferences."""
+        try:
+            prefs = user.preferences or {}
+            token = prefs.get("expo_push_token")
+            if not token or not isinstance(token, str) or not token.startswith("ExponentPushToken["):
+                return
+            if prefs.get("push_enabled") is False:
+                return
+            mute_until = prefs.get("mute_pushes_until")
+            if mute_until:
+                from datetime import datetime, timezone
+                try:
+                    mute_dt = datetime.fromisoformat(str(mute_until).replace("Z", "+00:00"))
+                    if mute_dt > datetime.now(timezone.utc):
+                        return
+                except Exception:
+                    pass
+
+            show_preview = prefs.get("show_message_preview", True)
+            body_text = message if show_preview else "You have a new notification."
+
+            import httpx
+            httpx.post(
+                "https://exp.host/--/api/v2/push/send",
+                json={
+                    "to": token,
+                    "title": title,
+                    "body": body_text,
+                    "sound": "default",
+                    "channelId": "messages" if "message" in (notif_type or "").lower() else "default",
+                    "data": {
+                        "type": notif_type,
+                        "notification_id": notification_id,
+                    },
+                },
+                timeout=3.0,
+            )
+        except Exception as push_exc:
+            logger.warning(f"Expo push dispatch skipped/failed: {push_exc}")
 
     @staticmethod
     def notify_workspace(

@@ -22,13 +22,12 @@ import {
   Check,
   X,
   Globe,
-  ExternalLink,
   ShieldCheck,
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '@/store/auth';
 import { Fonts } from '@/theme/tokens';
-import { scaleFont, scaleContainer, scaleHeight } from '@/theme/responsive';
+import { scaleFont, scaleContainer } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
 import { fetchChannelsStatus, WorkspaceChannelsStatus } from '@/api/channels';
 
@@ -141,6 +140,7 @@ export default function ConnectedChannelsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [channelsData, setChannelsData] = useState<WorkspaceChannelsStatus | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Connection Details Modal State
   const [selectedModalChannel, setSelectedModalChannel] = useState<'whatsapp' | 'instagram' | 'twilio' | null>(null);
@@ -160,10 +160,11 @@ export default function ConnectedChannelsScreen() {
     }
 
     try {
+      setLoadError(null);
       const data = await fetchChannelsStatus(workspaceId);
       setChannelsData(data);
-    } catch {
-      setChannelsData(null);
+    } catch (err: any) {
+      setLoadError(err?.message || 'Unable to load channel statuses.');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -171,8 +172,34 @@ export default function ConnectedChannelsScreen() {
   }, [workspaceId]);
 
   useEffect(() => {
-    loadChannels();
-  }, [loadChannels]);
+    let cancelled = false;
+    if (!workspaceId) {
+      Promise.resolve().then(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    fetchChannelsStatus(workspaceId)
+      .then((data) => {
+        if (!cancelled) {
+          setLoadError(null);
+          setChannelsData(data);
+        }
+      })
+      .catch((err: any) => {
+        if (!cancelled) {
+          setLoadError(err?.message || 'Unable to load channel statuses.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
 
   const onRefresh = () => {
     setIsRefreshing(true);
@@ -297,6 +324,15 @@ export default function ConnectedChannelsScreen() {
         <Text style={[styles.subtitleNote, { color: theme.textMuted }]}>
           Manage your business communication channels connected to this workspace.
         </Text>
+        {loadError && (
+          <TouchableOpacity
+            onPress={onRefresh}
+            activeOpacity={0.8}
+            style={{ marginBottom: 12, padding: 12, borderRadius: 12, backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.28)' }}
+          >
+            <Text style={{ color: '#EF4444', fontSize: 13 }}>{loadError} Tap to retry.</Text>
+          </TouchableOpacity>
+        )}
 
         {isLoading ? (
           <View style={styles.loadingContainer}>

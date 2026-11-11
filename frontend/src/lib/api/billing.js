@@ -207,12 +207,12 @@ export async function overrideSubscription(workspaceId, payload) {
   return client.post(`/admin/billing/workspaces/${workspaceId}/override-subscription`, payload);
 }
 
-export async function resetCredits(workspaceId) {
-  return client.post(`/admin/billing/workspaces/${workspaceId}/reset-credits`);
+export async function resetCredits(workspaceId, target = 'all') {
+  return client.post(`/admin/billing/workspaces/${workspaceId}/reset-credits?target=${encodeURIComponent(target)}`);
 }
 
-export async function resetWallet(workspaceId) {
-  return client.post(`/admin/billing/workspaces/${workspaceId}/reset-wallet`);
+export async function resetWallet(workspaceId, target = 'all') {
+  return client.post(`/admin/billing/workspaces/${workspaceId}/reset-wallet?target=${encodeURIComponent(target)}`);
 }
 
 export async function getAdminAuditLogs(page = 1, limit = 50) {

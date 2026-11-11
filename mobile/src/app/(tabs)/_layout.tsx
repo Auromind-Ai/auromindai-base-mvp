@@ -29,7 +29,7 @@ function GlassmorphicTabBar() {
   const [containerWidth, setContainerWidth] = React.useState(INITIAL_CONTAINER_WIDTH);
 
   // Animated value: 0 for inbox, 1 for settings
-  const slideAnim = React.useRef(new Animated.Value(isSettings ? 1 : 0)).current;
+  const [slideAnim] = React.useState(() => new Animated.Value(isSettings ? 1 : 0));
 
   React.useEffect(() => {
     Animated.spring(slideAnim, {

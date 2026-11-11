@@ -5,8 +5,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Platform,
-  Alert,
+  Modal,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -25,17 +26,62 @@ import {
 import { Fonts } from '../../theme/tokens';
 import { scaleFont, scaleContainer, scaleHeight } from '../../theme/responsive';
 import { useAppTheme } from '../../context/theme-context';
+import { fetchCustomerProfile, convertConversation, CustomerProfileData } from '@/api';
 
 export default function CustomerProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string; name?: string; phone?: string }>();
   const { isDark } = useAppTheme();
 
-  const [isConverted, setIsConverted] = useState(false);
+  const conversationId = params.id || '';
 
-  const customerName = params.name || 'Rahul';
-  const customerPhone = params.phone || '9345660070';
-  const customerInitial = customerName.charAt(0).toUpperCase() || 'R';
+  const [isConverted, setIsConverted] = useState(false);
+  const [profile, setProfile] = useState<CustomerProfileData | null>(null);
+  const [loading, setLoading] = useState(Boolean(conversationId));
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [convertProduct, setConvertProduct] = useState('');
+  const [convertAmount, setConvertAmount] = useState('');
+  const [convertNotes, setConvertNotes] = useState('');
+  const [convertError, setConvertError] = useState<string | null>(null);
+  const [isConverting, setIsConverting] = useState(false);
+
+  React.useEffect(() => {
+    if (!conversationId) return;
+    let isMounted = true;
+    fetchCustomerProfile(conversationId)
+      .then((data) => {
+        if (isMounted && data) {
+          setProfile(data);
+          setIsConverted(Boolean(data.is_converted));
+          setErrorMsg(null);
+        }
+      })
+      .catch((err: any) => {
+        if (isMounted) {
+          setErrorMsg(err?.message || 'Unable to load customer profile.');
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [conversationId]);
+
+  const customerName = profile?.name || params.name || 'Customer';
+  const customerPhone = profile?.phone || params.phone || 'Not available';
+  const customerInitial = (customerName.charAt(0) || 'C').toUpperCase();
+  const systemTier = profile?.system_tier || 'Cold';
+  const tierScore = profile?.score ?? 0;
+  const labelsList = profile?.labels && profile.labels.length > 0 ? profile.labels : [];
+  const firstContactDate = profile?.first_contact || '?';
+  const lastContactDate = profile?.last_contact || '?';
+  const totalMsgs = profile?.total_messages ?? 0;
+  const convStatus = profile?.status
+    ? profile.status.charAt(0).toUpperCase() + profile.status.slice(1).toLowerCase()
+    : 'Open';
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -46,13 +92,37 @@ export default function CustomerProfileScreen() {
   };
 
   const handleConvertConversation = () => {
-    setIsConverted((prev) => !prev);
-    if (!isConverted) {
-      if (Platform.OS === 'web') {
-        alert('Conversation converted successfully!');
-      } else {
-        Alert.alert('Success', 'Conversation converted successfully!');
-      }
+    if (isConverted || !conversationId) return;
+    setConvertError(null);
+    setShowConvertModal(true);
+  };
+
+  const submitConversion = async () => {
+    const trimmedProduct = convertProduct.trim();
+    const parsedAmount = parseFloat(convertAmount.trim());
+    if (!trimmedProduct) {
+      setConvertError('Please enter the product or service name.');
+      return;
+    }
+    if (Number.isNaN(parsedAmount) || parsedAmount < 0) {
+      setConvertError('Please enter a valid deal amount (0 or higher).');
+      return;
+    }
+    try {
+      setIsConverting(true);
+      setConvertError(null);
+      await convertConversation(conversationId, {
+        amount: parsedAmount,
+        product: trimmedProduct,
+        notes: convertNotes.trim() || undefined,
+      });
+      setIsConverted(true);
+      setProfile((prev) => (prev ? { ...prev, status: 'converted', is_converted: true } : prev));
+      setShowConvertModal(false);
+    } catch (err: any) {
+      setConvertError(err?.message || 'Failed to convert conversation.');
+    } finally {
+      setIsConverting(false);
     }
   };
 
@@ -142,6 +212,16 @@ export default function CustomerProfileScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {loading && (
+            <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color="#8060E8" />
+            </View>
+          )}
+          {errorMsg && (
+            <View style={{ marginBottom: 12, padding: 12, borderRadius: 12, backgroundColor: 'rgba(239,68,68,0.12)' }}>
+              <Text style={{ color: '#EF4444', fontSize: 13 }}>{errorMsg}</Text>
+            </View>
+          )}
           {/* 1. Customer Avatar, Name & Phone (iOS Enhanced Avatar) */}
           <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight, styles.profileRow]}>
             <LinearGradient
@@ -193,26 +273,51 @@ export default function CustomerProfileScreen() {
             <View style={styles.systemTierRow}>
               <LinearGradient
                 colors={
-                  isDark
-                    ? ['rgba(56, 189, 248, 0.20)', 'rgba(14, 165, 233, 0.08)']
-                    : ['#E0F2FE', '#BAE6FD']
+                  systemTier.toLowerCase() === 'hot'
+                    ? (isDark ? ['rgba(239, 68, 68, 0.24)', 'rgba(220, 38, 38, 0.10)'] : ['#FEE2E2', '#FECACA'])
+                    : systemTier.toLowerCase() === 'warm'
+                      ? (isDark ? ['rgba(245, 158, 11, 0.24)', 'rgba(217, 119, 6, 0.10)'] : ['#FEF3C7', '#FDE68A'])
+                      : (isDark ? ['rgba(56, 189, 248, 0.20)', 'rgba(14, 165, 233, 0.08)'] : ['#E0F2FE', '#BAE6FD'])
                 }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={[
                   styles.tierBadge,
                   {
-                    borderColor: isDark ? 'rgba(56, 189, 248, 0.32)' : 'rgba(2, 132, 199, 0.25)',
+                    borderColor:
+                      systemTier.toLowerCase() === 'hot'
+                        ? 'rgba(239, 68, 68, 0.35)'
+                        : systemTier.toLowerCase() === 'warm'
+                          ? 'rgba(245, 158, 11, 0.35)'
+                          : (isDark ? 'rgba(56, 189, 248, 0.32)' : 'rgba(2, 132, 199, 0.25)'),
                   },
                 ]}
               >
-                <Snowflake size={13} color={isDark ? '#38BDF8' : '#0284C7'} strokeWidth={2.4} />
-                <Text style={[styles.tierBadgeText, { color: isDark ? '#7DD3FC' : '#0284C7' }]}>
-                  Cold
+                {systemTier.toLowerCase() === 'hot' ? (
+                  <Flame size={13} color="#EF4444" strokeWidth={2.4} />
+                ) : systemTier.toLowerCase() === 'warm' ? (
+                  <Zap size={13} color="#F59E0B" strokeWidth={2.4} />
+                ) : (
+                  <Snowflake size={13} color={isDark ? '#38BDF8' : '#0284C7'} strokeWidth={2.4} />
+                )}
+                <Text
+                  style={[
+                    styles.tierBadgeText,
+                    {
+                      color:
+                        systemTier.toLowerCase() === 'hot'
+                          ? (isDark ? '#FCA5A5' : '#DC2626')
+                          : systemTier.toLowerCase() === 'warm'
+                            ? (isDark ? '#FCD34D' : '#D97706')
+                            : (isDark ? '#7DD3FC' : '#0284C7'),
+                    },
+                  ]}
+                >
+                  {systemTier}
                 </Text>
               </LinearGradient>
               <Text style={[styles.calculatedText, { color: isDark ? '#7E8BA0' : '#8E99B7' }]}>
-                Calculated automatically (0)
+                Calculated automatically ({tierScore})
               </Text>
             </View>
 
@@ -229,77 +334,43 @@ export default function CustomerProfileScreen() {
 
             {/* Harmonized, iOS-consistent label badges with unified container styling */}
             <View style={styles.agentLabelsWrap}>
-              {/* Premium Lead */}
-              <View
-                style={[
-                  styles.labelPillUnified,
-                  isDark ? styles.labelPillUnifiedDark : styles.labelPillUnifiedLight,
-                ]}
-              >
-                <Crown size={14} color="#F59E0B" />
-                <Text
-                  style={[
-                    styles.labelPillText,
-                    { color: isDark ? '#E2E8F0' : '#334155' },
-                  ]}
-                >
-                  Premium Lead
+              {labelsList.length > 0 ? (
+                labelsList.map((label) => {
+                  const lower = label.toLowerCase();
+                  const IconComp = lower.includes('premium')
+                    ? Crown
+                    : lower.includes('priority')
+                      ? Flame
+                      : lower.includes('follow')
+                        ? Calendar
+                        : Zap;
+                  const iconColor = lower.includes('premium')
+                    ? '#F59E0B'
+                    : lower.includes('priority')
+                      ? '#EF4444'
+                      : lower.includes('follow')
+                        ? '#3B82F6'
+                        : '#10B981';
+                  return (
+                    <View
+                      key={label}
+                      style={[
+                        styles.labelPillUnified,
+                        isDark ? styles.labelPillUnifiedDark : styles.labelPillUnifiedLight,
+                      ]}
+                    >
+                      <IconComp size={14} color={iconColor} />
+                      <Text style={[styles.labelPillText, { color: isDark ? '#E2E8F0' : '#334155' }]}>
+                        {label}
+                      </Text>
+                    </View>
+                  );
+                })
+              ) : (
+                <Text style={[styles.calculatedText, { color: isDark ? '#7E8BA0' : '#8E99B7' }]}>
+                  No labels assigned
                 </Text>
-              </View>
-
-              {/* High Priority */}
-              <View
-                style={[
-                  styles.labelPillUnified,
-                  isDark ? styles.labelPillUnifiedDark : styles.labelPillUnifiedLight,
-                ]}
-              >
-                <Flame size={14} color="#EF4444" />
-                <Text
-                  style={[
-                    styles.labelPillText,
-                    { color: isDark ? '#E2E8F0' : '#334155' },
-                  ]}
-                >
-                  High Priority
-                </Text>
-              </View>
-
-              {/* Interested */}
-              <View
-                style={[
-                  styles.labelPillUnified,
-                  isDark ? styles.labelPillUnifiedDark : styles.labelPillUnifiedLight,
-                ]}
-              >
-                <Zap size={14} color="#10B981" />
-                <Text
-                  style={[
-                    styles.labelPillText,
-                    { color: isDark ? '#E2E8F0' : '#334155' },
-                  ]}
-                >
-                  Interested
-                </Text>
-              </View>
-
-              {/* Follow Up */}
-              <View
-                style={[
-                  styles.labelPillUnified,
-                  isDark ? styles.labelPillUnifiedDark : styles.labelPillUnifiedLight,
-                ]}
-              >
-                <Calendar size={14} color="#3B82F6" />
-                <Text
-                  style={[
-                    styles.labelPillText,
-                    { color: isDark ? '#E2E8F0' : '#334155' },
-                  ]}
-                >
-                  Follow Up
-                </Text>
-              </View>
+              )}
             </View>
           </View>
 
@@ -314,7 +385,7 @@ export default function CustomerProfileScreen() {
                 First Contact
               </Text>
               <Text style={[styles.infoValue, { color: isDark ? '#F8F8FF' : '#1F1A3C' }]}>
-                Aug 3, 2026
+                {firstContactDate}
               </Text>
             </View>
 
@@ -330,7 +401,7 @@ export default function CustomerProfileScreen() {
                 Last Contact
               </Text>
               <Text style={[styles.infoValue, { color: isDark ? '#F8F8FF' : '#1F1A3C' }]}>
-                Aug 19, 2026 03:54 PM
+                {lastContactDate}
               </Text>
             </View>
 
@@ -346,7 +417,7 @@ export default function CustomerProfileScreen() {
                 Total Messages
               </Text>
               <Text style={[styles.infoValue, { color: isDark ? '#F8F8FF' : '#1F1A3C' }]}>
-                2
+                {totalMsgs}
               </Text>
             </View>
 
@@ -378,7 +449,7 @@ export default function CustomerProfileScreen() {
                 ]}
               >
                 <View style={styles.statusIndicatorDot} />
-                <Text style={styles.statusBadgeText}>Closed</Text>
+                <Text style={styles.statusBadgeText}>{convStatus}</Text>
               </LinearGradient>
             </View>
           </View>
@@ -413,6 +484,62 @@ export default function CustomerProfileScreen() {
           </TouchableOpacity>
         </ScrollView>
       </View>
+
+      <Modal
+        visible={showConvertModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { if (!isConverting) setShowConvertModal(false); }}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 }}>
+          <View style={[{ borderRadius: 20, padding: 20, borderWidth: 1 }, isDark ? styles.cardDark : styles.cardLight]}>
+            <Text style={[styles.sectionTitle, { color: isDark ? '#FFFFFF' : '#1F1A3C', marginTop: 0, marginBottom: 12 }]}>
+              Convert Conversation to Sale
+            </Text>
+            {convertError && (
+              <Text style={{ color: '#EF4444', fontSize: 13, marginBottom: 10 }}>{convertError}</Text>
+            )}
+            <TextInput
+              placeholder="Product or service name *"
+              placeholderTextColor={isDark ? '#7E8BA0' : '#9CA3AF'}
+              value={convertProduct}
+              onChangeText={setConvertProduct}
+              style={{ borderWidth: 1, borderColor: isDark ? 'rgba(164,170,255,0.2)' : '#CBD5E1', borderRadius: 12, padding: 12, marginBottom: 10, color: isDark ? '#FFFFFF' : '#1F1A3C' }}
+            />
+            <TextInput
+              placeholder="Deal amount (e.g. 2500) *"
+              placeholderTextColor={isDark ? '#7E8BA0' : '#9CA3AF'}
+              keyboardType="numeric"
+              value={convertAmount}
+              onChangeText={setConvertAmount}
+              style={{ borderWidth: 1, borderColor: isDark ? 'rgba(164,170,255,0.2)' : '#CBD5E1', borderRadius: 12, padding: 12, marginBottom: 10, color: isDark ? '#FFFFFF' : '#1F1A3C' }}
+            />
+            <TextInput
+              placeholder="Notes (optional)"
+              placeholderTextColor={isDark ? '#7E8BA0' : '#9CA3AF'}
+              value={convertNotes}
+              onChangeText={setConvertNotes}
+              style={{ borderWidth: 1, borderColor: isDark ? 'rgba(164,170,255,0.2)' : '#CBD5E1', borderRadius: 12, padding: 12, marginBottom: 16, color: isDark ? '#FFFFFF' : '#1F1A3C' }}
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                onPress={() => setShowConvertModal(false)}
+                disabled={isConverting}
+                style={{ flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: isDark ? '#2A3352' : '#E5E7EB' }}
+              >
+                <Text style={{ color: isDark ? '#E2E8F0' : '#334155', fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={submitConversion}
+                disabled={isConverting}
+                style={{ flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: '#10B981' }}
+              >
+                {isConverting ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Convert</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

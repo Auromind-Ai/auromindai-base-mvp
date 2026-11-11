@@ -13,7 +13,7 @@ import { Check, Plus } from 'lucide-react-native';
 import { OrbionLogo } from '../components/common/OrbionLogo';
 import { BrandColors, Fonts } from '../theme/tokens';
 import { scaleFont, scaleContainer, scaleHeight } from '../theme/responsive';
-import { authStore } from '../store/auth';
+import { authStore, useAuth } from '../store/auth';
 import { useAppTheme } from '../context/theme-context';
 
 interface WorkspaceOption {
@@ -24,38 +24,56 @@ interface WorkspaceOption {
   color: string;
 }
 
-const WORKSPACES: WorkspaceOption[] = [
-  {
-    id: 'ws-1',
-    name: 'OrbionAgents',
-    subtitle: 'Main Workspace',
-    initial: 'O',
-    color: '#8B5CF6',
-  },
-  {
-    id: 'ws-2',
-    name: 'ZixvCommerce',
-    subtitle: 'Ecommerce Project',
-    initial: 'Z',
-    color: '#EF4444',
-  },
-  {
-    id: 'ws-3',
-    name: 'AuromindAI',
-    subtitle: 'AI Solutions',
-    initial: 'A',
-    color: '#10B981',
-  },
-];
+const COLOR_PALETTE = ['#8B5CF6', '#EF4444', '#10B981', '#3B82F6', '#F59E0B'];
 
 export default function WorkspaceSelectionScreen() {
   const router = useRouter();
-  const { colors, isDark, statusBarStyle } = useAppTheme();
-  const [selectedId, setSelectedId] = useState<string>('ws-1');
+  const { colors, statusBarStyle } = useAppTheme();
+  const authState = useAuth();
+
+  const workspacesList: WorkspaceOption[] = React.useMemo(() => {
+    if (authState.workspaces && authState.workspaces.length > 0) {
+      return authState.workspaces.map((w, idx) => ({
+        id: w.id,
+        name: w.name || 'Workspace',
+        subtitle: w.role ? `${w.role.toUpperCase()} Workspace` : 'Active Workspace',
+        initial: (w.name || 'W')[0].toUpperCase(),
+        color: COLOR_PALETTE[idx % COLOR_PALETTE.length],
+      }));
+    }
+    if (authState.selectedWorkspace) {
+      return [{
+        id: authState.selectedWorkspace.id,
+        name: authState.selectedWorkspace.name || 'My Workspace',
+        subtitle: 'Active Workspace',
+        initial: (authState.selectedWorkspace.name || 'W')[0].toUpperCase(),
+        color: COLOR_PALETTE[0],
+      }];
+    }
+    return [{
+      id: 'default',
+      name: 'Default Workspace',
+      subtitle: 'Active Workspace',
+      initial: 'O',
+      color: COLOR_PALETTE[0],
+    }];
+  }, [authState.workspaces, authState.selectedWorkspace]);
+
+  const [selectedId, setSelectedId] = useState<string>(
+    authState.selectedWorkspace?.id || workspacesList[0]?.id || ''
+  );
+
+  React.useEffect(() => {
+    authStore.refreshWorkspaces().catch(() => {});
+  }, []);
+
+  const activeSelectedId = workspacesList.some((w) => w.id === selectedId)
+    ? selectedId
+    : workspacesList[0]?.id || '';
 
   const handleContinue = () => {
-    const selected = WORKSPACES.find((w) => w.id === selectedId);
-    if (selected) {
+    const selected = workspacesList.find((w) => w.id === activeSelectedId) || workspacesList[0];
+    if (selected && !selected.id.startsWith('ws-') && selected.id !== 'default') {
       authStore.setSelectedWorkspace({
         id: selected.id,
         name: selected.name,
@@ -84,8 +102,8 @@ export default function WorkspaceSelectionScreen() {
 
         {/* Workspace Cards */}
         <View style={styles.workspaceList}>
-          {WORKSPACES.map((ws) => {
-            const isSelected = ws.id === selectedId;
+          {workspacesList.map((ws) => {
+            const isSelected = ws.id === activeSelectedId;
             return (
               <TouchableOpacity
                 key={ws.id}

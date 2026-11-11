@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   FlatList,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -14,11 +15,16 @@ import { Search, Plus, X } from 'lucide-react-native';
 import { BrandColors, Fonts } from '@/theme/tokens';
 import { scaleFont, scaleContainer, scaleHeight } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
+import { fetchLeads } from '@/api';
+import { useAuth } from '@/store/auth';
+import { AddLeadModal } from '@/components/leads/AddLeadModal';
+import { getInitials, getAvatarColor, formatRelativeTime } from '@/utils/formatters';
 
 type LeadFilter = 'All' | 'New' | 'Contacted';
 
 interface LeadItem {
   id: string;
+  conversationId?: string | null;
   name: string;
   initials: string;
   avatarColor: string;
@@ -27,69 +33,69 @@ interface LeadItem {
   status: 'New' | 'Contacted' | 'Qualified' | 'Closed';
 }
 
-const MOCK_LEADS: LeadItem[] = [
-  {
-    id: 'l1',
-    name: 'Sneha Fashions',
-    initials: 'SF',
-    avatarColor: '#10B981',
-    enquiry: 'Interested in saree collection',
-    time: '2m',
-    status: 'New',
-  },
-  {
-    id: 'l2',
-    name: 'Karthik Store',
-    initials: 'KS',
-    avatarColor: '#3B82F6',
-    enquiry: 'Bulk order enquiry',
-    time: '1h',
-    status: 'Contacted',
-  },
-  {
-    id: 'l3',
-    name: 'Meena',
-    initials: 'M',
-    avatarColor: '#EC4899',
-    enquiry: 'Price details please',
-    time: '1h',
-    status: 'New',
-  },
-  {
-    id: 'l4',
-    name: 'Rahul Enterprises',
-    initials: 'RE',
-    avatarColor: '#8B5CF6',
-    enquiry: 'Wedding collection',
-    time: '1d',
-    status: 'Qualified',
-  },
-  {
-    id: 'l5',
-    name: 'Style Hub',
-    initials: 'SH',
-    avatarColor: '#F59E0B',
-    enquiry: 'Is this available in size M?',
-    time: '1d',
-    status: 'New',
-  },
-  {
-    id: 'l6',
-    name: 'Divya',
-    initials: 'D',
-    avatarColor: '#6B7280',
-    enquiry: 'Custom design enquiry',
-    time: '2d',
-    status: 'Closed',
-  },
-];
-
 export default function LeadsScreen() {
   const router = useRouter();
   const { colors, isDark, statusBarStyle } = useAppTheme();
+  const authState = useAuth();
   const [activeFilter, setActiveFilter] = useState<LeadFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [serverLeads, setServerLeads] = useState<LeadItem[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const workspaceId = (authState.selectedWorkspace?.id && !authState.selectedWorkspace.id.startsWith('ws-'))
+    ? authState.selectedWorkspace.id
+    : (authState.workspaces.find((w) => !w.id.startsWith('ws-'))?.id || '');
+
+  const loadLeads = useCallback(async () => {
+    if (!workspaceId) return;
+    try {
+      const res = await fetchLeads(workspaceId);
+      const items = res?.items || [];
+      const mapped: LeadItem[] = items.map((l, idx) => {
+        let st: LeadItem['status'] = 'New';
+        const rawSt = (l.status || '').toLowerCase();
+        if (rawSt.includes('contact')) st = 'Contacted';
+        else if (rawSt.includes('qualif') || rawSt.includes('convert')) st = 'Qualified';
+        else if (rawSt.includes('close')) st = 'Closed';
+
+        return {
+          id: String(l.lead_id || l.id || idx),
+          conversationId: l.conversation_id || null,
+          name: l.name || 'Unnamed Lead',
+          initials: getInitials(l.name, 'LD'),
+          avatarColor: getAvatarColor(idx),
+          enquiry: l.source ? `Source: ${l.source}` : (l.phone ? `Phone: ${l.phone}` : 'Lead contact'),
+          time: formatRelativeTime(l.last_message_at || l.created_at, 'Recently'),
+          status: st,
+        };
+      });
+      setServerLeads(mapped);
+    } catch (err) {
+      console.warn('Failed to load leads from backend:', err);
+      setServerLeads([]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [workspaceId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!workspaceId || cancelled) return;
+      await loadLeads();
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, loadLeads]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadLeads();
+  };
 
   const getStatusBadgeStyle = (status: LeadItem['status']) => {
     switch (status) {
@@ -104,19 +110,24 @@ export default function LeadsScreen() {
     }
   };
 
-  const filteredLeads = MOCK_LEADS.filter((item) => {
-    if (activeFilter !== 'All' && item.status !== activeFilter) {
-      return false;
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        item.name.toLowerCase().includes(q) ||
-        item.enquiry.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const leadCounts = useMemo(() => ({
+    all: serverLeads.length,
+    new: serverLeads.filter((l) => l.status === 'New').length,
+    contacted: serverLeads.filter((l) => l.status === 'Contacted').length,
+  }), [serverLeads]);
+
+  const filteredLeads = useMemo(() => {
+    return serverLeads.filter((item) => {
+      if (activeFilter !== 'All' && item.status !== activeFilter) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return item.name.toLowerCase().includes(q) || item.enquiry.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [serverLeads, activeFilter, searchQuery]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -138,7 +149,7 @@ export default function LeadsScreen() {
             <Search size={20} color={colors.icon} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.addButton} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.addButton} activeOpacity={0.85} onPress={() => setShowAddModal(true)}>
             <Plus size={18} color="#FFFFFF" strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
@@ -172,7 +183,7 @@ export default function LeadsScreen() {
         </View>
       )}
 
-      {/* Filter Chips Bar: All (120), New (35), Contacted (50) */}
+      {/* Filter Chips Bar: All ({leadCounts.all}), New ({leadCounts.new}), Contacted ({leadCounts.contacted}) */}
       <View style={styles.filterRow}>
         <TouchableOpacity
           style={[
@@ -196,7 +207,7 @@ export default function LeadsScreen() {
               activeFilter === 'All' && styles.filterChipTextActive,
             ]}
           >
-            All (120)
+            All ({leadCounts.all})
           </Text>
         </TouchableOpacity>
 
@@ -222,7 +233,7 @@ export default function LeadsScreen() {
               activeFilter === 'New' && styles.filterChipTextActive,
             ]}
           >
-            New (35)
+            New ({leadCounts.new})
           </Text>
         </TouchableOpacity>
 
@@ -248,7 +259,7 @@ export default function LeadsScreen() {
               activeFilter === 'Contacted' && styles.filterChipTextActive,
             ]}
           >
-            Contacted (50)
+            Contacted ({leadCounts.contacted})
           </Text>
         </TouchableOpacity>
       </View>
@@ -259,6 +270,8 @@ export default function LeadsScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        ListEmptyComponent={<Text style={{ textAlign: 'center', color: colors.textMuted, marginTop: 32 }}>No leads found</Text>}
         renderItem={({ item }) => {
           const badgeStyle = getStatusBadgeStyle(item.status);
           return (
@@ -269,7 +282,7 @@ export default function LeadsScreen() {
                 router.push({
                   pathname: `/chat/[id]`,
                   params: {
-                    id: item.id,
+                    id: item.conversationId || item.id,
                     name: item.name,
                     channel: 'whatsapp',
                   },
@@ -319,6 +332,14 @@ export default function LeadsScreen() {
               </View>
             </TouchableOpacity>
           );
+        }}
+      />
+          <AddLeadModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSuccess={() => {
+          setShowAddModal(false);
+          loadLeads();
         }}
       />
     </SafeAreaView>

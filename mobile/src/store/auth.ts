@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../api/client';
 
@@ -36,6 +36,31 @@ const STORAGE_KEYS = {
   SELECTED_WORKSPACE: 'auth_selected_workspace',
 };
 
+function getWebLocalStorage(key: string): string | null {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      return window.localStorage.getItem(key);
+    } catch {}
+  }
+  return null;
+}
+
+function setWebLocalStorage(key: string, value: string): void {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {}
+  }
+}
+
+function removeWebLocalStorage(key: string): void {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {}
+  }
+}
+
 class AuthStore {
   private state: AuthState = {
     token: null,
@@ -48,12 +73,24 @@ class AuthStore {
   private listeners: Set<Listener> = new Set();
 
   constructor() {
+    apiClient.setUnauthorizedHandler(() => {
+      this.clearAuth().catch(() => {});
+    });
     this.init();
   }
 
+  private setState(partial: Partial<AuthState>) {
+    this.state = { ...this.state, ...partial };
+    this.notify();
+  }
+
   private async init() {
+    let loadedToken: string | null = null;
+    let loadedUser: UserProfile | null = null;
+    let loadedWorkspaces: WorkspaceItem[] = [];
+    let loadedSelectedWs: WorkspaceItem | null = null;
+
     try {
-      // 1. Try AsyncStorage (Native + Web)
       const [storedToken, storedUser, storedWorkspaces, storedSelectedWs] =
         await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.TOKEN),
@@ -62,48 +99,59 @@ class AuthStore {
           AsyncStorage.getItem(STORAGE_KEYS.SELECTED_WORKSPACE),
         ]);
 
-      let token = storedToken;
-      let userStr = storedUser;
-      let workspacesStr = storedWorkspaces;
-      let selectedWsStr = storedSelectedWs;
+      loadedToken = storedToken || getWebLocalStorage(STORAGE_KEYS.TOKEN);
+      const userStr = storedUser || getWebLocalStorage(STORAGE_KEYS.USER);
+      const workspacesStr = storedWorkspaces || getWebLocalStorage(STORAGE_KEYS.WORKSPACES);
+      const selectedWsStr = storedSelectedWs || getWebLocalStorage(STORAGE_KEYS.SELECTED_WORKSPACE);
 
-      // 2. Fallback to localStorage on Web
-      if (!token && typeof window !== 'undefined' && window.localStorage) {
-        token = window.localStorage.getItem(STORAGE_KEYS.TOKEN);
-        userStr = window.localStorage.getItem(STORAGE_KEYS.USER);
-        workspacesStr = window.localStorage.getItem(STORAGE_KEYS.WORKSPACES);
-        selectedWsStr = window.localStorage.getItem(STORAGE_KEYS.SELECTED_WORKSPACE);
-      }
-
-      if (token) {
-        this.state.token = token;
-        apiClient.setToken(token);
-      }
       if (userStr) {
         try {
-          this.state.user = JSON.parse(userStr);
+          loadedUser = JSON.parse(userStr);
         } catch {}
       }
       if (workspacesStr) {
         try {
-          const ws = JSON.parse(workspacesStr);
-          this.state.workspaces = ws;
-          if (selectedWsStr) {
-            try {
-              this.state.selectedWorkspace = JSON.parse(selectedWsStr);
-            } catch {
-              this.state.selectedWorkspace = ws[0] || null;
-            }
-          } else {
-            this.state.selectedWorkspace = ws[0] || null;
+          const parsedList = JSON.parse(workspacesStr);
+          if (Array.isArray(parsedList)) {
+            loadedWorkspaces = parsedList;
           }
         } catch {}
       }
+      if (selectedWsStr) {
+        try {
+          const parsedWs = JSON.parse(selectedWsStr);
+          if (parsedWs?.id && !String(parsedWs.id).startsWith('ws-')) {
+            loadedSelectedWs = parsedWs;
+          }
+        } catch {}
+      }
+      if (!loadedSelectedWs && loadedWorkspaces.length > 0) {
+        loadedSelectedWs =
+          loadedWorkspaces.find((w) => w?.id && !String(w.id).startsWith('ws-')) ||
+          loadedWorkspaces[0] ||
+          null;
+      }
+
+      if (loadedToken) {
+        apiClient.setToken(loadedToken);
+      }
     } catch {
-      // Ignore reading errors
+      // Ignore storage read errors
     } finally {
-      this.state.isInitialized = true;
+      this.state = {
+        token: loadedToken,
+        user: loadedUser,
+        workspaces: loadedWorkspaces,
+        selectedWorkspace: loadedSelectedWs,
+        isInitialized: true,
+      };
       this.notify();
+
+      // Validate token and sync latest user + single workspace in background
+      if (loadedToken) {
+        this.refreshUser().catch(() => {});
+        this.refreshWorkspaces().catch(() => {});
+      }
     }
   }
 
@@ -120,82 +168,56 @@ class AuthStore {
     const workspaces = data.workspaces || [];
     const selectedWorkspace = data.selectedWorkspace || workspaces[0] || null;
 
-    this.state.token = data.token;
-    this.state.user = data.user;
-    this.state.workspaces = workspaces;
-    this.state.selectedWorkspace = selectedWorkspace;
-
     apiClient.setToken(data.token);
+    this.setState({
+      token: data.token,
+      user: data.user,
+      workspaces,
+      selectedWorkspace,
+      isInitialized: true,
+    });
 
-    // Save to AsyncStorage
+    const userJson = JSON.stringify(data.user);
+    const wsJson = JSON.stringify(workspaces);
+    const selWsJson = JSON.stringify(selectedWorkspace);
+
     try {
       await Promise.all([
         AsyncStorage.setItem(STORAGE_KEYS.TOKEN, data.token),
-        AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.user)),
-        AsyncStorage.setItem(STORAGE_KEYS.WORKSPACES, JSON.stringify(workspaces)),
-        AsyncStorage.setItem(STORAGE_KEYS.SELECTED_WORKSPACE, JSON.stringify(selectedWorkspace)),
+        AsyncStorage.setItem(STORAGE_KEYS.USER, userJson),
+        AsyncStorage.setItem(STORAGE_KEYS.WORKSPACES, wsJson),
+        AsyncStorage.setItem(STORAGE_KEYS.SELECTED_WORKSPACE, selWsJson),
       ]);
     } catch {}
 
-    // Also sync localStorage on Web
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
-        window.localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.user));
-        window.localStorage.setItem(STORAGE_KEYS.WORKSPACES, JSON.stringify(workspaces));
-        window.localStorage.setItem(
-          STORAGE_KEYS.SELECTED_WORKSPACE,
-          JSON.stringify(selectedWorkspace)
-        );
-      } catch {}
-    }
-
-    this.notify();
+    setWebLocalStorage(STORAGE_KEYS.TOKEN, data.token);
+    setWebLocalStorage(STORAGE_KEYS.USER, userJson);
+    setWebLocalStorage(STORAGE_KEYS.WORKSPACES, wsJson);
+    setWebLocalStorage(STORAGE_KEYS.SELECTED_WORKSPACE, selWsJson);
   }
 
   async setSelectedWorkspace(workspace: WorkspaceItem) {
-    this.state.selectedWorkspace = workspace;
+    this.setState({ selectedWorkspace: workspace });
+    const json = JSON.stringify(workspace);
     try {
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.SELECTED_WORKSPACE,
-        JSON.stringify(workspace)
-      );
+      await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_WORKSPACE, json);
     } catch {}
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.setItem(
-          STORAGE_KEYS.SELECTED_WORKSPACE,
-          JSON.stringify(workspace)
-        );
-      } catch {}
-    }
-    this.notify();
+    setWebLocalStorage(STORAGE_KEYS.SELECTED_WORKSPACE, json);
   }
 
   async updateUser(updates: Partial<UserProfile>) {
     if (!this.state.user) return;
-    this.state.user = { ...this.state.user, ...updates };
-
+    const nextUser = { ...this.state.user, ...updates };
+    this.setState({ user: nextUser });
+    const json = JSON.stringify(nextUser);
     try {
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.USER,
-        JSON.stringify(this.state.user)
-      );
+      await AsyncStorage.setItem(STORAGE_KEYS.USER, json);
     } catch {}
-
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.setItem(
-          STORAGE_KEYS.USER,
-          JSON.stringify(this.state.user)
-        );
-      } catch {}
-    }
-
-    this.notify();
+    setWebLocalStorage(STORAGE_KEYS.USER, json);
   }
 
   async clearAuth() {
+    apiClient.setToken(null);
     this.state = {
       token: null,
       user: null,
@@ -203,9 +225,8 @@ class AuthStore {
       selectedWorkspace: null,
       isInitialized: true,
     };
-    apiClient.setToken(null);
+    this.notify();
 
-    // Clear from AsyncStorage
     try {
       await Promise.all([
         AsyncStorage.removeItem(STORAGE_KEYS.TOKEN),
@@ -215,31 +236,18 @@ class AuthStore {
       ]);
     } catch {}
 
-    // Clear from localStorage on Web
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.removeItem(STORAGE_KEYS.TOKEN);
-        window.localStorage.removeItem(STORAGE_KEYS.USER);
-        window.localStorage.removeItem(STORAGE_KEYS.WORKSPACES);
-        window.localStorage.removeItem(STORAGE_KEYS.SELECTED_WORKSPACE);
-      } catch {}
-    }
-
-    this.notify();
+    removeWebLocalStorage(STORAGE_KEYS.TOKEN);
+    removeWebLocalStorage(STORAGE_KEYS.USER);
+    removeWebLocalStorage(STORAGE_KEYS.WORKSPACES);
+    removeWebLocalStorage(STORAGE_KEYS.SELECTED_WORKSPACE);
   }
 
-  /**
-   * Signs out the user: calls backend logout endpoint to invalidate session,
-   * then removes tokens and session data locally.
-   */
   async signOut(): Promise<void> {
     try {
-      // Invalidate on backend
       await apiClient.post('/auth/logout', {});
     } catch {
       // Ignore network errors during logout
     } finally {
-      // Clear local storage regardless of backend response
       await this.clearAuth();
     }
   }
@@ -258,12 +266,25 @@ class AuthStore {
           platform_role: data.platform_role || 'user',
           deletion_scheduled_at: data.deletion_scheduled_at || null,
         };
-        this.state.user = updatedUser;
-        await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
-        this.notify();
+        let nextSelected = this.state.selectedWorkspace;
+        if ((!nextSelected || String(nextSelected.id).startsWith('ws-')) && data.workspace_id) {
+          nextSelected = {
+            id: data.workspace_id,
+            name: 'Workspace',
+            role: data.platform_role || 'admin',
+          };
+          const selJson = JSON.stringify(nextSelected);
+          await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_WORKSPACE, selJson).catch(() => {});
+          setWebLocalStorage(STORAGE_KEYS.SELECTED_WORKSPACE, selJson);
+        }
+        this.setState({ user: updatedUser, selectedWorkspace: nextSelected });
+        const userJson = JSON.stringify(updatedUser);
+        await AsyncStorage.setItem(STORAGE_KEYS.USER, userJson).catch(() => {});
+        setWebLocalStorage(STORAGE_KEYS.USER, userJson);
+        this.refreshWorkspaces().catch(() => {});
       }
     } catch {
-      // Offline fallback
+      // 401 is handled globally via apiClient unauthorizedHandler; ignore offline errors
     }
   }
 
@@ -271,26 +292,39 @@ class AuthStore {
     if (!this.state.token) return;
     try {
       const data: any = await apiClient.get('/auth/workspaces');
-      if (Array.isArray(data)) {
-        this.state.workspaces = data;
-        await AsyncStorage.setItem(STORAGE_KEYS.WORKSPACES, JSON.stringify(data));
-        if (!this.state.selectedWorkspace && data.length > 0) {
-          this.state.selectedWorkspace = data[0];
-          await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_WORKSPACE, JSON.stringify(data[0]));
-        }
-        this.notify();
+      const list: WorkspaceItem[] = Array.isArray(data) ? data : data?.workspaces || [];
+      if (Array.isArray(list) && list.length > 0) {
+        // Keep the user's single primary workspace active
+        const primary = list[0];
+        const nextSelected =
+          this.state.selectedWorkspace &&
+          list.some((w) => w.id === this.state.selectedWorkspace?.id)
+            ? list.find((w) => w.id === this.state.selectedWorkspace?.id) || primary
+            : primary;
+
+        this.setState({ workspaces: list, selectedWorkspace: nextSelected });
+        const listJson = JSON.stringify(list);
+        const selJson = JSON.stringify(nextSelected);
+        await AsyncStorage.setItem(STORAGE_KEYS.WORKSPACES, listJson).catch(() => {});
+        await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_WORKSPACE, selJson).catch(() => {});
+        setWebLocalStorage(STORAGE_KEYS.WORKSPACES, listJson);
+        setWebLocalStorage(STORAGE_KEYS.SELECTED_WORKSPACE, selJson);
       }
     } catch {
       // Offline fallback
     }
   }
 
-  subscribe(listener: Listener): () => void {
+  subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
     };
-  }
+  };
+
+  getSnapshot = (): AuthState => {
+    return this.state;
+  };
 
   private notify() {
     this.listeners.forEach((listener) => listener());
@@ -299,19 +333,6 @@ class AuthStore {
 
 export const authStore = new AuthStore();
 
-/**
- * React hook to listen to AuthStore updates reactively.
- */
 export function useAuth(): AuthState {
-  const [state, setState] = useState<AuthState>(authStore.getState());
-
-  useEffect(() => {
-    setState(authStore.getState());
-    const unsubscribe = authStore.subscribe(() => {
-      setState({ ...authStore.getState() });
-    });
-    return unsubscribe;
-  }, []);
-
-  return state;
+  return useSyncExternalStore(authStore.subscribe, authStore.getSnapshot, authStore.getSnapshot);
 }

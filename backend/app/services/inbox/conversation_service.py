@@ -219,14 +219,20 @@ class ConversationService:
             elif st == "FOLLOW_UP":
                 query = query.filter(Conversation.status == ConversationStatus.FOLLOW_UP)
             elif st == "CONVERTED":
-                query = query.outerjoin(Lead, Lead.conversation_id == Conversation.id).filter(
+                conv_converted_ids = (
+                    db.query(Lead.conversation_id)
+                    .filter(
+                        Lead.conversation_id.isnot(None),
+                        or_(Lead.is_converted == True, Lead.status == "converted")
+                    )
+                )
+                query = query.filter(
                     Conversation.status != ConversationStatus.CLOSED,
                     or_(
                         Conversation.status == ConversationStatus.CONVERTED,
-                        Lead.is_converted == True,
-                        Lead.status == "converted"
+                        Conversation.id.in_(conv_converted_ids)
                     )
-                ).distinct()
+                )
             elif st == "CLOSED":
                 query = query.filter(Conversation.status == ConversationStatus.CLOSED)
             elif st == "UNREAD":
@@ -243,7 +249,9 @@ class ConversationService:
                 query = query.filter(Conversation.status == st)
 
         conversations = (
-            query.order_by(Conversation.updated_at.desc())
+            query.order_by(
+                func.coalesce(Conversation.last_message_at, Conversation.updated_at, Conversation.created_at).desc()
+            )
             .offset(skip)
             .limit(limit)
             .all()
@@ -437,7 +445,9 @@ class ConversationService:
         return (
             db.query(Conversation)
             .filter(Conversation.workspace_id == ws_uuid)
-            .order_by(Conversation.updated_at.desc())
+            .order_by(
+                func.coalesce(Conversation.last_message_at, Conversation.updated_at, Conversation.created_at).desc()
+            )
             .first()
         )
 

@@ -41,6 +41,7 @@ from app.routers.campaigns import router as campaigns_router
 from app.routers.workspace import router as workspace_router
 from app.routers.onboarding import router as onboarding_router
 from app.routers.ai_agents import router as ai_agents_router
+from app.routers.status import router as status_router
 
 #Lifespan 
 @asynccontextmanager
@@ -92,7 +93,37 @@ async def lifespan(app: FastAPI):
     await init_metrics(app)              # async Redis for metrics
     setup_system_metrics(app)
     await start_system_metrics_updater(app)
+
+    # Automated 1-minute System Status Monitor Background Loop
+    import asyncio
+    async def _status_monitor_loop():
+        from app.database import SessionLocal
+        from app.services.status_page_service import StatusPageService
+        await asyncio.sleep(5)
+
+        while True:
+            try:
+                db = SessionLocal()
+                try:
+                    await StatusPageService.run_all_health_checks(db)
+                finally:
+                    db.close()
+            except asyncio.CancelledError:
+                break
+            except Exception as monitor_err:
+                logger.error(f"[STATUS MONITOR LOOP] Error during periodic health check: {monitor_err}")
+            await asyncio.sleep(60)
+
+    status_monitor_task = asyncio.create_task(_status_monitor_loop())
+
     yield
+
+    status_monitor_task.cancel()
+    try:
+        await status_monitor_task
+    except (asyncio.CancelledError, Exception):
+        pass
+
     await stop_system_metrics_updater(app)
     await shutdown_pubsub(app)
     await shutdown_metrics(app)          # close metrics Redis client
@@ -119,7 +150,9 @@ fallback_origins = [
     "http://www.orbionagents.com",
     "https://app.orbionagents.com",
     "http://app.orbionagents.com",
-   
+    "https://api.orbionagents.com",
+    "http://api.orbionagents.com",
+    
     # Local development
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -141,7 +174,7 @@ for origin in fallback_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$",
+    allow_origin_regex=r"https://([a-zA-Z0-9-]+\.)*(orbionagents\.com|vercel\.app)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -197,6 +230,7 @@ app.include_router(feedback_router)
 app.include_router(user_feedback_router)
 app.include_router(user_feedback_router, prefix="/api")
 app.include_router(admin.router, tags=["admin"])
+app.include_router(admin.router, prefix="/api", tags=["admin"])
 app.include_router(public.router)
 app.include_router(billing.router, tags=["billing"])
 app.include_router(wcc.router)
@@ -217,6 +251,8 @@ app.include_router(onboarding_router)
 app.include_router(onboarding_router, prefix="/api")
 app.include_router(ai_agents_router)
 app.include_router(ai_agents_router, prefix="/api")
+app.include_router(status_router)
+app.include_router(status_router, prefix="/api")
 
 # Static files for temp_uploads
 from fastapi.staticfiles import StaticFiles

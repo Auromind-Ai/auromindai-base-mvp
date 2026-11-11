@@ -63,9 +63,10 @@ const sectionsDefinition = [
   },
 ];
 
-export function getFirstAccessibleWorkspacePath(hasPermission) {
+export function getFirstAccessibleWorkspacePath(hasPermission, isAdmin = false) {
   for (const section of sectionsDefinition) {
     for (const [, , route, permission] of section.items) {
+      if (route === "ai-agents" && !isAdmin) continue;
       if (hasPermission(permission)) {
         return route === "marketing"
           ? "/marketing/bulkmessages"
@@ -102,6 +103,7 @@ export default function WorkspaceNavigation({
     .map((section) => {
       const allowedItems = section.items.filter(([, , route, permKey]) => {
         if (!hasPermission || permissionsLoading) return false;
+        if (route === "ai-agents") return isAdmin === true;
         if (route === "inbox") {
           return hasPermission("inbox.conversations") || hasPermission("inbox");
         }

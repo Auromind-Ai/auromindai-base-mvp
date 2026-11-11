@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Brain, UploadCloud, Link, FileText, CheckCircle2, Trash2, Search, Loader2, AlertCircle, X, Globe, LayoutGrid, List as ListIcon, SlidersHorizontal } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { validateBrainDocumentUpload } from '@/lib/fileValidation';
 import FileProgress from "./FileProgress";
 import AnimatedCounter from "../AnimatedCounter";
 
@@ -85,6 +86,13 @@ export default function BrainPage() {
     const handleFileUpload = async (event) => {
         const file = event.target.files?.[0];
         if (!file || !workspaceId) return;
+
+        const check = validateBrainDocumentUpload(file);
+        if (!check.valid) {
+            setError(check.error);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
 
         try {
             setUploading(true);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  Pressable,
   Image,
+  ActivityIndicator,
+  RefreshControl,
+  Linking,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,139 +24,253 @@ import * as ImagePicker from 'expo-image-picker';
 import {
   ChevronLeft,
   Circle,
+  CheckCircle2,
   Info,
   Paperclip,
   Mic,
   Send,
+  Check,
   CheckCheck,
   FileText,
   X,
-  Image as ImageIcon,
-  File,
   Video,
-  Mic as VoiceIcon,
-  MessageSquareQuote,
-  LayoutTemplate,
-  StickyNote,
-  UserCheck,
-  ChevronRight,
   Sparkles,
 } from 'lucide-react-native';
 import { Fonts } from '@/theme/tokens';
 import { scaleFont, scaleContainer, scaleHeight } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
+import {
+  apiClient,
+  fetchMessages,
+  sendReply,
+  markConversationRead,
+  closeConversation,
+  fetchCustomerProfile,
+  BackendMessage,
+  CustomerProfileData,
+} from '@/api';
+import { useAuth } from '@/store/auth';
+import { useWorkspaceRealtime } from '@/hooks/use-workspace-realtime';
+import { formatShortTime, getInitials } from '@/utils/formatters';
 
 interface Message {
   id: string;
   sender: 'customer' | 'ai' | 'agent';
   text: string;
   time: string;
-  attachment?: {
-    type: 'catalogue';
-    title: string;
-    subtitle: string;
-    thumbnails: string[];
+  status?: string;
+  mediaUrl?: string | null;
+  mediaType?: string | null;
+  fileName?: string | null;
+}
+
+function resolveMediaUrl(url?: string | null): string | null {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('file://') || url.startsWith('content://') || url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
+  const normalizedPath = url.startsWith('/') ? url : `/${url}`;
+  return `${apiClient.baseURL}${normalizedPath}`;
+}
+
+function mapBackendMessage(m: BackendMessage): Message {
+  const senderType = (m.sender_type || '').toLowerCase();
+  const isCust = senderType === 'user' || senderType === 'customer';
+  const isBot = senderType === 'bot' || senderType === 'ai';
+  const mediaUrl = m.media_url || m.metadata?.media_url || null;
+  const mediaType = m.media_type || m.metadata?.message_type || m.metadata?.media_type || null;
+
+  return {
+    id: String(m.id || `${m.timestamp}-${Math.random()}`),
+    sender: isCust ? 'customer' : isBot ? 'ai' : 'agent',
+    text: m.content || '',
+    time: formatShortTime(m.timestamp || (m as any).created_at, ''),
+    status: m.status,
+    mediaUrl,
+    mediaType,
+    fileName: m.metadata?.filename || null,
   };
+}
+
+function formatChannelLabel(channel: string): string {
+  const normalized = channel.toLowerCase();
+  if (normalized === 'instagram') return 'Instagram';
+  if (normalized === 'twilio') return 'Twilio SMS';
+  if (normalized === 'whatsapp') return 'WhatsApp';
+  if (normalized === 'email') return 'Email';
+  if (!normalized) return 'WhatsApp';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
 export default function ChatDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isDark, statusBarStyle } = useAppTheme();
-  const params = useLocalSearchParams<{ id?: string; channel?: string; name?: string }>();
+  const { isDark } = useAppTheme();
+  const authState = useAuth();
+  const params = useLocalSearchParams<{
+    id?: string;
+    channel?: string;
+    name?: string;
+    phone?: string;
+  }>();
 
-  const conversationId = params.id || '1';
-  const isInstagram = params.channel === 'instagram' || conversationId === '2' || conversationId === '5';
-  const isTwilio = params.channel === 'twilio' || conversationId === '4' || conversationId === '7';
-  const customerName = params.name || (isInstagram ? 'TrendyWear Boutique' : isTwilio ? 'Sneha Fashions' : 'Priya Sharma');
+  const conversationId = typeof params.id === 'string' ? params.id : '';
+  const scrollViewRef = useRef<React.ComponentRef<typeof ScrollView> | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [profile, setProfile] = useState<CustomerProfileData | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(Boolean(conversationId));
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [inputMessage, setInputMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState<{
     uri: string;
     name?: string;
     type?: string;
+    mimeType?: string;
   } | null>(null);
   const [internalNoteAlert, setInternalNoteAlert] = useState<string | null>(null);
 
-  // WhatsApp static conversation matching the exact uploaded UI design
-  const whatsappMessages: Message[] = [
-    {
-      id: 'w1',
-      sender: 'customer',
-      text: 'Hi, I want to know more about your saree collection.',
-      time: '11:20 AM',
-    },
-    {
-      id: 'w2',
-      sender: 'ai',
-      text: "Hi Priya! 👋 Sure, I'd be happy to help.\nHere is our latest saree collection catalogue.",
-      time: '11:21 AM',
-      attachment: {
-        type: 'catalogue',
-        title: 'Saree Collection 2024',
-        subtitle: '12 Items • PDF',
-        thumbnails: [
-          'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=150&q=80',
-          'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?w=150&q=80',
-          'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=150&q=80',
-        ],
-      },
-    },
-    {
-      id: 'w3',
-      sender: 'customer',
-      text: 'Thank you! Can you share the price for this one?',
-      time: '11:23 AM',
-    },
-  ];
+  const channelLower = (profile?.channel || (typeof params.channel === 'string' ? params.channel : 'whatsapp')).toLowerCase();
+  const isInstagram = channelLower === 'instagram';
+  const isTwilio = channelLower === 'twilio';
 
-  // Instagram static conversation matching Screen 8
-  const instagramMessages: Message[] = [
-    {
-      id: 'i1',
-      sender: 'customer',
-      text: 'This is super! 😍 Do you have this in size M?',
-      time: '11:18 AM',
-    },
-    {
-      id: 'i2',
-      sender: 'ai',
-      text: 'Yes, available in Size M. Shall I share the product link?',
-      time: '11:19 AM',
-    },
-    {
-      id: 'i3',
-      sender: 'customer',
-      text: 'Yes please! 🙏',
-      time: '11:20 AM',
-    },
-  ];
+  const paramName = typeof params.name === 'string' ? params.name : '';
+  const paramPhone = typeof params.phone === 'string' ? params.phone : '';
+  const customerName =
+    (profile?.name && profile.name !== 'Unknown Customer' ? profile.name : '') ||
+    paramName ||
+    profile?.phone ||
+    paramPhone ||
+    'Customer';
 
-  // Twilio SMS static conversation
-  const twilioMessages: Message[] = [
-    {
-      id: 't1',
-      sender: 'customer',
-      text: 'Can you confirm our SMS appointment for tomorrow?',
-      time: '10:05 AM',
-    },
-    {
-      id: 't2',
-      sender: 'ai',
-      text: 'Hello! Yes, your appointment is confirmed for tomorrow at 3:00 PM via Twilio SMS service.',
-      time: '10:06 AM',
-    },
-    {
-      id: 't3',
-      sender: 'customer',
-      text: 'Received the verification code via SMS. Thank you!',
-      time: '10:08 AM',
-    },
-  ];
+  const normalizedStatus = (profile?.status || '').toUpperCase();
+  const isClosed = normalizedStatus === 'CLOSED';
+  const isConverted = Boolean(profile?.is_converted) || normalizedStatus === 'CONVERTED';
+  const statusText = `${formatChannelLabel(channelLower)} • ${isClosed ? 'Closed' : isConverted ? 'Converted' : 'Active'}`;
 
-  const [messages, setMessages] = useState<Message[]>(
-    isInstagram ? instagramMessages : isTwilio ? twilioMessages : whatsappMessages
+  const showToastAlert = useCallback((message: string) => {
+    setInternalNoteAlert(message);
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => {
+      setInternalNoteAlert(null);
+    }, 3500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
+
+  const loadThread = useCallback(
+    async (silent = false) => {
+      if (!conversationId) return;
+      if (!silent) {
+        setIsLoadingMessages(true);
+      }
+      try {
+        const [serverMsgs, profileData] = await Promise.all([
+          fetchMessages(conversationId),
+          fetchCustomerProfile(conversationId).catch(() => null),
+        ]);
+        if (Array.isArray(serverMsgs)) {
+          setMessages(serverMsgs.map(mapBackendMessage));
+        }
+        if (profileData) {
+          setProfile(profileData);
+        }
+        setLoadError(null);
+      } catch (err: any) {
+        setLoadError(err?.message || 'Unable to load conversation messages.');
+      } finally {
+        setIsLoadingMessages(false);
+        setIsRefreshing(false);
+      }
+    },
+    [conversationId]
   );
+
+  useEffect(() => {
+    if (!conversationId) return;
+    let cancelled = false;
+
+    const initialFetch = async () => {
+      try {
+        const [serverMsgs, profileData] = await Promise.all([
+          fetchMessages(conversationId),
+          fetchCustomerProfile(conversationId).catch(() => null),
+        ]);
+        if (cancelled) return;
+        if (Array.isArray(serverMsgs)) {
+          setMessages(serverMsgs.map(mapBackendMessage));
+        }
+        if (profileData) {
+          setProfile(profileData);
+        }
+        setLoadError(null);
+        markConversationRead(conversationId).catch(() => {});
+      } catch (err: any) {
+        if (!cancelled) {
+          setLoadError(err?.message || 'Unable to load conversation messages.');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingMessages(false);
+        }
+      }
+    };
+
+    initialFetch();
+
+    // Fallback polling in case WebSocket briefly disconnects
+    const pollInterval = setInterval(() => {
+      if (!cancelled) {
+        loadThread(true);
+      }
+    }, 15000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(pollInterval);
+    };
+  }, [conversationId, loadThread]);
+
+  const handleRealtimeEvent = useCallback(
+    (event: { event_type?: string; event?: string; type?: string; payload?: Record<string, any>; data?: Record<string, any> }) => {
+      const evName = event.event_type || event.event || event.type || '';
+      if (
+        evName === 'new_message' ||
+        evName === 'message_status_updated' ||
+        evName === 'conversation_updated'
+      ) {
+        const eventConvId =
+          event.payload?.conversation_id ||
+          event.data?.conversation_id ||
+          (event as any).conversation_id;
+        if (!eventConvId || String(eventConvId) === conversationId) {
+          loadThread(true);
+          markConversationRead(conversationId).catch(() => {});
+        }
+      }
+    },
+    [conversationId, loadThread]
+  );
+
+  useWorkspaceRealtime(handleRealtimeEvent, { conversationId: conversationId || undefined });
+
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    loadThread(true);
+  }, [loadThread]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -166,6 +284,7 @@ export default function ChatDetailScreen() {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
+        showToastAlert('Please grant photo library permission to attach media.');
         return;
       }
 
@@ -179,37 +298,126 @@ export default function ChatDetailScreen() {
         const asset = result.assets[0];
         setSelectedAttachment({
           uri: asset.uri,
-          name: asset.fileName || 'Attached Media',
+          name: asset.fileName || (asset.type === 'video' ? 'video.mp4' : 'image.jpg'),
           type: asset.type || 'image',
+          mimeType: asset.mimeType || undefined,
         });
       }
-    } catch (err) {
-      console.warn('Error launching image picker:', err);
+    } catch (err: any) {
+      showToastAlert(err?.message || 'Unable to open media picker.');
     }
   };
 
-  const handleSendMessage = () => {
-    if (!inputMessage.trim() && !selectedAttachment) return;
-    const newMsg: Message = {
-      id: Date.now().toString(),
-      sender: 'ai',
-      text: inputMessage.trim(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  const handleSendMessage = async () => {
+    const textToSend = inputMessage.trim();
+    const attachmentToSend = selectedAttachment;
+    if ((!textToSend && !attachmentToSend) || !conversationId || isSending) return;
+
+    const optimisticId = `temp-${Date.now()}`;
+    const optimisticMsg: Message = {
+      id: optimisticId,
+      sender: 'agent',
+      text: textToSend || (attachmentToSend?.type === 'video' ? 'Sent a video' : 'Sent an image'),
+      time: formatShortTime(new Date().toISOString(), 'Just now'),
+      status: 'sending',
+      mediaUrl: attachmentToSend?.uri || null,
+      mediaType: attachmentToSend?.type || null,
+      fileName: attachmentToSend?.name || null,
     };
-    setMessages((prev) => [...prev, newMsg]);
+
+    setMessages((prev) => [...prev, optimisticMsg]);
     setInputMessage('');
     setSelectedAttachment(null);
+
+    try {
+      setIsSending(true);
+      let metadata: Record<string, any> | undefined;
+
+      if (attachmentToSend) {
+        const rawWorkspaceId =
+          authState.selectedWorkspace?.id || authState.workspaces[0]?.id;
+        const workspaceId =
+          rawWorkspaceId && !rawWorkspaceId.startsWith('ws-') ? rawWorkspaceId : undefined;
+
+        const uploaded = await apiClient.uploadFile(
+          {
+            uri: attachmentToSend.uri,
+            name: attachmentToSend.name,
+            mimeType: attachmentToSend.mimeType,
+          },
+          workspaceId
+        );
+
+        const messageType =
+          uploaded.file_type === 'video' || attachmentToSend.type === 'video'
+            ? 'video'
+            : uploaded.mime_type === 'application/pdf' || uploaded.file_type === 'document'
+              ? 'document'
+              : 'image';
+
+        metadata = {
+          media_url: uploaded.url,
+          message_type: messageType,
+          media_id: uploaded.id,
+          mime_type: uploaded.mime_type,
+          filename: uploaded.filename,
+        };
+      }
+
+      const fallbackBody =
+        metadata?.message_type === 'video'
+          ? 'Sent a video'
+          : metadata?.message_type === 'document'
+            ? 'Sent a document'
+            : 'Sent an image';
+
+      await sendReply({
+        conversation_id: conversationId,
+        message: textToSend || fallbackBody,
+        ...(metadata ? { metadata } : {}),
+      });
+
+      await loadThread(true);
+    } catch (err: any) {
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      setInputMessage(textToSend);
+      if (attachmentToSend) {
+        setSelectedAttachment(attachmentToSend);
+      }
+      showToastAlert(err?.message || 'Failed to send message. Please try again.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
+  const handleConfirmClose = async () => {
+    if (!conversationId || isClosing) return;
+    try {
+      setIsClosing(true);
+      await closeConversation(conversationId);
+      setProfile((prev) => (prev ? { ...prev, status: 'CLOSED' } : prev));
+      setShowCloseModal(false);
+      showToastAlert('Conversation marked as closed.');
+    } catch (err: any) {
+      setShowCloseModal(false);
+      showToastAlert(err?.message || 'Unable to close conversation.');
+    } finally {
+      setIsClosing(false);
+    }
+  };
 
   const navigateToProfile = () => {
     router.push({
       pathname: '/customer/[id]',
-      params: { id: conversationId },
+      params: {
+        id: conversationId,
+        name: customerName,
+        phone: profile?.phone || paramPhone || '',
+      },
     } as any);
   };
 
-  // Theme colors matching the audit and reference image
+  // Theme colors
   const customerBubbleBg = isDark ? '#202941' : '#FAFAFA';
   const customerBubbleBorder = isDark ? 'rgba(164, 170, 255, 0.08)' : 'rgba(235, 238, 245, 0.9)';
   const customerTextColor = isDark ? '#F5F4FF' : '#1F1A3C';
@@ -231,7 +439,6 @@ export default function ChatDetailScreen() {
           },
         ]}
       >
-        {/* Background Linear Gradient with angle ~135deg */}
         <LinearGradient
           colors={
             isDark
@@ -243,7 +450,6 @@ export default function ChatDetailScreen() {
           style={StyleSheet.absoluteFill}
         />
 
-        {/* Center Radial Glow effect */}
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <Svg width="100%" height="100%">
             <Defs>
@@ -280,7 +486,6 @@ export default function ChatDetailScreen() {
 
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            {/* Back button without surrounding bg & border */}
             <TouchableOpacity
               style={styles.headerIconButton}
               onPress={handleBack}
@@ -290,7 +495,6 @@ export default function ChatDetailScreen() {
               <ChevronLeft size={28} color="#FFFFFF" strokeWidth={2.4} />
             </TouchableOpacity>
 
-            {/* Customer Avatar & Name (Tappable -> Customer Profile) */}
             <TouchableOpacity
               style={styles.userInfoButton}
               activeOpacity={0.8}
@@ -304,31 +508,47 @@ export default function ChatDetailScreen() {
                   ]}
                 >
                   <Text style={styles.avatarText}>
-                    {customerName.substring(0, 2).toUpperCase()}
+                    {getInitials(customerName)}
                   </Text>
                 </View>
-                <View style={[styles.onlineDot, { borderColor: isDark ? '#292D66' : '#6669B6' }]} />
+                <View
+                  style={[
+                    styles.onlineDot,
+                    {
+                      borderColor: isDark ? '#292D66' : '#6669B6',
+                      backgroundColor: isClosed ? '#94A3B8' : '#10B981',
+                    },
+                  ]}
+                />
               </View>
 
               <View style={styles.headerTitles}>
                 <Text style={styles.customerName} numberOfLines={1}>
                   {customerName}
                 </Text>
-                <Text style={styles.statusText}>
-                  {isInstagram ? 'Active now' : isTwilio ? 'Twilio SMS • Active' : 'Online'}
-                </Text>
+                <Text style={styles.statusText}>{statusText}</Text>
               </View>
             </TouchableOpacity>
           </View>
 
-          {/* Top Right Section Icons without surrounding bg & border */}
           <View style={styles.headerRight}>
             <TouchableOpacity
               style={styles.headerIconButton}
               activeOpacity={0.7}
+              onPress={() => {
+                if (isClosed) {
+                  showToastAlert('This conversation is already closed.');
+                } else {
+                  setShowCloseModal(true);
+                }
+              }}
               hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
             >
-              <Circle size={22} strokeWidth={2.2} color="#FFFFFF" />
+              {isClosed ? (
+                <CheckCircle2 size={22} strokeWidth={2.2} color="#10B981" />
+              ) : (
+                <Circle size={22} strokeWidth={2.2} color="#FFFFFF" />
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -345,7 +565,6 @@ export default function ChatDetailScreen() {
 
       {/* MAIN CONVERSATION AREA SHEET */}
       <View style={styles.mainContentSheet}>
-        {/* Background gradient for conversation area */}
         <LinearGradient
           colors={
             isDark
@@ -357,156 +576,179 @@ export default function ChatDetailScreen() {
           style={StyleSheet.absoluteFill}
         />
 
-        {/* Alert toast for internal notes / quick actions */}
         {internalNoteAlert && (
           <View style={[styles.toastBanner, { backgroundColor: isDark ? '#1F1B2C' : 'rgba(251, 191, 36, 0.15)' }]}>
             <Sparkles size={14} color="#FBBF24" />
-            <Text style={[styles.toastText, { color: isDark ? '#FBBF24' : '#B45309' }]}>{internalNoteAlert}</Text>
+            <Text style={[styles.toastText, { color: isDark ? '#FBBF24' : '#B45309' }]}>
+              {internalNoteAlert}
+            </Text>
           </View>
         )}
 
-        {/* Chat Messages Body */}
         <KeyboardAvoidingView
           style={styles.chatArea}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
         >
           <ScrollView
+            ref={scrollViewRef}
             contentContainerStyle={styles.messagesScroll}
             showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: false })}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor="#8576D0"
+              />
+            }
           >
-            {/* Instagram Story Reply Banner (Screen 8) */}
-            {isInstagram && (
-              <View
+            {isLoadingMessages && messages.length === 0 ? (
+              <View style={styles.centerFeedback}>
+                <ActivityIndicator size="large" color="#8576D0" />
+                <Text style={[styles.feedbackText, { color: isDark ? '#A2ADD8' : '#7883A0' }]}>
+                  Loading conversation...
+                </Text>
+              </View>
+            ) : loadError && messages.length === 0 ? (
+              <TouchableOpacity
                 style={[
-                  styles.storyReplyCard,
+                  styles.errorCard,
                   {
-                    backgroundColor: isDark ? '#1E2540' : '#FFFFFF',
-                    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.8)',
+                    backgroundColor: isDark ? '#202941' : '#FFFFFF',
+                    borderColor: isDark ? 'rgba(248, 113, 113, 0.35)' : '#FECACA',
                   },
                 ]}
+                onPress={() => loadThread(false)}
+                activeOpacity={0.8}
               >
-                <Image
-                  source={{
-                    uri: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=150&q=80',
-                  }}
-                  style={styles.storyThumbnail}
-                />
-                <View style={styles.storyTextWrapper}>
-                  <Text style={styles.storyTitle}>Replied to your story</Text>
-                  <Text style={[styles.storySubtitle, { color: isDark ? '#A2ADD8' : '#6B7280' }]}>
-                    Summer Collection Preview
-                  </Text>
-                </View>
-                <Text style={[styles.storyTime, { color: isDark ? '#7E8BA0' : '#9CA3AF' }]}>11:18 AM</Text>
+                <Text style={[styles.errorCardText, { color: isDark ? '#FCA5A5' : '#DC2626' }]}>
+                  {loadError}
+                </Text>
+                <Text style={styles.errorRetryHint}>Tap to retry</Text>
+              </TouchableOpacity>
+            ) : messages.length === 0 ? (
+              <View style={styles.centerFeedback}>
+                <Text style={[styles.feedbackText, { color: isDark ? '#A2ADD8' : '#7883A0' }]}>
+                  No messages in this conversation yet.
+                </Text>
               </View>
-            )}
+            ) : (
+              messages.map((msg) => {
+                const isCustomer = msg.sender === 'customer';
+                const resolvedMedia = resolveMediaUrl(msg.mediaUrl);
+                const lowerMediaType = (msg.mediaType || '').toLowerCase();
+                const isVideo = lowerMediaType.includes('video') || Boolean(resolvedMedia?.match(/\.(mp4|mov|webm)(\?|$)/i));
+                const isDocument = lowerMediaType.includes('document') || lowerMediaType.includes('pdf') || Boolean(resolvedMedia?.match(/\.pdf(\?|$)/i));
 
-            {/* Messages Flow */}
-            {messages.map((msg) => {
-              const isCustomer = msg.sender === 'customer';
-              return (
-                <View
-                  key={msg.id}
-                  style={[
-                    styles.messageRow,
-                    isCustomer ? styles.customerRow : styles.agentRow,
-                  ]}
-                >
+                return (
                   <View
+                    key={msg.id}
                     style={[
-                      styles.messageBubble,
-                      isCustomer
-                        ? [
-                            styles.customerBubble,
-                            {
-                              backgroundColor: customerBubbleBg,
-                              borderColor: customerBubbleBorder,
-                            },
-                          ]
-                        : styles.agentBubble,
+                      styles.messageRow,
+                      isCustomer ? styles.customerRow : styles.agentRow,
                     ]}
                   >
-                    <Text
+                    <View
                       style={[
-                        styles.messageText,
+                        styles.messageBubble,
                         isCustomer
-                          ? { color: customerTextColor }
-                          : { color: '#FFFFFF' },
+                          ? [
+                              styles.customerBubble,
+                              {
+                                backgroundColor: customerBubbleBg,
+                                borderColor: customerBubbleBorder,
+                              },
+                            ]
+                          : styles.agentBubble,
                       ]}
                     >
-                      {msg.text}
-                    </Text>
-
-                    {/* Attachment Card (Screen 7 Saree Catalogue) */}
-                    {msg.attachment && (
-                      <View
-                        style={[
-                          styles.catalogueCard,
-                          {
-                            backgroundColor: isDark ? '#161B32' : '#FFFFFF',
-                            borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.25)',
-                          },
-                        ]}
-                      >
-                        <View style={styles.thumbnailRow}>
-                          {msg.attachment.thumbnails.map((uri, index) => (
+                      {resolvedMedia ? (
+                        isVideo || isDocument ? (
+                          <TouchableOpacity
+                            style={[
+                              styles.mediaFileCard,
+                              {
+                                backgroundColor: isCustomer
+                                  ? isDark
+                                    ? '#161B32'
+                                    : '#F1F5F9'
+                                  : 'rgba(255, 255, 255, 0.16)',
+                              },
+                            ]}
+                            activeOpacity={0.8}
+                            onPress={() => Linking.openURL(resolvedMedia).catch(() => {})}
+                          >
+                            {isVideo ? (
+                              <Video size={18} color={isCustomer ? '#8576D0' : '#FFFFFF'} />
+                            ) : (
+                              <FileText size={18} color={isCustomer ? '#8576D0' : '#FFFFFF'} />
+                            )}
+                            <Text
+                              style={[
+                                styles.mediaFileName,
+                                { color: isCustomer ? customerTextColor : '#FFFFFF' },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {msg.fileName || (isVideo ? 'Video attachment' : 'Document attachment')}
+                            </Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity
+                            activeOpacity={0.9}
+                            onPress={() => Linking.openURL(resolvedMedia).catch(() => {})}
+                          >
                             <Image
-                              key={index}
-                              source={{ uri }}
-                              style={styles.catalogueThumb}
+                              source={{ uri: resolvedMedia }}
+                              style={styles.messageMediaImage}
+                              resizeMode="cover"
                             />
-                          ))}
-                        </View>
-                        <View style={styles.catalogueMeta}>
-                          <View style={styles.pdfIconBadge}>
-                            <FileText size={16} color="#F43F5E" />
-                          </View>
-                          <View style={styles.catalogueDetails}>
-                            <Text
-                              style={[
-                                styles.catalogueTitle,
-                                { color: isDark ? '#FFFFFF' : '#1F1A3C' },
-                              ]}
-                            >
-                              {msg.attachment.title}
-                            </Text>
-                            <Text
-                              style={[
-                                styles.catalogueSubtitle,
-                                { color: isDark ? '#9CA3AF' : '#7883A0' },
-                              ]}
-                            >
-                              {msg.attachment.subtitle}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                    )}
-                  </View>
+                          </TouchableOpacity>
+                        )
+                      ) : null}
 
-                  {/* Timestamp & Read tick placed underneath the bubble */}
-                  <View
-                    style={[
-                      styles.timeRow,
-                      isCustomer ? styles.timeRowCustomer : styles.timeRowAgent,
-                    ]}
-                  >
-                    <Text style={styles.timeText}>
-                      {msg.time}
-                    </Text>
-                    {!isCustomer && (
-                      <CheckCheck size={14} color="#7883A0" style={styles.tickIcon} />
-                    )}
+                      {msg.text ? (
+                        <Text
+                          style={[
+                            styles.messageText,
+                            resolvedMedia ? { marginTop: 8 } : null,
+                            isCustomer
+                              ? { color: customerTextColor }
+                              : { color: '#FFFFFF' },
+                          ]}
+                        >
+                          {msg.text}
+                        </Text>
+                      ) : null}
+                    </View>
+
+                    <View
+                      style={[
+                        styles.timeRow,
+                        isCustomer ? styles.timeRowCustomer : styles.timeRowAgent,
+                      ]}
+                    >
+                      <Text style={styles.timeText}>{msg.time}</Text>
+                      {!isCustomer && (
+                        msg.status === 'sending' ? (
+                          <Check size={14} color="#7883A0" style={styles.tickIcon} />
+                        ) : (
+                          <CheckCheck
+                            size={14}
+                            color={msg.status === 'read' ? '#8576D0' : '#7883A0'}
+                            style={styles.tickIcon}
+                          />
+                        )
+                      )}
+                    </View>
                   </View>
-                </View>
-              );
-            })}
+                );
+              })
+            )}
           </ScrollView>
 
-          {/* Bottom Message Input Bar - Exact match to uploaded images */}
           <View style={styles.bottomBarContainer}>
-            {/* Attachment preview if selected */}
             {selectedAttachment && (
               <View
                 style={[
@@ -542,6 +784,7 @@ export default function ChatDetailScreen() {
                 </TouchableOpacity>
               </View>
             )}
+
             <View
               style={[
                 styles.capsuleInputBar,
@@ -552,11 +795,11 @@ export default function ChatDetailScreen() {
                 isDark ? styles.capsuleShadowDark : styles.capsuleShadowLight,
               ]}
             >
-              {/* Attachment Button (Paperclip) */}
               <TouchableOpacity
                 style={isDark ? styles.attachButtonDark : styles.attachButtonLight}
                 activeOpacity={0.7}
                 onPress={handleAttachFile}
+                disabled={isSending}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Paperclip
@@ -566,13 +809,10 @@ export default function ChatDetailScreen() {
                 />
               </TouchableOpacity>
 
-              {/* Seamless Text Input */}
               <TextInput
                 style={[
                   styles.seamlessTextInput,
-                  {
-                    color: inputTextColor,
-                  },
+                  { color: inputTextColor },
                 ]}
                 placeholder="Type a message..."
                 placeholderTextColor={placeholderColor}
@@ -581,18 +821,22 @@ export default function ChatDetailScreen() {
                 multiline={true}
               />
 
-              {/* Mic / Send Circular Purple Action Button */}
-              {(inputMessage.trim().length > 0 || selectedAttachment) ? (
+              {inputMessage.trim().length > 0 || selectedAttachment ? (
                 <TouchableOpacity
                   style={[
                     styles.actionCircleButton,
-                    { backgroundColor: '#8576D0' },
+                    { backgroundColor: '#8576D0', opacity: isSending ? 0.7 : 1 },
                     styles.actionButtonShadow,
                   ]}
                   onPress={handleSendMessage}
+                  disabled={isSending}
                   activeOpacity={0.8}
                 >
-                  <Send size={19} color="#FFFFFF" strokeWidth={2.2} />
+                  {isSending ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Send size={19} color="#FFFFFF" strokeWidth={2.2} />
+                  )}
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
@@ -602,6 +846,9 @@ export default function ChatDetailScreen() {
                     styles.actionButtonShadow,
                   ]}
                   activeOpacity={0.8}
+                  onPress={() =>
+                    showToastAlert('Tap the paperclip icon to attach an image or video.')
+                  }
                 >
                   <Mic size={21} color="#FFFFFF" strokeWidth={2.2} />
                 </TouchableOpacity>
@@ -611,7 +858,65 @@ export default function ChatDetailScreen() {
         </KeyboardAvoidingView>
       </View>
 
-
+      {/* Close Conversation Confirmation Modal */}
+      <Modal
+        visible={showCloseModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isClosing) setShowCloseModal(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => {
+              if (!isClosing) setShowCloseModal(false);
+            }}
+          />
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: isDark ? '#1A223D' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(164, 170, 255, 0.14)' : '#E2E8F0',
+              },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: isDark ? '#FFFFFF' : '#1A2138' }]}>
+              Close conversation?
+            </Text>
+            <Text style={[styles.modalDesc, { color: isDark ? '#A2ADD8' : '#64748B' }]}>
+              This will mark the conversation with {customerName} as closed in your inbox.
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.modalBtn,
+                  { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F1F5F9' },
+                ]}
+                onPress={() => setShowCloseModal(false)}
+                disabled={isClosing}
+              >
+                <Text style={[styles.modalBtnText, { color: isDark ? '#FFFFFF' : '#334155' }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: '#8576D0' }]}
+                onPress={handleConfirmClose}
+                disabled={isClosing}
+              >
+                {isClosing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>Close chat</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -721,6 +1026,7 @@ const styles = StyleSheet.create({
     fontSize: scaleFont(12),
     fontFamily: Fonts.medium,
     fontWeight: '500',
+    flex: 1,
   },
   chatArea: {
     flex: 1,
@@ -731,37 +1037,35 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     flexGrow: 1,
   },
-  storyReplyCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    padding: 10,
-    marginBottom: 16,
-    borderWidth: 1,
-  },
-  storyThumbnail: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  storyTextWrapper: {
+  centerFeedback: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    gap: 12,
   },
-  storyTitle: {
-    color: '#E1306C',
-    fontSize: scaleFont(12),
+  feedbackText: {
+    fontSize: scaleFont(14),
+    fontFamily: Fonts.regular,
+    textAlign: 'center',
+  },
+  errorCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    alignItems: 'center',
+    gap: 6,
+    marginVertical: 20,
+  },
+  errorCardText: {
+    fontSize: scaleFont(14),
+    fontFamily: Fonts.medium,
+    textAlign: 'center',
+  },
+  errorRetryHint: {
+    fontSize: scaleFont(12.5),
     fontFamily: Fonts.semiBold,
-    fontWeight: '600',
-  },
-  storySubtitle: {
-    fontSize: scaleFont(13),
-    fontFamily: Fonts.regular,
-    marginTop: 2,
-  },
-  storyTime: {
-    fontSize: scaleFont(11),
-    fontFamily: Fonts.regular,
+    color: '#8576D0',
   },
   messageRow: {
     marginBottom: 14,
@@ -806,50 +1110,24 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.regular,
     lineHeight: scaleFont(21),
   },
-  catalogueCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 10,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  thumbnailRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 10,
-  },
-  catalogueThumb: {
-    flex: 1,
-    height: 76,
-    borderRadius: 8,
+  messageMediaImage: {
+    width: 210,
+    height: 160,
+    borderRadius: 10,
     backgroundColor: '#1A1728',
   },
-  catalogueMeta: {
+  mediaFileCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
-  pdfIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  catalogueDetails: {
-    flex: 1,
-  },
-  catalogueTitle: {
-    fontSize: scaleFont(13.5),
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
-  },
-  catalogueSubtitle: {
-    fontSize: scaleFont(11),
-    fontFamily: Fonts.regular,
-    marginTop: 2,
+  mediaFileName: {
+    fontSize: scaleFont(13),
+    fontFamily: Fonts.medium,
+    maxWidth: 180,
   },
   timeRow: {
     flexDirection: 'row',
@@ -871,8 +1149,6 @@ const styles = StyleSheet.create({
   tickIcon: {
     marginLeft: 4,
   },
-
-  /* Bottom Input Bar - Matching exactly to design capsule */
   bottomBarContainer: {
     paddingHorizontal: 16,
     paddingTop: 6,
@@ -891,7 +1167,7 @@ const styles = StyleSheet.create({
   capsuleShadowLight: {
     shadowColor: '#6C42EC',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
+    shadowOpacity: 0.1,
     shadowRadius: 16,
     elevation: 4,
   },
@@ -940,8 +1216,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
-
-  /* Attachment Preview Bar (Matching Web App) */
   attachmentPreviewBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -972,5 +1246,48 @@ const styles = StyleSheet.create({
   },
   attachmentRemoveBtn: {
     padding: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    gap: 10,
+  },
+  modalTitle: {
+    fontSize: scaleFont(17),
+    fontFamily: Fonts.semiBold,
+    fontWeight: '600',
+  },
+  modalDesc: {
+    fontSize: scaleFont(14),
+    fontFamily: Fonts.regular,
+    lineHeight: scaleFont(20),
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 8,
+  },
+  modalBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    minWidth: 88,
+    alignItems: 'center',
+  },
+  modalBtnText: {
+    fontSize: scaleFont(14),
+    fontFamily: Fonts.semiBold,
+    fontWeight: '600',
   },
 });

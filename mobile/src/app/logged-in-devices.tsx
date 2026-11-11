@@ -24,11 +24,10 @@ import {
   Globe,
   Clock,
   X,
-  AlertTriangle,
 } from 'lucide-react-native';
-import { useAuth, authStore } from '@/store/auth';
+import { authStore } from '@/store/auth';
 import { Fonts } from '@/theme/tokens';
-import { scaleFont, scaleContainer, scaleHeight } from '@/theme/responsive';
+import { scaleFont, scaleContainer } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
 import {
   fetchUserSessions,
@@ -200,9 +199,9 @@ export default function LoggedInDevicesScreen() {
   const loadSessions = useCallback(async () => {
     try {
       const data = await fetchUserSessions();
-      setSessions(data || []);
-    } catch {
-      // Graceful fallback if backend session list fails
+      setSessions(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.warn('Failed to load user sessions:', err?.message || err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -210,8 +209,19 @@ export default function LoggedInDevicesScreen() {
   }, []);
 
   useEffect(() => {
-    loadSessions();
-  }, [loadSessions]);
+    let cancelled = false;
+    fetchUserSessions()
+      .then((data) => {
+        if (!cancelled) setSessions(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -292,6 +302,8 @@ export default function LoggedInDevicesScreen() {
         title: 'Sign out of this device',
         message: 'Are you sure you want to sign out? Your current session on this device will end immediately.',
         confirmText: 'Sign Out',
+        deviceKey,
+        deviceName: displayName,
       });
       return;
     }

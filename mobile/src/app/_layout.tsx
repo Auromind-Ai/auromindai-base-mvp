@@ -13,7 +13,7 @@ import {
   Poppins_800ExtraBold,
 } from '@expo-google-fonts/poppins';
 import { ThemeProvider, useAppTheme } from '../context/theme-context';
-import { usePushNotifications } from '../hooks/use-push-notifications';
+import { usePushNotificationListeners } from '../hooks/use-push-notifications';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -27,7 +27,7 @@ function NavigationRoot({
   timedOut: boolean;
 }) {
   const { colors, statusBarStyle, isLoaded: themeLoaded } = useAppTheme();
-  usePushNotifications();
+  usePushNotificationListeners();
 
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => {});
