@@ -14,7 +14,7 @@ import {
   Wallet,
   FileCheck,
   Check,
-} from 'lucide-react';
+  Trash2,} from 'lucide-react';
 import api from '../lib/api';
 
 const NotificationBell = () => {
@@ -120,6 +120,47 @@ const NotificationBell = () => {
       } catch (err) {
         console.error('Failed to mark notification as read:', err);
       }
+    }
+  };
+
+  const [isClearing, setIsClearing] = useState(false);
+
+  // Clear all notifications
+  const handleClearAll = async () => {
+    if (notifications.length === 0) return;
+    setIsClearing(true);
+    try {
+      await api.clearAllNotifications();
+      setNotifications([]);
+      setUnreadCount(0);
+      setServerCounts({ all: 0, unread: 0, mentions: 0, updates: 0, system: 0 });
+    } catch (err) {
+      console.error('Failed to clear notifications:', err);
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
+  // Delete a specific notification
+  const handleDeleteNotification = async (e, id) => {
+    e.stopPropagation();
+    try {
+      await api.deleteNotification(id);
+      const target = notifications.find((n) => n.id === id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      if (target && !target.is_read) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+      setServerCounts((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          all: Math.max(0, (prev.all || 1) - 1),
+          unread: target && !target.is_read ? Math.max(0, (prev.unread || 1) - 1) : (prev.unread || 0),
+        };
+      });
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
     }
   };
 
@@ -305,18 +346,38 @@ const NotificationBell = () => {
               >
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 pt-4 pb-2 sm:px-5 sm:pt-5 sm:pb-3">
-                  <h3 className="font-semibold text-white text-[15px] sm:text-base tracking-tight">
-                    Notifications
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-white text-[15px] sm:text-base tracking-tight">
+                      Notifications
+                    </h3>
+                    {notifications.length > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/10 text-zinc-400 font-semibold">
+                        {notifications.length}
+                      </span>
+                    )}
+                  </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
                     <button
                       onClick={handleMarkAllRead}
                       className="text-xs text-[#9d62f2] hover:text-[#b784fc] flex items-center gap-1 transition-colors font-medium cursor-pointer"
+                      title="Mark all as read"
                     >
                       <Check size={14} />
-                      Mark all as read
+                      <span>Mark all as read</span>
                     </button>
+
+                    {notifications.length > 0 && (
+                      <button
+                        onClick={handleClearAll}
+                        disabled={isClearing}
+                        className="text-xs text-zinc-400 hover:text-rose-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-rose-500/10 transition-colors font-medium cursor-pointer disabled:opacity-50"
+                        title="Clear all notifications"
+                      >
+                        <Trash2 size={13} className={isClearing ? 'animate-spin' : ''} />
+                        <span>{isClearing ? 'Clearing...' : 'Clear all'}</span>
+                      </button>
+                    )}
 
                     <button
                       onClick={() => setIsOpen(false)}
@@ -328,7 +389,7 @@ const NotificationBell = () => {
                   </div>
                 </div>
 
-                  {/* Filter Tabs */}
+                {/* Filter Tabs */}
                   <div className="flex items-center gap-4 px-4 pb-2 sm:px-5 border-b border-white/[0.06] overflow-x-auto no-scrollbar">
                     {[
                       { id: 'all', label: 'All' },
@@ -425,10 +486,20 @@ const NotificationBell = () => {
                               <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#814AC8] shadow-[0_0_8px_#814AC8]" />
                             )}
                           </div>
-                          <ChevronRight
-                            size={14}
-                            className="text-zinc-600 group-hover:text-zinc-300 group-hover:translate-x-0.5 transition-all"
-                          />
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteNotification(e, item.id)}
+                              className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
+                              title="Delete notification"
+                            >
+                              <X size={13} />
+                            </button>
+                            <ChevronRight
+                              size={14}
+                              className="text-zinc-600 group-hover:text-zinc-300 group-hover:translate-x-0.5 transition-all"
+                            />
+                          </div>
                         </div>
                       </div>
                     ))

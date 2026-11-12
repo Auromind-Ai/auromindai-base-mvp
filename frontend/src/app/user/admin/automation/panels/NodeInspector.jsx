@@ -9,7 +9,9 @@ import {
   Clock, Target, Briefcase, LifeBuoy, Link2, Unlink, CornerDownRight,
   Sliders, Eye, ShieldAlert, Cpu, Search, Smile, Paperclip, Code,
   GripVertical, ExternalLink, Headphones, User, Building, DollarSign,
-  CheckCheck
+  CheckCheck,
+  Calendar,
+  RotateCcw
 } from 'lucide-react';
 import {
   MAX_KEYWORDS,
@@ -97,7 +99,11 @@ export default function NodeInspector({
   handleSalesManualSave,
   removeSalesEntry,
   handleSalesDrop,
-  setDeleteStepModal
+  setDeleteStepModal,
+  workspaceId,
+  showToast,
+  calendarStatus,
+  onRefreshCalendar
 }) {
   // Reference to active text area for inserting variables / emojis
   const messageInputRef = useRef(null);
@@ -118,6 +124,23 @@ export default function NodeInspector({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [activeEmojiStage, setActiveEmojiStage] = useState(null);
   const [activeTextarea, setActiveTextarea] = useState('message'); // 'message' | 'followup' | 'question' | 'followup-N'
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const isCalendarConnected = Boolean(calendarStatus?.connected);
+  const calendarEmail = calendarStatus?.email;
+  const [isCheckingCalendar, setIsCheckingCalendar] = useState(false);
+
+  const handleRefreshCalendar = async () => {
+    if (typeof onRefreshCalendar !== 'function') return;
+    setIsCheckingCalendar(true);
+    try {
+      await onRefreshCalendar();
+      if (typeof showToast === 'function') {
+        showToast('Calendar connection status refreshed', 'info');
+      }
+    } finally {
+      setTimeout(() => setIsCheckingCalendar(false), 500);
+    }
+  };
 
   // ESC key listener to close modal
   useEffect(() => {
@@ -507,9 +530,10 @@ export default function NodeInspector({
     : null;
 
   return (
-    <AnimatePresence>
-      {activeNode && activeNodeId && (
-        <div className="fixed inset-0 z-[220] flex items-center justify-center pointer-events-auto">
+    <>
+      <AnimatePresence>
+        {activeNode && activeNodeId && (
+          <div key="node-inspector-modal" className="fixed inset-0 z-[220] flex items-center justify-center pointer-events-auto">
           {/* Light backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -1275,26 +1299,94 @@ export default function NodeInspector({
 
                         {/* Options */}
                         {activeNode.config?.agent_type !== 'support_agent' && (
-                          <div className="pt-2 border-t border-white/5 space-y-3">
-                            {[
-                              { key: 'enable_demo_booking', label: 'Enable Demo Booking' },
-                              ...(activeNode.config?.agent_type === 'sales_agent'
-                                ? [{ key: 'payment_enabled', label: 'Enable Payment Link' }]
-                                : []),
-                            ].map(({ key, label }) => (
-                              <div key={key} className="space-y-2">
-                                <label className="flex items-center gap-2.5 cursor-pointer">
+                          <div className="pt-2 border-t border-white/5 space-y-4">
+                            {/* 1. Demo Booking Option with Calendar Validation */}
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(activeNode.config?.enable_demo_booking)}
+                                  onChange={() => {
+                                    const currentlyEnabled = Boolean(activeNode.config?.enable_demo_booking);
+                                    if (!currentlyEnabled && !isCalendarConnected) {
+                                      setShowCalendarModal(true);
+                                      return;
+                                    }
+                                    updateNodeConfig(activeNodeId, { enable_demo_booking: !currentlyEnabled });
+                                  }}
+                                  className="w-4 h-4 rounded border-white/20 bg-[#0F101A] text-violet-500 focus:ring-violet-500/40 cursor-pointer"
+                                />
+                                <span className="text-xs text-zinc-200 font-medium">Enable Demo Booking</span>
+                              </label>
+
+                              {/* Calendar status feedback */}
+                              {isCalendarConnected ? (
+                                <div className="ml-6 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/[0.08] border border-emerald-500/20 text-emerald-300 text-xs">
+                                  <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                                  <span className="font-medium text-[11.5px]">
+                                    Google Calendar Connected {calendarEmail ? `(${calendarEmail})` : ''}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="ml-6 rounded-xl bg-[#141522] border border-white/10 p-3.5 space-y-3">
+                                  <div className="flex items-start gap-2.5">
+                                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
+                                      <AlertCircle className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-semibold text-white">Google Calendar Required</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-medium">
+                                          Not Connected
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                                        Connect your calendar so the AI agent can view available slots and schedule demo meetings with leads.
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                                    <a
+                                      href="/channels"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
+                                    >
+                                      <span>Connect Calendar</span>
+                                      <ExternalLink className="w-3 h-3 opacity-80" />
+                                    </a>
+                                    {typeof onRefreshCalendar === 'function' && (
+                                      <button
+                                        type="button"
+                                        onClick={handleRefreshCalendar}
+                                        disabled={isCheckingCalendar}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-medium border border-white/10 transition-colors cursor-pointer disabled:opacity-60"
+                                      >
+                                        <RotateCcw className={`w-3 h-3 ${isCheckingCalendar ? 'animate-spin text-violet-400' : 'text-zinc-400'}`} />
+                                        <span>{isCheckingCalendar ? 'Checking...' : 'Refresh Status'}</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* 2. Payment Link Option for Sales Agent */}
+                            {activeNode.config?.agent_type === 'sales_agent' && (
+                              <div className="space-y-2">
+                                <label className="flex items-center gap-2.5 cursor-pointer select-none">
                                   <input
                                     type="checkbox"
-                                    checked={Boolean(activeNode.config?.[key])}
+                                    checked={Boolean(activeNode.config?.payment_enabled)}
                                     onChange={() =>
-                                      updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })
+                                      updateNodeConfig(activeNodeId, { payment_enabled: !activeNode.config?.payment_enabled })
                                     }
                                     className="w-4 h-4 rounded border-white/20 bg-[#0F101A] text-violet-500 focus:ring-violet-500/40 cursor-pointer"
                                   />
-                                  <span className="text-xs text-zinc-200 font-medium">{label}</span>
+                                  <span className="text-xs text-zinc-200 font-medium">Enable Payment Link</span>
                                 </label>
-                                {key === 'payment_enabled' && activeNode.config?.[key] && (
+                                {activeNode.config?.payment_enabled && (
                                   <input
                                     type="text"
                                     value={activeNode.config?.payment_link || ''}
@@ -1306,7 +1398,7 @@ export default function NodeInspector({
                                   />
                                 )}
                               </div>
-                            ))}
+                            )}
                           </div>
                         )}
                       </div>
@@ -2446,6 +2538,58 @@ export default function NodeInspector({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+          </AnimatePresence>
+
+      {/* GOOGLE CALENDAR REQUIRED MODAL */}
+      <AnimatePresence>
+        {showCalendarModal && (
+          <div
+            key="calendar-required-modal"
+            className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm pointer-events-auto"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowCalendarModal(false);
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-[#161622] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <Calendar className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Google Calendar Required</h3>
+                <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+                  To enable automated Demo Booking for your AI Agent, you must connect your Google Calendar. This allows the AI to check your real-time availability and schedule meetings directly with your leads.
+                </p>
+              </div>
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCalendarModal(false)}
+                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-medium transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <a
+                  href="/channels"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setShowCalendarModal(false)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-lg shadow-violet-500/25 transition-all cursor-pointer"
+                >
+                  <span>Connect in Channels</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

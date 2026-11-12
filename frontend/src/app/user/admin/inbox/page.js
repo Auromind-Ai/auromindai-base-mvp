@@ -447,6 +447,7 @@ function ConversationSidebar({
     currentUser,
     onOpenNewChat,
     channelStatuses = {},
+    onRefresh,
 }) {
     const [searchQuery, setSearchQuery] = useState('');
     const containerRef = useRef(null);
@@ -614,9 +615,23 @@ function ConversationSidebar({
         return <span className="truncate">{raw}</span>;
     }
 
-    const handleRefreshClick = () => {
+    const handleRefreshClick = async () => {
+        if (isRefreshing) return;
         setIsRefreshing(true);
-        setTimeout(() => setIsRefreshing(false), 700);
+        const startTime = Date.now();
+        try {
+            if (typeof onRefresh === 'function') {
+                await onRefresh();
+            }
+        } catch (err) {
+            console.error('Failed to refresh inbox:', err);
+        } finally {
+            const elapsed = Date.now() - startTime;
+            const remaining = Math.max(0, 1000 - elapsed);
+            setTimeout(() => {
+                setIsRefreshing(false);
+            }, remaining);
+        }
     };
 
     const orgName = currentUser?.workspace_name || ch.label || 'groww digitel';
@@ -632,9 +647,13 @@ function ConversationSidebar({
                     <div className="flex items-center gap-2.5">
                         <span className="text-[21px] font-bold text-white tracking-tight">Inbox</span>
                         <button
+                            type="button"
                             onClick={handleRefreshClick}
-                            className={`p-1.5 rounded-lg text-zinc-400 hover:text-white transition-all cursor-pointer ${isRefreshing ? 'animate-spin text-white' : ''}`}
-                            title="Refresh conversations"
+                            disabled={isRefreshing}
+                            className={`p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer ${
+                                isRefreshing ? 'animate-spin text-purple-400 bg-purple-500/10 ring-1 ring-purple-500/30 cursor-not-allowed' : ''
+                            }`}
+                            title={isRefreshing ? "Refreshing conversations..." : "Refresh conversations"}
                         >
                             <RefreshCw size={15} strokeWidth={2.2} />
                         </button>
@@ -892,7 +911,26 @@ function ConversationSidebar({
 
 
             {/* Conversation list */}
-            <div ref={containerRef} className="flex-1 overflow-y-auto py-3 px-3 space-y-2.5 custom-scrollbar">
+            <div ref={containerRef} className="flex-1 overflow-y-auto py-3 px-3 space-y-2.5 custom-scrollbar relative">
+                {/* Refreshing Banner when conversations exist */}
+                <AnimatePresence>
+                    {isRefreshing && filtered.length > 0 && (
+                        <motion.div
+                            key="refreshing-banner"
+                            initial={{ opacity: 0, height: 0, y: -4 }}
+                            animate={{ opacity: 1, height: 'auto', y: 0 }}
+                            exit={{ opacity: 0, height: 0, y: -4 }}
+                            transition={{ duration: 0.18 }}
+                            className="overflow-hidden"
+                        >
+                            <div className="flex items-center justify-center gap-2 py-2 px-3 mb-1 rounded-xl bg-purple-500/10 border border-purple-500/25 text-purple-300 text-[11.5px] font-medium shadow-sm backdrop-blur-sm">
+                                <RefreshCw size={12} className="animate-spin text-purple-400 shrink-0" />
+                                <span>Refreshing conversations...</span>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
                 {filtered.length === 0 && (
                     isRefreshing ? (
                         <div className="flex flex-col items-center justify-center mt-20 gap-3.5">
@@ -920,22 +958,27 @@ function ConversationSidebar({
                     const sel = lead?.id === l.id;
                     const displayName = getDisplayName(l, ch.id);
                     const avatarText = getAvatarText(l, ch.id);
+                    const cId = (l.channel || ch?.id || '').toLowerCase();
                     const convChannel = CHANNELS.find(c => c.id === (l.channel?.toLowerCase() || ch.id)) || ch;
                     const lastMsgText = lastMessageMap[l.id] || l.last_message || l.preview || l.last_message_text || 'Hello';
                     const unreadCount = unreadCounts[l.id] !== undefined ? unreadCounts[l.id] : (l.unread_count || l.unread || 0);
                     const pill = getStatusPill(l);
                     const timeStr = formatConvTime(l.last_message_at || l.updated_at || l.created_at) || 'Yesterday';
 
+                    const selectedCardClass = !sel
+                        ? 'bg-[#13141f]/70 border-transparent hover:bg-white/[0.04]'
+                        : cId === 'instagram'
+                            ? 'bg-[#201026]/85 border-pink-500/40 shadow-md ring-1 ring-pink-500/25 shadow-[0_4px_20px_rgba(238,42,123,0.15)]'
+                            : cId === 'twilio' || cId === 'sms'
+                                ? 'bg-[#261014]/85 border-red-500/40 shadow-md ring-1 ring-red-500/25 shadow-[0_4px_20px_rgba(242,47,70,0.15)]'
+                                : 'bg-[#0d1c17]/85 border-[#25D366]/40 shadow-md ring-1 ring-[#25D366]/20 shadow-[0_4px_20px_rgba(37,211,102,0.15)]';
+
                     return (
                         <button
                             key={l.id}
                             data-active={sel}
                             onClick={() => onLeadSelect(l)}
-                            className={`w-full p-3.5 sm:p-4 rounded-2xl text-left transition-all group relative border ${
-                                sel
-                                    ? 'bg-[#0d1c17]/85 border-[#25D366]/40 shadow-md ring-1 ring-[#25D366]/20'
-                                    : 'bg-[#13141f]/70 border-transparent hover:bg-white/[0.04]'
-                            }`}
+                            className={`w-full p-3.5 sm:p-4 rounded-2xl text-left transition-all group relative border ${selectedCardClass}`}
                         >
                             <div className="flex items-start gap-3.5">
                                 {/* Avatar matching Image 1 Color Palette: #128C7E to #25D366 */}
@@ -3759,6 +3802,12 @@ function InboxContent() {
         currentUser: user,
         channelStatuses,
         onOpenNewChat: () => setIsNewChatOpen(true),
+        onRefresh: async () => {
+            await fetchConversations();
+            if (leadRef.current?.id && !String(leadRef.current.id).startsWith('whatsapp-')) {
+                fetchMessages(leadRef.current.id);
+            }
+        },
     };
 
     return (

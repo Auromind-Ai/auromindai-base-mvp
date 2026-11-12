@@ -133,7 +133,7 @@ export const sanitizeFlowData = (flow) => {
   };
 };
 
-export const validateFlowGraph = (nodes = [], edges = []) => {
+export const validateFlowGraph = (nodes = [], edges = [], options = {}) => {
   const errors = [];
   const warnings = [];
   const nodeIds = new Set(nodes.map((node) => node.id));
@@ -214,6 +214,9 @@ export const validateFlowGraph = (nodes = [], edges = []) => {
       const outgoing = outgoingMap[node.id] || [];
       if (outgoing.length > 0) {
         errors.push('AI Reply must be the final step. No steps can be added after AI Reply.');
+      }
+      if (node.config?.enable_demo_booking && options?.isCalendarConnected === false && !options?.isCalendarLoading) {
+        errors.push(`Node "${node.label || node.id}" has Demo Booking enabled, but Google Calendar is not connected. Please connect Google Calendar or disable Demo Booking.`);
       }
     }
 

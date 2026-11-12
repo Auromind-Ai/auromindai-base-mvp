@@ -371,17 +371,18 @@ class IntegrationService:
             return False
             
         else:
-            db_type = integration_type
-            if norm_type == "gmail":
-                db_type = "google_gmail"
-            elif norm_type == "calendar":
-                db_type = "google_calendar"
-            elif norm_type == "zoho":
-                db_type = "zoho_crm"
+            if norm_type in ["gmail", "google_gmail"]:
+                db_types = ["google_gmail", "gmail"]
+            elif norm_type in ["calendar", "google_calendar"]:
+                db_types = ["google_calendar", "calendar"]
+            elif norm_type in ["zoho", "zoho_crm"]:
+                db_types = ["zoho_crm", "zoho"]
+            else:
+                db_types = [integration_type, norm_type]
                 
             integrations = db.query(Integration).filter(
                 Integration.workspace_id == ws_uuid,
-                Integration.integration_type == db_type
+                Integration.integration_type.in_(db_types)
             ).all()
             
             if integrations:

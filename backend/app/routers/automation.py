@@ -6,6 +6,7 @@ from app.services.automations.agentic_wiring_service import agentic_wiring_servi
 from app.services.automations.flow_validation_service import FlowValidationService
 from app.routers.auth import get_current_user
 from app.models.automation import AutomationFlow
+from app.models.integration import Integration
 from app.models.brain import MCPDecision
 from uuid import UUID
 import uuid
@@ -117,6 +118,27 @@ async def save_flow(
                 "warnings": validation["warnings"],
             },
         )
+
+    # Validate Google Calendar integration if any AI Agent has demo booking enabled
+    has_demo_booking = any(
+        isinstance(n, dict)
+        and (n.get("config") or {}).get("enable_demo_booking")
+        and n.get("type") == "action"
+        and (n.get("config") or {}).get("type") == "brain_query"
+        for n in request.nodes
+    )
+    if has_demo_booking:
+        cal_integration = db.query(Integration).filter(
+            Integration.workspace_id == ws_uuid,
+            Integration.integration_type.in_(["google_calendar", "calendar"]),
+            Integration.is_active == True,
+            Integration.access_token.isnot(None),
+        ).first()
+        if not cal_integration:
+            raise HTTPException(
+                status_code=400,
+                detail="Google Calendar is not connected. Please connect Google Calendar in Channels before enabling Demo Booking for AI Agent."
+            )
 
 
     if request.id:

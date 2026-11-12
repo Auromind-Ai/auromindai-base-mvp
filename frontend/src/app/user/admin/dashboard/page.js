@@ -1191,12 +1191,41 @@ function QuickActionsCard({ onAddLeadClick }) {
 
 // AI Insights Card 
 function AIInsightsCard({ insights = [] }) {
+  const router = useRouter();
   const [showModal, setShowModal] = useState(false);
   const iconMap = {
     flame: Flame,
     mail: Mail,
     bot: Bot
   };
+
+  const handleInsightClick = (item) => {
+    if (item?.action_url) {
+      router.push(item.action_url);
+      return;
+    }
+    const title = (item?.title || '').toLowerCase();
+    if (title.includes('lead') || title.includes('convert')) {
+      router.push('/leads');
+    } else if (
+      title.includes('human') ||
+      title.includes('attention') ||
+      title.includes('inbound') ||
+      title.includes('response')
+    ) {
+      router.push('/inbox');
+    } else if (
+      title.includes('meeting') ||
+      title.includes('demo') ||
+      title.includes('booked') ||
+      title.includes('calendar')
+    ) {
+      router.push('/calendar');
+    } else {
+      router.push('/leads');
+    }
+  };
+
   return (
     <section className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden flex flex-col h-full relative">
       <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-white/10">
@@ -1218,16 +1247,37 @@ function AIInsightsCard({ insights = [] }) {
           return (
             <div
               key={i}
-              className="ai-insight-item flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-white/[0.015] cursor-pointer group"
+              onClick={() => handleInsightClick(item)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleInsightClick(item);
+                }
+              }}
+              className="ai-insight-item flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-white/[0.015] hover:bg-white/[0.04] hover:border-purple-500/30 active:scale-[0.99] cursor-pointer group transition-all"
+              title={`Go to ${item.title}`}
             >
               <div className={`w-8 h-8 rounded-lg ${item.icon_bg} flex items-center justify-center flex-shrink-0`}>
                 <Icon size={15} className={item.icon_color} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-white/85 leading-tight">{item.title}</p>
+                <p className="text-[13px] font-medium text-white/85 group-hover:text-white transition-colors leading-tight">{item.title}</p>
                 <p className="text-[11px] text-white/70 mt-0.5 leading-tight">{item.subtitle}</p>
               </div>
-              <ArrowRight size={14} className="text-white group-hover:text-purple-400 transition-colors flex-shrink-0" />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleInsightClick(item);
+                }}
+                className="p-1 rounded-lg text-white/70 hover:text-white hover:bg-purple-500/20 group-hover:text-purple-400 transition-all flex-shrink-0 cursor-pointer"
+                aria-label={`Open ${item.title}`}
+                title={`Open ${item.title}`}
+              >
+                <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+              </button>
             </div>
           );
         })
@@ -1245,13 +1295,23 @@ function AIInsightsCard({ insights = [] }) {
             {insights.map((item, i) => {
               const Icon = iconMap[item.icon_type] || Sparkles;
               return (
-                <div key={i} className="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/[0.015]">
+                <div
+                  key={i}
+                  onClick={() => {
+                    setShowModal(false);
+                    handleInsightClick(item);
+                  }}
+                  className="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/[0.015] hover:bg-white/[0.04] hover:border-purple-500/30 transition-all cursor-pointer group"
+                >
                   <div className={`w-10 h-10 rounded-xl ${item.icon_bg} flex items-center justify-center flex-shrink-0`}>
                     <Icon size={18} className={item.icon_color} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white/85">{item.title}</p>
+                    <p className="text-sm font-medium text-white/85 group-hover:text-white transition-colors">{item.title}</p>
                     <p className="text-xs text-white/60 mt-0.5">{item.subtitle}</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-white/[0.03] group-hover:bg-purple-500/20 text-white/60 group-hover:text-purple-300 transition-all flex-shrink-0">
+                    <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </div>
               );

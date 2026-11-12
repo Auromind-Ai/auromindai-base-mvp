@@ -742,6 +742,7 @@ async def get_ai_insights(workspace_id: str, db: Session, start_date: date | Non
                     "subtitle": f"{hot_count} active Hot Lead{'s' if hot_count != 1 else ''} showing high buying intent. Follow up to close deals.",
                     "icon_bg": "bg-orange-500/10",
                     "icon_color": "text-orange-400",
+                    "action_url": "/leads",
                 })
         except Exception as e:
             logger.warning(f"[insights] current hot leads error: {e}")
@@ -768,6 +769,7 @@ async def get_ai_insights(workspace_id: str, db: Session, start_date: date | Non
                     "subtitle": f"{escalated_count} conversation{'s' if escalated_count != 1 else ''} escalated for human agent review.",
                     "icon_bg": "bg-red-500/10",
                     "icon_color": "text-red-400",
+                    "action_url": "/inbox",
                 })
         except Exception as e:
             logger.warning(f"[insights] human attention error: {e}")
@@ -794,6 +796,7 @@ async def get_ai_insights(workspace_id: str, db: Session, start_date: date | Non
                     "subtitle": f"{meeting_count} demo meeting{'s' if meeting_count != 1 else ''} scheduled by AI for this period.",
                     "icon_bg": "bg-purple-500/10",
                     "icon_color": "text-purple-400",
+                    "action_url": "/calendar",
                 })
         except Exception as e:
             logger.warning(f"[insights] booked meetings error: {e}")
@@ -855,6 +858,7 @@ async def get_ai_insights(workspace_id: str, db: Session, start_date: date | Non
                     "subtitle": f"Inbound conversations grew {growth_pct:.0f}% this period with a {conv_rate:.0f}% lead conversion rate.",
                     "icon_bg": "bg-emerald-500/10",
                     "icon_color": "text-emerald-400",
+                    "action_url": "/inbox",
                 })
             elif cur_convs > 0:
                 insights.append({
@@ -864,6 +868,7 @@ async def get_ai_insights(workspace_id: str, db: Session, start_date: date | Non
                     "subtitle": f"{cur_convs} inbound conversation{'s' if cur_convs != 1 else ''} recorded with a {conv_rate:.0f}% lead conversion rate.",
                     "icon_bg": "bg-emerald-500/10",
                     "icon_color": "text-emerald-400",
+                    "action_url": "/inbox",
                 })
         except Exception as e:
             logger.warning(f"[insights] inbound momentum error: {e}")
@@ -892,6 +897,7 @@ async def get_ai_insights(workspace_id: str, db: Session, start_date: date | Non
                     "subtitle": f"{captured_count} lead{'s were' if captured_count != 1 else ' was'} captured during this period.",
                     "icon_bg": "bg-indigo-500/10",
                     "icon_color": "text-indigo-400",
+                    "action_url": "/leads",
                 })
         except Exception as e:
             logger.warning(f"[insights] historical lead activity error: {e}")
@@ -919,6 +925,7 @@ async def get_ai_insights(workspace_id: str, db: Session, start_date: date | Non
                     "subtitle": f"{converted_count} lead{'s were' if converted_count != 1 else ' was'} converted during this period.",
                     "icon_bg": "bg-orange-500/10",
                     "icon_color": "text-orange-400",
+                    "action_url": "/leads",
                 })
         except Exception as e:
             logger.warning(f"[insights] historical conversion error: {e}")
@@ -969,6 +976,7 @@ async def get_ai_insights(workspace_id: str, db: Session, start_date: date | Non
                 "subtitle": f"Average first response was {resp_text}.",
                 "icon_bg": "bg-emerald-500/10",
                 "icon_color": "text-emerald-400",
+                "action_url": "/inbox",
             })
         except Exception as e:
             logger.warning(f"[insights] historical response performance error: {e}")
@@ -995,6 +1003,7 @@ async def get_ai_insights(workspace_id: str, db: Session, start_date: date | Non
                     "subtitle": f"{meeting_count} demo meeting{'s were' if meeting_count != 1 else ' was'} scheduled in this period.",
                     "icon_bg": "bg-purple-500/10",
                     "icon_color": "text-purple-400",
+                    "action_url": "/calendar",
                 })
         except Exception as e:
             logger.warning(f"[insights] historical booked meetings error: {e}")
@@ -1009,6 +1018,7 @@ async def get_ai_insights(workspace_id: str, db: Session, start_date: date | Non
                 "subtitle": "No actionable insights right now. Check back soon.",
                 "icon_bg": "bg-emerald-500/10",
                 "icon_color": "text-emerald-400",
+                "action_url": "/inbox",
             }
         ]
 
