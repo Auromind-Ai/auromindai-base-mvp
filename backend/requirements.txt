@@ -8,6 +8,7 @@ bcrypt==4.0.1
 beautifulsoup4==4.14.3
 boto3
 celery[redis]==5.3.6
+kombu>=5.3.7,<5.7.0
 cryptography
 ddgs
 fastapi==0.135.1
