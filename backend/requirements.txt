@@ -56,3 +56,4 @@ qrcode[pil]
 redbeat
 reportlab
 openpyxl>=3.1.5,<4
+kombu==5.3.7
