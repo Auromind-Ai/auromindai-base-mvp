@@ -10,6 +10,7 @@ import {
     Platform,
   Modal,
   Pressable,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -42,6 +43,7 @@ import { fetchUserPreferences, updateUserPreferences } from '@/api/notifications
 import { Fonts } from '@/theme/tokens';
 import { scaleFont, scaleContainer, scaleHeight } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
+import { useBiometricLock } from '@/context/biometric-lock-context';
 import { usePushNotifications } from '@/hooks';
 import { AppearanceMode } from '@/types/theme';
 
@@ -61,8 +63,15 @@ export default function SettingsScreen() {
     isLoading: isPushLoading,
   } = usePushNotifications();
 
+  // Biometric App Lock Context
+  const {
+    isBiometricEnabled,
+    toggleBiometricLock,
+    isAuthenticating: isBioAuthenticating,
+    capabilities,
+  } = useBiometricLock();
+
   // Settings State
-  const [biometricLock, setBiometricLock] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isCancellingDeletion, setIsCancellingDeletion] = useState(false);
   const [restoreSuccessMsg, setRestoreSuccessMsg] = useState<string | null>(null);
@@ -81,30 +90,8 @@ export default function SettingsScreen() {
   const userInitial = ((userName || userEmail || 'U').trim()[0] || 'U').toUpperCase();
 
   React.useEffect(() => {
-    let cancelled = false;
     authStore.refreshUser();
     authStore.refreshWorkspaces();
-
-    const loadBiometricPref = async () => {
-      try {
-        const localVal = await AsyncStorage.getItem('@orbion_biometric_lock');
-        if (!cancelled && localVal !== null) {
-          setBiometricLock(localVal === 'true');
-        }
-        const prefs = await fetchUserPreferences();
-        if (!cancelled && typeof prefs.biometric_lock === 'boolean') {
-          setBiometricLock(prefs.biometric_lock);
-          await AsyncStorage.setItem('@orbion_biometric_lock', String(prefs.biometric_lock));
-        }
-      } catch {
-        // Offline fallback
-      }
-    };
-
-    loadBiometricPref();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   // Unified theme palette matching inbox and connected channels
@@ -169,9 +156,16 @@ export default function SettingsScreen() {
   };
 
   const handleToggleBiometricLock = async (enable: boolean) => {
-    setBiometricLock(enable);
-    await AsyncStorage.setItem('@orbion_biometric_lock', String(enable)).catch(() => {});
-    await updateUserPreferences({ biometric_lock: enable }).catch(() => {});
+    if (isBioAuthenticating) return;
+    const result = await toggleBiometricLock(enable);
+    if (!result.success) {
+      if (result.error && result.error !== 'Cancelled by user') {
+        Alert.alert('Biometric App Lock', result.error);
+      }
+      return;
+    }
+    // Also sync to backend preference in background for metadata (best-effort)
+    updateUserPreferences({ biometric_lock: enable }).catch(() => {});
   };
 
   const handleDeleteAccount = () => {
@@ -643,11 +637,14 @@ export default function SettingsScreen() {
                   Biometric app lock
                 </Text>
                 <Text style={[styles.rowSubtitle, { color: theme.textSecondary }]}>
-                  Require Face ID or fingerprint when opening the app.
+                  {capabilities?.biometryName
+                    ? `Require ${capabilities.biometryName} when opening the app.`
+                    : 'Require Face ID or fingerprint when opening the app.'}
                 </Text>
               </View>
               <Switch
-                value={biometricLock}
+                value={isBiometricEnabled}
+                disabled={isBioAuthenticating || (capabilities ? !capabilities.hasHardware : false)}
                 onValueChange={handleToggleBiometricLock}
                 trackColor={{
                   false: isDark ? 'rgba(128, 140, 190, 0.25)' : '#D7DEEE',

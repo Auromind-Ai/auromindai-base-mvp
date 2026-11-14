@@ -1,8 +1,13 @@
 import React, { useEffect } from 'react';
+import { LogBox } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
+
+LogBox.ignoreLogs([
+  "The action 'GO_BACK' was not handled by any navigator",
+]);
 import {
   useFonts,
   Poppins_300Light,
@@ -13,7 +18,10 @@ import {
   Poppins_800ExtraBold,
 } from '@expo-google-fonts/poppins';
 import { ThemeProvider, useAppTheme } from '../context/theme-context';
+import { BiometricLockProvider, useBiometricLock } from '../context/biometric-lock-context';
+import { BiometricLockOverlay } from '../components/BiometricLockOverlay';
 import { usePushNotificationListeners } from '../hooks/use-push-notifications';
+import { useAuth } from '../store/auth';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -27,19 +35,28 @@ function NavigationRoot({
   timedOut: boolean;
 }) {
   const { colors, statusBarStyle, isLoaded: themeLoaded } = useAppTheme();
+  const { isReady: biometricReady } = useBiometricLock();
+  const auth = useAuth();
   usePushNotificationListeners();
 
   useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if ((fontsLoaded || fontsError || timedOut) && (themeLoaded || timedOut)) {
+    // Only dismiss splash screen once fonts, theme, biometric preferences, AND auth are ready
+    if (
+      (fontsLoaded || fontsError || timedOut) &&
+      (themeLoaded || timedOut) &&
+      (biometricReady || timedOut) &&
+      (auth.isInitialized || timedOut)
+    ) {
       SplashScreen.hideAsync().catch(() => {});
     }
-  }, [fontsLoaded, fontsError, themeLoaded, timedOut]);
+  }, [fontsLoaded, fontsError, themeLoaded, biometricReady, auth.isInitialized, timedOut]);
 
-  if ((!themeLoaded && !timedOut) || (!fontsLoaded && !fontsError && !timedOut)) {
+  if (
+    (!themeLoaded && !timedOut) ||
+    (!fontsLoaded && !fontsError && !timedOut) ||
+    (!biometricReady && !timedOut) ||
+    (!auth.isInitialized && !timedOut)
+  ) {
     return null;
   }
 
@@ -63,6 +80,7 @@ function NavigationRoot({
         <Stack.Screen name="connected-channels" options={{ headerShown: false }} />
         <Stack.Screen name="delete-account" options={{ headerShown: false }} />
       </Stack>
+      <BiometricLockOverlay />
     </>
   );
 }
@@ -89,14 +107,16 @@ export default function RootLayout() {
     const timer = setTimeout(() => {
       setTimedOut(true);
       SplashScreen.hideAsync().catch(() => {});
-    }, 1200);
+    }, 1500);
     return () => clearTimeout(timer);
   }, []);
 
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <NavigationRoot fontsLoaded={loaded} fontsError={error} timedOut={timedOut} />
+        <BiometricLockProvider>
+          <NavigationRoot fontsLoaded={loaded} fontsError={error} timedOut={timedOut} />
+        </BiometricLockProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Orbion",
+    "slug": "orbionagents",
+    "owner": "auromindai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -13,7 +14,8 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
-        ]
+        ],
+        "NSFaceIDUsageDescription": "Allow Orbion to use Face ID to securely unlock the app."
       }
     },
     "android": {
@@ -24,10 +26,13 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.mobile",
+      "package": "com.auromind.orbion",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "POST_NOTIFICATIONS",
-        "VIBRATE"
+        "VIBRATE",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
       ]
     },
     "web": {
@@ -53,11 +58,23 @@
           "enableBackgroundRemoteNotifications": true
         }
       ],
-      "./plugins/with-windows-short-cxx"
+      "./plugins/with-windows-short-cxx",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Orbion to use Face ID to securely unlock the app."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "47a24fdb-f3bc-4aff-8e29-0fe0eeca3b31"
+      }
     }
   }
 }

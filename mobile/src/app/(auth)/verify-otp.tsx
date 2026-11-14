@@ -195,7 +195,7 @@ export default function VerifyOtpScreen() {
         {/* Top Bar with Glassmorphic Back Arrow */}
         <View style={styles.topBar}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/(auth)/login'))}
             style={[
               styles.backButton,
               {
@@ -256,7 +256,7 @@ export default function VerifyOtpScreen() {
                     <Mail size={14} color={isDark ? '#A69BFF' : '#7C3AED'} style={{ marginRight: 6 }} />
                     <Text style={[styles.contactText, { color: isDark ? '#F8F8FF' : '#111827' }]}>{displayContact}</Text>
                     <TouchableOpacity
-                      onPress={() => router.back()}
+                      onPress={() => (router.canGoBack() ? router.back() : router.replace('/(auth)/login'))}
                       activeOpacity={0.7}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >

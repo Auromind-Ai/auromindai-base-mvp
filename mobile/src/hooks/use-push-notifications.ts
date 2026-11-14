@@ -156,7 +156,6 @@ class PushNotificationStore {
         importance: AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#6F5BFF',
-        sound: 'default',
         enableVibrate: true,
         showBadge: true,
       });
@@ -166,7 +165,6 @@ class PushNotificationStore {
         importance: AndroidImportance.HIGH,
         vibrationPattern: [0, 150, 150, 150],
         lightColor: '#8060E8',
-        sound: 'default',
         enableVibrate: true,
         showBadge: true,
       });
@@ -308,28 +306,57 @@ function computeActiveMute(
 
 export const pushStore = new PushNotificationStore();
 
-function navigateFromNotificationData(
+export let handledColdStartNotificationId: string | null = null;
+
+export function markColdStartNotificationHandled(id: string) {
+  handledColdStartNotificationId = id;
+}
+
+export function navigateFromNotificationData(
   router: ReturnType<typeof useRouter>,
-  data: PushNotificationData | undefined
+  data: PushNotificationData | undefined,
+  replace = false
 ) {
   if (!data) {
-    router.push('/(tabs)/inbox' as any);
+    if (replace) {
+      router.replace('/(tabs)/inbox' as any);
+    } else {
+      router.push('/(tabs)/inbox' as any);
+    }
     return;
   }
   if (data.conversation_id) {
-    router.push({
+    const target = {
       pathname: '/chat/[id]',
       params: {
         id: String(data.conversation_id),
         ...(data.channel ? { channel: String(data.channel) } : {}),
       },
-    } as any);
+    };
+    if (replace) {
+      router.replace(target as any);
+    } else {
+      router.push(target as any);
+    }
   } else if (data.route) {
-    router.push(data.route as any);
+    if (replace) {
+      router.replace(data.route as any);
+    } else {
+      router.push(data.route as any);
+    }
   } else if (data.lead_id) {
-    router.push(`/customer/${data.lead_id}` as any);
+    const target = `/customer/${data.lead_id}`;
+    if (replace) {
+      router.replace(target as any);
+    } else {
+      router.push(target as any);
+    }
   } else {
-    router.push('/(tabs)/inbox' as any);
+    if (replace) {
+      router.replace('/(tabs)/inbox' as any);
+    } else {
+      router.push('/(tabs)/inbox' as any);
+    }
   }
 }
 
@@ -356,7 +383,7 @@ export function usePushNotificationListeners() {
     const respSub = Notifications.addNotificationResponseReceivedListener((response) => {
       try {
         const data = response.notification.request.content.data as PushNotificationData;
-        navigateFromNotificationData(router, data);
+        navigateFromNotificationData(router, data, false);
       } catch (err) {
         console.error('[Push] Navigation error from notification tap:', err);
       }
@@ -368,18 +395,16 @@ export function usePushNotificationListeners() {
       }
     });
 
-    let coldStartTimer: ReturnType<typeof setTimeout> | null = null;
     if (auth.isInitialized && auth.token) {
       Notifications.getLastNotificationResponseAsync()
         .then((lastResponse) => {
           if (!lastResponse) return;
           const id = lastResponse.notification.request.identifier;
-          if (handledInitialRef.current === id) return;
+          if (handledColdStartNotificationId === id || handledInitialRef.current === id) return;
+          handledColdStartNotificationId = id;
           handledInitialRef.current = id;
           const data = lastResponse.notification.request.content.data as PushNotificationData;
-          coldStartTimer = setTimeout(() => {
-            navigateFromNotificationData(router, data);
-          }, 150);
+          navigateFromNotificationData(router, data, true);
         })
         .catch(() => {});
     }
@@ -388,9 +413,6 @@ export function usePushNotificationListeners() {
       notifSub.remove();
       respSub.remove();
       tokenSub.remove();
-      if (coldStartTimer) {
-        clearTimeout(coldStartTimer);
-      }
     };
   }, [auth.isInitialized, auth.token, router]);
 }
