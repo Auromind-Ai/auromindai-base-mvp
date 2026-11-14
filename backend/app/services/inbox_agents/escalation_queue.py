@@ -49,10 +49,12 @@ class EscalationQueue:
                     emit_event(
                         event_name="ai_agent.human_escalation",
                         payload={
+                            "conversation_id": str(conversation_id) if conversation_id else None,
                             "customer_name": data.get("customer_name") or "Customer",
                             "escalation_reason": escalation_data.get("reason", "Human intervention requested"),
                             "channel": data.get("channel", "chat"),
                             "action_route": f"/inbox?conversation_id={conversation_id}",
+                            "mobile_route": f"/chat/{conversation_id}" if conversation_id else "/(tabs)/inbox",
                             "action_label": "Open Conversation",
                             "workspace_id": str(escalation_data["workspace_id"])
                         },

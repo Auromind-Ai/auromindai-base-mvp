@@ -959,6 +959,43 @@ class WebhookService:
 
             db.commit()
 
+            # Dispatch mobile push notification to active workspace inbox members
+            try:
+                from app.services.notifications.expo_push_service import ExpoPushService
+
+                ch_val = normalized_channel.value.lower()
+                channel_label = (
+                    "Instagram"
+                    if ch_val == "instagram"
+                    else "Twilio SMS"
+                    if ch_val == "twilio"
+                    else "WhatsApp"
+                )
+                sender_label = (
+                    (lead.name if lead and lead.name else None)
+                    or contact_name
+                    or conversation.contact_name
+                    or phone
+                    or "Customer"
+                )
+                ExpoPushService.enqueue_workspace_push(
+                    db,
+                    workspace_id=workspace_id,
+                    title=f"{sender_label} · {channel_label}",
+                    message=(body or "Sent an attachment")[:200],
+                    notif_type="new_message",
+                    data={
+                        "conversation_id": str(conversation.id),
+                        "channel": ch_val,
+                        "route": f"/chat/{conversation.id}",
+                        **({"lead_id": str(lead.id)} if lead else {}),
+                    },
+                    deduplication_key=f"inbound_msg:{message.id}",
+                    required_permission="inbox.conversations",
+                )
+            except Exception as push_exc:
+                logger.warning(f"Failed to enqueue inbound message push: {push_exc}")
+
             # Emit lead.message_received event (if CRM sync is enabled)
             if lead and should_sync_crm:
                 try:
@@ -968,6 +1005,7 @@ class WebhookService:
                         event_name="lead.message_received",
                         payload={
                             "lead_id": str(lead.id),
+                            "conversation_id": str(conversation.id),
                             "lead_name": (lead.name if lead else None) or contact_name or phone or "Lead",
                             "lead_phone": phone or (lead.phone if lead else "N/A"),
                             "message_body": body[:500] if body else "",

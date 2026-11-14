@@ -34,6 +34,8 @@ import {
   FileText,
   X,
   Video,
+  Play,
+  Pause,
   Sparkles,
 } from 'lucide-react-native';
 import { Fonts } from '@/theme/tokens';
@@ -51,13 +53,22 @@ import {
 } from '@/api';
 import { useAuth } from '@/store/auth';
 import { useWorkspaceRealtime } from '@/hooks/use-workspace-realtime';
-import { formatShortTime, getInitials } from '@/utils/formatters';
+import {
+  formatMessageTime,
+  formatDateSeparator,
+  getDateKey,
+  getInitials,
+} from '@/utils/formatters';
+
+const CHAT_BG_DARK = require('../../../assets/images/chat-bg-dark.jpg');
+const CHAT_BG_LIGHT = require('../../../assets/images/chat-bg-light.jpg');
 
 interface Message {
   id: string;
   sender: 'customer' | 'ai' | 'agent';
   text: string;
   time: string;
+  rawTimestamp?: string | null;
   status?: string;
   mediaUrl?: string | null;
   mediaType?: string | null;
@@ -77,19 +88,490 @@ function mapBackendMessage(m: BackendMessage): Message {
   const senderType = (m.sender_type || '').toLowerCase();
   const isCust = senderType === 'user' || senderType === 'customer';
   const isBot = senderType === 'bot' || senderType === 'ai';
-  const mediaUrl = m.media_url || m.metadata?.media_url || null;
+  const mediaUrl =
+    m.media_url ||
+    m.metadata?.media_url ||
+    m.metadata?.voice_url ||
+    m.metadata?.audio_url ||
+    m.metadata?.video_url ||
+    null;
   const mediaType = m.media_type || m.metadata?.message_type || m.metadata?.media_type || null;
+  const rawTimestamp = m.timestamp || (m as any).created_at || null;
 
   return {
-    id: String(m.id || `${m.timestamp}-${Math.random()}`),
+    id: String(m.id || `${rawTimestamp}-${Math.random()}`),
     sender: isCust ? 'customer' : isBot ? 'ai' : 'agent',
     text: m.content || '',
-    time: formatShortTime(m.timestamp || (m as any).created_at, ''),
+    time: formatMessageTime(rawTimestamp, ''),
+    rawTimestamp,
     status: m.status,
     mediaUrl,
     mediaType,
     fileName: m.metadata?.filename || null,
   };
+}
+
+function formatAudioTime(sec: number): string {
+  if (!sec || isNaN(sec) || !isFinite(sec)) return '0:15';
+  const mins = Math.floor(sec / 60);
+  const secs = Math.floor(sec % 60);
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
+function isMediaPlaceholder(text?: string | null): boolean {
+  if (!text) return true;
+  const cleaned = text.trim();
+  return (
+    /^\[?(VOICE|AUDIO|VIDEO|IMAGE|DOCUMENT)\]?$/i.test(cleaned) ||
+    /^(Sent a (video|photo|image|document|voice note|audio))$/i.test(cleaned)
+  );
+}
+
+function isAudioMessage(msg: Message, resolvedMedia: string | null): boolean {
+  const lowerType = (msg.mediaType || '').toLowerCase();
+  const lowerText = (msg.text || '').trim().toLowerCase();
+  const lowerFile = (msg.fileName || '').toLowerCase();
+  const lowerUrl = (resolvedMedia || '').toLowerCase();
+
+  return (
+    lowerType.includes('audio') ||
+    lowerType.includes('voice') ||
+    lowerText === '[voice]' ||
+    lowerText === '[audio]' ||
+    lowerText === 'voice' ||
+    lowerText === 'audio' ||
+    /\.(ogg|oga|mp3|wav|m4a|aac|opus|webm|flac)(\?|$)/i.test(lowerUrl) ||
+    /\.(ogg|oga|mp3|wav|m4a|aac|opus|webm|flac)(\?|$)/i.test(lowerFile)
+  );
+}
+
+function isVideoMessage(msg: Message, resolvedMedia: string | null): boolean {
+  const lowerType = (msg.mediaType || '').toLowerCase();
+  const lowerText = (msg.text || '').trim().toLowerCase();
+  const lowerFile = (msg.fileName || '').toLowerCase();
+  const lowerUrl = (resolvedMedia || '').toLowerCase();
+
+  return (
+    lowerType.includes('video') ||
+    lowerText === '[video]' ||
+    lowerText === 'video' ||
+    /\.(mp4|mov|webm|mkv|3gp|m4v)(\?|$)/i.test(lowerUrl) ||
+    /\.(mp4|mov|webm|mkv|3gp|m4v)(\?|$)/i.test(lowerFile)
+  );
+}
+
+function isDocumentMessage(msg: Message, resolvedMedia: string | null): boolean {
+  const lowerType = (msg.mediaType || '').toLowerCase();
+  const lowerFile = (msg.fileName || '').toLowerCase();
+  const lowerUrl = (resolvedMedia || '').toLowerCase();
+
+  return (
+    lowerType.includes('document') ||
+    lowerType.includes('pdf') ||
+    /\.(pdf|docx?|xlsx?|pptx?|txt|csv|zip)(\?|$)/i.test(lowerUrl) ||
+    /\.(pdf|docx?|xlsx?|pptx?|txt|csv|zip)(\?|$)/i.test(lowerFile)
+  );
+}
+
+const WAVEFORM_HEIGHTS = [
+  5, 8, 14, 20, 24, 16, 10, 6, 12, 18, 22, 17, 11, 7, 13, 20, 24, 19, 12, 8, 11, 16, 22, 15, 9, 6, 8, 13,
+];
+
+function WhatsAppAudioBubble({
+  messageId,
+  url,
+  isCustomer,
+  isDark,
+  customerName,
+  time,
+  status,
+  isInstagram,
+  activeAudioId,
+  onPlayAudio,
+  onPauseAudio,
+}: {
+  messageId: string;
+  url?: string | null;
+  isCustomer: boolean;
+  isDark: boolean;
+  customerName?: string;
+  time: string;
+  status?: string;
+  isInstagram?: boolean;
+  activeAudioId?: string | null;
+  onPlayAudio: (id: string) => void;
+  onPauseAudio: () => void;
+}) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<any>(null);
+
+  // If another voice note starts playing, pause this one immediately
+  useEffect(() => {
+    if (activeAudioId !== messageId && isPlaying) {
+      if (Platform.OS === 'web' && audioRef.current) {
+        try {
+          audioRef.current.pause();
+        } catch {}
+      }
+      setIsPlaying(false);
+    }
+  }, [activeAudioId, messageId, isPlaying]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && (window as any).Audio && url) {
+      const audio = new (window as any).Audio(url);
+      audioRef.current = audio;
+
+      const onLoaded = () => {
+        if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+          setDuration(audio.duration);
+        }
+      };
+      const onTimeUpdate = () => {
+        setCurrentTime(audio.currentTime);
+      };
+      const onEnded = () => {
+        setIsPlaying(false);
+        setCurrentTime(0);
+        onPauseAudio();
+      };
+      const onError = () => {
+        setIsPlaying(false);
+        onPauseAudio();
+      };
+
+      audio.addEventListener('loadedmetadata', onLoaded);
+      audio.addEventListener('timeupdate', onTimeUpdate);
+      audio.addEventListener('ended', onEnded);
+      audio.addEventListener('error', onError);
+
+      return () => {
+        try {
+          audio.pause();
+        } catch {}
+        audio.removeEventListener('loadedmetadata', onLoaded);
+        audio.removeEventListener('timeupdate', onTimeUpdate);
+        audio.removeEventListener('ended', onEnded);
+        audio.removeEventListener('error', onError);
+        audioRef.current = null;
+      };
+    }
+  }, [url]);
+
+  const togglePlay = () => {
+    if (!url) return;
+    if (Platform.OS === 'web' && audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+        onPauseAudio();
+      } else {
+        // Stop any other playing audio in window
+        if (typeof window !== 'undefined') {
+          const globalAudio = (window as any).__activeAudioElement;
+          if (globalAudio && globalAudio !== audioRef.current) {
+            try {
+              globalAudio.pause();
+            } catch {}
+          }
+          (window as any).__activeAudioElement = audioRef.current;
+        }
+
+        onPlayAudio(messageId);
+
+        audioRef.current
+          .play()
+          .then(() => setIsPlaying(true))
+          .catch((err: any) => {
+            console.warn('Audio play failed:', err);
+            setIsPlaying(false);
+            onPauseAudio();
+            if (typeof window !== 'undefined') {
+              window.open(url, '_blank');
+            }
+          });
+      }
+    } else {
+      Linking.openURL(url).catch(() => {});
+    }
+  };
+
+  const handleSeek = (progressRatio: number) => {
+    if (!url) return;
+    const targetDuration = duration > 0 ? duration : 20;
+    const targetTime = Math.max(0, Math.min(progressRatio * targetDuration, targetDuration));
+    if (Platform.OS === 'web' && audioRef.current) {
+      audioRef.current.currentTime = targetTime;
+      setCurrentTime(targetTime);
+    }
+  };
+
+  const progress = duration > 0 ? currentTime / duration : 0;
+  const activeDotIndex = Math.min(
+    Math.floor(progress * WAVEFORM_HEIGHTS.length),
+    WAVEFORM_HEIGHTS.length - 1
+  );
+
+  return (
+    <View style={styles.voiceBubbleContainer}>
+      <View style={styles.voiceHeaderRow}>
+        {/* Left: Avatar with small mic badge */}
+        <View style={styles.voiceAvatarWrapper}>
+          <View
+            style={[
+              styles.voiceAvatarCircle,
+              {
+                backgroundColor: isCustomer
+                  ? isInstagram
+                    ? '#E1306C'
+                    : '#8576D0'
+                  : '#5B4EB5',
+              },
+            ]}
+          >
+            <Text style={styles.voiceAvatarInitials}>
+              {getInitials(isCustomer ? customerName : 'Me')}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.voiceMicBadge,
+              {
+                backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                borderColor: isDark ? '#374151' : '#E2E8F0',
+              },
+            ]}
+          >
+            <Mic size={10} color={isCustomer ? '#10B981' : '#8576D0'} />
+          </View>
+        </View>
+
+        {/* Play/Pause Button */}
+        <TouchableOpacity
+          style={[
+            styles.voicePlayBtn,
+            isCustomer
+              ? {
+                  backgroundColor: isDark ? '#2D3748' : '#F1F5F9',
+                }
+              : {
+                  backgroundColor: 'rgba(255, 255, 255, 0.22)',
+                },
+          ]}
+          onPress={togglePlay}
+          activeOpacity={0.7}
+        >
+          {isPlaying ? (
+            <Pause
+              size={18}
+              color={isCustomer ? (isDark ? '#F1F5F9' : '#1E293B') : '#FFFFFF'}
+              fill={isCustomer ? (isDark ? '#F1F5F9' : '#1E293B') : '#FFFFFF'}
+            />
+          ) : (
+            <Play
+              size={18}
+              color={isCustomer ? (isDark ? '#F1F5F9' : '#1E293B') : '#FFFFFF'}
+              fill={isCustomer ? (isDark ? '#F1F5F9' : '#1E293B') : '#FFFFFF'}
+              style={{ marginLeft: 2 }}
+            />
+          )}
+        </TouchableOpacity>
+
+        {/* Waveform Scrubber Bars */}
+        <View style={styles.voiceWaveformArea}>
+          <Pressable
+            style={styles.voiceWaveformRow}
+            onPress={(e) => {
+              const { locationX } = e.nativeEvent as any;
+              if (typeof locationX === 'number' && locationX > 0) {
+                const ratio = Math.max(0, Math.min(1, locationX / 140));
+                handleSeek(ratio);
+              }
+            }}
+          >
+            {WAVEFORM_HEIGHTS.map((height, i) => {
+              const isPlayed = i <= activeDotIndex;
+              return (
+                <View
+                  key={i}
+                  style={[
+                    styles.voiceWaveformBar,
+                    {
+                      height,
+                      backgroundColor: isPlayed
+                        ? isCustomer
+                          ? '#8576D0'
+                          : '#FFFFFF'
+                        : isCustomer
+                          ? isDark
+                            ? 'rgba(255, 255, 255, 0.22)'
+                            : '#CBD5E1'
+                          : 'rgba(255, 255, 255, 0.35)',
+                    },
+                  ]}
+                />
+              );
+            })}
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Meta Row: Voice Duration on left, Time + Blue Ticks on right */}
+      <View style={styles.voiceMetaRow}>
+        <Text
+          style={[
+            styles.voiceDurationText,
+            {
+              color: isCustomer
+                ? isDark
+                  ? '#94A3B8'
+                  : '#64748B'
+                : 'rgba(255, 255, 255, 0.78)',
+            },
+          ]}
+        >
+          {formatAudioTime(isPlaying || currentTime > 0 ? currentTime : (duration || 20))}
+        </Text>
+
+        <View style={styles.voiceTimeTicks}>
+          <Text
+            style={[
+              styles.bubbleTimeText,
+              {
+                color: isCustomer
+                  ? isDark
+                    ? '#8E9BB5'
+                    : '#7883A0'
+                  : 'rgba(255, 255, 255, 0.72)',
+              },
+            ]}
+          >
+            {time}
+          </Text>
+          {!isCustomer && (
+            status === 'sending' ? (
+              <Check size={13} color="rgba(255, 255, 255, 0.65)" style={styles.bubbleTickIcon} />
+            ) : (
+              <CheckCheck
+                size={13}
+                color={status === 'read' ? '#53BDEB' : 'rgba(255, 255, 255, 0.65)'}
+                style={styles.bubbleTickIcon}
+              />
+            )
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function WhatsAppVideoBubble({
+  url,
+  isCustomer,
+  isDark,
+  time,
+  status,
+  caption,
+  onOpenVideo,
+}: {
+  url?: string | null;
+  isCustomer: boolean;
+  isDark: boolean;
+  time: string;
+  status?: string;
+  caption?: string | null;
+  onOpenVideo: (videoUrl: string) => void;
+}) {
+  return (
+    <View style={styles.videoBubbleContainer}>
+      <TouchableOpacity
+        style={styles.videoCard}
+        activeOpacity={0.9}
+        onPress={() => {
+          if (url) onOpenVideo(url);
+        }}
+      >
+        {Platform.OS === 'web' && url ? (
+          <video
+            src={url}
+            preload="metadata"
+            playsInline
+            muted
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              backgroundColor: '#0F172A',
+            }}
+          />
+        ) : (
+          <View style={styles.videoNativeFallback}>
+            <LinearGradient
+              colors={['#1E1B4B', '#0F172A']}
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
+        )}
+
+        {/* Dark overlay with WhatsApp Play Circle */}
+        <View style={styles.videoOverlay}>
+          <View style={styles.videoPlayCircle}>
+            <Play size={24} color="#FFFFFF" fill="#FFFFFF" style={{ marginLeft: 3 }} />
+          </View>
+
+          {/* Bottom-left Video Badge */}
+          <View style={styles.videoBadgePill}>
+            <Video size={13} color="#FFFFFF" />
+            <Text style={styles.videoBadgeText}>Video</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      {/* Caption if provided and not placeholder */}
+      {caption && !isMediaPlaceholder(caption) ? (
+        <Text
+          style={[
+            styles.messageText,
+            styles.mediaCaptionText,
+            isCustomer ? { color: isDark ? '#FFFFFF' : '#1E293B' } : { color: '#FFFFFF' },
+          ]}
+        >
+          {caption}
+        </Text>
+      ) : null}
+
+      {/* Meta Row: Time & Ticks */}
+      <View style={styles.bubbleMetaRow}>
+        <Text
+          style={[
+            styles.bubbleTimeText,
+            {
+              color: isCustomer
+                ? isDark
+                  ? '#8E9BB5'
+                  : '#7883A0'
+                : 'rgba(255, 255, 255, 0.72)',
+            },
+          ]}
+        >
+          {time}
+        </Text>
+        {!isCustomer && (
+          status === 'sending' ? (
+            <Check size={13} color="rgba(255, 255, 255, 0.65)" style={styles.bubbleTickIcon} />
+          ) : (
+            <CheckCheck
+              size={13}
+              color={status === 'read' ? '#53BDEB' : 'rgba(255, 255, 255, 0.65)'}
+              style={styles.bubbleTickIcon}
+            />
+          )
+        )}
+      </View>
+    </View>
+  );
 }
 
 function formatChannelLabel(channel: string): string {
@@ -134,6 +616,8 @@ export default function ChatDetailScreen() {
     mimeType?: string;
   } | null>(null);
   const [internalNoteAlert, setInternalNoteAlert] = useState<string | null>(null);
+  const [activeVideoModalUrl, setActiveVideoModalUrl] = useState<string | null>(null);
+  const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
 
   const channelLower = (profile?.channel || (typeof params.channel === 'string' ? params.channel : 'whatsapp')).toLowerCase();
   const isInstagram = channelLower === 'instagram';
@@ -314,11 +798,13 @@ export default function ChatDetailScreen() {
     if ((!textToSend && !attachmentToSend) || !conversationId || isSending) return;
 
     const optimisticId = `temp-${Date.now()}`;
+    const nowIso = new Date().toISOString();
     const optimisticMsg: Message = {
       id: optimisticId,
       sender: 'agent',
       text: textToSend || (attachmentToSend?.type === 'video' ? 'Sent a video' : 'Sent an image'),
-      time: formatShortTime(new Date().toISOString(), 'Just now'),
+      time: formatMessageTime(nowIso, 'Just now'),
+      rawTimestamp: nowIso,
       status: 'sending',
       mediaUrl: attachmentToSend?.uri || null,
       mediaType: attachmentToSend?.type || null,
@@ -565,16 +1051,33 @@ export default function ChatDetailScreen() {
 
       {/* MAIN CONVERSATION AREA SHEET */}
       <View style={styles.mainContentSheet}>
-        <LinearGradient
-          colors={
-            isDark
-              ? ['#0C1125', '#10162D', '#0A1023']
-              : ['#F2F2F8', '#F6F6FA', '#EEEEF5']
-          }
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
+        {isDark ? (
+          <>
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A1023' }]} />
+            <Image
+              source={CHAT_BG_DARK}
+              style={[StyleSheet.absoluteFill, styles.chatBgImage]}
+              resizeMode="cover"
+            />
+            {/* Dark tint gradient matching the dark card and theme palette */}
+            <LinearGradient
+              colors={['rgba(12, 17, 37, 0.55)', 'rgba(16, 22, 45, 0.50)', 'rgba(10, 16, 35, 0.65)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+          </>
+        ) : (
+          <>
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: '#EFEAE2' }]} />
+            <Image
+              source={CHAT_BG_LIGHT}
+              style={[StyleSheet.absoluteFill, styles.chatBgImageLight]}
+              resizeMode="cover"
+            />
+          </>
+        )}
 
         {internalNoteAlert && (
           <View style={[styles.toastBanner, { backgroundColor: isDark ? '#1F1B2C' : 'rgba(251, 191, 36, 0.15)' }]}>
@@ -634,115 +1137,235 @@ export default function ChatDetailScreen() {
                 </Text>
               </View>
             ) : (
-              messages.map((msg) => {
+              messages.map((msg, index) => {
+                const prevMsg = index > 0 ? messages[index - 1] : null;
+                const currentDateKey = getDateKey(msg.rawTimestamp);
+                const prevDateKey = prevMsg ? getDateKey(prevMsg.rawTimestamp) : null;
+                const showDateSeparator = Boolean(
+                  msg.rawTimestamp &&
+                  (!prevDateKey || currentDateKey !== prevDateKey)
+                );
+                const dateLabel = showDateSeparator ? formatDateSeparator(msg.rawTimestamp) : null;
+
                 const isCustomer = msg.sender === 'customer';
                 const resolvedMedia = resolveMediaUrl(msg.mediaUrl);
-                const lowerMediaType = (msg.mediaType || '').toLowerCase();
-                const isVideo = lowerMediaType.includes('video') || Boolean(resolvedMedia?.match(/\.(mp4|mov|webm)(\?|$)/i));
-                const isDocument = lowerMediaType.includes('document') || lowerMediaType.includes('pdf') || Boolean(resolvedMedia?.match(/\.pdf(\?|$)/i));
+                const isAudio = isAudioMessage(msg, resolvedMedia);
+                const isVideo = !isAudio && isVideoMessage(msg, resolvedMedia);
+                const isDocument = !isAudio && !isVideo && isDocumentMessage(msg, resolvedMedia);
+                const isImage = !isAudio && !isVideo && !isDocument && Boolean(resolvedMedia);
+                const hasValidCaption = Boolean(msg.text && !isMediaPlaceholder(msg.text));
 
                 return (
-                  <View
-                    key={msg.id}
-                    style={[
-                      styles.messageRow,
-                      isCustomer ? styles.customerRow : styles.agentRow,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.messageBubble,
-                        isCustomer
-                          ? [
-                              styles.customerBubble,
-                              {
-                                backgroundColor: customerBubbleBg,
-                                borderColor: customerBubbleBorder,
-                              },
-                            ]
-                          : styles.agentBubble,
-                      ]}
-                    >
-                      {resolvedMedia ? (
-                        isVideo || isDocument ? (
-                          <TouchableOpacity
-                            style={[
-                              styles.mediaFileCard,
-                              {
-                                backgroundColor: isCustomer
-                                  ? isDark
-                                    ? '#161B32'
-                                    : '#F1F5F9'
-                                  : 'rgba(255, 255, 255, 0.16)',
-                              },
-                            ]}
-                            activeOpacity={0.8}
-                            onPress={() => Linking.openURL(resolvedMedia).catch(() => {})}
-                          >
-                            {isVideo ? (
-                              <Video size={18} color={isCustomer ? '#8576D0' : '#FFFFFF'} />
-                            ) : (
-                              <FileText size={18} color={isCustomer ? '#8576D0' : '#FFFFFF'} />
-                            )}
-                            <Text
-                              style={[
-                                styles.mediaFileName,
-                                { color: isCustomer ? customerTextColor : '#FFFFFF' },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {msg.fileName || (isVideo ? 'Video attachment' : 'Document attachment')}
-                            </Text>
-                          </TouchableOpacity>
-                        ) : (
-                          <TouchableOpacity
-                            activeOpacity={0.9}
-                            onPress={() => Linking.openURL(resolvedMedia).catch(() => {})}
-                          >
-                            <Image
-                              source={{ uri: resolvedMedia }}
-                              style={styles.messageMediaImage}
-                              resizeMode="cover"
-                            />
-                          </TouchableOpacity>
-                        )
-                      ) : null}
-
-                      {msg.text ? (
-                        <Text
+                  <React.Fragment key={msg.id}>
+                    {showDateSeparator && dateLabel ? (
+                      <View style={styles.dateSeparatorRow}>
+                        <View
                           style={[
-                            styles.messageText,
-                            resolvedMedia ? { marginTop: 8 } : null,
-                            isCustomer
-                              ? { color: customerTextColor }
-                              : { color: '#FFFFFF' },
+                            styles.dateSeparatorPill,
+                            {
+                              backgroundColor: isDark
+                                ? 'rgba(23, 29, 45, 0.92)'
+                                : 'rgba(255, 255, 255, 0.94)',
+                              borderColor: isDark
+                                ? 'rgba(164, 170, 255, 0.12)'
+                                : 'rgba(0, 0, 0, 0.06)',
+                            },
                           ]}
                         >
-                          {msg.text}
-                        </Text>
-                      ) : null}
-                    </View>
+                          <Text
+                            style={[
+                              styles.dateSeparatorText,
+                              { color: isDark ? '#A2ADD8' : '#5E677F' },
+                            ]}
+                          >
+                            {dateLabel}
+                          </Text>
+                        </View>
+                      </View>
+                    ) : null}
 
                     <View
                       style={[
-                        styles.timeRow,
-                        isCustomer ? styles.timeRowCustomer : styles.timeRowAgent,
+                        styles.messageRow,
+                        isCustomer ? styles.customerRow : styles.agentRow,
                       ]}
                     >
-                      <Text style={styles.timeText}>{msg.time}</Text>
-                      {!isCustomer && (
-                        msg.status === 'sending' ? (
-                          <Check size={14} color="#7883A0" style={styles.tickIcon} />
-                        ) : (
-                          <CheckCheck
-                            size={14}
-                            color={msg.status === 'read' ? '#8576D0' : '#7883A0'}
-                            style={styles.tickIcon}
+                      {isAudio ? (
+                        <View
+                          style={[
+                            styles.messageBubble,
+                            styles.audioMessageBubble,
+                            isCustomer
+                              ? [
+                                  styles.customerBubble,
+                                  {
+                                    backgroundColor: customerBubbleBg,
+                                    borderColor: customerBubbleBorder,
+                                  },
+                                ]
+                              : styles.agentBubble,
+                          ]}
+                        >
+                          <WhatsAppAudioBubble
+                            messageId={msg.id}
+                            url={resolvedMedia}
+                            isCustomer={isCustomer}
+                            isDark={isDark}
+                            customerName={customerName}
+                            time={msg.time}
+                            status={msg.status}
+                            isInstagram={isInstagram}
+                            activeAudioId={activeAudioId}
+                            onPlayAudio={(id) => setActiveAudioId(id)}
+                            onPauseAudio={() => {
+                              if (activeAudioId === msg.id) {
+                                setActiveAudioId(null);
+                              }
+                            }}
                           />
-                        )
+                        </View>
+                      ) : isVideo ? (
+                        <View
+                          style={[
+                            styles.messageBubble,
+                            styles.videoMessageBubble,
+                            isCustomer
+                              ? [
+                                  styles.customerBubble,
+                                  {
+                                    backgroundColor: customerBubbleBg,
+                                    borderColor: customerBubbleBorder,
+                                  },
+                                ]
+                              : styles.agentBubble,
+                          ]}
+                        >
+                          <WhatsAppVideoBubble
+                            url={resolvedMedia}
+                            isCustomer={isCustomer}
+                            isDark={isDark}
+                            time={msg.time}
+                            status={msg.status}
+                            caption={msg.text}
+                            onOpenVideo={(vUrl) => {
+                              setActiveAudioId(null);
+                              if (typeof window !== 'undefined' && (window as any).__activeAudioElement) {
+                                try {
+                                  (window as any).__activeAudioElement.pause();
+                                } catch {}
+                              }
+                              setActiveVideoModalUrl(vUrl);
+                            }}
+                          />
+                        </View>
+                      ) : (
+                        <View
+                          style={[
+                            styles.messageBubble,
+                            isImage ? styles.imageMessageBubble : null,
+                            isCustomer
+                              ? [
+                                  styles.customerBubble,
+                                  {
+                                    backgroundColor: customerBubbleBg,
+                                    borderColor: customerBubbleBorder,
+                                  },
+                                ]
+                              : styles.agentBubble,
+                          ]}
+                        >
+                          {isDocument ? (
+                            <TouchableOpacity
+                              style={[
+                                styles.mediaFileCard,
+                                {
+                                  backgroundColor: isCustomer
+                                    ? isDark
+                                      ? '#161B32'
+                                      : '#F1F5F9'
+                                    : 'rgba(255, 255, 255, 0.16)',
+                                },
+                              ]}
+                              activeOpacity={0.8}
+                              onPress={() => {
+                                if (resolvedMedia) Linking.openURL(resolvedMedia).catch(() => {});
+                              }}
+                            >
+                              <FileText size={18} color={isCustomer ? '#8576D0' : '#FFFFFF'} />
+                              <Text
+                                style={[
+                                  styles.mediaFileName,
+                                  { color: isCustomer ? customerTextColor : '#FFFFFF' },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {msg.fileName || 'Document attachment'}
+                              </Text>
+                            </TouchableOpacity>
+                          ) : isImage && resolvedMedia ? (
+                            <TouchableOpacity
+                              activeOpacity={0.9}
+                              onPress={() => {
+                                Linking.openURL(resolvedMedia).catch(() => {});
+                              }}
+                            >
+                              <Image
+                                source={{ uri: resolvedMedia }}
+                                style={styles.messageMediaImage}
+                                resizeMode="cover"
+                              />
+                            </TouchableOpacity>
+                          ) : null}
+
+                          {hasValidCaption || (!resolvedMedia && msg.text) ? (
+                            <Text
+                              style={[
+                                styles.messageText,
+                                isImage || isDocument ? { marginTop: 8 } : null,
+                                isCustomer
+                                  ? { color: customerTextColor }
+                                  : { color: '#FFFFFF' },
+                              ]}
+                            >
+                              {msg.text}
+                            </Text>
+                          ) : null}
+
+                          <View style={styles.bubbleMetaRow}>
+                            <Text
+                              style={[
+                                styles.bubbleTimeText,
+                                {
+                                  color: isCustomer
+                                    ? isDark
+                                      ? '#8E9BB5'
+                                      : '#7883A0'
+                                    : 'rgba(255, 255, 255, 0.72)',
+                                },
+                              ]}
+                            >
+                              {msg.time}
+                            </Text>
+                            {!isCustomer && (
+                              msg.status === 'sending' ? (
+                                <Check
+                                  size={13}
+                                  color="rgba(255, 255, 255, 0.65)"
+                                  style={styles.bubbleTickIcon}
+                                />
+                              ) : (
+                                <CheckCheck
+                                  size={13}
+                                  color={msg.status === 'read' ? '#53BDEB' : 'rgba(255, 255, 255, 0.65)'}
+                                  style={styles.bubbleTickIcon}
+                                />
+                              )
+                            )}
+                          </View>
+                        </View>
                       )}
                     </View>
-                  </View>
+                  </React.Fragment>
                 );
               })
             )}
@@ -917,6 +1540,56 @@ export default function ChatDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* FULLSCREEN VIDEO PLAYER MODAL */}
+      <Modal
+        visible={Boolean(activeVideoModalUrl)}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setActiveVideoModalUrl(null)}
+      >
+        <View style={styles.videoModalBackdrop}>
+          <View style={styles.videoModalHeader}>
+            <Text style={styles.videoModalTitle}>Video</Text>
+            <TouchableOpacity
+              style={styles.videoModalCloseBtn}
+              onPress={() => setActiveVideoModalUrl(null)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <X size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.videoModalPlayerContainer}>
+            {Platform.OS === 'web' && activeVideoModalUrl ? (
+              <video
+                src={activeVideoModalUrl}
+                controls
+                autoPlay
+                style={{
+                  maxWidth: '92vw',
+                  maxHeight: '75vh',
+                  borderRadius: 14,
+                  boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
+                  backgroundColor: '#000000',
+                }}
+              />
+            ) : (
+              <TouchableOpacity
+                style={styles.videoNativeOpenBtn}
+                onPress={() => {
+                  if (activeVideoModalUrl) {
+                    Linking.openURL(activeVideoModalUrl).catch(() => {});
+                  }
+                }}
+              >
+                <Play size={28} color="#FFFFFF" fill="#FFFFFF" />
+                <Text style={styles.videoNativeOpenText}>Play in External Player</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1013,6 +1686,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     paddingTop: 8,
   },
+  chatBgImage: {
+    width: '100%',
+    height: '100%',
+    opacity: 0.55,
+  },
+  chatBgImageLight: {
+    width: '100%',
+    height: '100%',
+    opacity: 0.85,
+  },
   toastBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1067,8 +1750,28 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.semiBold,
     color: '#8576D0',
   },
+  dateSeparatorRow: {
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  dateSeparatorPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  dateSeparatorText: {
+    fontSize: scaleFont(11.5),
+    fontFamily: Fonts.medium,
+    letterSpacing: 0.2,
+  },
   messageRow: {
-    marginBottom: 14,
+    marginBottom: 6,
   },
   customerRow: {
     alignItems: 'flex-start',
@@ -1078,8 +1781,10 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: '82%',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    minWidth: 76,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 6,
   },
   customerBubble: {
     borderTopLeftRadius: 14,
@@ -1109,6 +1814,227 @@ const styles = StyleSheet.create({
     fontSize: scaleFont(15),
     fontFamily: Fonts.regular,
     lineHeight: scaleFont(21),
+  },
+  audioMessageBubble: {
+    minWidth: 260,
+    maxWidth: '88%',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  voiceBubbleContainer: {
+    width: '100%',
+  },
+  voiceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  voiceAvatarWrapper: {
+    position: 'relative',
+    width: 38,
+    height: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  voiceAvatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  voiceAvatarInitials: {
+    fontSize: scaleFont(12.5),
+    fontFamily: Fonts.bold,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  voiceMicBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 17,
+    height: 17,
+    borderRadius: 8.5,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  voicePlayBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  voiceWaveformArea: {
+    flex: 1,
+    height: 30,
+    justifyContent: 'center',
+  },
+  voiceWaveformRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: '100%',
+    paddingHorizontal: 2,
+  },
+  voiceWaveformBar: {
+    width: 2.5,
+    borderRadius: 2,
+    marginHorizontal: 0.5,
+  },
+  voiceMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    paddingLeft: 46,
+    paddingRight: 2,
+  },
+  voiceDurationText: {
+    fontSize: scaleFont(11),
+    fontFamily: Fonts.medium,
+    fontWeight: '500',
+  },
+  voiceTimeTicks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  videoMessageBubble: {
+    paddingHorizontal: 6,
+    paddingTop: 6,
+    paddingBottom: 6,
+    minWidth: 230,
+    maxWidth: '85%',
+  },
+  videoBubbleContainer: {
+    width: '100%',
+  },
+  videoCard: {
+    width: 240,
+    height: 165,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#0F172A',
+  },
+  videoNativeFallback: {
+    ...StyleSheet.absoluteFill,
+  },
+  videoOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoPlayCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  videoBadgePill: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  videoBadgeText: {
+    fontSize: scaleFont(11),
+    fontFamily: Fonts.medium,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  mediaCaptionText: {
+    marginTop: 6,
+    paddingHorizontal: 6,
+  },
+  imageMessageBubble: {
+    paddingHorizontal: 6,
+    paddingTop: 6,
+    paddingBottom: 6,
+  },
+  videoModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoModalHeader: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 44 : 20,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  videoModalTitle: {
+    fontSize: scaleFont(16),
+    fontFamily: Fonts.bold,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  videoModalCloseBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoModalPlayerContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  videoNativeOpenBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#8576D0',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 24,
+  },
+  videoNativeOpenText: {
+    fontSize: scaleFont(15),
+    fontFamily: Fonts.bold,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  bubbleMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    alignSelf: 'flex-end',
+    marginTop: 2,
+    marginLeft: 12,
+  },
+  bubbleTimeText: {
+    fontSize: scaleFont(11),
+    fontFamily: Fonts.regular,
+  },
+  bubbleTickIcon: {
+    marginLeft: 3,
   },
   messageMediaImage: {
     width: 210,

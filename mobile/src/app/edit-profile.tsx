@@ -11,11 +11,11 @@ import {
   KeyboardAvoidingView,
   Modal,
   Pressable,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -280,7 +280,7 @@ export default function EditProfileScreen() {
                   <Image
                     source={{ uri: avatarUri }}
                     style={styles.avatarImage}
-                    contentFit="cover"
+                    resizeMode="cover"
                   />
                 </View>
               ) : (

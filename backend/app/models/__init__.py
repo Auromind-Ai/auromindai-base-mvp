@@ -32,6 +32,7 @@ from .outbound_message import OutboundMessage
 from .scheduled_resume import ScheduledResume
 from .lead_scoring import LeadScoreHistory, TemplateLog, CrmSavedView
 from .user_session import UserSession
+from .push_device import PushDeviceToken
 from .notification import Notification
 from .admin_audit_log import AdminAuditLog
 from .credit_pack import CreditPack

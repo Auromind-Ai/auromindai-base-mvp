@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     WCC_PENDING_EXPIRY_HOURS: int = 24
     TWILIO_STATUS_CALLBACK_URL: Optional[str] = None
+    EXPO_ACCESS_TOKEN: Optional[str] = None
 
     # LOGGING
     LOG_LEVEL: str = "ERROR"

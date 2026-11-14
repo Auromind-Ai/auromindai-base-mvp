@@ -2,53 +2,64 @@ import { apiClient } from './client';
 
 export interface BackendConversation {
   id: string;
-  phone?: string | null;
+  workspace_id?: string;
+  channel?: string | null;
   contact_name?: string | null;
-  channel: 'whatsapp' | 'instagram' | 'twilio' | 'email' | 'web' | string;
+  phone?: string | null;
+  external_id?: string | null;
   profile_pic?: string | null;
-  status: 'OPEN' | 'CLOSED' | 'SNOOZED' | 'CONVERTED' | 'FOLLOW_UP' | string;
+  status?: string | null;
   unread_count?: number;
   message_count?: number;
   last_message?: string | null;
+  last_message_text?: string | null;
   last_message_at?: string | null;
   created_at?: string | null;
+  updated_at?: string | null;
+  [key: string]: any;
 }
 
-export interface ConversationCounts {
+export interface ConversationCountsResponse {
   all: number;
   open: number;
-  follow_up: number;
   unread: number;
-  converted: number;
-  closed: number;
+  follow_up?: number;
+  converted?: number;
+  closed?: number;
 }
 
 export interface BackendMessage {
   id: string;
-  conversation_id: string;
-  content: string;
-  sender_type: 'user' | 'bot' | 'agent' | 'system' | string;
-  status?: string;
-  timestamp: string;
+  conversation_id?: string;
+  sender_type?: string;
+  content?: string | null;
+  timestamp?: string | null;
+  created_at?: string | null;
   is_read?: boolean;
+  status?: string;
   media_url?: string | null;
   media_type?: string | null;
+  mime_type?: string | null;
+  filename?: string | null;
+  file_name?: string | null;
   metadata?: Record<string, any> | null;
+  [key: string]: any;
 }
 
 export interface CustomerProfileData {
   id: string;
-  name: string;
-  phone: string;
-  channel: string;
-  system_tier: 'Cold' | 'Warm' | 'Hot' | string;
-  score: number;
-  labels: string[];
-  first_contact: string;
-  last_contact: string;
-  total_messages: number;
-  status: string;
-  is_converted: boolean;
+  name?: string | null;
+  phone?: string | null;
+  channel?: string | null;
+  system_tier?: string | null;
+  score?: number;
+  labels?: string[];
+  first_contact?: string | null;
+  last_contact?: string | null;
+  total_messages?: number;
+  status?: string | null;
+  is_converted?: boolean;
+  [key: string]: any;
 }
 
 export interface FetchConversationsParams {
@@ -59,82 +70,100 @@ export interface FetchConversationsParams {
   limit?: number;
 }
 
-export async function fetchConversations(params: FetchConversationsParams): Promise<BackendConversation[]> {
-  const query = new URLSearchParams();
-  if (params.workspaceId && !params.workspaceId.startsWith('ws-')) {
-    query.append('workspace_id', params.workspaceId);
-  }
-  if (params.channel && params.channel !== 'all') {
-    query.append('channel', params.channel.toUpperCase());
-  }
-  if (params.status && params.status !== 'all') {
-    query.append('status', params.status.toUpperCase());
-  } else {
-    query.append('status', 'ALL');
-  }
-  if (params.skip !== undefined) {
-    query.append('skip', String(params.skip));
-  }
-  if (params.limit !== undefined) {
-    query.append('limit', String(params.limit));
-  }
-
-  const qs = query.toString();
-  return apiClient.get<BackendConversation[]>(`/conversations${qs ? '?' + qs : ''}`);
-}
-
-export async function fetchConversationCounts(params: {
+export interface FetchConversationCountsParams {
   workspaceId: string;
   channel?: string;
-}): Promise<ConversationCounts> {
-  const query = new URLSearchParams();
-  if (params.workspaceId && !params.workspaceId.startsWith('ws-')) {
-    query.append('workspace_id', params.workspaceId);
-  }
-  if (params.channel && params.channel !== 'all') {
-    query.append('channel', params.channel.toUpperCase());
-  }
-  const qs = query.toString();
-  return apiClient.get<ConversationCounts>(`/conversations/counts${qs ? '?' + qs : ''}`);
+}
+
+export interface SendReplyPayload {
+  conversation_id: string;
+  message: string;
+  phone?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface ConvertConversationPayload {
+  amount: number;
+  product: string;
+  notes?: string;
+}
+
+export async function fetchConversations(
+  params: FetchConversationsParams
+): Promise<BackendConversation[]> {
+  return apiClient.get<BackendConversation[]>('/conversations', {
+    params: {
+      workspace_id: params.workspaceId,
+      channel: params.channel,
+      status: params.status,
+      skip: params.skip,
+      limit: params.limit,
+    },
+  });
+}
+
+export async function fetchConversationCounts(
+  params: FetchConversationCountsParams
+): Promise<ConversationCountsResponse> {
+  return apiClient.get<ConversationCountsResponse>('/conversations/counts', {
+    params: {
+      workspace_id: params.workspaceId,
+      channel: params.channel,
+    },
+  });
 }
 
 export async function fetchMessages(
   conversationId: string,
-  params?: { skip?: number; limit?: number }
+  params?: {
+    skip?: number;
+    limit?: number;
+    before_timestamp?: string;
+    before_id?: string;
+  }
 ): Promise<BackendMessage[]> {
-  const query = new URLSearchParams();
-  if (params?.skip !== undefined) query.append('skip', String(params.skip));
-  if (params?.limit !== undefined) query.append('limit', String(params.limit));
-
-  const qs = query.toString() ? `?${query.toString()}` : '';
-  return apiClient.get<BackendMessage[]>(`/messages/${encodeURIComponent(conversationId)}${qs}`);
+  return apiClient.get<BackendMessage[]>(
+    `/messages/${encodeURIComponent(conversationId)}`,
+    { params }
+  );
 }
 
-export async function sendReply(payload: {
-  conversation_id: string;
-  message: string;
-  metadata?: Record<string, any>;
-}): Promise<any> {
+export async function sendReply(payload: SendReplyPayload): Promise<any> {
   return apiClient.post('/send-reply', payload);
 }
 
-export async function markConversationRead(conversationId: string): Promise<any> {
-  return apiClient.post(`/conversations/${encodeURIComponent(conversationId)}/read`, {});
+export async function markConversationRead(
+  conversationId: string
+): Promise<{ status: string; conversation_id: string }> {
+  return apiClient.post<{ status: string; conversation_id: string }>(
+    `/conversations/${encodeURIComponent(conversationId)}/read`,
+    {}
+  );
+}
+
+export async function closeConversation(
+  conversationId: string
+): Promise<{ status: string }> {
+  return apiClient.post<{ status: string }>(
+    `/conversations/${encodeURIComponent(conversationId)}/close`,
+    {}
+  );
+}
+
+export async function fetchCustomerProfile(
+  conversationId: string
+): Promise<CustomerProfileData> {
+  return apiClient.get<CustomerProfileData>(
+    `/conversations/${encodeURIComponent(conversationId)}/customer-profile`
+  );
 }
 
 export async function convertConversation(
   conversationId: string,
-  payload: { amount: number; product: string; notes?: string }
-): Promise<any> {
-  return apiClient.post(`/conversations/${encodeURIComponent(conversationId)}/convert`, payload);
-}
-
-export async function closeConversation(conversationId: string): Promise<any> {
-  return apiClient.post(`/conversations/${encodeURIComponent(conversationId)}/close`, {});
-}
-
-export async function fetchCustomerProfile(conversationId: string): Promise<CustomerProfileData> {
-  return apiClient.get<CustomerProfileData>(
-    `/conversations/${encodeURIComponent(conversationId)}/customer-profile`
+  payload: ConvertConversationPayload
+): Promise<{ status: string; conversation_status: string; lead_id: string }> {
+  return apiClient.post<{ status: string; conversation_status: string; lead_id: string }>(
+    `/conversations/${encodeURIComponent(conversationId)}/convert`,
+    payload
   );
 }

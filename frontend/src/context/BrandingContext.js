@@ -1,12 +1,59 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import api from '@/lib/api';
 
 const CACHE_KEY = 'branding_cache';
 
-/** Read cached branding synchronously from sessionStorage (safe on client only)*/
+const DEFAULT_BRANDING = Object.freeze({
+  appName: 'ORBION AGENTS',
+  appLogoUrl: '/logo.png',
+});
+
+let cachedSnapshot = null;
+const listeners = new Set();
+
+function emitChange() {
+  for (const listener of listeners) {
+    listener();
+  }
+}
+
+function subscribeToBranding(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function getClientSnapshot() {
+  if (cachedSnapshot) return cachedSnapshot;
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = sessionStorage.getItem(CACHE_KEY);
+      if (raw) {
+        cachedSnapshot = Object.freeze(JSON.parse(raw));
+        return cachedSnapshot;
+      }
+    } catch {}
+  }
+  return DEFAULT_BRANDING;
+}
+
+function getServerSnapshot() {
+  return DEFAULT_BRANDING;
+}
+
+function updateBranding(nextData) {
+  cachedSnapshot = Object.freeze(nextData);
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(nextData));
+    } catch {}
+  }
+  emitChange();
+}
+
+/** Read cached branding synchronously from sessionStorage (safe on client only) */
 function readCache() {
   if (typeof window === 'undefined') return null;
   try {
@@ -14,15 +61,6 @@ function readCache() {
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
-  }
-}
-
-/** Persist branding to sessionStorage so subsequent navigations are instant. */
-function writeCache(data) {
-  try {
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
-  } catch {
-    // Ignore quota / private-mode errors
   }
 }
 
@@ -34,9 +72,10 @@ const BrandingContext = createContext({
 
 export const BrandingProvider = ({ children }) => {
   const pathname = usePathname();
-  // Safe static defaults for initial render/hydration
-  const [appName, setAppName] = useState('ORBION AGENTS');
-  const [appLogoUrl, setAppLogoUrl] = useState('/logo.png');
+  const branding = useSyncExternalStore(subscribeToBranding, getClientSnapshot, getServerSnapshot);
+
+  const appName = branding?.appName || DEFAULT_BRANDING.appName;
+  const appLogoUrl = branding?.appLogoUrl || DEFAULT_BRANDING.appLogoUrl;
 
   const refreshBranding = useCallback(async (force = false) => {
     // Skip the network call if we already have cached data and no force-refresh
@@ -47,23 +86,25 @@ export const BrandingProvider = ({ children }) => {
       const nextName = data?.app_name || 'ORBION AGENTS';
       const nextLogo = data?.app_logo_url || '';
 
-      setAppName(nextName);
-      setAppLogoUrl(nextLogo);
-      writeCache({ appName: nextName, appLogoUrl: nextLogo });
+      updateBranding({ appName: nextName, appLogoUrl: nextLogo });
     } catch (err) {
       console.warn('Failed to load branding settings:', err?.message || err);
     }
   }, []);
 
-  // Fetch once on first mount; subsequent page navigations skip the call
+  // Fetch once on first mount; defer to idle time so it doesn't block critical page load
   useEffect(() => {
-    // Load cache after mount (client-safe) to avoid hydration mismatch
-    const cachedData = readCache();
-    if (cachedData) {
-      if (cachedData.appName) setAppName(cachedData.appName);
-      if (cachedData.appLogoUrl) setAppLogoUrl(cachedData.appLogoUrl);
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const handle = window.requestIdleCallback(() => {
+        refreshBranding();
+      }, { timeout: 3000 });
+      return () => window.cancelIdleCallback(handle);
+    } else {
+      const timer = setTimeout(() => {
+        refreshBranding();
+      }, 2000);
+      return () => clearTimeout(timer);
     }
-    refreshBranding();
   }, [refreshBranding]);
 
   // Update browser favicon whenever the logo URL or pathname changes

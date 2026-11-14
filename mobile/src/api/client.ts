@@ -3,18 +3,18 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 
 export function getApiBaseUrl(): string {
-  // 1. Explicit environment variable override (highest priority for staging/production)
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
-  }
-
-  // 2. Web platform check: if opened in web browser during local dev
+  // 1. Web platform check: if opened in web browser during local dev, use current host on port 8000
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
     const { protocol, hostname } = window.location;
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
       return `${protocol}//${hostname}:8000`;
     }
     return window.location.origin;
+  }
+
+  // 2. Explicit environment variable override (highest priority for device staging/production)
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
   }
 
   // 3. Android emulator ALWAYS connects to host machine via 10.0.2.2

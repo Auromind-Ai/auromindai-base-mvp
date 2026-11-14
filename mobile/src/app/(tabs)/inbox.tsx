@@ -34,11 +34,13 @@ import {
   ChevronDown,
   X,
   Check,
+  LogIn,
 } from 'lucide-react-native';
 import { AddLeadModal } from '../../components/leads/AddLeadModal';
 import { Fonts } from '@/theme/tokens';
 import { useAppTheme } from '@/context/theme-context';
 import { fetchConversations, fetchConversationCounts, BackendConversation } from '@/api';
+import { verifyOTP } from '@/api/auth';
 import { useAuth, authStore } from '@/store/auth';
 import { useWorkspaceRealtime } from '@/hooks/use-workspace-realtime';
 import { getInitials, getAvatarColor, formatShortTime } from '@/utils/formatters';
@@ -63,10 +65,10 @@ export interface ConversationItem {
 // WhatsApp Icon
 function WhatsAppIcon({ size = 18 }: { size?: number }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Rect width="24" height="24" rx="12" fill="#25D366" />
+    <Svg width={size} height={size} viewBox="0 0 48 48">
+      <Circle cx="24" cy="24" r="24" fill="#25D366" />
       <Path
-        d="M17.2 13.8c-.28-.14-1.63-.8-1.88-.9-.25-.1-.43-.14-.62.14-.19.28-.72.9-.88 1.09-.16.19-.31.21-.59.07-.28-.14-1.18-.43-2.25-1.39-.83-.75-1.4-1.67-1.56-1.95-.16-.28-.02-.43.12-.57.13-.13.28-.33.42-.5.14-.17.19-.28.28-.47.1-.19 0-.38-.05-.52-.05-.14-.62-1.5-.85-2.05-.22-.55-.45-.48-.62-.48h-.53c-.19 0-.5.07-.76.35-.26.29-1 1-1 2.45s1.02 2.85 1.16 3.05c.14.19 2.01 3.2 4.95 4.38.7.28 1.25.45 1.68.58.7.21 1.34.18 1.85.1.57-.09 1.75-.72 2-1.42.25-.7.25-1.3.17-1.42-.08-.12-.27-.19-.55-.32z"
+        d="M34.5 13.4C32.1 11 28.9 9.6 25.5 9.6c-7 0-12.7 5.7-12.7 12.7 0 2.2.6 4.4 1.7 6.3L12.6 35l6.6-1.7c1.8 1 3.8 1.5 5.9 1.5 7 0 12.7-5.7 12.7-12.7-.1-3.4-1.5-6.5-3.3-8.7zm-9 19.5c-1.9 0-3.7-.5-5.3-1.4l-.4-.2-3.9 1 1-3.8-.2-.4c-1-1.6-1.6-3.5-1.6-5.4 0-5.6 4.6-10.2 10.2-10.2 2.7 0 5.3 1.1 7.2 2.9 1.9 1.9 3 4.4 3 7.1.2 5.8-4.4 10.4-10 10.4zm5.6-7.6c-.3-.2-1.8-.9-2.1-1s-.5-.2-.7.2-.8 1-1 1.2-.4.2-.7.1c-.3-.2-1.2-.4-2.3-1.4-.8-.7-1.4-1.6-1.6-1.9s0-.5.2-.6l.5-.6c.1-.2.2-.4.3-.6 0-.2 0-.4-.1-.6s-.7-1.7-1-2.3c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4s-1 1-1 2.5 1 2.9 1.2 3.1c.2.2 2 3 4.9 4.2.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.2-.2-.2-.5-.4z"
         fill="#FFFFFF"
       />
     </Svg>
@@ -144,6 +146,25 @@ export default function OmniInboxScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [devLoggingIn, setDevLoggingIn] = useState(false);
+
+  const handleDevQuickLogin = async () => {
+    try {
+      setDevLoggingIn(true);
+      const res = await verifyOTP('yogisanjay278@gmail.com', '123456', 'login');
+      if (res?.access_token && res?.user) {
+        await authStore.setAuth({
+          token: res.access_token,
+          user: res.user,
+          workspaces: res.workspaces,
+        });
+      }
+    } catch (e: any) {
+      console.warn('Dev quick login failed:', e);
+    } finally {
+      setDevLoggingIn(false);
+    }
+  };
 
   const workspaceId = (authState.selectedWorkspace?.id && !authState.selectedWorkspace.id.startsWith('ws-'))
     ? authState.selectedWorkspace.id
@@ -955,6 +976,75 @@ export default function OmniInboxScreen() {
                 <Text style={{ color: '#EF4444', fontWeight: '600', marginBottom: 4 }}>{loadError}</Text>
                 <Text style={{ color: isDark ? '#A2ADD8' : '#6B7280', fontSize: 12 }}>Tap to retry</Text>
               </TouchableOpacity>
+            ) : !authState.token ? (
+              <View style={{ paddingVertical: 40, paddingHorizontal: 24, alignItems: 'center' }}>
+                <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: isDark ? 'rgba(128,96,232,0.18)' : 'rgba(128,96,232,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                  <LogIn size={26} color="#8060E8" />
+                </View>
+                <Text style={{ color: isDark ? '#F1F3FB' : '#1A1C29', fontSize: 17, fontWeight: '700', marginBottom: 6, textAlign: 'center' }}>
+                  Sign in to view conversations
+                </Text>
+                <Text style={{ color: isDark ? '#A2ADD8' : '#7887A9', fontSize: 13, textAlign: 'center', marginBottom: 20, lineHeight: 18, maxWidth: 280 }}>
+                  Please sign in to access your leads and messages from WhatsApp and Instagram.
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                  <TouchableOpacity
+                    onPress={() => router.push('/(auth)/login')}
+                    style={{
+                      backgroundColor: '#8060E8',
+                      paddingHorizontal: 22,
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                    }}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                      Go to Login
+                    </Text>
+                  </TouchableOpacity>
+                  {__DEV__ && (
+                    <TouchableOpacity
+                      onPress={handleDevQuickLogin}
+                      disabled={devLoggingIn}
+                      style={{
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
+                      }}
+                    >
+                      {devLoggingIn ? (
+                        <ActivityIndicator size="small" color="#8060E8" />
+                      ) : (
+                        <Text style={{ color: isDark ? '#D1D5DB' : '#374151', fontWeight: '600', fontSize: 13 }}>
+                          Quick Dev Login
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            ) : !workspaceId ? (
+              <View style={{ paddingVertical: 40, paddingHorizontal: 24, alignItems: 'center' }}>
+                <Text style={{ color: isDark ? '#F1F3FB' : '#1A1C29', fontSize: 16, fontWeight: '600', marginBottom: 6 }}>
+                  Connecting to workspace...
+                </Text>
+                <Text style={{ color: isDark ? '#A2ADD8' : '#7887A9', fontSize: 13, textAlign: 'center', marginBottom: 16 }}>
+                  Syncing your workspace leads and channel data.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    authStore.refreshWorkspaces();
+                    loadInboxData();
+                  }}
+                  style={{ backgroundColor: isDark ? '#2A2C40' : '#E9ECEF', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10 }}
+                >
+                  <Text style={{ color: isDark ? '#F1F3FB' : '#1A1C29', fontWeight: '600', fontSize: 13 }}>
+                    Refresh Workspace
+                  </Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <View style={{ paddingVertical: 48, alignItems: 'center' }}>
                 <Text style={{ color: isDark ? '#A2ADD8' : '#7887A9', fontSize: 14 }}>

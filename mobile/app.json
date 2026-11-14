@@ -8,7 +8,13 @@
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.auromindai.orbion",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +24,11 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.mobile"
+      "package": "com.anonymous.mobile",
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ]
     },
     "web": {
       "output": "static",
@@ -38,9 +48,12 @@
         "expo-notifications",
         {
           "icon": "./assets/images/android-icon-monochrome.png",
-          "color": "#6F5BFF"
+          "color": "#6F5BFF",
+          "defaultChannel": "default",
+          "enableBackgroundRemoteNotifications": true
         }
-      ]
+      ],
+      "./plugins/with-windows-short-cxx"
     ],
     "experiments": {
       "typedRoutes": true,

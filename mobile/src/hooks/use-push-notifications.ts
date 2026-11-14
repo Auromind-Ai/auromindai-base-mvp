@@ -206,6 +206,10 @@ class PushNotificationStore {
         Constants?.expoConfig?.extra?.eas?.projectId ??
         Constants?.easConfig?.projectId;
 
+      if (!projectId && !__DEV__) {
+        console.warn('[Push] Missing extra.eas.projectId in app.json; standalone push registration may fail.');
+      }
+
       const tokenResponse = await Notifications.getExpoPushTokenAsync(
         projectId ? { projectId } : undefined
       );
@@ -214,20 +218,26 @@ class PushNotificationStore {
       this.setState({ expoPushToken: token });
       await AsyncStorage.setItem(STORAGE_KEY_TOKEN, token).catch(() => {});
 
-      const platform: PlatformType = Platform.OS === 'ios' ? 'ios' : 'android';
-      const deviceName = Device.modelName || Device.deviceName || `${Platform.OS} device`;
-
-      await registerPushToken({
-        push_token: token,
-        platform,
-        device_name: deviceName,
-      }).catch(() => {});
+      await this.syncTokenWithBackend(token);
 
       return token;
     } catch (error) {
       console.warn('[Push] Push registration unavailable:', (error as any)?.message || error);
       return null;
     }
+  }
+
+  async syncTokenWithBackend(token: string): Promise<void> {
+    if (!token || Platform.OS === 'web') return;
+    const platform: PlatformType = Platform.OS === 'ios' ? 'ios' : 'android';
+    const deviceName = Device.modelName || Device.deviceName || `${Platform.OS} device`;
+    this.setState({ expoPushToken: token });
+    await AsyncStorage.setItem(STORAGE_KEY_TOKEN, token).catch(() => {});
+    await registerPushToken({
+      push_token: token,
+      platform,
+      device_name: deviceName,
+    }).catch(() => {});
   }
 
   async unregisterDeviceToken(): Promise<void> {
@@ -306,10 +316,16 @@ function navigateFromNotificationData(
     router.push('/(tabs)/inbox' as any);
     return;
   }
-  if (data.route) {
+  if (data.conversation_id) {
+    router.push({
+      pathname: '/chat/[id]',
+      params: {
+        id: String(data.conversation_id),
+        ...(data.channel ? { channel: String(data.channel) } : {}),
+      },
+    } as any);
+  } else if (data.route) {
     router.push(data.route as any);
-  } else if (data.conversation_id) {
-    router.push(`/chat/${data.conversation_id}` as any);
   } else if (data.lead_id) {
     router.push(`/customer/${data.lead_id}` as any);
   } else {
@@ -346,7 +362,14 @@ export function usePushNotificationListeners() {
       }
     });
 
-    if (auth.token) {
+    const tokenSub = Notifications.addPushTokenListener(() => {
+      if (auth.token && pushStore.getSnapshot().isEnabled) {
+        pushStore.registerForPushNotificationsAsync().catch(() => {});
+      }
+    });
+
+    let coldStartTimer: ReturnType<typeof setTimeout> | null = null;
+    if (auth.isInitialized && auth.token) {
       Notifications.getLastNotificationResponseAsync()
         .then((lastResponse) => {
           if (!lastResponse) return;
@@ -354,7 +377,9 @@ export function usePushNotificationListeners() {
           if (handledInitialRef.current === id) return;
           handledInitialRef.current = id;
           const data = lastResponse.notification.request.content.data as PushNotificationData;
-          navigateFromNotificationData(router, data);
+          coldStartTimer = setTimeout(() => {
+            navigateFromNotificationData(router, data);
+          }, 150);
         })
         .catch(() => {});
     }
@@ -362,8 +387,12 @@ export function usePushNotificationListeners() {
     return () => {
       notifSub.remove();
       respSub.remove();
+      tokenSub.remove();
+      if (coldStartTimer) {
+        clearTimeout(coldStartTimer);
+      }
     };
-  }, [auth.token, router]);
+  }, [auth.isInitialized, auth.token, router]);
 }
 
 export function usePushNotifications() {

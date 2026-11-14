@@ -1,17 +1,12 @@
 import dynamic from 'next/dynamic';
 import NavigationSection from '../components/LandingPageNew/NavigationSection/NavigationSection';
 import ModernSaaSBackground from '../components/LandingPageNew/ModernSaaSBackground/ModernSaaSBackground';
-// import ProductDemoSection from '../components/LandingPageNew/ProductDemoSection/ProductDemoSection';
-// import SocialProofSection from '../components/LandingPageNew/SocialProofSection/SocialProofSection';
-// import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
-import IntegrationsSection from '@/components/LandingPageNew/IntegrationsSection/IntegrationsSection';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const HeroShowcaseSection = dynamic(
   () => import('../components/LandingPageNew/HeroShowcaseSection/HeroShowcaseSection'),
   { ssr: true, loading: () => <div className="min-h-[400px]" /> }
 );
-
 
 const MessageManagementSection = dynamic(
   () => import('../components/LandingPageNew/MessageManagementSection/Messagemanagementsection'),
@@ -23,8 +18,23 @@ const SalesJourneySection = dynamic(
   { ssr: true, loading: () => <div className="min-h-[300px]" /> }
 );
 
+const WhatsAppShowcase = dynamic(
+  () => import('../components/LandingPageNew/WhatsAppShowcase/WhatsAppShowcase'),
+  { ssr: true, loading: () => <div className="min-h-[300px]" /> }
+);
+
+const IntegrationsSection = dynamic(
+  () => import('@/components/LandingPageNew/IntegrationsSection/IntegrationsSection'),
+  { ssr: true, loading: () => <div className="min-h-[250px]" /> }
+);
+
 const BeforeAfterSection = dynamic(
   () => import('../components/LandingPageNew/BeforeAfterSection/BeforeAfterSection'),
+  { ssr: true, loading: () => <div className="min-h-[300px]" /> }
+);
+
+const NeuroHero = dynamic(
+  () => import('../components/NeuroHero'),
   { ssr: true, loading: () => <div className="min-h-[300px]" /> }
 );
 
@@ -56,21 +66,6 @@ const CtaSection = dynamic(
 const FooterSection = dynamic(
   () => import('@/components/LandingPageNew/FooterSection/Footer'),
   { ssr: true }
-);
-
-const ManageChatsSection = dynamic(
-  () => import('../components/LandingPageNew/ManageChatsSection/ManagechatsSection'),
-  { ssr: true }
-);
-
-const NeuroHero = dynamic(
-  () => import('../components/NeuroHero'),
-  { ssr: true }
-);
-
-const WhatsAppShowcase = dynamic(
-  () => import('../components/LandingPageNew/WhatsAppShowcase/WhatsAppShowcase'),
-  { ssr: true, loading: () => <div className="min-h-[300px]" /> }
 );
 
 export const metadata = {
@@ -108,8 +103,6 @@ export default function LandingPage() {
           <HeroShowcaseSection />
         </ErrorBoundary>
 
-        
-
         <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">MessageManagement Error</div>}>
           <MessageManagementSection />
         </ErrorBoundary>
@@ -127,17 +120,11 @@ export default function LandingPage() {
         </ErrorBoundary>
 
         <div className="relative z-10">
-          
           <BeforeAfterSection />
-
           <NeuroHero />
-
           <HowItWorks />
-          
           <PricingSectionNew />
-   
           <FAQSection />
-
           <CtaSection />
           <FooterSection />
         </div>

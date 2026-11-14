@@ -30,3 +30,20 @@ class NotificationListResponse(BaseModel):
     unread_count: int
     counts: Optional[NotificationCounts] = None
 
+
+class PushTokenRegisterRequest(BaseModel):
+    push_token: str
+    platform: str = "android"
+    device_name: Optional[str] = None
+    device_id: Optional[str] = None
+
+
+class PushTokenUnregisterRequest(BaseModel):
+    push_token: Optional[str] = None
+
+
+class PushTokenResponse(BaseModel):
+    status: str
+    platform: Optional[str] = None
+    active_devices: int = 0
+

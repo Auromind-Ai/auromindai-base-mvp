@@ -7,16 +7,16 @@ import {
   ScrollView,
   Switch,
   ActivityIndicator,
-    Platform,
+  Platform,
   Modal,
   Pressable,
+  Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, {
   Defs,
@@ -304,11 +304,20 @@ export default function SettingsScreen() {
                   <Text style={[styles.deletionBannerDesc, { color: isDark ? '#D1D5DB' : '#6B7280' }]}>
                     Your account will be permanently deleted on{' '}
                     <Text style={{ fontWeight: '600', color: isDark ? '#FFFFFF' : '#111827' }}>
-                      {new Date(authState.user.deletion_scheduled_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
+                      {(() => {
+                        try {
+                          const d = new Date(authState.user.deletion_scheduled_at);
+                          return isNaN(d.getTime())
+                            ? 'the scheduled date'
+                            : d.toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              });
+                        } catch {
+                          return 'the scheduled date';
+                        }
+                      })()}
                     </Text>
                     . You can cancel before this date to restore your account.
                   </Text>
@@ -350,7 +359,7 @@ export default function SettingsScreen() {
                   <Image
                     source={{ uri: authState.user.avatar_url }}
                     style={styles.avatarImage}
-                    contentFit="cover"
+                    resizeMode="cover"
                   />
                 ) : (
                   <LinearGradient
@@ -733,7 +742,7 @@ export default function SettingsScreen() {
 
           {/* App Version & Environment Footer */}
           <Text style={[styles.versionFooterText, { color: theme.textMuted }]}>
-            {`OrbionAgent TeamBox ${Constants.expoConfig?.version || '1.0.0'} · ${__DEV__ ? 'development' : 'production'}`}
+            {`OrbionAgent TeamBox ${Constants.expoConfig?.version || (Constants as any)?.manifest?.version || '1.0.0'} · ${typeof __DEV__ !== 'undefined' && __DEV__ ? 'development' : 'production'}`}
           </Text>
         </ScrollView>
       </View>

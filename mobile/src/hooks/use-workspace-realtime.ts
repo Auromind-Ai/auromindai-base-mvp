@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { AppState } from 'react-native';
-import { getWsBaseUrl } from '../api/client';
-import { useAuth } from '../store/auth';
+import { getWsBaseUrl } from '@/api/client';
+import { useAuth } from '@/store/auth';
 
 export interface WorkspaceRealtimeEvent {
   event_type?: string;
@@ -9,200 +8,189 @@ export interface WorkspaceRealtimeEvent {
   type?: string;
   payload?: Record<string, any>;
   data?: Record<string, any>;
+  conversation_id?: string;
   [key: string]: any;
 }
 
-type EventListener = (event: WorkspaceRealtimeEvent) => void;
+export interface UseWorkspaceRealtimeOptions {
+  conversationId?: string;
+  enabled?: boolean;
+}
 
-class WorkspaceRealtimeManager {
-  private ws: WebSocket | null = null;
-  private listeners = new Set<EventListener>();
-  private subscribedConversations = new Map<string, number>();
-  private currentUserId: string | null = null;
-  private currentToken: string | null = null;
-  private currentWorkspaceId: string | null = null;
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private reconnectAttempt = 0;
-  private manualClose = false;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const BASE_RECONNECT_DELAY_MS = 1000;
+const MAX_RECONNECT_DELAY_MS = 30000;
 
-  addListener(listener: EventListener, conversationId?: string): () => void {
-    this.listeners.add(listener);
-    if (conversationId) {
-      const nextCount = (this.subscribedConversations.get(conversationId) || 0) + 1;
-      this.subscribedConversations.set(conversationId, nextCount);
-      if (nextCount === 1) {
-        this.sendSubscribe(conversationId);
-      }
+/**
+ * Subscribe to workspace and optional conversation WebSocket events with
+ * automatic heartbeat pong replies and exponential-backoff reconnection.
+ */
+export function useWorkspaceRealtime(
+  onEvent: (event: WorkspaceRealtimeEvent) => void,
+  options?: UseWorkspaceRealtimeOptions
+): void {
+  const authState = useAuth();
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
+
+  const conversationId = options?.conversationId;
+  const enabled = options?.enabled ?? true;
+
+  const socketRef = useRef<WebSocket | null>(null);
+  const activeConversationIdRef = useRef<string | undefined>(conversationId);
+
+  const userId = authState.user?.id || '';
+  const token = authState.token || '';
+  const workspaceId =
+    authState.selectedWorkspace?.id && !authState.selectedWorkspace.id.startsWith('ws-')
+      ? authState.selectedWorkspace.id
+      : authState.workspaces.find((w) => w?.id && !w.id.startsWith('ws-'))?.id || '';
+
+  useEffect(() => {
+    const prevConversationId = activeConversationIdRef.current;
+    activeConversationIdRef.current = conversationId;
+
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
     }
 
-    return () => {
-      this.listeners.delete(listener);
-      if (conversationId) {
-        const count = (this.subscribedConversations.get(conversationId) || 1) - 1;
-        if (count <= 0) {
-          this.subscribedConversations.delete(conversationId);
-          this.sendUnsubscribe(conversationId);
-        } else {
-          this.subscribedConversations.set(conversationId, count);
-        }
-      }
-      if (this.listeners.size === 0) {
-        this.disconnect();
+    if (prevConversationId && prevConversationId !== conversationId) {
+      socket.send(
+        JSON.stringify({
+          type: 'unsubscribe_conversation',
+          conversation_id: prevConversationId,
+        })
+      );
+    }
+
+    if (conversationId && conversationId !== prevConversationId) {
+      socket.send(
+        JSON.stringify({
+          type: 'subscribe_conversation',
+          conversation_id: conversationId,
+        })
+      );
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!enabled || !userId || !token || !workspaceId) {
+      return;
+    }
+
+    const wsBase = getWsBaseUrl();
+    if (!wsBase) {
+      return;
+    }
+
+    let intentionalClose = false;
+    let reconnectAttempts = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const clearReconnectTimer = () => {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
       }
     };
-  }
 
-  ensureConnected(userId: string | null, token: string | null, workspaceId: string | null) {
-    if (!userId || !token || !workspaceId) {
-      this.disconnect();
-      return;
-    }
+    const connect = () => {
+      if (intentionalClose) return;
 
-    if (
-      this.ws &&
-      (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) &&
-      this.currentUserId === userId &&
-      this.currentToken === token &&
-      this.currentWorkspaceId === workspaceId
-    ) {
-      return;
-    }
+      const query = new URLSearchParams({
+        token,
+        workspace_id: workspaceId,
+      }).toString();
+      const wsUrl = `${wsBase}/ws/${encodeURIComponent(userId)}?${query}`;
 
-    this.disconnect();
-    this.currentUserId = userId;
-    this.currentToken = token;
-    this.currentWorkspaceId = workspaceId;
-    this.manualClose = false;
-    this.connect();
-  }
-
-  private connect() {
-    if (!this.currentUserId || !this.currentToken || !this.currentWorkspaceId || this.listeners.size === 0) {
-      return;
-    }
-    const base = getWsBaseUrl();
-    const url = `${base}/ws/${encodeURIComponent(this.currentUserId)}?token=${encodeURIComponent(this.currentToken)}&workspace_id=${encodeURIComponent(this.currentWorkspaceId)}`;
-
-    try {
-      const socket = new WebSocket(url);
-      this.ws = socket;
+      const socket = new WebSocket(wsUrl);
+      socketRef.current = socket;
 
       socket.onopen = () => {
-        this.reconnectAttempt = 0;
-        this.subscribedConversations.forEach((_count, convId) => {
-          this.sendSubscribe(convId);
-        });
+        reconnectAttempts = 0;
+        const targetConvId = activeConversationIdRef.current;
+        if (targetConvId) {
+          socket.send(
+            JSON.stringify({
+              type: 'subscribe_conversation',
+              conversation_id: targetConvId,
+            })
+          );
+        }
       };
 
-      socket.onmessage = (evt) => {
+      socket.onmessage = (messageEvent) => {
+        let parsed: WorkspaceRealtimeEvent;
         try {
-          const parsed: WorkspaceRealtimeEvent = JSON.parse(evt.data);
-          const evName = parsed.event_type || parsed.event || parsed.type;
-          if (evName === 'ping') {
-            socket.send(JSON.stringify({ type: 'pong' }));
-            return;
-          }
-          this.listeners.forEach((fn) => fn(parsed));
+          parsed = JSON.parse(String(messageEvent.data));
         } catch {
-          // Ignore malformed frame
+          return;
         }
+
+        if (!parsed || typeof parsed !== 'object') {
+          return;
+        }
+
+        const eventName = parsed.event_type || parsed.event || parsed.type;
+        if (eventName === 'ping') {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'pong' }));
+          }
+          return;
+        }
+
+        onEventRef.current(parsed);
       };
 
       socket.onerror = () => {
-        // Closed via onclose handler
+        // Reconnection is handled in onclose
       };
 
-      socket.onclose = (closeEvt) => {
-        if (this.ws === socket) {
-          this.ws = null;
+      socket.onclose = (closeEvent) => {
+        if (socketRef.current === socket) {
+          socketRef.current = null;
         }
-        // Code 4001/4003 means unauthorized or workspace access revoked
-        if (this.manualClose || closeEvt.code === 4001 || closeEvt.code === 4003) {
+
+        if (intentionalClose) {
           return;
         }
-        if (this.listeners.size > 0 && this.currentToken) {
-          const delayMs = Math.min(1000 * Math.pow(2, this.reconnectAttempt), 20000);
-          this.reconnectAttempt += 1;
-          this.reconnectTimer = setTimeout(() => this.connect(), delayMs);
+
+        // 4001/4003 indicate authentication or workspace authorization failures
+        if (closeEvent?.code === 4001 || closeEvent?.code === 4003) {
+          return;
         }
+
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+          return;
+        }
+
+        reconnectAttempts += 1;
+        const delay = Math.min(
+          BASE_RECONNECT_DELAY_MS * 2 ** (reconnectAttempts - 1),
+          MAX_RECONNECT_DELAY_MS
+        );
+        const jitter = Math.floor(Math.random() * 500);
+
+        clearReconnectTimer();
+        reconnectTimer = setTimeout(connect, delay + jitter);
       };
-    } catch {
-      // Fallback safely to periodic refresh
-    }
-  }
+    };
 
-  private sendSubscribe(conversationId: string) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      try {
-        this.ws.send(JSON.stringify({ type: 'subscribe_conversation', conversation_id: conversationId }));
-      } catch {}
-    }
-  }
-
-  private sendUnsubscribe(conversationId: string) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      try {
-        this.ws.send(JSON.stringify({ type: 'unsubscribe_conversation', conversation_id: conversationId }));
-      } catch {}
-    }
-  }
-
-  disconnect() {
-    this.manualClose = true;
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    if (this.ws) {
-      try {
-        this.ws.close();
-      } catch {}
-      this.ws = null;
-    }
-    this.currentUserId = null;
-    this.currentToken = null;
-    this.currentWorkspaceId = null;
-  }
-}
-
-const realtimeManager = new WorkspaceRealtimeManager();
-
-export function useWorkspaceRealtime(
-  onEvent: (event: WorkspaceRealtimeEvent) => void,
-  options?: { conversationId?: string }
-) {
-  const auth = useAuth();
-  const callbackRef = useRef(onEvent);
-  useEffect(() => {
-    callbackRef.current = onEvent;
-  }, [onEvent]);
-
-  const userId = auth.user?.id || null;
-  const token = auth.token || null;
-  const workspaceId =
-    (auth.selectedWorkspace?.id && !auth.selectedWorkspace.id.startsWith('ws-')
-      ? auth.selectedWorkspace.id
-      : auth.workspaces.find((w) => !w.id.startsWith('ws-'))?.id) || null;
-  const conversationId = options?.conversationId;
-
-  useEffect(() => {
-    if (!userId || !token || !workspaceId) return;
-
-    const removeListener = realtimeManager.addListener((evt) => {
-      callbackRef.current(evt);
-    }, conversationId);
-
-    realtimeManager.ensureConnected(userId, token, workspaceId);
-
-    const appSub = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') {
-        realtimeManager.ensureConnected(userId, token, workspaceId);
-      }
-    });
+    connect();
 
     return () => {
-      appSub.remove();
-      removeListener();
+      intentionalClose = true;
+      clearReconnectTimer();
+      const socket = socketRef.current;
+      socketRef.current = null;
+      if (socket) {
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+        socket.close(1000, 'hook unmount');
+      }
     };
-  }, [userId, token, workspaceId, conversationId]);
+  }, [enabled, userId, token, workspaceId]);
 }
