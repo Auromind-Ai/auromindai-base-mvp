@@ -1,9 +1,10 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
+import { isRunningInExpoGo } from 'expo';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { AndroidImportance } from 'expo-notifications';
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -17,6 +18,36 @@ import { useAuth } from '../store/auth';
 
 const STORAGE_KEY_TOKEN = '@orbion_push_token';
 const STORAGE_KEY_PREFS = '@orbion_push_prefs';
+
+/**
+ * Returns whether the application is running inside Expo Go.
+ */
+export function isExpoGo(): boolean {
+  try {
+    if (typeof isRunningInExpoGo === 'function' && isRunningInExpoGo()) {
+      return true;
+    }
+    return (
+      Constants.executionEnvironment === ExecutionEnvironment.StoreClient ||
+      (Constants as any).appOwnership === 'expo'
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returns true if remote push notifications are supported on the current device & runtime.
+ * Starting in Expo SDK 53, Android remote push notifications are removed from Expo Go.
+ * A development build (`expo run:android` or EAS build) is required for remote push on Android.
+ * Local notifications remain supported in Expo Go.
+ */
+export function isRemotePushSupported(): boolean {
+  if (Platform.OS === 'web') return false;
+  if (!Device.isDevice) return false;
+  if (Platform.OS === 'android' && isExpoGo()) return false;
+  return true;
+}
 
 // Configure foreground notification behavior for iOS & Android
 if (Platform.OS !== 'web') {
@@ -149,38 +180,52 @@ class PushNotificationStore {
     this.lastSyncedTokenUserId = null;
   }
 
-  private async setupAndroidChannel() {
+  async setupAndroidChannel() {
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'General Alerts',
-        importance: AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#6F5BFF',
-        sound: 'default',
-        enableVibrate: true,
-        showBadge: true,
-      });
+      try {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'General Alerts',
+          importance: AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#6F5BFF',
+          sound: 'default',
+          enableVibrate: true,
+          showBadge: true,
+        });
 
-      await Notifications.setNotificationChannelAsync('messages', {
-        name: 'Chat & Lead Messages',
-        importance: AndroidImportance.HIGH,
-        vibrationPattern: [0, 150, 150, 150],
-        lightColor: '#8060E8',
-        sound: 'default',
-        enableVibrate: true,
-        showBadge: true,
-      });
+        await Notifications.setNotificationChannelAsync('messages', {
+          name: 'Chat & Lead Messages',
+          importance: AndroidImportance.HIGH,
+          vibrationPattern: [0, 150, 150, 150],
+          lightColor: '#8060E8',
+          sound: 'default',
+          enableVibrate: true,
+          showBadge: true,
+        });
+      } catch (err) {
+        console.warn('[Push] Error configuring Android notification channels:', err);
+      }
     }
   }
 
   async registerForPushNotificationsAsync(): Promise<string | null> {
-    if (Platform.OS === 'web' || !Device.isDevice) {
+    if (Platform.OS === 'web') {
+      return null;
+    }
+
+    // Always ensure notification channels exist on Android (for local notifications)
+    await this.setupAndroidChannel();
+
+    if (!isRemotePushSupported()) {
+      if (__DEV__ && Platform.OS === 'android' && isExpoGo()) {
+        console.warn(
+          '[Push] Remote notifications are unavailable in Expo Go on Android since SDK 53. Use a development build (expo run:android) for push notifications.'
+        );
+      }
       return null;
     }
 
     try {
-      await this.setupAndroidChannel();
-
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
 
@@ -206,6 +251,10 @@ class PushNotificationStore {
         Constants?.expoConfig?.extra?.eas?.projectId ??
         Constants?.easConfig?.projectId;
 
+      if (!projectId && !__DEV__) {
+        console.warn('[Push] Missing extra.eas.projectId in app.json; standalone push registration may fail.');
+      }
+
       const tokenResponse = await Notifications.getExpoPushTokenAsync(
         projectId ? { projectId } : undefined
       );
@@ -214,20 +263,26 @@ class PushNotificationStore {
       this.setState({ expoPushToken: token });
       await AsyncStorage.setItem(STORAGE_KEY_TOKEN, token).catch(() => {});
 
-      const platform: PlatformType = Platform.OS === 'ios' ? 'ios' : 'android';
-      const deviceName = Device.modelName || Device.deviceName || `${Platform.OS} device`;
-
-      await registerPushToken({
-        push_token: token,
-        platform,
-        device_name: deviceName,
-      }).catch(() => {});
+      await this.syncTokenWithBackend(token);
 
       return token;
     } catch (error) {
       console.warn('[Push] Push registration unavailable:', (error as any)?.message || error);
       return null;
     }
+  }
+
+  async syncTokenWithBackend(token: string): Promise<void> {
+    if (!token || Platform.OS === 'web') return;
+    const platform: PlatformType = Platform.OS === 'ios' ? 'ios' : 'android';
+    const deviceName = Device.modelName || Device.deviceName || `${Platform.OS} device`;
+    this.setState({ expoPushToken: token });
+    await AsyncStorage.setItem(STORAGE_KEY_TOKEN, token).catch(() => {});
+    await registerPushToken({
+      push_token: token,
+      platform,
+      device_name: deviceName,
+    }).catch(() => {});
   }
 
   async unregisterDeviceToken(): Promise<void> {
@@ -306,10 +361,16 @@ function navigateFromNotificationData(
     router.push('/(tabs)/inbox' as any);
     return;
   }
-  if (data.route) {
+  if (data.conversation_id) {
+    router.push({
+      pathname: '/chat/[id]',
+      params: {
+        id: String(data.conversation_id),
+        ...(data.channel ? { channel: String(data.channel) } : {}),
+      },
+    } as any);
+  } else if (data.route) {
     router.push(data.route as any);
-  } else if (data.conversation_id) {
-    router.push(`/chat/${data.conversation_id}` as any);
   } else if (data.lead_id) {
     router.push(`/customer/${data.lead_id}` as any);
   } else {
@@ -333,20 +394,50 @@ export function usePushNotificationListeners() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
-    const notifSub = Notifications.addNotificationReceivedListener((incoming) => {
-      pushStore.setNotification(incoming);
-    });
+    // Set up Android notification channels (supported in Expo Go & dev builds)
+    pushStore.setupAndroidChannel().catch(() => {});
 
-    const respSub = Notifications.addNotificationResponseReceivedListener((response) => {
+    let notifSub: Notifications.Subscription | null = null;
+    let respSub: Notifications.Subscription | null = null;
+    let tokenSub: Notifications.Subscription | null = null;
+
+    try {
+      notifSub = Notifications.addNotificationReceivedListener((incoming) => {
+        pushStore.setNotification(incoming);
+      });
+    } catch (err) {
+      console.warn('[Push] Failed to register notification received listener:', err);
+    }
+
+    try {
+      respSub = Notifications.addNotificationResponseReceivedListener((response) => {
+        try {
+          const data = response.notification.request.content.data as PushNotificationData;
+          navigateFromNotificationData(router, data);
+        } catch (err) {
+          console.error('[Push] Navigation error from notification tap:', err);
+        }
+      });
+    } catch (err) {
+      console.warn('[Push] Failed to register notification response listener:', err);
+    }
+
+    // Only register push token listener if remote push is supported.
+    // In Expo Go on Android since SDK 53, addPushTokenListener throws an Error.
+    if (isRemotePushSupported()) {
       try {
-        const data = response.notification.request.content.data as PushNotificationData;
-        navigateFromNotificationData(router, data);
+        tokenSub = Notifications.addPushTokenListener(() => {
+          if (auth.token && pushStore.getSnapshot().isEnabled) {
+            pushStore.registerForPushNotificationsAsync().catch(() => {});
+          }
+        });
       } catch (err) {
-        console.error('[Push] Navigation error from notification tap:', err);
+        console.warn('[Push] Failed to register push token listener:', err);
       }
-    });
+    }
 
-    if (auth.token) {
+    let coldStartTimer: ReturnType<typeof setTimeout> | null = null;
+    if (auth.isInitialized && auth.token) {
       Notifications.getLastNotificationResponseAsync()
         .then((lastResponse) => {
           if (!lastResponse) return;
@@ -354,16 +445,22 @@ export function usePushNotificationListeners() {
           if (handledInitialRef.current === id) return;
           handledInitialRef.current = id;
           const data = lastResponse.notification.request.content.data as PushNotificationData;
-          navigateFromNotificationData(router, data);
+          coldStartTimer = setTimeout(() => {
+            navigateFromNotificationData(router, data);
+          }, 150);
         })
         .catch(() => {});
     }
 
     return () => {
-      notifSub.remove();
-      respSub.remove();
+      notifSub?.remove();
+      respSub?.remove();
+      tokenSub?.remove();
+      if (coldStartTimer) {
+        clearTimeout(coldStartTimer);
+      }
     };
-  }, [auth.token, router]);
+  }, [auth.isInitialized, auth.token, router]);
 }
 
 export function usePushNotifications() {
@@ -375,6 +472,7 @@ export function usePushNotifications() {
 
   return {
     ...state,
+    isRemotePushSupported: isRemotePushSupported(),
     registerForPushNotificationsAsync: () => pushStore.registerForPushNotificationsAsync(),
     unregisterDeviceToken: () => pushStore.unregisterDeviceToken(),
     togglePushNotifications: (enable: boolean) => pushStore.togglePushNotifications(enable),

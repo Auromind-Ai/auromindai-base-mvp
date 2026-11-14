@@ -4,7 +4,11 @@ import * as Device from 'expo-device';
 
 export function getApiBaseUrl(): string {
   // 1. Explicit environment variable override (highest priority for staging/production)
-  if (process.env.EXPO_PUBLIC_API_URL) {
+  if (
+    process.env.EXPO_PUBLIC_API_URL &&
+    !process.env.EXPO_PUBLIC_API_URL.includes('yourdomain.com') &&
+    !process.env.EXPO_PUBLIC_API_URL.includes('example.com')
+  ) {
     return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
   }
 
@@ -109,9 +113,19 @@ class MobileApiClient {
   }
 
   private buildAuthHeaders(isMultipart: boolean, extraHeaders?: HeadersInit): Record<string, string> {
+    const platformHeader =
+      Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'mobile';
+
     const defaultHeaders: Record<string, string> = {
       Accept: 'application/json',
+      'x-client-platform': platformHeader,
     };
+    const mobileKey =
+      process.env.EXPO_PUBLIC_MOBILE_API_KEY ||
+      'orbion_mbl_a2c3913729303d7f1eac87e4ec63eadf1b347ea0';
+    if (mobileKey) {
+      defaultHeaders['x-mobile-api-key'] = mobileKey;
+    }
     if (!isMultipart) {
       defaultHeaders['Content-Type'] = 'application/json';
     }

@@ -59,6 +59,7 @@ export default function SettingsScreen() {
     setMuteDuration,
     unregisterDeviceToken,
     isLoading: isPushLoading,
+    isRemotePushSupported,
   } = usePushNotifications();
 
   // Settings State
@@ -533,7 +534,9 @@ export default function SettingsScreen() {
                   Push notifications
                 </Text>
                 <Text style={[styles.rowSubtitle, { color: theme.textSecondary }]}>
-                  This device receives pushes from all your workspaces
+                  {!isRemotePushSupported && Platform.OS === 'android'
+                    ? 'Remote push notifications require a development build on Android (Expo Go unsupported since SDK 53)'
+                    : 'This device receives pushes from all your workspaces'}
                 </Text>
               </View>
               <Switch

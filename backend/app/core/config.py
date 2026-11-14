@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     ENCRYPTION_KEY: Optional[str] = None
     """Fernet encryption key for sensitive data (auto-generated if not set)"""
     TURNSTILE_SECRET_KEY: Optional[str] = None
+    MOBILE_API_SECRET: Optional[str] = None
+    """Optional shared key for native mobile client bypass (Android/iOS)"""
     MEDIA_SIGNING_SECRET: Optional[str] = None
 
     # MESSAGE QUEUE & CACHING
@@ -72,6 +74,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     WCC_PENDING_EXPIRY_HOURS: int = 24
     TWILIO_STATUS_CALLBACK_URL: Optional[str] = None
+    EXPO_ACCESS_TOKEN: Optional[str] = None
 
     # LOGGING
     LOG_LEVEL: str = "ERROR"

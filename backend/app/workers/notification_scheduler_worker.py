@@ -694,3 +694,34 @@ def run_email_monitor_cycle_task():
     finally:
         db.close()
 
+
+@celery_app.task(name="app.workers.notification_scheduler_worker.dispatch_expo_push_task")
+def dispatch_expo_push_task(
+    user_id: str,
+    title: str,
+    message: str,
+    notif_type: str = "system",
+    notification_id: str | None = None,
+    data: dict | None = None,
+    channel_id: str | None = None,
+):
+    from app.services.notifications.expo_push_service import ExpoPushService
+
+    db = SessionLocal()
+    try:
+        return ExpoPushService.send_push_to_user(
+            db,
+            user_id=user_id,
+            title=title,
+            message=message,
+            notif_type=notif_type,
+            notification_id=notification_id,
+            data=data,
+            channel_id=channel_id,
+        )
+    except Exception as exc:
+        logger.warning(f"[dispatch_expo_push_task] Error for user {user_id}: {exc}")
+        return {"sent": 0, "errors": 1}
+    finally:
+        db.close()
+

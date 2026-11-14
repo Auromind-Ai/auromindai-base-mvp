@@ -16,7 +16,7 @@ export interface WorkspaceChannelsStatus {
 }
 
 export async function fetchChannelsStatus(workspaceId: string): Promise<WorkspaceChannelsStatus> {
-  return apiClient.get<WorkspaceChannelsStatus>(`/channels/status?workspace_id=${encodeURIComponent(workspaceId)}`);
+  return apiClient.get<WorkspaceChannelsStatus>(`/integrations/status?workspace_id=${encodeURIComponent(workspaceId)}`);
 }
 
 export async function disconnectChannel(
@@ -24,7 +24,7 @@ export async function disconnectChannel(
   channelType: 'whatsapp' | 'instagram' | 'twilio'
 ): Promise<{ status: string; message: string }> {
   return apiClient.delete<{ status: string; message: string }>(
-    `/channels/disconnect/${channelType}?workspace_id=${encodeURIComponent(workspaceId)}`
+    `/integrations/disconnect/${channelType}?workspace_id=${encodeURIComponent(workspaceId)}`
   );
 }
 

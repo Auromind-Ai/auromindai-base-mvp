@@ -640,7 +640,7 @@ export default function HeroShowcaseSection() {
                           fill
                           className="object-contain"
                           priority
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 60vw, 650px"
+                          sizes="(max-width: 640px) 92vw, (max-width: 1024px) 70vw, 650px"
                         />
                       </div>
                     </div>

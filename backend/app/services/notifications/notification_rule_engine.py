@@ -37,6 +37,7 @@ class NotificationRuleEngine:
     ) -> List[EmailDeliveryLog]:
         ws_id = to_uuid(workspace_id) or to_uuid(payload.get("workspace_id"))
         created_logs: List[EmailDeliveryLog] = []
+        pending_pushes: List[Dict[str, Any]] = []
 
         # 1. Fetch matching active rules from DB
         rules = db.query(NotificationRule).filter(
@@ -172,6 +173,14 @@ class NotificationRuleEngine:
                         is_read=False
                     )
                     db.add(in_app_notif)
+                    pending_pushes.append({
+                        "user_id": rec.user_id,
+                        "title": rendered_title,
+                        "message": rendered_message,
+                        "notif_type": assigned_type,
+                        "notification_id": str(in_app_notif.id),
+                        "data": payload,
+                    })
 
         # Commit outbox logs to database
         if created_logs:
@@ -183,6 +192,15 @@ class NotificationRuleEngine:
                 db.rollback()
                 logger.error(f"Failed to commit EmailDeliveryLogs: {e}")
                 return []
+
+        if pending_pushes:
+            try:
+                from app.services.notifications.expo_push_service import ExpoPushService
+
+                for push_item in pending_pushes:
+                    ExpoPushService.enqueue_user_push(db, **push_item)
+            except Exception as push_exc:
+                logger.warning(f"[NotificationRuleEngine] Expo push dispatch skipped: {push_exc}")
 
         # 9. Immediate Delivery Dispatch (Non-blocking background dispatch via Celery worker in production, synchronous in testing)
         if dispatch_immediately:

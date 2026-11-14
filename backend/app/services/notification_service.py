@@ -243,11 +243,13 @@ class NotificationService:
 
        
         NotificationService._dispatch_expo_push(
+            db=db,
             user=user,
             title=final_title,
             message=final_message,
             notif_type=type,
             notification_id=str(notification.id) if notification else None,
+            data=variables,
         )
 
         # Trigger email if should_send_email is True
@@ -269,44 +271,23 @@ class NotificationService:
         message: str,
         notif_type: str,
         notification_id: Optional[str] = None,
+        db: Optional[Session] = None,
+        data: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Send an Expo push notification if enabled and not muted in user.preferences."""
+        """Queue an Expo push notification for all active user devices."""
         try:
-            prefs = user.preferences or {}
-            token = prefs.get("expo_push_token")
-            if not token or not isinstance(token, str) or not token.startswith("ExponentPushToken["):
-                return
-            if prefs.get("push_enabled") is False:
-                return
-            mute_until = prefs.get("mute_pushes_until")
-            if mute_until:
-                from datetime import datetime, timezone
-                try:
-                    mute_dt = datetime.fromisoformat(str(mute_until).replace("Z", "+00:00"))
-                    if mute_dt > datetime.now(timezone.utc):
-                        return
-                except Exception:
-                    pass
+            from app.services.notifications.expo_push_service import ExpoPushService
 
-            show_preview = prefs.get("show_message_preview", True)
-            body_text = message if show_preview else "You have a new notification."
-
-            import httpx
-            httpx.post(
-                "https://exp.host/--/api/v2/push/send",
-                json={
-                    "to": token,
-                    "title": title,
-                    "body": body_text,
-                    "sound": "default",
-                    "channelId": "messages" if "message" in (notif_type or "").lower() else "default",
-                    "data": {
-                        "type": notif_type,
-                        "notification_id": notification_id,
-                    },
-                },
-                timeout=3.0,
-            )
+            if db is not None:
+                ExpoPushService.enqueue_user_push(
+                    db,
+                    user_id=user.id,
+                    title=title,
+                    message=message,
+                    notif_type=notif_type,
+                    notification_id=notification_id,
+                    data=data,
+                )
         except Exception as push_exc:
             logger.warning(f"Expo push dispatch skipped/failed: {push_exc}")
 

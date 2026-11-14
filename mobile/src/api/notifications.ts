@@ -26,19 +26,29 @@ export async function updateUserPreferences(
 export async function registerPushToken(
   payload: PushTokenRegistrationPayload
 ): Promise<{ status: string }> {
-  await updateUserPreferences({
-    expo_push_token: payload.push_token,
-    push_platform: payload.platform,
-    push_device_name: payload.device_name || null,
-    push_enabled: true,
-  });
+  try {
+    await apiClient.post('/notifications/push-token', payload);
+  } catch {
+    await updateUserPreferences({
+      expo_push_token: payload.push_token,
+      push_platform: payload.platform,
+      push_device_name: payload.device_name || null,
+      push_enabled: true,
+    });
+  }
   return { status: 'registered' };
 }
 
-export async function unregisterPushToken(_pushToken: string): Promise<void> {
-  await updateUserPreferences({
-    expo_push_token: null,
-  });
+export async function unregisterPushToken(pushToken: string): Promise<void> {
+  try {
+    await apiClient.post('/notifications/push-token/unregister', {
+      push_token: pushToken,
+    });
+  } catch {
+    await updateUserPreferences({
+      expo_push_token: null,
+    });
+  }
 }
 
 export async function updatePushPreferences(

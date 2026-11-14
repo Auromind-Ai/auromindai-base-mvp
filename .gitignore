@@ -1,7 +1,4 @@
-
 # Orbion Agents MVP - Production-Ready Git Ignore Rules
-
-
 
 # Secrets & Environment Variables
 .env
@@ -12,7 +9,6 @@
 *.env
 *.env.txt
 env.txt
-
 
 # Python Runtime Caches & Compiled Bytecode
 
@@ -139,5 +135,3 @@ Thumbs.db
 *.njsproj
 *.sln
 *.swp
-
-# Mobile Application
