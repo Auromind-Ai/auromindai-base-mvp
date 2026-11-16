@@ -851,6 +851,9 @@ export default function SettingsScreen() {
   );
 }
 
+const TOP_CURVE_RADIUS = scaleContainer(36);
+const TOP_CURVE_GAP = scaleContainer(8);
+
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
@@ -858,7 +861,7 @@ const styles = StyleSheet.create({
   headerWrapper: {
     paddingHorizontal: 16,
     paddingTop: 6,
-    paddingBottom: scaleContainer(22),
+    paddingBottom: TOP_CURVE_RADIUS + TOP_CURVE_GAP,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -877,9 +880,9 @@ const styles = StyleSheet.create({
   },
   mainContentSheet: {
     flex: 1,
-    borderTopLeftRadius: scaleContainer(32),
-    borderTopRightRadius: scaleContainer(32),
-    marginTop: -10,
+    borderTopLeftRadius: TOP_CURVE_RADIUS,
+    borderTopRightRadius: TOP_CURVE_RADIUS,
+    marginTop: -TOP_CURVE_RADIUS,
     overflow: 'hidden',
   },
   scrollContent: {

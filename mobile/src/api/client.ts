@@ -21,6 +21,11 @@ export function getApiBaseUrl(): string {
     return window.location.origin;
   }
 
+  // 2. Explicit environment variable override (highest priority for device staging/production)
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
+  }
+
   // 3. Android emulator ALWAYS connects to host machine via 10.0.2.2
   if (Platform.OS === 'android' && !Device.isDevice) {
     return 'http://10.0.2.2:8000';

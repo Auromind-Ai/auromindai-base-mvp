@@ -27,7 +27,7 @@ export interface VerifyOTPResponse {
 export async function sendOTP(
   email: string,
   authType: 'login' | 'signup' = 'login',
-  turnstileToken = '1x00000000000000000000AA'
+  turnstileToken = '1x0000000000000000000000000000000AA'
 ): Promise<{ status: string; message: string }> {
   return apiClient.post<{ status: string; message: string }>('/auth/send-otp', {
     email: email.trim().toLowerCase(),
@@ -41,7 +41,7 @@ export async function verifyOTP(
   otp: string,
   authType: 'login' | 'signup' = 'login',
   fullName?: string,
-  turnstileToken = '1x00000000000000000000AA'
+  turnstileToken = '1x0000000000000000000000000000000AA'
 ): Promise<VerifyOTPResponse> {
   const payload: Record<string, any> = {
     email: email.trim().toLowerCase(),

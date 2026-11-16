@@ -110,3 +110,69 @@ export function formatRelativeTime(value?: string | Date | null, fallback = 'Rec
 
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
+
+/**
+ * Format a timestamp strictly as time of day (e.g. "10:42 AM") for chat message bubbles.
+ */
+export function formatMessageTime(value?: string | Date | null, fallback = ''): string {
+  const date = parseValidDate(value);
+  if (!date) {
+    return fallback;
+  }
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+/**
+ * Format a timestamp for floating chat date separator badges like WhatsApp
+ * (e.g. "Today", "Yesterday", "Wednesday", "October 7").
+ */
+export function formatDateSeparator(value?: string | Date | null): string {
+  const date = parseValidDate(value);
+  if (!date) {
+    return '';
+  }
+
+  const now = new Date();
+  const isSameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
+  if (isSameDay) {
+    return 'Today';
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday =
+    date.getFullYear() === yesterday.getFullYear() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getDate() === yesterday.getDate();
+
+  if (isYesterday) {
+    return 'Yesterday';
+  }
+
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays > 0 && diffDays < 7) {
+    return date.toLocaleDateString([], { weekday: 'long' });
+  }
+
+  if (date.getFullYear() === now.getFullYear()) {
+    return date.toLocaleDateString([], { month: 'long', day: 'numeric' });
+  }
+
+  return date.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+/**
+ * Returns a unique calendar day string (YYYY-MM-DD) for grouping consecutive messages.
+ */
+export function getDateKey(value?: string | Date | null): string {
+  const date = parseValidDate(value);
+  if (!date) {
+    return '';
+  }
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}

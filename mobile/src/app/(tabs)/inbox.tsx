@@ -34,11 +34,14 @@ import {
   ChevronDown,
   X,
   Check,
+  LogIn,
 } from 'lucide-react-native';
 import { AddLeadModal } from '../../components/leads/AddLeadModal';
 import { Fonts } from '@/theme/tokens';
+import { scaleContainer } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
 import { fetchConversations, fetchConversationCounts, BackendConversation } from '@/api';
+import { verifyOTP } from '@/api/auth';
 import { useAuth, authStore } from '@/store/auth';
 import { useWorkspaceRealtime } from '@/hooks/use-workspace-realtime';
 import { getInitials, getAvatarColor, formatShortTime } from '@/utils/formatters';
@@ -144,6 +147,25 @@ export default function OmniInboxScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [devLoggingIn, setDevLoggingIn] = useState(false);
+
+  const handleDevQuickLogin = async () => {
+    try {
+      setDevLoggingIn(true);
+      const res = await verifyOTP('yogisanjay278@gmail.com', '123456', 'login');
+      if (res?.access_token && res?.user) {
+        await authStore.setAuth({
+          token: res.access_token,
+          user: res.user,
+          workspaces: res.workspaces,
+        });
+      }
+    } catch (e: any) {
+      console.warn('Dev quick login failed:', e);
+    } finally {
+      setDevLoggingIn(false);
+    }
+  };
 
   const workspaceId = (authState.selectedWorkspace?.id && !authState.selectedWorkspace.id.startsWith('ws-'))
     ? authState.selectedWorkspace.id
@@ -955,6 +977,75 @@ export default function OmniInboxScreen() {
                 <Text style={{ color: '#EF4444', fontWeight: '600', marginBottom: 4 }}>{loadError}</Text>
                 <Text style={{ color: isDark ? '#A2ADD8' : '#6B7280', fontSize: 12 }}>Tap to retry</Text>
               </TouchableOpacity>
+            ) : !authState.token ? (
+              <View style={{ paddingVertical: 40, paddingHorizontal: 24, alignItems: 'center' }}>
+                <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: isDark ? 'rgba(128,96,232,0.18)' : 'rgba(128,96,232,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                  <LogIn size={26} color="#8060E8" />
+                </View>
+                <Text style={{ color: isDark ? '#F1F3FB' : '#1A1C29', fontSize: 17, fontWeight: '700', marginBottom: 6, textAlign: 'center' }}>
+                  Sign in to view conversations
+                </Text>
+                <Text style={{ color: isDark ? '#A2ADD8' : '#7887A9', fontSize: 13, textAlign: 'center', marginBottom: 20, lineHeight: 18, maxWidth: 280 }}>
+                  Please sign in to access your leads and messages from WhatsApp and Instagram.
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                  <TouchableOpacity
+                    onPress={() => router.push('/(auth)/login')}
+                    style={{
+                      backgroundColor: '#8060E8',
+                      paddingHorizontal: 22,
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                    }}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                      Go to Login
+                    </Text>
+                  </TouchableOpacity>
+                  {__DEV__ && (
+                    <TouchableOpacity
+                      onPress={handleDevQuickLogin}
+                      disabled={devLoggingIn}
+                      style={{
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
+                      }}
+                    >
+                      {devLoggingIn ? (
+                        <ActivityIndicator size="small" color="#8060E8" />
+                      ) : (
+                        <Text style={{ color: isDark ? '#D1D5DB' : '#374151', fontWeight: '600', fontSize: 13 }}>
+                          Quick Dev Login
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            ) : !workspaceId ? (
+              <View style={{ paddingVertical: 40, paddingHorizontal: 24, alignItems: 'center' }}>
+                <Text style={{ color: isDark ? '#F1F3FB' : '#1A1C29', fontSize: 16, fontWeight: '600', marginBottom: 6 }}>
+                  Connecting to workspace...
+                </Text>
+                <Text style={{ color: isDark ? '#A2ADD8' : '#7887A9', fontSize: 13, textAlign: 'center', marginBottom: 16 }}>
+                  Syncing your workspace leads and channel data.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    authStore.refreshWorkspaces();
+                    loadInboxData();
+                  }}
+                  style={{ backgroundColor: isDark ? '#2A2C40' : '#E9ECEF', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10 }}
+                >
+                  <Text style={{ color: isDark ? '#F1F3FB' : '#1A1C29', fontWeight: '600', fontSize: 13 }}>
+                    Refresh Workspace
+                  </Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <View style={{ paddingVertical: 48, alignItems: 'center' }}>
                 <Text style={{ color: isDark ? '#A2ADD8' : '#7887A9', fontSize: 14 }}>
@@ -1279,6 +1370,9 @@ export default function OmniInboxScreen() {
   );
 }
 
+const TOP_CURVE_RADIUS = scaleContainer(36);
+const TOP_CURVE_GAP = scaleContainer(8);
+
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
@@ -1288,7 +1382,7 @@ const styles = StyleSheet.create({
   headerWrapper: {
     paddingHorizontal: 16,
     paddingTop: 6,
-    paddingBottom: 22,
+    paddingBottom: TOP_CURVE_RADIUS + TOP_CURVE_GAP,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -1477,9 +1571,9 @@ const styles = StyleSheet.create({
   /* MAIN CONVERSATION CONTENT SHEET */
   mainContentSheet: {
     flex: 1,
-    borderTopLeftRadius: 36,
-    borderTopRightRadius: 36,
-    marginTop: -12,
+    borderTopLeftRadius: TOP_CURVE_RADIUS,
+    borderTopRightRadius: TOP_CURVE_RADIUS,
+    marginTop: -TOP_CURVE_RADIUS,
     overflow: 'hidden',
     paddingTop: 16,
   },
