@@ -622,3 +622,5 @@ npm run lint
 - **Head of Product**: Santhosh
 - **Repository**: [Auromind-Ai/Auromindai-Base-MVP](https://github.com/Auromind-Ai/Auromindai-Base-MVP)
 - **Production URL**: [https://orbionagents.com](https://orbionagents.com)
+#   a u r o m i n d a i - b a s e - m v p  
+ 
