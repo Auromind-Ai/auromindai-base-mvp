@@ -2,17 +2,21 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Check, ChevronsDown } from 'lucide-react';
+import { Check, ChevronsDown, Sparkles, Zap, MessageSquare, TrendingUp, Flame, Crown } from 'lucide-react';
 
 /* ─ Logic ─ */
 
 const PLAN_ORDER = {
   free: 0,
+  creator: 1,
+  starter: 2,
+  growth: 3,
+  business: 4,
+  enterprise: 5,
   solo: 1,
-  pro: 2,
-  enterprise: 3,
-  custom: 3,
-  letstalk: 3,
+  pro: 3,
+  custom: 5,
+  letstalk: 5,
 };
 
 const TOKENS_PER_CREDIT = 1000;
@@ -33,6 +37,26 @@ const cardVariants = {
     transition: { duration: 0.45, delay: index * 0.1, ease: [0.22, 1, 0.36, 1] },
   }),
 };
+
+function getPlanIcon(key) {
+  const k = (key || '').toLowerCase();
+  if (k.includes('free')) {
+    return <Sparkles className="w-5 h-5 text-emerald-400" />;
+  }
+  if (k.includes('creator') || k.includes('solo')) {
+    return <Zap className="w-5 h-5 text-purple-400" />;
+  }
+  if (k.includes('starter')) {
+    return <MessageSquare className="w-5 h-5 text-blue-400" />;
+  }
+  if (k.includes('growth')) {
+    return <TrendingUp className="w-5 h-5 text-indigo-400" />;
+  }
+  if (k.includes('business') || k.includes('pro')) {
+    return <Flame className="w-5 h-5 text-fuchsia-400" />;
+  }
+  return <Crown className="w-5 h-5 text-amber-400" />;
+}
 
 /* ─ PricingCard with Grand Spacing, Gradient Fade & Smooth Line Scroll ─ */
 
@@ -148,7 +172,9 @@ function PricingCard({ plan, currentPlan, onUpgrade, index, isAnnual }) {
         <div>
           {/* Title */}
           <div className="flex items-center gap-3">
-            <span className="text-3xl">{plan.icon}</span>
+            <div className="w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center shrink-0 shadow-inner">
+              {getPlanIcon(plan.key)}
+            </div>
             <span className="text-2xl font-semibold text-white tracking-tight">
               {plan.name}
             </span>
@@ -253,15 +279,6 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
     );
   }
 
-  const iconMap = {
-    free: '🚀',
-    solo: '⚡',
-    pro: '🔥',
-    enterprise: '👑',
-    custom: '👑',
-    letstalk: '👑',
-  };
-
   const plans = dbPlans && dbPlans.length > 0
     ? dbPlans.map(plan => {
         const isPlanEnterprise = plan.key === 'enterprise' || plan.key === 'custom' || plan.key === 'letstalk' || (plan.name || '').toLowerCase().includes('enterprise') || (plan.label || '').toLowerCase().includes('enterprise');
@@ -274,77 +291,116 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
 
         return {
           key:         plan.key,
-          icon:        iconMap[plan.key] || (isPlanEnterprise ? '👑' : '🚀'),
           name:        plan.name || plan.label,
           price:       displayPrice,
           usage:       `${Math.round((plan.tokens || 1000000) / TOKENS_PER_CREDIT)} credits / month`,
           description: plan.description,
-          featured:    plan.featured || plan.is_featured || plan.key === 'pro',
+          featured:    plan.featured || plan.is_featured || plan.key === 'business' || plan.key === 'pro',
           features:    plan.features || [],
         };
       })
     : [
     {
       key:        'free',
-      icon:       '🚀',
-      name:       settings.free_plan_name  || 'Free',
-      price:      settings.free_plan_price === 0 ? 'Free' : `₹${settings.free_plan_price}`,
-      usage:      `${Math.round((settings.token_limit_per_plan?.free || 0) / TOKENS_PER_CREDIT)} credits / month`,
-      description: settings.free_plan_desc  || 'Try Orbion Agents for free and see the ROI yourself.',
-      features:    settings.free_plan_features || [
-        `${Math.round((settings.token_limit_per_plan?.free || 0) / TOKENS_PER_CREDIT)} monthly AI credits`,
-        'Core workspace access',
-        'Basic automations',
+      name:       'Free',
+      price:      'Free',
+      usage:      '50 test credits',
+      description: 'Forever evaluation & single sandbox testing',
+      features:    [
+        '1 User seat',
+        'Single team inbox',
+        '50 Leads & contact storage',
+        'Basic viewer CRM',
+        'Basic quick reply',
+        'Standard system templates',
+        'Brain Knowledge Base',
         'Community support',
       ],
     },
     {
-      key:        'solo',
-      icon:       '⚡',
-      name:       settings.solo_plan_name  || 'Solo Smart',
-      price: isAnnual
-        ? `₹${Number(settings.solo_yearly_plan_price || 9990).toLocaleString('en-IN')}`
-        : `₹${Number(settings.solo_plan_price || 999).toLocaleString('en-IN')}`,
-      usage:      `${Math.round((settings.token_limit_per_plan?.solo || 0) / TOKENS_PER_CREDIT)} credits / month`,
-      description: settings.solo_plan_desc  || 'RAG & custom knowledge base on a budget for solopreneurs.',
-      features:    settings.solo_plan_features || [
-        `${Math.round((settings.token_limit_per_plan?.solo || 0) / TOKENS_PER_CREDIT)} monthly AI credits`,
-        'RAG Knowledge Base (10 files)',
-        '1 Gmail account integration',
-        'Up to 500 leads database',
+      key:        'creator',
+      name:       'Creator',
+      price: isAnnual ? '₹759' : '₹799',
+      usage:      'Creator Quota',
+      description: 'Instagram sellers & social monetization',
+      features:    [
+        '2 User seats',
+        'IG DM shared inbox',
+        '1,000 Social Leads',
+        'Contact list view CRM',
+        'DM & comment triggers',
+        'Instagram replies',
+        'Manual 100/day broadcasts',
+        'Email support',
       ],
     },
     {
-      key:        'pro',
-      icon:       '🔥',
-      name:       settings.pro_plan_name  || 'Pro',
-      price: isAnnual
-        ? `₹${Number(settings.pro_yearly_plan_price || 59990).toLocaleString('en-IN')}`
-        : `₹${Number(settings.pro_plan_price || 5999).toLocaleString('en-IN')}`,
-      usage:      `${Math.round((settings.token_limit_per_plan?.pro || 0) / TOKENS_PER_CREDIT)} credits / month`,
-      description: settings.pro_plan_desc  || 'Advanced features for growing teams and scalable workflows.',
+      key:        'starter',
+      name:       'Starter',
+      price: isAnnual ? '₹1,234' : '₹1,299',
+      usage:      'Pay-as-you-go',
+      description: 'Small teams starting WhatsApp bots',
+      features:    [
+        '3 User seats',
+        'WhatsApp Inbox',
+        '2,500 Social & Manual Leads',
+        'Single-stage board CRM',
+        'AI Reply workflow',
+        'Up to 15 templates',
+        'Standard speed batch broadcasts',
+        'Email support',
+      ],
+    },
+    {
+      key:        'growth',
+      name:       'Growth',
+      price: isAnnual ? '₹2,374' : '₹2,499',
+      usage:      '₹500 Included credits/mo',
+      description: 'Omnichannel sync & dynamic NLP flows',
+      features:    [
+        '5 User seats',
+        'WA IG INBOX',
+        '10,000 Social & Manual Leads',
+        'Advance Filtration CRM',
+        'Multi-ADS conditional',
+        'Up to 50 templates',
+        'Up to 10 Docs / URLs in Brain',
+        'Priority email & chat',
+      ],
+    },
+    {
+      key:        'business',
+      name:       'Business',
+      price: isAnnual ? '₹4,749' : '₹4,999',
+      usage:      '₹1,500 Included credits/mo',
+      description: 'Full autonomous AI & ops workforce suite',
       featured:    true,
-      features:    settings.pro_plan_features || [
-        `${Math.round((settings.token_limit_per_plan?.pro || 0) / TOKENS_PER_CREDIT)} monthly AI credits`,
-        'Priority model access',
-        'Advanced workflow automations',
-        'Team collaboration tools',
-        'Priority email support',
+      features:    [
+        '15 Included seats (+Addon)',
+        'OMNI INBOX (WhatsApp + IG + Twilio)',
+        '35,000 Social & Manual leads',
+        'Advance Filtration CRM with scoring',
+        'Full event-driven AI flows',
+        'Unlimited templates',
+        'Unlimited Sync & Vector DB',
+        'Direct call + dedicated rep',
       ],
     },
     {
       key:        'enterprise',
-      icon:       '👑',
-      name:       settings.enterprise_plan_name  || 'Enterprise',
+      name:       'Enterprise',
       price:      "Let's Talk",
-      usage:      'Custom credits and seats',
-      description: settings.enterprise_plan_desc  || 'Tailored capacity, security, and support for larger organizations.',
-      features:    settings.enterprise_plan_features || [
-        'Custom usage limits',
-        'Dedicated onboarding',
-        'SSO and advanced controls',
-        'Custom SLA and support',
-        'Procurement-ready billing',
+      usage:      'Custom credits & seats',
+      description: 'Dedicated models, high TPS & custom SLAs',
+      features:    [
+        'Unlimited custom seats',
+        'Enterprise omnichannel hub',
+        'Unlimited custom storage',
+        'Customizable CRM & pipelines',
+        'Custom webhook automations',
+        'Dedicated high-TPS queue',
+        'Private Vector & Live ERP',
+        '24/7 SLA + engineer',
       ],
     },
   ];
