@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
+  BackHandler,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -598,6 +599,7 @@ export default function ChatDetailScreen() {
 
   const conversationId = typeof params.id === 'string' ? params.id : '';
   const scrollViewRef = useRef<React.ComponentRef<typeof ScrollView> | null>(null);
+  const isInitialScrollDoneRef = useRef(false);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [profile, setProfile] = useState<CustomerProfileData | null>(null);
@@ -618,6 +620,50 @@ export default function ChatDetailScreen() {
   const [internalNoteAlert, setInternalNoteAlert] = useState<string | null>(null);
   const [activeVideoModalUrl, setActiveVideoModalUrl] = useState<string | null>(null);
   const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
+
+  const scrollToBottom = useCallback((animated = false) => {
+    if (!scrollViewRef.current) return;
+    try {
+      scrollViewRef.current.scrollToEnd({ animated });
+    } catch {}
+
+    requestAnimationFrame(() => {
+      try {
+        scrollViewRef.current?.scrollToEnd({ animated });
+      } catch {}
+    });
+
+    const t1 = setTimeout(() => {
+      try {
+        scrollViewRef.current?.scrollToEnd({ animated });
+      } catch {}
+    }, 50);
+
+    const t2 = setTimeout(() => {
+      try {
+        scrollViewRef.current?.scrollToEnd({ animated });
+      } catch {}
+    }, 150);
+
+    const t3 = setTimeout(() => {
+      try {
+        scrollViewRef.current?.scrollToEnd({ animated });
+      } catch {}
+    }, 300);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom(!isInitialScrollDoneRef.current ? false : true);
+      isInitialScrollDoneRef.current = true;
+    }
+  }, [messages.length, scrollToBottom]);
 
   const channelLower = (profile?.channel || (typeof params.channel === 'string' ? params.channel : 'whatsapp')).toLowerCase();
   const isInstagram = channelLower === 'instagram';
@@ -743,10 +789,11 @@ export default function ChatDetailScreen() {
         if (!eventConvId || String(eventConvId) === conversationId) {
           loadThread(true);
           markConversationRead(conversationId).catch(() => {});
+          scrollToBottom(true);
         }
       }
     },
-    [conversationId, loadThread]
+    [conversationId, loadThread, scrollToBottom]
   );
 
   useWorkspaceRealtime(handleRealtimeEvent, { conversationId: conversationId || undefined });
@@ -756,13 +803,23 @@ export default function ChatDetailScreen() {
     loadThread(true);
   }, [loadThread]);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (router.canGoBack()) {
       router.back();
     } else {
       router.replace('/(tabs)/inbox');
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleBack]);
 
   const handleAttachFile = async () => {
     try {
@@ -814,6 +871,7 @@ export default function ChatDetailScreen() {
     setMessages((prev) => [...prev, optimisticMsg]);
     setInputMessage('');
     setSelectedAttachment(null);
+    scrollToBottom(true);
 
     try {
       setIsSending(true);
@@ -1097,7 +1155,16 @@ export default function ChatDetailScreen() {
             ref={scrollViewRef}
             contentContainerStyle={styles.messagesScroll}
             showsVerticalScrollIndicator={false}
-            onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: false })}
+            onLayout={() => {
+              if (messages.length > 0) {
+                scrollToBottom(false);
+              }
+            }}
+            onContentSizeChange={() => {
+              if (messages.length > 0) {
+                scrollToBottom(!isInitialScrollDoneRef.current ? false : true);
+              }
+            }}
             refreshControl={
               <RefreshControl
                 refreshing={isRefreshing}
@@ -1594,6 +1661,9 @@ export default function ChatDetailScreen() {
   );
 }
 
+const TOP_CURVE_RADIUS = scaleContainer(36);
+const TOP_CURVE_GAP = scaleContainer(8);
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1601,7 +1671,7 @@ const styles = StyleSheet.create({
   headerWrapper: {
     position: 'relative',
     overflow: 'hidden',
-    paddingBottom: scaleContainer(22),
+    paddingBottom: TOP_CURVE_RADIUS + TOP_CURVE_GAP,
   },
   headerRow: {
     flexDirection: 'row',
@@ -1680,11 +1750,11 @@ const styles = StyleSheet.create({
   },
   mainContentSheet: {
     flex: 1,
-    borderTopLeftRadius: scaleContainer(36),
-    borderTopRightRadius: scaleContainer(36),
-    marginTop: -16,
+    borderTopLeftRadius: TOP_CURVE_RADIUS,
+    borderTopRightRadius: TOP_CURVE_RADIUS,
+    marginTop: -TOP_CURVE_RADIUS,
     overflow: 'hidden',
-    paddingTop: 8,
+    paddingTop: TOP_CURVE_GAP,
   },
   chatBgImage: {
     width: '100%',

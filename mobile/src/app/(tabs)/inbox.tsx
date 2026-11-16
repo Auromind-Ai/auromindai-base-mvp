@@ -38,6 +38,7 @@ import {
 } from 'lucide-react-native';
 import { AddLeadModal } from '../../components/leads/AddLeadModal';
 import { Fonts } from '@/theme/tokens';
+import { scaleContainer } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
 import { fetchConversations, fetchConversationCounts, BackendConversation } from '@/api';
 import { verifyOTP } from '@/api/auth';
@@ -1369,6 +1370,9 @@ export default function OmniInboxScreen() {
   );
 }
 
+const TOP_CURVE_RADIUS = scaleContainer(36);
+const TOP_CURVE_GAP = scaleContainer(8);
+
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
@@ -1378,7 +1382,7 @@ const styles = StyleSheet.create({
   headerWrapper: {
     paddingHorizontal: 16,
     paddingTop: 6,
-    paddingBottom: 22,
+    paddingBottom: TOP_CURVE_RADIUS + TOP_CURVE_GAP,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -1567,9 +1571,9 @@ const styles = StyleSheet.create({
   /* MAIN CONVERSATION CONTENT SHEET */
   mainContentSheet: {
     flex: 1,
-    borderTopLeftRadius: 36,
-    borderTopRightRadius: 36,
-    marginTop: -12,
+    borderTopLeftRadius: TOP_CURVE_RADIUS,
+    borderTopRightRadius: TOP_CURVE_RADIUS,
+    marginTop: -TOP_CURVE_RADIUS,
     overflow: 'hidden',
     paddingTop: 16,
   },

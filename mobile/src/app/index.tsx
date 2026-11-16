@@ -24,6 +24,12 @@ import { Fonts } from '../theme/tokens';
 import { scaleFont, scaleContainer, scaleHeight } from '../theme/responsive';
 import { useAppTheme } from '../context/theme-context';
 import { useAuth } from '../store/auth';
+import * as Notifications from 'expo-notifications';
+import {
+  navigateFromNotificationData,
+  markColdStartNotificationHandled,
+} from '../hooks/use-push-notifications';
+import { PushNotificationData } from '../types/notifications';
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -31,8 +37,27 @@ export default function SplashScreen() {
   const auth = useAuth();
 
   useEffect(() => {
-    if (auth.isInitialized && auth.token) {
-      router.replace('/(tabs)/inbox');
+    if (!auth.isInitialized) return;
+
+    if (auth.token) {
+      if (Platform.OS !== 'web') {
+        Notifications.getLastNotificationResponseAsync()
+          .then((lastResponse) => {
+            if (lastResponse) {
+              const id = lastResponse.notification.request.identifier;
+              const data = lastResponse.notification.request.content.data as PushNotificationData;
+              markColdStartNotificationHandled(id);
+              navigateFromNotificationData(router, data, true);
+              return;
+            }
+            router.replace('/(tabs)/inbox');
+          })
+          .catch(() => {
+            router.replace('/(tabs)/inbox');
+          });
+      } else {
+        router.replace('/(tabs)/inbox');
+      }
     }
   }, [auth.isInitialized, auth.token, router]);
 
@@ -41,6 +66,16 @@ export default function SplashScreen() {
   };
 
   const baseBg = isDark ? '#05010B' : colors.background;
+
+  // While auth state is initializing or if the user is already authenticated and routing,
+  // do NOT render the onboarding/login UI. This prevents any 1-second login screen flicker.
+  if (!auth.isInitialized || auth.token) {
+    return (
+      <View style={[styles.root, { backgroundColor: baseBg }]}>
+        <StatusBar style={statusBarStyle} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.root, { backgroundColor: baseBg }]}>

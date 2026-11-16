@@ -36,7 +36,7 @@ export function getApiBaseUrl(): string {
   }
 
   // 5. Fallback for physical device via USB adb reverse, iOS simulator, or local
-  return 'http://localhost:8000';
+  return Platform.OS === 'android' ? 'http://127.0.0.1:8000' : 'http://localhost:8000';
 }
 
 export function getWsBaseUrl(): string {
