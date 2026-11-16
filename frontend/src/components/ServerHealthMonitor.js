@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { WifiOff, RefreshCw, CheckCircle2, ShieldAlert } from 'lucide-react';
 
 const HEALTH_CHECK_URL = '/api/health';
@@ -17,6 +18,9 @@ function isBusyWithOperation() {
 }
 
 export default function ServerHealthMonitor() {
+  const pathname = usePathname();
+  const isPublicMarketingPage = pathname === '/' || pathname === '/pricing' || pathname?.startsWith('/docs');
+
   const [isOffline, setIsOffline] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [countdown, setCountdown] = useState(RETRY_INTERVAL_SEC);
@@ -25,6 +29,11 @@ export default function ServerHealthMonitor() {
   const errorCountRef = useRef(0);
   const intervalRef = useRef(null);
   const countdownRef = useRef(null);
+
+  // Skip monitoring and rendering toast on public marketing pages
+  if (isPublicMarketingPage) {
+    return null;
+  }
 
   // Ping backend /api/health directly
   const checkHealth = useCallback(async () => {

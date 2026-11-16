@@ -1,382 +1,302 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
+import Image from 'next/image';
 import { poppins } from '@/lib/fonts';
-import { Check, ChevronsDown } from 'lucide-react';
+import { 
+  Instagram, 
+  MessageCircle, 
+  Globe, 
+  Sparkles,
+  Phone,
+  Zap,
+  TrendingUp,
+  ShieldCheck,
+  Check
+} from 'lucide-react';
 import NavigationSection from '@/components/LandingPageNew/NavigationSection/NavigationSection';
 import ModernSaaSBackground from '@/components/LandingPageNew/ModernSaaSBackground/ModernSaaSBackground';
 import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
-import api from '@/lib/api';
 import PricingComparisonTable from '@/components/LandingPageNew/PricingSectionNewSection/PricingComparisonTable';
+import BrandChannelRow from '@/components/BrandChannelIcons';
+import { 
+  CORE_ORBION_PLANS,
+  CREATOR_PLAN
+} from '@/lib/constants/pricingTiers';
 
-const TOKENS_PER_CREDIT = 1000;
-
-const containerVariants = {
-  hidden: {},
-  visible: {},
-};
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 35 },
-  visible: (index) => ({
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { duration: 0.45, delay: index * 0.1, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
-
-/* ─ PricingCard Component sizing & styling ─ */
-function PricingCard({ plan, index, billing }) {
-  const isFeatured = plan.featured;
+/* ─ Plan Card Component Pixel-Matching Image 1 (Spacious, No Squeezing) ─ */
+function PlanCard({ plan, billing }) {
+  const isBusiness = plan.key === 'business';
   const isEnterprise = plan.key === 'enterprise';
-  const showPerPeriod = !['Free', 'Custom', "Let's Talk", "Let's Start"].includes(plan.price);
+  const isFree = plan.key === 'free';
+  const isCreator = plan.key === 'creator';
 
-  const scrollContainerRef = useRef(null);
-  const [canScrollDown, setCanScrollDown] = useState(false);
+  const price = billing === 'annual' && plan.priceMonthly > 0
+    ? plan.displayPriceYearly
+    : plan.displayPrice;
 
-  const checkScroll = () => {
-    const el = scrollContainerRef.current;
-    if (el) {
-      const hasOverflow = el.scrollHeight > el.clientHeight;
-      const isAtBottom = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight - 6;
-      setCanScrollDown(hasOverflow && !isAtBottom);
+  const gstPrice = billing === 'annual' && plan.priceYearlyGst > 0
+    ? `₹${plan.priceYearlyGst.toLocaleString('en-IN')}/mo incl. 18% GST`
+    : plan.priceMonthlyGst > 0
+    ? `₹${plan.priceMonthlyGst.toLocaleString('en-IN')}/mo incl. 18% GST`
+    : null;
+
+  const billingNote = plan.priceMonthly > 0
+    ? (billing === 'annual' ? 'billed annually' : 'billed monthly')
+    : (isFree ? 'no credit card required' : 'custom billing & net-30 terms');
+
+  const handleAction = () => {
+    if (isEnterprise) {
+      window.location.href = 'mailto:sales@orbionagents.com?subject=Enterprise Custom Plan Inquiry';
+    } else {
+      window.location.href = `/login?redirect=${encodeURIComponent('/user/admin/billing/payment')}`;
     }
   };
 
-  useEffect(() => {
-    checkScroll();
-  }, [plan.features]);
-
-  const handleScrollDown = (e) => {
-    e.stopPropagation();
-    const el = scrollContainerRef.current;
-    if (!el) return;
-
-    const start = el.scrollTop;
-    const distance = 42;
-    const duration = 400;
-    let startTime = null;
-
-    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
-
-    const step = (timestamp) => {
-      if (!startTime) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / duration, 1);
-      const easeProgress = easeOutCubic(progress);
-
-      el.scrollTop = start + distance * easeProgress;
-
-      if (progress < 1) {
-        requestAnimationFrame(step);
-      } else {
-        checkScroll();
-      }
-    };
-
-    requestAnimationFrame(step);
-  };
-
-  const cardBg = isFeatured
-    ? 'border-[#7C3AED]/40 bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.30),rgba(10,10,14,0.95)_75%)] shadow-[0_0_60px_rgba(124,58,237,0.25)] ring-1 ring-[#7C3AED]/30'
-    : 'border-white/10 bg-[#0c0c0e]/90 shadow-2xl';
-
-  const buttonClass = isEnterprise
-    ? 'bg-[#1e1e24] text-white hover:bg-[#2a2a34] border border-white/10 shadow-lg cursor-pointer'
-    : isFeatured
-    ? 'bg-gradient-to-r from-[#7C3AED] to-[#9333EA] text-white hover:opacity-95 shadow-[0_10px_30px_rgba(124,58,237,0.4)] cursor-pointer'
-    : 'bg-[#1e1e24] text-white hover:bg-[#2a2a34] border border-white/10 cursor-pointer';
+  const hasWhatsApp = plan.channels?.includes('whatsapp');
+  const hasInstagram = plan.channels?.includes('instagram');
+  const hasTwilio = plan.channels?.includes('twilio');
 
   return (
-    <motion.div
-      custom={index}
-      variants={cardVariants}
-      className={`relative overflow-hidden rounded-[32px] border w-full max-w-[420px] mx-auto min-h-[640px] p-8 md:p-9 backdrop-blur-2xl transition-all duration-300 flex flex-col justify-between ${cardBg}`}
+    <div
+      className={`relative rounded-3xl p-5 sm:p-6 lg:p-6 xl:p-5 flex flex-col justify-between transition-all duration-300 font-['Poppins',sans-serif] ${
+        isBusiness
+          ? 'bg-[#0b0c14] border-2 border-purple-500 shadow-[0_0_35px_rgba(139,92,246,0.3)] ring-1 ring-purple-400/50'
+          : isCreator
+          ? 'bg-[#0b0c14] border-2 border-purple-500/80 shadow-[0_0_30px_rgba(168,85,247,0.25)]'
+          : isFree
+          ? 'bg-[#0b0c14] border-2 border-emerald-500/40 hover:border-emerald-500/70 shadow-[0_0_25px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/20'
+          : 'bg-[#0b0c14] border border-white/[0.08] hover:border-white/20 shadow-xl'
+      }`}
+      style={{ fontFamily: "'Poppins', sans-serif" }}
     >
-      {/* Featured glow */}
-      {isFeatured && (
-        <div className="absolute -top-28 left-1/2 h-[350px] w-[350px] -translate-x-1/2 rounded-full bg-[#7C3AED]/30 blur-[130px] pointer-events-none" />
-      )}
-
-      {/* Popular Badge */}
-      {isFeatured && (
-        <div className="absolute top-6 right-6 rounded-full border border-[#7C3AED]/50 bg-[#7C3AED]/20 px-3.5 py-1 text-xs font-semibold text-[#D8B4FE] shadow-sm">
-          Popular
-        </div>
-      )}
-
-      <div className="relative z-10 flex h-full flex-col justify-between">
-        <div>
-          {/* Title */}
-          <div className="flex items-center gap-3">
-            <span className="text-3xl">{plan.icon}</span>
-            <span className="text-2xl font-semibold text-white tracking-tight">
-              {plan.name}
+      <div>
+        {/* Plan Badge */}
+        {plan.badge && (
+          <div className="mb-2">
+            <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full inline-block ${
+              isBusiness 
+                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-[0_0_10px_rgba(168,85,247,0.2)]' 
+                : isFree
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                : 'bg-white/[0.05] text-zinc-400 border border-white/10'
+            }`}>
+              {plan.badge}
             </span>
           </div>
+        )}
 
-          {/* Price */}
-          <div className="mt-5 flex items-baseline">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={billing + plan.price}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2 }}
-                className="flex items-baseline"
-              >
-                <span className="text-4xl md:text-5xl font-bold tracking-tight text-white leading-none">
-                  {plan.price}
-                </span>
-                {showPerPeriod && (
-                  <span className="ml-2 text-sm md:text-base font-normal text-white/60">
-                    {billing === 'annual' ? '/year' : '/month'}
-                  </span>
-                )}
-              </motion.div>
-            </AnimatePresence>
+        {/* Plan Title in Purple or Emerald for Free */}
+        <h3 className={`text-2xl font-bold tracking-tight ${isFree ? 'text-emerald-400' : 'text-purple-400'}`}>
+          {plan.name}
+        </h3>
+
+        {/* Subtitle matching Image 1 */}
+        <p className="text-xs text-zinc-400 mt-1 min-h-[18px]">
+          {plan.subtitle}
+        </p>
+
+        {/* Price & GST Note matching Image 1 */}
+        <div className="mt-4">
+          <div className="flex items-baseline">
+            <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              {price}
+            </span>
+            {plan.priceMonthly > 0 && (
+              <span className="ml-1 text-xs text-zinc-400 font-normal">
+                {plan.period}
+              </span>
+            )}
+            {isFree && (
+              <span className="ml-1 text-xs text-emerald-400 font-medium">
+                forever
+              </span>
+            )}
           </div>
 
-          {/* Description */}
-          <p className="mt-4 text-[13.5px] md:text-[14px] leading-relaxed text-white/70 min-h-[48px]">
-            {plan.description}
-          </p>
+          <div className="text-[11px] text-zinc-400 font-normal mt-1 min-h-[16px]">
+            {gstPrice || (isFree ? '100% Free · No card needed' : 'custom pricing')}
+          </div>
 
-          {/* Action Button */}
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={() => {
-                // Now directly goes to login page regardless of the plan
-                window.location.href = `/login?redirect=${encodeURIComponent('/user/admin/billing/payment')}`;
-              }}
-              className={`relative z-20 w-full h-12 rounded-xl text-[15px] font-semibold transition-all duration-200 flex items-center justify-center ${buttonClass}`}
-            >
-              {plan.buttonText}
-            </button>
+          <div className="text-[11px] text-zinc-500 font-normal">
+            {isFree ? 'instant access · never expires' : billingNote}
           </div>
         </div>
 
-        {/* What's included Section */}
-        <div className="mt-10 pt-6 border-t border-white/10 relative flex-1 flex flex-col justify-end">
-          <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-4">
-            WHAT&apos;S INCLUDED
-          </p>
-
-          {/* Features Scroll Area */}
-          <div
-            ref={scrollContainerRef}
-            onScroll={checkScroll}
-            className="flex flex-col gap-3 h-[270px] md:h-[290px] overflow-y-auto pb-10 pr-1.5"
-            style={{
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
-            }}
+        {/* Action Button: Rounded Pill matching Image 1 */}
+        <div className="mt-5">
+          <button
+            onClick={handleAction}
+            className={`w-full py-2.5 px-4 sm:px-6 rounded-full font-semibold text-xs sm:text-sm transition-all duration-200 text-center block ${
+              isBusiness || isCreator
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-[0_0_20px_rgba(147,51,234,0.35)]'
+                : isFree
+                ? 'border-2 border-emerald-500/50 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 hover:text-white hover:border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.25)]'
+                : 'border border-white/20 bg-white/[0.03] hover:bg-white/10 hover:border-white/40 text-white'
+            }`}
           >
-            {plan.features.map((feature, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <Check
-                  className="h-4 w-4 text-[#A78BFA] flex-shrink-0 mt-0.5"
-                  strokeWidth={2.5}
-                />
-                <span className="text-[13.5px] md:text-[14px] text-white/90 leading-snug">
-                  {feature}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Floating Scroll Indicator */}
-          {canScrollDown && (
-            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0a0a0c] via-[#0a0a0c]/80 to-transparent flex items-end justify-center pb-1 pointer-events-none rounded-b-[24px]">
-              <motion.button
-                type="button"
-                onClick={handleScrollDown}
-                title="Scroll down for more features"
-                animate={{ y: [0, 4, 0] }}
-                transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
-                className="pointer-events-auto p-1.5 text-[#C084FC] hover:text-white hover:scale-110 active:scale-95 transition-all duration-150 cursor-pointer flex items-center justify-center"
-              >
-                <ChevronsDown size={18} strokeWidth={2.5} />
-              </motion.button>
-            </div>
-          )}
+            {plan.buttonText}
+          </button>
         </div>
+
+        {/* Green Setup Box matching Image 1 */}
+        <div className="mt-4">
+          <div className={`w-full py-2.5 px-3 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-all text-center ${
+            isFree
+              ? 'border-emerald-500/40 bg-emerald-950/30 text-emerald-300'
+              : 'border-emerald-500/30 bg-emerald-950/20 text-emerald-400'
+          }`}>
+            <span className="text-emerald-400 font-bold text-sm leading-none shrink-0">+</span>
+            <span>{plan.setupNote || 'Free setup — we build your chatbot flow for you'}</span>
+          </div>
+        </div>
+
+        {/* Brand Channel Avatars matching Image 1 */}
+        <BrandChannelRow plan={plan} />
+
+        {/* Feature Checklist matching Image 1: Purple / Emerald Checkmark */}
+        <ul className="mt-4 space-y-2.5">
+          {plan.features.map((feature, idx) => (
+            <li key={idx} className="flex items-start gap-2 text-xs text-zinc-300 leading-relaxed">
+              <span className={`${isFree ? 'text-emerald-400' : 'text-purple-400'} font-bold shrink-0 mt-0.5`}>✓</span>
+              <span>{feature}</span>
+            </li>
+          ))}
+        </ul>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
 export default function PricingPage() {
-  const [billing, setBilling] = useState('monthly');
-  const [settings, setSettings] = useState(null);
-  const compareRef = useRef(null);
-
-  useEffect(() => {
-    api.getPricing()
-      .then(setSettings)
-      .catch((err) => console.warn('Failed to load pricing details:', err?.message || err));
-  }, []);
-
-  const scrollToCompare = () => {
-    compareRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  const iconMap = {
-    free: '🚀',
-    solo: '⚡',
-    pro: '🔥',
-    enterprise: '👑',
-  };
-
-  const dynamicPlans =
-    settings?.plans && Array.isArray(settings.plans) && settings.plans.length > 0
-      ? settings.plans
-          .filter((p) => p.key !== 'free' && p.key !== 'solo')
-          .map((p) => {
-            const isYearly = billing === 'annual';
-            const rawPrice = isYearly ? p.yearly_price : p.monthly_price;
-            const displayPrice =
-              p.key === 'free' || rawPrice === 0
-                ? 'Free'
-                : p.key === 'enterprise'
-                ? "Let's Talk"
-                : `₹${Number(rawPrice).toLocaleString('en-IN')}`;
-
-            const repliesCount = p.credits
-              ? `${Math.round(p.credits).toLocaleString('en-IN')} monthly AI replies`
-              : `${Math.round((p.token_limit || 1000000) / TOKENS_PER_CREDIT).toLocaleString('en-IN')} monthly AI replies`;
-
-            return {
-              key: p.key,
-              name: p.name || p.display_name,
-              icon: iconMap[p.key] || '⚡',
-              price: displayPrice,
-              description: p.description,
-              features:p.features && p.features.length > 0
-                  ? p.features
-                  : [repliesCount, 'Basic workspace access', 'Meta API Included'],
-              buttonText:
-                p.key === 'free'
-                  ? 'Choose this plan'
-                  : p.key === 'enterprise'
-                  ? 'Schedule a call'
-                  : `Choose this plan`,
-              featured: p.featured || p.is_featured || p.key === 'pro',
-            };
-          })
-      : [
-          // {
-          //   key: 'free',
-          //   name: settings?.free_plan_name || 'Free Starter',
-          //   icon: '🚀',
-          //   price: (settings?.free_plan_price ?? 0) === 0 ? 'Free' : `₹${settings?.free_plan_price}`,
-          //   description: settings?.free_plan_desc || 'A controlled top-of-funnel acquisition tier.',
-          //   features: settings?.free_plan_features || [
-          //     '20,000 AI Credits / month',
-          //     '₹50 WhatsApp Wallet (~45 messages)',
-          //     '2 Flow Executions / month',
-          //     '2 Active Automations',
-          //     '5 Knowledge Base Documents',
-          //     '100 MB Brain File Storage',
-          //     '50 Leads & CRM',
-          //     '10 Meetings / month',
-          //   ],
-          //   buttonText: 'Choose this plan',
-          //   featured: false,
-          // },
-          {
-            key: 'pro',
-            name: settings?.pro_plan_name || 'Pro',
-            icon: '🔥',
-            price:
-              billing === 'annual'
-                ? `₹${Number(settings?.pro_yearly_plan_price || 999).toLocaleString('en-IN')}`
-                : `₹${Number(settings?.pro_plan_price || 199).toLocaleString('en-IN')}`,
-            description: settings?.pro_plan_desc || 'Billed at ₹199 monthly or ₹999 annually (58% annual discount).',
-            features: settings?.pro_plan_features || [
-              '250,000 AI Credits / month',
-              '₹500 WhatsApp Wallet (~450 messages)',
-              '10 Flow Executions / month',
-              '50 Active Automations',
-              '100 Knowledge Base Documents',
-              '5 GB Brain File Storage',
-              '100 Leads & CRM',
-              '500 Meetings / month',
-            ],
-            buttonText: 'Choose this plan',
-            featured: true,
-          },
-          {
-            key: 'enterprise',
-            name: settings?.enterprise_plan_name || 'Enterprise',
-            icon: '👑',
-            price: "Let's Talk",
-            description: settings?.enterprise_plan_desc || 'For large-scale operations with dedicated infrastructure and unlimited limits.',
-            features: settings?.enterprise_plan_features || [
-              '500,000 AI Credits / month',
-              '₹500 WhatsApp Wallet',
-              'Unlimited Flow Executions',
-              'Unlimited Active Automations',
-              '1,000 Knowledge Base Documents',
-              '100 GB Brain File Storage',
-              'Unlimited Leads & CRM',
-              'Unlimited Meetings / month',
-            ],
-            buttonText: 'Schedule a call',
-            featured: false,
-          },
-        ];
-
-  const plans = dynamicPlans;
+  const [billingCycle, setBillingCycle] = useState('annual'); // 'monthly' | 'annual'
 
   return (
-    <main className={`${poppins.className} min-h-screen bg-black text-white relative overflow-x-hidden`}>
-      <ModernSaaSBackground />
+    <div className={`min-h-screen bg-black text-white ${poppins.className} selection:bg-purple-600/30 selection:text-purple-200`}>
       <NavigationSection />
 
-      <div className="relative z-10 pt-32 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-        {/* Header (Doc 1 Style) */}
-        <div className="mx-auto max-w-4xl text-center mb-16">
-          <h2 className="font-['Poppins'] text-[32px] font-semibold text-white tracking-[-0.03em] leading-[1.15em] sm:text-[56px]">
-            Simple, Transparent Pricing
-            <br />
-            For Every Stage of Growth
-          </h2>
-          <p className="mt-5 max-w-2xl mx-auto text-sm sm:text-base md:text-lg text-white/70 leading-relaxed font-normal">
-            Choose the perfect plan for your business and scale your AI-powered sales system with confidence.
-          </p>
-        </div>
+      {/* Main Container */}
+      <main className="relative pt-28 sm:pt-32 pb-24 overflow-x-hidden w-full max-w-[100vw] min-w-0">
+        <ModernSaaSBackground />
 
-        {/* 3-Column Plan Grid */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.1 }}
-          className="relative grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto items-stretch"
-        >
-          {plans.map((plan, index) => (
-            <PricingCard
-              key={plan.key}
-              plan={plan}
-              index={index}
-              billing={billing}
-            />
-          ))}
-        </motion.div>
+        <div className="relative z-10 max-w-7xl mx-auto w-full min-w-0 px-3.5 sm:px-6 lg:px-8">
+          
+          {/* Header Section */}
+          <div className="text-center max-w-4xl mx-auto mb-8 sm:mb-12 px-4">
+            <div className="inline-flex items-center gap-2 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full bg-purple-950/50 border border-purple-500/30 text-xs text-purple-200 mb-3 sm:mb-5 shadow-[0_0_15px_rgba(168,85,247,0.15)]">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+              <span className="uppercase tracking-[0.16em] sm:tracking-[0.18em] text-[10px] sm:text-[11px] font-semibold text-purple-200">
+                ORBION AGENTS PLATFORM PRICING
+              </span>
+            </div>
 
-        {/* Detailed Plan Comparison Section */}
-        <div ref={compareRef} className="mt-12 md:mt-20">
-          <PricingComparisonTable
-            plans={(settings?.plans || []).filter((p) => !['free', 'solo'].includes(p.key))}
-          />
+            <h1 className="text-[22px] xs:text-2xl sm:text-4xl md:text-5xl lg:text-[54px] font-extrabold tracking-tight text-white leading-tight sm:leading-[1.16] text-balance break-words">
+              Simple, Transparent Pricing{' '}
+              <span className="block mt-1 sm:mt-2 bg-gradient-to-r from-purple-400 via-fuchsia-300 to-indigo-400 bg-clip-text text-transparent">
+                For Every Stage of Growth.
+              </span>
+            </h1>
+
+            <p className="mt-3 sm:mt-4 text-xs sm:text-base md:text-lg text-zinc-400 font-normal max-w-2xl mx-auto leading-relaxed text-balance px-2">
+              Official Meta Cloud API partner. Choose between our dedicated Instagram Creator plan or scalable WhatsApp &amp; Omnichannel workforce teams.
+            </p>
+          </div>
+
+          {/* Clean, Beautiful Monthly / Annual Toggler with Balanced Symmetry & Floating Savings Badge */}
+          <div className="flex flex-col items-center justify-center mb-10 sm:mb-12 px-2 gap-3.5">
+            <div className="relative inline-flex items-center p-1 sm:p-1.5 rounded-full bg-[#0d0e17] border border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.8)] backdrop-blur-2xl ring-1 ring-white/5">
+              {/* Monthly Button */}
+              <button
+                type="button"
+                onClick={() => setBillingCycle('monthly')}
+                className={`relative z-10 px-4 sm:px-7 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 cursor-pointer ${
+                  billingCycle === 'monthly'
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_22px_rgba(147,51,234,0.45)] ring-1 ring-purple-400/50'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
+              >
+                Monthly billing
+              </button>
+
+              {/* Annual Button with Floating Save 5% Pill */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setBillingCycle('annual')}
+                  className={`relative z-10 px-4 sm:px-7 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 cursor-pointer ${
+                    billingCycle === 'annual'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_22px_rgba(147,51,234,0.45)] ring-1 ring-purple-400/50'
+                      : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                  }`}
+                >
+                  Annual billing
+                </button>
+
+                {/* Floating Modern Pill Badge */}
+                <span className="absolute -top-3.5 -right-2 z-20 pointer-events-none select-none inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold tracking-wider uppercase bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 text-white shadow-[0_0_14px_rgba(236,72,153,0.55)] border border-white/30">
+                  Save 5%
+                </span>
+              </div>
+            </div>
+
+            {/* GST Notice Badge */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-950/50 border border-purple-500/30 text-purple-200 text-xs font-medium shadow-[0_0_12px_rgba(168,85,247,0.15)]">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>All plans include 18% GST</span>
+            </div>
+          </div>
+
+          {/* ─ UNIFIED CORE PLANS SECTION ─ */}
+          <div className="mb-14 sm:mb-20">
+            {/* Free Sandbox Feature Highlight Banner */}
+            <div className="mb-8 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#0b0c14] to-purple-950/20 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.12)] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3.5 w-full">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl overflow-hidden border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.3)] shrink-0 bg-black flex items-center justify-center">
+                  <Image 
+                    src="/icons/free_sandbox_icon.jpg" 
+                    alt="Free Sandbox Icon" 
+                    width={48} 
+                    height={48}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="text-base font-bold text-white tracking-tight">Free Forever Plan & Evaluation Sandbox</h4>
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+                      ₹0 Forever · No Card Required
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-300 mt-1 max-w-2xl break-words leading-relaxed">
+                    Test official WhatsApp AI agents safely without risking phone number bans · 1 User seat · 50 Free AI test credits · 50 Contact leads · Instant access
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 w-full md:w-auto shrink-0 pt-2 sm:pt-0">
+                <button
+                  onClick={() => window.location.href = '/login'}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-full border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 hover:text-white font-semibold text-xs tracking-wide transition-all text-center shadow-sm"
+                >
+                  Start Free Forever →
+                </button>
+              </div>
+            </div>
+
+            {/* 6 Core Platform Plans Grid: Free Forever, Starter, Growth, Business, Creator, Enterprise */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+              {CORE_ORBION_PLANS.map((plan) => (
+                <PlanCard key={plan.key} plan={plan} billing={billingCycle} />
+              ))}
+            </div>
+          </div>
+
+          {/* ─ 3. FEATURE MATRIX COMPARISON TABLE (Matching Image 2) ─ */}
+          <PricingComparisonTable billing={billingCycle} />
+
         </div>
-      </div>
+      </main>
 
       <FooterSection />
-    </main>
+    </div>
   );
 }
