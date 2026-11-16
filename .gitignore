@@ -117,6 +117,10 @@ backend/tests/pytest_log.txt
 *.pem
 *.key
 *.crt
+google-services.json
+**/google-services.json
+GoogleService-Info.plist
+**/GoogleService-Info.plist
 
 
 # Operating System & IDE Configs

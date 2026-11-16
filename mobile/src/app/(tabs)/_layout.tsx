@@ -8,6 +8,7 @@ import {
   Platform,
   Animated,
   Dimensions,
+  BackHandler,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -185,6 +186,32 @@ function GlassmorphicTabBar() {
 }
 
 export default function TabLayout() {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  React.useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const backAction = () => {
+      if (pathname.includes('settings')) {
+        router.replace('/(tabs)/inbox');
+        return true;
+      }
+      if (pathname === '/inbox' || pathname === '/(tabs)/inbox' || pathname === '/') {
+        BackHandler.exitApp();
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [pathname, router]);
+
   return (
     <Tabs
       tabBar={() => <GlassmorphicTabBar />}
