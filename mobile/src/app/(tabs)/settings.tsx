@@ -7,7 +7,7 @@ import {
   ScrollView,
   Switch,
   ActivityIndicator,
-    Platform,
+  Platform,
   Modal,
   Pressable,
   Alert,
@@ -324,9 +324,7 @@ export default function SettingsScreen() {
             </View>
           )}
 
-          {/* ============================================================== */}
-          {/* 1. ACCOUNT SECTION (All inside our app card)                   */}
-          {/* ============================================================== */}
+          {/* 1. ACCOUNT SECTION (All inside our app card) */}
           <Text style={[styles.sectionHeader, { color: theme.textMuted }]}>ACCOUNT</Text>
           <View
             style={[
@@ -378,9 +376,7 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* ============================================================== */}
-          {/* 2. WORKSPACE SECTION (App Card)                                */}
-          {/* ============================================================== */}
+          {/* 2. WORKSPACE SECTION (App Card) */}
           <Text style={[styles.sectionHeader, { color: theme.textMuted }]}>WORKSPACE</Text>
           <View
             style={[
@@ -425,9 +421,7 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          {/* ============================================================== */}
-          {/* 3. APPEARANCE SECTION (App Card)                               */}
-          {/* ============================================================== */}
+          {/* 3. APPEARANCE SECTION (App Card) */}
           <Text style={[styles.sectionHeader, { color: theme.textMuted }]}>APPEARANCE</Text>
           <View
             style={[
@@ -507,9 +501,7 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          {/* ============================================================== */}
-          {/* 4. NOTIFICATIONS SECTION (App Card)                            */}
-          {/* ============================================================== */}
+          {/* 4. NOTIFICATIONS SECTION (App Card)  */}
           <Text style={[styles.sectionHeader, { color: theme.textMuted }]}>NOTIFICATIONS</Text>
           <View
             style={[
@@ -619,9 +611,7 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          {/* ============================================================== */}
-          {/* 5. SECURITY & DEVICES (App Card)                               */}
-          {/* ============================================================== */}
+          {/* 5. SECURITY & DEVICES (App Card) */}
           <Text style={[styles.sectionHeader, { color: theme.textMuted }]}>SECURITY & DEVICES</Text>
           <View
             style={[
@@ -671,9 +661,7 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* ============================================================== */}
-          {/* 6. INTEGRATIONS (App Card)                                     */}
-          {/* ============================================================== */}
+          {/* 6. INTEGRATIONS (App Card)  */}
           <Text style={[styles.sectionHeader, { color: theme.textMuted }]}>INTEGRATIONS</Text>
           <View
             style={[
@@ -696,9 +684,7 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* ============================================================== */}
-          {/* 7. ACCOUNT ACTIONS (Sign out & Delete account)                 */}
-          {/* ============================================================== */}
+          {/* 7. ACCOUNT ACTIONS (Sign out & Delete account) */}
           <TouchableOpacity
             style={[
               styles.signOutBtn,
