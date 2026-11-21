@@ -447,6 +447,10 @@ export default function NodeInspector({
 
   // Handle switching action type
   const handleActionTypeChange = (newType) => {
+    if (newType === actionType) return;
+    if (typeof clearUpload === 'function') {
+      clearUpload();
+    }
     const labelMap = {
       send_msg: 'Send Message',
       brain_query: 'AI Reply',
@@ -498,9 +502,16 @@ export default function NodeInspector({
 
   // Handle Message Type change
   const handleMessageTypeChange = (nextType) => {
+    if (nextType === messageType) return;
+
+    if (typeof clearUpload === 'function') {
+      clearUpload();
+    }
+
     updateNodeConfig(activeNodeId, (config) => ({
       ...config,
       message_type: nextType,
+      media_url: null,
       wait_for_response: nextType === 'button_message' ? (config.wait_for_response ?? false) : false,
       buttons: nextType === 'button_message'
         ? normalizeButtons(config.buttons?.length ? config.buttons : [createDefaultButton(0)])
@@ -1068,6 +1079,7 @@ export default function NodeInspector({
                                     src={previewUrl || activeNode.config?.media_url}
                                     alt="Preview"
                                     className="w-full max-h-48 object-cover rounded-lg border border-white/10"
+                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                   />
                                 )}
                                 {(previewUrl || activeNode.config?.media_url) && messageType === 'video' && (
@@ -1077,12 +1089,16 @@ export default function NodeInspector({
                                       controls
                                       className="w-full max-h-48 rounded-lg"
                                       playsInline
+                                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                     />
                                   </div>
                                 )}
                                 {messageType === 'document' && (
-                                  <div className="flex items-center justify-center w-full h-24 bg-white/5 rounded-lg">
-                                    <FileText size={36} className="text-violet-400" />
+                                  <div className="flex flex-col items-center justify-center w-full h-24 bg-white/5 rounded-lg px-4 gap-1.5">
+                                    <FileText size={32} className="text-violet-400 shrink-0" />
+                                    <span className="text-xs text-zinc-300 font-medium truncate max-w-full">
+                                      {activeNode.config?.media_url ? activeNode.config.media_url.split('/').pop() : 'Document.pdf'}
+                                    </span>
                                   </div>
                                 )}
                                 <div className="flex items-center justify-between pt-1">
@@ -2311,6 +2327,7 @@ export default function NodeInspector({
                             src={previewUrl || activeNode.config?.media_url}
                             alt="Media Preview"
                             className="w-full max-h-36 object-cover rounded-lg"
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
                           />
                         )}
                         {(previewUrl || activeNode.config?.media_url) && messageType === 'video' ? (
@@ -2320,6 +2337,7 @@ export default function NodeInspector({
                               controls
                               className="w-full max-h-36 rounded-lg"
                               playsInline
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
                             />
                           </div>
                         ) : messageType === 'video' ? (

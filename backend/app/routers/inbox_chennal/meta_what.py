@@ -64,6 +64,13 @@ async def connect_whatsapp(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     workspace_id = verify_workspace_access(current_user, db, data.workspace_id, required_permission='channels.manage')
+    from app.services.billing.entitlement_service import EntitlementService
+    ent_check = EntitlementService.check_entitlement(db, workspace_id, "channel_whatsapp")
+    if not ent_check.get("allowed", False):
+        raise HTTPException(
+            status_code=403,
+            detail=ent_check.get("reason", "WhatsApp channel is not supported on your current plan. Please upgrade your subscription.")
+        )
     payload_dict = data.model_dump()
     payload_dict["workspace_id"] = workspace_id
     if not payload_dict.get("code") and not payload_dict.get("fb_access_token"):

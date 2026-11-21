@@ -13,7 +13,7 @@
 
 const ModernSaaSBackground = () => {
   return (
-    <div className="fixed inset-0 z-0 bg-[#0B0B0B] overflow-hidden pointer-events-none">
+    <div className="fixed inset-0 z-0 bg-[#0B0B0B] overflow-hidden pointer-events-none w-full max-w-full">
       <div className="absolute inset-0 bg-gradient-to-b from-[#0B0B0B] via-[#121212] to-[#181818]" />
 
       {/* Purple glow blob — top-right */}

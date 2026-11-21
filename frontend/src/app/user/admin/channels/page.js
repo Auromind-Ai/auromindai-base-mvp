@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { poppins } from '@/lib/fonts';
-import { Instagram, Search, ChevronDown, Check, X, ChevronRight, Eye, EyeOff, ExternalLink, Settings, Copy, UserPen } from 'lucide-react';
+import { Instagram, Search, ChevronDown, Check, X, ChevronRight, Eye, EyeOff, ExternalLink, Settings, Copy, UserPen, Lock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import api from '@/lib/api';
@@ -855,7 +855,39 @@ function ChannelsContent() {
     const [detailsRevealedSecrets, setDetailsRevealedSecrets] = useState({});
     const [copiedKey, setCopiedKey] = useState(null);
 
+    const [entitlements, setEntitlements] = useState(null);
+    const [allowedChannels, setAllowedChannels] = useState(null);
+
+    const loadEntitlements = useCallback(async () => {
+        try {
+            const wsId = workspace?.id || effectiveWorkspaceId;
+            if (!wsId) return;
+            const entData = await api.getWorkspaceEntitlements(wsId);
+            setEntitlements(entData);
+            const rawChannels = entData?.feature_flags?.allowed_channels;
+            if (Array.isArray(rawChannels)) {
+                setAllowedChannels(rawChannels.map(c => String(c).toLowerCase().trim()));
+            } else {
+                setAllowedChannels(['whatsapp']);
+            }
+        } catch (err) {
+            console.error('Failed to load workspace entitlements:', err);
+        }
+    }, [workspace, effectiveWorkspaceId]);
+
+    const isChannelAllowed = useCallback((channelId) => {
+        if (!allowedChannels) return true; // default true while loading
+        const ch = (channelId || '').toLowerCase().trim();
+        if (ch === 'gmail' || ch === 'google_calendar') return true;
+        if (allowedChannels.includes('all') || allowedChannels.length >= 3) return true;
+        return allowedChannels.includes(ch);
+    }, [allowedChannels]);
+
     const handleOpenWhatsAppProfile = (isConnected) => {
+        if (!isChannelAllowed('whatsapp')) {
+            showToast("WhatsApp channel is not included in your current plan.", "error");
+            return;
+        }
         if (!isConnected) {
             showToast("Please connect your WhatsApp Business account first to edit profile.", "warning");
             return;
@@ -967,8 +999,9 @@ function ChannelsContent() {
     }, [workspace]);
 
     useEffect(() => {
-        if (!workspace?.id) return;
+        if (!workspace?.id && !effectiveWorkspaceId) return;
         loadIntegrationStatus();
+        loadEntitlements();
 
         let lastFetchTime = Date.now();
         const handleStatusChange = () => {
@@ -976,6 +1009,7 @@ function ChannelsContent() {
             if (now - lastFetchTime < 1500) return;
             lastFetchTime = now;
             loadIntegrationStatus();
+            loadEntitlements();
         };
 
         window.addEventListener('channel-status-changed', handleStatusChange);
@@ -1315,6 +1349,15 @@ function ChannelsContent() {
 
     const handleConnect = (id) => {
         if (statuses[id]) return;
+
+        // Entitlement validation before any connection or popup
+        if (!isChannelAllowed(id)) {
+            const channelName = id === 'whatsapp' ? 'WhatsApp Business' : id === 'instagram' ? 'Instagram' : id === 'twilio' ? 'Twilio SMS & WhatsApp' : id;
+            showToast(`${channelName} is not included in your current plan. Please upgrade your subscription to connect this channel.`, "error");
+            window.location.href = '/user/admin/billing/payment';
+            return;
+        }
+
         triggerConnect(id);
     };
 
@@ -1566,6 +1609,11 @@ function ChannelsContent() {
                                                     {isConnected ? 'Connected' : item.categoryLabel}
                                                 </span>
                                             </div>
+                                            {!isConnected && !isChannelAllowed(item.id) && (
+                                                <span className="ml-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                                    <Lock size={10} /> Upgrade Required
+                                                </span>
+                                            )}
                                         </div>
 
                                         <div className="flex items-center gap-1.5 shrink-0">
@@ -1614,6 +1662,19 @@ function ChannelsContent() {
                                                         </div>
                                                     </div>
                                                 </>
+                                            ) : !isChannelAllowed(item.id) ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        showToast(`${item.name} is not available on your current plan. Redirecting to billing...`, "warning");
+                                                        window.location.href = '/user/admin/billing/payment';
+                                                    }}
+                                                    className="group/btn relative overflow-hidden flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs sm:text-[13px] font-medium bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition-all duration-200 hover:scale-[1.03] active:scale-95 shrink-0 cursor-pointer shadow-sm"
+                                                    title={`Upgrade your plan to unlock ${item.name}`}
+                                                >
+                                                    <Lock size={12} className="text-amber-400" />
+                                                    <span>Upgrade Plan</span>
+                                                </button>
                                             ) : (
                                                 <button
                                                     onClick={() => handleConnect(item.id)}
@@ -1721,6 +1782,11 @@ function ChannelsContent() {
                                                         {isConnected ? 'Connected' : item.categoryLabel}
                                                     </span>
                                                 </div>
+                                                {!isConnected && !isChannelAllowed(item.id) && (
+                                                    <span className="ml-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                                        <Lock size={10} /> Upgrade Required
+                                                    </span>
+                                                )}
                                             </div>
 
                                             <div className="flex items-center gap-1.5 shrink-0">
@@ -1757,6 +1823,19 @@ function ChannelsContent() {
                                                             </div>
                                                         </div>
                                                     </>
+                                                ) : !isChannelAllowed(item.id) ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            showToast(`${item.name} is not available on your current plan. Redirecting to billing...`, "warning");
+                                                            window.location.href = '/user/admin/billing/payment';
+                                                        }}
+                                                        className="group/btn relative overflow-hidden flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs sm:text-[13px] font-medium bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition-all duration-200 hover:scale-[1.03] active:scale-95 shrink-0 cursor-pointer shadow-sm"
+                                                        title={`Upgrade your plan to unlock ${item.name}`}
+                                                    >
+                                                        <Lock size={12} className="text-amber-400" />
+                                                        <span>Upgrade Plan</span>
+                                                    </button>
                                                 ) : (
                                                     <button
                                                         onClick={() => handleConnect(item.id)}

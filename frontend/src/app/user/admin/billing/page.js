@@ -21,6 +21,8 @@ import {
   ChevronDown,
   ChevronUp,
   LockKeyhole,
+  Check,
+  CheckCircle2,
 } from "lucide-react"
 
 import { poppins } from "@/lib/fonts"
@@ -36,8 +38,6 @@ import {
   formatBillingAmount,
   formatPaymentMethod,
 } from "@/lib/utils/activityMapper"
-
-
 
 export default function BillingHistoryPage() {
   const { workspaceId } = useAuth()
@@ -237,30 +237,75 @@ export default function BillingHistoryPage() {
   }, [pricing, billing, rawCycle])
 
   const activePlanFeatures = useMemo(() => {
-    if (!pricing || !billing) return []
-    const planKey = String(billing.current_plan || "free").toLowerCase()
-   
-    let rawFeatures = []
-    if (planKey === "free") {
-      rawFeatures = pricing.free_plan_features
-    } else if (planKey === "pro") {
-      rawFeatures = pricing.pro_plan_features
-    } else if (planKey === "enterprise" || planKey === "business") {
-      rawFeatures = pricing.enterprise_plan_features || pricing.business_plan_features
-    } else {
-      rawFeatures = pricing[`${planKey}_plan_features`] || pricing[`${planKey}_features`]
+    const planKey = String(billing?.current_plan || "free").toLowerCase().trim()
+
+    // 1. Direct from billing.current_plan_features
+    if (Array.isArray(billing?.current_plan_features) && billing.current_plan_features.length > 0) {
+      return billing.current_plan_features
     }
 
-    if (!rawFeatures) return []
-    if (typeof rawFeatures === "string") {
-      try {
-        rawFeatures = JSON.parse(rawFeatures)
-      } catch {
-        return [rawFeatures]
+    // 2. Direct from matching plan in billing.plans
+    if (Array.isArray(billing?.plans) && billing.plans.length > 0) {
+      const match = billing.plans.find(
+        p => (p.key || p.name || p.id || "").toLowerCase().trim() === planKey
+      )
+      if (match && Array.isArray(match.features) && match.features.length > 0) {
+        return match.features
       }
     }
-    return Array.isArray(rawFeatures) ? rawFeatures : []
+
+    // 3. Direct from pricing.plans if present
+    if (Array.isArray(pricing?.plans) && pricing.plans.length > 0) {
+      const match = pricing.plans.find(
+        p => (p.key || p.name || p.id || "").toLowerCase().trim() === planKey
+      )
+      if (match && Array.isArray(match.features) && match.features.length > 0) {
+        return match.features
+      }
+    }
+
+    // 4. Legacy pricing keys if present
+    if (pricing) {
+      let rawFeatures = null
+      if (planKey === "free") {
+        rawFeatures = pricing.free_plan_features
+      } else if (planKey === "pro") {
+        rawFeatures = pricing.pro_plan_features
+      } else if (planKey === "enterprise" || planKey === "business") {
+        rawFeatures = pricing.enterprise_plan_features || pricing.business_plan_features
+      } else {
+        rawFeatures = pricing[`${planKey}_plan_features`] || pricing[`${planKey}_features`]
+      }
+
+      if (rawFeatures) {
+        if (typeof rawFeatures === "string") {
+          try {
+            rawFeatures = JSON.parse(rawFeatures)
+          } catch {
+            rawFeatures = [rawFeatures]
+          }
+        }
+        if (Array.isArray(rawFeatures) && rawFeatures.length > 0) {
+          return rawFeatures
+        }
+      }
+    }
+
+    return []
   }, [pricing, billing])
+
+  const freePlanFeatures = useMemo(() => {
+    const dynamicPlans = billing?.plans || pricing?.plans || []
+    if (Array.isArray(dynamicPlans) && dynamicPlans.length > 0) {
+      const match = dynamicPlans.find(
+        p => (p.key || p.name || p.id || "").toLowerCase().trim() === "free"
+      )
+      if (match && Array.isArray(match.features) && match.features.length > 0) {
+        return match.features
+      }
+    }
+    return []
+  }, [billing, pricing])
 
   const triggerToast = (msg) => {
     setToastMessage(msg)
@@ -523,61 +568,75 @@ export default function BillingHistoryPage() {
               )}
             </div>
 
-            {/* Feature Pills */}
+            {/* Feature Section / Unlocked Features */}
             {!loading && billingUnavailable && (
               <p className="text-xs sm:text-[13px] text-zinc-400 mt-2 leading-relaxed">
                 Unable to load your plan details. Please try again.
               </p>
             )}
             {!loading && hasNoActivePlan && (
-              <>
-                <p className="text-xs sm:text-[13px] text-zinc-400 mt-2 leading-relaxed max-w-md">
-                  Choose a plan to unlock billing features and start growing your business with Orbion Agents.
+              <div className="mt-3.5">
+                <p className="text-xs sm:text-[13px] text-zinc-400 mb-3 leading-relaxed">
+                  You are currently on the Free evaluation tier. Upgrade to unlock official WhatsApp bots, omnichannel inboxes, and higher quotas.
                 </p>
-                <div className="my-5 flex flex-wrap gap-2">
-                  {["AI Credits", "WhatsApp Wallet", "Active Automations", "Knowledge Base", "AI Brain Storage", "More Features"].map((feature) => (
-                    <span key={feature} className="inline-flex items-center gap-2 rounded-2xl border border-purple-400/10 bg-purple-500/5 px-3 py-2.5 text-[11px] font-medium text-zinc-400">
-                      <LockKeyhole size={13} className="text-purple-200/60" aria-hidden="true" />
-                      {feature}
-                    </span>
-                  ))}
-                </div>
-              </>
+                {freePlanFeatures.length > 0 && (
+                  <div className="space-y-1.5 my-2">
+                    {freePlanFeatures.slice(0, 4).map((feat, idx) => (
+                      <div
+                        key={`free-${idx}`}
+                        className="flex items-start gap-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05] px-3 py-2 text-xs text-zinc-300"
+                      >
+                        <div className="mt-0.5 rounded-full bg-emerald-500/20 p-0.5 text-emerald-400 shrink-0">
+                          <Check size={11} strokeWidth={3} />
+                        </div>
+                        <span className="leading-snug text-[12px] text-zinc-300">{feat}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
             {!loading && !hasNoActivePlan && activePlanFeatures.length > 0 && (
-              <div className="my-3.5">
-                <div className="flex flex-wrap gap-1.5">
-                  {(isFeaturesExpanded ? activePlanFeatures : activePlanFeatures.slice(0, 6)).map((feat, idx) => (
-                    <span
-                      key={`${feat}-${idx}`}
-                      className="inline-flex items-center gap-1 bg-purple-500/15 border border-purple-500/25 text-purple-100 rounded-full px-2.5 py-1 text-[11px] font-medium"
-                    >
-                      {getFeatureIcon(feat)} {feat}
-                    </span>
-                  ))}
-                </div>
-
-                {activePlanFeatures.length > 6 && (
-                  <div className="flex justify-end mt-2">
+              <div className="mt-4 mb-2">
+                <div className="flex items-center justify-between border-t border-white/[0.08] pt-3 mb-2.5">
+                  <span className="text-[10px] font-bold tracking-wider text-purple-300 uppercase flex items-center gap-1.5">
+                    <Sparkles size={12} className="text-purple-400" />
+                    Unlocked Features ({activePlanFeatures.length})
+                  </span>
+                  {activePlanFeatures.length > 4 && (
                     <button
                       type="button"
                       onClick={() => setIsFeaturesExpanded(!isFeaturesExpanded)}
-                      className="flex items-center gap-1 text-[11px] text-purple-400 hover:text-purple-300 transition-colors bg-transparent border-none cursor-pointer p-0 select-none"
+                      className="text-[11px] font-medium text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 bg-transparent border-0 cursor-pointer p-0 select-none"
                     >
                       {isFeaturesExpanded ? (
                         <>
                           <span>Show less</span>
-                          <ChevronUp size={13} />
+                          <ChevronUp size={12} />
                         </>
                       ) : (
                         <>
-                          <span>+{activePlanFeatures.length - 6} more</span>
-                          <ChevronDown size={13} />
+                          <span>+{activePlanFeatures.length - 4} more</span>
+                          <ChevronDown size={12} />
                         </>
                       )}
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  {(isFeaturesExpanded ? activePlanFeatures : activePlanFeatures.slice(0, 4)).map((feat, idx) => (
+                    <div
+                      key={`${feat}-${idx}`}
+                      className="flex items-start gap-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:border-purple-500/30 px-3 py-2 text-xs text-zinc-200 transition-all"
+                    >
+                      <div className="mt-0.5 rounded-full bg-emerald-500/20 p-0.5 text-emerald-400 shrink-0">
+                        <Check size={11} strokeWidth={3} />
+                      </div>
+                      <span className="leading-snug text-[12px] font-medium text-zinc-200">{feat}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

@@ -4,8 +4,12 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import api from '@/lib/api';
 import { useWhatsAppConnection } from '@/hooks/useWhatsAppConnection';
+import { useWorkspaceEntitlements } from '@/hooks/useWorkspaceEntitlements';
 import WhatsAppSetupHero from './WhatsAppSetupHero';
 import WhatsAppSetupChecklist from './WhatsAppSetupChecklist';
+import InstagramSetupHero from './InstagramSetupHero';
+import InstagramSetupChecklist from './InstagramSetupChecklist';
+import PlanLockedOnboardingHero from './PlanLockedOnboardingHero';
 import TwoFactorModal from './TwoFactorModal';
 import BusinessVerificationModal from './BusinessVerificationModal';
 
@@ -15,7 +19,9 @@ export default function WhatsAppOnboardingSection({
   isForceOpen = false,
   onToggleOpen,
 }) {
+  const { allowedChannels, planName, loading: entLoading } = useWorkspaceEntitlements(workspaceId);
   const [onboardingData, setOnboardingData] = useState(null);
+  const [channelsStatus, setChannelsStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isHeroDismissed, setIsHeroDismissed] = useState(false);
 
@@ -29,13 +35,23 @@ export default function WhatsAppOnboardingSection({
 
   const isFetchingRef = useRef(false);
 
+  const isCreatorPlan = allowedChannels.length === 1 && allowedChannels[0] === 'instagram';
+  const hasNoChannels = allowedChannels.length === 0;
+
   const fetchStatus = useCallback(async (silent = false) => {
     if (!workspaceId) return;
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-      const data = await api.getOnboardingStatus(workspaceId);
-      
+      const [onboardRes, channelRes] = await Promise.allSettled([
+        api.getOnboardingStatus(workspaceId),
+        api.getChannelsStatus ? api.getChannelsStatus(workspaceId) : api.getIntegrationStatus(),
+      ]);
+
+      const data = onboardRes.status === 'fulfilled' ? onboardRes.value : null;
+      const cStatus = channelRes.status === 'fulfilled' ? channelRes.value : null;
+      if (cStatus) setChannelsStatus(cStatus);
+
       const isLocalConnected = typeof window !== 'undefined' && localStorage.getItem('whatsapp_connected') === 'true';
       if (data && !data.whatsapp_connected && isLocalConnected) {
         data.whatsapp_connected = true;
@@ -51,11 +67,20 @@ export default function WhatsAppOnboardingSection({
 
       setOnboardingData(data);
       setIsHeroDismissed(Boolean(data?.onboarding_dismissed));
+
       if (onStatusChangeRef.current) {
+        const isIgConnected = Boolean(cStatus?.instagram?.connected) || (typeof window !== 'undefined' && localStorage.getItem('instagram_connected') === 'true');
+        const isAnyConnected = Boolean(data?.whatsapp_connected) || isLocalConnected || isIgConnected;
+        
         onStatusChangeRef.current({
-          isActive: !data?.onboarding_completed,
-          isCompleted: Boolean(data?.onboarding_completed),
-          data,
+          isActive: isCreatorPlan ? !isIgConnected : !data?.onboarding_completed,
+          isCompleted: isCreatorPlan ? isIgConnected : Boolean(data?.onboarding_completed),
+          data: {
+            ...data,
+            isCreatorPlan,
+            isIgConnected,
+            isAnyConnected,
+          },
         });
       }
     } catch (err) {
@@ -64,7 +89,7 @@ export default function WhatsAppOnboardingSection({
       isFetchingRef.current = false;
       if (!silent) setLoading(false);
     }
-  }, [workspaceId]);
+  }, [workspaceId, isCreatorPlan]);
 
   const handleSuccess = useCallback(() => {
     fetchStatus(true);
@@ -76,11 +101,9 @@ export default function WhatsAppOnboardingSection({
   });
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchStatus();
   }, [fetchStatus]);
 
-  // Listen for visibility and channel status changes
   useEffect(() => {
     let lastFetch = 0;
     const throttledFetch = () => {
@@ -142,6 +165,9 @@ export default function WhatsAppOnboardingSection({
   const isLocalConnected = typeof window !== 'undefined' && localStorage.getItem('whatsapp_connected') === 'true';
   const isWhatsAppConnected = Boolean(onboardingData?.whatsapp_connected) || isLocalConnected;
 
+  const isIgConnected = Boolean(channelsStatus?.instagram?.connected) || (typeof window !== 'undefined' && localStorage.getItem('instagram_connected') === 'true');
+  const igUsername = channelsStatus?.instagram?.username || '';
+
   const effectiveOnboardingData = useMemo(() => {
     if (!onboardingData) {
       if (isWhatsAppConnected) {
@@ -191,9 +217,9 @@ export default function WhatsAppOnboardingSection({
     setIsStep3ModalOpen(true);
   }, [isWhatsAppConnected, effectiveOnboardingData?.two_factor_enabled]);
 
-  // If loading and no previous data, render invisible spacer to prevent flicker
-  if (loading && !onboardingData) {
-    if (isLocalConnected) {
+  // Loading skeleton
+  if ((loading || entLoading) && !onboardingData && !channelsStatus) {
+    if (isLocalConnected || isIgConnected) {
       return null;
     }
     return (
@@ -201,7 +227,7 @@ export default function WhatsAppOnboardingSection({
     );
   }
 
-  // 1. If all 3 steps are complete: Completely hide onboarding UI
+  // Hide if completed (for WA or IG)
   if (effectiveOnboardingData?.onboarding_completed) {
     return null;
   }
@@ -210,10 +236,43 @@ export default function WhatsAppOnboardingSection({
     <>
       <div className="w-full">
         <AnimatePresence mode="wait">
-          {/* STATE A: WhatsApp NOT Connected yet */}
-          {!isWhatsAppConnected && (
+          {/* SCENARIO 1: Plan has NO messaging channels allowed */}
+          {hasNoChannels && (
+            <div className="w-full">
+              <PlanLockedOnboardingHero
+                planName={planName}
+                onDismiss={handleDismissHero}
+              />
+            </div>
+          )}
+
+          {/* SCENARIO 2: Creator Plan (Instagram only) */}
+          {!hasNoChannels && isCreatorPlan && !isIgConnected && (
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-5 items-stretch">
-              {/* If NOT dismissed: Large Hero Card takes 2/3 width */}
+              {!isHeroDismissed && (
+                <div className="xl:col-span-2 flex flex-col h-full">
+                  <InstagramSetupHero
+                    workspaceId={workspaceId}
+                    isIgConnected={isIgConnected}
+                    igUsername={igUsername}
+                    onDismiss={handleDismissHero}
+                  />
+                </div>
+              )}
+              <div className={!isHeroDismissed ? 'xl:col-span-1 flex flex-col h-full' : 'xl:col-span-3'}>
+                <InstagramSetupChecklist
+                  isIgConnected={isIgConnected}
+                  igUsername={igUsername}
+                  isHeroDismissed={isHeroDismissed}
+                  onReopenHero={handleReopenHero}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* SCENARIO 3: WhatsApp allowed — WhatsApp NOT Connected yet */}
+          {!hasNoChannels && !isCreatorPlan && !isWhatsAppConnected && (
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-5 items-stretch">
               {!isHeroDismissed && (
                 <div className="xl:col-span-2 flex flex-col h-full">
                   <WhatsAppSetupHero
@@ -227,7 +286,6 @@ export default function WhatsAppOnboardingSection({
                 </div>
               )}
 
-              {/* Compact Checklist Card takes 1/3 width, or full width if hero dismissed */}
               <div className={!isHeroDismissed ? 'xl:col-span-1 flex flex-col h-full' : 'xl:col-span-3'}>
                 <WhatsAppSetupChecklist
                   onboardingData={effectiveOnboardingData}
@@ -241,8 +299,8 @@ export default function WhatsAppOnboardingSection({
             </div>
           )}
 
-          {/* STATE B: WhatsApp IS Connected — Both cards open side-by-side only when triggered by Pending indication */}
-          {isWhatsAppConnected && isForceOpen && (
+          {/* SCENARIO 4: WhatsApp Connected & Force Open by Pending Pill */}
+          {!hasNoChannels && !isCreatorPlan && isWhatsAppConnected && isForceOpen && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}

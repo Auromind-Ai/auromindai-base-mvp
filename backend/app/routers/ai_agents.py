@@ -529,6 +529,21 @@ async def create_agent(
             detail=f"An agent named '{request.name.strip()}' already exists in this workspace."
         )
 
+    # Enforce AI Assistants Plan Entitlement limit
+    if not request.is_draft:
+        from app.services.billing.entitlement_service import EntitlementService
+        current_agent_count = db.query(AIAgent).filter(
+            AIAgent.workspace_id == to_uuid(ws_id),
+            AIAgent.is_draft == False
+        ).count()
+        ent_check = EntitlementService.check_entitlement(db, ws_id, "assistant")
+        agent_limit = ent_check.get("limit", -1)
+        if agent_limit != -1 and (current_agent_count + 1) > agent_limit:
+            raise HTTPException(
+                status_code=403,
+                detail=f"AI Agent limit exceeded ({current_agent_count}/{agent_limit} active agents). Please upgrade your subscription plan."
+            )
+
     knowledge_conf = (request.knowledge_config or {}).copy()
     collection_tag = knowledge_conf.get("collection")
     if not collection_tag:

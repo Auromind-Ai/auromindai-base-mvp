@@ -27,10 +27,11 @@ import {
   Key,
   Eye,
   EyeOff,
-  ExternalLink
-
+  ExternalLink,
+  Lock
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useWorkspaceEntitlements } from '@/hooks/useWorkspaceEntitlements';
 import api from '@/lib/api';
 import { validateBrainDocumentUpload } from '@/lib/fileValidation';
 
@@ -148,6 +149,7 @@ function CreateAgentWizardContent() {
   const searchParams = useSearchParams();
   const editId = searchParams?.get('editId');
   const { workspaceId } = useAuth();
+  const { allowedChannels, planName, isChannelAllowed } = useWorkspaceEntitlements(workspaceId);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1224,8 +1226,9 @@ function CreateAgentWizardContent() {
                   },
                 ].map((channel) => {
                   const backendChannel = channelsData.find((c) => c.id === channel.id);
-                  const isConnected = Boolean(backendChannel?.connected);
-                  const isEnabled = isConnected && (
+                  const isAllowedByPlan = isChannelAllowed(channel.id);
+                  const isConnected = isAllowedByPlan && Boolean(backendChannel?.connected);
+                  const isEnabled = isAllowedByPlan && isConnected && (
                     formData.channels_config[channel.id]?.enabled !== undefined
                       ? Boolean(formData.channels_config[channel.id]?.enabled)
                       : true
@@ -1234,7 +1237,9 @@ function CreateAgentWizardContent() {
                   return (
                     <div
                       key={channel.id}
-                      className="p-4 rounded-2xl bg-[#0c1220]/80 border border-white/[0.08] hover:border-white/15 transition-all flex flex-col justify-between gap-4"
+                      className={`p-4 rounded-2xl bg-[#0c1220]/80 border transition-all flex flex-col justify-between gap-4 ${
+                        !isAllowedByPlan ? 'opacity-70 border-amber-500/20' : 'border-white/[0.08] hover:border-white/15'
+                      }`}
                     >
                       <div className="flex items-start gap-3.5">
                         <div
@@ -1246,21 +1251,36 @@ function CreateAgentWizardContent() {
                           <h3 className="text-xs font-semibold text-white">{channel.name}</h3>
                           <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-2">{channel.description}</p>
                           <div className="flex items-center gap-2 mt-2">
-                            <span
-                              className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
-                                isConnected
-                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                  : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
-                              }`}
-                            >
+                            {!isAllowedByPlan ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-400 border-amber-500/20">
+                                <Lock size={10} />
+                                <span>Not in {planName} plan</span>
+                              </span>
+                            ) : (
                               <span
-                                className={`w-1 h-1 rounded-full ${
-                                  isConnected ? 'bg-emerald-400' : 'bg-zinc-500'
+                                className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+                                  isConnected
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                    : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
                                 }`}
-                              />
-                              <span>{isConnected ? 'Connected' : 'Not Connected'}</span>
-                            </span>
-                            {!isConnected && (
+                              >
+                                <span
+                                  className={`w-1 h-1 rounded-full ${
+                                    isConnected ? 'bg-emerald-400' : 'bg-zinc-500'
+                                  }`}
+                                />
+                                <span>{isConnected ? 'Connected' : 'Not Connected'}</span>
+                              </span>
+                            )}
+                            {!isAllowedByPlan ? (
+                              <button
+                                type="button"
+                                onClick={() => router.push('/billing/payment')}
+                                className="text-[10px] text-amber-400 hover:text-amber-300 font-semibold underline cursor-pointer"
+                              >
+                                Upgrade →
+                              </button>
+                            ) : !isConnected && (
                               <button
                                 type="button"
                                 onClick={() => router.push('/user/admin/channels')}
@@ -1278,7 +1298,12 @@ function CreateAgentWizardContent() {
                         <span className="text-[11px] text-zinc-400">Enable on Agent</span>
                         <button
                           type="button"
+                          disabled={!isAllowedByPlan}
                           onClick={() => {
+                            if (!isAllowedByPlan) {
+                              setErrorMessage(`${channel.name} channel is not included in your ${planName?.toUpperCase()} plan. Please upgrade your plan.`);
+                              return;
+                            }
                             if (!isConnected) {
                               setErrorMessage(`Please connect ${channel.name} in Growth > Channels before enabling it.`);
                               return;
@@ -1300,8 +1325,8 @@ function CreateAgentWizardContent() {
                               };
                             });
                           }}
-                          className={`w-11 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer shrink-0 ${
-                            isEnabled ? 'bg-purple-600' : 'bg-zinc-700'
+                          className={`w-11 h-6 rounded-full transition-colors relative p-0.5 shrink-0 ${
+                            !isAllowedByPlan ? 'opacity-40 cursor-not-allowed bg-zinc-800' : isEnabled ? 'bg-purple-600 cursor-pointer' : 'bg-zinc-700 cursor-pointer'
                           }`}
                         >
                           <motion.div

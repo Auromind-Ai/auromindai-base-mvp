@@ -244,7 +244,8 @@ export default function AddLeadModal({ isOpen, onClose, onSuccess }) {
       setBudgetMax('');
       setNote('');
     } catch (err) {
-      setError(err?.message || 'Failed to add lead. Please try again.');
+      const msg = err?.data?.detail || err?.detail || err?.message || 'Failed to add lead. Please try again.';
+      setError(msg);
     } finally {
       setLoading(false);
     }

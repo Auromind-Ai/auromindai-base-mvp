@@ -10,12 +10,14 @@ import {
   Bell, PenLine, Clock, CheckCircle, AlertCircle,
   FileText, ShoppingCart, Rocket, Gift, Zap,
   Package, Sparkles, Users, Tag, MoreHorizontal,
-  UploadCloud, Upload
+  UploadCloud, Upload, Lock
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import { useWorkspaceEntitlements } from '@/hooks/useWorkspaceEntitlements';
+import UpgradePromptModal from '@/components/common/UpgradePromptModal';
 import { getWorkspaceIdFromToken } from '@/lib/auth';
 import { convertNumberedToNamedText, formatVariableLabel, getSampleValue } from '@/lib/variableUtils';
 
@@ -224,7 +226,7 @@ function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
           {tpl.name}
         </h3>
         <TypeTag type={tpl.type} />
-        <p className={`m-0 text-[13px] text-white/70 leading-relaxed w-full min-w-0 ${
+        <p className={`m-0 text-[13px] text-white/70 leading-relaxed w-full min-w-0 break-words [overflow-wrap:anywhere] ${
           isList ? 'line-clamp-2 sm:truncate sm:block' : 'line-clamp-3'
         }`}>
           {renderFormattedContent(displayContent)}
@@ -395,7 +397,7 @@ function PreviewModal({ tpl, onClose, onSubmit, onUse, onUpdateTemplate }) {
         className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm"
       />
 
-      <div className={`fixed z-[101] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] max-w-[95vw] bg-gradient-to-b from-[#1a1030] to-[#0d0820] rounded-3xl border border-[#2a1f4a] shadow-[0_32px_80px_rgba(0,0,0,0.7)] flex flex-col overflow-hidden ${poppins.className}`} style={{ fontFamily: "'Poppins', sans-serif" }}>
+      <div className={`fixed z-[101] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[460px] sm:w-[480px] max-w-[95vw] max-h-[90vh] bg-gradient-to-b from-[#1a1030] to-[#0d0820] rounded-3xl border border-[#2a1f4a] shadow-[0_32px_80px_rgba(0,0,0,0.7)] flex flex-col overflow-hidden ${poppins.className}`} style={{ fontFamily: "'Poppins', sans-serif" }}>
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-10 flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white cursor-pointer transition-colors"
@@ -403,7 +405,7 @@ function PreviewModal({ tpl, onClose, onSubmit, onUse, onUpdateTemplate }) {
           <X size={15} />
         </button>
 
-        <div className="p-6 flex flex-col gap-4">
+        <div className="p-6 flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-[#25D366] flex items-center justify-center shrink-0">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="#ffffff">
@@ -419,7 +421,7 @@ function PreviewModal({ tpl, onClose, onSubmit, onUse, onUpdateTemplate }) {
             </div>
           </div>
 
-          <div className="w-full flex flex-col gap-2 p-4 bg-[#1a1a2e] rounded-2xl border border-[#25204a]">
+          <div className="w-full flex flex-col gap-2 p-4 bg-[#1a1a2e] rounded-2xl border border-[#25204a] min-w-0 overflow-hidden">
             {/* Hidden file input for uploading header media */}
             <input
               ref={fileInputRef}
@@ -547,11 +549,11 @@ function PreviewModal({ tpl, onClose, onSubmit, onUse, onUpdateTemplate }) {
               </div>
             )}
 
-            <p className="m-0 text-sm text-[#e8e8ff] leading-relaxed whitespace-pre-wrap">
+            <p className="m-0 text-sm text-[#e8e8ff] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word] min-w-0">
               {renderFormattedContent(displayContent) || 'No content available.'}
             </p>
             {tpl.footer && (
-              <div className="text-white/45 text-[11px] mt-1">
+              <div className="text-white/45 text-[11px] mt-1 break-words [overflow-wrap:anywhere]">
                 {tpl.footer}
               </div>
             )}
@@ -598,7 +600,7 @@ function PreviewModal({ tpl, onClose, onSubmit, onUse, onUpdateTemplate }) {
           </div>
         </div>
 
-        <div className="px-6 pb-6">
+        <div className="px-6 pb-6 pt-2 shrink-0 border-t border-white/5 bg-[#0d0820]/80">
           {isDraft ? (
             <div className="flex gap-2">
               <button
@@ -1002,6 +1004,7 @@ export default function TemplatesPage() {
   const router = useRouter();
   const { workspaceId } = useAuth();
   const { showToast } = useToast();
+  const { templateLimit, planName, isChannelAllowed } = useWorkspaceEntitlements(workspaceId);
   const [templates, setTemplates] = useState([]);
   const [systemTemplates, setSystemTemplates] = useState([]);
   const [viewSource, setViewSource] = useState('samples');
@@ -1015,6 +1018,11 @@ export default function TemplatesPage() {
   const [activeCategory, setActiveCategory] = useState('trending');
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [checkingConnection, setCheckingConnection] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState('');
+
+  const isLimitReached = templateLimit !== -1 && templates.length >= templateLimit;
+  const isWhatsAppAllowed = isChannelAllowed('whatsapp');
 
   const countFor = tab => {
     if (!tab || tab === 'All') return templates.length;
@@ -1114,6 +1122,16 @@ export default function TemplatesPage() {
   };
 
   const handleNewTemplateClick = async () => {
+    if (!isWhatsAppAllowed) {
+      setUpgradeMessage(`WhatsApp Message Templates are not included in your ${planName?.toUpperCase()} plan. Upgrade to Starter, Growth, or Business to create WhatsApp templates.`);
+      setShowUpgradeModal(true);
+      return;
+    }
+    if (isLimitReached) {
+      setUpgradeMessage(`You have reached your limit of ${templateLimit} templates on the ${planName?.toUpperCase()} plan. Upgrade to a higher plan to create more Meta-approved templates.`);
+      setShowUpgradeModal(true);
+      return;
+    }
     setCheckingConnection(true);
     try {
       const activeWs = workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null) || getWorkspaceIdFromToken();
@@ -1138,8 +1156,14 @@ export default function TemplatesPage() {
         {/* Page header */}
         <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between mb-6 sm:mb-8 gap-4 w-full shrink-0">
           <div className="flex-1 text-center sm:text-left w-full">
-            <h1 className="m-0 mb-1.5 text-2xl sm:text-3xl font-semibold text-[#f0f0ff] tracking-tight">
-              Message Templates
+            <h1 className="m-0 mb-1.5 text-2xl sm:text-3xl font-semibold text-[#f0f0ff] tracking-tight flex items-center gap-2.5 flex-wrap">
+              <span>Message Templates</span>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">
+                {templateLimit === -1 ? `${templates.length} Templates (Unlimited)` : `${templates.length} / ${templateLimit} Templates`}
+              </span>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 text-zinc-300 border border-white/10 uppercase tracking-wider font-semibold">
+                {planName}
+              </span>
             </h1>
             <p className="m-0 text-xs sm:text-sm text-white/70 leading-relaxed max-w-lg">
               Create, manage and submit WhatsApp Business templates for Meta approval.
@@ -1148,9 +1172,14 @@ export default function TemplatesPage() {
 
           <button
             onClick={handleNewTemplateClick}
-            className="flex items-center justify-center gap-1.5 shrink-0 w-full sm:w-auto px-5 py-2.5 rounded-xl border-none text-white text-xs sm:text-sm font-semibold cursor-pointer transition-all bg-[#814AC8] hover:shadow-[0_4px_28px_rgba(129,74,200,0.7)] hover:-translate-y-0.5 active:translate-y-0"
+            className={`flex items-center justify-center gap-1.5 shrink-0 w-full sm:w-auto px-5 py-2.5 rounded-xl border-none text-white text-xs sm:text-sm font-semibold cursor-pointer transition-all ${
+              !isWhatsAppAllowed || isLimitReached
+                ? 'bg-purple-950/80 border border-purple-500/40 text-purple-300 hover:bg-purple-900/60'
+                : 'bg-[#814AC8] hover:shadow-[0_4px_28px_rgba(129,74,200,0.7)] hover:-translate-y-0.5 active:translate-y-0'
+            }`}
           >
-            <Plus size={15} strokeWidth={2.5} /> New Template
+            {!isWhatsAppAllowed || isLimitReached ? <Lock size={15} /> : <Plus size={15} strokeWidth={2.5} />}
+            <span>{!isWhatsAppAllowed ? 'WhatsApp Locked (Upgrade)' : isLimitReached ? 'Limit Reached (Upgrade)' : 'New Template'}</span>
           </button>
         </div>
 
@@ -1318,10 +1347,11 @@ export default function TemplatesPage() {
                 </p>
                 {!search && (
                   <button
-                    onClick={() => router.push('/templates/create')}
+                    onClick={handleNewTemplateClick}
                     className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border-none text-white text-xs sm:text-sm font-bold cursor-pointer transition-all bg-[#814AC8] hover:shadow-[0_2px_18px_rgba(129,74,200,0.45)] hover:-translate-y-0.5"
                   >
-                    <Plus size={15} strokeWidth={2.5} /> Create Template
+                    {!isWhatsAppAllowed || isLimitReached ? <Lock size={15} /> : <Plus size={15} strokeWidth={2.5} />}
+                    <span>{!isWhatsAppAllowed ? 'WhatsApp Locked (Upgrade)' : isLimitReached ? 'Limit Reached (Upgrade)' : 'Create Template'}</span>
                   </button>
                 )}
               </div>
@@ -1370,6 +1400,14 @@ export default function TemplatesPage() {
         open={showConnectModal}
         onClose={() => setShowConnectModal(false)}
         onConnect={() => router.push('/channels')}
+      />
+      <UpgradePromptModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        title="Template Plan Limit"
+        message={upgradeMessage || `Your current plan (${planName?.toUpperCase()}) allows up to ${templateLimit} templates.`}
+        currentPlan={planName}
+        recommendedPlan={planName === 'creator' || planName === 'starter' ? 'Growth' : 'Business'}
       />
     </div>
   );

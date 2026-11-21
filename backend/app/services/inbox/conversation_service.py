@@ -515,6 +515,14 @@ class ConversationService:
       
         try:
             ws_uuid = to_uuid(workspace_id)
+            if ws_uuid:
+                from app.services.billing.entitlement_service import EntitlementService
+                ent_check = EntitlementService.check_entitlement(db, ws_uuid, "conversation")
+                if not ent_check.get("allowed", True):
+                    EntitlementService.raise_entitlement_exceeded(
+                        db, ws_uuid, "conversation", ent_check.get("limit", 1000)
+                    )
+
             with db.begin_nested():
                 conversation = Conversation(
                     phone=delivery_target,

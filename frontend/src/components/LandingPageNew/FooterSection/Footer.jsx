@@ -5,7 +5,7 @@ import { jakarta } from '@/lib/fonts';
 
 const footerLinks = {
   Links: [
-    { name: "Services", href: "/#demo" },
+    // { name: "Services", href: "/#demo" },
     { name: "Process", href: "/#process" },
     { name: "Case studies", href: "/resources/case-studies" },
     { name: "Benefits", href: "/#benefits" },
@@ -13,7 +13,7 @@ const footerLinks = {
   ],
   Pages: [
     { name: "Home", href: "/" },
-    { name: "About", href: "/" },
+    // { name: "About", href: "/" },
     { name: "Blog", href: "/resources/blog" },
     { name: "Contact", href: "mailto:hello@orbionagents.com" },
   ],

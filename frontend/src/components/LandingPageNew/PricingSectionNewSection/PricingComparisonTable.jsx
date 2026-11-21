@@ -1,458 +1,585 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
-  Sparkles, 
+  Check, 
   MessageSquare, 
-  Workflow, 
   Bot, 
-  BookOpen, 
-  HardDrive, 
+  Zap, 
   Users, 
-  Calendar, 
-  Mail, 
-  UserCheck, 
-  PlusCircle, 
-  RefreshCw, 
-  Check
+  ShieldCheck, 
+  Sparkles,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
-import api from '@/lib/api';
-import { getAppUrl } from '@/lib/auth';
+import { 
+  WhatsAppBrandIcon, 
+  InstagramBrandIcon, 
+  TwilioBrandIcon 
+} from '@/components/BrandChannelIcons';
+import { SPECIFICATION_CAPABILITY_SECTIONS } from '@/lib/constants/pricingTiers';
 
-function ValueCell({ value, isFeatured = false }) {
-  if (value === 'check' || value === true) {
+// Plan Header Definitions for Comparison Columns (Dynamic based on billing cycle)
+export function getTableTiers(billing = 'annual', dbPlans = []) {
+  const isAnnual = billing === 'annual';
+  const defaultTiers = [
+    {
+      key: 'free',
+      name: 'Free',
+      price: '₹0',
+      period: 'forever',
+      badge: 'Free',
+      isFeatured: false,
+      ctaText: 'Start Free',
+      ctaHref: '/login',
+    },
+    {
+      key: 'starter',
+      name: 'Starter',
+      price: isAnnual ? '₹1,234' : '₹1,299',
+      period: '/mo',
+      badge: 'WhatsApp',
+      isFeatured: false,
+      ctaText: 'Choose Starter',
+      ctaHref: '/login?redirect=%2Fuser%2Fadmin%2Fbilling%2Fpayment',
+    },
+    {
+      key: 'growth',
+      name: 'Growth',
+      price: isAnnual ? '₹2,374' : '₹2,499',
+      period: '/mo',
+      badge: 'Omnichannel',
+      isFeatured: false,
+      ctaText: 'Choose Growth',
+      ctaHref: '/login?redirect=%2Fuser%2Fadmin%2Fbilling%2Fpayment',
+    },
+    {
+      key: 'business',
+      name: 'Business',
+      price: isAnnual ? '₹4,749' : '₹4,999',
+      period: '/mo',
+      badge: '★ POPULAR',
+      isFeatured: true,
+      ctaText: 'Get Business',
+      ctaHref: '/login?redirect=%2Fuser%2Fadmin%2Fbilling%2Fpayment',
+    },
+    {
+      key: 'creator',
+      name: 'Creator',
+      price: isAnnual ? '₹949' : '₹999',
+      period: '/mo',
+      badge: 'Social',
+      isFeatured: false,
+      ctaText: 'Try Creator',
+      ctaHref: '/login?redirect=%2Fuser%2Fadmin%2Fbilling%2Fpayment',
+    },
+    {
+      key: 'enterprise',
+      name: 'Enterprise',
+      price: 'Custom',
+      period: 'Tailored',
+      badge: 'Dedicated',
+      isFeatured: false,
+      ctaText: 'Contact Sales',
+      ctaHref: 'mailto:sales@orbionagents.com?subject=Enterprise Inquiry',
+    },
+  ];
+
+  if (!dbPlans || !Array.isArray(dbPlans) || dbPlans.length === 0) {
+    return defaultTiers;
+  }
+
+  return defaultTiers.map((tier) => {
+    const matched = dbPlans.find((p) => (p.key || p.name || '').toLowerCase() === tier.key.toLowerCase());
+    if (!matched) return tier;
+
+    if (tier.key === 'free') return tier;
+    if (tier.key === 'enterprise') return tier;
+
+    const monthlyP = Number(matched.monthly_price ?? matched.price ?? 0);
+    const yearlyP = Number(matched.yearly_price ?? (monthlyP * 12 * 0.95));
+    const annualPerMonth = yearlyP > 0 ? Math.round(yearlyP / 12) : Math.round(monthlyP * 0.95);
+    const displayP = isAnnual
+      ? `₹${annualPerMonth.toLocaleString('en-IN')}`
+      : `₹${monthlyP.toLocaleString('en-IN')}`;
+
+    return {
+      ...tier,
+      price: displayP,
+      name: matched.display_name || matched.name || tier.name,
+      isFeatured: matched.is_featured !== undefined ? matched.is_featured : tier.isFeatured,
+    };
+  });
+}
+
+// Helper to render category icon
+function renderCategoryIcon(iconKey) {
+  switch (iconKey) {
+    case 'message-square':
+      return <MessageSquare className="w-4 h-4 text-purple-400" />;
+    case 'bot':
+      return <Bot className="w-4 h-4 text-indigo-400" />;
+    case 'zap':
+      return <Zap className="w-4 h-4 text-amber-400" />;
+    case 'users':
+      return <Users className="w-4 h-4 text-pink-400" />;
+    case 'shield-check':
+    default:
+      return <ShieldCheck className="w-4 h-4 text-emerald-400" />;
+  }
+}
+
+// Professional Cell Renderer with checkmarks, mini channel icons & metrics
+function ComparisonMatrixCell({ value, capability, planKey }) {
+  const isBusiness = planKey === 'business';
+
+  // 1. Dash / Absent value
+  if (!value || value === '—' || value === '-') {
     return (
-      <div className="w-5 h-5 rounded-full bg-[#7C3AED]/30 border border-[#7C3AED] flex items-center justify-center mx-auto shadow-[0_0_10px_rgba(124,58,237,0.5)]">
-        <Check size={11} className="text-[#C084FC] stroke-[3]" />
+      <span className="text-zinc-600 font-light text-base select-none">—</span>
+    );
+  }
+
+  // 2. Channels Row: Render with authentic stacked brand avatars
+  if (capability === 'Supported Channels') {
+    if (planKey === 'free') {
+      return (
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="w-6 h-6 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow-[0_0_8px_rgba(37,211,102,0.4)]">
+            <WhatsAppBrandIcon className="w-3 h-3" />
+          </div>
+          <span className="text-[11px] font-mono text-zinc-300">1 (Sandbox)</span>
+        </div>
+      );
+    }
+    if (planKey === 'creator') {
+      return (
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#FD1D1D] via-[#E1306C] to-[#833AB4] text-white flex items-center justify-center shadow-[0_0_8px_rgba(225,48,108,0.4)]">
+            <InstagramBrandIcon className="w-3 h-3" />
+          </div>
+          <span className="text-[11px] font-mono text-purple-300 font-medium">1 (Instagram)</span>
+        </div>
+      );
+    }
+    if (planKey === 'starter') {
+      return (
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="w-6 h-6 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow-[0_0_8px_rgba(37,211,102,0.4)]">
+            <WhatsAppBrandIcon className="w-3 h-3" />
+          </div>
+          <span className="text-[11px] font-mono text-zinc-300">1 (WhatsApp)</span>
+        </div>
+      );
+    }
+    if (planKey === 'growth') {
+      return (
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="flex items-center -space-x-1">
+            <div className="w-6 h-6 rounded-full bg-[#25D366] text-white flex items-center justify-center ring-2 ring-[#0b0c14] shadow-[0_0_8px_rgba(37,211,102,0.4)] z-20">
+              <WhatsAppBrandIcon className="w-3 h-3" />
+            </div>
+            <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#FD1D1D] via-[#E1306C] to-[#833AB4] text-white flex items-center justify-center ring-2 ring-[#0b0c14] shadow-[0_0_8px_rgba(225,48,108,0.4)] z-10">
+              <InstagramBrandIcon className="w-3 h-3" />
+            </div>
+          </div>
+          <span className="text-[11px] font-mono text-zinc-300 font-medium">2 Channels</span>
+        </div>
+      );
+    }
+    if (planKey === 'business') {
+      return (
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="flex items-center -space-x-1.5">
+            <div className="w-6 h-6 rounded-full bg-[#25D366] text-white flex items-center justify-center ring-2 ring-[#0b0c14] shadow-[0_0_8px_rgba(37,211,102,0.5)] z-30">
+              <WhatsAppBrandIcon className="w-3 h-3" />
+            </div>
+            <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#FD1D1D] via-[#E1306C] to-[#833AB4] text-white flex items-center justify-center ring-2 ring-[#0b0c14] shadow-[0_0_8px_rgba(225,48,108,0.5)] z-20">
+              <InstagramBrandIcon className="w-3 h-3" />
+            </div>
+            <div className="w-6 h-6 rounded-full bg-[#F22F46] text-white flex items-center justify-center ring-2 ring-[#0b0c14] shadow-[0_0_8px_rgba(242,47,70,0.5)] z-10">
+              <TwilioBrandIcon className="w-3 h-3" />
+            </div>
+          </div>
+          <span className="text-[11px] font-mono text-purple-200 font-bold">3 Channels</span>
+        </div>
+      );
+    }
+    if (planKey === 'enterprise') {
+      return (
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="flex items-center -space-x-1.5">
+            <div className="w-6 h-6 rounded-full bg-[#25D366] text-white flex items-center justify-center ring-2 ring-[#0b0c14] z-30">
+              <WhatsAppBrandIcon className="w-3 h-3" />
+            </div>
+            <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#FD1D1D] via-[#E1306C] to-[#833AB4] text-white flex items-center justify-center ring-2 ring-[#0b0c14] z-20">
+              <InstagramBrandIcon className="w-3 h-3" />
+            </div>
+            <div className="w-6 h-6 rounded-full bg-[#F22F46] text-white flex items-center justify-center ring-2 ring-[#0b0c14] z-10">
+              <TwilioBrandIcon className="w-3 h-3" />
+            </div>
+          </div>
+          <span className="text-[11px] font-mono text-zinc-300 font-medium">All 3 + Custom</span>
+        </div>
+      );
+    }
+  }
+
+  // 3. Ticks: Explicit checkmark or "✓ Enabled"
+  if (value.startsWith('✓') || value.includes('Enabled')) {
+    const cleanLabel = value.replace('✓', '').trim();
+    if (isBusiness) {
+      return (
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-200 text-xs font-semibold shadow-[0_0_10px_rgba(168,85,247,0.3)]">
+          <Check className="w-3.5 h-3.5 text-purple-300 stroke-[3]" />
+          <span>{cleanLabel || 'Included'}</span>
+        </div>
+      );
+    }
+    return (
+      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold">
+        <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
+        <span>{cleanLabel || 'Included'}</span>
       </div>
     );
   }
-  if (value === '-' || value === false || value === null || value === undefined) {
-    return <span className="text-zinc-600 font-medium text-xs md:text-sm">—</span>;
+
+  // 4. "Unlimited ..." features
+  if (value.toLowerCase().startsWith('unlimited')) {
+    return (
+      <div className={`inline-flex items-center gap-1.5 text-xs font-semibold ${isBusiness ? 'text-purple-200' : 'text-zinc-200'}`}>
+        <Check className="w-3.5 h-3.5 text-purple-400 stroke-[2.5]" />
+        <span>{value}</span>
+      </div>
+    );
   }
+
+  // 5. Advanced Highlight Features (Full event-driven, CRM + AI, Private Vector, Managed Meta)
+  if (
+    value.includes('Full event-driven') || 
+    value.includes('CRM + AI') || 
+    value.includes('Private Vector') || 
+    value.includes('Managed Meta') ||
+    value.includes('Priority queue')
+  ) {
+    return (
+      <div className={`inline-flex items-center gap-1.5 text-xs font-semibold ${isBusiness ? 'text-purple-200' : 'text-white'}`}>
+        <Check className="w-3.5 h-3.5 text-purple-400 shrink-0 stroke-[2.5]" />
+        <span>{value}</span>
+      </div>
+    );
+  }
+
+  // 6. Default clean text / numbers
   return (
-    <span className={`text-[11px] sm:text-xs md:text-sm ${isFeatured ? 'text-white font-bold' : 'text-zinc-300 font-medium'}`}>
+    <span className={`text-xs sm:text-[13px] ${isBusiness ? 'text-purple-100 font-semibold' : 'text-zinc-300 font-normal'}`}>
       {value}
     </span>
   );
 }
 
-function formatStorage(mb) {
-  if (!mb || mb <= 0) return '—';
-  if (mb >= 1024) return `${mb / 1024} GB`;
-  return `${mb} MB`;
-}
+export default function PricingComparisonTable({ billing = 'annual', dbPlans = [] }) {
+  const TABLE_TIERS = getTableTiers(billing, dbPlans);
+  const [collapsedSections, setCollapsedSections] = useState({});
+  const [selectedPlanTab, setSelectedPlanTab] = useState('business');
+  const scrollWrapperRef = React.useRef(null);
 
-function formatLimit(val, suffix = '') {
-  if (val === -1 || val === null || val === undefined) return 'Unlimited';
-  if (val === 0) return '—';
-  return `${Number(val).toLocaleString('en-IN')}${suffix}`;
-}
+  const toggleSection = (catIdx) => {
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [catIdx]: !prev[catIdx],
+    }));
+  };
 
-export default function PricingComparisonTable({ 
-  plans: propPlans, 
-  onSelectPlan, 
-  billingCycle: propBillingCycle, 
-  onBillingCycleChange 
-}) {
-  const [internalBillingCycle, setInternalBillingCycle] = useState('monthly');
-  const [loadedPlans, setLoadedPlans] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const allCollapsed = SPECIFICATION_CAPABILITY_SECTIONS.length > 0 && 
+    SPECIFICATION_CAPABILITY_SECTIONS.every((_, idx) => !!collapsedSections[idx]);
 
-  const billingCycle = propBillingCycle || internalBillingCycle;
-  const setBillingCycle = onBillingCycleChange || setInternalBillingCycle;
-
-  useEffect(() => {
-    if (propPlans && Array.isArray(propPlans) && propPlans.length > 0) {
-      setLoadedPlans(propPlans);
+  const toggleAll = () => {
+    if (allCollapsed) {
+      setCollapsedSections({});
     } else {
-      setLoading(true);
-      api.getPricing()
-        .then((data) => {
-          if (data && data.plans && Array.isArray(data.plans)) {
-            setLoadedPlans(data.plans);
-          }
-        })
-        .catch((err) => console.warn("Failed to load pricing for comparison table:", err?.message || err))
-        .finally(() => setLoading(false));
-    }
-  }, [propPlans]);
-
-  const activePlans = ((propPlans && propPlans.length > 0) ? propPlans : loadedPlans)
-  .filter(plan => plan.key !== 'free');
-
-  const handleAction = (planKey) => {
-    if (onSelectPlan) {
-      onSelectPlan(planKey);
-    } else {
-      if (planKey === 'enterprise') {
-        window.location.href = 'mailto:sales@orbionagents.com?subject=Enterprise Inquiry';
-      } else {
-        window.location.href = getAppUrl(`/login?redirect=${encodeURIComponent('/billing/payment')}`);
-      }
+      const all = {};
+      SPECIFICATION_CAPABILITY_SECTIONS.forEach((_, idx) => {
+        all[idx] = true;
+      });
+      setCollapsedSections(all);
     }
   };
 
-  if (!activePlans || activePlans.length === 0) {
-    if (loading) {
-      return (
-        <div className="w-full text-center py-12 text-zinc-500 text-sm font-medium">
-          Loading comparison table...
-        </div>
-      );
-    }
-    return null;
-  }
-
-  // Define structured feature categories based on real plan entitlements
-  const featureCategories = [
-    {
-      category: 'USAGE & CREDITS',
-      icon: Sparkles,
-      rows: [
-        {
-          icon: Sparkles,
-          name: 'AI Credits / month',
-          getValue: (p) => formatLimit(p.included_ai_credits || p.credits || (p.token_limit ? p.token_limit / 1000 : 0)),
-        },
-        {
-          icon: MessageSquare,
-          name: 'WhatsApp Wallet',
-          getValue: (p) => {
-            const val = Number(p.included_wcc_wallet || 0);
-            if (val <= 0) return '—';
-            const approxMsgs = Math.round(val / 1.1);
-            return `₹${val.toFixed(0)} (~${approxMsgs} msgs)`;
-          },
-        },
-        {
-          icon: Workflow,
-          name: 'Flow Executions / month',
-          getValue: (p) => formatLimit(p.flow),
-        },
-      ],
-    },
-    {
-      category: 'AUTOMATION & KNOWLEDGE',
-      icon: Bot,
-      rows: [
-        {
-          icon: Bot,
-          name: 'Active Automations',
-          getValue: (p) => formatLimit(p.automation_limit),
-        },
-        {
-          icon: BookOpen,
-          name: 'Knowledge Base Documents',
-          getValue: (p) => formatLimit(p.knowledge_base_limit),
-        },
-        {
-          icon: HardDrive,
-          name: 'Brain File Storage',
-          getValue: (p) => formatStorage(p.storage_limit_mb),
-        },
-      ],
-    },
-    {
-      category: 'CRM & MEETINGS',
-      icon: Users,
-      rows: [
-        {
-          icon: Users,
-          name: 'Leads & CRM',
-          getValue: (p) => formatLimit(p.lead_limit),
-        },
-        {
-          icon: Calendar,
-          name: 'Meetings / month',
-          getValue: (p) => formatLimit(p.meeting_limit),
-        },
-      ],
-    },
-    {
-      category: 'INTEGRATIONS & TEAM',
-      icon: Mail,
-      rows: [
-        {
-          icon: Mail,
-          name: 'Gmail Connections',
-          getValue: (p) => formatLimit(p.gmail_limit),
-        },
-        {
-          icon: UserCheck,
-          name: 'Team Members',
-          getValue: (p) => formatLimit(p.team_limit),
-        },
-      ],
-    },
-    {
-      category: 'ADVANCED FEATURES',
-      icon: PlusCircle,
-      rows: [
-        {
-          icon: PlusCircle,
-          name: 'AI Credit Top-ups',
-          getValue: (p) => p.allow_ai_topup ? 'check' : '-',
-        },
-        {
-          icon: RefreshCw,
-          name: 'WhatsApp Wallet Recharge',
-          getValue: (p) => p.allow_wcc_recharge ? 'check' : '-',
-        },
-      ],
-    },
-  ];
-
-  const gridColsClass = activePlans.length === 2 
-    ? 'grid-cols-2' 
-    : activePlans.length === 3 
-    ? 'grid-cols-3' 
-    : 'grid-cols-4';
+  // Mobile fast-jump to a plan column
+  const scrollToPlan = (tierKey, index) => {
+    setSelectedPlanTab(tierKey);
+    if (!scrollWrapperRef.current) return;
+    
+    // Width of col 1 on mobile is ~150px, each tier is ~115px
+    const isMobile = window.innerWidth < 640;
+    const col1Width = isMobile ? 150 : 220;
+    const colWidth = isMobile ? 115 : 135;
+    
+    const scrollTarget = index === 0 ? 0 : col1Width + (index * colWidth) - 100;
+    scrollWrapperRef.current.scrollTo({
+      left: Math.max(0, scrollTarget),
+      behavior: 'smooth'
+    });
+  };
 
   return (
-    <div className="w-full max-w-6xl mx-auto mt-16 md:mt-24 px-3 sm:px-6 font-['Poppins',sans-serif]" style={{ fontFamily: "'Poppins', sans-serif" }}>
-      {/* Header with Title and Monthly/Yearly Toggle */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 md:mb-8">
-        <div className="text-center sm:text-left">
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white tracking-wider">
-            COMPARE PLANS
+    <div 
+      className="w-full max-w-[1380px] min-w-0 mx-auto mt-14 sm:mt-20 md:mt-28 px-2 sm:px-4 lg:px-6 font-['Poppins',sans-serif]"
+      style={{ fontFamily: "'Poppins', sans-serif" }}
+    >
+      <div className="text-left mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          {/* Badge Pill */}
+          <div className="inline-flex items-center gap-2 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-purple-950/40 border border-purple-500/30 text-xs text-zinc-300 mb-2 sm:mb-3 shadow-[0_0_12px_rgba(168,85,247,0.15)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+            <span className="uppercase tracking-widest text-[9px] sm:text-[10px] font-semibold text-purple-200">
+              FEATURE MATRIX
+            </span>
+          </div>
+
+          {/* Heading: "Compare every capability." */}
+          <h2 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
+            Compare every{' '}
+            <span className="bg-gradient-to-r from-[#F97316] via-[#EC4899] to-[#A855F7] bg-clip-text text-transparent">
+              capability.
+            </span>
           </h2>
-          <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            Choose the perfect plan for your business
+          <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-zinc-400 max-w-xl">
+            Detailed side-by-side feature matrix. Choose the plan engineered for your audience and messaging volume. <span className="text-purple-300 font-medium">All plans include 18% GST.</span>
           </p>
         </div>
 
-        {/* Monthly / Yearly Switcher Pill */}
-        <div className="flex items-center justify-center">
-          <div className="bg-[#12111d] border border-white/10 p-1 rounded-full flex items-center gap-1">
+        {/* Global Expand / Collapse All Button */}
+        <button
+          type="button"
+          onClick={toggleAll}
+          className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl border border-purple-500/30 bg-purple-950/30 hover:bg-purple-900/40 text-purple-200 text-xs font-semibold tracking-wide transition-all self-start sm:self-end cursor-pointer shadow-sm hover:shadow-[0_0_15px_rgba(168,85,247,0.25)]"
+        >
+          <span>{allCollapsed ? 'Expand All' : 'Collapse All'}</span>
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${allCollapsed ? '-rotate-90' : 'rotate-0'}`} />
+        </button>
+      </div>
+
+      {/* ─ MOBILE INTERACTIVE PLAN SELECTOR STRIP ─ */}
+      <div className="block sm:hidden mb-4 p-2 rounded-2xl bg-[#0b0c14] border border-white/[0.08]">
+        <div className="flex items-center justify-between mb-2 px-1">
+          <span className="text-[11px] font-semibold text-zinc-400">Quick plan jump:</span>
+          <span className="text-[10px] text-purple-300 flex items-center gap-1">
+            ← swipe table →
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+          {TABLE_TIERS.map((tier, idx) => (
             <button
-              onClick={() => setBillingCycle('monthly')}
-              className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                billingCycle === 'monthly'
-                  ? 'bg-[#814AC8] text-white shadow-md'
-                  : 'text-zinc-400 hover:text-white'
+              key={`mobile-tab-${tier.key}`}
+              type="button"
+              onClick={() => scrollToPlan(tier.key, idx)}
+              className={`px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                tier.isFeatured
+                  ? 'bg-purple-600/30 text-purple-200 border border-purple-500/50'
+                  : 'bg-white/[0.04] text-zinc-300 border border-white/10 hover:bg-white/10'
               }`}
             >
-              Monthly
+              {tier.name}
+              {tier.isFeatured && ' ★'}
             </button>
-            <button
-              onClick={() => setBillingCycle('yearly')}
-              className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                billingCycle === 'yearly'
-                  ? 'bg-[#814AC8] text-white shadow-md'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              Yearly
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* Top Plan Headers (Mobile View < 640px) */}
-      <div className={`sm:hidden grid ${gridColsClass} gap-2 mb-4`}>
-        {activePlans.map((plan) => {
-          const isFeatured = plan.featured || plan.is_featured || plan.key === 'pro';
-          const isFree = plan.key === 'free' || (plan.monthly_price === 0 && plan.yearly_price === 0);
-          const isEnterprise = plan.key === 'enterprise';
-          const price = billingCycle === 'yearly' ? plan.yearly_price : plan.monthly_price;
-          const displayPrice = isFree ? 'Free' : isEnterprise ? "Let's Talk" : `₹${Number(price).toLocaleString('en-IN')}`;
-
-          return (
-            <div 
-              key={plan.key || plan.name}
-              className={`${
-                isFeatured 
-                  ? 'bg-[#1a122e] border border-purple-500/60 shadow-[0_0_15px_rgba(139,92,246,0.3)]' 
-                  : 'bg-[#0e0d16] border border-white/10'
-              } rounded-xl p-2.5 text-center flex flex-col items-center justify-center`}
-            >
-              {isFeatured && (
-                <span className="text-[8px] bg-purple-500/30 text-purple-200 border border-purple-400/40 rounded-full px-1.5 py-0.5 mb-1 font-bold uppercase tracking-wider">
-                  • POPULAR
-                </span>
-              )}
-              <div className="text-xs font-bold text-white capitalize">{plan.display_name || plan.name}</div>
-              <div className={`text-[10px] ${isFeatured ? 'text-purple-300 font-bold' : 'text-zinc-400'}`}>
-                {displayPrice} {(!isFree && !isEnterprise) ? (billingCycle === 'yearly' ? '/yr' : '/mo') : ''}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Top Plan Cards (Tablet & Laptop View >= 640px) */}
-      <div className={`hidden sm:grid ${gridColsClass} gap-3 md:gap-4 mb-6`}>
-        {activePlans.map((plan) => {
-          const isFeatured = plan.featured || plan.is_featured || plan.key === 'pro';
-          const isFree = plan.key === 'free' || (plan.monthly_price === 0 && plan.yearly_price === 0);
-          const isEnterprise = plan.key === 'enterprise';
-          const price = billingCycle === 'yearly' ? plan.yearly_price : plan.monthly_price;
-          const displayPrice = isFree ? 'Free' : isEnterprise ? "Let's Talk" : `₹${Number(price).toLocaleString('en-IN')}`;
-
-          return (
-            <div
-              key={plan.key || plan.name}
-              className={`${
-                isFeatured
-                  ? 'bg-gradient-to-b from-[#1c1333] via-[#120c22] to-[#0d0918] border border-purple-500/60 shadow-[0_0_30px_rgba(139,92,246,0.25)] relative overflow-hidden'
-                  : 'bg-[#0d0d14] border border-white/10'
-              } rounded-2xl p-4 md:p-5 flex flex-col justify-between text-center`}
-            >
-              <div>
-                {isFeatured ? (
-                  <span className="inline-block bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 text-white border border-purple-400/40 rounded-full px-3 py-0.5 text-[10px] font-medium uppercase tracking-widest mb-1">
-                    • POPULAR
-                  </span>
-                ) : (
-                  <div className="text-[10px] md:text-xs font-semibold tracking-widest uppercase text-zinc-400">
-                    {plan.display_name || plan.name}
-                  </div>
-                )}
-                {isFeatured && (
-                  <div className="text-xs font-semibold tracking-widest uppercase text-white/80">
-                    {plan.display_name || plan.name}
-                  </div>
-                )}
-                <div className="text-2xl md:text-3xl font-semibold text-white mt-2">
-                  {displayPrice}{' '}
-                  {!isFree && !isEnterprise && (
-                    <span className="text-xs md:text-sm font-semibold text-purple-300/80">
-                      {billingCycle === 'yearly' ? '/year' : '/month'}
+      {/* ─ MAIN MATRIX TABLE CONTAINER (CLEAN, RESPONSIVE COLUMN SIZING) ─ */}
+      <div className="w-full max-w-full min-w-0 rounded-2xl border border-white/[0.08] bg-[#0b0c13] shadow-2xl overflow-hidden">
+        <div 
+          ref={scrollWrapperRef}
+          className="w-full max-w-full min-w-0 overflow-x-auto" 
+          style={{ scrollbarWidth: 'thin', WebkitOverflowScrolling: 'touch' }}
+        >
+          <table className="w-full min-w-[820px] sm:min-w-[1050px] table-fixed border-collapse text-left">
+            <colgroup>
+              <col className="w-[150px] sm:w-[220px] md:w-[22%] md:min-w-[240px]" />
+              <col className="w-[110px] sm:w-[130px] md:w-[13%] md:min-w-[135px]" />
+              <col className="w-[110px] sm:w-[130px] md:w-[13%] md:min-w-[135px]" />
+              <col className="w-[110px] sm:w-[130px] md:w-[13%] md:min-w-[135px]" />
+              <col className="w-[110px] sm:w-[130px] md:w-[13%] md:min-w-[135px]" />
+              <col className="w-[115px] sm:w-[135px] md:w-[13%] md:min-w-[135px]" />
+              <col className="w-[110px] sm:w-[130px] md:w-[13%] md:min-w-[135px]" />
+            </colgroup>
+            
+            {/* Table Header: Pure clean table header, no artificial offset or gaps */}
+            <thead className="bg-[#0e0f18] border-b border-white/[0.08]">
+              <tr className="border-b border-white/[0.08]">
+                {/* Capability Column Header */}
+                <th className="py-4 sm:py-5 px-3 sm:px-6 text-xs font-semibold text-zinc-400 uppercase tracking-wider sticky left-0 bg-[#0e0f18] z-20 shadow-[2px_0_10px_rgba(0,0,0,0.6)] align-bottom">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] sm:text-[11px] uppercase tracking-widest font-bold text-zinc-300">
+                      Capabilities & Features
                     </span>
-                  )}
-                </div>
-                <div className="text-xs text-zinc-400 mt-2 leading-relaxed font-normal min-h-[2.5rem] flex items-center justify-center">
-                  {plan.description || (isFree ? 'Get started for free.' : isEnterprise ? 'For large-scale operations with dedicated infrastructure.' : 'Advanced features for scaling teams.')}
-                </div>
-              </div>
-              <button
-                onClick={() => handleAction(plan.key)}
-                className={`mt-4 w-full py-2.5 px-4 rounded-xl text-xs font-semibold transition cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${
-                  isFeatured
-                    ? 'bg-[#814AC8] text-white font-semibold shadow-[0_0_25px_rgba(124,58,237,0.7)] hover:brightness-110'
-                    : 'border border-white/15 bg-white/5 hover:bg-white/10 text-white'
-                }`}
-              >
-                <div>{isEnterprise ? 'Contact Sales' : 'Get Started'}</div>
-                <div className={`text-[10px] font-normal ${isFeatured ? 'text-white font-semibold' : 'text-zinc-400'}`}>
-                  {isFree ? 'Free forever' : isEnterprise ? "Let's Talk" : `${displayPrice} / ${billingCycle === 'yearly' ? 'year' : 'month'}`}
-                </div>
-              </button>
-            </div>
-          );
-        })}
-      </div>
+                    <span className="text-[9px] sm:text-[10px] text-zinc-500 font-normal lowercase tracking-normal">
+                      Click section to collapse
+                    </span>
+                  </div>
+                </th>
 
-      {/* Feature Comparison Table Container */}
-      <div className="w-full rounded-2xl border border-white/10 bg-[#0a0a10] overflow-hidden shadow-2xl">
-        <table className="w-full table-fixed border-collapse">
-          <thead>
-            <tr className="sr-only">
-              <th scope="col">Feature</th>
-              {activePlans.map((p) => (
-                <th key={p.key || p.name} scope="col">{p.display_name || p.name}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {featureCategories.map((catGroup, idx) => {
-              const CategoryIcon = catGroup.icon || Sparkles;
-              return (
-                <React.Fragment key={idx}>
-                  {/* Category Header Row */}
-                  <tr>
-                    <td
-                      colSpan={activePlans.length + 1}
-                      className="bg-[#130f24] border-t border-b border-purple-500/20 py-2.5 px-3 sm:px-5"
-                    >
-                      <div className="flex items-center gap-2">
-                        <CategoryIcon size={13} className="text-purple-400 shrink-0" />
-                        <span className="text-[10px] sm:text-[11px] font-bold tracking-wider uppercase text-purple-300">
-                          {catGroup.category}
+                {/* Plan Columns */}
+                {TABLE_TIERS.map((tier) => (
+                  <th 
+                    key={tier.key}
+                    className={`py-4 sm:py-5 px-1.5 sm:px-3 text-center align-bottom transition-all ${
+                      tier.isFeatured
+                        ? 'bg-purple-950/40 border-x-2 border-purple-500/40 shadow-[0_0_20px_rgba(139,92,246,0.15)]'
+                        : 'border-r border-white/[0.04]'
+                    }`}
+                  >
+                    <div className="flex flex-col items-center">
+                      {/* Popular Badge */}
+                      {tier.badge && (
+                        <span className={`text-[8px] sm:text-[9px] font-extrabold uppercase px-1.5 sm:px-2 py-0.5 rounded-full tracking-wider mb-1.5 sm:mb-2 ${
+                          tier.isFeatured
+                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]'
+                            : 'bg-white/[0.06] text-zinc-400 border border-white/10'
+                        }`}>
+                          {tier.badge}
                         </span>
-                      </div>
-                    </td>
-                  </tr>
+                      )}
+                      {!tier.badge && <div className="h-[18px] sm:h-[21px] mb-1.5 sm:mb-2" />}
 
-                  {/* Individual Feature Rows */}
-                  {catGroup.rows.map((row, rowIdx) => {
-                    const IconComp = row.icon;
-                    return (
-                      <tr
-                        key={rowIdx}
-                        className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
+                      {/* Tier Name */}
+                      <span className={`text-sm sm:text-base font-bold tracking-tight ${
+                        tier.isFeatured ? 'text-purple-300 text-base sm:text-lg' : tier.key === 'creator' ? 'text-purple-400' : 'text-white'
+                      }`}>
+                        {tier.name}
+                      </span>
+
+                      {/* Tier Price */}
+                      <div className="mt-0.5 sm:mt-1 flex items-baseline justify-center">
+                        <span className="text-base sm:text-2xl font-extrabold text-white tracking-tight">
+                          {tier.price}
+                        </span>
+                        {tier.period && (
+                          <span className="ml-0.5 text-[9px] sm:text-[11px] text-zinc-400 font-normal">
+                            {tier.period}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Mini Action Button */}
+                      <a
+                        href={tier.ctaHref}
+                        className={`mt-2 sm:mt-3 w-full max-w-[95px] sm:max-w-[120px] py-1 sm:py-1.5 px-2 sm:px-3 rounded-full text-[10px] sm:text-xs font-semibold transition-all duration-200 block text-center cursor-pointer ${
+                          tier.isFeatured
+                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.4)] hover:opacity-90'
+                            : 'border border-white/15 bg-white/[0.04] hover:bg-white/10 text-white'
+                        }`}
                       >
-                        {/* Feature Name */}
-                        <td className="w-[38%] sm:w-[30%] py-3 px-2.5 sm:px-5 text-left align-middle">
-                          <div className="flex items-center gap-1.5 sm:gap-2.5">
-                            {IconComp && (
-                              <IconComp size={14} className="text-purple-400 shrink-0 hidden xs:block" />
-                            )}
-                            <span className="text-[11px] sm:text-xs md:text-sm text-zinc-300 font-medium">
-                              {row.name}
+                        {tier.ctaText}
+                      </a>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            {/* Categorized Capability Rows (Collapsible) */}
+            <tbody>
+              {SPECIFICATION_CAPABILITY_SECTIONS.map((section, catIdx) => {
+                const isCollapsed = !!collapsedSections[catIdx];
+                return (
+                  <React.Fragment key={`section-${catIdx}`}>
+                    {/* Collapsible Category Divider Header Row */}
+                    <tr 
+                      onClick={() => toggleSection(catIdx)}
+                      className="bg-[#10111d] border-y border-purple-500/20 cursor-pointer hover:bg-purple-950/25 transition-colors select-none group"
+                      title={isCollapsed ? 'Click to expand this category' : 'Click to collapse this category'}
+                    >
+                      <td 
+                        colSpan={7} 
+                        className="py-2.5 sm:py-3 px-3 sm:px-6 sticky left-0 bg-[#10111d] z-20 shadow-[2px_0_8px_rgba(0,0,0,0.5)] group-hover:bg-purple-950/30 transition-colors"
+                      >
+                        <div className="flex items-center justify-between w-full max-w-[calc(100vw-3rem)] sm:max-w-none">
+                          <div className="flex items-center gap-2 sm:gap-2.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-purple-300">
+                            {renderCategoryIcon(section.icon)}
+                            <span className="truncate">{section.category}</span>
+                            <span className="text-[9px] sm:text-[10px] text-zinc-400 font-mono font-normal normal-case px-1.5 sm:px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.08] shrink-0">
+                              {section.rows.length}
                             </span>
                           </div>
-                        </td>
+                          
+                          <div className="flex items-center gap-1 text-[10px] sm:text-xs font-medium text-purple-300/80 group-hover:text-purple-200 shrink-0 ml-2">
+                            <span>{isCollapsed ? 'Expand' : 'Collapse'}</span>
+                            <ChevronDown 
+                              className={`w-3.5 h-3.5 transition-transform duration-200 text-purple-400 ${
+                                isCollapsed ? '-rotate-90' : 'rotate-0'
+                              }`} 
+                            />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
 
-                        {/* Plan Values */}
-                        {activePlans.map((plan) => {
-                          const isFeatured = plan.featured || plan.is_featured || plan.key === 'pro';
-                          const val = row.getValue(plan);
-                          return (
-                            <td 
-                              key={plan.key || plan.name}
-                              className={`py-3 px-1 sm:px-3 text-center align-middle ${
-                                isFeatured 
-                                  ? 'bg-[#7C3AED]/[0.08] border-l border-r border-purple-500/30' 
-                                  : ''
-                              }`}
-                            >
-                              <ValueCell value={val} isFeatured={isFeatured} />
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                    {/* Capability Rows within this Category (Hidden when collapsed) */}
+                    {!isCollapsed && section.rows.map((row, rowIdx) => {
+                      const isEven = rowIdx % 2 === 0;
+                      return (
+                        <tr
+                          key={`row-${catIdx}-${rowIdx}`}
+                          className={`border-b border-white/[0.05] transition-colors hover:bg-white/[0.03] ${
+                            isEven ? 'bg-transparent' : 'bg-white/[0.01]'
+                          }`}
+                        >
+                          {/* Capability Name (Sticky Column on Left) */}
+                          <td className="py-2.5 sm:py-3.5 px-3 sm:px-6 text-xs sm:text-[13px] font-medium text-zinc-300 sticky left-0 bg-[#0b0c13] z-20 shadow-[2px_0_8px_rgba(0,0,0,0.6)]">
+                            <div className="flex flex-col">
+                              <span className="font-medium text-zinc-200 text-[11px] sm:text-[13px] leading-snug">
+                                {row.capability}
+                              </span>
+                              {row.tooltip && (
+                                <span className="text-[9px] sm:text-[10px] text-zinc-500 mt-0.5 leading-tight hidden sm:inline-block">
+                                  {row.tooltip}
+                                </span>
+                              )}
+                            </div>
+                          </td>
 
-      {/* Currency Note */}
-      <div className="text-[10px] sm:text-[11px] text-zinc-500 text-center my-4 md:my-5 font-normal">
-        * All prices are in INR. Taxes may apply.
-      </div>
+                          {/* Free Cell */}
+                          <td className="py-2.5 sm:py-3.5 px-1.5 sm:px-3 text-center border-r border-white/[0.04]">
+                            <ComparisonMatrixCell value={row.free} capability={row.capability} planKey="free" />
+                          </td>
 
-      {/* Bottom CTA Action Buttons (Tablet & Laptop View >= 640px) */}
-      <div className={`hidden sm:grid ${gridColsClass} gap-3 md:gap-4 mt-2`}>
-        {activePlans.map((plan) => {
-          const isFeatured = plan.featured || plan.is_featured || plan.key === 'pro';
-          const isFree = plan.key === 'free' || (plan.monthly_price === 0 && plan.yearly_price === 0);
-          const isEnterprise = plan.key === 'enterprise';
-          const price = billingCycle === 'yearly' ? plan.yearly_price : plan.monthly_price;
-          const displayPrice = isFree ? 'Free' : isEnterprise ? "Let's Talk" : `₹${Number(price).toLocaleString('en-IN')}`;
+                          {/* Starter Cell */}
+                          <td className="py-2.5 sm:py-3.5 px-1.5 sm:px-3 text-center border-r border-white/[0.04]">
+                            <ComparisonMatrixCell value={row.starter} capability={row.capability} planKey="starter" />
+                          </td>
 
-          return (
-            <button
-              key={plan.key || plan.name}
-              onClick={() => handleAction(plan.key)}
-              className={`w-full py-3 px-4 rounded-xl text-xs font-semibold text-center transition cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${
-                isFeatured
-                  ? 'bg-[#814AC8] text-white font-semibold shadow-[0_0_25px_rgba(124,58,237,0.7)] hover:brightness-110'
-                  : 'border border-white/15 bg-white/5 hover:bg-white/10 text-white'
-              }`}
-            >
-              <div>{isEnterprise ? 'Contact Sales' : `Get Started with ${plan.display_name || plan.name}`}</div>
-              <div className={`text-[10px] font-normal mt-0.5 ${isFeatured ? 'text-purple-200 font-semibold' : 'text-zinc-400'}`}>
-                {isFree ? 'Free forever' : isEnterprise ? "Let's Talk" : `${displayPrice} / ${billingCycle === 'yearly' ? 'year' : 'month'}`}
-              </div>
-            </button>
-          );
-        })}
+                          {/* Growth Cell */}
+                          <td className="py-2.5 sm:py-3.5 px-1.5 sm:px-3 text-center border-r border-white/[0.04]">
+                            <ComparisonMatrixCell value={row.growth} capability={row.capability} planKey="growth" />
+                          </td>
+
+                          {/* Business Cell (Highlighted in Purple) */}
+                          <td className="py-2.5 sm:py-3.5 px-1.5 sm:px-3 text-center bg-purple-950/25 border-x-2 border-purple-500/40 shadow-inner">
+                            <ComparisonMatrixCell value={row.business} capability={row.capability} planKey="business" />
+                          </td>
+
+                          {/* Creator Cell (After Business) */}
+                          <td className="py-2.5 sm:py-3.5 px-1.5 sm:px-3 text-center border-r border-white/[0.04]">
+                            <ComparisonMatrixCell value={row.creator} capability={row.capability} planKey="creator" />
+                          </td>
+
+                          {/* Enterprise Cell */}
+                          <td className="py-2.5 sm:py-3.5 px-1.5 sm:px-3 text-center">
+                            <ComparisonMatrixCell value={row.enterprise} capability={row.capability} planKey="enterprise" />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -15,11 +15,17 @@ export const metadata = {
   description: "Secure AI Business Assistant (v1.1.16)",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} ${poppins.variable} ${jakarta.variable} overflow-x-clip`}
+        className={`${GeistSans.variable} ${GeistMono.variable} ${poppins.variable} ${jakarta.variable} overflow-x-hidden max-w-[100vw]`}
         suppressHydrationWarning
       >
         <BrandingProvider>
