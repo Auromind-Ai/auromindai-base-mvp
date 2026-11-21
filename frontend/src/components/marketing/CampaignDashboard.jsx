@@ -26,10 +26,13 @@ import {
   RefreshCw,
   Check,
   Clock,
-  Eye
+  Eye,
+  Lock
 } from 'lucide-react';
 import CampaignStatusBadge from './CampaignStatusBadge';
 import CreateCampaignModal from './CreateCampaignModal';
+import UpgradePromptModal from '@/components/common/UpgradePromptModal';
+import { useWorkspaceEntitlements } from '@/hooks/useWorkspaceEntitlements';
 import { getCampaigns, getCampaignById, deleteCampaign, updateCampaign, pauseCampaign, resumeCampaign, duplicateCampaign } from '@/lib/api/marketing';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
@@ -77,6 +80,26 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const { showToast } = useToast();
+  const { broadcastTier, planName, isChannelAllowed } = useWorkspaceEntitlements();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState('');
+
+  const isBroadcastingAllowed = broadcastTier !== 'none' && isChannelAllowed('whatsapp');
+
+  const handleCreateCampaignClick = () => {
+    if (broadcastTier === 'none') {
+      setUpgradeMessage(`Broadcast campaigns are not included in your ${planName?.toUpperCase() || 'FREE'} plan. Upgrade to Starter, Growth, or Business to send batch campaigns.`);
+      setShowUpgradeModal(true);
+      return;
+    }
+    if (!isChannelAllowed('whatsapp')) {
+      setUpgradeMessage(`WhatsApp broadcast campaigns are not included in your ${planName?.toUpperCase()} plan. Upgrade to Starter, Growth, or Business for WhatsApp marketing.`);
+      setShowUpgradeModal(true);
+      return;
+    }
+    setEditingCampaign(null);
+    setIsCreateOpen(true);
+  };
 
   const dateDropdownRef = useRef(null);
 
@@ -381,14 +404,15 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
 
           <button
             type="button"
-            onClick={() => {
-              setEditingCampaign(null);
-              setIsCreateOpen(true);
-            }}
-            className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#814AC8] hover:bg-[#723db5] shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_28px_rgba(129,74,200,0.65)] flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+            onClick={handleCreateCampaignClick}
+            className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white flex items-center gap-2 transition-all cursor-pointer ${
+              !isBroadcastingAllowed
+                ? 'bg-purple-950/80 border border-purple-500/40 text-purple-300 hover:bg-purple-900/60'
+                : 'bg-[#814AC8] hover:bg-[#723db5] shadow-[0_0_20px_rgba(129,74,200,0.4)] hover:shadow-[0_0_28px_rgba(129,74,200,0.65)] active:scale-[0.98]'
+            }`}
           >
-            <Plus size={16} strokeWidth={2.5} />
-            <span>Create Campaign</span>
+            {!isBroadcastingAllowed ? <Lock size={15} /> : <Plus size={16} strokeWidth={2.5} />}
+            <span>{!isBroadcastingAllowed ? 'Broadcast Locked (Upgrade)' : 'Create Campaign'}</span>
           </button>
         </div>
       </div>
@@ -1003,6 +1027,16 @@ export default function CampaignDashboard({ activeSubmenu = 'Bulk Messages', wor
           existingCampaigns={campaigns}
         />
       )}
+
+      {/* Entitlement Upgrade Modal */}
+      <UpgradePromptModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        title="Broadcast Campaigns Locked"
+        message={upgradeMessage || `Broadcast campaigns are not supported under your current plan (${planName?.toUpperCase()}). Upgrade to send marketing campaigns.`}
+        currentPlan={planName}
+        recommendedPlan={planName === 'creator' || planName === 'starter' ? 'Growth' : 'Business'}
+      />
     </div>
   );
 }

@@ -191,6 +191,13 @@ async def generate_template(
     import asyncio
 
     workspace_id = verify_workspace_access(current_user, db, data.workspace_id, required_permission='templates.manage')
+    from app.services.billing.entitlement_service import EntitlementService
+    ent_check = EntitlementService.check_entitlement(db, workspace_id, "template")
+    if not ent_check.get("allowed", False):
+        raise HTTPException(
+            status_code=403,
+            detail=ent_check.get("reason", "Template quota exceeded for your current plan. Please upgrade your subscription.")
+        )
 
     lang_name = map_language(data.language)
     system_prompt = """
@@ -487,6 +494,13 @@ async def create_template(
     validate_category(data)
 
     workspace_id = verify_workspace_access(current_user, db, data.workspace_id, required_permission='templates.manage')
+    from app.services.billing.entitlement_service import EntitlementService
+    ent_check = EntitlementService.check_entitlement(db, workspace_id, "template")
+    if not ent_check.get("allowed", False):
+        raise HTTPException(
+            status_code=403,
+            detail=ent_check.get("reason", "Template quota exceeded for your current plan. Please upgrade your subscription.")
+        )
 
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:

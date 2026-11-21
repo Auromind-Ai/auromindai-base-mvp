@@ -1,18 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { poppins } from '@/lib/fonts';
 import { 
   Instagram, 
   MessageCircle, 
   Globe, 
-  Sparkles,
-  Phone,
-  Zap,
-  TrendingUp,
-  ShieldCheck,
-  Check
+  Sparkles, 
+  Phone, 
+  Zap, 
+  TrendingUp, 
+  ShieldCheck, 
+  Check 
 } from 'lucide-react';
 import NavigationSection from '@/components/LandingPageNew/NavigationSection/NavigationSection';
 import ModernSaaSBackground from '@/components/LandingPageNew/ModernSaaSBackground/ModernSaaSBackground';
@@ -23,9 +23,10 @@ import {
   CORE_ORBION_PLANS,
   CREATOR_PLAN
 } from '@/lib/constants/pricingTiers';
+import api from '@/lib/api';
 
 /* ─ Plan Card Component Pixel-Matching Image 1 (Spacious, No Squeezing) ─ */
-function PlanCard({ plan, billing }) {
+function PlanCard({ plan, billing, gstRate = 18 }) {
   const isBusiness = plan.key === 'business';
   const isEnterprise = plan.key === 'enterprise';
   const isFree = plan.key === 'free';
@@ -36,9 +37,9 @@ function PlanCard({ plan, billing }) {
     : plan.displayPrice;
 
   const gstPrice = billing === 'annual' && plan.priceYearlyGst > 0
-    ? `₹${plan.priceYearlyGst.toLocaleString('en-IN')}/mo incl. 18% GST`
+    ? `₹${plan.priceYearlyGst.toLocaleString('en-IN')}/mo incl. ${gstRate}% GST`
     : plan.priceMonthlyGst > 0
-    ? `₹${plan.priceMonthlyGst.toLocaleString('en-IN')}/mo incl. 18% GST`
+    ? `₹${plan.priceMonthlyGst.toLocaleString('en-IN')}/mo incl. ${gstRate}% GST`
     : null;
 
   const billingNote = plan.priceMonthly > 0
@@ -52,10 +53,6 @@ function PlanCard({ plan, billing }) {
       window.location.href = `/login?redirect=${encodeURIComponent('/user/admin/billing/payment')}`;
     }
   };
-
-  const hasWhatsApp = plan.channels?.includes('whatsapp');
-  const hasInstagram = plan.channels?.includes('instagram');
-  const hasTwilio = plan.channels?.includes('twilio');
 
   return (
     <div
@@ -127,7 +124,7 @@ function PlanCard({ plan, billing }) {
         <div className="mt-5">
           <button
             onClick={handleAction}
-            className={`w-full py-2.5 px-4 sm:px-6 rounded-full font-semibold text-xs sm:text-sm transition-all duration-200 text-center block ${
+            className={`w-full py-2.5 px-4 sm:px-6 rounded-full font-semibold text-xs sm:text-sm transition-all duration-200 text-center block cursor-pointer ${
               isBusiness || isCreator
                 ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-[0_0_20px_rgba(147,51,234,0.35)]'
                 : isFree
@@ -170,6 +167,80 @@ function PlanCard({ plan, billing }) {
 
 export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState('annual'); // 'monthly' | 'annual'
+  const [pricingData, setPricingData] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadPricing() {
+      try {
+        const data = await api.getPricing();
+        if (isMounted && data) {
+          setPricingData(data);
+        }
+      } catch (err) {
+        console.warn('[PRICING] Failed to fetch dynamic pricing, using local fallback:', err);
+      }
+    }
+    loadPricing();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Merge live database plans with canonical visuals
+  const activePlans = (CORE_ORBION_PLANS || []).map((fallbackPlan) => {
+    if (!pricingData?.plans || !Array.isArray(pricingData.plans)) {
+      return fallbackPlan;
+    }
+
+    const dbPlan = pricingData.plans.find(
+      (p) => (p.key || p.name || '').toLowerCase() === fallbackPlan.key.toLowerCase()
+    );
+    if (!dbPlan) return fallbackPlan;
+
+    const isFree = fallbackPlan.key === 'free';
+    const isEnterprise = fallbackPlan.key === 'enterprise';
+
+    const monthlyPrice = Number(dbPlan.monthly_price ?? fallbackPlan.priceMonthly ?? 0);
+    const yearlyPrice = Number(dbPlan.yearly_price ?? fallbackPlan.priceYearly ?? 0);
+    const yearlyPerMonth = yearlyPrice > 0 ? Math.round(yearlyPrice / 12) : Math.round(monthlyPrice * 0.95);
+
+    const displayPrice = isFree
+      ? '₹0'
+      : isEnterprise || monthlyPrice <= 0
+      ? 'Custom'
+      : `₹${monthlyPrice.toLocaleString('en-IN')}`;
+
+    const displayPriceYearly = isFree
+      ? '₹0'
+      : isEnterprise || yearlyPrice <= 0
+      ? 'Custom'
+      : `₹${yearlyPerMonth.toLocaleString('en-IN')}`;
+
+    const features = Array.isArray(dbPlan.features) && dbPlan.features.length > 0
+      ? dbPlan.features
+      : fallbackPlan.features;
+
+    const channels = dbPlan.feature_flags?.allowed_channels || fallbackPlan.channels;
+
+    return {
+      ...fallbackPlan,
+      name: dbPlan.display_name || fallbackPlan.name,
+      subtitle: dbPlan.description || fallbackPlan.subtitle,
+      description: dbPlan.description || fallbackPlan.description,
+      priceMonthly: monthlyPrice,
+      priceYearly: yearlyPrice,
+      priceMonthlyGst: monthlyPrice,
+      priceYearlyGst: yearlyPerMonth,
+      displayPrice,
+      displayPriceYearly,
+      features,
+      channels,
+      badge: dbPlan.is_featured ? '★ Most Popular' : fallbackPlan.badge,
+    };
+  });
+
+  const gstRate = pricingData?.gst_rate ?? 18;
 
   return (
     <div className={`min-h-screen bg-black text-white ${poppins.className} selection:bg-purple-600/30 selection:text-purple-200`}>
@@ -242,7 +313,7 @@ export default function PricingPage() {
             {/* GST Notice Badge */}
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-950/50 border border-purple-500/30 text-purple-200 text-xs font-medium shadow-[0_0_12px_rgba(168,85,247,0.15)]">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>All plans include 18% GST</span>
+              <span>All plans include {gstRate}% GST</span>
             </div>
           </div>
 
@@ -262,7 +333,7 @@ export default function PricingPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="text-base font-bold text-white tracking-tight">Free Forever Plan & Evaluation Sandbox</h4>
+                    <h4 className="text-base font-bold text-white tracking-tight">Free Forever Plan &amp; Evaluation Sandbox</h4>
                     <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
                       ₹0 Forever · No Card Required
                     </span>
@@ -275,7 +346,7 @@ export default function PricingPage() {
               <div className="flex items-center gap-3 w-full md:w-auto shrink-0 pt-2 sm:pt-0">
                 <button
                   onClick={() => window.location.href = '/login'}
-                  className="w-full sm:w-auto px-5 py-2.5 rounded-full border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 hover:text-white font-semibold text-xs tracking-wide transition-all text-center shadow-sm"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-full border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 hover:text-white font-semibold text-xs tracking-wide transition-all text-center shadow-sm cursor-pointer"
                 >
                   Start Free Forever →
                 </button>
@@ -284,14 +355,14 @@ export default function PricingPage() {
 
             {/* 6 Core Platform Plans Grid: Free Forever, Starter, Growth, Business, Creator, Enterprise */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {CORE_ORBION_PLANS.map((plan) => (
-                <PlanCard key={plan.key} plan={plan} billing={billingCycle} />
+              {activePlans.map((plan) => (
+                <PlanCard key={plan.key} plan={plan} billing={billingCycle} gstRate={gstRate} />
               ))}
             </div>
           </div>
 
           {/* ─ 3. FEATURE MATRIX COMPARISON TABLE (Matching Image 2) ─ */}
-          <PricingComparisonTable billing={billingCycle} />
+          <PricingComparisonTable billing={billingCycle} dbPlans={pricingData?.plans} />
 
         </div>
       </main>

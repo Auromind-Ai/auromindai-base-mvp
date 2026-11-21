@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserPen } from 'lucide-react';
+import { UserPen, Lock, Instagram, ArrowUpRight } from 'lucide-react';
 import api from '@/lib/api';
+import { useWorkspaceEntitlements } from '@/hooks/useWorkspaceEntitlements';
 
-// Option 6 WhatsApp Icon (Connected vs Disconnected styling)
+// WhatsApp Icon
 const WhatsAppIcon = ({ isConnected }) => {
     return (
         <div className="relative flex items-center justify-center flex-shrink-0 shrink-0 w-5 h-5 sm:w-7 sm:h-7">
-            {/* Ambient outer glow ring */}
             {isConnected && (
                 <div 
                     className="absolute inset-0 rounded-full bg-[#14c956]/40 blur-[5px] transform scale-110"
@@ -38,9 +38,26 @@ const WhatsAppIcon = ({ isConnected }) => {
     );
 };
 
-// 5-Dot Cross Decorative Accent (for Disconnected state)
-const CrossDotAccent = ({ isConnected }) => {
-    const color = isConnected ? "#14c956" : "#a1a1aa";
+// Instagram Icon
+const InstagramIcon = ({ isConnected }) => {
+    return (
+        <div className="relative flex items-center justify-center flex-shrink-0 shrink-0 w-5 h-5 sm:w-7 sm:h-7">
+            {isConnected && (
+                <div 
+                    className="absolute inset-0 rounded-full bg-pink-500/40 blur-[5px] transform scale-110"
+                    aria-hidden="true" 
+                />
+            )}
+            <div className={`w-5 h-5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center ${isConnected ? 'bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888]' : 'bg-[#27272a]'}`}>
+                <Instagram size={14} className={isConnected ? "text-white" : "text-zinc-400"} />
+            </div>
+        </div>
+    );
+};
+
+// 5-Dot Cross Decorative Accent
+const CrossDotAccent = ({ isConnected, activeColor = "#14c956" }) => {
+    const color = isConnected ? activeColor : "#a1a1aa";
 
     return (
         <svg 
@@ -50,21 +67,16 @@ const CrossDotAccent = ({ isConnected }) => {
             xmlns="http://www.w3.org/2000/svg"
             aria-hidden="true"
         >
-            {/* Center dot */}
             <circle 
                 cx="12" 
                 cy="12" 
                 r="2.2" 
                 fill={color} 
-                className={isConnected ? "drop-shadow-[0_0_6px_#14c956]" : ""}
+                className={isConnected ? `drop-shadow-[0_0_6px_${activeColor}]` : ""}
             />
-            {/* Top dot */}
             <circle cx="12" cy="5.5" r="1.3" fill={color} opacity="0.6" />
-            {/* Bottom dot */}
             <circle cx="12" cy="18.5" r="1.3" fill={color} opacity="0.6" />
-            {/* Left dot */}
             <circle cx="5.5" cy="12" r="1.3" fill={color} opacity="0.6" />
-            {/* Right dot */}
             <circle cx="18.5" cy="12" r="1.3" fill={color} opacity="0.6" />
         </svg>
     );
@@ -72,8 +84,12 @@ const CrossDotAccent = ({ isConnected }) => {
 
 export default function WhatsAppStatusIndicator() {
     const router = useRouter();
-    const [isConnected, setIsConnected] = useState(null);
+    const { allowedChannels, planName, loading: entLoading } = useWorkspaceEntitlements();
+    const [channelsStatus, setChannelsStatus] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    const isCreatorPlan = allowedChannels.length === 1 && allowedChannels[0] === 'instagram';
+    const hasNoChannels = allowedChannels.length === 0;
 
     const handleEditProfile = (e) => {
         if (e) {
@@ -95,23 +111,23 @@ export default function WhatsAppStatusIndicator() {
     const fetchStatus = useCallback(async () => {
         try {
             const data = await api.getIntegrationStatus();
-            const status = Boolean(data?.whatsapp?.connected);
-            setIsConnected(status);
+            setChannelsStatus(data);
+            const waStatus = Boolean(data?.whatsapp?.connected);
             if (typeof window !== 'undefined') {
-                localStorage.setItem("whatsapp_connected", status ? "true" : "false");
+                localStorage.setItem("whatsapp_connected", waStatus ? "true" : "false");
+                if (data?.instagram?.connected) {
+                    localStorage.setItem("instagram_connected", "true");
+                }
             }
         } catch (err) {
-            console.error("Failed to fetch WhatsApp integration status:", err);
-            // Fallback safely to cached value if network request fails
+            console.error("Failed to fetch integration status:", err);
             if (typeof window !== 'undefined') {
-                const cached = localStorage.getItem("whatsapp_connected");
-                if (cached !== null) {
-                    setIsConnected(cached === "true");
-                } else {
-                    setIsConnected(false);
-                }
-            } else {
-                setIsConnected(false);
+                const waCached = localStorage.getItem("whatsapp_connected") === "true";
+                const igCached = localStorage.getItem("instagram_connected") === "true";
+                setChannelsStatus({
+                    whatsapp: { connected: waCached },
+                    instagram: { connected: igCached }
+                });
             }
         } finally {
             setLoading(false);
@@ -129,28 +145,18 @@ export default function WhatsAppStatusIndicator() {
             fetchStatus().catch(() => {});
         };
 
-        // Initial fetch from backend (single source of truth)
         load(true);
 
-        // 1. Refresh when user switches back to this tab
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && isMounted) {
-                load();
-            }
+            if (document.visibilityState === 'visible' && isMounted) load();
         };
 
-        // 2. Listen for cross-tab storage changes
         const handleStorageChange = (e) => {
-            if (e.key === 'whatsapp_connected' && isMounted) {
-                load();
-            }
+            if ((e.key === 'whatsapp_connected' || e.key === 'instagram_connected') && isMounted) load();
         };
 
-        // 3. Listen for custom same-tab channel status changes
         const handleChannelStatusChange = () => {
-            if (isMounted) {
-                load();
-            }
+            if (isMounted) load();
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -165,12 +171,11 @@ export default function WhatsAppStatusIndicator() {
         };
     }, [fetchStatus]);
 
-    // Loading skeleton placeholder matching exact dimensions
-    if (loading && isConnected === null) {
+    if ((loading || entLoading) && !channelsStatus) {
         return (
             <div 
                 className="relative h-8 sm:h-[42px] px-2 sm:px-3.5 rounded-lg sm:rounded-2xl bg-[#09090e]/80 border border-white/10 flex items-center gap-1 sm:gap-2.5 animate-pulse overflow-hidden select-none flex-shrink-0 shrink-0"
-                aria-label="Loading WhatsApp Status"
+                aria-label="Loading Channel Status"
             >
                 <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-white/10 flex-shrink-0 shrink-0" />
                 <div className="w-10 sm:w-16 h-3 rounded bg-white/10" />
@@ -179,34 +184,88 @@ export default function WhatsAppStatusIndicator() {
         );
     }
 
-    const connectedState = Boolean(isConnected);
+    // CASE 1: No messaging channels allowed in plan
+    if (hasNoChannels) {
+        return (
+            <button
+                type="button"
+                onClick={() => router.push('/billing/payment')}
+                className="relative h-8 sm:h-[42px] px-2.5 sm:px-3.5 rounded-lg sm:rounded-2xl flex items-center gap-1.5 sm:gap-2.5 bg-[#09090e]/90 hover:bg-purple-950/30 border border-purple-500/30 select-none transition-all cursor-pointer flex-shrink-0 shrink-0 group"
+                title="Messaging channels locked - Upgrade Plan"
+            >
+                <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" />
+                <span className="text-[10px] sm:text-xs font-semibold text-purple-300">
+                    Upgrade for Channels
+                </span>
+                <ArrowUpRight className="w-3 h-3 text-purple-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </button>
+        );
+    }
+
+    // CASE 2: Creator Plan (Instagram only)
+    if (isCreatorPlan) {
+        const isIgConnected = Boolean(channelsStatus?.instagram?.connected);
+        return (
+            <div 
+                className={`
+                    relative h-8 sm:h-[42px] px-2 sm:px-3.5 rounded-lg sm:rounded-2xl flex items-center gap-1 sm:gap-2.5 
+                    bg-[#09090e]/90 backdrop-blur-md select-none transition-all duration-300 overflow-hidden flex-shrink-0 shrink-0
+                    ${isIgConnected 
+                        ? 'border border-pink-500/35 shadow-[0_0_15px_rgba(236,72,153,0.15)]' 
+                        : 'border border-white/10 shadow-none'
+                    }
+                `}
+            >
+                <InstagramIcon isConnected={isIgConnected} />
+                <span 
+                    className={`
+                        text-[10px] sm:text-xs font-semibold tracking-tight whitespace-nowrap z-10 transition-colors duration-300 flex-shrink-0 shrink-0
+                        ${isIgConnected ? 'text-pink-400' : 'text-zinc-400'}
+                    `}
+                >
+                    {isIgConnected ? 'Connected' : 'Disconnected'}
+                </span>
+                {isIgConnected ? (
+                    <button
+                        type="button"
+                        onClick={() => router.push('/channels')}
+                        title="Manage Instagram Channel"
+                        className="relative z-10 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-md sm:rounded-lg text-white bg-pink-500/15 hover:bg-pink-500/30 border border-pink-500/30 transition-all cursor-pointer ml-0.5 sm:ml-1 shrink-0 flex-shrink-0"
+                    >
+                        <UserPen className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </button>
+                ) : (
+                    <CrossDotAccent isConnected={false} />
+                )}
+            </div>
+        );
+    }
+
+    // CASE 3: WhatsApp is allowed (Starter, Growth, Business, Enterprise, Free)
+    const isWaConnected = Boolean(channelsStatus?.whatsapp?.connected);
 
     return (
         <div 
             className={`
                 relative h-8 sm:h-[42px] px-2 sm:px-3.5 rounded-lg sm:rounded-2xl flex items-center gap-1 sm:gap-2.5 
                 bg-[#09090e]/90 backdrop-blur-md select-none transition-all duration-300 overflow-hidden flex-shrink-0 shrink-0
-                ${connectedState 
+                ${isWaConnected 
                     ? 'border border-[#14c956]/35 shadow-[0_0_15px_rgba(20,201,86,0.15)]' 
                     : 'border border-white/10 shadow-none'
                 }
             `}
         >
-            {/* Left WhatsApp Icon with ambient glow */}
-            <WhatsAppIcon isConnected={connectedState} />
-
-            {/* Status Text (Connected / Disconnected) */}
+            <WhatsAppIcon isConnected={isWaConnected} />
             <span 
                 className={`
                     text-[10px] sm:text-xs font-semibold tracking-tight whitespace-nowrap z-10 transition-colors duration-300 flex-shrink-0 shrink-0
-                    ${connectedState ? 'text-[#14c956]' : 'text-zinc-400'}
+                    ${isWaConnected ? 'text-[#14c956]' : 'text-zinc-400'}
                 `}
             >
-                {connectedState ? 'Connected' : 'Disconnected'}
+                {isWaConnected ? 'Connected' : 'Disconnected'}
             </span>
 
-            {/* Right: Edit Profile Icon Button when Connected, or CrossDotAccent when Disconnected */}
-            {connectedState ? (
+            {isWaConnected ? (
                 <button
                     type="button"
                     onClick={handleEditProfile}

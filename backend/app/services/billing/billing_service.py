@@ -1139,6 +1139,7 @@ class BillingService:
             "plan_label": plan_config.label,
             "billing_status": billing_status,
             "billing_cycle": (subscription.billing_cycle or "monthly").lower() if subscription else None,
+            "current_plan_features": plan_config.features or [],
             
             # WCC Entitlement canonical fields
             "wcc_locked": wcc_ent["wcc_locked"],

@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Brain, UploadCloud, Link, FileText, CheckCircle2, Trash2, Search, Loader2, AlertCircle, X, Globe, LayoutGrid, List as ListIcon, SlidersHorizontal } from 'lucide-react';
+import { Brain, UploadCloud, Link, FileText, CheckCircle2, Trash2, Search, Loader2, AlertCircle, X, Globe, LayoutGrid, List as ListIcon, SlidersHorizontal, Lock } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useWorkspaceEntitlements } from '@/hooks/useWorkspaceEntitlements';
+import UpgradePromptModal from '@/components/common/UpgradePromptModal';
 import { validateBrainDocumentUpload } from '@/lib/fileValidation';
 import FileProgress from "./FileProgress";
 import AnimatedCounter from "../AnimatedCounter";
@@ -26,6 +28,10 @@ export default function BrainPage() {
     const fileInputRef = useRef(null);
 
     const { workspaceId } = useAuth();
+    const { knowledgeBaseLimit, planName } = useWorkspaceEntitlements(workspaceId);
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+    const isLimitReached = knowledgeBaseLimit !== -1 && (entries.length >= knowledgeBaseLimit);
 
     const [viewMode, setViewMode] = useState('list'); // 'list' | 'grid'
     const [sortBy, setSortBy] = useState('newest');   // 'newest' | 'oldest' | 'name'
@@ -87,6 +93,12 @@ export default function BrainPage() {
         const file = event.target.files?.[0];
         if (!file || !workspaceId) return;
 
+        if (isLimitReached) {
+            setShowUpgradeModal(true);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
+
         const check = validateBrainDocumentUpload(file);
         if (!check.valid) {
             setError(check.error);
@@ -115,6 +127,11 @@ export default function BrainPage() {
     // Handle URL sync (single page)
     const handleUrlSync = async () => {
         if (!urlInput.trim() || !workspaceId) return;
+
+        if (isLimitReached) {
+            setShowUpgradeModal(true);
+            return;
+        }
 
         try {
             setSyncing(true);
@@ -284,8 +301,14 @@ export default function BrainPage() {
             )}
 
             <div className="mb-4 md:mb-10">
-                <h1 className="text-base md:text-xl lg:text-3xl font-semibold text-white tracking-tight">
-                    Brain (Knowledge Base)
+                <h1 className="text-base md:text-xl lg:text-3xl font-semibold text-white tracking-tight flex items-center gap-2.5 flex-wrap">
+                    <span>Brain (Knowledge Base)</span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">
+                        {knowledgeBaseLimit === -1 ? `${entries.length} Docs (Unlimited)` : `${entries.length} / ${knowledgeBaseLimit} Docs`}
+                    </span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 text-zinc-300 border border-white/10 uppercase tracking-wider font-semibold">
+                        {planName}
+                    </span>
                 </h1>
 
                 <p className="text-xs sm:text-sm text-zinc-400 mt-0.5">
@@ -760,6 +783,15 @@ export default function BrainPage() {
                     </div>
                 </div>
             )}
+            {/* Entitlement Upgrade Modal */}
+            <UpgradePromptModal
+                isOpen={showUpgradeModal}
+                onClose={() => setShowUpgradeModal(false)}
+                title="Knowledge Base Limit Reached"
+                message={`Your current plan (${planName?.toUpperCase() || 'FREE'}) allows training on up to ${knowledgeBaseLimit} documents / URLs. Upgrade to Growth or Business for larger knowledge base capacity.`}
+                currentPlan={planName}
+                recommendedPlan={planName === 'creator' || planName === 'starter' ? 'Growth' : 'Business'}
+            />
         </>
     );
 }

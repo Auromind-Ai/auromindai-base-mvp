@@ -7,7 +7,7 @@ import {
     Search, Plus, Filter, Phone, Instagram, Globe, Mail,
     MessageSquare, Clock, User, ChevronDown, ArrowUpRight,
     TrendingUp, Check, CheckCircle2, MoreHorizontal, Star, Inbox, Zap, Users,
-    FileText, Tag, Info, X, Copy
+    FileText, Tag, Info, X, Copy, Lock, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CrmControls, { cleanFilters } from '@/components/leads/CrmControls';
@@ -15,6 +15,8 @@ import { CrmNavigation, CrmAnalytics, CrmHistory, CrmScoring, CrmReports } from 
 import CrmLeadsTable from '@/components/leads/CrmLeadsTable';
 import AddLeadModal from '@/components/leads/AddLeadModal';
 import SendTemplateModal from '@/components/chat/SendTemplateModal';
+import UpgradePromptModal from '@/components/common/UpgradePromptModal';
+import { useWorkspaceEntitlements } from '@/hooks/useWorkspaceEntitlements';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { getWorkspaceIdFromToken } from '@/lib/auth';
@@ -1399,6 +1401,9 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     const effectiveWsId = workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null) || getWorkspaceIdFromToken();
     const router = useRouter();
 
+    const { leadLimit, planName, hasLeadEnrichment, hasCrmBoard, hasAdvanceCrm, crmPipelineTier } = useWorkspaceEntitlements(effectiveWsId);
+    const [upgradeModal, setUpgradeModal] = useState({ isOpen: false, title: '', message: '' });
+
     const [section, setSection] = useState('leads');
     const [filters, setFilters] = useState({});
     const [filterOptions, setFilterOptions] = useState(null);
@@ -1769,6 +1774,22 @@ function WorkspaceContent({ upgraded, workspaceId }) {
         <div className={`${poppins.className} h-screen flex flex-col lg:flex-row bg-[#05080e] text-white overflow-hidden`}>
             {upgraded && <CrmNavigation section={section} onChange={setSection} />}
             <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+                {upgraded && !hasCrmBoard && (
+                    <div className="flex items-center justify-between px-4 py-2 bg-purple-950/40 border-b border-purple-500/20 text-xs text-zinc-300">
+                        <div className="flex items-center gap-2">
+                            <Lock size={13} className="text-amber-400 shrink-0" />
+                            <span>
+                                You are on the <strong className="text-white uppercase">{planName}</strong> plan ({crmPipelineTier === 'contact_list' ? 'Contact List CRM' : 'Basic Viewer'}). Multi-stage Pipeline Board is available on <strong>Starter, Growth & Business</strong>.
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => router.push('/billing/payment')}
+                            className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#7C4DFF] to-[#6A3DE8] text-white font-semibold hover:opacity-90 transition-all shrink-0 ml-3"
+                        >
+                            Upgrade
+                        </button>
+                    </div>
+                )}
                 {section === 'overview' && <CrmAnalytics overview workspaceId={workspaceId} onBrowse={() => setSection('leads')} onSelect={id => { setSelectedLeadId(id); setSection('scoring'); }} />}
                 {section === 'analytics' && <CrmAnalytics />}
                 {section === 'scoring' && <CrmScoring loading={detailsLoading[selectedLeadId]} loadError={detailErrors[selectedLeadId]} onRetry={() => fetchSelectedLeadData(selectedLeadId)} options={filterOptions} lead={leadsDetails[selectedLeadId]} onRecalculate={async id => { await fetchSelectedLeadData(id); await fetchLeadsList(); }} />}
@@ -1777,8 +1798,21 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                 {section === 'leads' && <>
                 {/* Header */}
                 <header className="h-12 sm:h-14 flex items-center justify-between px-3 sm:px-4 md:px-6 border-b border-white/[0.06] bg-[#0b111b] flex-shrink-0 gap-2 sm:gap-4">
-                    <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                         <span className="text-sm sm:text-base md:text-lg font-bold text-white whitespace-nowrap">{upgraded ? 'CRM' : 'Leads'}</span>
+                        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-zinc-300">
+                            <span className="font-medium">
+                                {leadLimit === -1 ? `${totalCount.toLocaleString()} Leads (Unlimited)` : `${totalCount.toLocaleString()} / ${leadLimit.toLocaleString()} Leads`}
+                            </span>
+                            <span className="text-[10px] uppercase font-bold text-violet-400 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded">
+                                {planName}
+                            </span>
+                            {hasLeadEnrichment && (
+                                <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded flex items-center gap-1" title="Lead Enrichment Included">
+                                    <Sparkles size={10} /> Enriched
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     {!upgraded && <>
@@ -1794,10 +1828,28 @@ function WorkspaceContent({ upgraded, workspaceId }) {
 
                     <div className="flex items-center gap-2 shrink-0">
                         <button
-                            onClick={() => setShowAddLeadModal(true)}
-                            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-r from-[#7C4DFF] to-[#6A3DE8] text-xs sm:text-sm text-white font-semibold shadow-md sm:shadow-lg shadow-[#7C4DFF]/20 hover:opacity-90 transition-all shrink-0 whitespace-nowrap"
+                            onClick={() => {
+                                if (leadLimit !== -1 && totalCount >= leadLimit) {
+                                    setUpgradeModal({
+                                        isOpen: true,
+                                        title: "Lead Limit Reached",
+                                        message: `Your ${planName?.toUpperCase() || ''} plan includes ${leadLimit.toLocaleString()} leads. Upgrade your plan to store and manage more leads.`,
+                                    });
+                                } else {
+                                    setShowAddLeadModal(true);
+                                }
+                            }}
+                            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 whitespace-nowrap ${
+                                leadLimit !== -1 && totalCount >= leadLimit
+                                    ? 'bg-zinc-800 text-zinc-400 border border-amber-500/30 hover:border-amber-500/60 hover:text-amber-300'
+                                    : 'bg-gradient-to-r from-[#7C4DFF] to-[#6A3DE8] text-white shadow-md sm:shadow-lg shadow-[#7C4DFF]/20 hover:opacity-90'
+                            }`}
                         >
-                            <Plus size={13} className="shrink-0" />
+                            {leadLimit !== -1 && totalCount >= leadLimit ? (
+                                <Lock size={13} className="shrink-0 text-amber-400" />
+                            ) : (
+                                <Plus size={13} className="shrink-0" />
+                            )}
                             <span className="whitespace-nowrap">New Lead</span>
                         </button>
                     </div>
@@ -2014,6 +2066,16 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                     onSuccess={handleSendTemplateSuccess}
                 />
             )}
+
+            {/* Upgrade Prompt Modal */}
+            <UpgradePromptModal
+                isOpen={upgradeModal.isOpen}
+                onClose={() => setUpgradeModal(prev => ({ ...prev, isOpen: false }))}
+                title={upgradeModal.title}
+                message={upgradeModal.message}
+                currentPlan={planName}
+                recommendedPlan={planName === 'free' ? 'Creator' : (planName === 'creator' ? 'Starter' : 'Growth')}
+            />
         </div>
     );
 }

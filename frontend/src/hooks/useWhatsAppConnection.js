@@ -134,8 +134,32 @@ export function useWhatsAppConnection({ workspaceId, onSuccess, onError } = {}) 
     }
   }, [workspaceId, FB_APP_ID, showToast, onSuccess, onError]);
 
-  const startWhatsAppSignup = useCallback(() => {
+  const startWhatsAppSignup = useCallback(async () => {
     if (typeof window === 'undefined') return;
+
+    // Pre-flight validation against Plan Entitlements
+    try {
+      const activeWs = workspaceId || localStorage.getItem('workspace_id');
+      if (activeWs) {
+        const entData = await api.getWorkspaceEntitlements(activeWs);
+        const rawChannels = entData?.feature_flags?.allowed_channels;
+        const planName = (entData?.plan_name || 'free').toLowerCase();
+        const allowedChannels = Array.isArray(rawChannels)
+          ? rawChannels.map(c => String(c).toLowerCase().trim())
+          : (planName === 'creator' ? ['instagram'] : ['whatsapp']);
+
+        const isAllowed = allowedChannels.includes('all') || allowedChannels.includes('whatsapp');
+        if (!isAllowed) {
+          showToast(
+            `WhatsApp channel is not included in your ${planName.toUpperCase()} plan. Please upgrade your plan to connect WhatsApp.`,
+            'error'
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Entitlement pre-check encountered an error:', e);
+    }
 
     if (!window.FB) {
       showToast(
