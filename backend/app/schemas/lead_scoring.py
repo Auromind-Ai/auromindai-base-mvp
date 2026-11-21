@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from typing import Any, Optional
 from uuid import UUID
 
@@ -275,9 +276,97 @@ class ConvertLeadResponse(BaseModel):
     lead_tier: str
 
 
+def validate_and_normalize_phone(phone_input: str) -> str:
+    """
+    Validates and normalizes an international phone number according to country rules and E.164.
+    Rejects:
+    - Numbers exceeding max length (ITU-T E.164 max 15 digits)
+    - Numbers with invalid country prefixes or wrong digit counts
+    - Invalid characters
+    """
+    if not phone_input or not isinstance(phone_input, str):
+        raise ValueError("Phone number is required.")
+
+    cleaned = re.sub(r"[\s\-\(\)\.]", "", phone_input.strip())
+    if not cleaned:
+        raise ValueError("Phone number cannot be empty.")
+
+    if not cleaned.startswith("+"):
+        if re.match(r"^[6-9]\d{9}$", cleaned):
+            cleaned = "+91" + cleaned
+        elif re.match(r"^91[6-9]\d{9}$", cleaned):
+            cleaned = "+" + cleaned
+        elif re.match(r"^1[2-9]\d{9}$", cleaned):
+            cleaned = "+" + cleaned
+        else:
+            cleaned = "+" + cleaned
+
+    digits_only = cleaned[1:]
+    if not digits_only.isdigit():
+        raise ValueError("Phone number contains invalid non-numeric characters.")
+
+    total_digits = len(digits_only)
+    if total_digits < 7:
+        raise ValueError("Phone number is too short. Minimum length is 7 digits.")
+    if total_digits > 15:
+        raise ValueError(f"Phone number exceeds the maximum allowed length of 15 digits (received {total_digits} digits).")
+
+    if cleaned.startswith("+91"):
+        national = cleaned[3:]
+        if len(national) != 10:
+            raise ValueError(f"Indian phone numbers (+91) must be exactly 10 digits (received {len(national)} digits).")
+        if not re.match(r"^[6-9]\d{9}$", national):
+            raise ValueError("Indian mobile numbers (+91) must start with 6, 7, 8, or 9.")
+    elif cleaned.startswith("+1"):
+        national = cleaned[2:]
+        if len(national) != 10:
+            raise ValueError(f"US/Canada phone numbers (+1) must be exactly 10 digits (received {len(national)} digits).")
+        if not re.match(r"^[2-9]\d{9}$", national):
+            raise ValueError("US/Canada phone numbers (+1) cannot start with 0 or 1.")
+    elif cleaned.startswith("+44"):
+        national = cleaned[3:]
+        if len(national) not in (10, 11):
+            raise ValueError(f"UK phone numbers (+44) must be 10 or 11 digits (received {len(national)} digits).")
+        if not re.match(r"^[1-9]\d{8,10}$", national):
+            raise ValueError("Invalid UK phone number format.")
+    elif cleaned.startswith("+971"):
+        national = cleaned[4:]
+        if len(national) not in (8, 9):
+            raise ValueError(f"UAE phone numbers (+971) must be 8 or 9 digits (received {len(national)} digits).")
+        if not re.match(r"^[2-9]\d{7,8}$", national):
+            raise ValueError("Invalid UAE phone number format.")
+    elif cleaned.startswith("+65"):
+        national = cleaned[3:]
+        if len(national) != 8:
+            raise ValueError(f"Singapore phone numbers (+65) must be exactly 8 digits (received {len(national)} digits).")
+        if not re.match(r"^[3689]\d{7}$", national):
+            raise ValueError("Singapore phone numbers (+65) must start with 3, 6, 8, or 9.")
+    elif cleaned.startswith("+61"):
+        national = cleaned[3:]
+        if len(national) != 9:
+            raise ValueError(f"Australian phone numbers (+61) must be 9 digits (received {len(national)} digits).")
+        if not re.match(r"^[2-478]\d{8}$", national):
+            raise ValueError("Invalid Australian phone number format.")
+    elif cleaned.startswith("+49"):
+        national = cleaned[3:]
+        if len(national) not in (10, 11):
+            raise ValueError(f"German phone numbers (+49) must be 10 or 11 digits (received {len(national)} digits).")
+    elif cleaned.startswith("+966"):
+        national = cleaned[4:]
+        if len(national) != 9:
+            raise ValueError(f"Saudi Arabia phone numbers (+966) must be 9 digits (received {len(national)} digits).")
+        if not re.match(r"^5\d{8}$", national):
+            raise ValueError("Saudi Arabia mobile numbers (+966) must start with 5.")
+    else:
+        if not re.match(r"^\+[1-9]\d{6,14}$", cleaned):
+            raise ValueError("Invalid international phone number format. Must follow E.164 (+CountryCode followed by digits).")
+
+    return cleaned
+
+
 class ManualLeadCreateRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
-    phone: str = Field(..., min_length=10, max_length=20, pattern=r"^(?:\+?\d{1,3}[- ]?)?\d{10,14}$", description="Valid phone number")
+    phone: str = Field(..., min_length=7, max_length=20, description="Valid international phone number")
     source: str = Field(default="manual", max_length=100)
     status: str = Field(default="new", max_length=50)
     budget_min: Optional[float] = Field(default=None, ge=0)
@@ -291,6 +380,11 @@ class ManualLeadCreateRequest(BaseModel):
         if len(v_str) < 2:
             raise ValueError("Lead name must be at least 2 characters long.")
         return v_str
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        return validate_and_normalize_phone(v)
 
     @field_validator("budget_max")
     @classmethod
