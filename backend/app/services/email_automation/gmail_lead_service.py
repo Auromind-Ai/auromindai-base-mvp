@@ -491,6 +491,20 @@ class GmailLeadService:
             db.refresh(existing)
             return existing, "updated"
 
+        # Check plan entitlement limit for leads
+        from app.services.billing.entitlement_service import EntitlementService
+        try:
+            ent_check = EntitlementService.check_entitlement(db, workspace_id, "lead")
+            if not ent_check.get("allowed", True):
+                logger.warning(
+                    "[ENTITLEMENT LIMIT] Workspace %s reached lead limit (%s). Skipping Gmail auto-lead creation.",
+                    str(workspace_id),
+                    ent_check.get("limit"),
+                )
+                return None, "limit_exceeded"
+        except Exception as ent_err:
+            logger.debug("Entitlement lead check warning: %s", ent_err)
+
         # Attempt to insert new Lead with concurrency error recovery
         try:
             new_lead = Lead(
@@ -777,6 +791,10 @@ class GmailLeadService:
                     lead_data=extracted,
                     source_message_id=msg_id,
                 )
+
+                if not lead:
+                    results["skipped_leads"] = results.get("skipped_leads", 0) + 1
+                    continue
 
                 # Record successful import
                 cls.record_import_log(

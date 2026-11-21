@@ -1347,6 +1347,13 @@ class CampaignService:
                 (Lead.conversation_id == conv.id) | (Lead.phone == clean_phone) | (Lead.phone == f"+{clean_phone}")
             ).first()
             if not lead:
+                from app.services.billing.entitlement_service import EntitlementService
+                try:
+                    ent_check = EntitlementService.check_entitlement(db, campaign.workspace_id, "lead")
+                    if not ent_check.get("allowed", True):
+                        return
+                except Exception:
+                    pass
                 lead = Lead(
                     workspace_id=campaign.workspace_id,
                     conversation_id=conv.id,

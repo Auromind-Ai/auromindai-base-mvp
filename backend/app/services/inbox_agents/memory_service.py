@@ -203,6 +203,13 @@ class MemoryService:
                 conversation_id=conversation_id,
             )
             if not lead:
+                from app.services.billing.entitlement_service import EntitlementService
+                try:
+                    ent_check = EntitlementService.check_entitlement(self.db, workspace_id, "lead")
+                    if not ent_check.get("allowed", True):
+                        return
+                except Exception:
+                    pass
                 lead = Lead(workspace_id=workspace_id, conversation_id=conversation_id)
                 self.db.add(lead)
 

@@ -542,6 +542,16 @@ def get_workspace_lead_scores(
     # Total count (before pagination)
     total = query.count()
 
+    from app.services.billing.entitlement_service import EntitlementService
+    try:
+        ent = EntitlementService.get_workspace_entitlement(db, workspace_id)
+        max_leads = getattr(ent, "lead_limit", -1) if ent else -1
+    except Exception:
+        max_leads = -1
+
+    if max_leads is not None and max_leads != -1:
+        total = min(total, max_leads)
+
     # Sorting: Default to recent (most recent activity / return date first)
     if sort_by == "score_asc":
         query = query.order_by(Lead.score.asc().nullslast(), Lead.id.desc())
@@ -558,7 +568,16 @@ def get_workspace_lead_scores(
             Lead.id.desc()
         )
 
-    leads = query.offset(offset).limit(limit).all()
+    if max_leads is not None and max_leads != -1:
+        if offset >= max_leads:
+            leads = []
+        elif offset + limit > max_leads:
+            effective_limit = max(0, max_leads - offset)
+            leads = query.offset(offset).limit(effective_limit).all()
+        else:
+            leads = query.offset(offset).limit(limit).all()
+    else:
+        leads = query.offset(offset).limit(limit).all()
     flow_names = get_lead_flow_names(db, workspace_id, [lead.conversation_id for lead in leads])
     responses_by_lead = {}
     if leads:
