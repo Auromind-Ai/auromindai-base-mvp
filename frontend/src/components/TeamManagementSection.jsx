@@ -740,11 +740,21 @@ export default function TeamManagementSection() {
       </div>
       <div className="mb-8 h-px w-full bg-[#814ac8]/15" />
       <div className="flex flex-wrap items-center justify-between gap-3 pb-5">
-        {canManage && (
-          <button onClick={handleOpenAddModal} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#814ac8] px-4 text-sm font-medium text-white transition-colors hover:bg-[#925ed3] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#814ac8]">
-            <span className="text-base leading-none">+</span> Add User
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {canManage && (
+            <button onClick={handleOpenAddModal} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#814ac8] px-4 text-sm font-medium text-white transition-colors hover:bg-[#925ed3] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#814ac8]">
+              <span className="text-base leading-none">+</span> Add User
+            </button>
+          )}
+          {data && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-xs text-zinc-300 font-medium">
+              <span className="text-zinc-400">Team Seats:</span>
+              <span className="font-semibold text-purple-300">
+                {data.used_member_seats ?? 0} / {data.total_member_seats === -1 ? "Unlimited" : (data.total_member_seats ?? 1)}
+              </span>
+            </span>
+          )}
+        </div>
         <div className="ml-auto flex items-center gap-3">
           <div className="relative w-48 sm:w-[270px]">
             <Search className="pointer-events-none absolute left-3 top-3 h-[18px] w-[18px] text-zinc-400" />

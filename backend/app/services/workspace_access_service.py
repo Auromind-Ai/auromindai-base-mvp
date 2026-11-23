@@ -7,11 +7,18 @@ from app.models.workspace import Workspace, WorkspaceMember, WorkspaceInvitation
 from app.services.billing.entitlement_service import EntitlementService
 
 
-MAX_MEMBERS_PER_WORKSPACE = 3
-
-
-def member_seat_limit(db, workspace):
-    return MAX_MEMBERS_PER_WORKSPACE
+def member_seat_limit(db, workspace) -> int:
+    """Dynamically get allowed team member seats from plan entitlements."""
+    if not workspace:
+        return 1
+    ws_id = getattr(workspace, "id", workspace)
+    try:
+        ent = EntitlementService.get_workspace_entitlement(db, ws_id)
+        if ent and hasattr(ent, "team_limit") and ent.team_limit is not None:
+            return int(ent.team_limit)
+    except Exception:
+        pass
+    return 1
 
 
 def lock_workspace(db, workspace_id):
