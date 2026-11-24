@@ -19,6 +19,7 @@ import {
   Settings,
   Shield,
   ChevronDown,
+  Plus,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -36,7 +37,13 @@ const sectionsDefinition = [
       ["Inbox", Inbox, "inbox", "inbox.conversations"],
       ["Leads", Users, "leads", "leads.view"],
       ["CRM", TrendingUp, "crm", "crm.view"],
-      ["AI Agents", Bot, "ai-agents", "ai.chat"],
+    ],
+  },
+  {
+    title: "AI Agents",
+    items: [
+      ["My Agents", Bot, "ai-agents", "ai.chat"],
+      ["Create Agent", Plus, "ai-agents/create", "ai.chat"],
     ],
   },
   {
@@ -66,7 +73,7 @@ const sectionsDefinition = [
 export function getFirstAccessibleWorkspacePath(hasPermission, isAdmin = false) {
   for (const section of sectionsDefinition) {
     for (const [, , route, permission] of section.items) {
-      if (route === "ai-agents" && !isAdmin) continue;
+      if (route.startsWith("ai-agents") && !isAdmin) continue;
       if (hasPermission(permission)) {
         return route === "marketing"
           ? "/marketing/bulkmessages"
@@ -103,7 +110,7 @@ export default function WorkspaceNavigation({
     .map((section) => {
       const allowedItems = section.items.filter(([, , route, permKey]) => {
         if (!hasPermission || permissionsLoading) return false;
-        if (route === "ai-agents") return isAdmin === true;
+        if (route.startsWith("ai-agents")) return isAdmin === true;
         if (route === "inbox") {
           return hasPermission("inbox.conversations") || hasPermission("inbox");
         }
@@ -135,18 +142,18 @@ export default function WorkspaceNavigation({
               {section.items.map(([label, Icon, route]) => {
                 const href = `/${route}`;
                 const legacyHref = `/user/admin/${route}`;
-                const active =
+                let active =
                   cleanPath === href ||
                   cleanPath?.startsWith(`${href}/`) ||
                   pathname === legacyHref ||
                   pathname?.startsWith(`${legacyHref}/`);
-                if (route === "ai-agents")
-                  return (
-                    <AIAgentsMenu
-                      key={pathname}
-                      {...{ collapsed, onExpand, onNavigate, pathname, cleanPath }}
-                    />
-                  );
+                if (
+                  route === "ai-agents" &&
+                  (cleanPath?.startsWith("/ai-agents/create") ||
+                    pathname?.startsWith("/user/admin/ai-agents/create"))
+                ) {
+                  active = false;
+                }
                 if (route === "marketing")
                   return (
                     <MarketingMenu
@@ -283,74 +290,3 @@ function MarketingMenu({ collapsed, active, onExpand, onNavigate }) {
   );
 }
 
-
-function AIAgentsMenu({ collapsed, pathname, cleanPath, onExpand, onNavigate }) {
-  const isAgentsActive =
-    cleanPath === "/ai-agents" ||
-    cleanPath?.startsWith("/ai-agents/") ||
-    pathname === "/user/admin/ai-agents" ||
-    pathname?.startsWith("/user/admin/ai-agents/");
-
-  const [open, setOpen] = useState(true);
-
-  return (
-    <div>
-      <button
-        type="button"
-        aria-label="AI Agents"
-        aria-expanded={!collapsed && open}
-        onClick={() => {
-          if (collapsed) {
-            onExpand?.();
-            setOpen(true);
-          } else setOpen((value) => !value);
-        }}
-        title={collapsed ? "AI Agents" : undefined}
-        className={rowClass(isAgentsActive, collapsed)}
-      >
-        <Bot
-          size={16}
-          strokeWidth={2}
-          className={`shrink-0 ${isAgentsActive ? "text-purple-400" : "text-[#7e7e7e] group-hover:text-white"}`}
-        />
-        {!collapsed && (
-          <>
-            <span className="flex-1">AI Agents</span>
-            <ChevronDown
-              size={15}
-              className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-            />
-          </>
-        )}
-      </button>
-      {!collapsed && open && (
-        <div className="ml-5 mt-0.5 border-l border-white/10 pl-3 space-y-0.5">
-          <Link
-            href="/ai-agents"
-            onClick={onNavigate}
-            aria-current={cleanPath === "/ai-agents" ? "page" : undefined}
-            className={`flex items-center px-2.5 py-1.5 rounded-[6px] text-xs transition-colors ${
-              (cleanPath === "/ai-agents" || cleanPath === "/user/admin/ai-agents")
-                ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white font-medium shadow-md shadow-purple-900/20"
-                : "text-[#9b9b9b] hover:text-white hover:bg-white/5"
-            }`}
-          >
-            My Agents
-          </Link>
-          <Link
-            href="/ai-agents/create"
-            onClick={onNavigate}
-            aria-current={cleanPath?.startsWith("/ai-agents/create") ? "page" : undefined}
-            className={`flex items-center px-2.5 py-1.5 rounded-[6px] text-xs transition-colors ${
-              (cleanPath === "/ai-agents/create" || cleanPath?.startsWith("/ai-agents/create") || cleanPath?.startsWith("/user/admin/ai-agents/create"))
-                ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white font-medium shadow-md shadow-purple-900/20"
-                : "text-[#9b9b9b] hover:text-white hover:bg-white/5"
-            }`}
-          >
-            Create Agent
-          </Link>
-        </div>
-      )}
-    </div>
-  );
-}

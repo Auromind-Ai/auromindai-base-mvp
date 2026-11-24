@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  ActivityIndicator,
   Modal,
   Pressable,
 } from 'react-native';
@@ -30,6 +29,7 @@ import { Fonts } from '@/theme/tokens';
 import { scaleFont, scaleContainer } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
 import { fetchChannelsStatus, WorkspaceChannelsStatus } from '@/api/channels';
+import { Skeleton } from '@/components/common';
 
 // Channel SVGs
 function WhatsAppIcon({ size = 32 }: { size?: number }) {
@@ -335,11 +335,10 @@ export default function ConnectedChannelsScreen() {
         )}
 
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.primary} />
-            <Text style={[styles.loadingText, { color: theme.textMuted }]}>
-              Loading channels...
-            </Text>
+          <View style={styles.channelsList}>
+            <Skeleton.Card height={96} />
+            <Skeleton.Card height={96} />
+            <Skeleton.Card height={96} />
           </View>
         ) : (
           <View style={styles.channelsList}>

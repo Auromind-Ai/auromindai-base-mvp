@@ -43,6 +43,7 @@ import { fetchUserPreferences, updateUserPreferences } from '@/api/notifications
 import { Fonts } from '@/theme/tokens';
 import { scaleFont, scaleContainer, scaleHeight } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
+import { loadingManager } from '@/context/loading-context';
 import { useBiometricLock } from '@/context/biometric-lock-context';
 import { usePushNotifications } from '@/hooks';
 import { AppearanceMode } from '@/types/theme';
@@ -131,13 +132,25 @@ export default function SettingsScreen() {
   const performSignOut = async () => {
     try {
       setIsSigningOut(true);
+      setConfirmModal(null);
+      loadingManager.show({
+        message: 'Signing out...',
+        sublabel: 'Clearing session credentials',
+        immediate: true,
+        minDisplayMs: 1200,
+      });
       await unregisterDeviceToken();
       await authStore.signOut();
-      setConfirmModal(null);
-      router.replace('/(auth)/login');
+      // Allow user to experience the smooth morph animation before redirect
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      loadingManager.hide();
+      setTimeout(() => {
+        router.replace('/(auth)/login');
+      }, 250);
     } catch {
       await authStore.clearAuth();
       setConfirmModal(null);
+      loadingManager.hide();
       router.replace('/(auth)/login');
     } finally {
       setIsSigningOut(false);

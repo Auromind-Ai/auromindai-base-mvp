@@ -334,7 +334,7 @@ export default function MyAgentsPage() {
             {/* Big Primary Button */}
             <Link
               href="/ai-agents/create"
-              className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white text-xs font-semibold shadow-xl shadow-purple-900/40 transition-all hover:scale-105 active:scale-95 cursor-pointer mb-16"
+              className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 hover:bg-gradient-to-b hover:from-[#814AC8]/60 hover:to-[#221253]/60 text-white text-sm font-semibold shadow-xl shadow-purple-900/40 transition-all hover:scale-105 active:scale-95 cursor-pointer mb-16"
             >
               <Plus size={16} />
               <span>Create AI Agent</span>
@@ -500,7 +500,7 @@ export default function MyAgentsPage() {
                     {/* AI Model */}
                     <div className="flex flex-col gap-1 min-w-[110px]">
                       <span className="text-[10px] text-zinc-400 font-medium">Model:</span>
-                      <span className="text-[11px] font-mono text-purple-300">
+                      <span className="text-[11px] text-purple-300">
                         {agent.ai_config?.model || 'gpt-4o'}
                       </span>
                     </div>
@@ -648,7 +648,7 @@ export default function MyAgentsPage() {
                       {/* AI Model */}
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-[11px] text-zinc-400">Model:</span>
-                        <span className="text-[11px] font-mono text-purple-300">
+                        <span className="text-[11px] text-purple-300">
                           {agent.ai_config?.model || 'gpt-4o'}
                         </span>
                       </div>

@@ -18,8 +18,10 @@ import {
   Poppins_800ExtraBold,
 } from '@expo-google-fonts/poppins';
 import { ThemeProvider, useAppTheme } from '../context/theme-context';
+import { LoadingProvider } from '../context/loading-context';
 import { BiometricLockProvider, useBiometricLock } from '../context/biometric-lock-context';
 import { BiometricLockOverlay } from '../components/BiometricLockOverlay';
+import { GlobalLoadingOverlay } from '../components/common/GlobalLoadingOverlay';
 import { usePushNotificationListeners } from '../hooks/use-push-notifications';
 import { useAuth } from '../store/auth';
 
@@ -81,6 +83,7 @@ function NavigationRoot({
         <Stack.Screen name="delete-account" options={{ headerShown: false }} />
       </Stack>
       <BiometricLockOverlay />
+      <GlobalLoadingOverlay />
     </>
   );
 }
@@ -114,9 +117,11 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <BiometricLockProvider>
-          <NavigationRoot fontsLoaded={loaded} fontsError={error} timedOut={timedOut} />
-        </BiometricLockProvider>
+        <LoadingProvider>
+          <BiometricLockProvider>
+            <NavigationRoot fontsLoaded={loaded} fontsError={error} timedOut={timedOut} />
+          </BiometricLockProvider>
+        </LoadingProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );
