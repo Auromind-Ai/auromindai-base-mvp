@@ -1719,7 +1719,7 @@ function CreateAgentWizardContent() {
                           Recommended: 0.3
                         </span>
                       </div>
-                      <span className="text-purple-300 font-mono">{formData.ai_config.temperature}</span>
+                      <span className="text-purple-300">{formData.ai_config.temperature}</span>
                     </div>
                     <input
                       type="range"
@@ -1750,7 +1750,7 @@ function CreateAgentWizardContent() {
                           Default: 1024
                         </span>
                       </div>
-                      <span className="text-purple-300 font-mono">{formData.ai_config.max_tokens}</span>
+                      <span className="text-purple-300">{formData.ai_config.max_tokens}</span>
                     </div>
                     <input
                       type="range"
@@ -1782,7 +1782,7 @@ function CreateAgentWizardContent() {
                             Rec: 1.0
                           </span>
                         </div>
-                        <span className="text-purple-300 font-mono">{formData.ai_config.top_p}</span>
+                        <span className="text-purple-300">{formData.ai_config.top_p}</span>
                       </div>
                       <input
                         type="number"
@@ -1813,7 +1813,7 @@ function CreateAgentWizardContent() {
                             Rec: 0.0
                           </span>
                         </div>
-                        <span className="text-purple-300 font-mono">{formData.ai_config.frequency_penalty}</span>
+                        <span className="text-purple-300">{formData.ai_config.frequency_penalty}</span>
                       </div>
                       <input
                         type="number"
@@ -1844,7 +1844,7 @@ function CreateAgentWizardContent() {
                             Rec: 0.0
                           </span>
                         </div>
-                        <span className="text-purple-300 font-mono">{formData.ai_config.presence_penalty}</span>
+                        <span className="text-purple-300">{formData.ai_config.presence_penalty}</span>
                       </div>
                       <input
                         type="number"
@@ -1914,7 +1914,7 @@ function CreateAgentWizardContent() {
                   <label className="text-xs font-medium text-zinc-300">
                     Custom System Prompt <span className="text-purple-400 font-semibold">* (Required)</span>
                   </label>
-                  <span className="text-[10px] text-zinc-500 font-mono">
+                  <span className="text-[10px] text-zinc-500">
                     {formData.ai_config.system_prompt?.length || 0} characters
                   </span>
                 </div>
@@ -1928,7 +1928,7 @@ function CreateAgentWizardContent() {
                     })
                   }
                   placeholder={`You are ${formData.name}, a helpful AI assistant representing ${formData.business_name || 'our company'}. Respond politely and accurately...`}
-                  className="w-full bg-[#121927] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500/50 resize-y leading-relaxed font-mono"
+                  className="w-full bg-[#121927] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500/50 resize-y leading-relaxed"
                 />
                 <div className="flex items-center justify-between text-[10px] text-zinc-500">
                   <span>Define greeting style, qualification questions, and escalation policies.</span>
@@ -1937,9 +1937,7 @@ function CreateAgentWizardContent() {
             </motion.div>
           )}
 
-          {/* ============================================================ */}
           {/* SCREEN 5 — STEP 4: KNOWLEDGE BASE */}
-          {/* ============================================================ */}
           {currentStep === 4 && (
             <motion.div
               key="step4"
@@ -2432,7 +2430,7 @@ function CreateAgentWizardContent() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-zinc-300 font-medium">Vector DB Collection:</span>
-                    <span className="text-purple-300 font-mono text-[11px] bg-black/40 px-2 py-0.5 rounded border border-purple-500/20">
+                    <span className="text-purple-300 text-[11px] bg-black/40 px-2 py-0.5 rounded border border-purple-500/20">
                       {formData.knowledge_config.collection || 'agent_collection'}
                     </span>
                     <span className="text-zinc-500 text-[11px] hidden sm:inline">• Chunks are partitioned under this tag</span>
@@ -2614,19 +2612,19 @@ function CreateAgentWizardContent() {
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-zinc-400">Model</span>
-                      <span className="font-mono text-purple-300">{formData.ai_config.model}</span>
+                      <span className="text-purple-300">{formData.ai_config.model}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-zinc-400">Temperature</span>
-                      <span className="font-mono text-zinc-200">{formData.ai_config.temperature}</span>
+                      <span className="text-zinc-200">{formData.ai_config.temperature}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-zinc-400">Max Tokens</span>
-                      <span className="font-mono text-zinc-200">{formData.ai_config.max_tokens}</span>
+                      <span className="text-zinc-200">{formData.ai_config.max_tokens}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-zinc-400">Top P</span>
-                      <span className="font-mono text-zinc-200">{formData.ai_config.top_p}</span>
+                      <span className="text-zinc-200">{formData.ai_config.top_p}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-zinc-400">Tone</span>
@@ -2638,7 +2636,7 @@ function CreateAgentWizardContent() {
                     </div>
                     <div className="pt-2 border-t border-white/5 space-y-1">
                       <span className="text-zinc-400 text-[11px] block">System Prompt Preview</span>
-                      <p className="text-[11px] text-zinc-300 font-mono bg-[#121927] p-2 rounded-lg line-clamp-3 leading-relaxed">
+                      <p className="text-[11px] text-zinc-300 bg-[#121927] p-2 rounded-lg line-clamp-3 leading-relaxed">
                         {formData.ai_config.system_prompt || 'No system prompt defined.'}
                       </p>
                     </div>
@@ -2662,7 +2660,7 @@ function CreateAgentWizardContent() {
                   <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between py-0.5">
                       <span className="text-zinc-400">Vector Collection</span>
-                      <span className="text-purple-300 font-mono text-[11px]">{formData.knowledge_config.collection || 'agent_default'}</span>
+                      <span className="text-purple-300 text-[11px]">{formData.knowledge_config.collection || 'agent_default'}</span>
                     </div>
                     <div className="flex justify-between py-0.5">
                       <span className="text-zinc-400">Files Uploaded</span>

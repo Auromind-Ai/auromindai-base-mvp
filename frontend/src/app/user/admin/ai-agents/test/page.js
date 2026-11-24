@@ -616,10 +616,10 @@ function TestAgentContent() {
                                 strong: ({ node, ...props }) => <strong className="font-semibold text-white" {...props} />,
                                 em: ({ node, ...props }) => <em className="italic text-purple-200" {...props} />,
                                 code: ({ node, ...props }) => (
-                                  <code className="bg-black/40 border border-white/10 px-1.5 py-0.5 rounded text-[11px] font-mono text-purple-300" {...props} />
+                                  <code className="bg-black/40 border border-white/10 px-1.5 py-0.5 rounded text-[11px] text-purple-300" {...props} />
                                 ),
                                 pre: ({ node, ...props }) => (
-                                  <pre className="bg-[#0b101c] p-3 rounded-xl overflow-x-auto text-xs border border-white/10 my-2 text-zinc-200 font-mono" {...props} />
+                                  <pre className="bg-[#0b101c] p-3 rounded-xl overflow-x-auto text-xs border border-white/10 my-2 text-zinc-200" {...props} />
                                 ),
                                 blockquote: ({ node, ...props }) => (
                                   <blockquote className="border-l-2 border-purple-500 pl-3 italic text-zinc-300 my-2" {...props} />

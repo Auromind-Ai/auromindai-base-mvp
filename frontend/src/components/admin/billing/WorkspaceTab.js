@@ -614,7 +614,7 @@ export default function WorkspaceTab({
                   <span className="text-gray-300">
                     Target: <span className="font-bold text-white capitalize">{creditTarget} Credits</span>
                   </span>
-                  <span className="font-mono text-indigo-300 font-bold">
+                  <span className="text-indigo-300 font-bold">
                     Current: {Number(
                       creditTarget === "included"
                         ? (selectedWorkspaceDetails?.credits?.included_remaining ?? 0)
@@ -730,7 +730,7 @@ export default function WorkspaceTab({
                   <span className="text-gray-300">
                     Target: <span className="font-bold text-white capitalize">{walletTarget === "included" ? "Included Promo WCC" : "Purchased WCC"}</span>
                   </span>
-                  <span className="font-mono text-purple-300 font-bold">
+                  <span className="text-purple-300 font-bold">
                     Current: ₹{Number(
                       walletTarget === "included"
                         ? (selectedWorkspaceDetails?.wallet?.included_balance ?? 0)
