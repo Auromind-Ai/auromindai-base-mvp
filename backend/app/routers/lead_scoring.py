@@ -1127,11 +1127,13 @@ async def create_manual_lead(
         )
 
     # 1. Clean and validate phone number format
-    cleaned_phone = re.sub(r"[\s\-\(\)]", "", body.phone)
-    if not re.match(r"^(?:\+91)?[6-9]\d{9}$", cleaned_phone):
+    try:
+        from app.schemas.lead_scoring import validate_and_normalize_phone
+        cleaned_phone = validate_and_normalize_phone(body.phone)
+    except ValueError as val_err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Phone number must be a valid Indian mobile format (e.g. +91XXXXXXXXXX or 10 digits starting with 6-9)."
+            detail=str(val_err)
         )
 
     # 2. Validate name

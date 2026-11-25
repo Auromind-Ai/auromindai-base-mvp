@@ -1377,18 +1377,16 @@ def send_message(
     if button_components:
         components.extend(button_components)
 
-    # Clean phone number (Meta Cloud API requires digits only with country code)
-    cleaned_phone = re.sub(r"[^\d+]", "", str(data.phone))
-    if cleaned_phone.startswith("+"):
-        cleaned_phone = cleaned_phone[1:]
-    if cleaned_phone.startswith("0"):
-        cleaned_phone = cleaned_phone.lstrip("0")
-    if len(cleaned_phone) == 10:
-        cleaned_phone = f"91{cleaned_phone}"
-    elif len(cleaned_phone) == 11 and cleaned_phone.startswith("0"):
-        cleaned_phone = f"91{cleaned_phone[1:]}"
-    elif len(cleaned_phone) == 14 and cleaned_phone.startswith("9191"):
-        cleaned_phone = cleaned_phone[2:]
+    # Clean and validate phone number (Meta Cloud API requires digits only with country code)
+    try:
+        from app.schemas.lead_scoring import validate_and_normalize_phone
+        validated_e164 = validate_and_normalize_phone(str(data.phone))
+        cleaned_phone = validated_e164.lstrip("+")
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(val_err)
+        )
 
     payload = {
         "messaging_product": "whatsapp",

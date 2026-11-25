@@ -84,18 +84,19 @@ def upsert_lead(
     if not lead:
         # Check plan entitlement limit for leads
         from app.services.billing.entitlement_service import EntitlementService
+        is_lead_locked = False
         try:
             ent_check = EntitlementService.check_entitlement(db, ws_uuid, "lead")
             if not ent_check.get("allowed", True):
                 import logging
                 logging.getLogger(__name__).warning(
-                    "[ENTITLEMENT LIMIT] Workspace %s reached lead limit (%s). Skipping auto-creation of lead from channel '%s' for conversation %s.",
+                    "[ENTITLEMENT LIMIT] Workspace %s reached lead limit (%s). Creating lead as LOCKED from channel '%s' for conversation %s.",
                     ws_uuid,
                     ent_check.get("limit"),
                     source,
                     conversation_id,
                 )
-                return None
+                is_lead_locked = True
         except Exception as ent_err:
             import logging
             logging.getLogger(__name__).debug("Entitlement lead check warning: %s", ent_err)
@@ -111,6 +112,7 @@ def upsert_lead(
             current_node=0,
             total_nodes=0,
             semantic_intent_score=0,
+            is_locked=is_lead_locked,
             last_activity_at=now_utc,
             updated_at=now_utc,
         )
