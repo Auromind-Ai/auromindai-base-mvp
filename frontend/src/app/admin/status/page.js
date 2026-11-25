@@ -1269,7 +1269,7 @@ export default function AdminStatusManagementPage() {
                         <tbody className="divide-y divide-white/[0.04]">
                           {diagnosticDetail.failures.map((f) => (
                             <tr key={f.id} className="hover:bg-white/[0.02]">
-                              <td className="py-2 px-3 text-zinc-300 font-mono text-[11px]">
+                              <td className="py-2 px-3 text-zinc-300 text-[11px]">
                                 {new Date(f.checked_at).toLocaleTimeString()}
                               </td>
                               <td className="py-2 px-3">

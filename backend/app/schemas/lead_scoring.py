@@ -193,6 +193,7 @@ class LeadScoreListItem(BaseModel):
     converted_product: Optional[str] = None
     conversion_notes: Optional[str] = None
     is_favorite: bool = False
+    is_locked: bool = False
     labels: list[str] = Field(default_factory=list)
 
 
@@ -200,6 +201,9 @@ class LeadScoreListItem(BaseModel):
 class LeadScoreListResponse(BaseModel):
     total: int
     items: list[LeadScoreListItem]
+    locked_leads_count: int = 0
+    max_leads: int = -1
+    raw_total: int = 0
 
 
 

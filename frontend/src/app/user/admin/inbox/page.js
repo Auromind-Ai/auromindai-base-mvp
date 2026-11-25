@@ -1214,9 +1214,6 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                             {!isInstagram && lead.phone && (
                                 <p className="text-[12px] text-white/50 mt-0.5">{lead.phone}</p>
                             )}
-                            {isInstagram && (
-                                <p className="text-[11px] text-white/40 mt-0.5">India · 10:45 AM</p>
-                            )}
                         </div>
                     </div>
 

@@ -60,7 +60,7 @@ jobs:
           script_stop: true
           script: |
             echo "🚀 Starting Deployment on $(hostname)..."
-            cd /www/wwwroot/api.orbionagents.com
+            cd /backend_server/orbionagents
 
             echo "⚙️ Configuring sparse checkout (backend and root files only)..."
             if git sparse-checkout --help >/dev/null 2>&1; then

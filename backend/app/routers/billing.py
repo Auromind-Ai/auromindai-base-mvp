@@ -468,7 +468,10 @@ def get_usage(
     storage_mb_limit = int(ent.storage_limit_mb)
 
     # Leads
-    leads_used = db.query(Lead).filter(Lead.workspace_id == ws_uuid).count()
+    leads_used = db.query(Lead).filter(
+        Lead.workspace_id == ws_uuid,
+        Lead.is_locked.isnot(True)
+    ).count()
     leads_limit = int(ent.lead_limit)
 
     # Gmail accounts

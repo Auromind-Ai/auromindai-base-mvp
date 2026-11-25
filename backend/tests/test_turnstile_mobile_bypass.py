@@ -54,3 +54,17 @@ async def test_web_client_without_token_raises_400():
     with pytest.raises(HTTPException) as exc_info:
         await verify_turnstile_token("", remote_ip="127.0.0.1", request=req)
     assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_production_rejects_spoofed_mobile_header_without_secret(monkeypatch):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    monkeypatch.setattr(settings, "MOBILE_API_SECRET", None)
+    monkeypatch.setattr(settings, "TURNSTILE_SECRET_KEY", "real-turnstile-secret")
+
+    req = create_mock_request({"x-client-platform": "android"})
+    with pytest.raises(HTTPException) as exc_info:
+        await verify_turnstile_token("", remote_ip="127.0.0.1", request=req)
+    # Since mobile bypass was rejected, missing turnstile token raises 400
+    assert exc_info.value.status_code == 400
+

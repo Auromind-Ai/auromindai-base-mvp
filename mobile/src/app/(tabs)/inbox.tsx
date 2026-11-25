@@ -13,6 +13,11 @@ import {
   useWindowDimensions,
   RefreshControl,
   ActivityIndicator,
+  Animated,
+  Easing,
+  LayoutAnimation,
+  UIManager,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -26,6 +31,8 @@ import Svg, {
   LinearGradient as SvgLinearGradient,
   Stop,
   RadialGradient,
+  Line,
+  G,
 } from 'react-native-svg';
 import {
   Search,
@@ -38,7 +45,7 @@ import {
 } from 'lucide-react-native';
 import { AddLeadModal } from '../../components/leads/AddLeadModal';
 import { Fonts } from '@/theme/tokens';
-import { scaleContainer } from '@/theme/responsive';
+import { scaleContainer, scaleHeight, scaleFont } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
 import { fetchConversations, fetchConversationCounts, BackendConversation } from '@/api';
 import { verifyOTP } from '@/api/auth';
@@ -118,6 +125,475 @@ function TwilioIcon({ size = 18 }: { size?: number }) {
   );
 }
 
+// All (4-Square Grid) Icon matching Design Image 2
+function AllGridIcon({ size = 34 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Rect x="2" y="2" width="9" height="9" rx="2.6" fill="#FFFFFF" />
+      <Rect x="13" y="2" width="9" height="9" rx="2.6" fill="#FFFFFF" />
+      <Rect x="2" y="13" width="9" height="9" rx="2.6" fill="#FFFFFF" />
+      <Rect x="13" y="13" width="9" height="9" rx="2.6" fill="#FFFFFF" />
+    </Svg>
+  );
+}
+
+// WhatsApp Channel Icon matching Design Image 2 (Green circle with white rim and phone)
+function WhatsAppChannelIcon({ size = 38 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 48 48">
+      <Circle cx="24" cy="24" r="22" fill="#25D366" stroke="#FFFFFF" strokeWidth="2.5" />
+      <Path
+        d="M34.5 13.4C32.1 11 28.9 9.6 25.5 9.6c-7 0-12.7 5.7-12.7 12.7 0 2.2.6 4.4 1.7 6.3L12.6 35l6.6-1.7c1.8 1 3.8 1.5 5.9 1.5 7 0 12.7-5.7 12.7-12.7-.1-3.4-1.5-6.5-3.3-8.7zm-9 19.5c-1.9 0-3.7-.5-5.3-1.4l-.4-.2-3.9 1 1-3.8-.2-.4c-1-1.6-1.6-3.5-1.6-5.4 0-5.6 4.6-10.2 10.2-10.2 2.7 0 5.3 1.1 7.2 2.9 1.9 1.9 3 4.4 3 7.1.2 5.8-4.4 10.4-10 10.4zm5.6-7.6c-.3-.2-1.8-.9-2.1-1s-.5-.2-.7.2-.8 1-1 1.2-.4.2-.7.1c-.3-.2-1.2-.4-2.3-1.4-.8-.7-1.4-1.6-1.6-1.9s0-.5.2-.6l.5-.6c.1-.2.2-.4.3-.6 0-.2 0-.4-.1-.6s-.7-1.7-1-2.3c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4s-1 1-1 2.5 1 2.9 1.2 3.1c.2.2 2 3 4.9 4.2.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.2-.2-.2-.5-.4z"
+        fill="#FFFFFF"
+      />
+    </Svg>
+  );
+}
+
+// Instagram Channel Icon matching Design Image 2 (Squircle gradient + camera glyph)
+function InstagramChannelIcon({ size = 38 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Defs>
+        <SvgLinearGradient id="igChannelPillGrad" x1="0" y1="1" x2="1" y2="0">
+          <Stop offset="0%" stopColor="#FA7E1E" />
+          <Stop offset="40%" stopColor="#D62976" />
+          <Stop offset="70%" stopColor="#962FBF" />
+          <Stop offset="100%" stopColor="#4F5BD5" />
+        </SvgLinearGradient>
+      </Defs>
+      <Rect width="24" height="24" rx="7.5" fill="url(#igChannelPillGrad)" />
+      <Rect
+        x="5.2"
+        y="5.2"
+        width="13.6"
+        height="13.6"
+        rx="4"
+        fill="none"
+        stroke="#FFFFFF"
+        strokeWidth="1.6"
+      />
+      <Circle cx="12" cy="12" r="3.2" fill="none" stroke="#FFFFFF" strokeWidth="1.6" />
+      <Circle cx="15.8" cy="8.2" r="0.9" fill="#FFFFFF" />
+    </Svg>
+  );
+}
+
+// Twilio Channel Icon matching Design Image 2 (Red circle with 4 white dots)
+function TwilioChannelIcon({ size = 38 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx="12" cy="12" r="12" fill="#E11D48" />
+      <Circle cx="8.5" cy="8.5" r="1.85" fill="#FFFFFF" />
+      <Circle cx="15.5" cy="8.5" r="1.85" fill="#FFFFFF" />
+      <Circle cx="8.5" cy="15.5" r="1.85" fill="#FFFFFF" />
+      <Circle cx="15.5" cy="15.5" r="1.85" fill="#FFFFFF" />
+    </Svg>
+  );
+}
+
+
+
+// Enable layout animation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  try {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  } catch {
+    // Ignore in Fabric / New Architecture
+  }
+}
+
+// Premium iOS Spring Transition Curve
+const IOS_SPRING_LAYOUT = {
+  duration: 380,
+  create: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+    property: LayoutAnimation.Properties.opacity,
+  },
+  update: {
+    type: LayoutAnimation.Types.spring,
+    springDamping: 0.82,
+  },
+  delete: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+    property: LayoutAnimation.Properties.opacity,
+  },
+};
+
+// Premium Channel Category Pill (Redesigned per Design Image 2 Pattern)
+function ChannelCategoryPill({
+  label,
+  count,
+  isSelected,
+  onPress,
+  isDark,
+  isSmallDevice,
+  renderIcon,
+}: {
+  id: ChannelType;
+  label: string;
+  count: number;
+  isSelected: boolean;
+  onPress: () => void;
+  isDark: boolean;
+  isSmallDevice: boolean;
+  renderIcon: () => React.ReactNode;
+}) {
+  const [scaleAnim] = useState(() => new Animated.Value(1));
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.94,
+      useNativeDriver: true,
+      speed: 25,
+      bounciness: 4,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 20,
+      bounciness: 6,
+    }).start();
+  };
+
+  const pillWidth = isSmallDevice ? 64 : 70;
+  const pillHeight = isSmallDevice ? 21 : 24;
+  const pillRadius = isSmallDevice ? 9 : 10;
+  const iconWrapperHeight = isSmallDevice ? 34 : 38;
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={styles.channelCategoryTouchable}
+    >
+      <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, styles.channelCategoryItem]}>
+        {/* Outer pill wrapper that holds the pill backdrop and the taller icon */}
+        <View
+          style={[
+            styles.channelPillCardWrapper,
+            { width: pillWidth, height: iconWrapperHeight },
+          ]}
+        >
+          {/* Glass Pill Backdrop (Decreased height and smaller border radius) */}
+          <View
+            style={[
+              styles.channelGlassCapsule,
+              {
+                width: pillWidth,
+                height: pillHeight,
+                borderRadius: pillRadius,
+                borderWidth: isSelected ? 1.5 : 1.2,
+                borderColor: isSelected
+                  ? '#FFFFFF'
+                  : isDark
+                  ? 'rgba(175, 165, 255, 0.32)'
+                  : 'rgba(255, 255, 255, 0.40)',
+              },
+            ]}
+          >
+            {/* Background gradient matching the top section overall gradient */}
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { borderRadius: pillRadius, overflow: 'hidden' },
+              ]}
+            >
+              <LinearGradient
+                colors={
+                  isSelected
+                    ? isDark
+                      ? ['rgba(210, 200, 255, 0.52)', 'rgba(135, 120, 250, 0.42)', 'rgba(75, 65, 190, 0.50)']
+                      : ['rgba(242, 238, 255, 0.68)', 'rgba(185, 175, 255, 0.48)', 'rgba(135, 125, 225, 0.42)']
+                    : isDark
+                    ? ['rgba(152, 142, 255, 0.32)', 'rgba(90, 80, 205, 0.26)', 'rgba(45, 40, 115, 0.45)']
+                    : ['rgba(220, 215, 255, 0.42)', 'rgba(155, 145, 230, 0.32)', 'rgba(100, 95, 175, 0.38)']
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              {/* Top Gloss Highlight Sheen */}
+              <View
+                style={[
+                  styles.channelGlassSheen,
+                  {
+                    borderTopLeftRadius: pillRadius - 2,
+                    borderTopRightRadius: pillRadius - 2,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+
+          {/* Logo extending above the top of the pill container */}
+          <View style={styles.channelIconWrapper}>
+            {renderIcon()}
+
+            {/* Notification Badge if count > 0 */}
+            {count > 0 && (
+              <View style={styles.channelCountBadge}>
+                <Text style={styles.channelCountBadgeText}>
+                  {count > 99 ? '99+' : count}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Category Label */}
+        <Text
+          style={[
+            styles.channelCategoryLabel,
+            isSmallDevice && styles.channelCategoryLabelSmall,
+            isSelected
+              ? styles.channelCategoryLabelActive
+              : styles.channelCategoryLabelInactive,
+          ]}
+        >
+          {label}
+        </Text>
+
+        {/* Active Underline Indicator Bar */}
+        <View
+          style={[
+            styles.channelActiveIndicator,
+            isSmallDevice && styles.channelActiveIndicatorSmall,
+            {
+              backgroundColor: isSelected ? '#FFFFFF' : 'transparent',
+            },
+          ]}
+        />
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
+// Premium Animated Status Pill
+function AnimatedStatusPill({
+  label,
+  count,
+  isSelected,
+  onPress,
+  isDark,
+  isSmallDevice,
+}: {
+  id: StatusType;
+  label: string;
+  count: number;
+  isSelected: boolean;
+  onPress: () => void;
+  isDark: boolean;
+  isSmallDevice: boolean;
+}) {
+  const [scaleAnim] = useState(() => new Animated.Value(1));
+  const [activeAnim] = useState(() => new Animated.Value(isSelected ? 1 : 0));
+
+  React.useEffect(() => {
+    Animated.timing(activeAnim, {
+      toValue: isSelected ? 1 : 0,
+      duration: 320,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      useNativeDriver: true,
+    }).start();
+  }, [isSelected, activeAnim]);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.94,
+      useNativeDriver: true,
+      speed: 25,
+      bounciness: 4,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 20,
+      bounciness: 6,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, styles.statusPillWrapper]}>
+      <TouchableOpacity
+        activeOpacity={0.92}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <View
+          style={[
+            styles.statusPillInactiveBase,
+            isDark ? styles.statusPillInactiveDark : styles.statusPillInactiveLight,
+            isSmallDevice && styles.statusPillSmall,
+            { overflow: 'hidden', position: 'relative' },
+          ]}
+        >
+          {/* Animated Active Gradient Overlay */}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              { opacity: activeAnim },
+            ]}
+          >
+            <LinearGradient
+              colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#8060E8', '#6749DE']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
+
+          {/* Inactive Content Layer */}
+          <Animated.View
+            style={[
+              styles.statusPillInnerRow,
+              isSmallDevice && styles.statusPillInnerRowSmall,
+              { opacity: activeAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) },
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusPillText,
+                isDark ? styles.statusTextInactiveDark : styles.statusTextInactiveLight,
+                isSmallDevice && styles.statusTextSmall,
+              ]}
+            >
+              {label}
+            </Text>
+            <View
+              style={[
+                styles.statusBadge,
+                isDark ? styles.statusBadgeInactiveDark : styles.statusBadgeInactiveLight,
+                isSmallDevice && styles.statusBadgeSmall,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusBadgeText,
+                  isDark ? styles.statusBadgeTextInactiveDark : styles.statusBadgeTextInactiveLight,
+                  isSmallDevice && styles.statusBadgeTextSmall,
+                ]}
+              >
+                {count}
+              </Text>
+            </View>
+          </Animated.View>
+
+          {/* Active Content Layer (Overlayed perfectly on top) */}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              styles.statusPillInnerRow,
+              isSmallDevice && styles.statusPillInnerRowSmall,
+              {
+                justifyContent: 'center',
+                alignItems: 'center',
+                opacity: activeAnim,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusTextActive,
+                isSmallDevice && styles.statusTextSmall,
+              ]}
+            >
+              {label}
+            </Text>
+            <View
+              style={[
+                styles.statusBadge,
+                isDark ? styles.statusBadgeActiveDark : styles.statusBadgeActiveLight,
+                isSmallDevice && styles.statusBadgeSmall,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusBadgeText,
+                  isDark ? styles.statusBadgeTextActiveDark : styles.statusBadgeTextActiveLight,
+                  isSmallDevice && styles.statusBadgeTextSmall,
+                ]}
+              >
+                {count}
+              </Text>
+            </View>
+          </Animated.View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// Premium Animated Filter Button
+function AnimatedFilterButton({
+  onPress,
+  isDark,
+  isSmallDevice,
+}: {
+  onPress: () => void;
+  isDark: boolean;
+  isSmallDevice: boolean;
+}) {
+  const [scaleAnim] = useState(() => new Animated.Value(1));
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.94,
+      useNativeDriver: true,
+      speed: 25,
+      bounciness: 4,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 20,
+      bounciness: 6,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, styles.filterButtonPill]}>
+      <TouchableOpacity
+        style={[
+          styles.statusPillInactiveBase,
+          isDark ? styles.statusPillInactiveDark : styles.statusPillInactiveLight,
+          isSmallDevice && styles.statusPillSmall,
+        ]}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.92}
+      >
+        <Filter size={isSmallDevice ? 13 : 15} color={isDark ? '#A2ADD8' : '#7583A5'} />
+        <Text
+          style={[
+            styles.statusPillText,
+            isDark ? styles.statusTextInactiveDark : styles.statusTextInactiveLight,
+            isSmallDevice && styles.statusTextSmall,
+          ]}
+        >
+          Filter
+        </Text>
+        <ChevronDown size={isSmallDevice ? 12 : 14} color={isDark ? '#A2ADD8' : '#7583A5'} />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 export default function OmniInboxScreen() {
   const router = useRouter();
   const { isDark } = useAppTheme();
@@ -128,10 +604,25 @@ export default function OmniInboxScreen() {
   const authState = useAuth();
   const [selectedChannel, setSelectedChannel] = useState<ChannelType>('all');
   const [selectedStatus, setSelectedStatus] = useState<StatusType>('all');
+
+  const handleSelectChannel = (channel: ChannelType) => {
+    if (Platform.OS !== 'web') {
+      LayoutAnimation.configureNext(IOS_SPRING_LAYOUT);
+    }
+    setSelectedChannel(channel);
+  };
+
+  const handleSelectStatus = (status: StatusType) => {
+    if (Platform.OS !== 'web') {
+      LayoutAnimation.configureNext(IOS_SPRING_LAYOUT);
+    }
+    setSelectedStatus(status);
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  const [createdLeadSuccess, setCreatedLeadSuccess] = useState<{ name: string } | null>(null);
   const [leadSuccessToast, setLeadSuccessToast] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
@@ -429,252 +920,58 @@ export default function OmniInboxScreen() {
             </View>
           )}
 
-          {/* CHANNEL FILTER BAR CONTAINER */}
-          <View
-            style={[
-              styles.channelBarContainer,
-              isDark ? styles.channelBarDark : styles.channelBarLight,
-            ]}
-          >
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.channelScrollContent}
-              bounces={false}
-            >
-              {/* 1. All (24) */}
-              <TouchableOpacity
-                style={styles.channelItemTouchable}
-                onPress={() => setSelectedChannel('all')}
-                activeOpacity={0.8}
-              >
-                {selectedChannel === 'all' ? (
-                  <LinearGradient
-                    colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#FDFCFF', '#E5DFFF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[
-                      styles.channelPillActiveGradient,
-                      isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.channelPillLabel,
-                        isDark
-                          ? styles.channelPillLabelActiveDark
-                          : styles.channelPillLabelActiveLight,
-                      ]}
-                    >
-                      All
-                    </Text>
-                    <View
-                      style={[
-                        styles.channelCountBadge,
-                        isDark
-                          ? styles.channelBadgeSelectedDark
-                          : styles.channelBadgeSelectedLight,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.channelCountBadgeText,
-                          !isDark && { color: '#6F51D1' },
-                        ]}
-                      >
-                        {channelCounts.all}
-                      </Text>
-                    </View>
-                  </LinearGradient>
-                ) : (
-                  <View style={styles.channelPillBase}>
-                    <Text style={[styles.channelPillLabel, styles.channelPillLabelInactive]}>
-                      All
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* Divider */}
-              <View
-                style={[
-                  styles.channelDivider,
-                  { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.22)' },
-                ]}
+          {/* CHANNEL CATEGORIES (REDESIGNED PER DESIGN IMAGE 2 PATTERN) */}
+          <View style={styles.channelCategoriesContainer}>
+            <View style={styles.channelCategoriesRow}>
+              {/* 1. All */}
+              <ChannelCategoryPill
+                id="all"
+                label="All"
+                count={channelCounts.all}
+                isSelected={selectedChannel === 'all'}
+                onPress={() => handleSelectChannel('all')}
+                isDark={isDark}
+                isSmallDevice={isSmallDevice}
+                renderIcon={() => <AllGridIcon size={isSmallDevice ? 30 : 34} />}
               />
 
-              {/* 2. WhatsApp (12) */}
-              <TouchableOpacity
-                style={styles.channelItemTouchable}
-                onPress={() => setSelectedChannel(selectedChannel === 'whatsapp' ? 'all' : 'whatsapp')}
-                activeOpacity={0.8}
-              >
-                {selectedChannel === 'whatsapp' ? (
-                  <LinearGradient
-                    colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#FDFCFF', '#E5DFFF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[
-                      styles.channelPillActiveGradient,
-                      isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight,
-                    ]}
-                  >
-                    <WhatsAppIcon size={17} />
-                    <Text
-                      style={[
-                        styles.channelPillLabel,
-                        isDark
-                          ? styles.channelPillLabelActiveDark
-                          : styles.channelPillLabelActiveLight,
-                      ]}
-                    >
-                      WhatsApp
-                    </Text>
-                    <View
-                      style={[
-                        styles.channelCountBadge,
-                        isDark
-                          ? styles.channelBadgeSelectedDark
-                          : styles.channelBadgeSelectedLight,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.channelCountBadgeText,
-                          !isDark && { color: '#6F51D1' },
-                        ]}
-                      >
-                        {channelCounts.whatsapp}
-                      </Text>
-                    </View>
-                  </LinearGradient>
-                ) : (
-                  <View style={styles.channelPillIconOnly}>
-                    <WhatsAppIcon size={18} />
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* Divider */}
-              <View
-                style={[
-                  styles.channelDivider,
-                  { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.22)' },
-                ]}
+              {/* 2. WhatsApp */}
+              <ChannelCategoryPill
+                id="whatsapp"
+                label="WhatsApp"
+                count={channelCounts.whatsapp}
+                isSelected={selectedChannel === 'whatsapp'}
+                onPress={() => handleSelectChannel(selectedChannel === 'whatsapp' ? 'all' : 'whatsapp')}
+                isDark={isDark}
+                isSmallDevice={isSmallDevice}
+                renderIcon={() => <WhatsAppChannelIcon size={isSmallDevice ? 34 : 38} />}
               />
 
-              {/* 3. Instagram (8) */}
-              <TouchableOpacity
-                style={styles.channelItemTouchable}
-                onPress={() => setSelectedChannel(selectedChannel === 'instagram' ? 'all' : 'instagram')}
-                activeOpacity={0.8}
-              >
-                {selectedChannel === 'instagram' ? (
-                  <LinearGradient
-                    colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#FDFCFF', '#E5DFFF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[
-                      styles.channelPillActiveGradient,
-                      isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight,
-                    ]}
-                  >
-                    <InstagramIcon size={17} />
-                    <Text
-                      style={[
-                        styles.channelPillLabel,
-                        isDark
-                          ? styles.channelPillLabelActiveDark
-                          : styles.channelPillLabelActiveLight,
-                      ]}
-                    >
-                      Instagram
-                    </Text>
-                    <View
-                      style={[
-                        styles.channelCountBadge,
-                        isDark
-                          ? styles.channelBadgeSelectedDark
-                          : styles.channelBadgeSelectedLight,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.channelCountBadgeText,
-                          !isDark && { color: '#6F51D1' },
-                        ]}
-                      >
-                        {channelCounts.instagram}
-                      </Text>
-                    </View>
-                  </LinearGradient>
-                ) : (
-                  <View style={styles.channelPillIconOnly}>
-                    <InstagramIcon size={18} />
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* Divider */}
-              <View
-                style={[
-                  styles.channelDivider,
-                  { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.22)' },
-                ]}
+              {/* 3. Instagram */}
+              <ChannelCategoryPill
+                id="instagram"
+                label="Instagram"
+                count={channelCounts.instagram}
+                isSelected={selectedChannel === 'instagram'}
+                onPress={() => handleSelectChannel(selectedChannel === 'instagram' ? 'all' : 'instagram')}
+                isDark={isDark}
+                isSmallDevice={isSmallDevice}
+                renderIcon={() => <InstagramChannelIcon size={isSmallDevice ? 34 : 38} />}
               />
 
-              {/* 4. Twilio (4) */}
-              <TouchableOpacity
-                style={styles.channelItemTouchable}
-                onPress={() => setSelectedChannel(selectedChannel === 'twilio' ? 'all' : 'twilio')}
-                activeOpacity={0.8}
-              >
-                {selectedChannel === 'twilio' ? (
-                  <LinearGradient
-                    colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#FDFCFF', '#E5DFFF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[
-                      styles.channelPillActiveGradient,
-                      isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight,
-                    ]}
-                  >
-                    <TwilioIcon size={17} />
-                    <Text
-                      style={[
-                        styles.channelPillLabel,
-                        isDark
-                          ? styles.channelPillLabelActiveDark
-                          : styles.channelPillLabelActiveLight,
-                      ]}
-                    >
-                      Twilio
-                    </Text>
-                    <View
-                      style={[
-                        styles.channelCountBadge,
-                        isDark
-                          ? styles.channelBadgeSelectedDark
-                          : styles.channelBadgeSelectedLight,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.channelCountBadgeText,
-                          !isDark && { color: '#6F51D1' },
-                        ]}
-                      >
-                        {channelCounts.twilio}
-                      </Text>
-                    </View>
-                  </LinearGradient>
-                ) : (
-                  <View style={styles.channelPillIconOnly}>
-                    <TwilioIcon size={18} />
-                  </View>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
+              {/* 4. Twilio */}
+              <ChannelCategoryPill
+                id="twilio"
+                label="Twilio"
+                count={channelCounts.twilio}
+                isSelected={selectedChannel === 'twilio'}
+                onPress={() => handleSelectChannel(selectedChannel === 'twilio' ? 'all' : 'twilio')}
+                isDark={isDark}
+                isSmallDevice={isSmallDevice}
+                renderIcon={() => <TwilioChannelIcon size={isSmallDevice ? 34 : 38} />}
+              />
+            </View>
+            
           </View>
         </SafeAreaView>
       </View>
@@ -695,254 +992,41 @@ export default function OmniInboxScreen() {
 
         {/* INBOX STATUS FILTERS ROW */}
         <View style={[styles.statusFiltersRow, isSmallDevice && styles.statusFiltersRowSmall]}>
-          {/* All (24) */}
-          <TouchableOpacity
-            onPress={() => setSelectedStatus('all')}
-            activeOpacity={0.8}
-            style={styles.statusPillWrapper}
-          >
-            {selectedStatus === 'all' ? (
-              <LinearGradient
-                colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#8060E8', '#6749DE']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[
-                  styles.statusPillActiveGradient,
-                  isSmallDevice && styles.statusPillSmall,
-                ]}
-              >
-                <Text style={[styles.statusTextActive, isSmallDevice && styles.statusTextSmall]}>
-                  All
-                </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isDark ? styles.statusBadgeActiveDark : styles.statusBadgeActiveLight,
-                    isSmallDevice && styles.statusBadgeSmall,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      isDark ? styles.statusBadgeTextActiveDark : styles.statusBadgeTextActiveLight,
-                      isSmallDevice && styles.statusBadgeTextSmall,
-                    ]}
-                  >
-                    {counts.all}
-                  </Text>
-                </View>
-              </LinearGradient>
-            ) : (
-              <View
-                style={[
-                  styles.statusPillInactiveBase,
-                  isDark ? styles.statusPillInactiveDark : styles.statusPillInactiveLight,
-                  isSmallDevice && styles.statusPillSmall,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusPillText,
-                    isDark ? styles.statusTextInactiveDark : styles.statusTextInactiveLight,
-                    isSmallDevice && styles.statusTextSmall,
-                  ]}
-                >
-                  All
-                </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isDark ? styles.statusBadgeInactiveDark : styles.statusBadgeInactiveLight,
-                    isSmallDevice && styles.statusBadgeSmall,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      isDark ? styles.statusBadgeTextInactiveDark : styles.statusBadgeTextInactiveLight,
-                      isSmallDevice && styles.statusBadgeTextSmall,
-                    ]}
-                  >
-                    {counts.all}
-                  </Text>
-                </View>
-              </View>
-            )}
-          </TouchableOpacity>
+          <AnimatedStatusPill
+            id="all"
+            label="All"
+            count={counts.all}
+            isSelected={selectedStatus === 'all'}
+            onPress={() => handleSelectStatus('all')}
+            isDark={isDark}
+            isSmallDevice={isSmallDevice}
+          />
 
-          {/* Unread (12) */}
-          <TouchableOpacity
-            onPress={() => setSelectedStatus(selectedStatus === 'unread' ? 'all' : 'unread')}
-            activeOpacity={0.8}
-            style={styles.statusPillWrapper}
-          >
-            {selectedStatus === 'unread' ? (
-              <LinearGradient
-                colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#8060E8', '#6749DE']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[
-                  styles.statusPillActiveGradient,
-                  isSmallDevice && styles.statusPillSmall,
-                ]}
-              >
-                <Text style={[styles.statusTextActive, isSmallDevice && styles.statusTextSmall]}>
-                  Unread
-                </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isDark ? styles.statusBadgeActiveDark : styles.statusBadgeActiveLight,
-                    isSmallDevice && styles.statusBadgeSmall,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      isDark ? styles.statusBadgeTextActiveDark : styles.statusBadgeTextActiveLight,
-                      isSmallDevice && styles.statusBadgeTextSmall,
-                    ]}
-                  >
-                    {counts.unread}
-                  </Text>
-                </View>
-              </LinearGradient>
-            ) : (
-              <View
-                style={[
-                  styles.statusPillInactiveBase,
-                  isDark ? styles.statusPillInactiveDark : styles.statusPillInactiveLight,
-                  isSmallDevice && styles.statusPillSmall,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusPillText,
-                    isDark ? styles.statusTextInactiveDark : styles.statusTextInactiveLight,
-                    isSmallDevice && styles.statusTextSmall,
-                  ]}
-                >
-                  Unread
-                </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isDark ? styles.statusBadgeInactiveDark : styles.statusBadgeInactiveLight,
-                    isSmallDevice && styles.statusBadgeSmall,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      isDark ? styles.statusBadgeTextInactiveDark : styles.statusBadgeTextInactiveLight,
-                      isSmallDevice && styles.statusBadgeTextSmall,
-                    ]}
-                  >
-                    {counts.unread}
-                  </Text>
-                </View>
-              </View>
-            )}
-          </TouchableOpacity>
+          <AnimatedStatusPill
+            id="unread"
+            label="Unread"
+            count={counts.unread}
+            isSelected={selectedStatus === 'unread'}
+            onPress={() => handleSelectStatus(selectedStatus === 'unread' ? 'all' : 'unread')}
+            isDark={isDark}
+            isSmallDevice={isSmallDevice}
+          />
 
-          {/* Open (12) */}
-          <TouchableOpacity
-            onPress={() => setSelectedStatus(selectedStatus === 'open' ? 'all' : 'open')}
-            activeOpacity={0.8}
-            style={styles.statusPillWrapper}
-          >
-            {selectedStatus === 'open' ? (
-              <LinearGradient
-                colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#8060E8', '#6749DE']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[
-                  styles.statusPillActiveGradient,
-                  isSmallDevice && styles.statusPillSmall,
-                ]}
-              >
-                <Text style={[styles.statusTextActive, isSmallDevice && styles.statusTextSmall]}>
-                  Open
-                </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isDark ? styles.statusBadgeActiveDark : styles.statusBadgeActiveLight,
-                    isSmallDevice && styles.statusBadgeSmall,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      isDark ? styles.statusBadgeTextActiveDark : styles.statusBadgeTextActiveLight,
-                      isSmallDevice && styles.statusBadgeTextSmall,
-                    ]}
-                  >
-                    {counts.open}
-                  </Text>
-                </View>
-              </LinearGradient>
-            ) : (
-              <View
-                style={[
-                  styles.statusPillInactiveBase,
-                  isDark ? styles.statusPillInactiveDark : styles.statusPillInactiveLight,
-                  isSmallDevice && styles.statusPillSmall,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusPillText,
-                    isDark ? styles.statusTextInactiveDark : styles.statusTextInactiveLight,
-                    isSmallDevice && styles.statusTextSmall,
-                  ]}
-                >
-                  Open
-                </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isDark ? styles.statusBadgeInactiveDark : styles.statusBadgeInactiveLight,
-                    isSmallDevice && styles.statusBadgeSmall,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      isDark ? styles.statusBadgeTextInactiveDark : styles.statusBadgeTextInactiveLight,
-                      isSmallDevice && styles.statusBadgeTextSmall,
-                    ]}
-                  >
-                    {counts.open}
-                  </Text>
-                </View>
-              </View>
-            )}
-          </TouchableOpacity>
+          <AnimatedStatusPill
+            id="open"
+            label="Open"
+            count={counts.open}
+            isSelected={selectedStatus === 'open'}
+            onPress={() => handleSelectStatus(selectedStatus === 'open' ? 'all' : 'open')}
+            isDark={isDark}
+            isSmallDevice={isSmallDevice}
+          />
 
-          {/* Filter (Funnel + Chevron) */}
-          <TouchableOpacity
-            style={[
-              styles.statusPillInactiveBase,
-              styles.filterButtonPill,
-              isDark ? styles.statusPillInactiveDark : styles.statusPillInactiveLight,
-              isSmallDevice && styles.statusPillSmall,
-            ]}
+          <AnimatedFilterButton
             onPress={() => setShowFilterModal(true)}
-            activeOpacity={0.8}
-          >
-            <Filter size={isSmallDevice ? 13 : 15} color={isDark ? '#A2ADD8' : '#7583A5'} />
-            <Text
-              style={[
-                styles.statusPillText,
-                isDark ? styles.statusTextInactiveDark : styles.statusTextInactiveLight,
-                isSmallDevice && styles.statusTextSmall,
-              ]}
-            >
-              Filter
-            </Text>
-            <ChevronDown size={isSmallDevice ? 12 : 14} color={isDark ? '#A2ADD8' : '#7583A5'} />
-          </TouchableOpacity>
+            isDark={isDark}
+            isSmallDevice={isSmallDevice}
+          />
         </View>
 
         {/* CONVERSATION CARDS LIST */}
@@ -1332,10 +1416,222 @@ export default function OmniInboxScreen() {
         isOpen={showAddLeadModal}
         onClose={() => setShowAddLeadModal(false)}
         onSuccess={(newLead) => {
-          setLeadSuccessToast(`Lead added: ${newLead?.name || 'Customer'}`);
-          setTimeout(() => setLeadSuccessToast(null), 4000);
+          loadInboxData();
+          setCreatedLeadSuccess({
+            name: newLead?.name || 'Customer',
+          });
         }}
       />
+
+      {/* LEAD CREATED SUCCESS BOTTOM SHEET CARD (Matching Edit-Profile Congrats UI) */}
+      <Modal
+        visible={!!createdLeadSuccess}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setCreatedLeadSuccess(null)}
+      >
+        <View style={styles.statusSheetOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setCreatedLeadSuccess(null)}
+          />
+          <View
+            style={[
+              styles.statusSheetCard,
+              {
+                backgroundColor: isDark ? '#181C2E' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+              },
+            ]}
+          >
+            {/* Header: Title ("Add Lead") + Circular Close Button (X) */}
+            <View style={styles.statusSheetHeader}>
+              <Text
+                style={[
+                  styles.statusSheetHeaderTitle,
+                  { color: isDark ? '#FFFFFF' : '#1A2138' },
+                ]}
+              >
+                Add Lead
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.statusSheetCloseBtn,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(255, 255, 255, 0.08)'
+                      : 'rgba(0, 0, 0, 0.05)',
+                  },
+                ]}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => setCreatedLeadSuccess(null)}
+              >
+                <X size={16} color={isDark ? '#FFFFFF' : '#475569'} strokeWidth={2.4} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Illustration Section */}
+            <View style={styles.statusSheetIllustration}>
+              <Svg width={220} height={150} viewBox="0 0 220 150" fill="none">
+                {/* Subtle circular halo background */}
+                <Circle
+                  cx="110"
+                  cy="75"
+                  r="60"
+                  fill={isDark ? '#222B48' : '#EDE9FE'}
+                  opacity={isDark ? 0.7 : 0.8}
+                />
+
+                {/* Sparkle / decorative dots */}
+                <Circle cx="168" cy="34" r="2.5" fill="#7655F0" opacity={0.8} />
+                <Circle cx="52" cy="118" r="3" fill="#7655F0" opacity={0.65} />
+
+                {/* Floating window / lead card */}
+                <Rect
+                  x="35"
+                  y="40"
+                  width="150"
+                  height="85"
+                  rx="12"
+                  fill={isDark ? '#161B2E' : '#FFFFFF'}
+                  stroke={isDark ? '#2C3555' : '#E2E8F0'}
+                  strokeWidth="1.5"
+                />
+
+                {/* Window title bar 3 dots */}
+                <Circle cx="48" cy="51" r="2.2" fill="#7655F0" />
+                <Circle cx="55" cy="51" r="2.2" fill="#9E8CFC" />
+                <Circle cx="62" cy="51" r="2.2" fill="#C4B5FD" />
+
+                {/* Window title bar divider */}
+                <Line
+                  x1="35"
+                  y1="59"
+                  x2="185"
+                  y2="59"
+                  stroke={isDark ? '#232C48' : '#F1F5F9'}
+                  strokeWidth="1"
+                />
+
+                {/* Glowing Shield with Checkmark on left */}
+                <G transform="translate(68, 88)">
+                  {/* Outer shield glow */}
+                  <Path
+                    d="M 0,-18 L 16,-12 C 16,3 10,12 0,18 C -10,12 -16,3 -16,-12 Z"
+                    fill={isDark ? 'rgba(118, 85, 240, 0.25)' : 'rgba(118, 85, 240, 0.15)'}
+                  />
+                  {/* Inner shield */}
+                  <Path
+                    d="M 0,-15 L 13,-10 C 13,2 8,10 0,15 C -8,10 -13,2 -13,-10 Z"
+                    fill={isDark ? '#2C2658' : '#EDE9FE'}
+                    stroke="#7655F0"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                  />
+                  {/* Checkmark inside shield */}
+                  <Path
+                    d="M -5,0 L -1,4 L 6,-4"
+                    stroke={isDark ? '#FFFFFF' : '#7655F0'}
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </G>
+
+                {/* Lead data preview lines on right */}
+                <Rect
+                  x="96"
+                  y="69"
+                  width="74"
+                  height="6"
+                  rx="3"
+                  fill={isDark ? '#3D4A74' : '#CBD5E1'}
+                />
+                <Rect
+                  x="96"
+                  y="79"
+                  width="56"
+                  height="5"
+                  rx="2.5"
+                  fill={isDark ? '#283252' : '#E2E8F0'}
+                />
+                <Rect
+                  x="96"
+                  y="88"
+                  width="66"
+                  height="5"
+                  rx="2.5"
+                  fill={isDark ? '#283252' : '#E2E8F0'}
+                />
+                <Rect
+                  x="96"
+                  y="97"
+                  width="44"
+                  height="5"
+                  rx="2.5"
+                  fill={isDark ? '#283252' : '#E2E8F0'}
+                />
+
+                {/* 5-Star pill badge overlapping bottom right */}
+                <Rect
+                  x="94"
+                  y="112"
+                  width="88"
+                  height="24"
+                  rx="6"
+                  fill={isDark ? '#111524' : '#F8FAFC'}
+                  stroke={isDark ? '#2C3656' : '#E2E8F0'}
+                  strokeWidth="1.2"
+                />
+                {/* 5 purple stars */}
+                {[103, 116, 129, 142, 155].map((starX, idx) => (
+                  <G key={idx} transform={`translate(${starX}, 124)`}>
+                    <Path
+                      d="M 0.0,-4.2 L 1.08,-1.5 L 3.99,-1.3 L 1.75,0.57 L 2.47,3.4 L 0.0,1.85 L -2.47,3.4 L -1.75,0.57 L -3.99,-1.3 L -1.08,-1.5 Z"
+                      fill="#7655F0"
+                    />
+                  </G>
+                ))}
+              </Svg>
+            </View>
+
+            {/* Title: Congrats */}
+            <Text
+              style={[
+                styles.statusSheetCongratsTitle,
+                { color: isDark ? '#FFFFFF' : '#1A2138' },
+              ]}
+            >
+              Congrats
+            </Text>
+
+            {/* Subtitle / Description */}
+            <Text
+              style={[
+                styles.statusSheetDescription,
+                { color: isDark ? '#A2ADD8' : '#7583A5' },
+              ]}
+            >
+              {createdLeadSuccess?.name && createdLeadSuccess.name !== 'Customer'
+                ? `Lead "${createdLeadSuccess.name}" successfully created. You can start the conversation and manage deals now.`
+                : 'New lead successfully created. You can start the conversation and manage deals now.'}
+            </Text>
+
+            {/* Done Action Button */}
+            <TouchableOpacity
+              style={[
+                styles.statusSheetDoneBtn,
+                { backgroundColor: isDark ? '#7655F0' : '#8060E8' },
+              ]}
+              activeOpacity={0.85}
+              onPress={() => setCreatedLeadSuccess(null)}
+            >
+              <Text style={styles.statusSheetDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* SUCCESS TOAST BANNER */}
       {leadSuccessToast && (
@@ -1382,7 +1678,7 @@ const styles = StyleSheet.create({
   headerWrapper: {
     paddingHorizontal: 16,
     paddingTop: 6,
-    paddingBottom: TOP_CURVE_RADIUS + TOP_CURVE_GAP,
+    paddingBottom: TOP_CURVE_RADIUS + TOP_CURVE_GAP + scaleContainer(6),
     position: 'relative',
     overflow: 'hidden',
   },
@@ -1447,125 +1743,112 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.regular,
   },
 
-  /* CHANNEL FILTER BAR */
-  channelBarContainer: {
-    borderRadius: 999,
-    paddingVertical: 4,
-    marginTop: 14,
-    borderWidth: 1,
-    overflow: 'hidden',
+  /* CHANNEL CATEGORIES (REDESIGN - IMAGE 2 PATTERN) */
+  channelCategoriesContainer: {
+    position: 'relative',
+    marginTop: 16,
+    marginBottom: 4,
+    paddingHorizontal: 2,
   },
-  channelBarLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderColor: 'rgba(255, 255, 255, 0.40)',
-  },
-  channelBarDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-    borderColor: 'rgba(171, 166, 255, 0.18)',
-  },
-  channelScrollContent: {
+  channelCategoriesRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    flexGrow: 1,
-    paddingHorizontal: 4,
   },
-  channelItemTouchable: {
-    borderRadius: 999,
+  channelCategoryTouchable: {
+    flex: 1,
+    alignItems: 'center',
   },
-  channelPillBase: {
-    flexDirection: 'row',
+  channelCategoryItem: {
+    alignItems: 'center',
+  },
+  channelPillCardWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  channelGlassCapsule: {
+    position: 'absolute',
+    bottom: 0,
+    borderWidth: 1.2,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5.5,
-    borderRadius: 999,
+    overflow: 'visible',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
   },
-  channelPillIconOnly: {
-    flexDirection: 'row',
+  channelGlassSheen: {
+    position: 'absolute',
+    top: 1,
+    left: 4,
+    right: 4,
+    height: '42%',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  channelIconWrapper: {
+    position: 'absolute',
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 9,
-    paddingVertical: 5.5,
-    borderRadius: 999,
-  },
-  channelPillActiveGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 9,
-    paddingVertical: 5.5,
-    borderRadius: 999,
-    gap: 5,
-  },
-  channelPillBorderLight: {
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.95)',
-    shadowColor: '#814AC8',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  channelPillBorderDark: {
-    borderWidth: 1,
-    borderColor: 'rgba(211, 204, 255, 0.45)',
-    shadowColor: '#7757FF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  channelPillLabel: {
-    fontSize: 12.5,
-    fontFamily: Fonts.regular,
-    fontWeight: '400',
-  },
-  channelPillLabelActiveLight: {
-    color: '#7555D9',
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
-  },
-  channelPillLabelActiveDark: {
-    color: '#FFFFFF',
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
-  },
-  channelPillLabelInactive: {
-    color: '#FFFFFF',
-    fontFamily: Fonts.regular,
-    fontWeight: '400',
+    zIndex: 5,
   },
   channelCountBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 5.5,
-    paddingVertical: 1,
-    minWidth: 18,
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#5275F7',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  channelBadgeSelectedLight: {
-    backgroundColor: '#E5DFFF',
-  },
-  channelBadgeSelectedDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.28)',
-  },
-  channelBadgeUnselectedLight: {
-    backgroundColor: '#8060E8',
-  },
-  channelBadgeUnselectedDark: {
-    backgroundColor: '#7860E8',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#292B6B',
+    zIndex: 10,
   },
   channelCountBadgeText: {
     color: '#FFFFFF',
-    fontSize: 10.5,
+    fontSize: 9.5,
     fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontWeight: '700',
+    lineHeight: 12,
   },
-  channelDivider: {
-    width: 1,
-    height: 16,
-    marginHorizontal: 3,
-    borderRadius: 0.5,
+  channelCategoryLabel: {
+    marginTop: 7,
+    fontSize: 12.5,
+    fontFamily: Fonts.medium,
+    textAlign: 'center',
+  },
+  channelCategoryLabelSmall: {
+    fontSize: 11.5,
+    marginTop: 6,
+  },
+  channelCategoryLabelActive: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  channelCategoryLabelInactive: {
+    color: 'rgba(255, 255, 255, 0.70)',
+    fontWeight: '400',
+  },
+  channelActiveIndicator: {
+    marginTop: 5,
+    height: 2.5,
+    width: 36,
+    borderRadius: 2,
+  },
+  channelActiveIndicatorSmall: {
+    width: 30,
+    marginTop: 4,
+  },
+  channelSparkleDecor: {
+    position: 'absolute',
+    right: 2,
+    bottom: 2,
   },
 
   /* MAIN CONVERSATION CONTENT SHEET */
@@ -1604,6 +1887,14 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 999,
     gap: 6,
+  },
+  statusPillInnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusPillInnerRowSmall: {
+    gap: 4,
   },
   filterButtonPill: {
     marginLeft: 'auto',
@@ -2005,5 +2296,83 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontFamily: Fonts.medium,
     fontWeight: '500',
+  },
+
+  /* STATUS BOTTOM SHEET MODAL (Congrats / Success Lead Creation) */
+  statusSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    justifyContent: 'flex-end',
+  },
+  statusSheetCard: {
+    width: '100%',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 16,
+  },
+  statusSheetHeader: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  statusSheetHeaderTitle: {
+    fontSize: 16,
+    fontFamily: Fonts.light,
+    fontWeight: '300',
+    letterSpacing: -0.1,
+  },
+  statusSheetCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: scaleContainer(16),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusSheetIllustration: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
+  },
+  statusSheetCongratsTitle: {
+    fontSize: scaleFont(18),
+    fontFamily: Fonts.light,
+    fontWeight: '300',
+    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: -0.2,
+  },
+  statusSheetDescription: {
+    fontSize: 12.5,
+    fontFamily: Fonts.regular,
+    fontWeight: '400',
+    lineHeight: 18.5,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 24,
+  },
+  statusSheetDoneBtn: {
+    width: '100%',
+    height: scaleHeight(50),
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusSheetDoneText: {
+    color: '#FFFFFF',
+    fontSize: scaleFont(15),
+    fontFamily: Fonts.light,
+    fontWeight: '300',
+    letterSpacing: -0.1,
   },
 });

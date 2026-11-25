@@ -736,7 +736,10 @@ class EntitlementService:
             ).count()
             limit = entitlement.gmail_limit
         elif resource == "lead":
-            usage = db.query(Lead).filter(Lead.workspace_id == workspace_id).count()
+            usage = db.query(Lead).filter(
+                Lead.workspace_id == workspace_id,
+                Lead.is_locked.isnot(True)
+            ).count()
             limit = entitlement.lead_limit
         elif resource == "meeting":
             usage = db.query(CalendarEvent).filter(CalendarEvent.workspace_id == workspace_id).count()

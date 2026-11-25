@@ -28,6 +28,7 @@ import { OrbionLogo } from '../../components/common/OrbionLogo';
 import { verifyOTP, sendOTP, verifyTwoFactorLogin } from '../../api/auth';
 import { authStore } from '../../store/auth';
 import { Fonts } from '../../theme/tokens';
+import { loadingManager } from '../../context/loading-context';
 import { useAppTheme } from '../../context/theme-context';
 import { scaleFont, scaleContainer, scaleHeight } from '../../theme/responsive';
 
@@ -89,12 +90,19 @@ export default function VerifyOtpScreen() {
 
     setError('');
     setLoading(true);
+    loadingManager.show({
+      message: 'Validating code...',
+      sublabel: 'Establishing secure session',
+      immediate: true,
+      minDisplayMs: 800,
+    });
 
     try {
       if (pending2FAToken) {
         const twoFaRes = await verifyTwoFactorLogin(pending2FAToken, otp);
         if (!twoFaRes?.access_token || !twoFaRes?.user) {
           setError('Two-factor verification did not return a valid session.');
+          loadingManager.hide();
           return;
         }
         await authStore.setAuth({
@@ -102,6 +110,7 @@ export default function VerifyOtpScreen() {
           user: twoFaRes.user,
           workspaces: twoFaRes.workspaces,
         });
+        loadingManager.hide({ status: 'success', message: 'Welcome to Orbion!' });
         router.replace('/(tabs)/inbox');
         return;
       }
@@ -112,11 +121,13 @@ export default function VerifyOtpScreen() {
         setPending2FAToken(data.pending_token);
         setOtp('');
         setSuccessMessage('Enter the 6-digit code from your authenticator app.');
+        loadingManager.hide();
         return;
       }
 
       if (!data?.access_token || !data?.user) {
         setError('Verification did not return an active session. Please try again.');
+        loadingManager.hide();
         return;
       }
 
@@ -126,8 +137,12 @@ export default function VerifyOtpScreen() {
         workspaces: data.workspaces,
       });
 
-      router.replace('/(tabs)/inbox');
+      loadingManager.hide({ status: 'success', message: 'Welcome to Orbion!' });
+      setTimeout(() => {
+        router.replace('/(tabs)/inbox');
+      }, 700);
     } catch (err: any) {
+      loadingManager.hide();
       const msg: string = err?.message || '';
       if (
         msg.toLowerCase().includes('invalid') ||
@@ -140,6 +155,7 @@ export default function VerifyOtpScreen() {
       }
     } finally {
       setLoading(false);
+      loadingManager.hide();
     }
   };
 
