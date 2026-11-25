@@ -571,6 +571,10 @@ def get_workspace_lead_scores(
                         l_un.is_locked = False
                     db.commit()
     except Exception as unlock_err:
+        try:
+            db.rollback()
+        except Exception:
+            pass
         import logging
         logging.getLogger(__name__).warning("Error auto-unlocking leads: %s", unlock_err)
 

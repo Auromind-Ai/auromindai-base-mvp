@@ -68,6 +68,11 @@ def verify_workspace_access(
                     )
 
             if getattr(membership, "is_active", True) is False:
+                if getattr(membership, "locked_reason", None) == "plan_expired":
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Your workspace seat is paused because the workspace plan expired or exceeds the current plan's team limit. Please ask the workspace owner to renew or upgrade."
+                    )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Your membership in this workspace has been deactivated. Please contact your workspace admin."
@@ -104,6 +109,11 @@ def verify_workspace_access(
         )
 
     if getattr(membership, "is_active", True) is False:
+        if getattr(membership, "locked_reason", None) == "plan_expired":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your workspace seat is paused because the workspace plan expired or exceeds the current plan's team limit. Please ask the workspace owner to renew or upgrade."
+            )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your membership in this workspace has been deactivated. Please contact your workspace admin."

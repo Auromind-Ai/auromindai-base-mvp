@@ -128,6 +128,8 @@ class SubscriptionService:
                 subscription.canceled_at = datetime.now(timezone.utc)
 
         db.flush()
+        from app.services.workspace_access_service import reconcile_workspace_member_seats
+        reconcile_workspace_member_seats(db, workspace_id)
         return subscription
 
     def _get_active_subscription(self, db: Session, workspace_id: str) -> Subscription | None:

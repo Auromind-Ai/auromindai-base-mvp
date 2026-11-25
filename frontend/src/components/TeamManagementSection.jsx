@@ -8,6 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
@@ -20,6 +21,7 @@ import {
   RefreshCw,
   Clock,
   AlertCircle,
+  Lock,
   Loader2,
   Edit2,
   Power,
@@ -630,7 +632,7 @@ export default function TeamManagementSection() {
       fetchTeamData();
     } catch (err) {
       console.warn("Status toggle warning:", err);
-      showToast(err?.message || "Failed to update member status", "error");
+      showToast(err?.data?.detail || err?.message || "Failed to update member status", "error");
     } finally {
       setTogglingStatusId(null);
     }
@@ -731,6 +733,10 @@ export default function TeamManagementSection() {
     );
   const visibleMembers = members.filter(matchesSearch);
   const visibleInvitations = invitations.filter(matchesSearch);
+  const totalSeats = data?.total_member_seats ?? 1;
+  const lockedMemberCount =
+    data?.locked_member_seats ??
+    members.filter((m) => m.is_active === false && m.locked_reason === "plan_expired").length;
 
   return (
     <div className={poppins.className + " @container min-h-[70vh] w-full min-w-0 bg-transparent text-zinc-300"}>
@@ -739,6 +745,37 @@ export default function TeamManagementSection() {
         <p className="mt-1.5 text-sm text-white/65">Manage and invite team members to your Workspace.</p>
       </div>
       <div className="mb-8 h-px w-full bg-[#814ac8]/15" />
+      {lockedMemberCount > 0 && (
+        <div
+          role="status"
+          className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/15 bg-white/[0.03] px-4 py-3 text-sm text-zinc-300"
+        >
+          <div className="flex items-start sm:items-center gap-3 min-w-0">
+            <Lock className="h-4 w-4 shrink-0 text-zinc-400 mt-0.5 sm:mt-0" />
+            <p className="leading-relaxed text-zinc-300">
+              {data?.plan_expired ? (
+                <>
+                  <span className="font-medium text-white">Subscription expired.</span>{" "}
+                  {lockedMemberCount} team {lockedMemberCount === 1 ? "member is" : "members are"} paused under the{" "}
+                  {totalSeats === -1 ? "current" : `${totalSeats}-seat`} plan limit. Renew or upgrade to restore access.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-white">Seat limit reached.</span>{" "}
+                  {lockedMemberCount} team {lockedMemberCount === 1 ? "member is" : "members are"} paused under your current{" "}
+                  {totalSeats}-seat limit. Upgrade your plan or free a seat to restore access.
+                </>
+              )}
+            </p>
+          </div>
+          <Link
+            href="/billing/payment"
+            className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/10 px-3.5 text-xs font-medium text-white transition-colors hover:bg-white/15"
+          >
+            {data?.plan_expired ? "Renew Plan" : "Upgrade Plan"}
+          </Link>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-5">
         <div className="flex items-center gap-3">
           {canManage && (
@@ -768,12 +805,25 @@ export default function TeamManagementSection() {
           const displayName = member.name || member.full_name || member.email.split("@")[0];
           const isCurrent = currentUser?.email?.toLowerCase() === member.email.toLowerCase();
           const isActive = member.is_active !== false;
+          const isPlanLocked = !isActive && member.locked_reason === "plan_expired";
           const protectedMember = !canManage || member.is_owner || isCurrent;
           return (
             <li key={member.id} className="flex min-h-[84px] flex-wrap items-center gap-4 px-5 py-4">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#814ac8]/25 text-lg text-[#d9c5f3]">{displayName.charAt(0).toUpperCase()}</div>
               <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-medium text-white [overflow-wrap:anywhere]">{displayName}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[15px] font-medium text-white [overflow-wrap:anywhere]">{displayName}</p>
+                  {isPlanLocked ? (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] font-medium text-zinc-400">
+                      <Lock className="h-3 w-3" />
+                      Paused · Plan limit
+                    </span>
+                  ) : !isActive ? (
+                    <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] font-medium text-zinc-500">
+                      Inactive
+                    </span>
+                  ) : null}
+                </div>
                 <p className="mt-1 text-[13px] text-white/65 [overflow-wrap:anywhere]"><span className="capitalize">{member.is_owner ? "Owner" : member.role || "Member"}</span> - {member.email}</p>
               </div>
               <div className="ml-auto flex items-center gap-3">

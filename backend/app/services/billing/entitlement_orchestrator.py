@@ -262,6 +262,9 @@ class EntitlementOrchestrator:
         subscription.next_entitlement_reset_at = next_dt
         db.flush()
 
+        from app.services.workspace_access_service import reconcile_workspace_member_seats
+        reconcile_workspace_member_seats(db, workspace_id)
+
     @classmethod
     def upgrade_subscription(
         cls,
@@ -386,3 +389,6 @@ class EntitlementOrchestrator:
         entitlement = EntitlementService.ensure_plan_entitlement(db, new_plan)
         cls.provision_resources(db, workspace_id, entitlement)
         db.flush()
+
+        from app.services.workspace_access_service import reconcile_workspace_member_seats
+        reconcile_workspace_member_seats(db, workspace_id, workspace=workspace)
