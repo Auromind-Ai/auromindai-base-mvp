@@ -152,6 +152,11 @@ export default function BillingHistoryPage() {
     const flowPurchasedQuota = Number(fq?.purchased_quota ?? fq?.purchased ?? 0)
     const flowRemainingQuota = Number(fq?.remaining_quota ?? fq?.remaining ?? Math.max(0, flowTotal - flowUsed))
 
+    const mc = billing?.monthly_conversations || {}
+    const convUsed = Number(mc?.used ?? 0)
+    const convLimit = Number(mc?.limit ?? 1000)
+    const convRemaining = convLimit === -1 ? -1 : Number(mc?.remaining ?? Math.max(0, convLimit - convUsed))
+
     return {
       aiCredits: {
         used: aiUsed,
@@ -172,6 +177,11 @@ export default function BillingHistoryPage() {
         total_quota: flowTotal,
         used_quota: flowUsed,
         remaining_quota: flowRemainingQuota
+      },
+      monthlyConversations: {
+        used: convUsed,
+        limit: convLimit,
+        remaining: convRemaining,
       }
     }
   }, [billing])

@@ -30,6 +30,7 @@ export default function PlanEntitlementsTab({
     if (flags.tool_limit === undefined) flags.tool_limit = 5
     if (flags.template_limit === undefined) flags.template_limit = 5
     if (flags.drip_limit === undefined) flags.drip_limit = 0
+    if (flags.monthly_conversations === undefined) flags.monthly_conversations = 1000
     if (flags.broadcast_tier === undefined) flags.broadcast_tier = "none"
     setFeatureFlags(flags)
     setShowAddFlag(false)
@@ -156,6 +157,7 @@ export default function PlanEntitlementsTab({
                 <th className="py-2.5 text-right">Storage</th>
                 <th className="py-2.5 text-right">KB Docs</th>
                 <th className="py-2.5 text-right">Leads</th>
+                <th className="py-2.5 text-right">Monthly Conv.</th>
                 <th className="py-2.5 text-right">Flow Quota</th>
                 <th className="py-2.5 text-center">AI Top-up</th>
                 <th className="py-2.5 text-center">WCC Recharge</th>
@@ -239,6 +241,14 @@ export default function PlanEntitlementsTab({
 
                     <td className="py-3 text-right font-medium">
                       {ent.lead_limit === -1 ? "Unlimited" : Number(ent.lead_limit ?? 0).toLocaleString()}
+                    </td>
+
+                    <td className="py-3 text-right font-medium text-cyan-300">
+                      {flags.monthly_conversations === -1
+                        ? "Unlimited"
+                        : flags.monthly_conversations !== undefined && flags.monthly_conversations !== null
+                        ? Number(flags.monthly_conversations).toLocaleString()
+                        : "-"}
                     </td>
 
                     <td className="py-3 text-right font-bold text-indigo-400">
@@ -429,13 +439,29 @@ export default function PlanEntitlementsTab({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Drip Campaigns Limit</label>
                     <input
                       type="number"
                       value={featureFlags.drip_limit ?? 0}
-                      onChange={(e) => updateFlagField("drip_limit", parseInt(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const parsed = parseInt(e.target.value, 10)
+                        updateFlagField("drip_limit", Number.isNaN(parsed) ? 0 : parsed)
+                      }}
+                      className="w-full p-2 bg-[#0a0a0f] border border-white/10 rounded-xl text-white focus:border-indigo-500 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Monthly Conv. (-1 = ∞)</label>
+                    <input
+                      type="number"
+                      value={featureFlags.monthly_conversations ?? 1000}
+                      onChange={(e) => {
+                        const parsed = parseInt(e.target.value, 10)
+                        updateFlagField("monthly_conversations", Number.isNaN(parsed) ? 0 : parsed)
+                      }}
                       className="w-full p-2 bg-[#0a0a0f] border border-white/10 rounded-xl text-white focus:border-indigo-500 text-xs"
                     />
                   </div>
@@ -640,7 +666,24 @@ export default function PlanEntitlementsTab({
 
                   {/* Any custom dynamic feature flags */}
                   {Object.keys(featureFlags)
-                    .filter((k) => !["has_rag", "has_leads", "has_gmail", "ai_gmail_lead_fallback", "allowed_channels", "assistant_limit", "tool_limit", "template_limit", "drip_limit", "broadcast_tier", "lead_scoring"].includes(k))
+                    .filter((k) => ![
+                      "has_rag",
+                      "has_leads",
+                      "has_gmail",
+                      "ai_gmail_lead_fallback",
+                      "allowed_channels",
+                      "assistant_limit",
+                      "tool_limit",
+                      "template_limit",
+                      "drip_limit",
+                      "broadcast_tier",
+                      "lead_scoring",
+                      "lead_enrichment",
+                      "monthly_conversations",
+                      "monthly_automation_triggers",
+                      "crm_pipeline_tier",
+                      "flow_limit",
+                    ].includes(k))
                     .map((k) => (
                       <div
                         key={k}

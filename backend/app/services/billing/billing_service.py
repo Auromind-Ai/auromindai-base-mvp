@@ -1176,6 +1176,9 @@ class BillingService:
             "flow_quota": flow_quota,
             "flows_used": flow_quota["used_quota"],
             "flows_total": flow_quota["total_quota"],
+
+            # Monthly Active Conversations quota
+            "monthly_conversations": EntitlementService.get_monthly_conversation_quota(db, workspace.id),
             
             "subscription": {
                 "id": str(subscription.id) if subscription else None,

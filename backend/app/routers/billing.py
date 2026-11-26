@@ -489,6 +489,9 @@ def get_usage(
     ).count()
     automations_limit = int(ent.automation_limit)
 
+    # Monthly Active Conversations
+    conv_quota = EntitlementService.get_monthly_conversation_quota(db, ws_uuid)
+
     return {
         "plan_name": plan_name,
         "ai_credits": { "used": ai_used, "limit": ai_limit },
@@ -498,6 +501,11 @@ def get_usage(
         "leads": { "used": leads_used, "limit": leads_limit },
         "gmail_accounts": { "used": gmail_used, "limit": gmail_limit },
         "automations": { "used": automations_used, "limit": automations_limit },
+        "monthly_conversations": {
+            "used": conv_quota["used"],
+            "limit": conv_quota["limit"],
+            "remaining": conv_quota["remaining"],
+        },
     }
 
 

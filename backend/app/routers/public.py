@@ -74,6 +74,7 @@ async def get_pricing(db: Session = Depends(get_db)) -> Dict[str, Any]:
             "meeting_limit": ent.meeting_limit if ent else 0,
             "gmail_limit": ent.gmail_limit if ent else 0,
             "team_limit": ent.team_limit if ent else 0,
+            "monthly_conversations": int((ent.feature_flags or {}).get("monthly_conversations", 1000)) if ent else 1000,
             "allow_ai_topup": ent.allow_ai_topup if ent else False,
             "allow_wcc_recharge": ent.allow_wcc_recharge if ent else False,
             "allow_flow_addon": ent.allow_flow_addon if ent else False,

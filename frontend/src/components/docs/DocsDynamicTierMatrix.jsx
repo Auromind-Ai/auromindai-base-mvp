@@ -74,6 +74,10 @@ export default function DocsDynamicTierMatrix({ initialHeaders, initialRows }) {
         }),
       ],
       [
+        'Monthly Conversations',
+        ...plans.map((p) => formatLimit(p.monthly_conversations, ' / month')),
+      ],
+      [
         'Active Automations (Wires)',
         ...plans.map((p) => formatLimit(p.automation_limit, ' Active Automations')),
       ],

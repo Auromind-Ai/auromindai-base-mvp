@@ -1409,6 +1409,17 @@ def send_message(
             "WhatsApp messaging service is temporarily unavailable. Please try again later."
         )
 
+    # Enforce monthly active conversations limit before dispatching outbound template
+    from app.services.inbox.conversation_service import ConversationService
+    from app.models.conversation import Conversation
+    existing_conv = db.query(Conversation).filter(
+        Conversation.workspace_id == ws_uuid,
+        (Conversation.phone == cleaned_phone) | (Conversation.phone == f"+{cleaned_phone}") | (Conversation.external_id == cleaned_phone)
+    ).first()
+    ConversationService.ensure_conversation_monthly_quota(
+        db, ws_uuid, existing_conversation=existing_conv
+    )
+
     headers = {
         "Authorization": f"Bearer {system_token}",
         "Content-Type": "application/json",

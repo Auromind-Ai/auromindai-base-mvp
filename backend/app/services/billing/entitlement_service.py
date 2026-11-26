@@ -664,34 +664,93 @@ class EntitlementService:
         return EffectiveEntitlement(entitlement, ws)
 
     @classmethod
+    def get_monthly_conversation_quota(cls, db: Session, workspace_id: uuid.UUID | str) -> Dict[str, Any]:
+        """Compute active conversations processed in the current UTC calendar month vs plan limit."""
+        from app.models.conversation import Conversation
+
+        if isinstance(workspace_id, str):
+            workspace_id = uuid.UUID(workspace_id)
+
+        entitlement = cls.get_workspace_entitlement(db, workspace_id)
+        flags = getattr(entitlement, "feature_flags", None) or {}
+        raw_limit = flags.get("monthly_conversations", 1000)
+        try:
+            limit = int(raw_limit)
+        except (ValueError, TypeError):
+            limit = 1000
+
+        first_day_of_month = datetime.now(timezone.utc).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        bind = getattr(db, "bind", None)
+        if bind is not None and getattr(getattr(bind, "dialect", None), "name", "") == "sqlite":
+            first_day_of_month = first_day_of_month.replace(tzinfo=None)
+        used = (
+            db.query(Conversation)
+            .filter(
+                Conversation.workspace_id == workspace_id,
+                func.coalesce(Conversation.last_message_at, Conversation.created_at) >= first_day_of_month,
+            )
+            .count()
+        )
+        if limit == -1:
+            remaining = -1
+        else:
+            remaining = max(0, limit - used)
+
+        return {
+            "used": used,
+            "limit": limit,
+            "remaining": remaining,
+        }
+
+    @classmethod
     def check_entitlement(
         cls, db: Session, workspace_id: uuid.UUID, resource: str, value: int = 1
     ) -> Dict[str, Any]:
         if isinstance(workspace_id, str):
             workspace_id = uuid.UUID(workspace_id)
         entitlement = cls.get_workspace_entitlement(db, workspace_id)
+        flags = getattr(entitlement, "feature_flags", None) or {}
         resource = resource.lower()
 
-        # Handle feature flags
+        # Handle boolean feature flags (exclude numeric quota / structured tier keys that have dedicated handlers)
         flag_aliases = {
             "has_rag": "has_rag",
             "ai_gmail_lead_fallback": "ai_gmail_lead_fallback",
             "ai_lead_fallback": "ai_gmail_lead_fallback",
+        }
+        non_boolean_flag_keys = {
+            "monthly_conversations",
+            "monthly_automation_triggers",
+            "crm_pipeline_tier",
+            "flow_limit",
+            "allowed_channels",
+            "assistant_limit",
+            "tool_limit",
+            "template_limit",
+            "drip_limit",
+            "broadcast_tier",
+            "lead_enrichment",
+            "lead_scoring",
         }
         res_lower = resource.lower()
         if (
             resource == "feature_flags"
             or resource.startswith("flag_")
             or res_lower in flag_aliases
-            or res_lower in [k.lower() for k in entitlement.feature_flags.keys()]
+            or (
+                res_lower not in non_boolean_flag_keys
+                and res_lower in [k.lower() for k in flags.keys()]
+            )
         ):
             flag_name = resource.replace("flag_", "").lower()
             canonical_name = flag_aliases.get(flag_name, flag_name)
             flag_value = (
-                entitlement.feature_flags.get(canonical_name, False)
-                or entitlement.feature_flags.get(canonical_name.upper(), False)
-                or entitlement.feature_flags.get(flag_name, False)
-                or entitlement.feature_flags.get(flag_name.upper(), False)
+                flags.get(canonical_name, False)
+                or flags.get(canonical_name.upper(), False)
+                or flags.get(flag_name, False)
+                or flags.get(flag_name.upper(), False)
             )
             limit_val = 1 if flag_value else 0
             usage_val = 0 if flag_value else 1
@@ -754,13 +813,9 @@ class EntitlementService:
             usage = flow_q["used_quota"]
             limit = flow_q["total_quota"]
         elif resource in ("conversation", "conversations", "monthly_conversations"):
-            from app.models.conversation import Conversation
-            first_day_of_month = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            usage = db.query(Conversation).filter(
-                Conversation.workspace_id == workspace_id,
-                Conversation.created_at >= first_day_of_month,
-            ).count()
-            limit = int(entitlement.feature_flags.get("monthly_conversations", 1000))
+            conv_q = cls.get_monthly_conversation_quota(db, workspace_id)
+            usage = conv_q["used"]
+            limit = conv_q["limit"]
         elif resource in ("automation_trigger", "automation_triggers", "monthly_automation_triggers"):
             usage = db.query(AutomationFlow).filter(
                 AutomationFlow.workspace_id == workspace_id, AutomationFlow.status == "Active"
@@ -1156,13 +1211,18 @@ class EntitlementService:
                         "flow": next_ent.flow,
                         "storage": next_ent.storage_limit_mb,
                         "meeting": next_ent.meeting_limit,
+                        "conversation": (next_ent.feature_flags or {}).get("monthly_conversations"),
+                        "conversations": (next_ent.feature_flags or {}).get("monthly_conversations"),
+                        "monthly_conversations": (next_ent.feature_flags or {}).get("monthly_conversations"),
                     }
                     next_limit_val = field_map.get(resource.lower())
 
                 next_plan_name = next_plan.display_name or next_plan.name.title()
                 next_price_display = f"₹{int(next_plan.price)}/month" if next_plan.price else "next tier"
 
-                if next_limit_val and next_limit_val > current_limit:
+                if next_limit_val == -1:
+                    msg = f"You have reached your {plan_name} plan limit of {current_limit} {resource_label}. Upgrade to {next_plan_name} for {next_price_display} for unlimited {resource_label}, or contact us for custom add-ons."
+                elif next_limit_val and next_limit_val > current_limit:
                     msg = f"You have reached your {plan_name} plan limit of {current_limit} {resource_label}. Upgrade to {next_plan_name} for {next_price_display} to add up to {next_limit_val} {resource_label}, or contact us for custom add-ons."
                 else:
                     msg = f"You have reached your {plan_name} plan limit of {current_limit} {resource_label}. Upgrade to {next_plan_name} for {next_price_display} to increase your limit, or contact us for custom add-ons."

@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
+from fastapi import HTTPException
 from app.core.security import to_uuid
 
 from app.models.ai_action import Lead
@@ -1064,6 +1065,23 @@ class WebhookService:
                 "conversation_id": str(conversation.id),
                 "message_id": str(message.id) if message else None,
             }
+        except HTTPException as http_exc:
+            db.rollback()
+            detail = http_exc.detail if isinstance(http_exc.detail, dict) else {"message": str(http_exc.detail)}
+            if http_exc.status_code == 403 and detail.get("error") == "ENTITLEMENT_EXCEEDED":
+                logger.warning(
+                    "[QUOTA BLOCKED] Inbound %s message blocked for workspace=%s: %s",
+                    normalized_channel.value,
+                    workspace_id,
+                    detail.get("message"),
+                )
+                return {
+                    "status": "blocked",
+                    "reason": "monthly_conversations_limit_exceeded",
+                    "detail": detail.get("message"),
+                }
+            logger.exception("HTTP error processing incoming %s message: %s", normalized_channel.value, http_exc)
+            return {"status": "error"}
         except Exception as exc:
             db.rollback()
             logger.exception("Error processing incoming %s message: %s", normalized_channel.value, exc)
