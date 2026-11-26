@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Check, ChevronsDown, Sparkles, Zap, MessageSquare, TrendingUp, Flame, Crown } from 'lucide-react';
+import { buildDynamicCardFeatures } from '@/lib/utils/pricingMapper';
 
 /* ─ Logic ─ */
 
@@ -269,168 +270,101 @@ function PricingCard({ plan, currentPlan, onUpgrade, index, isAnnual }) {
 
 /* ─ Main PricingPage ─ */
 
-export default function PricingPage({ currentPlan = 'free', onUpgrade, settings, dbPlans = [] }) {
+export default function PricingPage({
+  currentPlan = 'free',
+  onUpgrade,
+  settings,
+  dbPlans = [],
+  loading = false,
+  error = null,
+  onRetry = null,
+}) {
   const [isAnnual, setIsAnnual] = useState(false);
 
-  if (!settings) {
+  if (loading || (!settings && !error)) {
     return (
       <section className="relative overflow-hidden bg-black py-20 min-h-screen flex items-center justify-center">
         <div className="max-w-7xl mx-auto px-6 w-full">
           <div className="rounded-3xl border border-white/10 bg-[linear-gradient(to_top,rgba(129,74,200,0.25)_0%,rgba(0,0,0,1)_60%)] px-6 py-16 text-center text-white/60">
-            Loading...
+            Loading live plans...
           </div>
         </div>
       </section>
     );
   }
 
-  const plans = dbPlans && dbPlans.length > 0
-    ? dbPlans.map(plan => {
+  if (error) {
+    return (
+      <section className="relative overflow-hidden bg-black py-20 min-h-screen flex items-center justify-center">
+        <div className="max-w-xl mx-auto px-6 w-full">
+          <div className="rounded-3xl border border-rose-500/30 bg-rose-950/20 px-6 py-12 text-center space-y-4">
+            <p className="text-sm text-rose-200">{error}</p>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="px-5 py-2 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold cursor-pointer"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const plans = Array.isArray(dbPlans)
+    ? dbPlans.map((plan) => {
+        const key = String(plan.key || plan.name || '').toLowerCase().trim();
         const isPlanEnterprise =
-          plan.key === 'enterprise' ||
-          plan.key === 'custom' ||
-          plan.key === 'letstalk' ||
+          key === 'enterprise' ||
+          key === 'custom' ||
+          key === 'letstalk' ||
           (plan.name || '').toLowerCase().includes('enterprise') ||
           (plan.label || '').toLowerCase().includes('enterprise');
 
         const rawMonthly = Number(plan.monthly_price ?? plan.amount ?? 0);
-        const rawYearly = Number(plan.yearly_price ?? (rawMonthly * 10) ?? 0);
+        const rawYearly = Number(plan.yearly_price ?? rawMonthly * 10 ?? 0);
         const rawPrice = isAnnual ? rawYearly : rawMonthly;
 
         const displayPrice = isPlanEnterprise
           ? "Let's Talk"
-          : (plan.key === 'free' || rawPrice === 0)
+          : key === 'free' || rawPrice === 0
           ? 'Free'
           : `₹${Number(rawPrice).toLocaleString('en-IN')}`;
 
-        const subPriceText = (!isPlanEnterprise && isAnnual && rawPrice > 0)
-          ? `(₹${Math.round(rawPrice / 12).toLocaleString('en-IN')}/mo billed annually)`
-          : null;
+        const subPriceText =
+          !isPlanEnterprise && isAnnual && rawPrice > 0
+            ? `(₹${Math.round(rawPrice / 12).toLocaleString('en-IN')}/mo billed annually)`
+            : null;
 
         return {
-          key: plan.key,
-          name: plan.name || plan.label,
+          key,
+          name: plan.display_name || plan.name || plan.label,
           price: displayPrice,
-          subPriceText: subPriceText,
-          usage: plan.usage || `${Math.round((plan.tokens || 1000000) / TOKENS_PER_CREDIT)} credits / month`,
-          description: plan.description,
-          featured: plan.featured || plan.is_featured || plan.key === 'business' || plan.key === 'pro',
-          features: plan.features || [],
+          subPriceText,
+          usage: plan.usage || `${Math.round((plan.tokens || plan.token_limit || 1000000) / TOKENS_PER_CREDIT)} credits / month`,
+          description: plan.description || '',
+          featured: Boolean(plan.featured || plan.is_featured || key === 'business' || key === 'pro'),
+          features: buildDynamicCardFeatures(plan),
         };
       })
-    : [
-    {
-      key: 'free',
-      name: 'Free',
-      price: 'Free',
-      subPriceText: null,
-      usage: '50 test credits',
-      description: 'Forever evaluation & single sandbox testing',
-      features: [
-        '1 User seat',
-        'Single team inbox',
-        '50 Leads & contact storage',
-        'Basic viewer CRM',
-        'Basic quick reply',
-        'Standard system templates',
-        'Brain Knowledge Base',
-        'Community support',
-      ],
-    },
-    {
-      key: 'creator',
-      name: 'Creator',
-      price: isAnnual ? '₹11,388' : '₹999',
-      subPriceText: isAnnual ? '(₹949/mo billed annually)' : null,
-      usage: 'Creator Quota',
-      description: 'Instagram sellers & social monetization',
-      features: [
-        '2 User seats',
-        'IG DM shared inbox',
-        '1,000 Social Leads',
-        'Contact list view CRM',
-        'DM & comment triggers',
-        'Instagram replies',
-        'Manual 100/day broadcasts',
-        'Email support',
-      ],
-    },
-    {
-      key: 'starter',
-      name: 'Starter',
-      price: isAnnual ? '₹14,808' : '₹1,299',
-      subPriceText: isAnnual ? '(₹1,234/mo billed annually)' : null,
-      usage: 'Pay-as-you-go',
-      description: 'Small teams starting WhatsApp bots',
-      features: [
-        '3 User seats',
-        'WhatsApp Inbox',
-        '2,500 Social & Manual Leads',
-        'Single-stage board CRM',
-        'AI Reply workflow',
-        'Up to 15 templates',
-        'Standard speed batch broadcasts',
-        'Email support',
-      ],
-    },
-    {
-      key: 'growth',
-      name: 'Growth',
-      price: isAnnual ? '₹28,488' : '₹2,499',
-      subPriceText: isAnnual ? '(₹2,374/mo billed annually)' : null,
-      usage: '₹500 Included credits/mo',
-      description: 'Omnichannel sync & dynamic NLP flows',
-      features: [
-        '5 User seats',
-        'WA IG INBOX',
-        '10,000 Social & Manual Leads',
-        'Advance Filtration CRM',
-        'Multi-ADS conditional',
-        'Up to 50 templates',
-        'Up to 10 Docs / URLs in Brain',
-        'Priority email & chat',
-      ],
-    },
-    {
-      key: 'business',
-      name: 'Business',
-      price: isAnnual ? '₹56,988' : '₹4,999',
-      subPriceText: isAnnual ? '(₹4,749/mo billed annually)' : null,
-      usage: '₹1,500 Included credits/mo',
-      description: 'Full autonomous AI & ops workforce suite',
-      featured: true,
-      features: [
-        '15 Included seats (+Addon)',
-        'OMNI INBOX (WhatsApp + IG + Twilio)',
-        '35,000 Social & Manual leads',
-        'Advance Filtration CRM with scoring',
-        'Full event-driven AI flows',
-        'Unlimited templates',
-        'Unlimited Sync & Vector DB',
-        'Direct call + dedicated rep',
-      ],
-    },
-    {
-      key: 'enterprise',
-      name: 'Enterprise',
-      price: "Let's Talk",
-      subPriceText: null,
-      usage: 'Custom credits & seats',
-      description: 'Dedicated models, high TPS & custom SLAs',
-      features: [
-        'Unlimited custom seats',
-        'Enterprise omnichannel hub',
-        'Unlimited custom storage',
-        'Customizable CRM & pipelines',
-        'Custom webhook automations',
-        'Dedicated high-TPS queue',
-        'Private Vector & Live ERP',
-        '24/7 SLA + engineer',
-      ],
-    },
-  ];
+    : [];
 
-  const visiblePlans = plans.filter(plan => plan.key !== 'free');
+  const visiblePlans = plans.filter((plan) => plan.key !== 'free');
+
+  if (visiblePlans.length === 0) {
+    return (
+      <section className="relative overflow-hidden bg-black py-20 min-h-screen flex items-center justify-center">
+        <div className="max-w-xl mx-auto px-6 w-full">
+          <div className="rounded-3xl border border-white/10 bg-[#0b0c14] px-6 py-12 text-center text-sm text-zinc-400">
+            No upgradeable plans are currently configured.
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="relative w-full min-h-screen bg-[#050507] py-6 sm:py-10 lg:py-12 px-3 sm:px-6 lg:px-8 flex flex-col items-center overflow-y-auto">

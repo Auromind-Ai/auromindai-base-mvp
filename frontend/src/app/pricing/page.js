@@ -1,34 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { poppins } from '@/lib/fonts';
-import { 
-  Instagram, 
-  MessageCircle, 
-  Globe, 
-  Sparkles, 
-  Phone, 
-  Zap, 
-  TrendingUp, 
-  ShieldCheck, 
-  Check 
-} from 'lucide-react';
 import NavigationSection from '@/components/LandingPageNew/NavigationSection/NavigationSection';
 import ModernSaaSBackground from '@/components/LandingPageNew/ModernSaaSBackground/ModernSaaSBackground';
 import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
 import PricingComparisonTable from '@/components/LandingPageNew/PricingSectionNewSection/PricingComparisonTable';
 import BrandChannelRow from '@/components/BrandChannelIcons';
-import { 
-  CORE_ORBION_PLANS,
-  CREATOR_PLAN
-} from '@/lib/constants/pricingTiers';
+import { mapDbPlanToCard } from '@/lib/utils/pricingMapper';
 import api from '@/lib/api';
 
-/* ─ Plan Card Component Pixel-Matching Image 1 (Spacious, No Squeezing) ─ */
 function PlanCard({ plan, billing, gstRate = 18 }) {
-  const isBusiness = plan.key === 'business';
-  const isEnterprise = plan.key === 'enterprise';
+  const isBusiness = plan.featured || plan.key === 'business';
+  const isEnterprise = plan.key === 'enterprise' || (plan.priceMonthly <= 0 && plan.key !== 'free');
   const isFree = plan.key === 'free';
   const isCreator = plan.key === 'creator';
 
@@ -68,32 +53,30 @@ function PlanCard({ plan, billing, gstRate = 18 }) {
       style={{ fontFamily: "'Poppins', sans-serif" }}
     >
       <div>
-        {/* Plan Badge */}
         {plan.badge && (
           <div className="mb-2">
-            <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full inline-block ${
-              isBusiness 
-                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-[0_0_10px_rgba(168,85,247,0.2)]' 
-                : isFree
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-                : 'bg-white/[0.05] text-zinc-400 border border-white/10'
-            }`}>
+            <span
+              className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full inline-block ${
+                isBusiness
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-[0_0_10px_rgba(168,85,247,0.2)]'
+                  : isFree
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                  : 'bg-white/[0.05] text-zinc-400 border border-white/10'
+              }`}
+            >
               {plan.badge}
             </span>
           </div>
         )}
 
-        {/* Plan Title in Purple or Emerald for Free */}
         <h3 className={`text-2xl font-bold tracking-tight ${isFree ? 'text-emerald-400' : 'text-purple-400'}`}>
           {plan.name}
         </h3>
 
-        {/* Subtitle matching Image 1 */}
         <p className="text-xs text-zinc-400 mt-1 min-h-[18px]">
           {plan.subtitle}
         </p>
 
-        {/* Price & GST Note matching Image 1 */}
         <div className="mt-4">
           <div className="flex items-baseline">
             <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
@@ -120,7 +103,6 @@ function PlanCard({ plan, billing, gstRate = 18 }) {
           </div>
         </div>
 
-        {/* Action Button: Rounded Pill matching Image 1 */}
         <div className="mt-5">
           <button
             onClick={handleAction}
@@ -136,22 +118,21 @@ function PlanCard({ plan, billing, gstRate = 18 }) {
           </button>
         </div>
 
-        {/* Green Setup Box matching Image 1 */}
         <div className="mt-4">
-          <div className={`w-full py-2.5 px-3 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-all text-center ${
-            isFree
-              ? 'border-emerald-500/40 bg-emerald-950/30 text-emerald-300'
-              : 'border-emerald-500/30 bg-emerald-950/20 text-emerald-400'
-          }`}>
+          <div
+            className={`w-full py-2.5 px-3 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-all text-center ${
+              isFree
+                ? 'border-emerald-500/40 bg-emerald-950/30 text-emerald-300'
+                : 'border-emerald-500/30 bg-emerald-950/20 text-emerald-400'
+            }`}
+          >
             <span className="text-emerald-400 font-bold text-sm leading-none shrink-0">+</span>
-            <span>{plan.setupNote || 'Free setup — we build your chatbot flow for you'}</span>
+            <span>{plan.setupNote}</span>
           </div>
         </div>
 
-        {/* Brand Channel Avatars matching Image 1 */}
         <BrandChannelRow plan={plan} />
 
-        {/* Feature Checklist matching Image 1: Purple / Emerald Checkmark */}
         <ul className="mt-4 space-y-2.5">
           {plan.features.map((feature, idx) => (
             <li key={idx} className="flex items-start gap-2 text-xs text-zinc-300 leading-relaxed">
@@ -166,93 +147,49 @@ function PlanCard({ plan, billing, gstRate = 18 }) {
 }
 
 export default function PricingPage() {
-  const [billingCycle, setBillingCycle] = useState('annual'); // 'monthly' | 'annual'
+  const [billingCycle, setBillingCycle] = useState('annual');
   const [pricingData, setPricingData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  const loadPricing = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    setRefreshTick((t) => t + 1);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
-    async function loadPricing() {
-      try {
-        const data = await api.getPricing();
-        if (isMounted && data) {
-          setPricingData(data);
-        }
-      } catch (err) {
-        console.warn('[PRICING] Failed to fetch dynamic pricing, using local fallback:', err);
-      }
-    }
-    loadPricing();
+    api.getPricing()
+      .then((data) => {
+        if (isMounted) setPricingData(data);
+      })
+      .catch((err) => {
+        console.error('[PRICING] Failed to load live pricing:', err);
+        if (isMounted) setError('Unable to load live pricing plans right now. Please try again.');
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [refreshTick]);
 
-  // Merge live database plans with canonical visuals
-  const activePlans = (CORE_ORBION_PLANS || []).map((fallbackPlan) => {
-    if (!pricingData?.plans || !Array.isArray(pricingData.plans)) {
-      return fallbackPlan;
-    }
-
-    const dbPlan = pricingData.plans.find(
-      (p) => (p.key || p.name || '').toLowerCase() === fallbackPlan.key.toLowerCase()
-    );
-    if (!dbPlan) return fallbackPlan;
-
-    const isFree = fallbackPlan.key === 'free';
-    const isEnterprise = fallbackPlan.key === 'enterprise';
-
-    const monthlyPrice = Number(dbPlan.monthly_price ?? fallbackPlan.priceMonthly ?? 0);
-    const yearlyPrice = Number(dbPlan.yearly_price ?? fallbackPlan.priceYearly ?? 0);
-    const yearlyPerMonth = yearlyPrice > 0 ? Math.round(yearlyPrice / 12) : Math.round(monthlyPrice * 0.95);
-
-    const displayPrice = isFree
-      ? '₹0'
-      : isEnterprise || monthlyPrice <= 0
-      ? 'Custom'
-      : `₹${monthlyPrice.toLocaleString('en-IN')}`;
-
-    const displayPriceYearly = isFree
-      ? '₹0'
-      : isEnterprise || yearlyPrice <= 0
-      ? 'Custom'
-      : `₹${yearlyPerMonth.toLocaleString('en-IN')}`;
-
-    const features = Array.isArray(dbPlan.features) && dbPlan.features.length > 0
-      ? dbPlan.features
-      : fallbackPlan.features;
-
-    const channels = dbPlan.feature_flags?.allowed_channels || fallbackPlan.channels;
-
-    return {
-      ...fallbackPlan,
-      name: dbPlan.display_name || fallbackPlan.name,
-      subtitle: dbPlan.description || fallbackPlan.subtitle,
-      description: dbPlan.description || fallbackPlan.description,
-      priceMonthly: monthlyPrice,
-      priceYearly: yearlyPrice,
-      priceMonthlyGst: monthlyPrice,
-      priceYearlyGst: yearlyPerMonth,
-      displayPrice,
-      displayPriceYearly,
-      features,
-      channels,
-      badge: dbPlan.is_featured ? '★ Most Popular' : fallbackPlan.badge,
-    };
-  });
-
+  const dbPlans = Array.isArray(pricingData?.plans) ? pricingData.plans : [];
+  const activePlans = dbPlans.map(mapDbPlanToCard);
+  const freeRawPlan = dbPlans.find((p) => (p.key || p.name || '').toLowerCase() === 'free');
   const gstRate = pricingData?.gst_rate ?? 18;
 
   return (
     <div className={`min-h-screen bg-black text-white ${poppins.className} selection:bg-purple-600/30 selection:text-purple-200`}>
       <NavigationSection />
 
-      {/* Main Container */}
       <main className="relative pt-28 sm:pt-32 pb-24 overflow-x-hidden w-full max-w-[100vw] min-w-0">
         <ModernSaaSBackground />
 
         <div className="relative z-10 max-w-7xl mx-auto w-full min-w-0 px-3.5 sm:px-6 lg:px-8">
-          
-          {/* Header Section */}
           <div className="text-center max-w-4xl mx-auto mb-8 sm:mb-12 px-4">
             <div className="inline-flex items-center gap-2 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full bg-purple-950/50 border border-purple-500/30 text-xs text-purple-200 mb-3 sm:mb-5 shadow-[0_0_15px_rgba(168,85,247,0.15)]">
               <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
@@ -273,10 +210,8 @@ export default function PricingPage() {
             </p>
           </div>
 
-          {/* Clean, Beautiful Monthly / Annual Toggler with Balanced Symmetry & Floating Savings Badge */}
           <div className="flex flex-col items-center justify-center mb-10 sm:mb-12 px-2 gap-3.5">
             <div className="relative inline-flex items-center p-1 sm:p-1.5 rounded-full bg-[#0d0e17] border border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.8)] backdrop-blur-2xl ring-1 ring-white/5">
-              {/* Monthly Button */}
               <button
                 type="button"
                 onClick={() => setBillingCycle('monthly')}
@@ -289,7 +224,6 @@ export default function PricingPage() {
                 Monthly billing
               </button>
 
-              {/* Annual Button with Floating Save 5% Pill */}
               <div className="relative">
                 <button
                   type="button"
@@ -303,67 +237,97 @@ export default function PricingPage() {
                   Annual billing
                 </button>
 
-                {/* Floating Modern Pill Badge */}
                 <span className="absolute -top-3.5 -right-2 z-20 pointer-events-none select-none inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold tracking-wider uppercase bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 text-white shadow-[0_0_14px_rgba(236,72,153,0.55)] border border-white/30">
                   Save 5%
                 </span>
               </div>
             </div>
 
-            {/* GST Notice Badge */}
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-950/50 border border-purple-500/30 text-purple-200 text-xs font-medium shadow-[0_0_12px_rgba(168,85,247,0.15)]">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               <span>All plans include {gstRate}% GST</span>
             </div>
           </div>
 
-          {/* ─ UNIFIED CORE PLANS SECTION ─ */}
           <div className="mb-14 sm:mb-20">
-            {/* Free Sandbox Feature Highlight Banner */}
-            <div className="mb-8 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#0b0c14] to-purple-950/20 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.12)] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3.5 w-full">
-                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl overflow-hidden border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.3)] shrink-0 bg-black flex items-center justify-center">
-                  <Image 
-                    src="/icons/free_sandbox_icon.jpg" 
-                    alt="Free Sandbox Icon" 
-                    width={48} 
-                    height={48}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="text-base font-bold text-white tracking-tight">Free Forever Plan &amp; Evaluation Sandbox</h4>
-                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
-                      ₹0 Forever · No Card Required
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-300 mt-1 max-w-2xl break-words leading-relaxed">
-                    Test official WhatsApp AI agents safely without risking phone number bans · 1 User seat · 50 Free AI test credits · 50 Contact leads · Instant access
-                  </p>
-                </div>
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="h-[460px] rounded-3xl border border-white/10 bg-[#0b0c14] animate-pulse" />
+                ))}
               </div>
-              <div className="flex items-center gap-3 w-full md:w-auto shrink-0 pt-2 sm:pt-0">
+            ) : error ? (
+              <div className="rounded-3xl border border-rose-500/30 bg-rose-950/20 p-8 text-center space-y-4">
+                <p className="text-sm text-rose-200">{error}</p>
                 <button
-                  onClick={() => window.location.href = '/login'}
-                  className="w-full sm:w-auto px-5 py-2.5 rounded-full border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 hover:text-white font-semibold text-xs tracking-wide transition-all text-center shadow-sm cursor-pointer"
+                  type="button"
+                  onClick={loadPricing}
+                  className="px-5 py-2 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold cursor-pointer"
                 >
-                  Start Free Forever →
+                  Retry
                 </button>
               </div>
-            </div>
+            ) : activePlans.length === 0 ? (
+              <div className="rounded-3xl border border-white/10 bg-[#0b0c14] p-8 text-center text-sm text-zinc-400">
+                No active pricing plans configured.
+              </div>
+            ) : (
+              <>
+                {freeRawPlan && (
+                  <div className="mb-8 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#0b0c14] to-purple-950/20 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.12)] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3.5 w-full">
+                      <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl overflow-hidden border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.3)] shrink-0 bg-black flex items-center justify-center">
+                        <Image
+                          src="/icons/free_sandbox_icon.jpg"
+                          alt="Free Sandbox Icon"
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="text-base font-bold text-white tracking-tight">
+                            {freeRawPlan.display_name || 'Free Forever'} Plan &amp; Evaluation Sandbox
+                          </h4>
+                          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+                            ₹0 Forever · No Card Required
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-300 mt-1 max-w-2xl break-words leading-relaxed">
+                          {freeRawPlan.description} · {freeRawPlan.team_limit} User seat ·{' '}
+                          {Number(freeRawPlan.included_ai_credits ?? 0).toLocaleString('en-IN')} AI credits ·{' '}
+                          {Number(freeRawPlan.lead_limit ?? 0).toLocaleString('en-IN')} Contact leads
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 w-full md:w-auto shrink-0 pt-2 sm:pt-0">
+                      <button
+                        onClick={() => (window.location.href = '/login')}
+                        className="w-full sm:w-auto px-5 py-2.5 rounded-full border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 hover:text-white font-semibold text-xs tracking-wide transition-all text-center shadow-sm cursor-pointer"
+                      >
+                        Start {freeRawPlan.display_name || 'Free'} →
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-            {/* 6 Core Platform Plans Grid: Free Forever, Starter, Growth, Business, Creator, Enterprise */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {activePlans.map((plan) => (
-                <PlanCard key={plan.key} plan={plan} billing={billingCycle} gstRate={gstRate} />
-              ))}
-            </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                  {activePlans.map((plan) => (
+                    <PlanCard key={plan.key} plan={plan} billing={billingCycle} gstRate={gstRate} />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
-          {/* ─ 3. FEATURE MATRIX COMPARISON TABLE (Matching Image 2) ─ */}
-          <PricingComparisonTable billing={billingCycle} dbPlans={pricingData?.plans} />
-
+          <PricingComparisonTable
+            billing={billingCycle}
+            dbPlans={dbPlans}
+            gstRate={gstRate}
+            loading={loading}
+            error={error}
+          />
         </div>
       </main>
 

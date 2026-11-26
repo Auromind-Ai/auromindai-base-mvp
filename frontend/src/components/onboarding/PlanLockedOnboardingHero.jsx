@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import {
@@ -7,15 +8,38 @@ import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
-  CheckCircle2,
   X,
 } from 'lucide-react';
+import api from '@/lib/api';
+
+const CHANNEL_COLORS = {
+  whatsapp: 'text-emerald-400',
+  instagram: 'text-pink-400',
+  twilio: 'text-sky-400',
+};
 
 export default function PlanLockedOnboardingHero({
   planName = 'free',
   onDismiss,
 }) {
   const router = useRouter();
+  const [paidPlans, setPaidPlans] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    api.getPricing()
+      .then((res) => {
+        if (!isMounted || !Array.isArray(res?.plans)) return;
+        const eligible = res.plans.filter(
+          (p) => p.key !== 'free' && Number(p.monthly_price) > 0
+        );
+        setPaidPlans(eligible.slice(0, 3));
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <motion.section
@@ -97,25 +121,34 @@ export default function PlanLockedOnboardingHero({
           </div>
 
           {/* Quick Plan Summary Box */}
-          <div className="w-full md:w-64 p-4 rounded-xl bg-white/[0.02] border border-white/10 text-xs space-y-2.5 shrink-0">
-            <span className="text-[11px] font-semibold text-purple-300 uppercase tracking-wider block">
-              Available Plans:
-            </span>
-            <div className="space-y-1.5 text-zinc-300">
-              <div className="flex items-center justify-between py-1 border-b border-white/5">
-                <span>Starter (₹1,299/mo)</span>
-                <span className="text-emerald-400 font-medium">WhatsApp</span>
-              </div>
-              <div className="flex items-center justify-between py-1 border-b border-white/5">
-                <span>Creator (₹999/mo)</span>
-                <span className="text-pink-400 font-medium">Instagram</span>
-              </div>
-              <div className="flex items-center justify-between py-1 border-b border-white/5">
-                <span>Growth (₹2,499/mo)</span>
-                <span className="text-purple-300 font-medium">Omnichannel</span>
+          {paidPlans.length > 0 && (
+            <div className="w-full md:w-64 p-4 rounded-xl bg-white/[0.02] border border-white/10 text-xs space-y-2.5 shrink-0">
+              <span className="text-[11px] font-semibold text-purple-300 uppercase tracking-wider block">
+                Available Plans:
+              </span>
+              <div className="space-y-1.5 text-zinc-300">
+                {paidPlans.map((p) => {
+                  const channels = Array.isArray(p.feature_flags?.allowed_channels)
+                    ? p.feature_flags.allowed_channels
+                    : [];
+                  const chLabel = channels.length >= 2
+                    ? 'Omnichannel'
+                    : channels[0]
+                    ? channels[0].charAt(0).toUpperCase() + channels[0].slice(1)
+                    : 'All Channels';
+                  const colorCls = channels.length >= 2
+                    ? 'text-purple-300'
+                    : CHANNEL_COLORS[channels[0]] || 'text-purple-300';
+                  return (
+                    <div key={p.key} className="flex items-center justify-between py-1 border-b border-white/5 last:border-b-0">
+                      <span>{p.display_name || p.name} (₹{Number(p.monthly_price).toLocaleString('en-IN')}/mo)</span>
+                      <span className={`${colorCls} font-medium`}>{chLabel}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 

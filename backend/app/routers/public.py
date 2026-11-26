@@ -78,6 +78,7 @@ async def get_pricing(db: Session = Depends(get_db)) -> Dict[str, Any]:
             "allow_ai_topup": ent.allow_ai_topup if ent else False,
             "allow_wcc_recharge": ent.allow_wcc_recharge if ent else False,
             "allow_flow_addon": ent.allow_flow_addon if ent else False,
+            "feature_flags": dict(ent.feature_flags or {}) if ent else {},
             "featured": plan.is_featured,
             "is_featured": plan.is_featured,
             "display_order": plan.display_order,

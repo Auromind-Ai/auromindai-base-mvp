@@ -856,98 +856,77 @@ export function DashboardPreview() {
 
 // 12: Subscription & Pricing Tiers Simulator Preview
 export function PricingPreview() {
-  const [selectedPlan, setSelectedPlan] = useState('pro');
+  const [selectedPlan, setSelectedPlan] = useState(null);
   const [dynamicPlans, setDynamicPlans] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
     api.getPricing()
       .then((res) => {
-        if (isMounted && res && res.plans && Array.isArray(res.plans) && res.plans.length > 0) {
-          setDynamicPlans(res.plans);
+        if (isMounted && res && Array.isArray(res.plans)) {
+          const filtered = res.plans.filter((p) => p.key !== 'solo');
+          setDynamicPlans(filtered);
+          const featured = filtered.find((p) => p.is_featured) || filtered[0];
+          if (featured) setSelectedPlan(featured.key);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
     return () => {
       isMounted = false;
     };
   }, []);
 
-  const defaultPlans = [
-    {
-      key: 'free',
-      name: 'Free Starter',
-      price: '₹0',
-      period: '/month',
-      badge: 'Free Tier',
-      credits: '20,000',
-      wcc: '₹50 (~45 msgs)',
-      automations: '2 Active Wires',
-      storage: '100 MB Brain',
-      cta: 'Choose this plan',
-    },
-    {
-      key: 'pro',
-      name: 'Pro',
-      price: '₹199',
-      period: '/month',
-      badge: 'Popular',
-      credits: '250,000',
-      wcc: '₹500 (~450 msgs)',
-      automations: '50 Active Wires',
-      storage: '5 GB Brain',
-      cta: 'Choose this plan',
-      featured: true,
-    },
-    {
-      key: 'enterprise',
-      name: 'Enterprise',
-      price: "Let's Talk",
-      period: '',
-      badge: 'Custom Scale',
-      credits: '500,000+',
-      wcc: 'Custom Wallet',
-      automations: 'Unlimited Wires',
-      storage: '100 GB Brain',
-      cta: 'Schedule a call',
-    },
-  ];
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-[#070012] p-6 text-xs text-zinc-400">
+        Loading live pricing tiers...
+      </div>
+    );
+  }
 
-  const plans = dynamicPlans && dynamicPlans.length > 0
-    ? dynamicPlans
-        .filter((p) => p.key !== 'solo')
-        .map((p) => {
-          const rawPrice = p.monthly_price;
-          const displayPrice =
-            p.key === 'free' || rawPrice === 0
-              ? '₹0'
-              : p.key === 'enterprise'
-              ? "Let's Talk"
-              : `₹${Number(rawPrice).toLocaleString('en-IN')}`;
+  if (!dynamicPlans || dynamicPlans.length === 0) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-[#070012] p-6 text-xs text-zinc-400">
+        Unable to load live pricing tiers.
+      </div>
+    );
+  }
 
-          const creditsVal = p.included_ai_credits || p.credits;
-          const creditsStr = creditsVal ? Number(creditsVal).toLocaleString('en-IN') : '20,000';
-          const wccVal = Number(p.included_wcc_wallet || 0);
-          const wccStr = wccVal > 0 ? `₹${wccVal} (~${Math.round(wccVal / 1.1)} msgs)` : '₹0';
-          const autoStr = p.automation_limit === -1 ? 'Unlimited Wires' : `${p.automation_limit} Active Wires`;
-          const storageMb = Number(p.storage_limit_mb || 100);
-          const storageStr = storageMb >= 1024 ? `${storageMb / 1024} GB Brain` : `${storageMb} MB Brain`;
+  const plans = dynamicPlans.map((p) => {
+    const rawPrice = Number(p.monthly_price ?? 0);
+    const displayPrice =
+      p.key === 'free'
+        ? '₹0'
+        : p.key === 'enterprise' || rawPrice <= 0
+        ? "Let's Talk"
+        : `₹${rawPrice.toLocaleString('en-IN')}`;
 
-          return {
-            key: p.key,
-            name: p.display_name || p.name,
-            price: displayPrice,
-            period: p.key === 'enterprise' ? '' : '/month',
-            badge: p.key === 'free' ? 'Free Tier' : p.is_featured || p.key === 'pro' ? 'Popular' : 'Custom Scale',
-            credits: creditsStr,
-            wcc: wccStr,
-            automations: autoStr,
-            storage: storageStr,
-            cta: p.key === 'enterprise' ? 'Schedule a call' : 'Choose this plan',
-            featured: p.is_featured || p.key === 'pro',
-          };
-        })
-    : defaultPlans;
+    const creditsVal = p.included_ai_credits ?? p.credits ?? 0;
+    const creditsStr = creditsVal === -1 ? 'Unlimited' : Number(creditsVal).toLocaleString('en-IN');
+    const wccVal = Number(p.included_wcc_wallet || 0);
+    const wccStr = wccVal > 0 ? `₹${wccVal} (~${Math.round(wccVal / 1.1)} msgs)` : '₹0';
+    const autoStr = p.automation_limit === -1 ? 'Unlimited Wires' : `${p.automation_limit} Active Wires`;
+    const storageMb = Number(p.storage_limit_mb || 0);
+    const storageStr = storageMb === -1 ? 'Unlimited' : storageMb >= 1024 ? `${storageMb / 1024} GB Brain` : `${storageMb} MB Brain`;
+
+    return {
+      key: p.key,
+      name: p.display_name || p.name,
+      price: displayPrice,
+      period: p.key === 'enterprise' || rawPrice <= 0 && p.key !== 'free' ? '' : '/month',
+      badge: p.is_featured ? 'Popular' : p.key === 'free' ? 'Free Tier' : 'Plan',
+      credits: creditsStr,
+      wcc: wccStr,
+      automations: autoStr,
+      storage: storageStr,
+      cta: p.key === 'enterprise' ? 'Schedule a call' : 'Choose this plan',
+      featured: Boolean(p.is_featured),
+    };
+  });
 
   return (
     <div className="rounded-xl border border-white/10 bg-[#070012] p-4 text-xs font-sans select-none shadow-2xl space-y-3.5">

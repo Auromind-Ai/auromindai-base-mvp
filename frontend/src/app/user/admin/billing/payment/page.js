@@ -31,16 +31,6 @@ function ContactModal({ isOpen, onClose, initialData = {} }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
 
-  useEffect(() => {
-    if (initialData) {
-      setFormData((prev) => ({
-        ...prev,
-        name: initialData.name || prev.name,
-        email: initialData.email || prev.email,
-      }))
-    }
-  }, [initialData])
-
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
@@ -256,6 +246,9 @@ function BillingContent() {
   const [settings, setSettings] = useState(null)
   const [billing, setBilling] = useState(null)
   const [plans, setPlans] = useState([])
+  const [plansLoading, setPlansLoading] = useState(true)
+  const [plansError, setPlansError] = useState(null)
+  const [refreshTick, setRefreshTick] = useState(0)
 
   // Modal State
   const [selectedPlanDetails, setSelectedPlanDetails] = useState(null)
@@ -273,36 +266,46 @@ function BillingContent() {
   // Contact Modal State (Enterprise / Custom / Let's Talk)
   const [isContactOpen, setIsContactOpen] = useState(false)
 
+  const loadData = () => {
+    if (!workspaceId) return
+    setPlansLoading(true)
+    setPlansError(null)
+    setRefreshTick((t) => t + 1)
+  }
+
   useEffect(() => {
     if (!workspaceId) {
       console.error(LOG_PREFIX, "Workspace not found. Please sign in again.")
       return
     }
-
-    const loadData = async () => {
-      try {
-        const [billingData, settingsData] = await Promise.all([
-          api.getBillingStatus(workspaceId),
-          api.getPricing(),
-        ])
-
+    let isMounted = true
+    Promise.all([
+      api.getBillingStatus(workspaceId),
+      api.getPricing(),
+    ])
+      .then(([billingData, settingsData]) => {
+        if (!isMounted) return
         setBilling(billingData)
         setCurrentPlan(billingData?.current_plan || "free")
         setSettings(settingsData)
-        const activePlans = (billingData?.plans && billingData.plans.length > 0)
-          ? billingData.plans
-          : (settingsData?.plans && settingsData.plans.length > 0)
+        const activePlans = (settingsData?.plans && settingsData.plans.length > 0)
           ? settingsData.plans
+          : (billingData?.plans && billingData.plans.length > 0)
+          ? billingData.plans
           : []
         setPlans(activePlans)
-      } catch (error) {
+      })
+      .catch((error) => {
         console.error(LOG_PREFIX, "Load error:", error)
-        setCurrentPlan("free")
-      }
+        if (isMounted) setPlansError("Unable to load live pricing plans. Please try again.")
+      })
+      .finally(() => {
+        if (isMounted) setPlansLoading(false)
+      })
+    return () => {
+      isMounted = false
     }
-
-    loadData()
-  }, [workspaceId])
+  }, [workspaceId, refreshTick])
 
   // Step 1: Open Payment Summary Breakdown Modal (or Contact Modal for Enterprise/Custom)
   const handleUpgradeClick = (planKey, billingCycle = "monthly") => {
@@ -468,6 +471,9 @@ function BillingContent() {
         onUpgrade={handleUpgradeClick}
         settings={settings}
         dbPlans={plans}
+        loading={plansLoading}
+        error={plansError}
+        onRetry={loadData}
       />
 
       <PaymentSummaryModal
@@ -493,6 +499,7 @@ function BillingContent() {
       />
 
       <ContactModal
+        key={user?.email || "guest"}
         isOpen={isContactOpen}
         onClose={() => setIsContactOpen(false)}
         initialData={{
