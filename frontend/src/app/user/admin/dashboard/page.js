@@ -32,6 +32,7 @@ import AddLeadModal from '@/components/leads/AddLeadModal';
 import CreditRingDropdown from '@/components/CreditRingDropdown';
 import WhatsAppStatusIndicator from '@/components/dashboard/WhatsAppStatusIndicator';
 import WhatsAppOnboardingSection from '@/components/onboarding/WhatsAppOnboardingSection';
+import { useWorkspaceEntitlements } from '@/hooks/useWorkspaceEntitlements';
 import Preloader from '@/components/Preloader';
 
 // Magic Bento helpers
@@ -1733,13 +1734,20 @@ export default function DashboardPage() {
     });
   }, []);
 
+  const { allowedChannels, planName } = useWorkspaceEntitlements(workspaceId);
+  const isCreatorPlan = allowedChannels.length === 1 && allowedChannels[0] === 'instagram';
+  const hasNoChannels = allowedChannels.length === 0;
+
   const [cachedWhatsAppConnected, setCachedWhatsAppConnected] = useState(false);
+  const [cachedIgConnected, setCachedIgConnected] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const checkConnected = () => {
         const isConn = localStorage.getItem('whatsapp_connected') === 'true';
         setCachedWhatsAppConnected(isConn);
+        const isIg = localStorage.getItem('instagram_connected') === 'true';
+        setCachedIgConnected(isIg);
       };
       checkConnected();
       window.addEventListener('storage', checkConnected);
@@ -1752,7 +1760,16 @@ export default function DashboardPage() {
   }, []);
 
   const isWhatsAppConnected = Boolean(onboardingInfo?.whatsapp_connected) || cachedWhatsAppConnected;
-  const isSetupPending = isWhatsAppConnected && !onboardingInfo?.onboarding_completed;
+  const isInstagramConnected = Boolean(onboardingInfo?.isIgConnected) || cachedIgConnected;
+  const isAnyChannelConnected = isCreatorPlan
+    ? isInstagramConnected
+    : hasNoChannels
+    ? true
+    : (isWhatsAppConnected || isInstagramConnected);
+
+  const isSetupPending = !isCreatorPlan && !hasNoChannels && isWhatsAppConnected && !onboardingInfo?.onboarding_completed;
+  const shouldShowMetrics = isAnyChannelConnected || hasNoChannels || !isOnboardingActive || Boolean(onboardingInfo?.onboarding_completed);
+
   const onboardingProgress = onboardingInfo?.progress_percentage ?? (
     Math.round(((isWhatsAppConnected ? 1 : 0) + (Boolean(onboardingInfo?.two_factor_enabled) ? 1 : 0) + (onboardingInfo?.business_verification_status === 'verified' ? 1 : 0)) / 3 * 100)
   );
@@ -1842,13 +1859,17 @@ export default function DashboardPage() {
         <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 sm:gap-4">
           <div>
             <h1 className="text-xl lg:text-2xl font-semibold tracking-tight text-white/90">
-              {!isWhatsAppConnected && isOnboardingActive ? "Welcome to Orbion Agents 👋" : "Dashboard"}
+              {!isAnyChannelConnected && isOnboardingActive ? "Welcome to Orbion Agents 👋" : "Dashboard"}
             </h1>
             <div className="text-[14px] text-white/70 mt-0.5">
-              {!isWhatsAppConnected && isOnboardingActive ? (
+              {!isAnyChannelConnected && isOnboardingActive ? (
                 <div>
                   <p className="text-white/50 text-[13px] mt-0.5">
-                    Connect your WhatsApp Business account and start automating customer conversations with AI.
+                    {hasNoChannels
+                      ? "Explore Orbion Agents — Upgrade your plan to connect channels and automate customer conversations."
+                      : isCreatorPlan
+                      ? "Connect your Instagram account and start automating customer conversations with AI."
+                      : "Connect your WhatsApp Business account and start automating customer conversations with AI."}
                   </p>
                 </div>
               ) : (
@@ -1857,7 +1878,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center flex-nowrap gap-1.5 sm:gap-3 py-0.5 justify-start xl:justify-end">
-            {/* WhatsApp Setup Pending Indication (Click to toggle full setup cards) */}
+            {/* Setup Pending Indication (Click to toggle full setup cards) */}
             {isSetupPending && (
               <button
                 type="button"
@@ -1870,8 +1891,8 @@ export default function DashboardPage() {
                     : 'border border-amber-500/35 hover:border-amber-500/60 hover:bg-amber-500/10 shadow-[0_0_10px_rgba(245,158,11,0.1)]'
                   }
                 `}
-                title={showOnboardingCards ? "Click to hide WhatsApp setup steps" : "WhatsApp setup pending — Click to open setup steps"}
-                aria-label="WhatsApp setup pending"
+                title={showOnboardingCards ? "Click to hide setup steps" : "Setup pending — Click to open setup steps"}
+                aria-label="Setup pending"
               >
                 {/* Amber pulsating indicator */}
                 <span className="relative flex h-2 w-2 shrink-0">
@@ -1908,7 +1929,7 @@ export default function DashboardPage() {
             )}
 
             <WhatsAppStatusIndicator />
-            {isWhatsAppConnected && (
+            {shouldShowMetrics && (
               <PeriodPicker
                 period={period}
                 dateRange={dateRange}
@@ -1925,7 +1946,7 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        {/* WHATSAPP ONBOARDING FLOW */}
+        {/* ONBOARDING FLOW */}
         <WhatsAppOnboardingSection
           workspaceId={workspaceId}
           isForceOpen={showOnboardingCards}
@@ -1933,8 +1954,8 @@ export default function DashboardPage() {
           onStatusChange={handleOnboardingStatusChange}
         />
 
-        {/* DASHBOARD METRICS & SECTIONS (Only shown once WhatsApp is connected) */}
-        {isWhatsAppConnected && (
+        {/* DASHBOARD METRICS & SECTIONS */}
+        {shouldShowMetrics && (
           <>
             {/* METRICS GRID */}
             <div className={cardStateClass}>

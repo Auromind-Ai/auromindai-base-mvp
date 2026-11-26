@@ -32,6 +32,7 @@ import { requestAccountDeletion, cancelAccountDeletion } from '@/api/auth';
 import { Fonts } from '@/theme/tokens';
 import { scaleFont, scaleContainer, scaleHeight } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
+import { loadingManager } from '@/context/loading-context';
 
 export default function DeleteAccountScreen() {
   const router = useRouter();
@@ -79,29 +80,47 @@ export default function DeleteAccountScreen() {
     if (!confirmedCheckbox || isSubmitting) return;
     setErrorMessage(null);
     setIsSubmitting(true);
+    loadingManager.show({
+      message: 'Processing deletion...',
+      sublabel: 'Updating account schedule',
+      immediate: true,
+      minDisplayMs: 800,
+    });
     try {
       await requestAccountDeletion();
       await authStore.refreshUser();
+      loadingManager.hide();
       // Show Confirmation Modal (Screen 49)
       setShowDoneModal(true);
     } catch (err: any) {
+      loadingManager.hide();
       setErrorMessage(
         err?.message || 'Failed to submit account deletion request. Please try again.'
       );
     } finally {
       setIsSubmitting(false);
+      loadingManager.hide();
     }
   };
 
   // When user clicks "Done" on the Confirmation popup (Screen 49)
   const handleDoneLogout = async () => {
     setShowDoneModal(false);
+    loadingManager.show({
+      message: 'Signing out...',
+      sublabel: 'Account deletion confirmed',
+      immediate: true,
+      minDisplayMs: 1000,
+    });
     try {
       await authStore.signOut();
     } catch {
       await authStore.clearAuth();
     } finally {
-      router.replace('/(auth)/login');
+      setTimeout(() => {
+        loadingManager.hide();
+        router.replace('/(auth)/login');
+      }, 900);
     }
   };
 

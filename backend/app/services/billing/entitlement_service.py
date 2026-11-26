@@ -264,15 +264,15 @@ class EntitlementService:
             ent = PlanEntitlement(
                 id=uuid.uuid4(),
                 plan_id=plan.id,
-                included_ai_credits=20000,
-                included_wcc_wallet=50.00,
+                included_ai_credits=50,
+                included_wcc_wallet=0.00,
                 storage_limit_mb=100,
                 team_limit=1,
                 knowledge_base_limit=5,
-                gmail_limit=1,
+                gmail_limit=0,
                 lead_limit=50,
-                meeting_limit=10,
-                automation_limit=2,
+                meeting_limit=5,
+                automation_limit=20,
                 flow=2,
                 allow_ai_topup=False,
                 allow_purchased_ai_usage=False,
@@ -282,7 +282,219 @@ class EntitlementService:
                 allow_purchased_flow_usage=False,
                 included_credit_reset_policy='EXPIRE',
                 included_wallet_reset_policy='EXPIRE',
-                feature_flags={"has_rag": False, "has_leads": True, "has_gmail": True}
+                feature_flags={
+                    "has_rag": True,
+                    "has_leads": True,
+                    "has_gmail": False,
+                    "lead_enrichment": False,
+                    "lead_scoring": False,
+                    "monthly_conversations": 1000,
+                    "monthly_automation_triggers": 20,
+                    "crm_pipeline_tier": "basic_viewer",
+                    "flow_limit": 2,
+                    "allowed_channels": ["whatsapp"],
+                    "assistant_limit": 1,
+                    "tool_limit": 5,
+                    "template_limit": 5,
+                    "broadcast_tier": "none"
+                }
+            )
+        elif plan_key == "creator" or plan_key.startswith("creator"):
+            ent = PlanEntitlement(
+                id=uuid.uuid4(),
+                plan_id=plan.id,
+                included_ai_credits=15000,
+                included_wcc_wallet=0.00,
+                storage_limit_mb=1024,
+                team_limit=2,
+                knowledge_base_limit=10,
+                gmail_limit=1,
+                lead_limit=1000,
+                meeting_limit=20,
+                automation_limit=1000,
+                flow=100,
+                allow_ai_topup=True,
+                allow_purchased_ai_usage=True,
+                allow_wcc_recharge=False,
+                allow_purchased_wcc_usage=False,
+                allow_flow_addon=True,
+                allow_purchased_flow_usage=True,
+                included_credit_reset_policy='EXPIRE',
+                included_wallet_reset_policy='EXPIRE',
+                feature_flags={
+                    "has_rag": True,
+                    "has_leads": True,
+                    "has_gmail": True,
+                    "lead_enrichment": True,
+                    "lead_scoring": False,
+                    "monthly_conversations": 10000,
+                    "monthly_automation_triggers": 1000,
+                    "crm_pipeline_tier": "contact_list",
+                    "flow_limit": 100,
+                    "allowed_channels": ["instagram"],
+                    "assistant_limit": 2,
+                    "tool_limit": 15,
+                    "template_limit": 10,
+                    "broadcast_tier": "manual_100_day"
+                }
+            )
+        elif plan_key == "starter" or plan_key.startswith("starter"):
+            ent = PlanEntitlement(
+                id=uuid.uuid4(),
+                plan_id=plan.id,
+                included_ai_credits=25000,
+                included_wcc_wallet=0.00,
+                storage_limit_mb=2048,
+                team_limit=3,
+                knowledge_base_limit=25,
+                gmail_limit=2,
+                lead_limit=2500,
+                meeting_limit=50,
+                automation_limit=1000,
+                flow=500,
+                allow_ai_topup=True,
+                allow_purchased_ai_usage=True,
+                allow_wcc_recharge=True,
+                allow_purchased_wcc_usage=True,
+                allow_flow_addon=True,
+                allow_purchased_flow_usage=True,
+                included_credit_reset_policy='EXPIRE',
+                included_wallet_reset_policy='EXPIRE',
+                feature_flags={
+                    "has_rag": True,
+                    "has_leads": True,
+                    "has_gmail": True,
+                    "lead_enrichment": False,
+                    "lead_scoring": False,
+                    "monthly_conversations": 10000,
+                    "monthly_automation_triggers": 1000,
+                    "crm_pipeline_tier": "single_stage_board",
+                    "flow_limit": 500,
+                    "allowed_channels": ["whatsapp"],
+                    "assistant_limit": 2,
+                    "tool_limit": 30,
+                    "template_limit": 15,
+                    "broadcast_tier": "standard_batch"
+                }
+            )
+        elif plan_key == "growth" or plan_key.startswith("growth"):
+            ent = PlanEntitlement(
+                id=uuid.uuid4(),
+                plan_id=plan.id,
+                included_ai_credits=100000,
+                included_wcc_wallet=500.00,
+                storage_limit_mb=5120,
+                team_limit=5,
+                knowledge_base_limit=50,
+                gmail_limit=5,
+                lead_limit=10000,
+                meeting_limit=200,
+                automation_limit=5000,
+                flow=2000,
+                allow_ai_topup=True,
+                allow_purchased_ai_usage=True,
+                allow_wcc_recharge=True,
+                allow_purchased_wcc_usage=True,
+                allow_flow_addon=True,
+                allow_purchased_flow_usage=True,
+                included_credit_reset_policy='EXPIRE',
+                included_wallet_reset_policy='EXPIRE',
+                feature_flags={
+                    "has_rag": True,
+                    "has_leads": True,
+                    "has_gmail": True,
+                    "lead_enrichment": True,
+                    "lead_scoring": False,
+                    "monthly_conversations": 100000,
+                    "monthly_automation_triggers": 5000,
+                    "crm_pipeline_tier": "advance_filtration",
+                    "flow_limit": 2000,
+                    "allowed_channels": ["whatsapp", "instagram"],
+                    "assistant_limit": 3,
+                    "tool_limit": 30,
+                    "template_limit": 50,
+                    "broadcast_tier": "high_volume_scheduler"
+                }
+            )
+        elif plan_key == "business" or plan_key.startswith("business"):
+            ent = PlanEntitlement(
+                id=uuid.uuid4(),
+                plan_id=plan.id,
+                included_ai_credits=250000,
+                included_wcc_wallet=1500.00,
+                storage_limit_mb=20480,
+                team_limit=15,
+                knowledge_base_limit=200,
+                gmail_limit=15,
+                lead_limit=35000,
+                meeting_limit=1000,
+                automation_limit=10000,
+                flow=10000,
+                allow_ai_topup=True,
+                allow_purchased_ai_usage=True,
+                allow_wcc_recharge=True,
+                allow_purchased_wcc_usage=True,
+                allow_flow_addon=True,
+                allow_purchased_flow_usage=True,
+                included_credit_reset_policy='EXPIRE',
+                included_wallet_reset_policy='EXPIRE',
+                feature_flags={
+                    "has_rag": True,
+                    "has_leads": True,
+                    "has_gmail": True,
+                    "lead_enrichment": True,
+                    "lead_scoring": True,
+                    "monthly_conversations": 1000000,
+                    "monthly_automation_triggers": 10000,
+                    "crm_pipeline_tier": "lead_scoring",
+                    "flow_limit": 10000,
+                    "allowed_channels": ["whatsapp", "instagram", "twilio"],
+                    "assistant_limit": 6,
+                    "tool_limit": 60,
+                    "template_limit": -1,
+                    "drip_limit": 10,
+                    "broadcast_tier": "priority_queue"
+                }
+            )
+        elif plan_key == "enterprise" or plan_key.startswith("enterprise"):
+            ent = PlanEntitlement(
+                id=uuid.uuid4(),
+                plan_id=plan.id,
+                included_ai_credits=500000,
+                included_wcc_wallet=2500.00,
+                storage_limit_mb=102400,
+                team_limit=-1,
+                knowledge_base_limit=-1,
+                gmail_limit=-1,
+                lead_limit=-1,
+                meeting_limit=-1,
+                automation_limit=-1,
+                flow=-1,
+                allow_ai_topup=True,
+                allow_purchased_ai_usage=True,
+                allow_wcc_recharge=True,
+                allow_purchased_wcc_usage=True,
+                allow_flow_addon=True,
+                allow_purchased_flow_usage=True,
+                included_credit_reset_policy='ROLLOVER',
+                included_wallet_reset_policy='ROLLOVER',
+                feature_flags={
+                    "has_rag": True,
+                    "has_leads": True,
+                    "has_gmail": True,
+                    "lead_enrichment": True,
+                    "lead_scoring": True,
+                    "monthly_conversations": -1,
+                    "monthly_automation_triggers": -1,
+                    "crm_pipeline_tier": "custom_stages",
+                    "flow_limit": -1,
+                    "allowed_channels": ["whatsapp", "instagram", "twilio"],
+                    "assistant_limit": -1,
+                    "tool_limit": -1,
+                    "template_limit": -1,
+                    "drip_limit": -1,
+                    "broadcast_tier": "dedicated_high_tps"
+                }
             )
         elif plan_key == "solo" or plan_key.startswith("solo"):
             ent = PlanEntitlement(
@@ -330,30 +542,6 @@ class EntitlementService:
                 allow_purchased_flow_usage=True,
                 included_credit_reset_policy='EXPIRE',
                 included_wallet_reset_policy='EXPIRE',
-                feature_flags={"has_rag": True, "has_leads": True, "has_gmail": True}
-            )
-        elif plan_key == "enterprise" or plan_key.startswith("enterprise"):
-            ent = PlanEntitlement(
-                id=uuid.uuid4(),
-                plan_id=plan.id,
-                included_ai_credits=500000,
-                included_wcc_wallet=500.00,
-                storage_limit_mb=102400,
-                team_limit=50,
-                knowledge_base_limit=1000,
-                gmail_limit=-1,
-                lead_limit=-1,
-                meeting_limit=-1,
-                automation_limit=-1,
-                flow=-1,
-                allow_ai_topup=True,
-                allow_purchased_ai_usage=True,
-                allow_wcc_recharge=True,
-                allow_purchased_wcc_usage=True,
-                allow_flow_addon=True,
-                allow_purchased_flow_usage=True,
-                included_credit_reset_policy='ROLLOVER',
-                included_wallet_reset_policy='ROLLOVER',
                 feature_flags={"has_rag": True, "has_leads": True, "has_gmail": True}
             )
         else:
@@ -476,34 +664,93 @@ class EntitlementService:
         return EffectiveEntitlement(entitlement, ws)
 
     @classmethod
+    def get_monthly_conversation_quota(cls, db: Session, workspace_id: uuid.UUID | str) -> Dict[str, Any]:
+        """Compute active conversations processed in the current UTC calendar month vs plan limit."""
+        from app.models.conversation import Conversation
+
+        if isinstance(workspace_id, str):
+            workspace_id = uuid.UUID(workspace_id)
+
+        entitlement = cls.get_workspace_entitlement(db, workspace_id)
+        flags = getattr(entitlement, "feature_flags", None) or {}
+        raw_limit = flags.get("monthly_conversations", 1000)
+        try:
+            limit = int(raw_limit)
+        except (ValueError, TypeError):
+            limit = 1000
+
+        first_day_of_month = datetime.now(timezone.utc).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        bind = getattr(db, "bind", None)
+        if bind is not None and getattr(getattr(bind, "dialect", None), "name", "") == "sqlite":
+            first_day_of_month = first_day_of_month.replace(tzinfo=None)
+        used = (
+            db.query(Conversation)
+            .filter(
+                Conversation.workspace_id == workspace_id,
+                func.coalesce(Conversation.last_message_at, Conversation.created_at) >= first_day_of_month,
+            )
+            .count()
+        )
+        if limit == -1:
+            remaining = -1
+        else:
+            remaining = max(0, limit - used)
+
+        return {
+            "used": used,
+            "limit": limit,
+            "remaining": remaining,
+        }
+
+    @classmethod
     def check_entitlement(
         cls, db: Session, workspace_id: uuid.UUID, resource: str, value: int = 1
     ) -> Dict[str, Any]:
         if isinstance(workspace_id, str):
             workspace_id = uuid.UUID(workspace_id)
         entitlement = cls.get_workspace_entitlement(db, workspace_id)
+        flags = getattr(entitlement, "feature_flags", None) or {}
         resource = resource.lower()
 
-        # Handle feature flags
+        # Handle boolean feature flags (exclude numeric quota / structured tier keys that have dedicated handlers)
         flag_aliases = {
             "has_rag": "has_rag",
             "ai_gmail_lead_fallback": "ai_gmail_lead_fallback",
             "ai_lead_fallback": "ai_gmail_lead_fallback",
+        }
+        non_boolean_flag_keys = {
+            "monthly_conversations",
+            "monthly_automation_triggers",
+            "crm_pipeline_tier",
+            "flow_limit",
+            "allowed_channels",
+            "assistant_limit",
+            "tool_limit",
+            "template_limit",
+            "drip_limit",
+            "broadcast_tier",
+            "lead_enrichment",
+            "lead_scoring",
         }
         res_lower = resource.lower()
         if (
             resource == "feature_flags"
             or resource.startswith("flag_")
             or res_lower in flag_aliases
-            or res_lower in [k.lower() for k in entitlement.feature_flags.keys()]
+            or (
+                res_lower not in non_boolean_flag_keys
+                and res_lower in [k.lower() for k in flags.keys()]
+            )
         ):
             flag_name = resource.replace("flag_", "").lower()
             canonical_name = flag_aliases.get(flag_name, flag_name)
             flag_value = (
-                entitlement.feature_flags.get(canonical_name, False)
-                or entitlement.feature_flags.get(canonical_name.upper(), False)
-                or entitlement.feature_flags.get(flag_name, False)
-                or entitlement.feature_flags.get(flag_name.upper(), False)
+                flags.get(canonical_name, False)
+                or flags.get(canonical_name.upper(), False)
+                or flags.get(flag_name, False)
+                or flags.get(flag_name.upper(), False)
             )
             limit_val = 1 if flag_value else 0
             usage_val = 0 if flag_value else 1
@@ -548,7 +795,10 @@ class EntitlementService:
             ).count()
             limit = entitlement.gmail_limit
         elif resource == "lead":
-            usage = db.query(Lead).filter(Lead.workspace_id == workspace_id).count()
+            usage = db.query(Lead).filter(
+                Lead.workspace_id == workspace_id,
+                Lead.is_locked.isnot(True)
+            ).count()
             limit = entitlement.lead_limit
         elif resource == "meeting":
             usage = db.query(CalendarEvent).filter(CalendarEvent.workspace_id == workspace_id).count()
@@ -558,10 +808,59 @@ class EntitlementService:
                 AutomationFlow.workspace_id == workspace_id, AutomationFlow.status == "Active"
             ).count()
             limit = entitlement.automation_limit
-        elif resource == "flow":
+        elif resource in ("flow", "flows", "flow_executions"):
             flow_q = cls.get_flow_quota(db, workspace_id)
             usage = flow_q["used_quota"]
             limit = flow_q["total_quota"]
+        elif resource in ("conversation", "conversations", "monthly_conversations"):
+            conv_q = cls.get_monthly_conversation_quota(db, workspace_id)
+            usage = conv_q["used"]
+            limit = conv_q["limit"]
+        elif resource in ("automation_trigger", "automation_triggers", "monthly_automation_triggers"):
+            usage = db.query(AutomationFlow).filter(
+                AutomationFlow.workspace_id == workspace_id, AutomationFlow.status == "Active"
+            ).count()
+            limit = int(entitlement.feature_flags.get("monthly_automation_triggers", entitlement.automation_limit or 20))
+        elif resource in ("ai_credits", "included_ai_credits"):
+            limit = entitlement.included_ai_credits
+            return {
+                "allowed": limit > 0 or limit == -1,
+                "current": 0,
+                "limit": limit,
+                "remaining": limit,
+                "reason": None if (limit > 0 or limit == -1) else "No AI credits included in this plan."
+            }
+        elif resource in ("wcc_wallet", "included_wcc_wallet", "wallet"):
+            limit = float(entitlement.included_wcc_wallet or 0.0)
+            return {
+                "allowed": limit > 0,
+                "current": 0,
+                "limit": limit,
+                "remaining": limit,
+                "reason": None if limit > 0 else "No promotional WCC wallet included in this plan."
+            }
+        elif resource in ("crm", "crm_pipeline", "pipeline"):
+            tier = entitlement.feature_flags.get("crm_pipeline_tier", "basic_viewer")
+            allowed = tier not in ("basic_viewer", "none")
+            return {
+                "allowed": allowed,
+                "current": 0,
+                "limit": 1 if allowed else 0,
+                "remaining": 1 if allowed else 0,
+                "tier": tier,
+                "reason": None if allowed else "Full CRM pipeline boards are available on Starter, Growth, and Business plans."
+            }
+        elif resource in ("advance_crm", "crm_filtration"):
+            tier = entitlement.feature_flags.get("crm_pipeline_tier", "basic_viewer")
+            allowed = tier in ("advance_filtration", "lead_scoring", "custom_stages")
+            return {
+                "allowed": allowed,
+                "current": 0,
+                "limit": 1 if allowed else 0,
+                "remaining": 1 if allowed else 0,
+                "tier": tier,
+                "reason": None if allowed else "Advance Filtration CRM is available on Growth, Business, and Enterprise plans."
+            }
         elif resource in ("ai_topup", "ai_credit_recharge", "can_topup_ai"):
             allowed = bool(getattr(entitlement, "allow_ai_topup", True))
             return {
@@ -588,6 +887,49 @@ class EntitlementService:
                 "limit": 1 if allowed else 0,
                 "remaining": 1 if allowed else 0,
                 "reason": None if allowed else "Flow Pack add-on purchase is not available for your current plan. Please upgrade to Pro."
+            }
+        elif resource.startswith("channel_") or resource in ("channel", "channels", "whatsapp", "instagram", "twilio"):
+            channel_target = resource.replace("channel_", "").strip().lower()
+            allowed_channels = [str(c).lower().strip() for c in entitlement.feature_flags.get("allowed_channels", [])]
+            allowed = (channel_target in allowed_channels) or ("all" in allowed_channels)
+            return {
+                "allowed": allowed,
+                "current": 0,
+                "limit": len(allowed_channels),
+                "remaining": 1 if allowed else 0,
+                "reason": None if allowed else f"Channel '{channel_target.title()}' is not supported on your plan. Please upgrade your subscription.",
+            }
+        elif resource in ("assistant", "ai_assistant", "assistants"):
+            limit = int(entitlement.feature_flags.get("assistant_limit", -1))
+            from app.models.ai_agent import AIAgent
+            usage = db.query(AIAgent).filter(AIAgent.workspace_id == workspace_id).count()
+        elif resource in ("tool", "ai_tool", "tools"):
+            limit = int(entitlement.feature_flags.get("tool_limit", -1))
+            usage = 0
+        elif resource in ("template", "meta_template", "templates"):
+            limit = int(entitlement.feature_flags.get("template_limit", -1))
+            from app.models.templates import Template
+            usage = db.query(Template).filter(Template.workspace_id == workspace_id).count()
+        elif resource in ("drip", "drip_campaign", "drip_campaigns"):
+            limit = int(entitlement.feature_flags.get("drip_limit", 0))
+            usage = db.query(AutomationFlow).filter(AutomationFlow.workspace_id == workspace_id).count()
+        elif resource in ("lead_enrichment", "enrichment"):
+            allowed = bool(entitlement.feature_flags.get("lead_enrichment", False))
+            return {
+                "allowed": allowed,
+                "current": 0,
+                "limit": 1 if allowed else 0,
+                "remaining": 1 if allowed else 0,
+                "reason": None if allowed else "Lead Enrichment is not available on your plan. Upgrade to Creator, Growth, or Business."
+            }
+        elif resource in ("lead_scoring", "scoring"):
+            allowed = bool(entitlement.feature_flags.get("lead_scoring", False))
+            return {
+                "allowed": allowed,
+                "current": 0,
+                "limit": 1 if allowed else 0,
+                "remaining": 1 if allowed else 0,
+                "reason": None if allowed else "Lead Scoring is only available on Business and Enterprise plans."
             }
         else:
             raise ValueError(f"Unknown entitlement resource type: {resource}")
@@ -832,10 +1174,16 @@ class EntitlementService:
             "kb": "Knowledge Base documents",
             "lead": "leads",
             "automation": "active automations",
+            "automation_trigger": "monthly automation triggers",
+            "monthly_automation_triggers": "monthly automation triggers",
             "gmail": "Gmail accounts",
             "flow": "flow executions",
             "storage": "MB of storage",
             "meeting": "meetings",
+            "conversation": "monthly active conversations",
+            "monthly_conversations": "monthly active conversations",
+            "crm": "CRM pipeline boards",
+            "advance_crm": "Advance Filtration CRM",
         }
         resource_label = labels.get(resource.lower(), resource)
 
@@ -863,13 +1211,18 @@ class EntitlementService:
                         "flow": next_ent.flow,
                         "storage": next_ent.storage_limit_mb,
                         "meeting": next_ent.meeting_limit,
+                        "conversation": (next_ent.feature_flags or {}).get("monthly_conversations"),
+                        "conversations": (next_ent.feature_flags or {}).get("monthly_conversations"),
+                        "monthly_conversations": (next_ent.feature_flags or {}).get("monthly_conversations"),
                     }
                     next_limit_val = field_map.get(resource.lower())
 
                 next_plan_name = next_plan.display_name or next_plan.name.title()
                 next_price_display = f"₹{int(next_plan.price)}/month" if next_plan.price else "next tier"
 
-                if next_limit_val and next_limit_val > current_limit:
+                if next_limit_val == -1:
+                    msg = f"You have reached your {plan_name} plan limit of {current_limit} {resource_label}. Upgrade to {next_plan_name} for {next_price_display} for unlimited {resource_label}, or contact us for custom add-ons."
+                elif next_limit_val and next_limit_val > current_limit:
                     msg = f"You have reached your {plan_name} plan limit of {current_limit} {resource_label}. Upgrade to {next_plan_name} for {next_price_display} to add up to {next_limit_val} {resource_label}, or contact us for custom add-ons."
                 else:
                     msg = f"You have reached your {plan_name} plan limit of {current_limit} {resource_label}. Upgrade to {next_plan_name} for {next_price_display} to increase your limit, or contact us for custom add-ons."

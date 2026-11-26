@@ -539,8 +539,61 @@ def get_workspace_lead_scores(
         effective.search = search
     query = lead_query(db, workspace_id, effective, user_id)
 
-    # Total count (before pagination)
-    total = query.count()
+    from app.services.billing.entitlement_service import EntitlementService
+    try:
+        ent = EntitlementService.get_workspace_entitlement(db, workspace_id)
+        max_leads = getattr(ent, "lead_limit", -1) if ent else -1
+    except Exception:
+        max_leads = -1
+
+    # Auto-unlock leads if current plan limit allows it 
+    try:
+        if max_leads == -1 or max_leads > 1000:
+            locked_leads_exist = db.query(Lead).filter(
+                Lead.workspace_id == workspace_id,
+                Lead.is_locked == True
+            ).first()
+            if locked_leads_exist:
+                unlocked_cnt = db.query(Lead).filter(
+                    Lead.workspace_id == workspace_id,
+                    Lead.is_locked.isnot(True)
+                ).count()
+                if max_leads == -1 or unlocked_cnt < max_leads:
+                    slots_avail = (max_leads - unlocked_cnt) if max_leads != -1 else None
+                    to_unlock_q = (
+                        db.query(Lead)
+                        .filter(Lead.workspace_id == workspace_id, Lead.is_locked == True)
+                        .order_by(Lead.created_at.asc())
+                    )
+                    if slots_avail is not None:
+                        to_unlock_q = to_unlock_q.limit(slots_avail)
+                    for l_un in to_unlock_q.all():
+                        l_un.is_locked = False
+                    db.commit()
+    except Exception as unlock_err:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        import logging
+        logging.getLogger(__name__).warning("Error auto-unlocking leads: %s", unlock_err)
+
+   
+    raw_total = query.count()
+
+    
+    locked_count = 0
+    if max_leads is not None and max_leads != -1 and raw_total > max_leads:
+        locked_count = raw_total - max_leads
+    else:
+        locked_count = db.query(Lead).filter(
+            Lead.workspace_id == workspace_id,
+            Lead.is_locked == True
+        ).count()
+
+    total = raw_total
+    if max_leads is not None and max_leads != -1:
+        total = min(raw_total, max_leads)
 
     # Sorting: Default to recent (most recent activity / return date first)
     if sort_by == "score_asc":
@@ -558,7 +611,16 @@ def get_workspace_lead_scores(
             Lead.id.desc()
         )
 
-    leads = query.offset(offset).limit(limit).all()
+    if max_leads is not None and max_leads != -1:
+        if offset >= max_leads:
+            leads = []
+        elif offset + limit > max_leads:
+            effective_limit = max(0, max_leads - offset)
+            leads = query.offset(offset).limit(effective_limit).all()
+        else:
+            leads = query.offset(offset).limit(limit).all()
+    else:
+        leads = query.offset(offset).limit(limit).all()
     flow_names = get_lead_flow_names(db, workspace_id, [lead.conversation_id for lead in leads])
     responses_by_lead = {}
     if leads:
@@ -642,9 +704,16 @@ def get_workspace_lead_scores(
             "converted_product": lead.converted_product,
             "conversion_notes": lead.conversion_notes,
             "is_favorite": lead.is_favorite,
+            "is_locked": getattr(lead, "is_locked", False),
         })
 
-    return {"total": total, "items": items}
+    return {
+        "total": total,
+        "items": items,
+        "locked_leads_count": max(0, locked_count),
+        "max_leads": max_leads,
+        "raw_total": raw_total,
+    }
 
 
 def calculate_avg_reply_minutes(conversation_id: UUID, db: Session) -> float | None:

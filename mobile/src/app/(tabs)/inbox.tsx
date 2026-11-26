@@ -125,6 +125,75 @@ function TwilioIcon({ size = 18 }: { size?: number }) {
   );
 }
 
+// All (4-Square Grid) Icon matching Design Image 2
+function AllGridIcon({ size = 34 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Rect x="2" y="2" width="9" height="9" rx="2.6" fill="#FFFFFF" />
+      <Rect x="13" y="2" width="9" height="9" rx="2.6" fill="#FFFFFF" />
+      <Rect x="2" y="13" width="9" height="9" rx="2.6" fill="#FFFFFF" />
+      <Rect x="13" y="13" width="9" height="9" rx="2.6" fill="#FFFFFF" />
+    </Svg>
+  );
+}
+
+// WhatsApp Channel Icon matching Design Image 2 (Green circle with white rim and phone)
+function WhatsAppChannelIcon({ size = 38 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 48 48">
+      <Circle cx="24" cy="24" r="22" fill="#25D366" stroke="#FFFFFF" strokeWidth="2.5" />
+      <Path
+        d="M34.5 13.4C32.1 11 28.9 9.6 25.5 9.6c-7 0-12.7 5.7-12.7 12.7 0 2.2.6 4.4 1.7 6.3L12.6 35l6.6-1.7c1.8 1 3.8 1.5 5.9 1.5 7 0 12.7-5.7 12.7-12.7-.1-3.4-1.5-6.5-3.3-8.7zm-9 19.5c-1.9 0-3.7-.5-5.3-1.4l-.4-.2-3.9 1 1-3.8-.2-.4c-1-1.6-1.6-3.5-1.6-5.4 0-5.6 4.6-10.2 10.2-10.2 2.7 0 5.3 1.1 7.2 2.9 1.9 1.9 3 4.4 3 7.1.2 5.8-4.4 10.4-10 10.4zm5.6-7.6c-.3-.2-1.8-.9-2.1-1s-.5-.2-.7.2-.8 1-1 1.2-.4.2-.7.1c-.3-.2-1.2-.4-2.3-1.4-.8-.7-1.4-1.6-1.6-1.9s0-.5.2-.6l.5-.6c.1-.2.2-.4.3-.6 0-.2 0-.4-.1-.6s-.7-1.7-1-2.3c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4s-1 1-1 2.5 1 2.9 1.2 3.1c.2.2 2 3 4.9 4.2.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.2-.2-.2-.5-.4z"
+        fill="#FFFFFF"
+      />
+    </Svg>
+  );
+}
+
+// Instagram Channel Icon matching Design Image 2 (Squircle gradient + camera glyph)
+function InstagramChannelIcon({ size = 38 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Defs>
+        <SvgLinearGradient id="igChannelPillGrad" x1="0" y1="1" x2="1" y2="0">
+          <Stop offset="0%" stopColor="#FA7E1E" />
+          <Stop offset="40%" stopColor="#D62976" />
+          <Stop offset="70%" stopColor="#962FBF" />
+          <Stop offset="100%" stopColor="#4F5BD5" />
+        </SvgLinearGradient>
+      </Defs>
+      <Rect width="24" height="24" rx="7.5" fill="url(#igChannelPillGrad)" />
+      <Rect
+        x="5.2"
+        y="5.2"
+        width="13.6"
+        height="13.6"
+        rx="4"
+        fill="none"
+        stroke="#FFFFFF"
+        strokeWidth="1.6"
+      />
+      <Circle cx="12" cy="12" r="3.2" fill="none" stroke="#FFFFFF" strokeWidth="1.6" />
+      <Circle cx="15.8" cy="8.2" r="0.9" fill="#FFFFFF" />
+    </Svg>
+  );
+}
+
+// Twilio Channel Icon matching Design Image 2 (Red circle with 4 white dots)
+function TwilioChannelIcon({ size = 38 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx="12" cy="12" r="12" fill="#E11D48" />
+      <Circle cx="8.5" cy="8.5" r="1.85" fill="#FFFFFF" />
+      <Circle cx="15.5" cy="8.5" r="1.85" fill="#FFFFFF" />
+      <Circle cx="8.5" cy="15.5" r="1.85" fill="#FFFFFF" />
+      <Circle cx="15.5" cy="15.5" r="1.85" fill="#FFFFFF" />
+    </Svg>
+  );
+}
+
+
+
 // Enable layout animation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   try {
@@ -151,37 +220,26 @@ const IOS_SPRING_LAYOUT = {
   },
 };
 
-// Premium Animated Channel Pill
-function AnimatedChannelPill({
-  isSelected,
-  onPress,
-  icon,
-  activeIcon,
+// Premium Channel Category Pill (Redesigned per Design Image 2 Pattern)
+function ChannelCategoryPill({
   label,
   count,
+  isSelected,
+  onPress,
   isDark,
-  isAll = false,
+  isSmallDevice,
+  renderIcon,
 }: {
-  isSelected: boolean;
-  onPress: () => void;
-  icon?: React.ReactNode;
-  activeIcon?: React.ReactNode;
+  id: ChannelType;
   label: string;
   count: number;
+  isSelected: boolean;
+  onPress: () => void;
   isDark: boolean;
-  isAll?: boolean;
+  isSmallDevice: boolean;
+  renderIcon: () => React.ReactNode;
 }) {
   const [scaleAnim] = useState(() => new Animated.Value(1));
-  const [activeAnim] = useState(() => new Animated.Value(isSelected ? 1 : 0));
-
-  React.useEffect(() => {
-    Animated.timing(activeAnim, {
-      toValue: isSelected ? 1 : 0,
-      duration: 320,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      useNativeDriver: true,
-    }).start();
-  }, [isSelected, activeAnim]);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -201,88 +259,118 @@ function AnimatedChannelPill({
     }).start();
   };
 
+  const pillWidth = isSmallDevice ? 64 : 70;
+  const pillHeight = isSmallDevice ? 21 : 24;
+  const pillRadius = isSmallDevice ? 9 : 10;
+  const iconWrapperHeight = isSmallDevice ? 34 : 38;
+
   return (
-    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, styles.channelItemTouchable]}>
-      <TouchableOpacity
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={0.92}
-      >
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={styles.channelCategoryTouchable}
+    >
+      <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, styles.channelCategoryItem]}>
+        {/* Outer pill wrapper that holds the pill backdrop and the taller icon */}
         <View
           style={[
-            isSelected
-              ? styles.channelPillActiveGradient
-              : isAll
-              ? styles.channelPillBase
-              : styles.channelPillIconOnly,
-            { overflow: 'hidden', position: 'relative' },
+            styles.channelPillCardWrapper,
+            { width: pillWidth, height: iconWrapperHeight },
           ]}
         >
-          {/* Active Gradient Overlay */}
-          <Animated.View
-            pointerEvents="none"
+          {/* Glass Pill Backdrop (Decreased height and smaller border radius) */}
+          <View
             style={[
-              StyleSheet.absoluteFill,
-              isDark ? styles.channelPillBorderDark : styles.channelPillBorderLight,
-              { opacity: activeAnim, borderRadius: 999 },
+              styles.channelGlassCapsule,
+              {
+                width: pillWidth,
+                height: pillHeight,
+                borderRadius: pillRadius,
+                borderWidth: isSelected ? 1.5 : 1.2,
+                borderColor: isSelected
+                  ? '#FFFFFF'
+                  : isDark
+                  ? 'rgba(175, 165, 255, 0.32)'
+                  : 'rgba(255, 255, 255, 0.40)',
+              },
             ]}
           >
-            <LinearGradient
-              colors={isDark ? ['#A69BFF', '#7655F0', '#6241DD'] : ['#FDFCFF', '#E5DFFF']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-          </Animated.View>
-
-          {/* Content */}
-          {isSelected ? (
-            <Animated.View
+            {/* Background gradient matching the top section overall gradient */}
+            <View
               style={[
-                styles.channelPillActiveInner,
-                { opacity: activeAnim },
+                StyleSheet.absoluteFill,
+                { borderRadius: pillRadius, overflow: 'hidden' },
               ]}
             >
-              {activeIcon || icon}
-              <Text
-                style={[
-                  styles.channelPillLabel,
-                  isDark
-                    ? styles.channelPillLabelActiveDark
-                    : styles.channelPillLabelActiveLight,
-                ]}
-              >
-                {label}
-              </Text>
+              <LinearGradient
+                colors={
+                  isSelected
+                    ? isDark
+                      ? ['rgba(210, 200, 255, 0.52)', 'rgba(135, 120, 250, 0.42)', 'rgba(75, 65, 190, 0.50)']
+                      : ['rgba(242, 238, 255, 0.68)', 'rgba(185, 175, 255, 0.48)', 'rgba(135, 125, 225, 0.42)']
+                    : isDark
+                    ? ['rgba(152, 142, 255, 0.32)', 'rgba(90, 80, 205, 0.26)', 'rgba(45, 40, 115, 0.45)']
+                    : ['rgba(220, 215, 255, 0.42)', 'rgba(155, 145, 230, 0.32)', 'rgba(100, 95, 175, 0.38)']
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              {/* Top Gloss Highlight Sheen */}
               <View
                 style={[
-                  styles.channelCountBadge,
-                  isDark
-                    ? styles.channelBadgeSelectedDark
-                    : styles.channelBadgeSelectedLight,
+                  styles.channelGlassSheen,
+                  {
+                    borderTopLeftRadius: pillRadius - 2,
+                    borderTopRightRadius: pillRadius - 2,
+                  },
                 ]}
-              >
-                <Text
-                  style={[
-                    styles.channelCountBadgeText,
-                    !isDark && { color: '#6F51D1' },
-                  ]}
-                >
-                  {count}
+              />
+            </View>
+          </View>
+
+          {/* Logo extending above the top of the pill container */}
+          <View style={styles.channelIconWrapper}>
+            {renderIcon()}
+
+            {/* Notification Badge if count > 0 */}
+            {count > 0 && (
+              <View style={styles.channelCountBadge}>
+                <Text style={styles.channelCountBadgeText}>
+                  {count > 99 ? '99+' : count}
                 </Text>
               </View>
-            </Animated.View>
-          ) : isAll ? (
-            <Text style={[styles.channelPillLabel, styles.channelPillLabelInactive]}>
-              All
-            </Text>
-          ) : (
-            icon
-          )}
+            )}
+          </View>
         </View>
-      </TouchableOpacity>
-    </Animated.View>
+
+        {/* Category Label */}
+        <Text
+          style={[
+            styles.channelCategoryLabel,
+            isSmallDevice && styles.channelCategoryLabelSmall,
+            isSelected
+              ? styles.channelCategoryLabelActive
+              : styles.channelCategoryLabelInactive,
+          ]}
+        >
+          {label}
+        </Text>
+
+        {/* Active Underline Indicator Bar */}
+        <View
+          style={[
+            styles.channelActiveIndicator,
+            isSmallDevice && styles.channelActiveIndicatorSmall,
+            {
+              backgroundColor: isSelected ? '#FFFFFF' : 'transparent',
+            },
+          ]}
+        />
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
 
@@ -832,86 +920,58 @@ export default function OmniInboxScreen() {
             </View>
           )}
 
-          {/* CHANNEL FILTER BAR CONTAINER */}
-          <View
-            style={[
-              styles.channelBarContainer,
-              isDark ? styles.channelBarDark : styles.channelBarLight,
-            ]}
-          >
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.channelScrollContent}
-              bounces={false}
-            >
+          {/* CHANNEL CATEGORIES (REDESIGNED PER DESIGN IMAGE 2 PATTERN) */}
+          <View style={styles.channelCategoriesContainer}>
+            <View style={styles.channelCategoriesRow}>
               {/* 1. All */}
-              <AnimatedChannelPill
-                isSelected={selectedChannel === 'all'}
-                onPress={() => handleSelectChannel('all')}
+              <ChannelCategoryPill
+                id="all"
                 label="All"
                 count={channelCounts.all}
+                isSelected={selectedChannel === 'all'}
+                onPress={() => handleSelectChannel('all')}
                 isDark={isDark}
-                isAll={true}
-              />
-
-              {/* Divider */}
-              <View
-                style={[
-                  styles.channelDivider,
-                  { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.22)' },
-                ]}
+                isSmallDevice={isSmallDevice}
+                renderIcon={() => <AllGridIcon size={isSmallDevice ? 30 : 34} />}
               />
 
               {/* 2. WhatsApp */}
-              <AnimatedChannelPill
-                isSelected={selectedChannel === 'whatsapp'}
-                onPress={() => handleSelectChannel(selectedChannel === 'whatsapp' ? 'all' : 'whatsapp')}
-                icon={<WhatsAppIcon size={18} />}
-                activeIcon={<WhatsAppIcon size={17} />}
+              <ChannelCategoryPill
+                id="whatsapp"
                 label="WhatsApp"
                 count={channelCounts.whatsapp}
+                isSelected={selectedChannel === 'whatsapp'}
+                onPress={() => handleSelectChannel(selectedChannel === 'whatsapp' ? 'all' : 'whatsapp')}
                 isDark={isDark}
-              />
-
-              {/* Divider */}
-              <View
-                style={[
-                  styles.channelDivider,
-                  { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.22)' },
-                ]}
+                isSmallDevice={isSmallDevice}
+                renderIcon={() => <WhatsAppChannelIcon size={isSmallDevice ? 34 : 38} />}
               />
 
               {/* 3. Instagram */}
-              <AnimatedChannelPill
-                isSelected={selectedChannel === 'instagram'}
-                onPress={() => handleSelectChannel(selectedChannel === 'instagram' ? 'all' : 'instagram')}
-                icon={<InstagramIcon size={18} />}
-                activeIcon={<InstagramIcon size={17} />}
+              <ChannelCategoryPill
+                id="instagram"
                 label="Instagram"
                 count={channelCounts.instagram}
+                isSelected={selectedChannel === 'instagram'}
+                onPress={() => handleSelectChannel(selectedChannel === 'instagram' ? 'all' : 'instagram')}
                 isDark={isDark}
-              />
-
-              {/* Divider */}
-              <View
-                style={[
-                  styles.channelDivider,
-                  { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.22)' },
-                ]}
+                isSmallDevice={isSmallDevice}
+                renderIcon={() => <InstagramChannelIcon size={isSmallDevice ? 34 : 38} />}
               />
 
               {/* 4. Twilio */}
-              <AnimatedChannelPill
-                isSelected={selectedChannel === 'twilio'}
-                onPress={() => handleSelectChannel(selectedChannel === 'twilio' ? 'all' : 'twilio')}
-                icon={<TwilioIcon size={18} />}
-                activeIcon={<TwilioIcon size={17} />}
+              <ChannelCategoryPill
+                id="twilio"
                 label="Twilio"
                 count={channelCounts.twilio}
+                isSelected={selectedChannel === 'twilio'}
+                onPress={() => handleSelectChannel(selectedChannel === 'twilio' ? 'all' : 'twilio')}
                 isDark={isDark}
+                isSmallDevice={isSmallDevice}
+                renderIcon={() => <TwilioChannelIcon size={isSmallDevice ? 34 : 38} />}
               />
-            </ScrollView>
+            </View>
+            
           </View>
         </SafeAreaView>
       </View>
@@ -1618,7 +1678,7 @@ const styles = StyleSheet.create({
   headerWrapper: {
     paddingHorizontal: 16,
     paddingTop: 6,
-    paddingBottom: TOP_CURVE_RADIUS + TOP_CURVE_GAP,
+    paddingBottom: TOP_CURVE_RADIUS + TOP_CURVE_GAP + scaleContainer(6),
     position: 'relative',
     overflow: 'hidden',
   },
@@ -1683,130 +1743,112 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.regular,
   },
 
-  /* CHANNEL FILTER BAR */
-  channelBarContainer: {
-    borderRadius: 999,
-    paddingVertical: 4,
-    marginTop: 14,
-    borderWidth: 1,
-    overflow: 'hidden',
+  /* CHANNEL CATEGORIES (REDESIGN - IMAGE 2 PATTERN) */
+  channelCategoriesContainer: {
+    position: 'relative',
+    marginTop: 16,
+    marginBottom: 4,
+    paddingHorizontal: 2,
   },
-  channelBarLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderColor: 'rgba(255, 255, 255, 0.40)',
-  },
-  channelBarDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-    borderColor: 'rgba(171, 166, 255, 0.18)',
-  },
-  channelScrollContent: {
+  channelCategoriesRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    flexGrow: 1,
-    paddingHorizontal: 4,
   },
-  channelItemTouchable: {
-    borderRadius: 999,
+  channelCategoryTouchable: {
+    flex: 1,
+    alignItems: 'center',
   },
-  channelPillBase: {
-    flexDirection: 'row',
+  channelCategoryItem: {
+    alignItems: 'center',
+  },
+  channelPillCardWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  channelGlassCapsule: {
+    position: 'absolute',
+    bottom: 0,
+    borderWidth: 1.2,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5.5,
-    borderRadius: 999,
+    overflow: 'visible',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
   },
-  channelPillIconOnly: {
-    flexDirection: 'row',
+  channelGlassSheen: {
+    position: 'absolute',
+    top: 1,
+    left: 4,
+    right: 4,
+    height: '42%',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  channelIconWrapper: {
+    position: 'absolute',
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 9,
-    paddingVertical: 5.5,
-    borderRadius: 999,
-  },
-  channelPillActiveGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 9,
-    paddingVertical: 5.5,
-    borderRadius: 999,
-    gap: 5,
-  },
-  channelPillActiveInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  channelPillBorderLight: {
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.95)',
-    shadowColor: '#814AC8',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  channelPillBorderDark: {
-    borderWidth: 1,
-    borderColor: 'rgba(211, 204, 255, 0.45)',
-    shadowColor: '#7757FF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  channelPillLabel: {
-    fontSize: 12.5,
-    fontFamily: Fonts.regular,
-    fontWeight: '400',
-  },
-  channelPillLabelActiveLight: {
-    color: '#7555D9',
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
-  },
-  channelPillLabelActiveDark: {
-    color: '#FFFFFF',
-    fontFamily: Fonts.medium,
-    fontWeight: '500',
-  },
-  channelPillLabelInactive: {
-    color: '#FFFFFF',
-    fontFamily: Fonts.regular,
-    fontWeight: '400',
+    zIndex: 5,
   },
   channelCountBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 5.5,
-    paddingVertical: 1,
-    minWidth: 18,
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#5275F7',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  channelBadgeSelectedLight: {
-    backgroundColor: '#E5DFFF',
-  },
-  channelBadgeSelectedDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.28)',
-  },
-  channelBadgeUnselectedLight: {
-    backgroundColor: '#8060E8',
-  },
-  channelBadgeUnselectedDark: {
-    backgroundColor: '#7860E8',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#292B6B',
+    zIndex: 10,
   },
   channelCountBadgeText: {
     color: '#FFFFFF',
-    fontSize: 10.5,
+    fontSize: 9.5,
     fontFamily: Fonts.medium,
-    fontWeight: '500',
+    fontWeight: '700',
+    lineHeight: 12,
   },
-  channelDivider: {
-    width: 1,
-    height: 16,
-    marginHorizontal: 3,
-    borderRadius: 0.5,
+  channelCategoryLabel: {
+    marginTop: 7,
+    fontSize: 12.5,
+    fontFamily: Fonts.medium,
+    textAlign: 'center',
+  },
+  channelCategoryLabelSmall: {
+    fontSize: 11.5,
+    marginTop: 6,
+  },
+  channelCategoryLabelActive: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  channelCategoryLabelInactive: {
+    color: 'rgba(255, 255, 255, 0.70)',
+    fontWeight: '400',
+  },
+  channelActiveIndicator: {
+    marginTop: 5,
+    height: 2.5,
+    width: 36,
+    borderRadius: 2,
+  },
+  channelActiveIndicatorSmall: {
+    width: 30,
+    marginTop: 4,
+  },
+  channelSparkleDecor: {
+    position: 'absolute',
+    right: 2,
+    bottom: 2,
   },
 
   /* MAIN CONVERSATION CONTENT SHEET */

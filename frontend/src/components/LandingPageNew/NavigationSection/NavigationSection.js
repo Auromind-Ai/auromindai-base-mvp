@@ -205,7 +205,7 @@ const NavigationSection = () => {
                   </div>
 
                   <Link
-                    href="#case-study"
+                    href="/resources/case-studies"
                     className="mt-5 inline-flex items-center justify-center rounded-2xl bg-[#814AC8] px-4 py-3 text-sm font-semibold text-white hover:bg-[#8d58d1] transition"
                   >
                     View Case Study

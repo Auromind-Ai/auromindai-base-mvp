@@ -34,6 +34,17 @@ def analytics(db, workspace_id, filters, user_id):
     row = q.with_entities(*metrics).one()
     result = dict(zip(["total", "qualified", "hot", "converted", "revenue"], row))
     result["revenue"] = float(result["revenue"])
+
+    from app.services.billing.entitlement_service import EntitlementService
+    try:
+        ent = EntitlementService.get_workspace_entitlement(db, workspace_id)
+        max_leads = getattr(ent, "lead_limit", -1) if ent else -1
+    except Exception:
+        max_leads = -1
+
+    if max_leads is not None and max_leads != -1:
+        result["total"] = min(int(result["total"] or 0), max_leads)
+
     result["conversion_rate"] = round(100 * result["converted"] / result["total"], 1) if result["total"] else 0
     result["sources"] = [dict(source=r[0], total=r[1], qualified=r[2], hot=r[3], converted=r[4], revenue=float(r[5]))
                          for r in q.with_entities(source_expression(), *metrics).group_by(source_expression()).all()]

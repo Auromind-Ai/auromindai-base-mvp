@@ -29,7 +29,15 @@ from app.schemas.workspace import (
     PublicInvitationDetailsResponse
 )
 
-from app.services.workspace_access_service import member_seat_limit, lock_workspace, ensure_member_seat
+from app.services.workspace_access_service import (
+    member_seat_limit,
+    lock_workspace,
+    ensure_member_seat,
+    reconcile_workspace_member_seats,
+    notify_seat_changes,
+    is_workspace_plan_expired,
+    PLAN_EXPIRED_LOCK_REASON,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,9 +93,10 @@ async def get_my_workspace_permissions(
     db: Session = Depends(get_db)
 ):
     """Get the active user's role, owner status, and permissions in the current workspace."""
-    verified_ws_id = verify_workspace_access(current_user, db, workspace_id)
-    ws_uuid = to_uuid(verified_ws_id)
+    ws_uuid = to_uuid(workspace_id)
     user_uuid = to_uuid(current_user.id)
+    if not ws_uuid or not user_uuid:
+        raise HTTPException(status_code=400, detail="Invalid workspace or user ID format")
 
     workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
     if not workspace:
@@ -113,6 +122,33 @@ async def get_my_workspace_permissions(
         else:
             raise HTTPException(status_code=403, detail="Not a member of this workspace")
 
+    owner_user = db.query(User).filter(User.id == workspace.created_by).first() if workspace.created_by else None
+    owner_display = (owner_user.full_name or getattr(owner_user, "name", None)) if owner_user else "Workspace Owner"
+
+    # Handle paused seat under expired plan or exceeded seats
+    is_paused = (not getattr(membership, "is_active", True)) and (getattr(membership, "locked_reason", None) == "plan_expired")
+    if is_paused:
+        return {
+            "workspace_id": str(workspace.id),
+            "workspace_name": workspace.name,
+            "role": (membership.role or "member").lower().strip(),
+            "is_owner": False,
+            "is_active": False,
+            "is_paused": True,
+            "locked_reason": "plan_expired",
+            "owner_name": owner_display,
+            "owner_email": owner_user.email if owner_user else None,
+            "permissions": {},
+            "permissions_schema": ALL_PERMISSIONS_TREE
+        }
+
+    # Handle manual / permanent deactivation
+    if getattr(membership, "is_active", True) is False:
+        raise HTTPException(
+            status_code=403,
+            detail="Your membership in this workspace has been deactivated. Please contact your workspace admin."
+        )
+
     is_owner = bool(workspace.created_by and membership.user_id == workspace.created_by) or (membership.role in ("founder", "owner"))
     role = (membership.role or "member").lower().strip()
     if is_owner and role in ("member", "user", ""):
@@ -128,7 +164,11 @@ async def get_my_workspace_permissions(
         "workspace_name": workspace.name,
         "role": role,
         "is_owner": is_owner,
-        "is_active": getattr(membership, "is_active", True),
+        "is_active": True,
+        "is_paused": False,
+        "locked_reason": None,
+        "owner_name": owner_display,
+        "owner_email": owner_user.email if owner_user else None,
         "permissions": permissions,
         "permissions_schema": ALL_PERMISSIONS_TREE
     }
@@ -157,16 +197,46 @@ async def get_workspace_seats_and_members(
         .all()
     )
 
+    total_member_seats = _get_dynamic_seat_limits(db, workspace)
+
+    # Lazily reconcile seats if live plan limit changed (e.g. just expired or upgraded)
+    active_seat_members = 0
+    plan_locked_count = 0
+    for wm, _ in raw_members:
+        is_owner_row = bool(workspace.created_by and wm.user_id == workspace.created_by) or wm.role in ("founder", "owner")
+        role_norm = (wm.role or "member").lower().strip()
+        if not is_owner_row and role_norm in ("member", "team_member"):
+            if getattr(wm, "is_active", True):
+                active_seat_members += 1
+            elif getattr(wm, "locked_reason", None) == PLAN_EXPIRED_LOCK_REASON:
+                plan_locked_count += 1
+
+    needs_reconcile = (
+        (total_member_seats != -1 and active_seat_members > total_member_seats)
+        or (plan_locked_count > 0 and (total_member_seats == -1 or active_seat_members < total_member_seats))
+    )
+    if needs_reconcile:
+        seat_res = reconcile_workspace_member_seats(db, ws_uuid, workspace=workspace)
+        if seat_res.get("changed"):
+            db.commit()
+            notify_seat_changes(ws_uuid, seat_res)
+
     members_list: List[WorkspaceMemberResponse] = []
     used_member_count = 0
+    locked_member_count = 0
 
     for wm, u in raw_members:
         is_owner = bool(workspace.created_by and wm.user_id == workspace.created_by) or wm.role in ("founder", "owner")
         role_norm = (wm.role or "member").lower().strip()
         is_member_role = role_norm in ("member", "team_member")
+        is_active = getattr(wm, "is_active", True)
+        locked_reason = getattr(wm, "locked_reason", None)
 
-        if is_member_role and getattr(wm, "is_active", True):
-            used_member_count += 1
+        if is_member_role:
+            if is_active:
+                used_member_count += 1
+            elif locked_reason == PLAN_EXPIRED_LOCK_REASON:
+                locked_member_count += 1
 
         # Format permissions
         if role_norm in ("admin", "founder", "owner") or is_owner:
@@ -185,7 +255,8 @@ async def get_workspace_seats_and_members(
                 name=display_name,
                 role=role_norm,
                 permissions=perms,
-                is_active=getattr(wm, "is_active", True),
+                is_active=is_active,
+                locked_reason=locked_reason,
                 created_at=wm.created_at,
                 is_owner=is_owner
             )
@@ -241,8 +312,8 @@ async def get_workspace_seats_and_members(
         )
 
     plan_type = getattr(workspace, "plan_type", "starter") or "starter"
-    total_member_seats = _get_dynamic_seat_limits(db, workspace)
     available_member_seats = -1 if total_member_seats == -1 else max(0, total_member_seats - used_member_count)
+    plan_expired = is_workspace_plan_expired(db, ws_uuid) if locked_member_count > 0 else False
 
     total_seats = total_member_seats
     used_seats = used_member_count
@@ -258,6 +329,8 @@ async def get_workspace_seats_and_members(
         total_seats=total_seats,
         used_seats=used_seats,
         available_seats=available_seats,
+        locked_member_seats=locked_member_count,
+        plan_expired=plan_expired,
         members=members_list,
         invitations=invitations_list,
         permissions_schema=ALL_PERMISSIONS_TREE
@@ -297,7 +370,7 @@ async def invite_workspace_member(
         WorkspaceMember.user_id == current_user_uuid
     ).first()
     caller_role = (caller_member.role or "member").lower().strip() if caller_member else "member"
-    is_founder = (workspace.created_by == current_user_uuid) or caller_role in ("founder", "owner") or getattr(current_user.user, "platform_role", None) == "platform_admin"
+    is_founder = (workspace.created_by == current_user_uuid) or caller_role in ("founder", "owner") or getattr(getattr(current_user, "user", current_user), "platform_role", None) == "platform_admin"
 
     if target_role == "admin" and not is_founder:
         raise HTTPException(
@@ -554,7 +627,7 @@ async def update_workspace_member(
         WorkspaceMember.user_id == current_user_uuid
     ).first()
     caller_role = (caller_member.role or "member").lower().strip() if caller_member else "member"
-    is_founder = (workspace.created_by == current_user_uuid) or caller_role in ("founder", "owner") or getattr(current_user.user, "platform_role", None) == "platform_admin"
+    is_founder = (workspace.created_by == current_user_uuid) or caller_role in ("founder", "owner") or getattr(getattr(current_user, "user", current_user), "platform_role", None) == "platform_admin"
 
     # Self-modification guard: Users cannot modify their own role, status, or permissions
     if member.user_id == current_user_uuid:
@@ -597,6 +670,8 @@ async def update_workspace_member(
     previous_role = member.role
     member.role = target_role
     member.is_active = target_active
+    if target_active or payload.is_active is False:
+        member.locked_reason = None
     if target_role == "admin":
         member.permissions = get_full_permissions_dict()
     elif previous_role in ("admin", "owner", "founder") and payload.permissions is None:
@@ -662,7 +737,7 @@ async def remove_workspace_member(
         WorkspaceMember.user_id == current_user_uuid
     ).first()
     caller_role = (caller_member.role or "member").lower().strip() if caller_member else "member"
-    is_founder = (workspace.created_by == current_user_uuid) or caller_role in ("founder", "owner") or getattr(current_user.user, "platform_role", None) == "platform_admin"
+    is_founder = (workspace.created_by == current_user_uuid) or caller_role in ("founder", "owner") or getattr(getattr(current_user, "user", current_user), "platform_role", None) == "platform_admin"
 
     if member.role == "admin" and not is_founder:
         raise HTTPException(

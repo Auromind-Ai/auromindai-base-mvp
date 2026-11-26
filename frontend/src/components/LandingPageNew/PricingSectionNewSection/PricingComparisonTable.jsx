@@ -20,9 +20,9 @@ import {
 import { SPECIFICATION_CAPABILITY_SECTIONS } from '@/lib/constants/pricingTiers';
 
 // Plan Header Definitions for Comparison Columns (Dynamic based on billing cycle)
-export function getTableTiers(billing = 'annual') {
+export function getTableTiers(billing = 'annual', dbPlans = []) {
   const isAnnual = billing === 'annual';
-  return [
+  const defaultTiers = [
     {
       key: 'free',
       name: 'Free',
@@ -84,6 +84,32 @@ export function getTableTiers(billing = 'annual') {
       ctaHref: 'mailto:sales@orbionagents.com?subject=Enterprise Inquiry',
     },
   ];
+
+  if (!dbPlans || !Array.isArray(dbPlans) || dbPlans.length === 0) {
+    return defaultTiers;
+  }
+
+  return defaultTiers.map((tier) => {
+    const matched = dbPlans.find((p) => (p.key || p.name || '').toLowerCase() === tier.key.toLowerCase());
+    if (!matched) return tier;
+
+    if (tier.key === 'free') return tier;
+    if (tier.key === 'enterprise') return tier;
+
+    const monthlyP = Number(matched.monthly_price ?? matched.price ?? 0);
+    const yearlyP = Number(matched.yearly_price ?? (monthlyP * 12 * 0.95));
+    const annualPerMonth = yearlyP > 0 ? Math.round(yearlyP / 12) : Math.round(monthlyP * 0.95);
+    const displayP = isAnnual
+      ? `₹${annualPerMonth.toLocaleString('en-IN')}`
+      : `₹${monthlyP.toLocaleString('en-IN')}`;
+
+    return {
+      ...tier,
+      price: displayP,
+      name: matched.display_name || matched.name || tier.name,
+      isFeatured: matched.is_featured !== undefined ? matched.is_featured : tier.isFeatured,
+    };
+  });
 }
 
 // Helper to render category icon
@@ -252,8 +278,8 @@ function ComparisonMatrixCell({ value, capability, planKey }) {
   );
 }
 
-export default function PricingComparisonTable({ billing = 'annual' }) {
-  const TABLE_TIERS = getTableTiers(billing);
+export default function PricingComparisonTable({ billing = 'annual', dbPlans = [] }) {
+  const TABLE_TIERS = getTableTiers(billing, dbPlans);
   const [collapsedSections, setCollapsedSections] = useState({});
   const [selectedPlanTab, setSelectedPlanTab] = useState('business');
   const scrollWrapperRef = React.useRef(null);

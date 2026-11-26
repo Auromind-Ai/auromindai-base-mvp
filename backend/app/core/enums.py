@@ -3,6 +3,7 @@ import enum
 class SubscriptionStatus(str, enum.Enum):
     active = "active"
     pending = "pending"
+    trialing = "trialing"
     cancelled = "cancelled"
     expired = "expired"
     past_due = "past_due"

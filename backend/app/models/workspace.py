@@ -108,6 +108,7 @@ class WorkspaceMember(Base):
     # founder / owner / admin / member
     permissions = Column(JSON, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    locked_reason = Column(String(50), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     

@@ -34,6 +34,7 @@ class WorkspaceMemberResponse(BaseModel):
     role: str
     permissions: Optional[Union[Dict[str, Any], List[str]]] = None
     is_active: bool = True
+    locked_reason: Optional[str] = None
     created_at: Optional[datetime] = None
     is_owner: bool = False
 
@@ -69,6 +70,8 @@ class WorkspaceSeatsSummaryResponse(BaseModel):
     total_seats: int
     used_seats: int
     available_seats: int
+    locked_member_seats: int = 0
+    plan_expired: bool = False
     members: List[WorkspaceMemberResponse]
     invitations: List[WorkspaceInvitationResponse]
     permissions_schema: Dict[str, Any] = Field(default_factory=dict)

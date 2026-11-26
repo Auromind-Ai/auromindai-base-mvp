@@ -64,11 +64,18 @@ def cleanup_expired_subscriptions():
             .all()
         )
         expired_count = 0
+        seat_notifications: list[tuple[Any, dict]] = []
+        from app.services.workspace_access_service import reconcile_workspace_member_seats, notify_seat_changes
         for sub in expired_subs:
             sub.status = SubscriptionStatus.expired
             expired_count += 1
+            seat_res = reconcile_workspace_member_seats(db, sub.workspace_id)
+            if seat_res.get("changed"):
+                seat_notifications.append((sub.workspace_id, seat_res))
 
         db.commit()
+        for ws_id, seat_res in seat_notifications:
+            notify_seat_changes(ws_id, seat_res)
         logger.debug(f"[cleanup_expired_subscriptions] Marked {expired_count} past-due subscriptions as expired.")
         return {"expired_count": expired_count}
     except Exception as exc:

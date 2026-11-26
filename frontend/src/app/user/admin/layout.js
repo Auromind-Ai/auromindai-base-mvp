@@ -24,6 +24,7 @@ import { RealtimeProvider } from '@/context/RealtimeContext';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
 import ErrorPage from '@/components/ErrorPage';
 import Preloader from '@/components/Preloader';
+import WorkspacePausedView from '@/components/WorkspacePausedView';
 import WorkspaceNavigation, { getFirstAccessibleWorkspacePath } from '@/components/WorkspaceNavigation';
 
 export default function AdminLayout({ children }) {
@@ -38,7 +39,21 @@ function AdminLayoutContent({ children }) {
     const router = useRouter();
     const pathname = usePathname();
     const cleanPath = pathname ? pathname.replace(/^\/user\/admin/, '') || '/' : '/';
-    const { user, workspaces, workspaceId, setWorkspaceId, loading, logout, refreshUser, hasPermission, permissionsLoading } = useAuth();
+    const {
+        user,
+        workspaces,
+        workspaceId,
+        workspace: authWorkspace,
+        isPaused,
+        lockedReason,
+        ownerInfo,
+        setWorkspaceId,
+        loading,
+        logout,
+        refreshUser,
+        hasPermission,
+        permissionsLoading
+    } = useAuth();
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel, initialSection, openSettings } = useSettings();
     const isPlatformAdmin = user?.platform_role === 'platform_admin';
 
@@ -144,7 +159,7 @@ function AdminLayoutContent({ children }) {
     });
 
 
-    const workspace = workspaces.find(w => w.id === workspaceId) || null;
+    const workspace = authWorkspace || workspaces.find(w => w.id === workspaceId) || null;
     const currentWorkspaceName = (() => {
         if (workspace?.name) {
             return workspace.name;
@@ -269,6 +284,30 @@ function AdminLayoutContent({ children }) {
 
     if (!user) {
         return null;
+    }
+
+    const activeWs = workspace;
+    const isWorkspacePaused = Boolean(isPaused || activeWs?.is_paused || (lockedReason === 'plan_expired'));
+
+    if (isWorkspacePaused) {
+        return (
+            <WorkspacePausedView
+                workspace={activeWs}
+                ownerName={ownerInfo?.name || activeWs?.owner_name}
+                ownerEmail={ownerInfo?.email || activeWs?.owner_email}
+                workspaces={workspaces}
+                currentWorkspaceId={workspaceId}
+                onSwitchWorkspace={(newWsId) => {
+                    setWorkspaceId(newWsId);
+                    router.refresh();
+                }}
+                onRefresh={async () => {
+                    await refreshUser();
+                    router.refresh();
+                }}
+                onLogout={handleLogout}
+            />
+        );
     }
 
     const isFullScreenPage = Boolean(cleanPath && (
@@ -482,6 +521,11 @@ function AdminLayoutContent({ children }) {
                                                     <div className="flex items-center gap-2 truncate">
                                                         <Building2 size={13} className={isActive ? 'text-violet-400' : 'text-zinc-400'} />
                                                         <span className="truncate">{ws.name}</span>
+                                                        {ws.is_paused && (
+                                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0">
+                                                                Paused
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     {isActive && <Check size={13} className="text-violet-400 shrink-0" />}
                                                 </button>

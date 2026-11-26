@@ -29,6 +29,7 @@ import { authStore } from '@/store/auth';
 import { Fonts } from '@/theme/tokens';
 import { scaleFont, scaleContainer } from '@/theme/responsive';
 import { useAppTheme } from '@/context/theme-context';
+import { Skeleton } from '@/components/common';
 import {
   fetchUserSessions,
   revokeDeviceSessions,
@@ -422,11 +423,10 @@ export default function LoggedInDevicesScreen() {
         </Text>
 
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.primary} />
-            <Text style={[styles.loadingText, { color: theme.textMuted }]}>
-              Loading connected devices...
-            </Text>
+          <View style={{ paddingVertical: 8, gap: 12 }}>
+            <Skeleton.Card height={84} />
+            <Skeleton.Card height={84} />
+            <Skeleton.Card height={84} />
           </View>
         ) : (
           <>

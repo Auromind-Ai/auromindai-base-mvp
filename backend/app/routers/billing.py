@@ -468,7 +468,10 @@ def get_usage(
     storage_mb_limit = int(ent.storage_limit_mb)
 
     # Leads
-    leads_used = db.query(Lead).filter(Lead.workspace_id == ws_uuid).count()
+    leads_used = db.query(Lead).filter(
+        Lead.workspace_id == ws_uuid,
+        Lead.is_locked.isnot(True)
+    ).count()
     leads_limit = int(ent.lead_limit)
 
     # Gmail accounts
@@ -486,6 +489,9 @@ def get_usage(
     ).count()
     automations_limit = int(ent.automation_limit)
 
+    # Monthly Active Conversations
+    conv_quota = EntitlementService.get_monthly_conversation_quota(db, ws_uuid)
+
     return {
         "plan_name": plan_name,
         "ai_credits": { "used": ai_used, "limit": ai_limit },
@@ -495,6 +501,11 @@ def get_usage(
         "leads": { "used": leads_used, "limit": leads_limit },
         "gmail_accounts": { "used": gmail_used, "limit": gmail_limit },
         "automations": { "used": automations_used, "limit": automations_limit },
+        "monthly_conversations": {
+            "used": conv_quota["used"],
+            "limit": conv_quota["limit"],
+            "remaining": conv_quota["remaining"],
+        },
     }
 
 
@@ -834,14 +845,50 @@ def get_user_invoices(
         invoice_query = db.query(Invoice).filter(Invoice.workspace_id == ws_uuid)
 
         if search:
-            search_pattern = f"%{search.strip()}%"
-            invoice_query = invoice_query.filter(
-                or_(
-                    Invoice.invoice_number.ilike(search_pattern),
-                    Invoice.customer_name.ilike(search_pattern),
-                    Invoice.product_type.ilike(search_pattern),
-                )
+            import re
+            from sqlalchemy import case, cast, String, or_, and_
+
+            cleaned_search = search.strip()
+            search_pattern = f"%{cleaned_search}%"
+            words = [w for w in re.split(r"\s+", cleaned_search) if w]
+            joined_words = "%".join(words)
+            flexible_pattern = f"%{joined_words}%" if len(words) > 1 else search_pattern
+
+            description_expr = case(
+                (Invoice.product_type.in_(["subscription", "plan_upgrade"]), "Auromind SaaS Platform Subscription"),
+                (Invoice.product_type.in_(["ai_credits", "ai_credit_recharge"]), "AI Token Credit Pack Recharge"),
+                (Invoice.product_type.in_(["flow_packs", "flow_purchase", "flow_pack"]), "AI Automation Flow Pack"),
+                (Invoice.product_type.in_(["wcc_recharge", "wallet_recharge"]), "WhatsApp Conversation Cloud Wallet Recharge"),
+                else_=Invoice.product_type
             )
+
+            full_description_expr = case(
+                (Invoice.invoice_type == "credit_note", "Refund Credit Note - " + description_expr),
+                else_=description_expr
+            )
+
+            search_conditions = [
+                Invoice.invoice_number.ilike(search_pattern),
+                Invoice.customer_name.ilike(search_pattern),
+                Invoice.product_type.ilike(search_pattern),
+                Invoice.invoice_type.ilike(search_pattern),
+                full_description_expr.ilike(search_pattern),
+                full_description_expr.ilike(flexible_pattern),
+            ]
+
+            if len(words) > 1:
+                all_words_in_desc = and_(*[full_description_expr.ilike(f"%{w}%") for w in words])
+                search_conditions.append(all_words_in_desc)
+
+            clean_num = re.sub(r"[^\d.]", "", cleaned_search)
+            if clean_num and clean_num != ".":
+                try:
+                    search_conditions.append(cast(Invoice.total_amount, String).ilike(f"%{clean_num}%"))
+                    search_conditions.append(cast(Invoice.amount, String).ilike(f"%{clean_num}%"))
+                except Exception:
+                    pass
+
+            invoice_query = invoice_query.filter(or_(*search_conditions))
 
         if type:
             if type in ["subscription", "plan_upgrade"]:

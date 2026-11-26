@@ -1192,8 +1192,17 @@ export default function AutomationCanvas() {
     const files = e.dataTransfer.files;
     if (files.length > 0) handleFileUpload(files[0]);
   };
-  const handleFileSelect = (e) => { const file = e.target.files[0]; if (file) handleFileUpload(file); };
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileUpload(file);
+    e.target.value = '';
+  };
   const clearUpload = () => { setPreviewUrl(null); setUploadError(null); updateNodeConfig(activeNodeId, { media_url: null }); };
+
+  useEffect(() => {
+    setPreviewUrl(null);
+    setUploadError(null);
+  }, [activeNodeId]);
 
   const handleSalesFileUpload = async (file) => {
     if (!file) return;

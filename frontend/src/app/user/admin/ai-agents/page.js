@@ -28,14 +28,18 @@ import {
   Calendar,
   Share2,
   Loader2,
-  MoreVertical
+  MoreVertical,
+  Lock
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useWorkspaceEntitlements } from '@/hooks/useWorkspaceEntitlements';
+import UpgradePromptModal from '@/components/common/UpgradePromptModal';
 import api from '@/lib/api';
 
 export default function MyAgentsPage() {
   const router = useRouter();
   const { workspaceId } = useAuth();
+  const { assistantLimit, planName } = useWorkspaceEntitlements(workspaceId);
 
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +48,18 @@ export default function MyAgentsPage() {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const isLimitReached = assistantLimit !== -1 && agents.length >= assistantLimit;
+
+  const handleCreateAgentClick = (e) => {
+    if (isLimitReached) {
+      if (e) e.preventDefault();
+      setShowUpgradeModal(true);
+    } else {
+      router.push('/ai-agents/create');
+    }
+  };
 
   // Restore saved viewMode preference
   useEffect(() => {
@@ -163,13 +179,29 @@ export default function MyAgentsPage() {
             <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
               <span>AI Agents</span>
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">
-                {agents.length} {agents.length === 1 ? 'Agent' : 'Agents'}
+                {assistantLimit === -1 ? `${agents.length} Agents (Unlimited)` : `${agents.length} / ${assistantLimit} Allowed`}
+              </span>
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-white/5 text-zinc-300 border border-white/10 uppercase tracking-wider font-semibold">
+                {planName}
               </span>
             </h1>
             <p className="text-xs text-zinc-400 mt-1">
               Create and manage your AI agents to handle conversations and grow your business.
             </p>
           </div>
+
+          <button
+            type="button"
+            onClick={handleCreateAgentClick}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-md ${
+              isLimitReached
+                ? 'bg-purple-900/40 text-purple-300 border border-purple-500/30 hover:bg-purple-800/40'
+                : 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white shadow-purple-900/30 hover:scale-[1.02] active:scale-[0.98]'
+            }`}
+          >
+            {isLimitReached ? <Lock size={14} /> : <Plus size={15} />}
+            <span>{isLimitReached ? 'Agent Limit Reached (Upgrade)' : 'Create AI Agent'}</span>
+          </button>
         </div>
 
         {/* Filter Tabs & Search Controls */}
@@ -334,10 +366,10 @@ export default function MyAgentsPage() {
             {/* Big Primary Button */}
             <Link
               href="/ai-agents/create"
-              className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white text-xs font-semibold shadow-xl shadow-purple-900/40 transition-all hover:scale-105 active:scale-95 cursor-pointer mb-16"
+              className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-gradient-to-b from-[#814AC8]/40 to-[#221253]/40 hover:bg-gradient-to-b hover:from-[#814AC8]/60 hover:to-[#221253]/60 text-white text-sm font-semibold shadow-xl shadow-purple-900/40 transition-all hover:scale-105 active:scale-95 cursor-pointer mb-16"
             >
-              <Plus size={16} />
-              <span>Create AI Agent</span>
+              {isLimitReached ? <Lock size={16} /> : <Plus size={16} />}
+              <span>{isLimitReached ? 'Limit Reached (Upgrade)' : 'Create AI Agent'}</span>
               <ArrowRight size={14} className="ml-0.5" />
             </Link>
 
@@ -500,7 +532,7 @@ export default function MyAgentsPage() {
                     {/* AI Model */}
                     <div className="flex flex-col gap-1 min-w-[110px]">
                       <span className="text-[10px] text-zinc-400 font-medium">Model:</span>
-                      <span className="text-[11px] font-mono text-purple-300">
+                      <span className="text-[11px] text-purple-300">
                         {agent.ai_config?.model || 'gpt-4o'}
                       </span>
                     </div>
@@ -648,7 +680,7 @@ export default function MyAgentsPage() {
                       {/* AI Model */}
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-[11px] text-zinc-400">Model:</span>
-                        <span className="text-[11px] font-mono text-purple-300">
+                        <span className="text-[11px] text-purple-300">
                           {agent.ai_config?.model || 'gpt-4o'}
                         </span>
                       </div>
@@ -745,6 +777,15 @@ export default function MyAgentsPage() {
           </div>
         </div>
       )}
+      {/* Entitlement Upgrade Modal */}
+      <UpgradePromptModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        title="AI Agent Limit Reached"
+        message={`Your current plan (${planName?.toUpperCase() || 'FREE'}) allows up to ${assistantLimit} AI Agents. Upgrade your subscription to deploy more autonomous agents.`}
+        currentPlan={planName}
+        recommendedPlan={planName === 'creator' || planName === 'starter' ? 'Growth' : 'Business'}
+      />
     </div>
   );
 }

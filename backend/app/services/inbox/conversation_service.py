@@ -476,6 +476,37 @@ class ConversationService:
         return filters
 
     @staticmethod
+    def ensure_conversation_monthly_quota(
+        db: Session,
+        workspace_id: str | UUID,
+        existing_conversation: Conversation | None = None,
+    ) -> None:
+        """Strictly enforce monthly active conversation limit before activating or creating a conversation."""
+        ws_uuid = to_uuid(workspace_id)
+        if not ws_uuid:
+            return
+
+        first_day_of_month = datetime.now(timezone.utc).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+
+        if existing_conversation is not None:
+            last_active = existing_conversation.last_message_at or existing_conversation.created_at
+            if last_active is not None:
+                if last_active.tzinfo is None:
+                    last_active = last_active.replace(tzinfo=timezone.utc)
+                if last_active >= first_day_of_month:
+                    return
+
+        from app.services.billing.entitlement_service import EntitlementService
+
+        ent_check = EntitlementService.check_entitlement(db, ws_uuid, "conversation")
+        if not ent_check.get("allowed", True):
+            EntitlementService.raise_entitlement_exceeded(
+                db, ws_uuid, "conversation", ent_check.get("limit", 1000)
+            )
+
+    @staticmethod
     def get_or_create_conversation(
         db: Session,
         *,
@@ -497,6 +528,9 @@ class ConversationService:
 
         conversation = db.query(Conversation).filter(*filters).first()
         if conversation:
+            ConversationService.ensure_conversation_monthly_quota(
+                db, workspace_id, existing_conversation=conversation
+            )
             conversation.updated_at = datetime.utcnow()
             if delivery_target and not conversation.phone:
                 conversation.phone = delivery_target
@@ -515,6 +549,10 @@ class ConversationService:
       
         try:
             ws_uuid = to_uuid(workspace_id)
+            ConversationService.ensure_conversation_monthly_quota(
+                db, workspace_id, existing_conversation=None
+            )
+
             with db.begin_nested():
                 conversation = Conversation(
                     phone=delivery_target,

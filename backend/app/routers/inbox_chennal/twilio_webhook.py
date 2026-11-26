@@ -28,6 +28,13 @@ def connect_twilio(
     from app.core.security import to_uuid
     ws_uuid = to_uuid(payload.workspace_id)
     verify_workspace_access(current_user, db, ws_uuid, required_permission='channels.manage')
+    from app.services.billing.entitlement_service import EntitlementService
+    ent_check = EntitlementService.check_entitlement(db, ws_uuid, "channel_twilio")
+    if not ent_check.get("allowed", False):
+        raise HTTPException(
+            status_code=403,
+            detail=ent_check.get("reason", "Twilio channel is not supported on your current plan. Please upgrade your subscription.")
+        )
     workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")

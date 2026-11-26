@@ -63,13 +63,19 @@ class TemplateStatusResponse(BaseModel):
 
 
 class TemplateSendRequest(BaseModel):
-    phone: str = Field(..., min_length=10, max_length=20, pattern=r"^(?:\+?\d{1,3}[- ]?)?\d{10,14}$")
+    phone: str = Field(..., min_length=7, max_length=20, description="Valid international phone number")
     template_name: str = Field(..., min_length=1, max_length=512)
     workspace_id: str | None = None
     variables: list[Any] = Field(default_factory=list, max_length=50)
     media_url: str | None = Field(None, max_length=2048)
     coupon_code: str | None = Field(None, max_length=100)
     button_params: list[dict] | None = None
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        from app.schemas.lead_scoring import validate_and_normalize_phone
+        return validate_and_normalize_phone(v)
 
 
 class GenerateRequest(BaseModel):

@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import { poppins } from '@/lib/fonts';
 import {
     Search, Plus, Filter, Phone, Instagram, Globe, Mail,
-    MessageSquare, Clock, User, ChevronDown, ArrowUpRight,
+    MessageSquare, Clock, User, ChevronDown, ArrowUpRight, ArrowRight,
     TrendingUp, Check, CheckCircle2, MoreHorizontal, Star, Inbox, Zap, Users,
-    FileText, Tag, Info, X, Copy
+    FileText, Tag, Info, X, Copy, Lock, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CrmControls, { cleanFilters } from '@/components/leads/CrmControls';
@@ -15,6 +15,8 @@ import { CrmNavigation, CrmAnalytics, CrmHistory, CrmScoring, CrmReports } from 
 import CrmLeadsTable from '@/components/leads/CrmLeadsTable';
 import AddLeadModal from '@/components/leads/AddLeadModal';
 import SendTemplateModal from '@/components/chat/SendTemplateModal';
+import UpgradePromptModal from '@/components/common/UpgradePromptModal';
+import { useWorkspaceEntitlements } from '@/hooks/useWorkspaceEntitlements';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { getWorkspaceIdFromToken } from '@/lib/auth';
@@ -329,7 +331,8 @@ const normalizeLead = (lead) => {
         converted_at: lead.converted_at,
         converted_product: lead.converted_product,
         conversion_notes: lead.conversion_notes,
-        is_favorite: lead.is_favorite || false
+        is_favorite: lead.is_favorite || false,
+        is_locked: Boolean(lead.is_locked)
     };
 };
 
@@ -633,12 +636,21 @@ function LeadsPanel({
                                     />
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between mb-1">
-                                            <span className="text-sm font-semibold text-white truncate">{lead.name}</span>
-                                            <span className={`text-sm font-bold ml-2 ${scoreColor}`}>{lead.score}</span>
+                                            <span className="text-sm font-semibold text-white truncate flex items-center gap-1.5">
+                                                {lead.is_locked && <Lock size={12} className="text-amber-400 shrink-0" />}
+                                                <span>{lead.is_locked ? 'Locked Lead' : lead.name}</span>
+                                            </span>
+                                            <span className={`text-sm font-bold ml-2 ${lead.is_locked ? 'text-amber-400' : scoreColor}`}>
+                                                {lead.is_locked ? '🔒' : lead.score}
+                                            </span>
                                         </div>
                                         <div className="flex flex-col gap-1 mt-1">
                                             <div className="flex items-center justify-between gap-2">
-                                                {(() => {
+                                                {lead.is_locked ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-500/10 text-amber-300 border-amber-500/30">
+                                                        <Sparkles size={10} /> Upgrade to Unlock
+                                                    </span>
+                                                ) : (() => {
                                                     const t = lead.lead_tier || 'cold';
                                                     const badge = TIER_BADGES[t.toLowerCase()] || TIER_BADGES.cold;
                                                     return (
@@ -1399,6 +1411,9 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     const effectiveWsId = workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('workspace_id') : null) || getWorkspaceIdFromToken();
     const router = useRouter();
 
+    const { leadLimit, planName, hasLeadEnrichment, hasCrmBoard, hasAdvanceCrm, crmPipelineTier } = useWorkspaceEntitlements(effectiveWsId);
+    const [upgradeModal, setUpgradeModal] = useState({ isOpen: false, title: '', message: '' });
+
     const [section, setSection] = useState('leads');
     const [filters, setFilters] = useState({});
     const [filterOptions, setFilterOptions] = useState(null);
@@ -1433,6 +1448,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     // Pagination states
     const [offset, setOffset] = useState(0);
     const [totalCount, setTotalCount] = useState(0);
+    const [lockedLeadsCount, setLockedLeadsCount] = useState(0);
     const [hasMore, setHasMore] = useState(false);
     const LIMIT = 50;
 
@@ -1485,6 +1501,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                 initialLeadRef.current = null;
             }
             setTotalCount(res.total || 0);
+            setLockedLeadsCount(res.locked_leads_count || 0);
             setHasMore((currentOffset + LIMIT) < (res.total || 0));
             setOffset(currentOffset);
         } catch (err) {
@@ -1503,6 +1520,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
         setSelectedIds([]);
         setLeads([]);
         setTotalCount(0);
+        setLockedLeadsCount(0);
         setHasMore(false);
         setOffset(0);
         fetchLeadsList(0, false, debouncedSearch);
@@ -1628,7 +1646,16 @@ function WorkspaceContent({ upgraded, workspaceId }) {
     }, [selectedLeadId]);
 
     // Selection click handler
-    const handleSelectLead = (leadId) => {
+    const handleSelectLead = (leadId, leadObj = null) => {
+        if (leadObj?.is_locked) {
+            setUpgradeModal({
+                isOpen: true,
+                title: "Unlock Waiting Lead",
+                message: "This lead arrived after your plan's lead limit was reached. Upgrade your plan to unlock full contact details, chat messages, and sales pipeline.",
+                recommendedPlan: "Growth"
+            });
+            return;
+        }
         setSelectedLeadId(leadId);
     };
 
@@ -1769,6 +1796,22 @@ function WorkspaceContent({ upgraded, workspaceId }) {
         <div className={`${poppins.className} h-screen flex flex-col lg:flex-row bg-[#05080e] text-white overflow-hidden`}>
             {upgraded && <CrmNavigation section={section} onChange={setSection} />}
             <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+                {upgraded && !hasCrmBoard && (
+                    <div className="flex items-center justify-between px-4 py-2 bg-purple-950/40 border-b border-purple-500/20 text-xs text-zinc-300">
+                        <div className="flex items-center gap-2">
+                            <Lock size={13} className="text-amber-400 shrink-0" />
+                            <span>
+                                You are on the <strong className="text-white uppercase">{planName}</strong> plan ({crmPipelineTier === 'contact_list' ? 'Contact List CRM' : 'Basic Viewer'}). Multi-stage Pipeline Board is available on <strong>Starter, Growth & Business</strong>.
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => router.push('/billing/payment')}
+                            className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#7C4DFF] to-[#6A3DE8] text-white font-semibold hover:opacity-90 transition-all shrink-0 ml-3"
+                        >
+                            Upgrade
+                        </button>
+                    </div>
+                )}
                 {section === 'overview' && <CrmAnalytics overview workspaceId={workspaceId} onBrowse={() => setSection('leads')} onSelect={id => { setSelectedLeadId(id); setSection('scoring'); }} />}
                 {section === 'analytics' && <CrmAnalytics />}
                 {section === 'scoring' && <CrmScoring loading={detailsLoading[selectedLeadId]} loadError={detailErrors[selectedLeadId]} onRetry={() => fetchSelectedLeadData(selectedLeadId)} options={filterOptions} lead={leadsDetails[selectedLeadId]} onRecalculate={async id => { await fetchSelectedLeadData(id); await fetchLeadsList(); }} />}
@@ -1777,8 +1820,35 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                 {section === 'leads' && <>
                 {/* Header */}
                 <header className="h-12 sm:h-14 flex items-center justify-between px-3 sm:px-4 md:px-6 border-b border-white/[0.06] bg-[#0b111b] flex-shrink-0 gap-2 sm:gap-4">
-                    <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                         <span className="text-sm sm:text-base md:text-lg font-bold text-white whitespace-nowrap">{upgraded ? 'CRM' : 'Leads'}</span>
+                        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-zinc-300">
+                            <span className="font-medium">
+                                {leadLimit === -1 ? `${totalCount.toLocaleString()} Leads (Unlimited)` : `${totalCount.toLocaleString()} / ${leadLimit.toLocaleString()} Leads`}
+                            </span>
+                            <span className="text-[10px] uppercase font-bold text-violet-400 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded">
+                                {planName}
+                            </span>
+                            {lockedLeadsCount > 0 && (
+                                <span
+                                    onClick={() => setUpgradeModal({
+                                        isOpen: true,
+                                        title: "Unlock Waiting Leads",
+                                        message: `You have ${lockedLeadsCount.toLocaleString()} incoming leads waiting. Upgrade your plan to unlock their contact details, numbers, and chats.`,
+                                    })}
+                                    className="text-[10px] font-medium text-zinc-300 bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.1] px-1.5 py-0.5 rounded flex items-center gap-1 cursor-pointer transition-colors"
+                                    title={`${lockedLeadsCount.toLocaleString()} incoming leads waiting. Click to upgrade & unlock.`}
+                                >
+                                    <Lock size={10} className="text-zinc-400" />
+                                    <span>+{lockedLeadsCount.toLocaleString()} Waiting</span>
+                                </span>
+                            )}
+                            {hasLeadEnrichment && (
+                                <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded flex items-center gap-1" title="Lead Enrichment Included">
+                                    <Sparkles size={10} /> Enriched
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     {!upgraded && <>
@@ -1794,15 +1864,52 @@ function WorkspaceContent({ upgraded, workspaceId }) {
 
                     <div className="flex items-center gap-2 shrink-0">
                         <button
-                            onClick={() => setShowAddLeadModal(true)}
-                            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-r from-[#7C4DFF] to-[#6A3DE8] text-xs sm:text-sm text-white font-semibold shadow-md sm:shadow-lg shadow-[#7C4DFF]/20 hover:opacity-90 transition-all shrink-0 whitespace-nowrap"
+                            onClick={() => {
+                                if (leadLimit !== -1 && totalCount >= leadLimit) {
+                                    setUpgradeModal({
+                                        isOpen: true,
+                                        title: "Lead Limit Reached",
+                                        message: `Your ${planName?.toUpperCase() || ''} plan includes ${leadLimit.toLocaleString()} leads. ${lockedLeadsCount > 0 ? `You also have ${lockedLeadsCount.toLocaleString()} new incoming leads waiting. ` : ''}Upgrade your plan to unlock and manage more leads.`,
+                                    });
+                                } else {
+                                    setShowAddLeadModal(true);
+                                }
+                            }}
+                            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 whitespace-nowrap ${
+                                leadLimit !== -1 && totalCount >= leadLimit
+                                    ? 'bg-zinc-800 text-zinc-400 border border-amber-500/30 hover:border-amber-500/60 hover:text-amber-300'
+                                    : 'bg-gradient-to-r from-[#7C4DFF] to-[#6A3DE8] text-white shadow-md sm:shadow-lg shadow-[#7C4DFF]/20 hover:opacity-90'
+                            }`}
                         >
-                            <Plus size={13} className="shrink-0" />
+                            {leadLimit !== -1 && totalCount >= leadLimit ? (
+                                <Lock size={13} className="shrink-0 text-amber-400" />
+                            ) : (
+                                <Plus size={13} className="shrink-0" />
+                            )}
                             <span className="whitespace-nowrap">New Lead</span>
                         </button>
                     </div>
                     </>}
                 </header>
+
+                {lockedLeadsCount > 0 && (
+                    <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-[#0c1017] border-b border-white/[0.08] text-xs text-zinc-300 shrink-0">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            <Lock size={13} className="text-zinc-400 shrink-0" />
+                            <p className="truncate text-xs text-zinc-300">
+                                <span className="font-semibold text-white">Lead limit reached ({totalCount.toLocaleString()}/{leadLimit.toLocaleString()}):</span>{' '}
+                                <span>You have <span className="font-semibold text-white">{lockedLeadsCount.toLocaleString()} new incoming leads</span> waiting. Upgrade your plan to unlock full details.</span>
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => router.push('/billing/payment')}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#7C4DFF] hover:bg-[#6C3CE9] text-white text-xs font-medium transition-all shrink-0 ml-3 cursor-pointer whitespace-nowrap shadow-sm shadow-[#7C4DFF]/20 active:scale-95"
+                        >
+                            <span>Upgrade to Unlock</span>
+                            <ArrowRight size={12} />
+                        </button>
+                    </div>
+                )}
 
                 {upgraded && <>
                 <CrmControls onRefreshOptions={() => setOptionsRetry(v => v + 1)} workspaceId={workspaceId} filters={filters} onApply={values => { setSelectedFilter('all'); setFilters(values); }} options={filterOptions} selectedIds={selectedIds} search={debouncedSearch} quickFilter={selectedFilter} onClear={() => restoreFilters({})} onRestore={restoreFilters} />
@@ -1836,7 +1943,7 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                         <LeadsPanel
                             leads={displayedLeads}
                             selected={selectedLead}
-                            onSelect={l => handleSelectLead(l.id)}
+                            onSelect={l => handleSelectLead(l.id, l)}
                             show={true}
                             loading={loading}
                             totalCount={totalCount}
@@ -1916,8 +2023,12 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                                     leads={displayedLeads}
                                     selected={selectedLead}
                                     onSelect={l => {
-                                        handleSelectLead(l.id);
-                                        setActiveView('chat');
+                                        if (l?.is_locked) {
+                                            handleSelectLead(l.id, l);
+                                        } else {
+                                            handleSelectLead(l.id, l);
+                                            setActiveView('chat');
+                                        }
                                     }}
                                     show={true}
                                     loading={loading}
@@ -2014,6 +2125,16 @@ function WorkspaceContent({ upgraded, workspaceId }) {
                     onSuccess={handleSendTemplateSuccess}
                 />
             )}
+
+            {/* Upgrade Prompt Modal */}
+            <UpgradePromptModal
+                isOpen={upgradeModal.isOpen}
+                onClose={() => setUpgradeModal(prev => ({ ...prev, isOpen: false }))}
+                title={upgradeModal.title}
+                message={upgradeModal.message}
+                currentPlan={planName}
+                recommendedPlan={planName === 'free' ? 'Creator' : (planName === 'creator' ? 'Starter' : 'Growth')}
+            />
         </div>
     );
 }

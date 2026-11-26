@@ -20,9 +20,13 @@ export function AuthProvider({ children }) {
   const [user, setUserState] = useState(null);
   const [workspaces, setWorkspacesState] = useState([]);
   const [workspaceId, setWorkspaceIdState] = useState(null);
+  const [workspace, setWorkspaceState] = useState(null);
   const [currentRole, setCurrentRole] = useState('member');
   const [isOwner, setIsOwner] = useState(false);
   const [permissions, setPermissions] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [lockedReason, setLockedReason] = useState(null);
+  const [ownerInfo, setOwnerInfo] = useState({ name: null, email: null });
   const [permissionWorkspaceId, setPermissionWorkspaceId] = useState(null);
   const permissionRequestRef = useRef(0);
   const [loading, setLoading] = useState(true);
@@ -102,6 +106,13 @@ export function AuthProvider({ children }) {
           setWorkspaceIdState(activeWs.id);
           workspaceIdRef.current = activeWs.id;
           setWorkspace(activeWs);
+          setWorkspaceState(activeWs);
+          setIsPaused(Boolean(activeWs.is_paused));
+          setLockedReason(activeWs.locked_reason || null);
+          setOwnerInfo({
+            name: activeWs.owner_name || null,
+            email: activeWs.owner_email || null,
+          });
 
           setCurrentRole(wsRole);
           setIsOwner(isWsOwner);
@@ -115,6 +126,23 @@ export function AuthProvider({ children }) {
               setIsOwner(Boolean(permRes?.is_owner !== undefined ? permRes.is_owner : isWsOwner));
               setPermissions(permRes?.permissions || {});
               setPermissionWorkspaceId(activeWs.id);
+              if (permRes?.is_paused !== undefined) {
+                setIsPaused(Boolean(permRes.is_paused));
+                setLockedReason(permRes.locked_reason || null);
+                if (permRes.owner_name || permRes.owner_email) {
+                  setOwnerInfo({
+                    name: permRes.owner_name || activeWs.owner_name || null,
+                    email: permRes.owner_email || activeWs.owner_email || null,
+                  });
+                }
+                setWorkspaceState(prev => ({
+                  ...(prev || activeWs),
+                  is_paused: Boolean(permRes.is_paused),
+                  locked_reason: permRes.locked_reason,
+                  owner_name: permRes.owner_name || activeWs.owner_name,
+                  owner_email: permRes.owner_email || activeWs.owner_email,
+                }));
+              }
             }
           } catch (permErr) {
             console.warn("Failed to load initial permissions in refreshUser:", permErr);
@@ -122,6 +150,10 @@ export function AuthProvider({ children }) {
         } else {
           setWorkspaceIdState(null);
           workspaceIdRef.current = null;
+          setWorkspaceState(null);
+          setIsPaused(false);
+          setLockedReason(null);
+          setOwnerInfo({ name: null, email: null });
           setCurrentRole('member');
           setIsOwner(false);
           setPermissions(null);
@@ -371,6 +403,23 @@ export function AuthProvider({ children }) {
       setIsOwner(Boolean(res?.is_owner !== undefined ? res.is_owner : isWsOwner));
       setPermissions(res?.permissions || {});
       setPermissionWorkspaceId(targetWsId);
+      if (res?.is_paused !== undefined) {
+        setIsPaused(Boolean(res.is_paused));
+        setLockedReason(res.locked_reason || null);
+        if (res.owner_name || res.owner_email) {
+          setOwnerInfo({
+            name: res.owner_name || null,
+            email: res.owner_email || null,
+          });
+        }
+        setWorkspaceState(prev => prev && prev.id === targetWsId ? ({
+          ...prev,
+          is_paused: Boolean(res.is_paused),
+          locked_reason: res.locked_reason,
+          owner_name: res.owner_name || prev.owner_name,
+          owner_email: res.owner_email || prev.owner_email,
+        }) : prev);
+      }
       return res;
     } catch (e) {
       if (requestId !== permissionRequestRef.current || targetWsId !== workspaceIdRef.current) return null;
@@ -480,8 +529,14 @@ export function AuthProvider({ children }) {
     setCurrentRole('member');
     setIsOwner(false);
     setPermissions(null);
-    // Persist synchronously so immediately entering a URL keeps this selection.
     setWorkspace(matchedWs);
+    setWorkspaceState(matchedWs);
+    setIsPaused(Boolean(matchedWs.is_paused));
+    setLockedReason(matchedWs.locked_reason || null);
+    setOwnerInfo({
+      name: matchedWs.owner_name || null,
+      email: matchedWs.owner_email || null,
+    });
     workspaceIdRef.current = id;
     setWorkspaceIdState(id);
   }, [workspaces]);
@@ -489,7 +544,11 @@ export function AuthProvider({ children }) {
   const contextValue = useMemo(() => ({
     user,
     workspaceId,
+    workspace: workspace || getVisibleWorkspaces(workspaces).find(w => w.id === workspaceId) || null,
     workspaces: getVisibleWorkspaces(workspaces),
+    isPaused,
+    lockedReason,
+    ownerInfo,
     currentRole: permissionWorkspaceId === workspaceId ? currentRole : 'member',
     permissionsLoading: Boolean(workspaceId && permissionWorkspaceId !== workspaceId),
     permissions,
@@ -501,7 +560,7 @@ export function AuthProvider({ children }) {
     setWorkspaceId,
     logout,
     refreshUser
-  }), [user, workspaceId, workspaces, currentRole, permissionWorkspaceId, permissions, hasPermission, refreshPermissions, loading, csrfToken, setWorkspaceId, logout, refreshUser]);
+  }), [user, workspaceId, workspace, workspaces, isPaused, lockedReason, ownerInfo, currentRole, permissionWorkspaceId, permissions, hasPermission, refreshPermissions, loading, csrfToken, setWorkspaceId, logout, refreshUser]);
 
   return (
     <AuthContext.Provider value={contextValue}>

@@ -1139,6 +1139,7 @@ class BillingService:
             "plan_label": plan_config.label,
             "billing_status": billing_status,
             "billing_cycle": (subscription.billing_cycle or "monthly").lower() if subscription else None,
+            "current_plan_features": plan_config.features or [],
             
             # WCC Entitlement canonical fields
             "wcc_locked": wcc_ent["wcc_locked"],
@@ -1175,6 +1176,9 @@ class BillingService:
             "flow_quota": flow_quota,
             "flows_used": flow_quota["used_quota"],
             "flows_total": flow_quota["total_quota"],
+
+            # Monthly Active Conversations quota
+            "monthly_conversations": EntitlementService.get_monthly_conversation_quota(db, workspace.id),
             
             "subscription": {
                 "id": str(subscription.id) if subscription else None,

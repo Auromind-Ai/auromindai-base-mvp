@@ -30,11 +30,6 @@ export default function ServerHealthMonitor() {
   const intervalRef = useRef(null);
   const countdownRef = useRef(null);
 
-  // Skip monitoring and rendering toast on public marketing pages
-  if (isPublicMarketingPage) {
-    return null;
-  }
-
   // Ping backend /api/health directly
   const checkHealth = useCallback(async () => {
     try {
@@ -114,6 +109,8 @@ export default function ServerHealthMonitor() {
 
   // Listen to APIClient error events
   useEffect(() => {
+    if (isPublicMarketingPage) return;
+
     const handleConnectionError = async () => {
       if (isOffline) return;
       const isDown = await verifyBackendDown();
@@ -145,10 +142,10 @@ export default function ServerHealthMonitor() {
       window.removeEventListener('server-connection-error', handleConnectionError);
       window.removeEventListener('server-connection-success', handleConnectionSuccess);
     };
-  }, [isOffline, verifyBackendDown]);
+  }, [isPublicMarketingPage, isOffline, verifyBackendDown]);
 
   useEffect(() => {
-    if (isOffline) return;
+    if (isPublicMarketingPage || isOffline) return;
 
     const heartbeatInterval = setInterval(async () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
@@ -161,11 +158,11 @@ export default function ServerHealthMonitor() {
     }, 10000);
 
     return () => clearInterval(heartbeatInterval);
-  }, [isOffline, verifyBackendDown]);
+  }, [isPublicMarketingPage, isOffline, verifyBackendDown]);
 
   // Handle countdown & auto-retry loop when offline
   useEffect(() => {
-    if (!isOffline) {
+    if (isPublicMarketingPage || !isOffline) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
       return;
@@ -186,10 +183,10 @@ export default function ServerHealthMonitor() {
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
-  }, [isOffline, checkHealth]);
+  }, [isPublicMarketingPage, isOffline, checkHealth]);
 
-  // Don't render anything if everything is healthy
-  if (!isOffline && !justRestored) {
+  // Don't render anything on public marketing pages or if everything is healthy
+  if (isPublicMarketingPage || (!isOffline && !justRestored)) {
     return null;
   }
 

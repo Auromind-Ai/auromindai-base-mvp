@@ -289,9 +289,12 @@ function BillingContent() {
         setBilling(billingData)
         setCurrentPlan(billingData?.current_plan || "free")
         setSettings(settingsData)
-        if (billingData?.plans) {
-          setPlans(billingData.plans)
-        }
+        const activePlans = (billingData?.plans && billingData.plans.length > 0)
+          ? billingData.plans
+          : (settingsData?.plans && settingsData.plans.length > 0)
+          ? settingsData.plans
+          : []
+        setPlans(activePlans)
       } catch (error) {
         console.error(LOG_PREFIX, "Load error:", error)
         setCurrentPlan("free")
@@ -371,7 +374,7 @@ function BillingContent() {
           workspace_id: workspaceId,
         },
         name: "Orbion Agents",
-        description: `${checkout.plan_label || "Pro"} Subscription Upgrade`,
+        description: `${checkout.plan_label || selectedPlanDetails?.title || "Plan"} Subscription Upgrade`,
         prefill: checkout.prefill,
         handler: async (response) => {
           const payload = {

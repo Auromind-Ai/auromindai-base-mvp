@@ -6,6 +6,7 @@ const DEFAULT_DATA = {
   aiCredits: { used: 7.16, total: 100 },
   wccWallet: { balance: 0, currency: "₹" },
   flowQuota: { used: 1, total: 2 },
+  monthlyConversations: { used: 0, limit: 1000, remaining: 1000 },
 };
 
 // WCC is a prepaid wallet, not a used/total quota — status label instead
@@ -65,7 +66,7 @@ function UsageRow({ label, value, sub, barClass, widthPct, isLast }) {
 }
 
 export default function UsageSummaryCard({ data = DEFAULT_DATA, isStandalone = false }) {
-  const { aiCredits, wccWallet, flowQuota } = data || DEFAULT_DATA;
+  const { aiCredits, wccWallet, flowQuota, monthlyConversations } = data || DEFAULT_DATA;
 
   const aiPct = Math.min(100, (((aiCredits?.used ?? 0) / (aiCredits?.total || 1)) * 100));
   
@@ -76,6 +77,14 @@ export default function UsageSummaryCard({ data = DEFAULT_DATA, isStandalone = f
   const flowPct = isUnlimitedFlow ? 100 : Math.min(100, ((flowUsedVal / (flowTotalVal || 1)) * 100));
   const flowLeft = isUnlimitedFlow ? "∞" : (flowQuota?.remaining_quota ?? flowQuota?.remaining ?? Math.max(0, flowTotalVal - flowUsedVal));
   const wcc = getWccStatus(wccWallet?.balance ?? 0, wccWallet?.fillPercentage, wccWallet?.status);
+
+  const convLimit = Number(monthlyConversations?.limit ?? 1000);
+  const convUsed = Number(monthlyConversations?.used ?? 0);
+  const isUnlimitedConv = convLimit === -1;
+  const convPct = isUnlimitedConv ? 100 : Math.min(100, (convUsed / (convLimit || 1)) * 100);
+  const convRemaining = isUnlimitedConv
+    ? "∞"
+    : Number(monthlyConversations?.remaining ?? Math.max(0, convLimit - convUsed));
 
   const aiRemainingVal = aiCredits?.remaining !== undefined && aiCredits?.remaining !== null
     ? Number(aiCredits.remaining)
@@ -132,6 +141,28 @@ export default function UsageSummaryCard({ data = DEFAULT_DATA, isStandalone = f
           }
           barClass="bg-gradient-to-r from-amber-500 to-orange-400"
           widthPct={`${flowPct}%`}
+        />
+
+        <UsageRow
+          label="Monthly Conversations"
+          value={
+            isUnlimitedConv
+              ? `${convUsed.toLocaleString("en-IN")} / Unlimited`
+              : `${convUsed.toLocaleString("en-IN")} / ${convLimit.toLocaleString("en-IN")}`
+          }
+          sub={
+            isUnlimitedConv
+              ? "Unlimited active conversations per month"
+              : convRemaining === 0
+              ? "Monthly limit reached — upgrade plan to continue new conversations"
+              : `${Number(convRemaining).toLocaleString("en-IN")} conversations remaining this month`
+          }
+          barClass={
+            !isUnlimitedConv && convRemaining === 0
+              ? "bg-rose-500"
+              : "bg-gradient-to-r from-cyan-500 to-indigo-500"
+          }
+          widthPct={`${convPct}%`}
           isLast
         />
       </div>

@@ -1034,6 +1034,9 @@ async def override_subscription(
         workspace.plan_id = plan.id
     db.flush()
 
+    from app.services.workspace_access_service import reconcile_workspace_member_seats
+    reconcile_workspace_member_seats(db, ws_uuid, workspace=workspace)
+
     # Perform GST calculation using plan price
     base_price = Decimal(str(plan.price or 0))
     gst_calcs = GSTService.calculate_gst(

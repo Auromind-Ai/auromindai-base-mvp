@@ -634,8 +634,7 @@ function ConversationSidebar({
         }
     };
 
-    const orgName = currentUser?.workspace_name || ch.label || 'groww digitel';
-    const orgInitials = orgName.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase() || 'GD';
+    const currentChannelLabel = ch?.label || (ch?.id === 'instagram' ? 'Instagram' : ch?.id === 'twilio' ? 'Twilio' : 'WhatsApp');
 
     return (
         <div className="flex flex-col h-full overflow-hidden bg-[#10111A] select-none">
@@ -698,27 +697,23 @@ function ConversationSidebar({
                                     transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
                                     className="absolute right-0 top-full mt-2.5 w-[340px] sm:w-[350px] p-3.5 rounded-2xl bg-[#141525]/98 backdrop-blur-2xl border border-white/[0.14] shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-50 select-none origin-top-right"
                                 >
-                                    {/* Section 1: YOUR ORGANISATIONS */}
+                                    {/* Section 1: ACTIVE CHANNEL */}
                                     <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-2 px-1">
-                                        Your Organisations
+                                        Active Channel
                                     </div>
                                     <div className="p-3 rounded-xl bg-[#28224c]/90 border border-purple-500/35 flex items-center justify-between mb-3.5 shadow-sm">
                                         <div className="flex items-center gap-3 min-w-0">
                                             <div className="shrink-0 flex items-center justify-center">
-                                                {orgName?.toLowerCase().includes('whatsapp') ? (
-                                                    <WhatsAppIcon size={30} />
-                                                ) : orgName?.toLowerCase().includes('instagram') ? (
+                                                {ch?.id === 'instagram' ? (
                                                     <InstagramIcon size={30} />
-                                                ) : orgName?.toLowerCase().includes('twilio') ? (
+                                                ) : ch?.id === 'twilio' ? (
                                                     <TwilioIcon size={30} />
                                                 ) : (
-                                                    <div className="w-8 h-8 rounded-lg bg-[#5338ed] flex items-center justify-center text-xs font-bold text-white shadow">
-                                                        {orgInitials}
-                                                    </div>
+                                                    <WhatsAppIcon size={30} />
                                                 )}
                                             </div>
-                                            <span className="text-[13.5px] font-semibold text-white truncate lowercase">
-                                                {orgName}
+                                            <span className="text-[13.5px] font-semibold text-white truncate">
+                                                {currentChannelLabel}
                                             </span>
                                         </div>
                                         <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0 ml-2">
@@ -960,7 +955,7 @@ function ConversationSidebar({
                     const avatarText = getAvatarText(l, ch.id);
                     const cId = (l.channel || ch?.id || '').toLowerCase();
                     const convChannel = CHANNELS.find(c => c.id === (l.channel?.toLowerCase() || ch.id)) || ch;
-                    const lastMsgText = lastMessageMap[l.id] || l.last_message || l.preview || l.last_message_text || 'Hello';
+                    const lastMsgText = lastMessageMap[l.id] || l.last_message || l.preview || l.last_message_text || '';
                     const unreadCount = unreadCounts[l.id] !== undefined ? unreadCounts[l.id] : (l.unread_count || l.unread || 0);
                     const pill = getStatusPill(l);
                     const timeStr = formatConvTime(l.last_message_at || l.updated_at || l.created_at) || 'Yesterday';
@@ -1218,9 +1213,6 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                             )}
                             {!isInstagram && lead.phone && (
                                 <p className="text-[12px] text-white/50 mt-0.5">{lead.phone}</p>
-                            )}
-                            {isInstagram && (
-                                <p className="text-[11px] text-white/40 mt-0.5">India · 10:45 AM</p>
                             )}
                         </div>
                     </div>
@@ -1515,6 +1507,7 @@ function ChatArea({
     const activeChannel = (lead?.channel || ch?.id || 'whatsapp').toLowerCase();
     const isInstagram = activeChannel === 'instagram';
     const isWhatsApp = activeChannel === 'whatsapp';
+    const isTwilio = activeChannel === 'twilio';
     const [unreadScrolledCount, setUnreadScrolledCount] = useState(0);
     const [copiedMessageId, setCopiedMessageId] = useState(null);
     const [contextMenu, setContextMenu] = useState(null);
@@ -1928,10 +1921,15 @@ function ChatArea({
                                     <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse" />
                                     Instagram DM
                                 </span>
+                            ) : isTwilio ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                                    Twilio SMS
+                                </span>
                             ) : (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                    {lead.channel_title || currentUser?.workspace_name || ch.label || 'Groww Digital'}
+                                    WhatsApp
                                 </span>
                             )}
                         </div>
@@ -3722,6 +3720,10 @@ function InboxContent() {
         // NewChatModal already includes the selected country code; preserve it.
         const cleanDigits = String(fullPhoneNumber).replace(/\D/g, '');
         if (!cleanDigits) return;
+        if (cleanDigits.length < 8 || cleanDigits.length > 15) {
+            showToast('Invalid phone number length. Must be between 8 and 15 digits.');
+            return;
+        }
 
         // Ensure WhatsApp channel is selected
         const waCh = CHANNELS.find(c => c.id === 'whatsapp') || ch;
@@ -3766,7 +3768,7 @@ function InboxContent() {
             contact_name: formattedDisplay,
             name: formattedDisplay,
             channel: 'whatsapp',
-            channel_title: 'Groww Digital',
+            channel_title: 'WhatsApp',
             status: 'OPEN',
             last_message: 'Start conversation with template',
             last_message_at: new Date().toISOString(),

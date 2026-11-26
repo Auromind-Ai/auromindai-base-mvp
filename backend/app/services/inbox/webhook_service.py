@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
+from fastapi import HTTPException
 from app.core.security import to_uuid
 
 from app.models.ai_action import Lead
@@ -82,6 +83,25 @@ def upsert_lead(
             lead.conversation_id = conversation_id
 
     if not lead:
+        # Check plan entitlement limit for leads
+        from app.services.billing.entitlement_service import EntitlementService
+        is_lead_locked = False
+        try:
+            ent_check = EntitlementService.check_entitlement(db, ws_uuid, "lead")
+            if not ent_check.get("allowed", True):
+                import logging
+                logging.getLogger(__name__).warning(
+                    "[ENTITLEMENT LIMIT] Workspace %s reached lead limit (%s). Creating lead as LOCKED from channel '%s' for conversation %s.",
+                    ws_uuid,
+                    ent_check.get("limit"),
+                    source,
+                    conversation_id,
+                )
+                is_lead_locked = True
+        except Exception as ent_err:
+            import logging
+            logging.getLogger(__name__).debug("Entitlement lead check warning: %s", ent_err)
+
         lead = Lead(
             workspace_id=ws_uuid,
             conversation_id=conversation_id,
@@ -93,6 +113,7 @@ def upsert_lead(
             current_node=0,
             total_nodes=0,
             semantic_intent_score=0,
+            is_locked=is_lead_locked,
             last_activity_at=now_utc,
             updated_at=now_utc,
         )
@@ -1044,6 +1065,23 @@ class WebhookService:
                 "conversation_id": str(conversation.id),
                 "message_id": str(message.id) if message else None,
             }
+        except HTTPException as http_exc:
+            db.rollback()
+            detail = http_exc.detail if isinstance(http_exc.detail, dict) else {"message": str(http_exc.detail)}
+            if http_exc.status_code == 403 and detail.get("error") == "ENTITLEMENT_EXCEEDED":
+                logger.warning(
+                    "[QUOTA BLOCKED] Inbound %s message blocked for workspace=%s: %s",
+                    normalized_channel.value,
+                    workspace_id,
+                    detail.get("message"),
+                )
+                return {
+                    "status": "blocked",
+                    "reason": "monthly_conversations_limit_exceeded",
+                    "detail": detail.get("message"),
+                }
+            logger.exception("HTTP error processing incoming %s message: %s", normalized_channel.value, http_exc)
+            return {"status": "error"}
         except Exception as exc:
             db.rollback()
             logger.exception("Error processing incoming %s message: %s", normalized_channel.value, exc)

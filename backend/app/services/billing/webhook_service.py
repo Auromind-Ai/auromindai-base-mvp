@@ -387,6 +387,8 @@ class WebhookService:
             subscription.cancel_at_period_end = True
             subscription.current_period_end = self._from_unix(subscription_payload.get("end_at"))
             db.flush()
+            from app.services.workspace_access_service import reconcile_workspace_member_seats
+            reconcile_workspace_member_seats(db, subscription.workspace_id)
 
     def _handle_payment_failed(
         self,

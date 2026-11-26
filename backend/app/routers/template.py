@@ -191,6 +191,13 @@ async def generate_template(
     import asyncio
 
     workspace_id = verify_workspace_access(current_user, db, data.workspace_id, required_permission='templates.manage')
+    from app.services.billing.entitlement_service import EntitlementService
+    ent_check = EntitlementService.check_entitlement(db, workspace_id, "template")
+    if not ent_check.get("allowed", False):
+        raise HTTPException(
+            status_code=403,
+            detail=ent_check.get("reason", "Template quota exceeded for your current plan. Please upgrade your subscription.")
+        )
 
     lang_name = map_language(data.language)
     system_prompt = """
@@ -487,6 +494,13 @@ async def create_template(
     validate_category(data)
 
     workspace_id = verify_workspace_access(current_user, db, data.workspace_id, required_permission='templates.manage')
+    from app.services.billing.entitlement_service import EntitlementService
+    ent_check = EntitlementService.check_entitlement(db, workspace_id, "template")
+    if not ent_check.get("allowed", False):
+        raise HTTPException(
+            status_code=403,
+            detail=ent_check.get("reason", "Template quota exceeded for your current plan. Please upgrade your subscription.")
+        )
 
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
@@ -1363,18 +1377,16 @@ def send_message(
     if button_components:
         components.extend(button_components)
 
-    # Clean phone number (Meta Cloud API requires digits only with country code)
-    cleaned_phone = re.sub(r"[^\d+]", "", str(data.phone))
-    if cleaned_phone.startswith("+"):
-        cleaned_phone = cleaned_phone[1:]
-    if cleaned_phone.startswith("0"):
-        cleaned_phone = cleaned_phone.lstrip("0")
-    if len(cleaned_phone) == 10:
-        cleaned_phone = f"91{cleaned_phone}"
-    elif len(cleaned_phone) == 11 and cleaned_phone.startswith("0"):
-        cleaned_phone = f"91{cleaned_phone[1:]}"
-    elif len(cleaned_phone) == 14 and cleaned_phone.startswith("9191"):
-        cleaned_phone = cleaned_phone[2:]
+    # Clean and validate phone number (Meta Cloud API requires digits only with country code)
+    try:
+        from app.schemas.lead_scoring import validate_and_normalize_phone
+        validated_e164 = validate_and_normalize_phone(str(data.phone))
+        cleaned_phone = validated_e164.lstrip("+")
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(val_err)
+        )
 
     payload = {
         "messaging_product": "whatsapp",
@@ -1396,6 +1408,17 @@ def send_message(
             503,
             "WhatsApp messaging service is temporarily unavailable. Please try again later."
         )
+
+    # Enforce monthly active conversations limit before dispatching outbound template
+    from app.services.inbox.conversation_service import ConversationService
+    from app.models.conversation import Conversation
+    existing_conv = db.query(Conversation).filter(
+        Conversation.workspace_id == ws_uuid,
+        (Conversation.phone == cleaned_phone) | (Conversation.phone == f"+{cleaned_phone}") | (Conversation.external_id == cleaned_phone)
+    ).first()
+    ConversationService.ensure_conversation_monthly_quota(
+        db, ws_uuid, existing_conversation=existing_conv
+    )
 
     headers = {
         "Authorization": f"Bearer {system_token}",

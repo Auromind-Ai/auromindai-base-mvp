@@ -166,6 +166,7 @@ class Lead(Base):
     lead_score = Column(Float, default=0)
     is_favorite = Column(Boolean, default=False, nullable=False, server_default="false")
     is_follow_up = Column(Boolean, default=False, nullable=False, server_default="false")
+    is_locked = Column(Boolean, default=False, nullable=False, server_default="false")
 
 
     # --- Lead Scoring fields (agnostic) ---

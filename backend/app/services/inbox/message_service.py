@@ -272,6 +272,9 @@ class MessageService:
             workspace_id=workspace_id,
             conversation_id=conversation_id,
         )
+        ConversationService.ensure_conversation_monthly_quota(
+            db, workspace_id, existing_conversation=conversation
+        )
         enriched_metadata = (metadata or {}).copy()
         if not template_name:
             template_name = enriched_metadata.get("template_name")

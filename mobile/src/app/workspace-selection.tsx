@@ -15,6 +15,7 @@ import { BrandColors, Fonts } from '../theme/tokens';
 import { scaleFont, scaleContainer, scaleHeight } from '../theme/responsive';
 import { authStore, useAuth } from '../store/auth';
 import { useAppTheme } from '../context/theme-context';
+import { loadingManager } from '../context/loading-context';
 
 interface WorkspaceOption {
   id: string;
@@ -72,6 +73,12 @@ export default function WorkspaceSelectionScreen() {
     : workspacesList[0]?.id || '';
 
   const handleContinue = () => {
+    loadingManager.show({
+      message: 'Switching workspace...',
+      sublabel: 'Loading workspace context',
+      immediate: true,
+      minDisplayMs: 800,
+    });
     const selected = workspacesList.find((w) => w.id === activeSelectedId) || workspacesList[0];
     if (selected && !selected.id.startsWith('ws-') && selected.id !== 'default') {
       authStore.setSelectedWorkspace({
@@ -80,7 +87,10 @@ export default function WorkspaceSelectionScreen() {
         role: 'admin',
       });
     }
-    router.replace('/(tabs)/inbox');
+    setTimeout(() => {
+      loadingManager.hide();
+      router.replace('/(tabs)/inbox');
+    }, 750);
   };
 
   return (

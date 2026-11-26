@@ -119,7 +119,7 @@ celery_app.conf.beat_schedule = {
     },
     "cleanup-expired-subscriptions": {
         "task": "app.workers.billing_worker.cleanup_expired_subscriptions",
-        "schedule": crontab(hour=5, minute=0),
+        "schedule": crontab(minute="*/15"),
     },
     "cleanup-abandoned-wcc-recharges": {
         "task": "app.workers.billing_worker.cleanup_abandoned_wcc_recharges",

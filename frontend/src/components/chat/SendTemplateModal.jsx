@@ -434,7 +434,7 @@ export default function SendTemplateModal({ isOpen, onClose, workspace, lead, on
                             {/* Live Preview */}
                             <div className="space-y-1.5">
                                 <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Preview</label>
-                                <div className="bg-[#1f2029] border border-white/5 rounded-2xl p-4 text-[13px] text-[#eee] leading-relaxed whitespace-pre-wrap">
+                                <div className="bg-[#1f2029] border border-white/5 rounded-2xl p-4 text-[13px] text-[#eee] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word] min-w-0">
                                     {selectedTemplate?.header && !selectedTemplate.header.startsWith('http') && (
                                         <div className="font-bold text-white text-sm mb-1">{selectedTemplate.header}</div>
                                     )}

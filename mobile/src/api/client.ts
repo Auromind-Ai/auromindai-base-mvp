@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
+import { loadingManager } from '../context/loading-context';
 
 export function getApiBaseUrl(): string {
   // 1. Explicit environment variable override (highest priority for staging/production)
@@ -61,6 +62,10 @@ export function getWsBaseUrl(): string {
 
 export interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
+  showGlobalLoading?: boolean;
+  loadingMessage?: string;
+  loadingSublabel?: string;
+  cancelable?: boolean;
 }
 
 export interface UploadedFileResponse {
@@ -125,9 +130,7 @@ class MobileApiClient {
       Accept: 'application/json',
       'x-client-platform': platformHeader,
     };
-    const mobileKey =
-      process.env.EXPO_PUBLIC_MOBILE_API_KEY ||
-      'orbion_mbl_a2c3913729303d7f1eac87e4ec63eadf1b347ea0';
+    const mobileKey = process.env.EXPO_PUBLIC_MOBILE_API_KEY;
     if (mobileKey) {
       defaultHeaders['x-mobile-api-key'] = mobileKey;
     }
@@ -169,6 +172,15 @@ class MobileApiClient {
     const isMultipart = typeof FormData !== 'undefined' && restOptions.body instanceof FormData;
     const timeoutMs = isMultipart ? 45000 : 15000;
 
+    const shouldShowGlobal = options.showGlobalLoading === true;
+    if (shouldShowGlobal) {
+      loadingManager.show({
+        message: options.loadingMessage || 'Processing...',
+        sublabel: options.loadingSublabel,
+        cancelable: options.cancelable,
+      });
+    }
+
     let response: Response;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -187,6 +199,9 @@ class MobileApiClient {
       throw fetchErr;
     } finally {
       clearTimeout(timeoutId);
+      if (shouldShowGlobal) {
+        loadingManager.hide();
+      }
     }
 
     const text = await response.text();

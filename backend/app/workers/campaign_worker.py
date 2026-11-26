@@ -541,7 +541,33 @@ def send_campaign_chunk(campaign_id: str, recipient_ids: List[str]):
                             "text": {"body": text_body}
                         }
 
-                # 5. Dispatch via Outbound Gateway (40 MPS Token Bucket)
+                # 5. Enforce monthly active conversation quota before dispatching outbound message
+                from fastapi import HTTPException as FastAPIHTTPException
+                from app.services.inbox.conversation_service import ConversationService
+                from app.models.conversation import Conversation, ChannelType
+                existing_conv = db.query(Conversation).filter(
+                    Conversation.workspace_id == campaign.workspace_id,
+                    Conversation.channel == ChannelType.WHATSAPP,
+                    (Conversation.phone == clean_phone) | (Conversation.phone == f"+{clean_phone}") | (Conversation.external_id == clean_phone)
+                ).first()
+                try:
+                    ConversationService.ensure_conversation_monthly_quota(
+                        db, str(campaign.workspace_id), existing_conversation=existing_conv
+                    )
+                except FastAPIHTTPException as quota_exc:
+                    detail = quota_exc.detail if isinstance(quota_exc.detail, dict) else {"message": str(quota_exc.detail)}
+                    recipient.status = "failed"
+                    recipient.error_code = detail.get("error", "ENTITLEMENT_EXCEEDED")
+                    recipient.error_message = detail.get("message", "Monthly active conversations limit reached.")
+                    campaign.failed_count = (campaign.failed_count or 0) + 1
+                    CampaignService.release_unspent_escrow(db, campaign.workspace_id, rate_per_msg)
+                    logger.warning(
+                        "[Campaign %s] Recipient %s (%s) BLOCKED by monthly conversation quota: %s",
+                        campaign.id, recipient.id, clean_phone, recipient.error_message,
+                    )
+                    continue
+
+                # 6. Dispatch via Outbound Gateway (40 MPS Token Bucket)
                 target_mps = ORBION_SAFE_DISPATCH_MPS
                 if campaign.send_gradually and campaign.messages_per_minute > 0:
                     target_mps = max(1, min(ORBION_SAFE_DISPATCH_MPS, int(campaign.messages_per_minute / 60.0)))

@@ -625,6 +625,12 @@ def convert_conversation(
     
     is_new_lead = False
     if not lead:
+        from app.services.billing.entitlement_service import EntitlementService
+        ent_check = EntitlementService.check_entitlement(db, workspace_id, "lead")
+        if not ent_check.get("allowed", True):
+            EntitlementService.raise_entitlement_exceeded(
+                db, workspace_id, "lead", ent_check.get("limit", 100)
+            )
         is_new_lead = True
         lead = Lead(
             workspace_id=workspace_id,

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react-native';
 import { OrbionLogo } from '../../components/common/OrbionLogo';
 import { GoogleIcon } from '../../components/common/GoogleIcon';
+import { ButtonLoader } from '../../components/common/ButtonLoader';
 import { sendOTP, googleLogin } from '../../api/auth';
 import { Fonts } from '../../theme/tokens';
 import { useAppTheme } from '../../context/theme-context';
@@ -209,7 +210,7 @@ export default function LoginScreen() {
                 accessibilityLabel="Continue with Google"
               >
                 {googleLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ButtonLoader size={18} color={isDark ? '#FFFFFF' : '#1F2937'} />
                 ) : (
                   <>
                     <GoogleIcon size={19} />
@@ -305,7 +306,7 @@ export default function LoginScreen() {
                   style={styles.submitGradient}
                 >
                   {loading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ButtonLoader size={18} color="#FFFFFF" />
                   ) : (
                     <View style={styles.submitContent}>
                       <Text style={[styles.submitButtonText, !isDark && (!isValidEmail || loading) && { color: '#6B7280' }]}>Log In Free</Text>

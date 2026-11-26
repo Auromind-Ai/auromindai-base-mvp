@@ -34,6 +34,8 @@ def is_mobile_client_request(request: Request = None, token: str = None) -> bool
 
     # If MOBILE_API_SECRET is configured, enforce shared secret validation
     mobile_secret = getattr(settings, "MOBILE_API_SECRET", None)
+    is_non_prod = bool(settings.ENVIRONMENT and settings.ENVIRONMENT.lower() != "production")
+
     if mobile_secret:
         provided_key = request.headers.get("x-mobile-api-key") or ""
         if not hmac.compare_digest(provided_key, mobile_secret):
@@ -42,6 +44,12 @@ def is_mobile_client_request(request: Request = None, token: str = None) -> bool
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid mobile client verification.",
             )
+    elif not is_non_prod:
+        # In production, require MOBILE_API_SECRET for mobile bypass to prevent header spoofing
+        logger.warning(
+            "[Turnstile] Mobile client verification rejected: MOBILE_API_SECRET is not configured on production backend."
+        )
+        return False
 
     return True
 
