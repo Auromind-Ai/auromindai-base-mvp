@@ -147,14 +147,27 @@ class AuthService:
                 user_id = uuid.UUID(user_id)
             except ValueError:
                 pass
-        workspaces = db.query(Workspace, WorkspaceMember.role).join(
-            WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id
-        ).filter(WorkspaceMember.user_id == user_id, WorkspaceMember.is_active == True).all()
+
+        from sqlalchemy import or_, and_
+        workspaces = (
+            db.query(Workspace, WorkspaceMember.role, WorkspaceMember.is_active, WorkspaceMember.locked_reason)
+            .join(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
+            .filter(
+                WorkspaceMember.user_id == user_id,
+                or_(
+                    WorkspaceMember.is_active == True,
+                    and_(
+                        WorkspaceMember.is_active == False,
+                        WorkspaceMember.locked_reason == "plan_expired"
+                    )
+                )
+            )
+            .all()
+        )
 
         if not workspaces:
             created_ws = db.query(Workspace).filter(Workspace.created_by == user_id).first()
             if created_ws:
-              
                 membership = WorkspaceMember(
                     workspace_id=created_ws.id,
                     user_id=user_id,
@@ -164,19 +177,44 @@ class AuthService:
                 )
                 db.add(membership)
                 db.commit()
-                workspaces = [(created_ws, "founder")]
-       
-        return [
-            {
+                return [{
+                    "id": str(created_ws.id),
+                    "name": created_ws.name,
+                    "role": "founder",
+                    "is_owner": True,
+                    "is_paused": False,
+                    "locked_reason": None,
+                    "owner_name": None,
+                    "owner_email": None,
+                    "plan_type": getattr(created_ws, "plan_type", "starter"),
+                    "created_at": created_ws.created_at.isoformat() if created_ws.created_at else None
+                }]
+
+        owner_ids = {ws.created_by for ws, _, _, _ in workspaces if ws.created_by}
+        owners_map = {}
+        if owner_ids:
+            owners = db.query(User).filter(User.id.in_(owner_ids)).all()
+            owners_map = {o.id: o for o in owners}
+
+        result = []
+        for ws, role, is_active, locked_reason in workspaces:
+            is_owner = ws.created_by == user_id or (role or "").strip().lower() in ("owner", "founder")
+            is_paused = (not is_active) and (locked_reason == "plan_expired")
+            owner_user = owners_map.get(ws.created_by)
+            owner_display = (owner_user.full_name or getattr(owner_user, "name", None)) if owner_user else "Workspace Owner"
+            result.append({
                 "id": str(ws.id),
                 "name": ws.name,
                 "role": role,
-                "is_owner": ws.created_by == user_id or (role or "").strip().lower() in ("owner", "founder"),
+                "is_owner": is_owner,
+                "is_paused": is_paused,
+                "locked_reason": locked_reason if is_paused else None,
+                "owner_name": owner_display,
+                "owner_email": owner_user.email if owner_user else None,
                 "plan_type": getattr(ws, "plan_type", "starter"),
                 "created_at": ws.created_at.isoformat() if ws.created_at else None
-            }
-            for ws, role in workspaces
-        ]
+            })
+        return result
     @staticmethod
     def email_login(db: Session, email: str, full_name: str = None, workspace_name: str = "My Workspace", ip_address: str = None, device_info: str = None, session_expiry_hours: Optional[int] = None):
         email = email.strip().lower()
