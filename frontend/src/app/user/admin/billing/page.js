@@ -30,6 +30,7 @@ import api from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
 import HistoryModal from "@/components/common/HistoryModal"
 import UsageSummaryCard from "@/components/common/UsageSummaryCard"
+import { buildDynamicCardFeatures } from "@/lib/utils/pricingMapper"
 import { TABLE_PREVIEW_LIMIT, TRANSACTION_TYPES } from "@/lib/constants/billingConstants"
 import {
   getActivityMeta,
@@ -85,7 +86,7 @@ export default function BillingHistoryPage() {
 
         const [billingData, pricingData, profileData, wccRes, flowQuotaRes] = await Promise.all([
           api.getBillingStatus(workspaceId),
-          api.getPricing(),
+          api.getPricing().catch(() => null),
           api.getWorkspaceBillingProfile(workspaceId).catch(() => ({
             billing_name: "",
             billing_contact_name: "",
@@ -249,29 +250,22 @@ export default function BillingHistoryPage() {
   const activePlanFeatures = useMemo(() => {
     const planKey = String(billing?.current_plan || "free").toLowerCase().trim()
 
-    // 1. Direct from billing.current_plan_features
+    // 1. Live plan + entitlements from billing.plans or pricing.plans
+    const billingMatch = Array.isArray(billing?.plans)
+      ? billing.plans.find(p => (p.key || p.name || p.id || "").toLowerCase().trim() === planKey)
+      : null
+    const pricingMatch = Array.isArray(pricing?.plans)
+      ? pricing.plans.find(p => (p.key || p.name || p.id || "").toLowerCase().trim() === planKey)
+      : null
+    const matchedPlan = billingMatch || pricingMatch
+    if (matchedPlan) {
+      const dynamic = buildDynamicCardFeatures(matchedPlan)
+      if (dynamic.length > 0) return dynamic
+    }
+
+    // 2. Fallback to billing.current_plan_features
     if (Array.isArray(billing?.current_plan_features) && billing.current_plan_features.length > 0) {
       return billing.current_plan_features
-    }
-
-    // 2. Direct from matching plan in billing.plans
-    if (Array.isArray(billing?.plans) && billing.plans.length > 0) {
-      const match = billing.plans.find(
-        p => (p.key || p.name || p.id || "").toLowerCase().trim() === planKey
-      )
-      if (match && Array.isArray(match.features) && match.features.length > 0) {
-        return match.features
-      }
-    }
-
-    // 3. Direct from pricing.plans if present
-    if (Array.isArray(pricing?.plans) && pricing.plans.length > 0) {
-      const match = pricing.plans.find(
-        p => (p.key || p.name || p.id || "").toLowerCase().trim() === planKey
-      )
-      if (match && Array.isArray(match.features) && match.features.length > 0) {
-        return match.features
-      }
     }
 
     // 4. Legacy pricing keys if present

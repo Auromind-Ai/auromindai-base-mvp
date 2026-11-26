@@ -96,17 +96,41 @@ class PlanService:
         db_plan = db.query(Plan).filter(Plan.name == key).first()
         monthly_price = float(db_plan.monthly_price) if db_plan and db_plan.monthly_price is not None else config.amount
         yearly_price = float(db_plan.yearly_price) if db_plan and db_plan.yearly_price is not None else (config.amount * 10)
-        
+
+        from app.services.billing.entitlement_service import EntitlementService
+        ent = EntitlementService.ensure_plan_entitlement(db, db_plan) if db_plan else None
+        flags = dict(ent.feature_flags or {}) if ent else {}
+
         return {
             "key": config.key,
             "label": config.label,
             "name": config.label,
+            "display_name": config.label,
             "amount": config.amount,
             "monthly_price": monthly_price,
             "yearly_price": yearly_price,
             "currency": config.currency,
             "tokens": config.tokens,
-            "credits": float(config.tokens) / 1000,
+            "token_limit": config.tokens,
+            "credits": float(ent.included_ai_credits) if ent else (float(config.tokens) / 1000),
+            "included_ai_credits": ent.included_ai_credits if ent else int(config.tokens / 1000),
+            "included_wcc_wallet": float(ent.included_wcc_wallet) if ent else 0.0,
+            "automation_limit": ent.automation_limit if ent else 0,
+            "flow": ent.flow if ent else 0,
+            "knowledge_base_limit": ent.knowledge_base_limit if ent else 0,
+            "storage_limit_mb": ent.storage_limit_mb if ent else 0,
+            "lead_limit": ent.lead_limit if ent else 0,
+            "meeting_limit": ent.meeting_limit if ent else 0,
+            "gmail_limit": ent.gmail_limit if ent else 0,
+            "team_limit": ent.team_limit if ent else 0,
+            "monthly_conversations": int(flags.get("monthly_conversations", 1000)) if ent else 1000,
+            "allow_ai_topup": ent.allow_ai_topup if ent else False,
+            "allow_wcc_recharge": ent.allow_wcc_recharge if ent else False,
+            "allow_flow_addon": ent.allow_flow_addon if ent else False,
+            "feature_flags": flags,
+            "featured": bool(db_plan.is_featured) if db_plan else False,
+            "is_featured": bool(db_plan.is_featured) if db_plan else False,
+            "display_order": db_plan.display_order if db_plan else 0,
             "description": config.description,
             "features": config.features,
             "providers": {
